@@ -14,7 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      excel_column_mappings: {
+        Row: {
+          created_at: string
+          data_type: string
+          excel_column: string
+          id: string
+          sheet_id: string
+          table_column: string
+        }
+        Insert: {
+          created_at?: string
+          data_type: string
+          excel_column: string
+          id?: string
+          sheet_id: string
+          table_column: string
+        }
+        Update: {
+          created_at?: string
+          data_type?: string
+          excel_column?: string
+          id?: string
+          sheet_id?: string
+          table_column?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "excel_column_mappings_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "excel_sheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      excel_sheets: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          sheet_code: string
+          sheet_name: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          sheet_code: string
+          sheet_name: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          sheet_code?: string
+          sheet_name?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      generated_tables: {
+        Row: {
+          columns: Json
+          created_at: string
+          id: string
+          status: string | null
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          columns: Json
+          created_at?: string
+          id?: string
+          status?: string | null
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          columns?: Json
+          created_at?: string
+          id?: string
+          status?: string | null
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
