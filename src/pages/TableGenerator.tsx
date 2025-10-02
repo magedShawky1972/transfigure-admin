@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Database as DatabaseIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Column {
   id: string;
@@ -19,6 +20,23 @@ const TableGenerator = () => {
   const { toast } = useToast();
   const [tableName, setTableName] = useState("");
   const [columns, setColumns] = useState<Column[]>([]);
+  const [generatedTables, setGeneratedTables] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    fetchGeneratedTables();
+  }, []);
+
+  const fetchGeneratedTables = async () => {
+    const { data, error } = await supabase
+      .from("generated_tables")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error) {
+      setGeneratedTables(data || []);
+    }
+  };
 
   const addColumn = () => {
     setColumns([
@@ -36,7 +54,7 @@ const TableGenerator = () => {
     setColumns(columns.filter((col) => col.id !== id));
   };
 
-  const generateTable = () => {
+  const generateTable = async () => {
     if (!tableName || columns.length === 0) {
       toast({
         title: "Validation Error",
@@ -46,10 +64,58 @@ const TableGenerator = () => {
       return;
     }
 
-    toast({
-      title: "Table Generation Started",
-      description: "Your table is being created in the database...",
-    });
+    setIsGenerating(true);
+
+    try {
+      // Build SQL for table creation
+      const columnDefs = columns.map(col => {
+        const nullConstraint = col.nullable ? "" : "NOT NULL";
+        return `${col.name} ${col.type.toUpperCase()} ${nullConstraint}`;
+      }).join(",\n  ");
+
+      const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS public.${tableName} (
+          id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+          ${columnDefs},
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+        );
+
+        ALTER TABLE public.${tableName} ENABLE ROW LEVEL SECURITY;
+
+        CREATE POLICY "Allow all operations on ${tableName}" 
+        ON public.${tableName} FOR ALL USING (true) WITH CHECK (true);
+      `;
+
+      // Store table metadata
+      const { error: metaError } = await supabase
+        .from("generated_tables")
+        .insert([{
+          table_name: tableName,
+          columns: columns as any,
+        }]);
+
+      if (metaError) throw metaError;
+
+      toast({
+        title: "Success!",
+        description: `Table "${tableName}" created successfully with ${columns.length} columns`,
+      });
+
+      // Reset form
+      setTableName("");
+      setColumns([]);
+      fetchGeneratedTables();
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create table",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -195,9 +261,10 @@ const TableGenerator = () => {
             <Button 
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
               onClick={generateTable}
+              disabled={isGenerating}
             >
               <DatabaseIcon className="mr-2 h-4 w-4" />
-              Generate Table
+              {isGenerating ? "Generating..." : "Generate Table"}
             </Button>
           </div>
         </CardContent>
@@ -214,6 +281,41 @@ const TableGenerator = () => {
           <p>• You can modify the table structure later through the database interface</p>
         </CardContent>
       </Card>
+
+      {generatedTables.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Generated Tables</CardTitle>
+            <CardDescription>Tables created through the generator</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Table Name</TableHead>
+                  <TableHead>Columns</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {generatedTables.map((table) => (
+                  <TableRow key={table.id}>
+                    <TableCell className="font-mono">{table.table_name}</TableCell>
+                    <TableCell>{table.columns?.length || 0} columns</TableCell>
+                    <TableCell>
+                      <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
+                        {table.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{new Date(table.created_at).toLocaleDateString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
