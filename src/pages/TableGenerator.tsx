@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Database as DatabaseIcon } from "lucide-react";
+import { Plus, Trash2, Database as DatabaseIcon, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,18 +24,21 @@ const TableGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
-    fetchGeneratedTables();
+    loadGeneratedTables();
   }, []);
 
-  const fetchGeneratedTables = async () => {
+  const loadGeneratedTables = async () => {
     const { data, error } = await supabase
       .from("generated_tables")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      setGeneratedTables(data || []);
+    if (error) {
+      console.error("Error loading tables:", error);
+      return;
     }
+
+    setGeneratedTables(data || []);
   };
 
   const addColumn = () => {
@@ -67,46 +70,28 @@ const TableGenerator = () => {
     setIsGenerating(true);
 
     try {
-      // Build SQL for table creation
-      const columnDefs = columns.map(col => {
-        const nullConstraint = col.nullable ? "" : "NOT NULL";
-        return `${col.name} ${col.type.toUpperCase()} ${nullConstraint}`;
-      }).join(",\n  ");
+      const { data, error } = await supabase.functions.invoke("create-table", {
+        body: {
+          tableName,
+          columns: columns.map((col) => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+          })),
+        },
+      });
 
-      const createTableSQL = `
-        CREATE TABLE IF NOT EXISTS public.${tableName} (
-          id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-          ${columnDefs},
-          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
-        );
-
-        ALTER TABLE public.${tableName} ENABLE ROW LEVEL SECURITY;
-
-        CREATE POLICY "Allow all operations on ${tableName}" 
-        ON public.${tableName} FOR ALL USING (true) WITH CHECK (true);
-      `;
-
-      // Store table metadata
-      const { error: metaError } = await supabase
-        .from("generated_tables")
-        .insert([{
-          table_name: tableName,
-          columns: columns as any,
-        }]);
-
-      if (metaError) throw metaError;
+      if (error) throw error;
 
       toast({
         title: "Success!",
-        description: `Table "${tableName}" created successfully with ${columns.length} columns`,
+        description: `Table "${tableName}" has been created successfully`,
       });
 
       // Reset form
       setTableName("");
       setColumns([]);
-      fetchGeneratedTables();
-
+      loadGeneratedTables();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -270,23 +255,13 @@ const TableGenerator = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="text-lg">About Table Generation</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>• Tables are created with an automatic ID column (UUID primary key)</p>
-          <p>• Created_at and updated_at timestamps are added automatically</p>
-          <p>• Row Level Security (RLS) will be enabled by default</p>
-          <p>• You can modify the table structure later through the database interface</p>
-        </CardContent>
-      </Card>
-
       {generatedTables.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Generated Tables</CardTitle>
-            <CardDescription>Tables created through the generator</CardDescription>
+            <CardDescription>
+              Tables that have been created in the database
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -301,14 +276,19 @@ const TableGenerator = () => {
               <TableBody>
                 {generatedTables.map((table) => (
                   <TableRow key={table.id}>
-                    <TableCell className="font-mono">{table.table_name}</TableCell>
-                    <TableCell>{table.columns?.length || 0} columns</TableCell>
-                    <TableCell>
-                      <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
-                        {table.status}
-                      </span>
+                    <TableCell className="font-mono font-medium">{table.table_name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {table.columns.length} columns
                     </TableCell>
-                    <TableCell>{new Date(table.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-primary">{table.status}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(table.created_at).toLocaleDateString()}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -316,6 +296,18 @@ const TableGenerator = () => {
           </CardContent>
         </Card>
       )}
+
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="text-lg">About Table Generation</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>• Tables are created with an automatic ID column (UUID primary key)</p>
+          <p>• Created_at and updated_at timestamps are added automatically</p>
+          <p>• Row Level Security (RLS) will be enabled by default</p>
+          <p>• You can modify the table structure later through the backend</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

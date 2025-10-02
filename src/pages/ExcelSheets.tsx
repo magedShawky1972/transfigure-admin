@@ -5,28 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Upload, Settings, Trash2, FileSpreadsheet as FileSpreadsheetIcon } from "lucide-react";
+import { Settings, Trash2, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
+import { supabase } from "@/integrations/supabase/client";
 
 const ExcelSheets = () => {
   const { toast } = useToast();
   const [sheets, setSheets] = useState<any[]>([]);
   const [sheetCode, setSheetCode] = useState("");
   const [sheetName, setSheetName] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [excelColumns, setExcelColumns] = useState<string[]>([]);
-  const [columnMappings, setColumnMappings] = useState<Record<string, { tableColumn: string; dataType: string }>>({});
-  const [generatedTables, setGeneratedTables] = useState<any[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [columnMappings, setColumnMappings] = useState<Record<string, string>>({});
+  const [availableTables, setAvailableTables] = useState<any[]>([]);
+  const [selectedTable, setSelectedTable] = useState<string>("");
+  const [tableColumns, setTableColumns] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    fetchSheets();
-    fetchGeneratedTables();
+    loadSheets();
+    loadAvailableTables();
   }, []);
 
-  const fetchSheets = async () => {
+  const loadSheets = async () => {
     const { data, error } = await supabase
       .from("excel_sheets")
       .select("*")
@@ -35,7 +37,7 @@ const ExcelSheets = () => {
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to fetch sheets",
+        description: "Failed to load sheets",
         variant: "destructive",
       });
       return;
@@ -44,37 +46,39 @@ const ExcelSheets = () => {
     setSheets(data || []);
   };
 
-  const fetchGeneratedTables = async () => {
+  const loadAvailableTables = async () => {
     const { data, error } = await supabase
       .from("generated_tables")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      setGeneratedTables(data || []);
+    if (error) {
+      console.error("Error loading tables:", error);
+      return;
     }
+
+    setAvailableTables(data || []);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
 
-    setSelectedFile(file);
-    setIsProcessing(true);
-
+    setFile(selectedFile);
+    
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer);
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
       
       if (jsonData.length > 0) {
-        const columns = jsonData[0].filter(col => col).map(String);
-        setExcelColumns(columns);
+        const headers = jsonData[0] as string[];
+        setExcelColumns(headers);
         
         toast({
-          title: "File Loaded",
-          description: `Found ${columns.length} columns in Excel file`,
+          title: "File loaded",
+          description: `Found ${headers.length} columns`,
         });
       }
     } catch (error) {
@@ -83,87 +87,94 @@ const ExcelSheets = () => {
         description: "Failed to parse Excel file",
         variant: "destructive",
       });
-    } finally {
-      setIsProcessing(false);
+    }
+  };
+
+  const handleTableSelect = (tableName: string) => {
+    setSelectedTable(tableName);
+    const table = availableTables.find(t => t.table_name === tableName);
+    if (table) {
+      const cols = table.columns.map((col: any) => col.name);
+      setTableColumns(cols);
     }
   };
 
   const handleSaveConfiguration = async () => {
-    if (!sheetCode || !sheetName || !selectedFile) {
+    if (!sheetCode || !sheetName || !file) {
       toast({
         title: "Validation Error",
-        description: "Please fill all required fields and upload a file",
+        description: "Please fill in all fields and upload a file",
         variant: "destructive",
       });
       return;
     }
 
-    if (excelColumns.length === 0) {
+    setIsUploading(true);
+
+    try {
+      // Save sheet configuration
+      const { data: sheetData, error: sheetError } = await supabase
+        .from("excel_sheets")
+        .insert({
+          sheet_code: sheetCode,
+          sheet_name: sheetName,
+          file_name: file.name,
+        })
+        .select()
+        .single();
+
+      if (sheetError) throw sheetError;
+
+      // Save column mappings if any exist
+      if (Object.keys(columnMappings).length > 0 && selectedTable) {
+        const mappings = Object.entries(columnMappings).map(([excelCol, tableCol]) => ({
+          sheet_id: sheetData.id,
+          excel_column: excelCol,
+          table_column: tableCol,
+          data_type: "text",
+        }));
+
+        const { error: mappingError } = await supabase
+          .from("excel_column_mappings")
+          .insert(mappings);
+
+        if (mappingError) throw mappingError;
+      }
+
+      toast({
+        title: "Success",
+        description: "Sheet configuration saved successfully",
+      });
+
+      // Reset form
+      setSheetCode("");
+      setSheetName("");
+      setFile(null);
+      setExcelColumns([]);
+      setColumnMappings({});
+      setSelectedTable("");
+      loadSheets();
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "No columns found in Excel file",
+        description: error.message,
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsUploading(false);
     }
-
-    const { data: sheetData, error: sheetError } = await supabase
-      .from("excel_sheets")
-      .insert({
-        sheet_code: sheetCode,
-        sheet_name: sheetName,
-        file_name: selectedFile.name,
-      })
-      .select()
-      .single();
-
-    if (sheetError) {
-      toast({
-        title: "Error",
-        description: "Failed to save sheet configuration",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Success",
-      description: "Sheet configuration saved. Now map the columns to your table.",
-    });
-
-    fetchSheets();
-    setSheetCode("");
-    setSheetName("");
-    setSelectedFile(null);
   };
 
-  const handleSaveMappings = async (sheetId: string) => {
-    const mappings = Object.entries(columnMappings)
-      .filter(([_, value]) => value.tableColumn && value.dataType)
-      .map(([excelCol, value]) => ({
-        sheet_id: sheetId,
-        excel_column: excelCol,
-        table_column: value.tableColumn,
-        data_type: value.dataType,
-      }));
-
-    if (mappings.length === 0) {
-      toast({
-        title: "Validation Error",
-        description: "Please map at least one column",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleDeleteSheet = async (id: string) => {
     const { error } = await supabase
-      .from("excel_column_mappings")
-      .insert(mappings);
+      .from("excel_sheets")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to save column mappings",
+        description: "Failed to delete sheet",
         variant: "destructive",
       });
       return;
@@ -171,11 +182,9 @@ const ExcelSheets = () => {
 
     toast({
       title: "Success",
-      description: `Mapped ${mappings.length} columns successfully`,
+      description: "Sheet deleted successfully",
     });
-
-    setExcelColumns([]);
-    setColumnMappings({});
+    loadSheets();
   };
 
   return (
@@ -187,17 +196,13 @@ const ExcelSheets = () => {
             Upload and configure Excel sheets with column mappings
           </p>
         </div>
-        <Button className="bg-gradient-to-r from-primary to-accent hover:opacity-90">
-          <Plus className="mr-2 h-4 w-4" />
-          Add New Sheet
-        </Button>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Upload Excel Sheet</CardTitle>
           <CardDescription>
-            Upload an Excel file and define its structure
+            Upload an Excel file and map its columns to database tables
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -231,84 +236,78 @@ const ExcelSheets = () => {
               accept=".xlsx,.xls"
               className="max-w-md"
               onChange={handleFileChange}
-              disabled={isProcessing}
             />
-            {selectedFile && (
+            {file && (
               <p className="text-sm text-muted-foreground">
-                Selected: {selectedFile.name}
+                Selected: {file.name}
               </p>
             )}
           </div>
 
           {excelColumns.length > 0 && (
-            <div className="space-y-4 border-t pt-4">
-              <div>
-                <Label>Column Mappings</Label>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Map Excel columns to table columns
-                </p>
+            <>
+              <div className="space-y-2">
+                <Label>Select Target Table</Label>
+                <Select value={selectedTable} onValueChange={handleTableSelect}>
+                  <SelectTrigger className="max-w-md">
+                    <SelectValue placeholder="Choose a table to map columns" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTables.map((table) => (
+                      <SelectItem key={table.id} value={table.table_name}>
+                        {table.table_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="space-y-3">
-                {excelColumns.map((col) => (
-                  <div key={col} className="grid grid-cols-3 gap-4 items-center p-4 border rounded-lg">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Excel Column</Label>
-                      <p className="font-medium">{col}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Table Column</Label>
-                      <Input
-                        placeholder="column_name"
-                        value={columnMappings[col]?.tableColumn || ""}
-                        onChange={(e) => setColumnMappings({
-                          ...columnMappings,
-                          [col]: { ...columnMappings[col], tableColumn: e.target.value, dataType: columnMappings[col]?.dataType || "text" }
-                        })}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Data Type</Label>
-                      <Select
-                        value={columnMappings[col]?.dataType || "text"}
-                        onValueChange={(value) => setColumnMappings({
-                          ...columnMappings,
-                          [col]: { ...columnMappings[col], dataType: value, tableColumn: columnMappings[col]?.tableColumn || "" }
-                        })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="text">Text</SelectItem>
-                          <SelectItem value="integer">Integer</SelectItem>
-                          <SelectItem value="decimal">Decimal</SelectItem>
-                          <SelectItem value="timestamp">Timestamp</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+              {selectedTable && tableColumns.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Column Mapping</Label>
+                  <div className="border rounded-lg p-4 space-y-3">
+                    {excelColumns.map((excelCol) => (
+                      <div key={excelCol} className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{excelCol}</p>
+                          <p className="text-xs text-muted-foreground">Excel Column</p>
+                        </div>
+                        <span className="text-muted-foreground">→</span>
+                        <div className="flex-1">
+                          <Select
+                            value={columnMappings[excelCol] || ""}
+                            onValueChange={(value) =>
+                              setColumnMappings({ ...columnMappings, [excelCol]: value })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Map to table column" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {tableColumns.map((col) => (
+                                <SelectItem key={col} value={col}>
+                                  {col}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              )}
+            </>
           )}
 
-          <div className="pt-4 flex gap-2">
+          <div className="pt-4">
             <Button 
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
               onClick={handleSaveConfiguration}
-              disabled={isProcessing}
+              disabled={isUploading}
             >
-              Save Configuration
+              {isUploading ? "Saving..." : "Save Configuration"}
             </Button>
-            {excelColumns.length > 0 && sheets.length > 0 && (
-              <Button 
-                variant="outline"
-                onClick={() => handleSaveMappings(sheets[0].id)}
-              >
-                Save Mappings
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -323,7 +322,7 @@ const ExcelSheets = () => {
         <CardContent>
           {sheets.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <FileSpreadsheetIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No sheets configured yet</p>
               <p className="text-sm">Upload your first Excel sheet to get started</p>
             </div>
@@ -333,6 +332,7 @@ const ExcelSheets = () => {
                 <TableRow>
                   <TableHead>Sheet Code</TableHead>
                   <TableHead>Sheet Name</TableHead>
+                  <TableHead>File Name</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Updated</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -343,18 +343,25 @@ const ExcelSheets = () => {
                   <TableRow key={sheet.id}>
                     <TableCell className="font-mono">{sheet.sheet_code}</TableCell>
                     <TableCell>{sheet.sheet_name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{sheet.file_name}</TableCell>
                     <TableCell>
-                      <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
+                      <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
                         {sheet.status}
                       </span>
                     </TableCell>
-                    <TableCell>{new Date(sheet.updated_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(sheet.updated_at).toLocaleDateString()}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button variant="ghost" size="sm">
                           <Settings className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDeleteSheet(sheet.id)}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
