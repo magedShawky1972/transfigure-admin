@@ -57,6 +57,7 @@ export type Database = {
           sheet_code: string
           sheet_name: string
           status: string | null
+          target_table: string | null
           updated_at: string
         }
         Insert: {
@@ -66,6 +67,7 @@ export type Database = {
           sheet_code: string
           sheet_name: string
           status?: string | null
+          target_table?: string | null
           updated_at?: string
         }
         Update: {
@@ -75,6 +77,7 @@ export type Database = {
           sheet_code?: string
           sheet_name?: string
           status?: string | null
+          target_table?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -102,6 +105,36 @@ export type Database = {
           id?: string
           status?: string | null
           table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      test1: {
+        Row: {
+          created_at: string
+          id: string
+          item_code: string | null
+          item_name: string | null
+          itm_group_code: string | null
+          sales_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_code?: string | null
+          item_name?: string | null
+          itm_group_code?: string | null
+          sales_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_code?: string | null
+          item_name?: string | null
+          itm_group_code?: string | null
+          sales_price?: number | null
           updated_at?: string
         }
         Relationships: []

@@ -145,6 +145,7 @@ const ExcelSheets = () => {
           sheet_code: sheetCode,
           sheet_name: sheetName,
           file_name: file.name,
+          target_table: selectedTable,
         })
         .select()
         .single();
@@ -217,6 +218,16 @@ const ExcelSheets = () => {
     setSelectedSheetForMapping(sheet);
     setMappingDialogOpen(true);
     
+    // Load the target table if it exists
+    if (sheet.target_table) {
+      setSheetTargetTable(sheet.target_table);
+      const table = availableTables.find(t => t.table_name === sheet.target_table);
+      if (table) {
+        const cols = table.columns.map((col: any) => col.name);
+        setSheetTableColumns(cols);
+      }
+    }
+    
     // Load existing mappings
     const { data: mappings, error } = await supabase
       .from("excel_column_mappings")
@@ -228,10 +239,9 @@ const ExcelSheets = () => {
       return;
     }
 
-    // Parse the file name to get columns (you might want to store this differently)
-    // For now, we'll just set empty state and let user define mappings
+    // Load existing column mappings
     const mappingsMap: Record<string, string> = {};
-    if (mappings) {
+    if (mappings && mappings.length > 0) {
       mappings.forEach((m) => {
         mappingsMap[m.excel_column] = m.table_column;
       });
@@ -270,6 +280,12 @@ const ExcelSheets = () => {
         .from("excel_column_mappings")
         .delete()
         .eq("sheet_id", selectedSheetForMapping.id);
+
+      // Update the target table in excel_sheets
+      await supabase
+        .from("excel_sheets")
+        .update({ target_table: sheetTargetTable })
+        .eq("id", selectedSheetForMapping.id);
 
       // Insert new mappings
       if (Object.keys(sheetMappings).length > 0) {
