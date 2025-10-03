@@ -17,12 +17,12 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 239 84% 67%;
+    --primary: 270 80% 55%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 239 100% 75%;
+    --primary-glow: 270 80% 70%;
 
-    --secondary: 214 95% 93%;
-    --secondary-foreground: 239 84% 50%;
+    --secondary: 270 70% 92%;
+    --secondary-foreground: 270 80% 30%;
 
     --muted: 220 13% 95%;
     --muted-foreground: 220 9% 46%;
@@ -35,25 +35,25 @@ All colors MUST be HSL.
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 239 84% 67%;
+    --ring: 270 80% 55%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 239 84% 67%;
+    --sidebar-background: 270 80% 55%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 239 84% 67%;
-    --sidebar-accent: 239 100% 75%;
+    --sidebar-primary-foreground: 270 80% 55%;
+    --sidebar-accent: 270 80% 70%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 239 100% 75%;
+    --sidebar-border: 270 80% 70%;
     --sidebar-ring: 0 0% 100%;
 
     /* Custom gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(239 84% 67%), hsl(271 81% 56%));
+    --gradient-primary: linear-gradient(135deg, hsl(270 80% 55%), hsl(270 80% 70%));
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 13% 98%));
     
     /* Shadows */
-    --shadow-elegant: 0 4px 20px -2px hsl(239 84% 67% / 0.15);
+    --shadow-elegant: 0 4px 20px -2px hsl(270 80% 55% / 0.15);
     --shadow-card: 0 2px 8px -1px hsl(220 13% 91% / 0.5);
     
     /* Transitions */
@@ -70,9 +70,9 @@ All colors MUST be HSL.
     --popover: 222 47% 14%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 239 84% 67%;
+    --primary: 270 80% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 239 100% 75%;
+    --primary-glow: 270 80% 75%;
 
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
@@ -88,18 +88,18 @@ All colors MUST be HSL.
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 239 84% 67%;
+    --ring: 270 80% 60%;
 
     --sidebar-background: 222 47% 14%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: 270 80% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 20%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 20%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: 270 80% 60%;
 
-    --shadow-elegant: 0 4px 20px -2px hsl(239 84% 67% / 0.25);
+    --shadow-elegant: 0 4px 20px -2px hsl(270 80% 60% / 0.25);
     --shadow-card: 0 2px 8px -1px hsl(0 0% 0% / 0.3);
   }
 }
