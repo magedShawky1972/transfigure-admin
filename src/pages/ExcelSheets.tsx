@@ -117,6 +117,24 @@ const ExcelSheets = () => {
       return;
     }
 
+    if (availableTables.length === 0) {
+      toast({
+        title: "No Tables Available",
+        description: "Please create a database table first using the Table Generator",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedTable) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a target table for mapping",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUploading(true);
 
     try {
@@ -356,18 +374,26 @@ const ExcelSheets = () => {
             <>
               <div className="space-y-2">
                 <Label>Select Target Table</Label>
-                <Select value={selectedTable} onValueChange={handleTableSelect}>
-                  <SelectTrigger className="max-w-md">
-                    <SelectValue placeholder="Choose a table to map columns" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTables.map((table) => (
-                      <SelectItem key={table.id} value={table.table_name}>
-                        {table.table_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {availableTables.length === 0 ? (
+                  <div className="p-4 border rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground">
+                      No database tables available. Please create a table first using the Table Generator page.
+                    </p>
+                  </div>
+                ) : (
+                  <Select value={selectedTable} onValueChange={handleTableSelect}>
+                    <SelectTrigger className="max-w-md">
+                      <SelectValue placeholder="Choose a table to map columns" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTables.map((table) => (
+                        <SelectItem key={table.id} value={table.table_name}>
+                          {table.table_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {selectedTable && tableColumns.length > 0 && (
