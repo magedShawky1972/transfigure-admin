@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Settings, Trash2, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
@@ -22,6 +23,13 @@ const ExcelSheets = () => {
   const [selectedTable, setSelectedTable] = useState<string>("");
   const [tableColumns, setTableColumns] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [selectedSheetForMapping, setSelectedSheetForMapping] = useState<any>(null);
+  const [sheetExcelColumns, setSheetExcelColumns] = useState<string[]>([]);
+  const [sheetMappings, setSheetMappings] = useState<Record<string, string>>({});
+  const [sheetTargetTable, setSheetTargetTable] = useState<string>("");
+  const [sheetTableColumns, setSheetTableColumns] = useState<string[]>([]);
+  const [isSavingMappings, setIsSavingMappings] = useState(false);
 
   useEffect(() => {
     loadSheets();
@@ -185,6 +193,106 @@ const ExcelSheets = () => {
       description: "Sheet deleted successfully",
     });
     loadSheets();
+  };
+
+  const handleOpenMappingDialog = async (sheet: any) => {
+    setSelectedSheetForMapping(sheet);
+    setMappingDialogOpen(true);
+    
+    // Load existing mappings
+    const { data: mappings, error } = await supabase
+      .from("excel_column_mappings")
+      .select("*")
+      .eq("sheet_id", sheet.id);
+
+    if (error) {
+      console.error("Error loading mappings:", error);
+      return;
+    }
+
+    // Parse the file name to get columns (you might want to store this differently)
+    // For now, we'll just set empty state and let user define mappings
+    const mappingsMap: Record<string, string> = {};
+    if (mappings) {
+      mappings.forEach((m) => {
+        mappingsMap[m.excel_column] = m.table_column;
+      });
+      setSheetMappings(mappingsMap);
+      
+      // Extract unique excel columns
+      const excelCols = mappings.map(m => m.excel_column);
+      setSheetExcelColumns(excelCols);
+    }
+  };
+
+  const handleSheetTableSelect = (tableName: string) => {
+    setSheetTargetTable(tableName);
+    const table = availableTables.find(t => t.table_name === tableName);
+    if (table) {
+      const cols = table.columns.map((col: any) => col.name);
+      setSheetTableColumns(cols);
+    }
+  };
+
+  const handleSaveMappings = async () => {
+    if (!selectedSheetForMapping || !sheetTargetTable) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a target table",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingMappings(true);
+
+    try {
+      // Delete existing mappings
+      await supabase
+        .from("excel_column_mappings")
+        .delete()
+        .eq("sheet_id", selectedSheetForMapping.id);
+
+      // Insert new mappings
+      if (Object.keys(sheetMappings).length > 0) {
+        const mappings = Object.entries(sheetMappings).map(([excelCol, tableCol]) => ({
+          sheet_id: selectedSheetForMapping.id,
+          excel_column: excelCol,
+          table_column: tableCol,
+          data_type: "text",
+        }));
+
+        const { error } = await supabase
+          .from("excel_column_mappings")
+          .insert(mappings);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: "Column mappings saved successfully",
+      });
+
+      setMappingDialogOpen(false);
+      setSheetMappings({});
+      setSheetExcelColumns([]);
+      setSheetTargetTable("");
+      loadSheets();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingMappings(false);
+    }
+  };
+
+  const addExcelColumn = () => {
+    const newCol = `column_${sheetExcelColumns.length + 1}`;
+    setSheetExcelColumns([...sheetExcelColumns, newCol]);
   };
 
   return (
@@ -354,7 +462,11 @@ const ExcelSheets = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenMappingDialog(sheet)}
+                        >
                           <Settings className="h-4 w-4" />
                         </Button>
                         <Button 
@@ -373,6 +485,117 @@ const ExcelSheets = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={mappingDialogOpen} onOpenChange={setMappingDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configure Excel Mapping</DialogTitle>
+            <DialogDescription>
+              {selectedSheetForMapping?.sheet_name} - Define how Excel columns map to database table columns
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Target Table</Label>
+              <Select value={sheetTargetTable} onValueChange={handleSheetTableSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a table to map columns" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTables.map((table) => (
+                    <SelectItem key={table.id} value={table.table_name}>
+                      {table.table_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {sheetTargetTable && sheetTableColumns.length > 0 && (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Column Mapping</Label>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={addExcelColumn}
+                    >
+                      Add Excel Column
+                    </Button>
+                  </div>
+                  <div className="border rounded-lg p-4 space-y-3">
+                    {sheetExcelColumns.map((excelCol, index) => (
+                      <div key={index} className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <Input
+                            value={excelCol}
+                            onChange={(e) => {
+                              const newCols = [...sheetExcelColumns];
+                              newCols[index] = e.target.value;
+                              setSheetExcelColumns(newCols);
+                            }}
+                            placeholder="Excel column name"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Excel Column</p>
+                        </div>
+                        <span className="text-muted-foreground">→</span>
+                        <div className="flex-1">
+                          <Select
+                            value={sheetMappings[excelCol] || ""}
+                            onValueChange={(value) =>
+                              setSheetMappings({ ...sheetMappings, [excelCol]: value })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Map to table column" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sheetTableColumns.map((col) => (
+                                <SelectItem key={col} value={col}>
+                                  {col}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSheetExcelColumns(sheetExcelColumns.filter((_, i) => i !== index));
+                            const newMappings = { ...sheetMappings };
+                            delete newMappings[excelCol];
+                            setSheetMappings(newMappings);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setMappingDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveMappings}
+                    disabled={isSavingMappings}
+                  >
+                    {isSavingMappings ? "Saving..." : "Save Mappings"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
