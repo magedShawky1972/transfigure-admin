@@ -18,8 +18,13 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Build column definitions
-    const columnDefs = columns.map((col: any) => {
+    // Build column definitions, filtering out standard fields that are added automatically
+    const standardFields = ['id', 'created_at', 'updated_at'];
+    const userColumns = columns.filter((col: any) => 
+      !standardFields.includes(col.name.toLowerCase())
+    );
+    
+    const columnDefs = userColumns.map((col: any) => {
       const nullable = col.nullable ? '' : 'NOT NULL';
       return `${col.name} ${col.type.toUpperCase()} ${nullable}`;
     }).join(',\n  ');
