@@ -30,8 +30,16 @@ const menuGroups = [
     ]
   },
   {
+    label: "Entry",
+    items: [
+      { title: "Load Data From Excel", url: "/load-data", icon: FileSpreadsheet },
+    ]
+  },
+  {
     label: "Setup",
-    items: []
+    items: [
+      { title: "Reports Setup", url: "/reports-setup", icon: Settings },
+    ]
   },
   {
     label: "Admin",
@@ -52,7 +60,7 @@ export function AppSidebar() {
       <SidebarContent>
         {menuGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="text-sidebar-foreground/70 mb-2 px-3">
+            <SidebarGroupLabel className="text-sidebar-foreground/70 mb-2 px-3 text-sm font-semibold">
               {group.label}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -64,7 +72,7 @@ export function AppSidebar() {
                         to={item.url}
                         end
                         className={({ isActive }) =>
-                          `flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                          `flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-base ${
                             isActive
                               ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-md"
                               : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -72,7 +80,7 @@ export function AppSidebar() {
                         }
                       >
                         <item.icon className="h-5 w-5 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
+                        <span>{item.title}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

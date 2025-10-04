@@ -9,6 +9,8 @@ import ExcelSheets from "./pages/ExcelSheets";
 import ApiConfig from "./pages/ApiConfig";
 import TableGenerator from "./pages/TableGenerator";
 import Reports from "./pages/Reports";
+import ReportsSetup from "./pages/ReportsSetup";
+import LoadData from "./pages/LoadData";
 import Transactions from "./pages/Transactions";
 import NotFound from "./pages/NotFound";
 
@@ -23,11 +25,13 @@ const App = () => (
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/excel-sheets" element={<ExcelSheets />} />
-            <Route path="/api-config" element={<ApiConfig />} />
-            <Route path="/table-generator" element={<TableGenerator />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/transactions" element={<Transactions />} />
+            <Route path="/load-data" element={<LoadData />} />
+            <Route path="/reports-setup" element={<ReportsSetup />} />
+            <Route path="/api-config" element={<ApiConfig />} />
+            <Route path="/excel-sheets" element={<ExcelSheets />} />
+            <Route path="/table-generator" element={<TableGenerator />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
