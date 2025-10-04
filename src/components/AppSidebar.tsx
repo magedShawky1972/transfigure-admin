@@ -56,7 +56,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
 
   return (
-    <Sidebar className="border-r border-sidebar-border">
+    <Sidebar className="border-r border-sidebar-border bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))] min-w-56">
       <SidebarContent>
         {menuGroups.map((group) => (
           <SidebarGroup key={group.label}>
