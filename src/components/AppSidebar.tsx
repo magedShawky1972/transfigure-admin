@@ -19,41 +19,43 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-
-const menuGroups = [
-  {
-    label: "Report & Dashboard",
-    items: [
-      { title: "Dashboard", url: "/", icon: Home },
-      { title: "Reports", url: "/reports", icon: BarChart3 },
-      { title: "Transaction Data", url: "/transactions", icon: Table2 },
-    ]
-  },
-  {
-    label: "Entry",
-    items: [
-      { title: "Load Data From Excel", url: "/load-data", icon: FileSpreadsheet },
-    ]
-  },
-  {
-    label: "Setup",
-    items: [
-      { title: "Reports Setup", url: "/reports-setup", icon: Settings },
-    ]
-  },
-  {
-    label: "Admin",
-    items: [
-      { title: "API Configuration", url: "/api-config", icon: Cloud },
-      { title: "Excel Setup", url: "/excel-sheets", icon: FileSpreadsheet },
-      { title: "Table Configuration", url: "/table-generator", icon: Database },
-    ]
-  }
-];
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { t } = useLanguage();
+
+  const menuGroups = [
+    {
+      label: t("sidebar.reports"),
+      items: [
+        { title: t("menu.dashboard"), url: "/", icon: Home },
+        { title: t("menu.reports"), url: "/reports", icon: BarChart3 },
+        { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
+      ]
+    },
+    {
+      label: t("sidebar.entry"),
+      items: [
+        { title: t("menu.loadData"), url: "/load-data", icon: FileSpreadsheet },
+      ]
+    },
+    {
+      label: t("sidebar.setup"),
+      items: [
+        { title: t("menu.reportsSetup"), url: "/reports-setup", icon: Settings },
+      ]
+    },
+    {
+      label: t("sidebar.admin"),
+      items: [
+        { title: t("menu.apiConfig"), url: "/api-config", icon: Cloud },
+        { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
+        { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
+      ]
+    }
+  ];
 
   return (
     <Sidebar className="border-r border-sidebar-border bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))] min-w-56">
