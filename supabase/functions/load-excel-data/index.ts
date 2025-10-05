@@ -65,18 +65,21 @@ Deno.serve(async (req) => {
       
       mappings.forEach((mapping) => {
         const excelValue = row[mapping.excel_column];
+        const targetColumn = (mapping.table_column || '').toLowerCase().trim();
+
+        if (!targetColumn) return;
         
         if (excelValue !== undefined && excelValue !== null && excelValue !== '') {
           // Convert data types if needed
-          if (mapping.data_type.toLowerCase().includes('numeric') || 
-              mapping.data_type.toLowerCase().includes('integer')) {
-            transformedRow[mapping.table_column] = parseFloat(excelValue) || 0;
-          } else if (mapping.data_type.toLowerCase().includes('timestamp') ||
-                     mapping.data_type.toLowerCase().includes('date')) {
-            // Handle Excel date formats
-            transformedRow[mapping.table_column] = excelValue;
+          const dtype = (mapping.data_type || '').toLowerCase();
+          if (dtype.includes('numeric') || dtype.includes('integer') || dtype.includes('decimal') || dtype.includes('float')) {
+            const num = typeof excelValue === 'string' ? parseFloat(excelValue.replace(/[,\s]/g, '')) : Number(excelValue);
+            transformedRow[targetColumn] = isNaN(num) ? null : num;
+          } else if (dtype.includes('timestamp') || dtype.includes('date')) {
+            // Keep as provided; Edge Function relies on database to parse string timestamps
+            transformedRow[targetColumn] = excelValue;
           } else {
-            transformedRow[mapping.table_column] = excelValue.toString();
+            transformedRow[targetColumn] = typeof excelValue === 'string' ? excelValue : String(excelValue);
           }
         }
       });
