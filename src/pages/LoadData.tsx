@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { Upload, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +23,8 @@ const LoadData = () => {
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [availableSheets, setAvailableSheets] = useState<ExcelSheet[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState("");
 
   useEffect(() => {
     loadAvailableSheets();
@@ -71,6 +74,8 @@ const LoadData = () => {
     }
 
     setIsLoading(true);
+    setProgress(0);
+    setUploadStatus("Reading Excel file...");
 
     try {
       // Read the Excel file
@@ -79,19 +84,41 @@ const LoadData = () => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      // Call the edge function to process and insert data
-      const { data: result, error } = await supabase.functions.invoke("load-excel-data", {
-        body: {
-          sheetId: selectedSheet,
-          data: jsonData,
-        },
-      });
+      setUploadStatus(`Processing ${jsonData.length} rows...`);
 
-      if (error) throw error;
+      // Split data into chunks of 1000 rows to avoid timeout
+      const BATCH_SIZE = 1000;
+      const batches = [];
+      for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
+        batches.push(jsonData.slice(i, i + BATCH_SIZE));
+      }
+
+      let totalProcessed = 0;
+
+      // Process each batch
+      for (let i = 0; i < batches.length; i++) {
+        setUploadStatus(`Uploading batch ${i + 1} of ${batches.length}...`);
+        
+        const { data: result, error } = await supabase.functions.invoke("load-excel-data", {
+          body: {
+            sheetId: selectedSheet,
+            data: batches[i],
+          },
+        });
+
+        if (error) throw error;
+
+        totalProcessed += result.count;
+        const progressPercent = ((i + 1) / batches.length) * 100;
+        setProgress(progressPercent);
+      }
+
+      setProgress(100);
+      setUploadStatus("");
 
       toast({
         title: "Success",
-        description: `Loaded ${result.count} records successfully`,
+        description: `Loaded ${totalProcessed} records successfully`,
       });
 
       setSelectedFile(null);
@@ -102,8 +129,12 @@ const LoadData = () => {
         description: error.message,
         variant: "destructive",
       });
+      setUploadStatus("");
     } finally {
       setIsLoading(false);
+      setTimeout(() => {
+        setProgress(0);
+      }, 2000);
     }
   };
 
@@ -165,6 +196,17 @@ const LoadData = () => {
               </p>
             )}
           </div>
+
+          {isLoading && (
+            <div className="space-y-3">
+              <Progress value={progress} className="w-full" />
+              {uploadStatus && (
+                <p className="text-sm text-muted-foreground text-center">
+                  {uploadStatus}
+                </p>
+              )}
+            </div>
+          )}
 
           <Button 
             onClick={handleUpload}
