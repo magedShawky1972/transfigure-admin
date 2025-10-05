@@ -55,7 +55,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Found ${mappings.length} column mappings for table ${sheetConfig.target_table}`);
+    // Convert table name to lowercase for Supabase
+    const tableName = sheetConfig.target_table.toLowerCase();
+    console.log(`Found ${mappings.length} column mappings for table ${tableName}`);
 
     // Transform the data based on mappings
     const transformedData = data.map((row: any) => {
@@ -87,11 +89,11 @@ Deno.serve(async (req) => {
       Object.keys(row).length > 0
     );
 
-    console.log(`Inserting ${validData.length} valid rows into ${sheetConfig.target_table}`);
+    console.log(`Inserting ${validData.length} valid rows into ${tableName}`);
 
     // Insert the data
     const { error: insertError } = await supabase
-      .from(sheetConfig.target_table)
+      .from(tableName)
       .insert(validData);
 
     if (insertError) {
