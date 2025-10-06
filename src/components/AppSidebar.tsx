@@ -24,7 +24,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const menuGroups = [
     {
@@ -58,7 +58,10 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar className="border-r border-sidebar-border bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))] min-w-56">
+    <Sidebar
+      side={language === "ar" ? "right" : "left"}
+      className={`${language === "ar" ? "border-l" : "border-r"} border-sidebar-border bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))] min-w-56`}
+    >
       <SidebarContent>
         {menuGroups.map((group) => (
           <SidebarGroup key={group.label}>
