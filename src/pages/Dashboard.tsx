@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, TrendingUp, ShoppingCart, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -28,6 +30,7 @@ interface DashboardMetrics {
 const Dashboard = () => {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalSales: 0,
     totalProfit: 0,
@@ -66,11 +69,15 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      setProgress(10);
 
       // Fetch all transactions in batches to bypass API page limits
       const pageSize = 1000; // Align with API max-rows to avoid skipping
       let from = 0;
       let transactions: Transaction[] = [];
+      
+      setProgress(20);
+      
       while (true) {
         const { data, error } = await (supabase as any)
           .from('purpletransaction')
@@ -82,11 +89,20 @@ const Dashboard = () => {
 
         const batch = (data as Transaction[]) || [];
         transactions = transactions.concat(batch);
+        
+        // Update progress based on batch loading
+        const estimatedProgress = Math.min(50 + (transactions.length / 100), 70);
+        setProgress(estimatedProgress);
+        
         if (batch.length < pageSize) break;
         from += pageSize;
       }
+      
+      setProgress(75);
 
       if (transactions && transactions.length > 0) {
+        setProgress(80);
+        
         // Calculate metrics
         const totalSales = transactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
         const totalProfit = transactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
@@ -99,6 +115,8 @@ const Dashboard = () => {
           transactionCount,
           avgOrderValue,
         });
+        
+        setProgress(85);
 
         // Sales trend by date
         const salesByDate = transactions.reduce((acc: any, t) => {
@@ -111,6 +129,8 @@ const Dashboard = () => {
           return acc;
         }, {});
         setSalesTrend(Object.values(salesByDate).slice(0, 15));
+        
+        setProgress(90);
 
         // Top brands
         const brandSales = transactions.reduce((acc: any, t) => {
@@ -136,9 +156,12 @@ const Dashboard = () => {
 
         // Recent transactions
         setRecentTransactions(transactions.slice(0, 5));
+        
+        setProgress(95);
       }
 
-      setLoading(false);
+      setProgress(100);
+      setTimeout(() => setLoading(false), 300);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       setLoading(false);
@@ -147,8 +170,49 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-muted-foreground">{t("dashboard.loading")}</p>
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">{t("dashboard.title")}</h1>
+          <p className="text-muted-foreground">{t("dashboard.subtitle")}</p>
+        </div>
+
+        {/* Loading Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Loading dashboard data...</span>
+            <span className="font-medium">{Math.round(progress)}%</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+
+        {/* Skeleton Metric Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="border-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-10 rounded-lg" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Skeleton Charts */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {[1, 2].map((i) => (
+            <Card key={i} className="border-2">
+              <CardHeader>
+                <Skeleton className="h-6 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-[300px] w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
