@@ -25,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20">
+      <div className={`flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20 ${language === "ar" ? "flex-row-reverse" : ""}`}>
         <AppSidebar />
         
         <main className="flex-1 flex flex-col">
