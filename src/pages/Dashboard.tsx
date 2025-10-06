@@ -52,12 +52,11 @@ const Dashboard = () => {
   // Format numbers as Saudi Riyal currency
   const formatCurrency = (amount: number) => {
     if (!isFinite(amount)) amount = 0;
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR',
+    const formatted = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
+    return `${formatted} ر.س`;
   };
 
   useEffect(() => {
