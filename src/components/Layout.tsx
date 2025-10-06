@@ -25,10 +25,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className={`flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20 ${language === "ar" ? "flex-row-reverse" : ""}`}>
+      <div className="flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20">
         <AppSidebar />
         
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1 flex flex-col min-w-0">
           <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-10">
             <div className="flex items-center gap-3">
               <SidebarTrigger className={language === "ar" ? "ml-4" : "mr-4"} />
@@ -63,7 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </header>
           
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-6 w-full">
             {children}
           </div>
         </main>
