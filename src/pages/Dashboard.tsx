@@ -41,6 +41,14 @@ const Dashboard = () => {
 
   const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444'];
 
+  // Safely parse numbers coming as formatted strings like "3,087,089.63"
+  const parseNumber = (value?: string | null) => {
+    if (value == null) return 0;
+    const cleaned = value.replace(/,/g, '').replace(/[^0-9.\-]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -49,21 +57,29 @@ const Dashboard = () => {
     try {
       setLoading(true);
 
-      // Fetch all transactions with increased limit
-      const { data, error } = await (supabase as any)
-        .from('purpletransaction')
-        .select('*')
-        .range(0, 50000)
-        .order('created_at_date', { ascending: false });
+      // Fetch all transactions in batches to bypass API page limits
+      const pageSize = 6000;
+      let from = 0;
+      let transactions: Transaction[] = [];
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from('purpletransaction')
+          .select('*')
+          .order('created_at_date', { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const transactions = data as Transaction[];
+        const batch = (data as Transaction[]) || [];
+        transactions = transactions.concat(batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
 
       if (transactions && transactions.length > 0) {
         // Calculate metrics
-        const totalSales = transactions.reduce((sum, t) => sum + parseFloat(t.total || '0'), 0);
-        const totalProfit = transactions.reduce((sum, t) => sum + parseFloat(t.profit || '0'), 0);
+        const totalSales = transactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
+        const totalProfit = transactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
         const transactionCount = transactions.length;
         const avgOrderValue = totalSales / transactionCount;
 
@@ -80,8 +96,8 @@ const Dashboard = () => {
           if (!acc[date]) {
             acc[date] = { date, sales: 0, profit: 0 };
           }
-          acc[date].sales += parseFloat(t.total || '0');
-          acc[date].profit += parseFloat(t.profit || '0');
+           acc[date].sales += parseNumber(t.total);
+           acc[date].profit += parseNumber(t.profit);
           return acc;
         }, {});
         setSalesTrend(Object.values(salesByDate).slice(0, 15));
@@ -92,7 +108,7 @@ const Dashboard = () => {
           if (!acc[brand]) {
             acc[brand] = { name: brand, value: 0 };
           }
-          acc[brand].value += parseFloat(t.total || '0');
+          acc[brand].value += parseNumber(t.total);
           return acc;
         }, {});
         setTopBrands(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
@@ -273,8 +289,8 @@ const Dashboard = () => {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold">${parseFloat(transaction.total || '0').toFixed(2)}</p>
-                    <p className="text-xs text-green-600">+${parseFloat(transaction.profit || '0').toFixed(2)}</p>
+                    <p className="text-sm font-semibold">${parseNumber(transaction.total).toFixed(2)}</p>
+                    <p className="text-xs text-green-600">+${parseNumber(transaction.profit).toFixed(2)}</p>
                   </div>
                 </div>
               ))}
