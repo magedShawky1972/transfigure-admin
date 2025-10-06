@@ -49,6 +49,17 @@ const Dashboard = () => {
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  // Format numbers as Saudi Riyal currency
+  const formatCurrency = (amount: number) => {
+    if (!isFinite(amount)) amount = 0;
+    return new Intl.NumberFormat('en-SA', {
+      style: 'currency',
+      currency: 'SAR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -58,7 +69,7 @@ const Dashboard = () => {
       setLoading(true);
 
       // Fetch all transactions in batches to bypass API page limits
-      const pageSize = 6000;
+      const pageSize = 1000; // Align with API max-rows to avoid skipping
       let from = 0;
       let transactions: Transaction[] = [];
       while (true) {
@@ -146,13 +157,13 @@ const Dashboard = () => {
   const metricCards = [
     {
       title: t("dashboard.totalSales"),
-      value: `$${metrics.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: formatCurrency(metrics.totalSales),
       icon: DollarSign,
       gradient: "from-green-500 to-emerald-500",
     },
     {
       title: t("dashboard.totalProfit"),
-      value: `$${metrics.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: formatCurrency(metrics.totalProfit),
       icon: TrendingUp,
       gradient: "from-blue-500 to-cyan-500",
     },
@@ -164,7 +175,7 @@ const Dashboard = () => {
     },
     {
       title: t("dashboard.avgOrderValue"),
-      value: `$${metrics.avgOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: formatCurrency(metrics.avgOrderValue),
       icon: CreditCard,
       gradient: "from-orange-500 to-red-500",
     },
@@ -207,7 +218,7 @@ const Dashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend />
                 <Line type="monotone" dataKey="sales" stroke="#8B5CF6" strokeWidth={2} name={t("dashboard.totalSales")} />
                 <Line type="monotone" dataKey="profit" stroke="#10B981" strokeWidth={2} name={t("dashboard.profit")} />
@@ -227,7 +238,7 @@ const Dashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Bar dataKey="value" fill="#8B5CF6" />
               </BarChart>
             </ResponsiveContainer>
@@ -289,8 +300,8 @@ const Dashboard = () => {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold">${parseNumber(transaction.total).toFixed(2)}</p>
-                    <p className="text-xs text-green-600">+${parseNumber(transaction.profit).toFixed(2)}</p>
+                    <p className="text-sm font-semibold">{formatCurrency(parseNumber(transaction.total))}</p>
+                    <p className="text-xs text-green-600">+{formatCurrency(parseNumber(transaction.profit))}</p>
                   </div>
                 </div>
               ))}
