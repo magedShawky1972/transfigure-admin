@@ -7,11 +7,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import edaraLogo from "@/assets/edara-logo.png";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
   const { language, toggleLanguage, t } = useLanguage();
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" || "light";
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" || "dark";
     setTheme(savedTheme);
     document.documentElement.classList.toggle("dark", savedTheme === "dark");
   }, []);

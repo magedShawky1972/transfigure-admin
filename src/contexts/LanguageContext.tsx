@@ -100,10 +100,10 @@ const translations = {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguage] = useState<Language>("ar");
 
   useEffect(() => {
-    const savedLanguage = localStorage.getItem("language") as Language || "en";
+    const savedLanguage = localStorage.getItem("language") as Language || "ar";
     setLanguage(savedLanguage);
     document.documentElement.setAttribute("lang", savedLanguage);
     document.documentElement.setAttribute("dir", savedLanguage === "ar" ? "rtl" : "ltr");
