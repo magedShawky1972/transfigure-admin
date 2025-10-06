@@ -49,10 +49,11 @@ const Dashboard = () => {
     try {
       setLoading(true);
 
-      // Fetch all transactions
+      // Fetch all transactions with increased limit
       const { data, error } = await (supabase as any)
         .from('purpletransaction')
         .select('*')
+        .range(0, 50000)
         .order('created_at_date', { ascending: false });
 
       if (error) throw error;
