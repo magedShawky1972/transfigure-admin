@@ -186,10 +186,10 @@ const Dashboard = () => {
 
         const { data: trendData, error: trendError } = await (supabase as any)
           .from('purpletransaction')
-          .select('created_at, created_at_date, total, profit')
-          .gte('created_at', trendStartDate.toISOString())
-          .lte('created_at', trendEndDate.toISOString())
-          .order('created_at', { ascending: true });
+          .select('created_at_date, total, profit')
+          .gte('created_at_date', format(trendStartDate, 'yyyy-MM-dd'))
+          .lt('created_at_date', format(addDays(trendEndDate, 1), 'yyyy-MM-dd'))
+          .order('created_at_date', { ascending: true });
 
         if (!trendError && trendData) {
           const byDate = trendData.reduce((acc: any, t: any) => {
