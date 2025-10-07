@@ -109,6 +109,75 @@ export type Database = {
         }
         Relationships: []
       }
+      purpletransaction: {
+        Row: {
+          brand_name: string | null
+          coins_number: string | null
+          cost_price: string | null
+          cost_sold: string | null
+          created_at: string
+          created_at_date: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          order_number: string | null
+          payment_brand: string | null
+          payment_method: string | null
+          payment_type: string | null
+          product_name: string | null
+          profit: string | null
+          qty: string | null
+          total: string | null
+          unit_price: string | null
+          updated_at: string
+          user_name: string | null
+        }
+        Insert: {
+          brand_name?: string | null
+          coins_number?: string | null
+          cost_price?: string | null
+          cost_sold?: string | null
+          created_at?: string
+          created_at_date?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          order_number?: string | null
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_type?: string | null
+          product_name?: string | null
+          profit?: string | null
+          qty?: string | null
+          total?: string | null
+          unit_price?: string | null
+          updated_at?: string
+          user_name?: string | null
+        }
+        Update: {
+          brand_name?: string | null
+          coins_number?: string | null
+          cost_price?: string | null
+          cost_sold?: string | null
+          created_at?: string
+          created_at_date?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          order_number?: string | null
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_type?: string | null
+          product_name?: string | null
+          profit?: string | null
+          qty?: string | null
+          total?: string | null
+          unit_price?: string | null
+          updated_at?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       test1: {
         Row: {
           created_at: string
@@ -147,6 +216,13 @@ export type Database = {
       exec_sql: {
         Args: { sql: string }
         Returns: undefined
+      }
+      sales_trend: {
+        Args: { date_from: string; date_to: string }
+        Returns: {
+          created_at_date: string
+          total_sum: number
+        }[]
       }
     }
     Enums: {
