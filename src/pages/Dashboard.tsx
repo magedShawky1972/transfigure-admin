@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface Transaction {
@@ -178,31 +178,35 @@ const Dashboard = () => {
         
         setProgress(75);
 
-        // Sales trend by date - always fetch last 10 days
-        const now = new Date();
-        const tenDaysAgo = subDays(now, 10);
+        // Sales trend by date - always fetch last 10 days ending yesterday
+        const todayStart = startOfDay(new Date());
+        const yesterday = subDays(todayStart, 1);
+        const start = startOfDay(subDays(yesterday, 9));
+        const end = endOfDay(yesterday);
+
         const { data: trendData, error: trendError } = await (supabase as any)
           .from('purpletransaction')
           .select('created_at_date, total, profit')
-          .gte('created_at_date', tenDaysAgo.toISOString())
-          .lte('created_at_date', now.toISOString())
+          .gte('created_at_date', start.toISOString())
+          .lte('created_at_date', end.toISOString())
           .order('created_at_date', { ascending: true });
 
         if (!trendError && trendData) {
-          const salesByDate = trendData.reduce((acc: any, t: any) => {
-            const date = t.created_at_date ? t.created_at_date.split('T')[0] : 'Unknown';
-            if (!acc[date]) {
-              acc[date] = { date, sales: 0, profit: 0, rawDate: t.created_at_date };
-            }
-            acc[date].sales += parseNumber(t.total);
-            acc[date].profit += parseNumber(t.profit);
+          const byDate = trendData.reduce((acc: any, t: any) => {
+            const key = t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd') : 'Unknown';
+            if (!acc[key]) acc[key] = { sales: 0, profit: 0 };
+            acc[key].sales += parseNumber(t.total);
+            acc[key].profit += parseNumber(t.profit);
             return acc;
-          }, {});
-          
-          const sortedSalesTrend = Object.values(salesByDate)
-            .sort((a: any, b: any) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime())
-            .map((item: any) => ({ ...item, date: format(new Date(item.rawDate), 'MMM dd') }));
-          setSalesTrend(sortedSalesTrend);
+          }, {} as Record<string, { sales: number; profit: number }>);
+
+          const points: any[] = [];
+          for (let d = start; d <= end; d = addDays(d, 1)) {
+            const key = format(d, 'yyyy-MM-dd');
+            const val = byDate[key] || { sales: 0, profit: 0 };
+            points.push({ date: format(d, 'MMM dd'), sales: val.sales });
+          }
+          setSalesTrend(points);
         }
         
         setProgress(78);
