@@ -180,15 +180,20 @@ const Dashboard = () => {
 
         // Sales trend by date - last 10 days
         const salesByDate = transactions.reduce((acc: any, t) => {
-          const date = t.created_at_date ? format(new Date(t.created_at_date), 'MMM dd') : 'Unknown';
+          const date = t.created_at_date ? t.created_at_date.split('T')[0] : 'Unknown';
           if (!acc[date]) {
-            acc[date] = { date, sales: 0, profit: 0 };
+            acc[date] = { date, sales: 0, profit: 0, rawDate: t.created_at_date };
           }
           acc[date].sales += parseNumber(t.total);
           acc[date].profit += parseNumber(t.profit);
           return acc;
         }, {});
-        setSalesTrend(Object.values(salesByDate).slice(0, 10));
+        const sortedSalesTrend = Object.values(salesByDate)
+          .sort((a: any, b: any) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime())
+          .slice(0, 10)
+          .reverse()
+          .map((item: any) => ({ ...item, date: format(new Date(item.rawDate), 'MMM dd') }));
+        setSalesTrend(sortedSalesTrend);
         
         setProgress(78);
 
@@ -535,6 +540,12 @@ const Dashboard = () => {
                   verticalAlign="middle" 
                   layout="vertical"
                   wrapperStyle={{ color: '#ffffff' }}
+                  formatter={(value) => {
+                    if (value.length <= 9) return value;
+                    const truncated = value.substring(0, 9);
+                    const lastSpace = truncated.lastIndexOf(' ');
+                    return lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -546,7 +557,7 @@ const Dashboard = () => {
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-2">
           <CardHeader>
-            <CardTitle>{t("dashboard.topProducts")}</CardTitle>
+            <CardTitle>{language === 'ar' ? 'أفضل 5 منتجات' : 'Top 5 Products'}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -614,7 +625,6 @@ const Dashboard = () => {
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
-                  label={(entry) => entry.name}
                 >
                   {paymentMethods.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -648,7 +658,6 @@ const Dashboard = () => {
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
-                  label={(entry) => entry.name}
                 >
                   {paymentBrands.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
