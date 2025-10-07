@@ -185,20 +185,17 @@ const Dashboard = () => {
         const trendStartDate = startOfDay(subDays(referenceDate, 9));
 
         const { data: trendData, error: trendError } = await (supabase as any)
-          .from('purpletransaction')
-          .select('created_at_date, total')
-          .gte('created_at_date', format(trendStartDate, 'yyyy-MM-dd'))
-          .lt('created_at_date', format(addDays(trendEndDate, 1), 'yyyy-MM-dd'))
-          .order('created_at_date', { ascending: true });
+          .rpc('sales_trend', {
+            date_from: format(trendStartDate, 'yyyy-MM-dd'),
+            date_to: format(trendEndDate, 'yyyy-MM-dd')
+          });
 
         if (!trendError && trendData) {
-          const byDate = trendData.reduce((acc: Record<string, number>, t: any) => {
-            const dateSource = t.created_at_date;
-            if (!dateSource) return acc;
-            const key = format(new Date(dateSource), 'yyyy-MM-dd');
-            acc[key] = (acc[key] ?? 0) + parseNumber(t.total);
-            return acc;
-          }, {});
+          // trendData is already grouped and summed by the database
+          const byDate: Record<string, number> = {};
+          trendData.forEach((row: any) => {
+            byDate[row.created_at_date] = Number(row.total_sum);
+          });
 
           const points: any[] = [];
           for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
