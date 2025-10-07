@@ -10,7 +10,7 @@ import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon } from "
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -208,7 +208,7 @@ const Dashboard = () => {
         // Top 5 categories (using brand as category for now - adjust if you have a category field)
         setTopCategories(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
-        // Top 10 products
+        // Top 5 products
         const productSales = transactions.reduce((acc: any, t) => {
           const product = t.product_name || 'Unknown';
           if (!acc[product]) {
@@ -218,7 +218,7 @@ const Dashboard = () => {
           acc[product].qty += parseNumber(t.qty);
           return acc;
         }, {});
-        setTopProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value).slice(0, 10));
+        setTopProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
         setProductSummary(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
 
         setProgress(83);
@@ -497,15 +497,13 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={salesTrend}>
+              <AreaChart data={salesTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
-                <Line type="monotone" dataKey="sales" stroke="#8B5CF6" strokeWidth={2} name={t("dashboard.totalSales")} />
-                <Line type="monotone" dataKey="profit" stroke="#10B981" strokeWidth={2} name={t("dashboard.profit")} />
-              </LineChart>
+                <Area type="monotone" dataKey="sales" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.6} name={t("dashboard.sales")} />
+              </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -516,16 +514,29 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topCategories}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
+              <PieChart>
+                <Pie
+                  data={topCategories}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {topCategories.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend iconType="rect" wrapperStyle={{ color: '#ffffff' }} />
-                {topCategories.map((category, index) => (
-                  <Bar key={category.name} dataKey="value" fill={COLORS[index % COLORS.length]} name={category.name} />
-                ))}
-              </BarChart>
+                <Legend 
+                  iconType="circle" 
+                  align="left"
+                  verticalAlign="middle" 
+                  layout="vertical"
+                  wrapperStyle={{ color: '#ffffff' }}
+                />
+              </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -539,16 +550,29 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topProducts} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={100} />
+              <PieChart>
+                <Pie
+                  data={topProducts}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {topProducts.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend iconType="rect" wrapperStyle={{ color: '#ffffff' }} />
-                {topProducts.map((product, index) => (
-                  <Bar key={product.name} dataKey="value" fill={COLORS[index % COLORS.length]} name={product.name} />
-                ))}
-              </BarChart>
+                <Legend 
+                  iconType="circle" 
+                  align="left"
+                  verticalAlign="middle" 
+                  layout="vertical"
+                  wrapperStyle={{ color: '#ffffff' }}
+                />
+              </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
