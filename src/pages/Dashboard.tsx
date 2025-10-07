@@ -2,12 +2,17 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { format } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Transaction {
   id: string;
@@ -18,6 +23,9 @@ interface Transaction {
   total: string;
   profit: string;
   payment_method: string;
+  payment_brand: string;
+  cost_sold: string;
+  qty: string;
 }
 
 interface DashboardMetrics {
@@ -25,26 +33,39 @@ interface DashboardMetrics {
   totalProfit: number;
   transactionCount: number;
   avgOrderValue: number;
+  couponSales: number;
+  costOfSales: number;
+  ePaymentCharges: number;
 }
 
 const Dashboard = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [dateFilter, setDateFilter] = useState<string>("yesterday");
+  const [fromDate, setFromDate] = useState<Date>();
+  const [toDate, setToDate] = useState<Date>();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalSales: 0,
     totalProfit: 0,
     transactionCount: 0,
     avgOrderValue: 0,
+    couponSales: 0,
+    costOfSales: 0,
+    ePaymentCharges: 0,
   });
   const [salesTrend, setSalesTrend] = useState<any[]>([]);
   const [topBrands, setTopBrands] = useState<any[]>([]);
+  const [topCategories, setTopCategories] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [paymentBrands, setPaymentBrands] = useState<any[]>([]);
+  const [monthComparison, setMonthComparison] = useState<any[]>([]);
+  const [productSummary, setProductSummary] = useState<any[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
 
-  const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444'];
+  const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
-  // Safely parse numbers coming as formatted strings like "3,087,089.63"
   const parseNumber = (value?: string | null) => {
     if (value == null) return 0;
     const cleaned = value.replace(/,/g, '').replace(/[^0-9.\-]/g, '');
@@ -52,7 +73,6 @@ const Dashboard = () => {
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  // Format numbers as Saudi Riyal currency
   const formatCurrency = (amount: number) => {
     if (!isFinite(amount)) amount = 0;
     const formatted = new Intl.NumberFormat('en-US', {
@@ -62,61 +82,101 @@ const Dashboard = () => {
     return `${formatted} ر.س`;
   };
 
+  const getDateRange = () => {
+    const now = new Date();
+    switch (dateFilter) {
+      case "yesterday":
+        const yesterday = subDays(now, 1);
+        return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+      case "thisMonth":
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "lastMonth":
+        const lastMonth = subMonths(now, 1);
+        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      case "dateRange":
+        if (fromDate && toDate) {
+          return { start: startOfDay(fromDate), end: endOfDay(toDate) };
+        }
+        return null;
+      default:
+        return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const handleApplyFilter = () => {
+    fetchDashboardData();
+  };
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setProgress(10);
 
-      // Fetch all transactions in batches to bypass API page limits
-      const pageSize = 1000; // Align with API max-rows to avoid skipping
+      const dateRange = getDateRange();
+      if (!dateRange) return;
+
+      const pageSize = 1000;
       let from = 0;
       let transactions: Transaction[] = [];
       
       setProgress(20);
       
       while (true) {
-        const { data, error } = await (supabase as any)
+        let query = (supabase as any)
           .from('purpletransaction')
           .select('*')
           .order('created_at_date', { ascending: false })
           .range(from, from + pageSize - 1);
+
+        if (dateRange) {
+          query = query
+            .gte('created_at_date', dateRange.start.toISOString())
+            .lte('created_at_date', dateRange.end.toISOString());
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
         const batch = (data as Transaction[]) || [];
         transactions = transactions.concat(batch);
         
-        // Update progress based on batch loading
-        const estimatedProgress = Math.min(50 + (transactions.length / 100), 70);
+        const estimatedProgress = Math.min(20 + (transactions.length / 100), 60);
         setProgress(estimatedProgress);
         
         if (batch.length < pageSize) break;
         from += pageSize;
       }
       
-      setProgress(75);
+      setProgress(65);
 
       if (transactions && transactions.length > 0) {
-        setProgress(80);
+        setProgress(70);
         
         // Calculate metrics
         const totalSales = transactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
         const totalProfit = transactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
         const transactionCount = transactions.length;
         const avgOrderValue = totalSales / transactionCount;
+        const costOfSales = transactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
+        const couponSales = 0; // Placeholder - add logic if you have coupon data
+        const ePaymentCharges = totalSales * 0.025; // Example: 2.5% payment processing fee
 
         setMetrics({
           totalSales,
           totalProfit,
           transactionCount,
           avgOrderValue,
+          couponSales,
+          costOfSales,
+          ePaymentCharges,
         });
         
-        setProgress(85);
+        setProgress(75);
 
         // Sales trend by date
         const salesByDate = transactions.reduce((acc: any, t) => {
@@ -124,13 +184,13 @@ const Dashboard = () => {
           if (!acc[date]) {
             acc[date] = { date, sales: 0, profit: 0 };
           }
-           acc[date].sales += parseNumber(t.total);
-           acc[date].profit += parseNumber(t.profit);
+          acc[date].sales += parseNumber(t.total);
+          acc[date].profit += parseNumber(t.profit);
           return acc;
         }, {});
         setSalesTrend(Object.values(salesByDate).slice(0, 15));
         
-        setProgress(90);
+        setProgress(78);
 
         // Top brands
         const brandSales = transactions.reduce((acc: any, t) => {
@@ -143,16 +203,54 @@ const Dashboard = () => {
         }, {});
         setTopBrands(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
-        // Payment methods
+        setProgress(80);
+
+        // Top 5 categories (using brand as category for now - adjust if you have a category field)
+        setTopCategories(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
+
+        // Top 10 products
+        const productSales = transactions.reduce((acc: any, t) => {
+          const product = t.product_name || 'Unknown';
+          if (!acc[product]) {
+            acc[product] = { name: product, value: 0, qty: 0 };
+          }
+          acc[product].value += parseNumber(t.total);
+          acc[product].qty += parseNumber(t.qty);
+          return acc;
+        }, {});
+        setTopProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value).slice(0, 10));
+        setProductSummary(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
+
+        setProgress(83);
+
+        // Payment methods (doughnut chart)
         const paymentData = transactions.reduce((acc: any, t) => {
           const method = t.payment_method || 'Unknown';
           if (!acc[method]) {
             acc[method] = { name: method, value: 0 };
           }
-          acc[method].value += 1;
+          acc[method].value += parseNumber(t.total);
           return acc;
         }, {});
         setPaymentMethods(Object.values(paymentData));
+
+        setProgress(86);
+
+        // Payment brands (doughnut chart)
+        const paymentBrandData = transactions.reduce((acc: any, t) => {
+          const brand = t.payment_brand || 'Unknown';
+          if (!acc[brand]) {
+            acc[brand] = { name: brand, value: 0 };
+          }
+          acc[brand].value += parseNumber(t.total);
+          return acc;
+        }, {});
+        setPaymentBrands(Object.values(paymentBrandData));
+
+        setProgress(90);
+
+        // Month comparison - fetch data for this month and last 2 months
+        await fetchMonthComparison();
 
         // Recent transactions
         setRecentTransactions(transactions.slice(0, 5));
@@ -168,6 +266,40 @@ const Dashboard = () => {
     }
   };
 
+  const fetchMonthComparison = async () => {
+    try {
+      const now = new Date();
+      const months = [];
+      
+      for (let i = 0; i < 3; i++) {
+        const monthDate = subMonths(now, i);
+        const start = startOfMonth(monthDate);
+        const end = endOfMonth(monthDate);
+        
+        const { data, error } = await (supabase as any)
+          .from('purpletransaction')
+          .select('total, profit')
+          .gte('created_at_date', start.toISOString())
+          .lte('created_at_date', end.toISOString());
+
+        if (error) throw error;
+
+        const totalSales = (data || []).reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
+        const totalProfit = (data || []).reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
+
+        months.push({
+          month: format(monthDate, 'MMM yyyy'),
+          sales: totalSales,
+          profit: totalProfit,
+        });
+      }
+
+      setMonthComparison(months.reverse());
+    } catch (error) {
+      console.error('Error fetching month comparison:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -176,16 +308,14 @@ const Dashboard = () => {
           <p className="text-muted-foreground">{t("dashboard.subtitle")}</p>
         </div>
 
-        {/* Loading Progress Bar */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Loading dashboard data...</span>
+            <span className="text-muted-foreground">{t("dashboard.loading")}</span>
             <span className="font-medium">{Math.round(progress)}%</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
 
-        {/* Skeleton Metric Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="border-2">
@@ -200,9 +330,8 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Skeleton Charts */}
         <div className="grid gap-6 md:grid-cols-2">
-          {[1, 2].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="border-2">
               <CardHeader>
                 <Skeleton className="h-6 w-32" />
@@ -244,12 +373,82 @@ const Dashboard = () => {
     },
   ];
 
+  // Income Statement Data
+  const incomeStatementData = [
+    { label: t("dashboard.totalSalesWithDiscount"), value: metrics.totalSales, percentage: 100 },
+    { label: t("dashboard.discountCoupons"), value: metrics.couponSales, percentage: (metrics.couponSales / metrics.totalSales) * 100 },
+    { label: t("dashboard.salesPlusCoupon"), value: metrics.totalSales + metrics.couponSales, percentage: ((metrics.totalSales + metrics.couponSales) / metrics.totalSales) * 100 },
+    { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100 },
+    { label: t("dashboard.shipping"), value: 0, percentage: 0 },
+    { label: t("dashboard.taxes"), value: 0, percentage: 0 },
+    { label: t("dashboard.ePaymentCharges"), value: metrics.ePaymentCharges, percentage: (metrics.ePaymentCharges / metrics.totalSales) * 100 },
+    { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2">{t("dashboard.title")}</h1>
         <p className="text-muted-foreground">{t("dashboard.subtitle")}</p>
       </div>
+
+      {/* Date Filter */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium mb-2 block">{t("dashboard.dateRange")}</label>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yesterday">{t("dashboard.yesterday")}</SelectItem>
+                  <SelectItem value="thisMonth">{t("dashboard.thisMonth")}</SelectItem>
+                  <SelectItem value="lastMonth">{t("dashboard.lastMonth")}</SelectItem>
+                  <SelectItem value="dateRange">{t("dashboard.dateRange")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dateFilter === "dateRange" && (
+              <>
+                <div className="flex-1 min-w-[200px]">
+                  <label className="text-sm font-medium mb-2 block">{t("dashboard.from")}</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !fromDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {fromDate ? format(fromDate, "PPP") : <span>{t("dashboard.from")}</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="flex-1 min-w-[200px]">
+                  <label className="text-sm font-medium mb-2 block">{t("dashboard.to")}</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !toDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {toDate ? format(toDate, "PPP") : <span>{t("dashboard.to")}</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </>
+            )}
+
+            <Button onClick={handleApplyFilter}>{t("dashboard.apply")}</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -268,9 +467,30 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* Charts Row */}
+      {/* Income Statement */}
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle>{t("dashboard.incomeStatement")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {incomeStatementData.map((item, index) => (
+              <div key={index} className={`flex justify-between items-center py-2 ${index === incomeStatementData.length - 1 ? 'border-t-2 pt-4 font-bold' : 'border-b'}`}>
+                <span className={`${index === incomeStatementData.length - 1 ? 'text-lg' : ''}`}>{item.label}</span>
+                <div className="flex gap-4 items-center">
+                  <span className={`${item.percentage < 0 ? 'text-red-500' : item.percentage > 20 ? 'text-green-500' : ''} ${index === incomeStatementData.length - 1 ? 'text-lg' : 'text-sm'}`}>
+                    {item.percentage > 0 && item.percentage !== 100 ? `${item.percentage.toFixed(2)}%` : ''}
+                  </span>
+                  <span className={`${index === incomeStatementData.length - 1 ? 'text-lg' : ''}`}>{formatCurrency(item.value)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Charts Row 1 - Sales Trend & Top 5 Categories */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Sales Trend */}
         <Card className="border-2">
           <CardHeader>
             <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
@@ -290,88 +510,185 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Top Brands */}
         <Card className="border-2">
           <CardHeader>
-            <CardTitle>{t("dashboard.topBrands")}</CardTitle>
+            <CardTitle>{t("dashboard.topCategories")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topBrands}>
+              <BarChart data={topCategories}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Bar dataKey="value" fill="#8B5CF6" />
+                <Legend />
+                <Bar dataKey="value" fill="#8B5CF6" name={t("dashboard.sales")} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Payment Methods & Recent Transactions */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Payment Methods */}
+      {/* Charts Row 2 - Top 10 Products & Month Comparison */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle>{t("dashboard.topProducts")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={topProducts} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={100} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                <Legend />
+                <Bar dataKey="value" fill="#EC4899" name={t("dashboard.sales")} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle>{t("dashboard.monthComparison")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthComparison}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                <Legend />
+                <Bar dataKey="sales" fill="#8B5CF6" name={t("dashboard.sales")} />
+                <Bar dataKey="profit" fill="#10B981" name={t("dashboard.profit")} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row 3 - Payment Methods & Payment Brands (Doughnuts) */}
+      <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-2">
           <CardHeader>
             <CardTitle>{t("dashboard.paymentMethods")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={paymentMethods}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={(entry) => entry.name}
-                  outerRadius={80}
+                  innerRadius={60}
+                  outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
+                  label={(entry) => entry.name}
                 >
                   {paymentMethods.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Recent Transactions */}
-        <Card className="border-2 md:col-span-2">
+        <Card className="border-2">
           <CardHeader>
-            <CardTitle>{t("dashboard.recentTransactions")}</CardTitle>
-            <CardDescription>
-              <Link to="/transactions" className="text-primary hover:underline">
-                {t("dashboard.viewAll")}
-              </Link>
-            </CardDescription>
+            <CardTitle>{t("dashboard.paymentBrands")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between border-b pb-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{transaction.customer_name || 'N/A'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {transaction.brand_name} - {transaction.product_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">{formatCurrency(parseNumber(transaction.total))}</p>
-                    <p className="text-xs text-green-600">+{formatCurrency(parseNumber(transaction.profit))}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={paymentBrands}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={(entry) => entry.name}
+                >
+                  {paymentBrands.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
+
+      {/* Product Summary Grid */}
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle>{t("dashboard.productSummary")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-4">{t("dashboard.product")}</th>
+                  <th className="text-right py-2 px-4">{t("dashboard.transactions")}</th>
+                  <th className="text-right py-2 px-4">{t("dashboard.sales")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productSummary.slice(0, 20).map((product: any, index) => (
+                  <tr key={index} className="border-b hover:bg-muted/50">
+                    <td className="py-2 px-4">{product.name}</td>
+                    <td className="text-right py-2 px-4">{product.qty}</td>
+                    <td className="text-right py-2 px-4">{formatCurrency(product.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Transactions */}
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle>{t("dashboard.recentTransactions")}</CardTitle>
+          <CardDescription>
+            <Link to="/transactions" className="text-primary hover:underline">
+              {t("dashboard.viewAll")}
+            </Link>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentTransactions.map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between border-b pb-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{transaction.customer_name || 'N/A'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {transaction.brand_name} - {transaction.product_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold">{formatCurrency(parseNumber(transaction.total))}</p>
+                  <p className="text-xs text-green-600">+{formatCurrency(parseNumber(transaction.profit))}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -39,6 +39,7 @@ export function AppSidebar() {
       label: t("sidebar.entry"),
       items: [
         { title: t("menu.loadData"), url: "/load-data", icon: FileSpreadsheet },
+        { title: t("menu.clearData"), url: "/clear-data", icon: Database },
       ]
     },
     {
