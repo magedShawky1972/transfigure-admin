@@ -178,22 +178,32 @@ const Dashboard = () => {
         
         setProgress(75);
 
-        // Sales trend by date - last 10 days
-        const salesByDate = transactions.reduce((acc: any, t) => {
-          const date = t.created_at_date ? t.created_at_date.split('T')[0] : 'Unknown';
-          if (!acc[date]) {
-            acc[date] = { date, sales: 0, profit: 0, rawDate: t.created_at_date };
-          }
-          acc[date].sales += parseNumber(t.total);
-          acc[date].profit += parseNumber(t.profit);
-          return acc;
-        }, {});
-        const sortedSalesTrend = Object.values(salesByDate)
-          .sort((a: any, b: any) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime())
-          .slice(0, 10)
-          .reverse()
-          .map((item: any) => ({ ...item, date: format(new Date(item.rawDate), 'MMM dd') }));
-        setSalesTrend(sortedSalesTrend);
+        // Sales trend by date - always fetch last 10 days
+        const now = new Date();
+        const tenDaysAgo = subDays(now, 10);
+        const { data: trendData, error: trendError } = await (supabase as any)
+          .from('purpletransaction')
+          .select('created_at_date, total, profit')
+          .gte('created_at_date', tenDaysAgo.toISOString())
+          .lte('created_at_date', now.toISOString())
+          .order('created_at_date', { ascending: true });
+
+        if (!trendError && trendData) {
+          const salesByDate = trendData.reduce((acc: any, t: any) => {
+            const date = t.created_at_date ? t.created_at_date.split('T')[0] : 'Unknown';
+            if (!acc[date]) {
+              acc[date] = { date, sales: 0, profit: 0, rawDate: t.created_at_date };
+            }
+            acc[date].sales += parseNumber(t.total);
+            acc[date].profit += parseNumber(t.profit);
+            return acc;
+          }, {});
+          
+          const sortedSalesTrend = Object.values(salesByDate)
+            .sort((a: any, b: any) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime())
+            .map((item: any) => ({ ...item, date: format(new Date(item.rawDate), 'MMM dd') }));
+          setSalesTrend(sortedSalesTrend);
+        }
         
         setProgress(78);
 
