@@ -295,16 +295,30 @@ const Dashboard = () => {
         const start = startOfMonth(monthDate);
         const end = endOfMonth(monthDate);
         
-        const { data, error } = await (supabase as any)
-          .from('purpletransaction')
-          .select('total, profit')
-          .gte('created_at_date', start.toISOString())
-          .lte('created_at_date', end.toISOString());
+        // Fetch all records in batches
+        const pageSize = 1000;
+        let from = 0;
+        let allData: any[] = [];
+        
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from('purpletransaction')
+            .select('total, profit')
+            .gte('created_at_date', start.toISOString())
+            .lte('created_at_date', end.toISOString())
+            .range(from, from + pageSize - 1);
 
-        if (error) throw error;
+          if (error) throw error;
 
-        const totalSales = (data || []).reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
-        const totalProfit = (data || []).reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
+          const batch = data || [];
+          allData = allData.concat(batch);
+          
+          if (batch.length < pageSize) break;
+          from += pageSize;
+        }
+
+        const totalSales = allData.reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
+        const totalProfit = allData.reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
 
         months.push({
           month: format(monthDate, 'MMM yyyy'),
