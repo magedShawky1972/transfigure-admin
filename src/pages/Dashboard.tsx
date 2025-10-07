@@ -181,19 +181,21 @@ const Dashboard = () => {
         // Sales trend by date - fetch last 10 days from the reference date
         // If custom date range, use fromDate as reference; otherwise use today
         const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
-        const trendEndDate = startOfDay(referenceDate);
-        const trendStartDate = startOfDay(subDays(trendEndDate, 9));
+        const trendEndDate = endOfDay(referenceDate);
+        const trendStartDate = startOfDay(subDays(referenceDate, 9));
 
         const { data: trendData, error: trendError } = await (supabase as any)
           .from('purpletransaction')
           .select('created_at_date, total, profit')
-          .gte('created_at_date', format(trendStartDate, 'yyyy-MM-dd'))
-          .lte('created_at_date', format(trendEndDate, 'yyyy-MM-dd'))
+          .gte('created_at_date', trendStartDate.toISOString())
+          .lte('created_at_date', trendEndDate.toISOString())
           .order('created_at_date', { ascending: true });
 
         if (!trendError && trendData) {
           const byDate = trendData.reduce((acc: any, t: any) => {
-            const key = t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd') : 'Unknown';
+            if (!t.created_at_date) return acc;
+            const dateObj = new Date(t.created_at_date);
+            const key = format(dateObj, 'yyyy-MM-dd');
             if (!acc[key]) acc[key] = { sales: 0, profit: 0 };
             acc[key].sales += parseNumber(t.total);
             acc[key].profit += parseNumber(t.profit);
@@ -201,7 +203,7 @@ const Dashboard = () => {
           }, {} as Record<string, { sales: number; profit: number }>);
 
           const points: any[] = [];
-          for (let d = trendStartDate; d <= trendEndDate; d = addDays(d, 1)) {
+          for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
             const key = format(d, 'yyyy-MM-dd');
             const val = byDate[key] || { sales: 0, profit: 0 };
             points.push({ date: format(d, 'MMM dd'), sales: val.sales });
