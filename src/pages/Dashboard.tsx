@@ -178,7 +178,7 @@ const Dashboard = () => {
         
         setProgress(75);
 
-        // Sales trend by date
+        // Sales trend by date - last 10 days
         const salesByDate = transactions.reduce((acc: any, t) => {
           const date = t.created_at_date ? format(new Date(t.created_at_date), 'MMM dd') : 'Unknown';
           if (!acc[date]) {
@@ -188,7 +188,7 @@ const Dashboard = () => {
           acc[date].profit += parseNumber(t.profit);
           return acc;
         }, {});
-        setSalesTrend(Object.values(salesByDate).slice(0, 15));
+        setSalesTrend(Object.values(salesByDate).slice(0, 10));
         
         setProgress(78);
 
@@ -521,8 +521,10 @@ const Dashboard = () => {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
-                <Bar dataKey="value" fill="#8B5CF6" name={t("dashboard.sales")} />
+                <Legend iconType="rect" wrapperStyle={{ color: '#ffffff' }} />
+                {topCategories.map((category, index) => (
+                  <Bar key={category.name} dataKey="value" fill={COLORS[index % COLORS.length]} name={category.name} />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -542,8 +544,10 @@ const Dashboard = () => {
                 <XAxis type="number" />
                 <YAxis dataKey="name" type="category" width={100} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
-                <Bar dataKey="value" fill="#EC4899" name={t("dashboard.sales")} />
+                <Legend iconType="rect" wrapperStyle={{ color: '#ffffff' }} />
+                {topProducts.map((product, index) => (
+                  <Bar key={product.name} dataKey="value" fill={COLORS[index % COLORS.length]} name={product.name} />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -593,7 +597,13 @@ const Dashboard = () => {
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
+                <Legend 
+                  iconType="circle" 
+                  align={language === 'ar' ? 'right' : 'left'}
+                  verticalAlign="middle" 
+                  layout="vertical"
+                  wrapperStyle={{ color: '#ffffff' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -621,7 +631,13 @@ const Dashboard = () => {
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
+                <Legend 
+                  iconType="circle" 
+                  align={language === 'ar' ? 'right' : 'left'}
+                  verticalAlign="middle" 
+                  layout="vertical"
+                  wrapperStyle={{ color: '#ffffff' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
