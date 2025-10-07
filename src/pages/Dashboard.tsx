@@ -178,17 +178,17 @@ const Dashboard = () => {
         
         setProgress(75);
 
-        // Sales trend by date - always fetch last 10 days ending yesterday
-        const todayStart = startOfDay(new Date());
-        const yesterday = subDays(todayStart, 1);
-        const start = startOfDay(subDays(yesterday, 9));
-        const end = endOfDay(yesterday);
+        // Sales trend by date - fetch last 10 days from the reference date
+        // If custom date range, use fromDate as reference; otherwise use today
+        const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
+        const trendEndDate = startOfDay(referenceDate);
+        const trendStartDate = startOfDay(subDays(trendEndDate, 9));
 
         const { data: trendData, error: trendError } = await (supabase as any)
           .from('purpletransaction')
           .select('created_at_date, total, profit')
-          .gte('created_at_date', start.toISOString())
-          .lte('created_at_date', end.toISOString())
+          .gte('created_at_date', format(trendStartDate, 'yyyy-MM-dd'))
+          .lte('created_at_date', format(trendEndDate, 'yyyy-MM-dd'))
           .order('created_at_date', { ascending: true });
 
         if (!trendError && trendData) {
@@ -201,7 +201,7 @@ const Dashboard = () => {
           }, {} as Record<string, { sales: number; profit: number }>);
 
           const points: any[] = [];
-          for (let d = start; d <= end; d = addDays(d, 1)) {
+          for (let d = trendStartDate; d <= trendEndDate; d = addDays(d, 1)) {
             const key = format(d, 'yyyy-MM-dd');
             const val = byDate[key] || { sales: 0, profit: 0 };
             points.push({ date: format(d, 'MMM dd'), sales: val.sales });
