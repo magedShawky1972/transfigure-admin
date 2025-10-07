@@ -186,16 +186,16 @@ const Dashboard = () => {
 
         const { data: trendData, error: trendError } = await (supabase as any)
           .from('purpletransaction')
-          .select('created_at_date, total, profit')
-          .gte('created_at_date', trendStartDate.toISOString())
-          .lte('created_at_date', trendEndDate.toISOString())
-          .order('created_at_date', { ascending: true });
+          .select('created_at, created_at_date, total, profit')
+          .gte('created_at', trendStartDate.toISOString())
+          .lte('created_at', trendEndDate.toISOString())
+          .order('created_at', { ascending: true });
 
         if (!trendError && trendData) {
           const byDate = trendData.reduce((acc: any, t: any) => {
-            if (!t.created_at_date) return acc;
-            const dateObj = new Date(t.created_at_date);
-            const key = format(dateObj, 'yyyy-MM-dd');
+            const dateSource = t.created_at_date ?? t.created_at;
+            if (!dateSource) return acc;
+            const key = format(new Date(dateSource), 'yyyy-MM-dd');
             if (!acc[key]) acc[key] = { sales: 0, profit: 0 };
             acc[key].sales += parseNumber(t.total);
             acc[key].profit += parseNumber(t.profit);
