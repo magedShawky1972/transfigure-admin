@@ -139,35 +139,13 @@ const Auth = () => {
     }
   };
 
-  // Finalize magic link, then check session/MFA
+  // Finalize magic link/callbacks, then check session/MFA
   useEffect(() => {
-    const init = async () => {
-      try {
-        const url = new URL(window.location.href);
-        const code = url.searchParams.get('code');
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            console.error('exchangeCodeForSession error:', error);
-            toast({ title: 'Login error', description: error.message, variant: 'destructive' });
-          }
-          // Clean URL
-          window.history.replaceState({}, document.title, url.pathname);
-        }
-      } catch (e: any) {
-        console.error('Init auth error:', e);
-      }
-
-      await checkSession();
-    };
-
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (session) {
         console.log('Session detected, checking MFA status');
         const { data: factors } = await supabase.auth.mfa.listFactors();
-        
         if (factors?.totp?.length) {
           console.log('MFA enrolled, showing verify step');
           setStep('verify');
@@ -178,7 +156,52 @@ const Auth = () => {
       }
     };
 
-    // Listen first, then init
+    const finalizeFromUrl = async () => {
+      try {
+        const url = new URL(window.location.href);
+        // 1) Handle error from redirect
+        const errorDesc = url.searchParams.get('error_description');
+        if (errorDesc) {
+          toast({ title: 'Login error', description: errorDesc, variant: 'destructive' });
+          // Clean URL
+          window.history.replaceState({}, document.title, url.pathname);
+          return;
+        }
+
+        // 2) New flow: code query param
+        const code = url.searchParams.get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('exchangeCodeForSession error:', error);
+            toast({ title: 'Login error', description: error.message, variant: 'destructive' });
+          }
+          window.history.replaceState({}, document.title, url.pathname);
+          return;
+        }
+
+        // 3) Legacy/hash flow: access_token + refresh_token in URL hash
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const access_token = hashParams.get('access_token');
+          const refresh_token = hashParams.get('refresh_token');
+          if (access_token && refresh_token) {
+            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (error) {
+              console.error('setSession from hash error:', error);
+              toast({ title: 'Login error', description: error.message, variant: 'destructive' });
+            }
+            // Clean hash
+            window.history.replaceState({}, document.title, url.pathname);
+            return;
+          }
+        }
+      } catch (e: any) {
+        console.error('Finalize auth error:', e);
+      }
+    };
+
+    // Listen first, then finalize and check
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event);
       if (event === 'SIGNED_IN' && session) {
@@ -188,7 +211,10 @@ const Auth = () => {
       }
     });
 
-    init();
+    (async () => {
+      await finalizeFromUrl();
+      await checkSession();
+    })();
 
     return () => subscription.unsubscribe();
   }, []);
