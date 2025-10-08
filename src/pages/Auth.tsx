@@ -7,30 +7,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp";
-import { Mail, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
+import { z } from "zod";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [step, setStep] = useState<"email" | "setup" | "verify">("email");
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [totpCode, setTotpCode] = useState("");
+
+  const authSchema = z.object({
+    email: z.string().email("Invalid email address").max(255),
+    password: z.string().min(6, "Password must be at least 6 characters").max(100),
+  });
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Check if email exists in profiles table via edge function
+      // Validate input
+      const validation = authSchema.safeParse({ email, password });
+      if (!validation.success) {
+        toast({
+          title: "Validation Error",
+          description: validation.error.errors[0].message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check if email exists in profiles table
       const { data: checkData, error: checkError } = await supabase.functions.invoke('check-email', {
         body: { email }
       });
 
       if (checkError) {
-        console.error('Error checking email:', checkError);
         toast({
           title: "Error",
           description: "Failed to verify email. Please try again.",
@@ -50,23 +68,27 @@ const Auth = () => {
         return;
       }
 
-      // Sign in with OTP to create session
-      const { error } = await supabase.auth.signInWithOtp({
+      // Sign in with email + password
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth`,
-        },
+        password,
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Check your email",
-        description: "We sent you a verification link. Click it to continue.",
-      });
+      // Check MFA status after successful password login
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      
+      if (factors?.totp?.length) {
+        // User has MFA enrolled, show verify step
+        setStep('verify');
+      } else {
+        // No MFA enrolled, start setup
+        await handleSetupMFA();
+      }
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Login Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -139,85 +161,18 @@ const Auth = () => {
     }
   };
 
-  // Finalize magic link/callbacks, then check session/MFA
+  // Check if already logged in
   useEffect(() => {
-    const checkSession = async () => {
+    const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        console.log('Session detected, checking MFA status');
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        if (factors?.totp?.length) {
-          console.log('MFA enrolled, showing verify step');
-          setStep('verify');
-        } else {
-          console.log('No MFA enrolled, starting setup');
-          await handleSetupMFA();
-        }
+        // If we have a full session with MFA verified, redirect to dashboard
+        navigate("/");
       }
     };
 
-    const finalizeFromUrl = async () => {
-      try {
-        const url = new URL(window.location.href);
-        // 1) Handle error from redirect
-        const errorDesc = url.searchParams.get('error_description');
-        if (errorDesc) {
-          toast({ title: 'Login error', description: errorDesc, variant: 'destructive' });
-          // Clean URL
-          window.history.replaceState({}, document.title, url.pathname);
-          return;
-        }
-
-        // 2) New flow: code query param
-        const code = url.searchParams.get('code');
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            console.error('exchangeCodeForSession error:', error);
-            toast({ title: 'Login error', description: error.message, variant: 'destructive' });
-          }
-          window.history.replaceState({}, document.title, url.pathname);
-          return;
-        }
-
-        // 3) Legacy/hash flow: access_token + refresh_token in URL hash
-        if (window.location.hash && window.location.hash.includes('access_token')) {
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const access_token = hashParams.get('access_token');
-          const refresh_token = hashParams.get('refresh_token');
-          if (access_token && refresh_token) {
-            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-            if (error) {
-              console.error('setSession from hash error:', error);
-              toast({ title: 'Login error', description: error.message, variant: 'destructive' });
-            }
-            // Clean hash
-            window.history.replaceState({}, document.title, url.pathname);
-            return;
-          }
-        }
-      } catch (e: any) {
-        console.error('Finalize auth error:', e);
-      }
-    };
-
-    // Listen first, then finalize and check
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
-      if (event === 'SIGNED_IN' && session) {
-        setTimeout(() => {
-          checkSession();
-        }, 0);
-      }
-    });
-
-    (async () => {
-      await finalizeFromUrl();
-      await checkSession();
-    })();
-
-    return () => subscription.unsubscribe();
-  }, []);
+    checkExistingSession();
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -225,7 +180,7 @@ const Auth = () => {
         <CardHeader>
           <CardTitle className="text-2xl">Welcome to Edara</CardTitle>
           <CardDescription>
-            {step === "email" && "Enter your email to continue"}
+            {step === "email" && "Sign in with your credentials"}
             {step === "setup" && "Set up Google Authenticator"}
             {step === "verify" && "Enter code from Google Authenticator"}
           </CardDescription>
@@ -245,9 +200,20 @@ const Auth = () => {
                   autoFocus
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                <Mail className="mr-2 h-4 w-4" />
-                {loading ? "Verifying..." : "Continue"}
+                <Shield className="mr-2 h-4 w-4" />
+                {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           )}
@@ -322,10 +288,11 @@ const Auth = () => {
                 onClick={() => {
                   setStep("email");
                   setEmail("");
+                  setPassword("");
                   setTotpCode("");
                 }}
               >
-                Use different email
+                Back to login
               </Button>
             </form>
           )}
