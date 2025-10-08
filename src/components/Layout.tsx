@@ -37,8 +37,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       
       if (!session && location.pathname !== "/auth") {
         navigate("/auth");
-      } else if (session && location.pathname === "/auth") {
-        navigate("/");
       }
     });
 
