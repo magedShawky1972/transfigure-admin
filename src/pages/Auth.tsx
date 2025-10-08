@@ -294,13 +294,35 @@ const Auth = () => {
         if (!mfaFactorId) {
           throw new Error("TOTP setup not initialized. Please re-scan the QR code.");
         }
-        // Directly verify the pending TOTP factor during enrollment
-        const code = totpCode.replace(/\D/g, '');
-        const verifyEnroll = await (supabase.auth.mfa.verify as any)({
-          factorId: mfaFactorId,
-          code,
-        });
-        if (verifyEnroll?.error) throw verifyEnroll.error;
+
+        // Ensure the factor still exists (avoid stale IDs after reset)
+        const { data: listed } = await supabase.auth.mfa.listFactors();
+        const exists = (listed?.totp ?? []).some((f: any) => f.id === mfaFactorId);
+        if (!exists) {
+          await handleSetupMFA();
+          throw new Error("MFA setup refreshed. Please re-scan the new QR and try again.");
+        }
+
+        const code = totpCode.replace(/\D/g, "");
+
+        // Try direct enrollment verification
+        try {
+          const verifyEnroll = await (supabase.auth.mfa.verify as any)({
+            factorId: mfaFactorId,
+            code,
+          });
+          if (verifyEnroll?.error) throw verifyEnroll.error;
+        } catch (err: any) {
+          // Some deployments require a challenge even during enrollment
+          const challenge = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+          if (challenge.error) throw challenge.error;
+          const verify = await supabase.auth.mfa.verify({
+            factorId: mfaFactorId,
+            challengeId: challenge.data.id,
+            code,
+          });
+          if (verify.error) throw verify.error;
+        }
 
         toast({ title: "Success", description: "Authenticator linked successfully" });
         navigate("/");
