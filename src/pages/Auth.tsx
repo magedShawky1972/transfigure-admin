@@ -22,6 +22,7 @@ const Auth = () => {
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [totpCode, setTotpCode] = useState("");
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
 
   const authSchema = z.object({
     email: z.string().email("Invalid email address").max(255),
@@ -203,6 +204,7 @@ const Auth = () => {
 
       if (enrollError) throw enrollError;
 
+      setMfaFactorId(enrollData.id);
       setQrCode(enrollData.totp.qr_code);
       setSecret(enrollData.totp.secret);
       setStep("setup");
@@ -222,14 +224,29 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      if (step === "setup") {
+        if (!mfaFactorId) {
+          throw new Error("TOTP setup not initialized. Please re-scan the QR code.");
+        }
+        // During enrollment: verify the pending TOTP factor (no challenge required)
+        const verifyEnroll = await (supabase.auth.mfa.verify as any)({
+          factorId: mfaFactorId,
+          code: totpCode,
+        });
+        if (verifyEnroll.error) throw verifyEnroll.error;
+
+        toast({ title: "Success", description: "Authenticator linked successfully" });
+        navigate("/");
+        return;
+      }
+
+      // During login: challenge the verified factor then verify with challengeId
       const { data: factors } = await supabase.auth.mfa.listFactors();
-      
       if (!factors?.totp?.[0]) {
         throw new Error("No TOTP factor found");
       }
 
       const factorId = factors.totp[0].id;
-
       const challenge = await supabase.auth.mfa.challenge({ factorId });
       if (challenge.error) throw challenge.error;
 
@@ -241,11 +258,7 @@ const Auth = () => {
 
       if (verify.error) throw verify.error;
 
-      toast({
-        title: "Success",
-        description: "Logged in successfully",
-      });
-
+      toast({ title: "Success", description: "Logged in successfully" });
       navigate("/");
     } catch (error: any) {
       toast({
