@@ -1,18 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 interface Transaction {
   id: string;
@@ -40,12 +39,9 @@ interface DashboardMetrics {
 
 const Dashboard = () => {
   const { t, language } = useLanguage();
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingCharts, setLoadingCharts] = useState(true);
-  const [loadingTables, setLoadingTables] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [loadingMessage, setLoadingMessage] = useState("Initializing...");
-  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingCharts, setLoadingCharts] = useState(false);
+  const [loadingTables, setLoadingTables] = useState(false);
   const [dateFilter, setDateFilter] = useState<string>("yesterday");
   const [fromDate, setFromDate] = useState<Date>();
   const [toDate, setToDate] = useState<Date>();
@@ -123,151 +119,44 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
   const handleApplyFilter = () => {
-    fetchDashboardData();
+    fetchMetrics();
+    fetchCharts();
+    fetchTables();
   };
 
-  const fetchDashboardData = async () => {
+  const fetchMetrics = async () => {
     try {
       setLoadingStats(true);
-      setLoadingCharts(true);
-      setLoadingTables(true);
-      setProgress(10);
-      
-      let startTime = Date.now();
-      setLoadingMessage(t("dashboard.loadingInitializing"));
-      setTimeElapsed(0);
-
       const dateRange = getDateRange();
       if (!dateRange) return;
-
-      setProgress(20);
-      setLoadingMessage(t("dashboard.loadingTransactions"));
-      setTimeElapsed(Date.now() - startTime);
 
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
 
-      // Fetch all data in parallel
-      const transactionsStartTime = Date.now();
-      const [transactionsResult, trendResult, monthComparisonResult] = await Promise.all([
-        // Fetch transactions in batches
-        (async () => {
-          const pageSize = 1000;
-          let from = 0;
-          let transactions: Transaction[] = [];
-          
-          while (true) {
-            const { data, error } = await (supabase as any)
-              .from('purpletransaction')
-              .select('*')
-              .order('created_at_date', { ascending: false })
-              .gte('created_at_date', startStr)
-              .lt('created_at_date', endNextStr)
-              .range(from, from + pageSize - 1);
+      const pageSize = 1000;
+      let from = 0;
+      let transactions: Transaction[] = [];
+      
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from('purpletransaction')
+          .select('*')
+          .order('created_at_date', { ascending: false })
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
+          .range(from, from + pageSize - 1);
 
-            if (error) throw error;
+        if (error) throw error;
 
-            const batch = (data as Transaction[]) || [];
-            transactions = transactions.concat(batch);
-            
-            if (batch.length < pageSize) break;
-            from += pageSize;
-          }
-          
-          return transactions;
-        })(),
+        const batch = (data as Transaction[]) || [];
+        transactions = transactions.concat(batch);
         
-        // Fetch sales trend
-        (async () => {
-          const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
-          const trendEndDate = endOfDay(referenceDate);
-          const trendStartDate = startOfDay(subDays(referenceDate, 9));
-
-          const { data, error } = await (supabase as any)
-            .rpc('sales_trend', {
-              date_from: format(trendStartDate, 'yyyy-MM-dd'),
-              date_to: format(trendEndDate, 'yyyy-MM-dd')
-            });
-
-          if (error) throw error;
-
-          const byDate: Record<string, number> = {};
-          (data || []).forEach((row: any) => {
-            byDate[row.created_at_date] = Number(row.total_sum);
-          });
-
-          const points: any[] = [];
-          for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
-            const key = format(d, 'yyyy-MM-dd');
-            const sales = byDate[key] ?? 0;
-            points.push({ date: format(d, 'MMM dd'), sales });
-          }
-          
-          return points;
-        })(),
-        
-        // Fetch month comparison
-        (async () => {
-          const now = new Date();
-          const months = [];
-          
-          for (let i = 0; i < 3; i++) {
-            const monthDate = subMonths(now, i);
-            const start = startOfMonth(monthDate);
-            const end = endOfMonth(monthDate);
-            
-            const pageSize = 1000;
-            let from = 0;
-            let allData: any[] = [];
-            
-            while (true) {
-              const { data, error } = await (supabase as any)
-                .from('purpletransaction')
-                .select('total, profit')
-                .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
-                .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
-                .range(from, from + pageSize - 1);
-
-              if (error) throw error;
-
-              const batch = data || [];
-              allData = allData.concat(batch);
-              
-              if (batch.length < pageSize) break;
-              from += pageSize;
-            }
-
-            const totalSales = allData.reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
-            const totalProfit = allData.reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
-
-            months.push({
-              month: format(monthDate, 'MMM yyyy'),
-              sales: totalSales,
-              profit: totalProfit,
-            });
-          }
-
-          return months.reverse();
-        })()
-      ]);
-
-      setProgress(50);
-      setLoadingMessage(t("dashboard.loadingCalculatingStats"));
-      setTimeElapsed(Date.now() - transactionsStartTime);
-
-      const transactions = transactionsResult;
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
 
       if (transactions && transactions.length > 0) {
-        setProgress(60);
-        setLoadingMessage(t("dashboard.loadingProcessingData"));
-        setTimeElapsed(Date.now() - transactionsStartTime);
-        
-        // Calculate all metrics from the transactions data
         const totalSales = transactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
         const totalProfit = transactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
         const transactionCount = transactions.length;
@@ -286,6 +175,116 @@ const Dashboard = () => {
           ePaymentCharges,
         });
 
+        setRecentTransactions(transactions.slice(0, 5));
+      }
+
+      setLoadingStats(false);
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      setLoadingStats(false);
+    }
+  };
+
+  const fetchCharts = async () => {
+    try {
+      setLoadingCharts(true);
+      const dateRange = getDateRange();
+      if (!dateRange) return;
+
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      // Fetch transactions for charts
+      const pageSize = 1000;
+      let from = 0;
+      let transactions: Transaction[] = [];
+      
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from('purpletransaction')
+          .select('*')
+          .order('created_at_date', { ascending: false })
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const batch = (data as Transaction[]) || [];
+        transactions = transactions.concat(batch);
+        
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      // Sales trend
+      const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
+      const trendEndDate = endOfDay(referenceDate);
+      const trendStartDate = startOfDay(subDays(referenceDate, 9));
+
+      const { data: trendData, error: trendError } = await (supabase as any)
+        .rpc('sales_trend', {
+          date_from: format(trendStartDate, 'yyyy-MM-dd'),
+          date_to: format(trendEndDate, 'yyyy-MM-dd')
+        });
+
+      if (trendError) throw trendError;
+
+      const byDate: Record<string, number> = {};
+      (trendData || []).forEach((row: any) => {
+        byDate[row.created_at_date] = Number(row.total_sum);
+      });
+
+      const points: any[] = [];
+      for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
+        const key = format(d, 'yyyy-MM-dd');
+        const sales = byDate[key] ?? 0;
+        points.push({ date: format(d, 'MMM dd'), sales });
+      }
+      setSalesTrend(points);
+
+      // Month comparison
+      const now = new Date();
+      const months = [];
+      
+      for (let i = 0; i < 3; i++) {
+        const monthDate = subMonths(now, i);
+        const start = startOfMonth(monthDate);
+        const end = endOfMonth(monthDate);
+        
+        let monthFrom = 0;
+        let allData: any[] = [];
+        
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from('purpletransaction')
+            .select('total, profit')
+            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
+            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
+            .range(monthFrom, monthFrom + pageSize - 1);
+
+          if (error) throw error;
+
+          const batch = data || [];
+          allData = allData.concat(batch);
+          
+          if (batch.length < pageSize) break;
+          monthFrom += pageSize;
+        }
+
+        const totalSales = allData.reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
+        const totalProfit = allData.reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
+
+        months.push({
+          month: format(monthDate, 'MMM yyyy'),
+          sales: totalSales,
+          profit: totalProfit,
+        });
+      }
+
+      setMonthComparison(months.reverse());
+
+      if (transactions && transactions.length > 0) {
         // Top brands
         const brandSales = transactions.reduce((acc: any, t) => {
           const brand = t.brand_name || 'Unknown';
@@ -298,7 +297,7 @@ const Dashboard = () => {
         setTopBrands(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
         setTopCategories(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
-        // Top 5 products
+        // Top products
         const productSales = transactions.reduce((acc: any, t) => {
           const product = t.product_name || 'Unknown';
           if (!acc[product]) {
@@ -309,6 +308,79 @@ const Dashboard = () => {
           return acc;
         }, {});
         setTopProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
+
+        // Payment methods
+        const paymentData = transactions.reduce((acc: any, t) => {
+          const method = t.payment_method || 'Unknown';
+          if (!acc[method]) {
+            acc[method] = { name: method, value: 0 };
+          }
+          acc[method].value += parseNumber(t.total);
+          return acc;
+        }, {});
+        setPaymentMethods(Object.values(paymentData));
+
+        // Payment brands
+        const paymentBrandData = transactions.reduce((acc: any, t) => {
+          const brand = t.payment_brand || 'Unknown';
+          if (!acc[brand]) {
+            acc[brand] = { name: brand, value: 0 };
+          }
+          acc[brand].value += parseNumber(t.total);
+          return acc;
+        }, {});
+        setPaymentBrands(Object.values(paymentBrandData));
+      }
+
+      setLoadingCharts(false);
+    } catch (error) {
+      console.error('Error fetching charts:', error);
+      setLoadingCharts(false);
+    }
+  };
+
+  const fetchTables = async () => {
+    try {
+      setLoadingTables(true);
+      const dateRange = getDateRange();
+      if (!dateRange) return;
+
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      const pageSize = 1000;
+      let from = 0;
+      let transactions: Transaction[] = [];
+      
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from('purpletransaction')
+          .select('*')
+          .order('created_at_date', { ascending: false })
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const batch = (data as Transaction[]) || [];
+        transactions = transactions.concat(batch);
+        
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      if (transactions && transactions.length > 0) {
+        // Product summary
+        const productSales = transactions.reduce((acc: any, t) => {
+          const product = t.product_name || 'Unknown';
+          if (!acc[product]) {
+            acc[product] = { name: product, value: 0, qty: 0 };
+          }
+          acc[product].value += parseNumber(t.total);
+          acc[product].qty += parseNumber(t.qty);
+          return acc;
+        }, {});
         setProductSummary(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
         
         // Extract unique values for filters
@@ -343,59 +415,16 @@ const Dashboard = () => {
           return acc;
         }, {});
         setCustomerPurchases(Object.values(customerData).sort((a: any, b: any) => b.totalValue - a.totalValue));
-
-        // Payment methods
-        const paymentData = transactions.reduce((acc: any, t) => {
-          const method = t.payment_method || 'Unknown';
-          if (!acc[method]) {
-            acc[method] = { name: method, value: 0 };
-          }
-          acc[method].value += parseNumber(t.total);
-          return acc;
-        }, {});
-        setPaymentMethods(Object.values(paymentData));
-
-        // Payment brands
-        const paymentBrandData = transactions.reduce((acc: any, t) => {
-          const brand = t.payment_brand || 'Unknown';
-          if (!acc[brand]) {
-            acc[brand] = { name: brand, value: 0 };
-          }
-          acc[brand].value += parseNumber(t.total);
-          return acc;
-        }, {});
-        setPaymentBrands(Object.values(paymentBrandData));
-
-        // Recent transactions
-        setRecentTransactions(transactions.slice(0, 5));
       }
 
-      // Set data from parallel queries
-      setSalesTrend(trendResult);
-      setMonthComparison(monthComparisonResult);
-
-      setProgress(90);
-      setLoadingMessage(t("dashboard.loadingCompleting"));
-      setTimeElapsed(Date.now() - transactionsStartTime);
-
-      setProgress(100);
-      setTimeout(() => {
-        setLoadingStats(false);
-        setLoadingCharts(false);
-        setLoadingTables(false);
-      }, 300);
+      setLoadingTables(false);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      setLoadingStats(false);
-      setLoadingCharts(false);
+      console.error('Error fetching tables:', error);
       setLoadingTables(false);
     }
   };
 
 
-  if (loadingStats && loadingCharts && loadingTables) {
-    return <LoadingOverlay progress={progress} message={loadingMessage} timeElapsed={timeElapsed} />;
-  }
 
   const metricCards = [
     {
@@ -504,7 +533,12 @@ const Dashboard = () => {
       {/* Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {metricCards.map((card) => (
-          <Card key={card.title} className="border-2 hover:shadow-lg transition-all duration-300">
+          <Card key={card.title} className="border-2 hover:shadow-lg transition-all duration-300 relative">
+            {loadingStats && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
               <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center`}>
@@ -519,7 +553,12 @@ const Dashboard = () => {
       </div>
 
       {/* Income Statement */}
-      <Card className="border-2">
+      <Card className="border-2 relative">
+        {loadingStats && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
         <CardHeader>
           <CardTitle>{t("dashboard.incomeStatement")}</CardTitle>
         </CardHeader>
@@ -542,7 +581,12 @@ const Dashboard = () => {
 
       {/* Charts Row 1 - Sales Trend & Top 5 Categories */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-2">
+        <Card className="border-2 relative">
+          {loadingCharts && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <CardHeader>
             <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
           </CardHeader>
@@ -559,7 +603,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-2">
+        <Card className="border-2 relative">
+          {loadingCharts && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <CardHeader>
             <CardTitle>{t("dashboard.topCategories")}</CardTitle>
           </CardHeader>
@@ -601,7 +650,12 @@ const Dashboard = () => {
 
       {/* Charts Row 2 - Top 10 Products & Month Comparison */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-2">
+        <Card className="border-2 relative">
+          {loadingCharts && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <CardHeader>
             <CardTitle>{language === 'ar' ? 'أفضل 5 منتجات' : 'Top 5 Products'}</CardTitle>
           </CardHeader>
@@ -634,7 +688,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-2">
+        <Card className="border-2 relative">
+          {loadingCharts && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <CardHeader>
             <CardTitle>{t("dashboard.monthComparison")}</CardTitle>
           </CardHeader>
@@ -656,7 +715,12 @@ const Dashboard = () => {
 
       {/* Charts Row 3 - Payment Methods & Payment Brands (Doughnuts) */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-2">
+        <Card className="border-2 relative">
+          {loadingCharts && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <CardHeader>
             <CardTitle>{t("dashboard.paymentMethods")}</CardTitle>
           </CardHeader>
@@ -689,7 +753,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-2">
+        <Card className="border-2 relative">
+          {loadingCharts && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <CardHeader>
             <CardTitle>{t("dashboard.paymentBrands")}</CardTitle>
           </CardHeader>
@@ -724,7 +793,12 @@ const Dashboard = () => {
       </div>
 
       {/* Product Summary Grid with Filters */}
-      <Card className="border-2">
+      <Card className="border-2 relative">
+        {loadingTables && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
         <CardHeader>
           <CardTitle>{t("dashboard.productSummary")}</CardTitle>
           <div className="flex flex-wrap gap-4 mt-4">
@@ -797,7 +871,12 @@ const Dashboard = () => {
       </Card>
 
       {/* Customer Purchases Summary */}
-      <Card className="border-2">
+      <Card className="border-2 relative">
+        {loadingTables && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
         <CardHeader>
           <CardTitle>{t("dashboard.customerPurchases")}</CardTitle>
           <div className="flex flex-wrap gap-4 mt-4">
