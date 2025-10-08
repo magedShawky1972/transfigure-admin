@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -54,38 +54,39 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/auth`,
         },
       });
 
       if (error) throw error;
 
-      // Check if user has MFA enrolled
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        
-        if (factors && factors.totp && factors.totp.length > 0) {
-          setStep("verify");
-        } else {
-          // Need to enroll TOTP
-          const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
-            factorType: "totp",
-          });
-
-          if (enrollError) throw enrollError;
-
-          setQrCode(enrollData.totp.qr_code);
-          setSecret(enrollData.totp.secret);
-          setStep("setup");
-        }
-      }
-
       toast({
         title: "Check your email",
         description: "We sent you a verification link. Click it to continue.",
       });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetupMFA = async () => {
+    setLoading(true);
+    try {
+      const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+      });
+
+      if (enrollError) throw enrollError;
+
+      setQrCode(enrollData.totp.qr_code);
+      setSecret(enrollData.totp.secret);
+      setStep("setup");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -110,12 +111,16 @@ const Auth = () => {
 
       const factorId = factors.totp[0].id;
 
-      const { error } = await supabase.auth.mfa.challengeAndVerify({
+      const challenge = await supabase.auth.mfa.challenge({ factorId });
+      if (challenge.error) throw challenge.error;
+
+      const verify = await supabase.auth.mfa.verify({
         factorId,
+        challengeId: challenge.data.id,
         code: totpCode,
       });
 
-      if (error) throw error;
+      if (verify.error) throw verify.error;
 
       toast({
         title: "Success",
@@ -133,6 +138,36 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  // Check for existing session and MFA status on mount and after redirect
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        
+        if (factors && factors.totp && factors.totp.length > 0) {
+          // User has MFA enrolled, show verification
+          setStep("verify");
+        } else {
+          // User needs to enroll MFA
+          await handleSetupMFA();
+        }
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        checkSession();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
