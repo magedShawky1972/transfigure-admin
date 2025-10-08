@@ -287,17 +287,34 @@ const Auth = () => {
   };
 
   const handleResetMFA = async () => {
+    setLoading(true);
     try {
-      if (mfaFactorId) {
-        await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
-        setMfaFactorId(null);
+      // Unenroll ALL existing TOTP factors to force a fresh QR
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totp = (factors?.totp ?? []) as any[];
+      for (const f of totp) {
+        await supabase.auth.mfa.unenroll({ factorId: f.id });
       }
-      setQrCode('');
-      setSecret('');
+
+      // Enroll a new factor to get a brand new QR
+      const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        // give it a unique friendly name to avoid collisions
+        friendlyName: `authenticator-${Date.now()}` as any,
+      } as any);
+      if (enrollError) throw enrollError;
+
+      setMfaFactorId(enrollData.id);
+      setQrCode(enrollData.totp.qr_code);
+      setSecret(enrollData.totp.secret);
       setTotpCode('');
-      await handleSetupMFA();
+      setStep('setup');
+
+      toast({ title: 'MFA reset', description: 'New QR generated. Please re‑scan and enter the code.' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -543,6 +560,9 @@ const Auth = () => {
               <Button type="submit" className="w-full" disabled={loading || totpCode.length !== 6}>
                 <Shield className="mr-2 h-4 w-4" />
                 {loading ? "Verifying..." : "Sign In"}
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={handleResetMFA} disabled={loading}>
+                Can't access your app? Reset MFA
               </Button>
               <Button
                 type="button"
