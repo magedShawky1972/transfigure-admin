@@ -31,6 +31,7 @@ const translations = {
     "menu.apiConfig": "API Configuration",
     "menu.excelSetup": "Excel Setup",
     "menu.tableConfig": "Table Configuration",
+    "menu.userSetup": "User Setup",
     
     // Dashboard - Sales Analytics
     "dashboard.title": "Sales Dashboard",
@@ -150,6 +151,7 @@ const translations = {
     "menu.apiConfig": "إعدادات API",
     "menu.excelSetup": "إعدادات Excel",
     "menu.tableConfig": "إعدادات الجداول",
+    "menu.userSetup": "إعداد المستخدمين",
     
     // Dashboard - Sales Analytics
     "dashboard.title": "لوحة المبيعات",

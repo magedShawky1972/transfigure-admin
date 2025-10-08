@@ -5,7 +5,8 @@ import {
   BarChart3, 
   Table2,
   Home,
-  Settings
+  Settings,
+  Users
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -51,6 +52,7 @@ export function AppSidebar() {
     {
       label: t("sidebar.admin"),
       items: [
+        { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
         { title: t("menu.apiConfig"), url: "/api-config", icon: Cloud },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
