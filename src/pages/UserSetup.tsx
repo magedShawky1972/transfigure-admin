@@ -94,31 +94,33 @@ const UserSetup = () => {
           description: "User updated successfully",
         });
       } else {
-        // For new users, create auth user first
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: Math.random().toString(36).slice(-8), // Generate random password
-          options: {
-            data: {
-              user_name: formData.user_name,
+        // For new users, use edge function to bypass rate limiting
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
             },
-          },
-        });
+            body: JSON.stringify({
+              user_name: formData.user_name,
+              email: formData.email,
+              mobile_number: formData.mobile_number || null,
+              is_active: formData.is_active,
+            }),
+          }
+        );
 
-        if (authError) throw authError;
-        if (!authData.user) throw new Error("Failed to create user");
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to create user");
+        }
 
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            user_id: authData.user.id,
-            user_name: formData.user_name,
-            email: formData.email,
-            mobile_number: formData.mobile_number || null,
-            is_active: formData.is_active,
-          });
-
-        if (profileError) throw profileError;
         toast({
           title: t("common.success"),
           description: "User created successfully",

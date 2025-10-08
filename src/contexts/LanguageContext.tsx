@@ -128,6 +128,10 @@ const translations = {
     "clearData.error": "Error clearing data",
     "clearData.selectTableFirst": "Please select a table first",
     "clearData.selectDates": "Please select both from and to dates",
+    
+    // Common
+    "common.success": "Success",
+    "common.error": "Error",
   },
   ar: {
     // Header
@@ -248,6 +252,10 @@ const translations = {
     "clearData.error": "خطأ في حذف البيانات",
     "clearData.selectTableFirst": "الرجاء اختيار جدول أولاً",
     "clearData.selectDates": "الرجاء اختيار كلا التاريخين (من وإلى)",
+    
+    // Common
+    "common.success": "نجح",
+    "common.error": "خطأ",
   },
 };
 
