@@ -93,27 +93,12 @@ const Auth = () => {
 
       // Check MFA status after successful password login
       const { data: factors } = await supabase.auth.mfa.listFactors();
-      let totpFactors = (factors?.totp ?? []) as any[];
+      const hasVerified = (factors?.totp ?? []).some((f: any) => f.status === 'verified');
 
-      // Fallback using getUser if listFactors is empty
-      if (!totpFactors.length) {
-        const { data: { user } } = await supabase.auth.getUser();
-        const fromUser = (user as any)?.factors ?? [];
-        totpFactors = fromUser.filter((f: any) => f.factor_type === 'totp');
-      }
-
-      const verified = totpFactors.find((f) => f.status === 'verified');
-      const unverified = totpFactors.find((f) => f.status === 'unverified');
-
-      if (verified) {
+      if (hasVerified) {
         setStep('verify');
-      } else if (unverified) {
-        setMfaFactorId(unverified.id);
-        setQrCode('');
-        setSecret('');
-        setStep('setup');
       } else {
-        // No MFA enrolled, start setup
+        // Always start a fresh setup to ensure QR/secret matches the app
         await handleSetupMFA();
       }
     } catch (error: any) {
@@ -200,17 +185,10 @@ const Auth = () => {
 
       // Continue to MFA setup/verification
       const { data: factors } = await supabase.auth.mfa.listFactors();
-      const totpFactors = (factors?.totp ?? []) as any[];
-      const verified = totpFactors.find((f) => f.status === 'verified');
-      const unverified = totpFactors.find((f) => f.status === 'unverified');
+      const hasVerified = (factors?.totp ?? []).some((f: any) => f.status === 'verified');
       
-      if (verified) {
+      if (hasVerified) {
         setStep('verify');
-      } else if (unverified) {
-        setMfaFactorId(unverified.id);
-        setQrCode('');
-        setSecret('');
-        setStep('setup');
       } else {
         await handleSetupMFA();
       }
@@ -228,26 +206,15 @@ const Auth = () => {
   const handleSetupMFA = async () => {
     setLoading(true);
     try {
-      // Check existing factors first (both via listFactors and getUser for robustness)
+      // Always start fresh when no verified factor exists
       const { data: listed } = await supabase.auth.mfa.listFactors();
       const existingListed = (listed?.totp ?? []) as any[];
-      if (existingListed.length) {
-        const verified = existingListed.find((f) => f.status === 'verified');
-        const unverified = existingListed.find((f) => f.status === 'unverified');
-        if (verified) {
-          setStep('verify');
-          return;
-        }
-        if (unverified) {
-          setMfaFactorId(unverified.id);
-          setQrCode('');
-          setSecret('');
-          setStep('setup');
-          return;
-        }
+      if (existingListed.some((f) => f.status === 'verified')) {
+        setStep('verify');
+        return;
       }
 
-      // Clean up any stale unverified
+      // Remove any lingering unverified factors to avoid mismatched secrets
       for (const f of existingListed) {
         if (f.status === 'unverified') {
           await supabase.auth.mfa.unenroll({ factorId: f.id });
@@ -327,20 +294,13 @@ const Auth = () => {
         if (!mfaFactorId) {
           throw new Error("TOTP setup not initialized. Please re-scan the QR code.");
         }
-        // Prefer challenge+verify to satisfy backends that require it during enrollment
-        const challenge = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
-        if (challenge.error) {
-          // Fallback to direct verify if challenge isn't supported
-          const direct = await (supabase.auth.mfa.verify as any)({ factorId: mfaFactorId, code: totpCode });
-          if (direct?.error) throw direct.error;
-        } else {
-          const verify = await supabase.auth.mfa.verify({
-            factorId: mfaFactorId,
-            challengeId: challenge.data.id,
-            code: totpCode,
-          });
-          if (verify.error) throw verify.error;
-        }
+        // Directly verify the pending TOTP factor during enrollment
+        const code = totpCode.replace(/\D/g, '');
+        const verifyEnroll = await (supabase.auth.mfa.verify as any)({
+          factorId: mfaFactorId,
+          code,
+        });
+        if (verifyEnroll?.error) throw verifyEnroll.error;
 
         toast({ title: "Success", description: "Authenticator linked successfully" });
         navigate("/");
@@ -358,10 +318,11 @@ const Auth = () => {
       const challenge = await supabase.auth.mfa.challenge({ factorId });
       if (challenge.error) throw challenge.error;
 
+      const code = totpCode.replace(/\D/g, '');
       const verify = await supabase.auth.mfa.verify({
         factorId,
         challengeId: challenge.data.id,
-        code: totpCode,
+        code,
       });
 
       if (verify.error) throw verify.error;
