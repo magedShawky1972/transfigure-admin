@@ -145,13 +145,16 @@ const Auth = () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
+        console.log('Session detected, checking MFA status');
         const { data: factors } = await supabase.auth.mfa.listFactors();
         
         if (factors && factors.totp && factors.totp.length > 0) {
           // User has MFA enrolled, show verification
+          console.log('MFA enrolled, showing verify step');
           setStep("verify");
         } else {
           // User needs to enroll MFA
+          console.log('No MFA enrolled, starting setup');
           await handleSetupMFA();
         }
       }
@@ -160,9 +163,10 @@ const Auth = () => {
     checkSession();
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
       if (event === 'SIGNED_IN' && session) {
-        checkSession();
+        await checkSession();
       }
     });
 
