@@ -40,7 +40,9 @@ interface DashboardMetrics {
 
 const Dashboard = () => {
   const { t, language } = useLanguage();
-  const [loading, setLoading] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingCharts, setLoadingCharts] = useState(true);
+  const [loadingTables, setLoadingTables] = useState(true);
   const [progress, setProgress] = useState(0);
   const [dateFilter, setDateFilter] = useState<string>("yesterday");
   const [fromDate, setFromDate] = useState<Date>();
@@ -129,7 +131,9 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
+      setLoadingStats(true);
+      setLoadingCharts(true);
+      setLoadingTables(true);
       setProgress(10);
 
       const dateRange = getDateRange();
@@ -326,10 +330,16 @@ const Dashboard = () => {
       }
 
       setProgress(100);
-      setTimeout(() => setLoading(false), 300);
+      setTimeout(() => {
+        setLoadingStats(false);
+        setLoadingCharts(false);
+        setLoadingTables(false);
+      }, 300);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setLoading(false);
+      setLoadingStats(false);
+      setLoadingCharts(false);
+      setLoadingTables(false);
     }
   };
 
@@ -381,7 +391,7 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) {
+  if (loadingStats && loadingCharts && loadingTables) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div>

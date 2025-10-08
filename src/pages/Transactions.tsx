@@ -290,7 +290,9 @@ const Transactions = () => {
                       </TableCell>
                       <TableCell>{transaction.customer_name || 'N/A'}</TableCell>
                       <TableCell>{transaction.customer_phone || 'N/A'}</TableCell>
-                      <TableCell>{transaction.brand_name || 'N/A'}</TableCell>
+                      <TableCell className="max-w-[120px] truncate" title={transaction.brand_name || 'N/A'}>
+                        {transaction.brand_name || 'N/A'}
+                      </TableCell>
                       <TableCell>{transaction.product_name || 'N/A'}</TableCell>
                       <TableCell>{transaction.order_number || 'N/A'}</TableCell>
                       <TableCell>{transaction.user_name || 'N/A'}</TableCell>
