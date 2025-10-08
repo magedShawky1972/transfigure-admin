@@ -416,6 +416,31 @@ const Auth = () => {
               <Button type="button" variant="outline" className="w-full" onClick={handleDevReset} disabled={loading}>
                 Reset to default password (dev)
               </Button>
+              <Button 
+                type="button" 
+                variant="destructive" 
+                className="w-full" 
+                onClick={async () => {
+                  if (!email) {
+                    toast({ title: 'Enter email first', variant: 'destructive' });
+                    return;
+                  }
+                  setLoading(true);
+                  try {
+                    await supabase.functions.invoke('admin-reset-mfa', {
+                      body: { email }
+                    });
+                    toast({ title: 'MFA reset', description: 'All MFA factors deleted. You can now sign in and set up fresh.' });
+                  } catch (err: any) {
+                    toast({ title: 'Error', description: err.message, variant: 'destructive' });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+              >
+                Reset MFA (dev)
+              </Button>
             </form>
           )}
 
