@@ -133,9 +133,11 @@ const Dashboard = () => {
           .range(from, from + pageSize - 1);
 
         if (dateRange) {
+          const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+          const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
           query = query
-            .gte('created_at_date', dateRange.start.toISOString())
-            .lte('created_at_date', dateRange.end.toISOString());
+            .gte('created_at_date', startStr)
+            .lt('created_at_date', endNextStr);
         }
 
         const { data, error } = await query;
@@ -301,8 +303,8 @@ const Dashboard = () => {
           const { data, error } = await (supabase as any)
             .from('purpletransaction')
             .select('total, profit')
-            .gte('created_at_date', start.toISOString())
-            .lte('created_at_date', end.toISOString())
+            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
+            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
             .range(from, from + pageSize - 1);
 
           if (error) throw error;
