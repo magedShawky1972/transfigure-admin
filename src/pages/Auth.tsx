@@ -16,7 +16,9 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [step, setStep] = useState<"email" | "setup" | "verify">("email");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [step, setStep] = useState<"email" | "change-password" | "setup" | "verify">("email");
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -76,6 +78,18 @@ const Auth = () => {
 
       if (error) throw error;
 
+      // Check if password change is required
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('must_change_password')
+        .eq('email', email)
+        .single();
+
+      if (profile?.must_change_password) {
+        setStep('change-password');
+        return;
+      }
+
       // Check MFA status after successful password login
       const { data: factors } = await supabase.auth.mfa.listFactors();
       
@@ -89,6 +103,71 @@ const Auth = () => {
     } catch (error: any) {
       toast({
         title: "Login Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Validate passwords
+      if (newPassword !== confirmPassword) {
+        toast({
+          title: "Error",
+          description: "Passwords do not match",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        toast({
+          title: "Error",
+          description: "Password must be at least 6 characters",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) throw updateError;
+
+      // Update profile flag
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ must_change_password: false })
+        .eq('email', email);
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: "Success",
+        description: "Password updated successfully",
+      });
+
+      // Continue to MFA setup/verification
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      
+      if (factors?.totp?.length) {
+        setStep('verify');
+      } else {
+        await handleSetupMFA();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -181,6 +260,7 @@ const Auth = () => {
           <CardTitle className="text-2xl">Welcome to Edara</CardTitle>
           <CardDescription>
             {step === "email" && "Sign in with your credentials"}
+            {step === "change-password" && "Change your password"}
             {step === "setup" && "Set up Google Authenticator"}
             {step === "verify" && "Enter code from Google Authenticator"}
           </CardDescription>
@@ -214,6 +294,38 @@ const Auth = () => {
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
                 {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+          )}
+
+          {step === "change-password" && (
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                <Shield className="mr-2 h-4 w-4" />
+                {loading ? "Updating..." : "Change Password"}
               </Button>
             </form>
           )}

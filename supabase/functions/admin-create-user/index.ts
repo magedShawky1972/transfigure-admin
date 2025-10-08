@@ -35,12 +35,15 @@ serve(async (req) => {
       );
     }
 
-    const { email, user_name, mobile_number, is_active } = await req.json();
+    const { email, user_name, mobile_number, is_active, password } = await req.json();
+
+    // Use provided password or default to "123456"
+    const userPassword = password || '123456';
 
     // Create user with admin API (bypasses rate limiting)
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: Math.random().toString(36).slice(-12) + 'A1!', // Random secure password
+      password: userPassword,
       email_confirm: true, // Auto-confirm email
       user_metadata: {
         user_name,
@@ -61,7 +64,7 @@ serve(async (req) => {
       );
     }
 
-    // Create profile
+    // Create profile with must_change_password flag
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
@@ -70,6 +73,7 @@ serve(async (req) => {
         email,
         mobile_number: mobile_number || null,
         is_active,
+        must_change_password: true, // Force password change on first login
       });
 
     if (profileError) {
