@@ -39,6 +39,14 @@ const UserSetup = () => {
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Get current user ID
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id || null);
+    });
+  }, []);
   
   const [formData, setFormData] = useState({
     user_name: "",
@@ -213,6 +221,18 @@ const UserSetup = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {currentUserId && (
+        <div className="bg-muted/50 border border-border rounded-lg p-4">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold">Your User ID:</span>{" "}
+            <code className="bg-background px-2 py-1 rounded text-xs">{currentUserId}</code>
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            ⚠️ You need admin role to create users. Open Backend → user_roles table → Insert row with your user_id and role='admin'
+          </p>
+        </div>
+      )}
+      
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">User Setup</h1>
         <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
