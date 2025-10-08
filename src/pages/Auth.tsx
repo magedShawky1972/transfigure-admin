@@ -93,10 +93,18 @@ const Auth = () => {
 
       // Check MFA status after successful password login
       const { data: factors } = await supabase.auth.mfa.listFactors();
-      
-      if (factors?.totp?.length) {
-        // User has MFA enrolled, show verify step
+      const totpFactors = (factors?.totp ?? []) as any[];
+      const verified = totpFactors.find((f) => f.status === 'verified');
+      const unverified = totpFactors.find((f) => f.status === 'unverified');
+
+      if (verified) {
         setStep('verify');
+      } else if (unverified) {
+        // Use existing unverified factor: ask user to enter code to verify
+        setMfaFactorId(unverified.id);
+        setQrCode('');
+        setSecret('');
+        setStep('setup');
       } else {
         // No MFA enrolled, start setup
         await handleSetupMFA();
@@ -185,9 +193,17 @@ const Auth = () => {
 
       // Continue to MFA setup/verification
       const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totpFactors = (factors?.totp ?? []) as any[];
+      const verified = totpFactors.find((f) => f.status === 'verified');
+      const unverified = totpFactors.find((f) => f.status === 'unverified');
       
-      if (factors?.totp?.length) {
+      if (verified) {
         setStep('verify');
+      } else if (unverified) {
+        setMfaFactorId(unverified.id);
+        setQrCode('');
+        setSecret('');
+        setStep('setup');
       } else {
         await handleSetupMFA();
       }
@@ -239,6 +255,21 @@ const Auth = () => {
     }
   };
 
+  const handleResetMFA = async () => {
+    try {
+      if (mfaFactorId) {
+        await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
+        setMfaFactorId(null);
+      }
+      setQrCode('');
+      setSecret('');
+      setTotpCode('');
+      await handleSetupMFA();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleVerifyTOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -248,21 +279,13 @@ const Auth = () => {
         if (!mfaFactorId) {
           throw new Error("TOTP setup not initialized. Please re-scan the QR code.");
         }
-        // Try direct enrollment verification first
-        let verifyError: any = null;
-        try {
-          await (supabase.auth.mfa.verify as any)({
-            factorId: mfaFactorId,
-            code: totpCode,
-          });
-        } catch (err: any) {
-          verifyError = err;
-        }
-
-        // Fallback: some backends require a challenge even during enrollment
-        if (verifyError) {
-          const challenge = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
-          if (challenge.error) throw challenge.error;
+        // Prefer challenge+verify to satisfy backends that require it during enrollment
+        const challenge = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+        if (challenge.error) {
+          // Fallback to direct verify if challenge isn't supported
+          const direct = await (supabase.auth.mfa.verify as any)({ factorId: mfaFactorId, code: totpCode });
+          if (direct?.error) throw direct.error;
+        } else {
           const verify = await supabase.auth.mfa.verify({
             factorId: mfaFactorId,
             challengeId: challenge.data.id,
@@ -278,11 +301,12 @@ const Auth = () => {
 
       // During login: challenge the verified factor then verify with challengeId
       const { data: factors } = await supabase.auth.mfa.listFactors();
-      if (!factors?.totp?.[0]) {
+      const totpFactors = (factors?.totp ?? []) as any[];
+      if (!totpFactors.length) {
         throw new Error("No TOTP factor found");
       }
 
-      const factorId = factors.totp[0].id;
+      const factorId = totpFactors[0].id as string;
       const challenge = await supabase.auth.mfa.challenge({ factorId });
       if (challenge.error) throw challenge.error;
 
@@ -297,11 +321,7 @@ const Auth = () => {
       toast({ title: "Success", description: "Logged in successfully" });
       navigate("/");
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
