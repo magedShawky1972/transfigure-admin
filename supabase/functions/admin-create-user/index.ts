@@ -23,7 +23,7 @@ serve(async (req) => {
       }
     );
 
-    // Verify the requesting user is an admin
+    // Verify the requesting user is authenticated
     const authHeader = req.headers.get('Authorization')!;
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -32,21 +32,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if user has admin role
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .single();
-
-    if (roleError || !roleData) {
-      return new Response(
-        JSON.stringify({ error: 'Insufficient permissions' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -96,17 +81,6 @@ serve(async (req) => {
       );
     }
 
-    // Assign default 'user' role
-    const { error: roleInsertError } = await supabaseAdmin
-      .from('user_roles')
-      .insert({
-        user_id: newUser.user.id,
-        role: 'user',
-      });
-
-    if (roleInsertError) {
-      console.error('Failed to assign role:', roleInsertError);
-    }
 
     return new Response(
       JSON.stringify({ 
