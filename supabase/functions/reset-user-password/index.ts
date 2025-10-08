@@ -23,17 +23,7 @@ serve(async (req) => {
       }
     );
 
-    // Verify the requesting user is authenticated as admin
-    const authHeader = req.headers.get('Authorization')!;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Public function (dev): no auth check — ensure verify_jwt=false in config
 
     const { email, new_password } = await req.json();
 

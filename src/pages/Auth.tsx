@@ -111,6 +111,24 @@ const Auth = () => {
     }
   };
 
+  const handleDevReset = async () => {
+    if (!email) {
+      toast({ title: 'Enter email first', description: 'Type your email, then click reset.', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-user-password', {
+        body: { email, new_password: '123456' },
+      });
+      if (error) throw error;
+      toast({ title: 'Password reset', description: `Password set to 123456 for ${email}` });
+    } catch (err: any) {
+      toast({ title: 'Reset failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -294,6 +312,9 @@ const Auth = () => {
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
                 {loading ? "Signing in..." : "Sign In"}
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={handleDevReset} disabled={loading}>
+                Reset to default password (dev)
               </Button>
             </form>
           )}
