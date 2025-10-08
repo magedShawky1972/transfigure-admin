@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 interface Transaction {
   id: string;
@@ -139,54 +139,127 @@ const Dashboard = () => {
       const dateRange = getDateRange();
       if (!dateRange) return;
 
-      const pageSize = 1000;
-      let from = 0;
-      let transactions: Transaction[] = [];
-      
-      setProgress(20);
-      
-      while (true) {
-        let query = (supabase as any)
-          .from('purpletransaction')
-          .select('*')
-          .order('created_at_date', { ascending: false })
-          .range(from, from + pageSize - 1);
+      setProgress(30);
 
-        if (dateRange) {
-          const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
-          const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
-          query = query
-            .gte('created_at_date', startStr)
-            .lt('created_at_date', endNextStr);
-        }
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
 
-        const { data, error } = await query;
+      // Fetch all data in parallel
+      const [transactionsResult, trendResult, monthComparisonResult] = await Promise.all([
+        // Fetch transactions in batches
+        (async () => {
+          const pageSize = 1000;
+          let from = 0;
+          let transactions: Transaction[] = [];
+          
+          while (true) {
+            const { data, error } = await (supabase as any)
+              .from('purpletransaction')
+              .select('*')
+              .order('created_at_date', { ascending: false })
+              .gte('created_at_date', startStr)
+              .lt('created_at_date', endNextStr)
+              .range(from, from + pageSize - 1);
 
-        if (error) throw error;
+            if (error) throw error;
 
-        const batch = (data as Transaction[]) || [];
-        transactions = transactions.concat(batch);
+            const batch = (data as Transaction[]) || [];
+            transactions = transactions.concat(batch);
+            
+            if (batch.length < pageSize) break;
+            from += pageSize;
+          }
+          
+          return transactions;
+        })(),
         
-        const estimatedProgress = Math.min(20 + (transactions.length / 100), 60);
-        setProgress(estimatedProgress);
+        // Fetch sales trend
+        (async () => {
+          const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
+          const trendEndDate = endOfDay(referenceDate);
+          const trendStartDate = startOfDay(subDays(referenceDate, 9));
+
+          const { data, error } = await (supabase as any)
+            .rpc('sales_trend', {
+              date_from: format(trendStartDate, 'yyyy-MM-dd'),
+              date_to: format(trendEndDate, 'yyyy-MM-dd')
+            });
+
+          if (error) throw error;
+
+          const byDate: Record<string, number> = {};
+          (data || []).forEach((row: any) => {
+            byDate[row.created_at_date] = Number(row.total_sum);
+          });
+
+          const points: any[] = [];
+          for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
+            const key = format(d, 'yyyy-MM-dd');
+            const sales = byDate[key] ?? 0;
+            points.push({ date: format(d, 'MMM dd'), sales });
+          }
+          
+          return points;
+        })(),
         
-        if (batch.length < pageSize) break;
-        from += pageSize;
-      }
-      
-      setProgress(65);
+        // Fetch month comparison
+        (async () => {
+          const now = new Date();
+          const months = [];
+          
+          for (let i = 0; i < 3; i++) {
+            const monthDate = subMonths(now, i);
+            const start = startOfMonth(monthDate);
+            const end = endOfMonth(monthDate);
+            
+            const pageSize = 1000;
+            let from = 0;
+            let allData: any[] = [];
+            
+            while (true) {
+              const { data, error } = await (supabase as any)
+                .from('purpletransaction')
+                .select('total, profit')
+                .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
+                .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
+                .range(from, from + pageSize - 1);
+
+              if (error) throw error;
+
+              const batch = data || [];
+              allData = allData.concat(batch);
+              
+              if (batch.length < pageSize) break;
+              from += pageSize;
+            }
+
+            const totalSales = allData.reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
+            const totalProfit = allData.reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
+
+            months.push({
+              month: format(monthDate, 'MMM yyyy'),
+              sales: totalSales,
+              profit: totalProfit,
+            });
+          }
+
+          return months.reverse();
+        })()
+      ]);
+
+      setProgress(70);
+
+      const transactions = transactionsResult;
 
       if (transactions && transactions.length > 0) {
-        setProgress(70);
-        
-        // Calculate metrics
+        // Calculate all metrics from the transactions data
         const totalSales = transactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
         const totalProfit = transactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
         const transactionCount = transactions.length;
         const avgOrderValue = totalSales / transactionCount;
         const costOfSales = transactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
-        const couponSales = 0; // Placeholder - add logic if you have coupon data
-        const ePaymentCharges = totalSales * 0.025; // Example: 2.5% payment processing fee
+        const couponSales = 0;
+        const ePaymentCharges = totalSales * 0.025;
 
         setMetrics({
           totalSales,
@@ -197,38 +270,6 @@ const Dashboard = () => {
           costOfSales,
           ePaymentCharges,
         });
-        
-        setProgress(75);
-
-        // Sales trend by date - fetch last 10 days from the reference date
-        // If custom date range, use fromDate as reference; otherwise use today
-        const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
-        const trendEndDate = endOfDay(referenceDate);
-        const trendStartDate = startOfDay(subDays(referenceDate, 9));
-
-        const { data: trendData, error: trendError } = await (supabase as any)
-          .rpc('sales_trend', {
-            date_from: format(trendStartDate, 'yyyy-MM-dd'),
-            date_to: format(trendEndDate, 'yyyy-MM-dd')
-          });
-
-        if (!trendError && trendData) {
-          // trendData is already grouped and summed by the database
-          const byDate: Record<string, number> = {};
-          trendData.forEach((row: any) => {
-            byDate[row.created_at_date] = Number(row.total_sum);
-          });
-
-          const points: any[] = [];
-          for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
-            const key = format(d, 'yyyy-MM-dd');
-            const sales = byDate[key] ?? 0;
-            points.push({ date: format(d, 'MMM dd'), sales });
-          }
-          setSalesTrend(points);
-        }
-        
-        setProgress(78);
 
         // Top brands
         const brandSales = transactions.reduce((acc: any, t) => {
@@ -240,10 +281,6 @@ const Dashboard = () => {
           return acc;
         }, {});
         setTopBrands(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
-
-        setProgress(80);
-
-        // Top 5 categories (using brand as category for now - adjust if you have a category field)
         setTopCategories(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
         // Top 5 products
@@ -261,7 +298,7 @@ const Dashboard = () => {
         
         // Extract unique values for filters
         const uniqueProducts = [...new Set(transactions.map(t => t.product_name).filter(Boolean))];
-        const uniqueCategories = [...new Set(transactions.map(t => t.brand_name).filter(Boolean))]; // Using brand as category
+        const uniqueCategories = [...new Set(transactions.map(t => t.brand_name).filter(Boolean))];
         const uniqueBrands = [...new Set(transactions.map(t => t.brand_name).filter(Boolean))];
         const uniqueCustomers = [...new Set(transactions.map(t => t.customer_name).filter(Boolean))];
         
@@ -292,9 +329,7 @@ const Dashboard = () => {
         }, {});
         setCustomerPurchases(Object.values(customerData).sort((a: any, b: any) => b.totalValue - a.totalValue));
 
-        setProgress(83);
-
-        // Payment methods (doughnut chart)
+        // Payment methods
         const paymentData = transactions.reduce((acc: any, t) => {
           const method = t.payment_method || 'Unknown';
           if (!acc[method]) {
@@ -305,9 +340,7 @@ const Dashboard = () => {
         }, {});
         setPaymentMethods(Object.values(paymentData));
 
-        setProgress(86);
-
-        // Payment brands (doughnut chart)
+        // Payment brands
         const paymentBrandData = transactions.reduce((acc: any, t) => {
           const brand = t.payment_brand || 'Unknown';
           if (!acc[brand]) {
@@ -318,16 +351,13 @@ const Dashboard = () => {
         }, {});
         setPaymentBrands(Object.values(paymentBrandData));
 
-        setProgress(90);
-
-        // Month comparison - fetch data for this month and last 2 months
-        await fetchMonthComparison();
-
         // Recent transactions
         setRecentTransactions(transactions.slice(0, 5));
-        
-        setProgress(95);
       }
+
+      // Set data from parallel queries
+      setSalesTrend(trendResult);
+      setMonthComparison(monthComparisonResult);
 
       setProgress(100);
       setTimeout(() => {
@@ -343,98 +373,9 @@ const Dashboard = () => {
     }
   };
 
-  const fetchMonthComparison = async () => {
-    try {
-      const now = new Date();
-      const months = [];
-      
-      for (let i = 0; i < 3; i++) {
-        const monthDate = subMonths(now, i);
-        const start = startOfMonth(monthDate);
-        const end = endOfMonth(monthDate);
-        
-        // Fetch all records in batches
-        const pageSize = 1000;
-        let from = 0;
-        let allData: any[] = [];
-        
-        while (true) {
-          const { data, error } = await (supabase as any)
-            .from('purpletransaction')
-            .select('total, profit')
-            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
-            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
-            .range(from, from + pageSize - 1);
-
-          if (error) throw error;
-
-          const batch = data || [];
-          allData = allData.concat(batch);
-          
-          if (batch.length < pageSize) break;
-          from += pageSize;
-        }
-
-        const totalSales = allData.reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
-        const totalProfit = allData.reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
-
-        months.push({
-          month: format(monthDate, 'MMM yyyy'),
-          sales: totalSales,
-          profit: totalProfit,
-        });
-      }
-
-      setMonthComparison(months.reverse());
-    } catch (error) {
-      console.error('Error fetching month comparison:', error);
-    }
-  };
 
   if (loadingStats && loadingCharts && loadingTables) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">{t("dashboard.title")}</h1>
-          <p className="text-muted-foreground">{t("dashboard.subtitle")}</p>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{t("dashboard.loading")}</span>
-            <span className="font-medium">{Math.round(progress)}%</span>
-          </div>
-          <Progress value={progress} className="h-2" />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="border-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-10 w-10 rounded-lg" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-32" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="border-2">
-              <CardHeader>
-                <Skeleton className="h-6 w-32" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-[300px] w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingOverlay progress={progress} />;
   }
 
   const metricCards = [
