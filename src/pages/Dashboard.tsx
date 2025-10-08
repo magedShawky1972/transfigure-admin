@@ -44,6 +44,8 @@ const Dashboard = () => {
   const [loadingCharts, setLoadingCharts] = useState(true);
   const [loadingTables, setLoadingTables] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState("Initializing...");
+  const [timeElapsed, setTimeElapsed] = useState(0);
   const [dateFilter, setDateFilter] = useState<string>("yesterday");
   const [fromDate, setFromDate] = useState<Date>();
   const [toDate, setToDate] = useState<Date>();
@@ -135,16 +137,23 @@ const Dashboard = () => {
       setLoadingCharts(true);
       setLoadingTables(true);
       setProgress(10);
+      
+      let startTime = Date.now();
+      setLoadingMessage(t("dashboard.loadingInitializing"));
+      setTimeElapsed(0);
 
       const dateRange = getDateRange();
       if (!dateRange) return;
 
-      setProgress(30);
+      setProgress(20);
+      setLoadingMessage(t("dashboard.loadingTransactions"));
+      setTimeElapsed(Date.now() - startTime);
 
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
 
       // Fetch all data in parallel
+      const transactionsStartTime = Date.now();
       const [transactionsResult, trendResult, monthComparisonResult] = await Promise.all([
         // Fetch transactions in batches
         (async () => {
@@ -247,11 +256,17 @@ const Dashboard = () => {
         })()
       ]);
 
-      setProgress(70);
+      setProgress(50);
+      setLoadingMessage(t("dashboard.loadingCalculatingStats"));
+      setTimeElapsed(Date.now() - transactionsStartTime);
 
       const transactions = transactionsResult;
 
       if (transactions && transactions.length > 0) {
+        setProgress(60);
+        setLoadingMessage(t("dashboard.loadingProcessingData"));
+        setTimeElapsed(Date.now() - transactionsStartTime);
+        
         // Calculate all metrics from the transactions data
         const totalSales = transactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
         const totalProfit = transactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
@@ -359,6 +374,10 @@ const Dashboard = () => {
       setSalesTrend(trendResult);
       setMonthComparison(monthComparisonResult);
 
+      setProgress(90);
+      setLoadingMessage(t("dashboard.loadingCompleting"));
+      setTimeElapsed(Date.now() - transactionsStartTime);
+
       setProgress(100);
       setTimeout(() => {
         setLoadingStats(false);
@@ -375,7 +394,7 @@ const Dashboard = () => {
 
 
   if (loadingStats && loadingCharts && loadingTables) {
-    return <LoadingOverlay progress={progress} />;
+    return <LoadingOverlay progress={progress} message={loadingMessage} timeElapsed={timeElapsed} />;
   }
 
   const metricCards = [

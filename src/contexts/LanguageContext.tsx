@@ -89,6 +89,11 @@ const translations = {
     "dashboard.allBrands": "All Brands",
     "dashboard.allCustomers": "All Customers",
     "dashboard.quantity": "Quantity",
+    "dashboard.loadingInitializing": "Initializing...",
+    "dashboard.loadingTransactions": "Loading transactions...",
+    "dashboard.loadingCalculatingStats": "Calculating statistics...",
+    "dashboard.loadingProcessingData": "Processing data...",
+    "dashboard.loadingCompleting": "Completing...",
     
     // Transactions Page
     "transactions.title": "All Transactions",
@@ -203,6 +208,11 @@ const translations = {
     "dashboard.allBrands": "جميع العلامات التجارية",
     "dashboard.allCustomers": "جميع العملاء",
     "dashboard.quantity": "الكمية",
+    "dashboard.loadingInitializing": "جاري التهيئة...",
+    "dashboard.loadingTransactions": "جاري تحميل المعاملات...",
+    "dashboard.loadingCalculatingStats": "جاري حساب الإحصائيات...",
+    "dashboard.loadingProcessingData": "جاري معالجة البيانات...",
+    "dashboard.loadingCompleting": "جاري الإنهاء...",
     
     // Transactions Page
     "transactions.title": "جميع المعاملات",

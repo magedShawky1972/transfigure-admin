@@ -3,9 +3,11 @@ import { Loader2 } from "lucide-react";
 
 interface LoadingOverlayProps {
   progress: number;
+  message?: string;
+  timeElapsed?: number;
 }
 
-export const LoadingOverlay = ({ progress }: LoadingOverlayProps) => {
+export const LoadingOverlay = ({ progress, message = "Loading dashboard...", timeElapsed }: LoadingOverlayProps) => {
   const [displayProgress, setDisplayProgress] = useState(0);
 
   useEffect(() => {
@@ -49,7 +51,10 @@ export const LoadingOverlay = ({ progress }: LoadingOverlayProps) => {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold">{Math.round(displayProgress)}%</p>
-            <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+            <p className="text-sm text-muted-foreground">{message}</p>
+            {timeElapsed !== undefined && (
+              <p className="text-xs text-muted-foreground mt-1">{timeElapsed}ms</p>
+            )}
           </div>
         </div>
       </div>
