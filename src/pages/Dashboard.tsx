@@ -63,6 +63,22 @@ const Dashboard = () => {
   const [monthComparison, setMonthComparison] = useState<any[]>([]);
   const [productSummary, setProductSummary] = useState<any[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [customerPurchases, setCustomerPurchases] = useState<any[]>([]);
+  
+  // Product Summary Filters
+  const [productFilter, setProductFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [brandFilterProduct, setBrandFilterProduct] = useState<string>("all");
+  
+  // Customer Purchases Filters
+  const [customerFilterPurchases, setCustomerFilterPurchases] = useState<string>("all");
+  const [productFilterCustomer, setProductFilterCustomer] = useState<string>("all");
+  const [categoryFilterCustomer, setCategoryFilterCustomer] = useState<string>("all");
+  
+  const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [allBrands, setAllBrands] = useState<string[]>([]);
+  const [allCustomers, setAllCustomers] = useState<string[]>([]);
 
   const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
@@ -238,6 +254,39 @@ const Dashboard = () => {
         }, {});
         setTopProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
         setProductSummary(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
+        
+        // Extract unique values for filters
+        const uniqueProducts = [...new Set(transactions.map(t => t.product_name).filter(Boolean))];
+        const uniqueCategories = [...new Set(transactions.map(t => t.brand_name).filter(Boolean))]; // Using brand as category
+        const uniqueBrands = [...new Set(transactions.map(t => t.brand_name).filter(Boolean))];
+        const uniqueCustomers = [...new Set(transactions.map(t => t.customer_name).filter(Boolean))];
+        
+        setAllProducts(uniqueProducts as string[]);
+        setAllCategories(uniqueCategories as string[]);
+        setAllBrands(uniqueBrands as string[]);
+        setAllCustomers(uniqueCustomers as string[]);
+        
+        // Customer Purchases Summary
+        const customerData = transactions.reduce((acc: any, t) => {
+          const customer = t.customer_name || 'Unknown';
+          const category = t.brand_name || 'Unknown';
+          const product = t.product_name || 'Unknown';
+          
+          const key = `${customer}-${category}-${product}`;
+          if (!acc[key]) {
+            acc[key] = {
+              customerName: customer,
+              category: category,
+              product: product,
+              totalValue: 0,
+              transactionCount: 0
+            };
+          }
+          acc[key].totalValue += parseNumber(t.total);
+          acc[key].transactionCount += 1;
+          return acc;
+        }, {});
+        setCustomerPurchases(Object.values(customerData).sort((a: any, b: any) => b.totalValue - a.totalValue));
 
         setProgress(83);
 
@@ -704,10 +753,47 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Product Summary Grid */}
+      {/* Product Summary Grid with Filters */}
       <Card className="border-2">
         <CardHeader>
           <CardTitle>{t("dashboard.productSummary")}</CardTitle>
+          <div className="flex flex-wrap gap-4 mt-4">
+            <Select value={productFilter} onValueChange={setProductFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t("dashboard.filterProduct")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("dashboard.allProducts")}</SelectItem>
+                {allProducts.map(product => (
+                  <SelectItem key={product} value={product}>{product}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t("dashboard.filterCategory")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("dashboard.allCategories")}</SelectItem>
+                {allCategories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={brandFilterProduct} onValueChange={setBrandFilterProduct}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t("dashboard.filterBrand")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("dashboard.allBrands")}</SelectItem>
+                {allBrands.map(brand => (
+                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -715,18 +801,102 @@ const Dashboard = () => {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-4">{t("dashboard.product")}</th>
-                  <th className="text-right py-2 px-4">{t("dashboard.transactions")}</th>
+                  <th className="text-right py-2 px-4">{t("dashboard.quantity")}</th>
                   <th className="text-right py-2 px-4">{t("dashboard.sales")}</th>
                 </tr>
               </thead>
               <tbody>
-                {productSummary.slice(0, 20).map((product: any, index) => (
-                  <tr key={index} className="border-b hover:bg-muted/50">
-                    <td className="py-2 px-4">{product.name}</td>
-                    <td className="text-right py-2 px-4">{product.qty}</td>
-                    <td className="text-right py-2 px-4">{formatCurrency(product.value)}</td>
-                  </tr>
+                {productSummary
+                  .filter(product => 
+                    (productFilter === "all" || product.name === productFilter) &&
+                    (categoryFilter === "all" || true) &&
+                    (brandFilterProduct === "all" || true)
+                  )
+                  .slice(0, 20)
+                  .map((product: any, index) => (
+                    <tr key={index} className="border-b hover:bg-muted/50">
+                      <td className="py-2 px-4">{product.name}</td>
+                      <td className="text-right py-2 px-4">{product.qty}</td>
+                      <td className="text-right py-2 px-4">{formatCurrency(product.value)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Customer Purchases Summary */}
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle>{t("dashboard.customerPurchases")}</CardTitle>
+          <div className="flex flex-wrap gap-4 mt-4">
+            <Select value={customerFilterPurchases} onValueChange={setCustomerFilterPurchases}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t("dashboard.filterCustomer")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("dashboard.allCustomers")}</SelectItem>
+                {allCustomers.map(customer => (
+                  <SelectItem key={customer} value={customer}>{customer}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={productFilterCustomer} onValueChange={setProductFilterCustomer}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t("dashboard.filterProduct")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("dashboard.allProducts")}</SelectItem>
+                {allProducts.map(product => (
+                  <SelectItem key={product} value={product}>{product}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilterCustomer} onValueChange={setCategoryFilterCustomer}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t("dashboard.filterCategory")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("dashboard.allCategories")}</SelectItem>
+                {allCategories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-4">{t("dashboard.customerName")}</th>
+                  <th className="text-left py-2 px-4">{t("dashboard.category")}</th>
+                  <th className="text-left py-2 px-4">{t("dashboard.product")}</th>
+                  <th className="text-right py-2 px-4">{t("dashboard.totalValue")}</th>
+                  <th className="text-right py-2 px-4">{t("dashboard.transactionCount")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerPurchases
+                  .filter(customer => 
+                    (customerFilterPurchases === "all" || customer.customerName === customerFilterPurchases) &&
+                    (productFilterCustomer === "all" || customer.product === productFilterCustomer) &&
+                    (categoryFilterCustomer === "all" || customer.category === categoryFilterCustomer)
+                  )
+                  .slice(0, 20)
+                  .map((customer: any, index) => (
+                    <tr key={index} className="border-b hover:bg-muted/50">
+                      <td className="py-2 px-4">{customer.customerName}</td>
+                      <td className="py-2 px-4">{customer.category}</td>
+                      <td className="py-2 px-4">{customer.product}</td>
+                      <td className="text-right py-2 px-4">{formatCurrency(customer.totalValue)}</td>
+                      <td className="text-right py-2 px-4">{customer.transactionCount}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -738,7 +908,10 @@ const Dashboard = () => {
         <CardHeader>
           <CardTitle>{t("dashboard.recentTransactions")}</CardTitle>
           <CardDescription>
-            <Link to="/transactions" className="text-primary hover:underline">
+            <Link 
+              to={`/transactions?from=${getDateRange() ? format(getDateRange()!.start, 'yyyy-MM-dd') : ''}&to=${getDateRange() ? format(getDateRange()!.end, 'yyyy-MM-dd') : ''}`}
+              className="text-primary hover:underline"
+            >
               {t("dashboard.viewAll")}
             </Link>
           </CardDescription>
