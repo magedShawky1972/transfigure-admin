@@ -46,7 +46,6 @@ const Dashboard = () => {
   const [progress, setProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Initializing...");
   const [timeElapsed, setTimeElapsed] = useState(0);
-  const [loadingSteps, setLoadingSteps] = useState<{ label: string; ms: number }[]>([]);
   const [dateFilter, setDateFilter] = useState<string>("yesterday");
   const [fromDate, setFromDate] = useState<Date>();
   const [toDate, setToDate] = useState<Date>();
@@ -142,7 +141,6 @@ const Dashboard = () => {
       let startTime = Date.now();
       setLoadingMessage(t("dashboard.loadingInitializing"));
       setTimeElapsed(0);
-      setLoadingSteps([]);
 
       const dateRange = getDateRange();
       if (!dateRange) return;
@@ -154,94 +152,9 @@ const Dashboard = () => {
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
 
-      // Fetch all data in parallel (timed)
+      // Fetch all data in parallel
       const transactionsStartTime = Date.now();
-      const transactionsPromise = (async () => {
-        const tStart = Date.now();
-        const pageSize = 1000;
-        let from = 0;
-        let transactions: Transaction[] = [];
-        while (true) {
-          const { data, error } = await (supabase as any)
-            .from('purpletransaction')
-            .select('*')
-            .order('created_at_date', { ascending: false })
-            .gte('created_at_date', startStr)
-            .lt('created_at_date', endNextStr)
-            .range(from, from + pageSize - 1);
-          if (error) throw error;
-          const batch = (data as Transaction[]) || [];
-          transactions = transactions.concat(batch);
-          if (batch.length < pageSize) break;
-          from += pageSize;
-        }
-        return { data: transactions, ms: Date.now() - tStart };
-      })();
-
-      const trendPromise = (async () => {
-        const tStart = Date.now();
-        const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
-        const trendEndDate = endOfDay(referenceDate);
-        const trendStartDate = startOfDay(subDays(referenceDate, 9));
-        const { data, error } = await (supabase as any)
-          .rpc('sales_trend', {
-            date_from: format(trendStartDate, 'yyyy-MM-dd'),
-            date_to: format(trendEndDate, 'yyyy-MM-dd')
-          });
-        if (error) throw error;
-        const byDate: Record<string, number> = {};
-        (data || []).forEach((row: any) => {
-          byDate[row.created_at_date] = Number(row.total_sum);
-        });
-        const points: any[] = [];
-        for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
-          const key = format(d, 'yyyy-MM-dd');
-          const sales = byDate[key] ?? 0;
-          points.push({ date: format(d, 'MMM dd'), sales });
-        }
-        return { data: points, ms: Date.now() - tStart };
-      })();
-
-      const monthComparisonPromise = (async () => {
-        const tStart = Date.now();
-        const now = new Date();
-        const months = [] as any[];
-        for (let i = 0; i < 3; i++) {
-          const monthDate = subMonths(now, i);
-          const start = startOfMonth(monthDate);
-          const end = endOfMonth(monthDate);
-          const pageSize = 1000;
-          let from = 0;
-          let allData: any[] = [];
-          while (true) {
-            const { data, error } = await (supabase as any)
-              .from('purpletransaction')
-              .select('total, profit')
-              .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
-              .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
-              .range(from, from + pageSize - 1);
-            if (error) throw error;
-            const batch = data || [];
-            allData = allData.concat(batch);
-            if (batch.length < pageSize) break;
-            from += pageSize;
-          }
-          const totalSales = allData.reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
-          const totalProfit = allData.reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
-          months.push({
-            month: format(monthDate, 'MMM yyyy'),
-            sales: totalSales,
-            profit: totalProfit,
-          });
-        }
-        return { data: months.reverse(), ms: Date.now() - tStart };
-      })();
-
-      const [transactionsPackage, trendPackage, monthPackage] = await Promise.all([
-        transactionsPromise,
-        trendPromise,
-        monthComparisonPromise
-      ]);
+      const [transactionsResult, trendResult, monthComparisonResult] = await Promise.all([
         // Fetch transactions in batches
         (async () => {
           const pageSize = 1000;
