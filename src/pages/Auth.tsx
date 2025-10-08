@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp";
 import { Mail, Shield } from "lucide-react";
 
 const Auth = () => {
@@ -139,8 +139,28 @@ const Auth = () => {
     }
   };
 
-  // Check for existing session and MFA status on mount and after redirect
+  // Finalize magic link, then check session/MFA
   useEffect(() => {
+    const init = async () => {
+      try {
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('exchangeCodeForSession error:', error);
+            toast({ title: 'Login error', description: error.message, variant: 'destructive' });
+          }
+          // Clean URL
+          window.history.replaceState({}, document.title, url.pathname);
+        }
+      } catch (e: any) {
+        console.error('Init auth error:', e);
+      }
+
+      await checkSession();
+    };
+
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -148,27 +168,27 @@ const Auth = () => {
         console.log('Session detected, checking MFA status');
         const { data: factors } = await supabase.auth.mfa.listFactors();
         
-        if (factors && factors.totp && factors.totp.length > 0) {
-          // User has MFA enrolled, show verification
+        if (factors?.totp?.length) {
           console.log('MFA enrolled, showing verify step');
-          setStep("verify");
+          setStep('verify');
         } else {
-          // User needs to enroll MFA
           console.log('No MFA enrolled, starting setup');
           await handleSetupMFA();
         }
       }
     };
 
-    checkSession();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Listen first, then init
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event);
       if (event === 'SIGNED_IN' && session) {
-        await checkSession();
+        setTimeout(() => {
+          checkSession();
+        }, 0);
       }
     });
+
+    init();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -227,8 +247,10 @@ const Auth = () => {
                     <InputOTPGroup>
                       <InputOTPSlot index={0} />
                       <InputOTPSlot index={1} />
+                      <InputOTPSeparator />
                       <InputOTPSlot index={2} />
                       <InputOTPSlot index={3} />
+                      <InputOTPSeparator />
                       <InputOTPSlot index={4} />
                       <InputOTPSlot index={5} />
                     </InputOTPGroup>
@@ -254,8 +276,10 @@ const Auth = () => {
                   <InputOTPGroup>
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
+                    <InputOTPSeparator />
                     <InputOTPSlot index={2} />
                     <InputOTPSlot index={3} />
+                    <InputOTPSeparator />
                     <InputOTPSlot index={4} />
                     <InputOTPSlot index={5} />
                   </InputOTPGroup>
