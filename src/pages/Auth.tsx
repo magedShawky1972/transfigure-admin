@@ -353,33 +353,38 @@ const Auth = () => {
 
           {step === "setup" && (
             <div className="space-y-4">
-              <div className="rounded-lg bg-muted p-4 text-center">
+              <div className="rounded-lg bg-muted p-6 text-center">
                 <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
                 <p className="text-sm font-medium mb-4">Scan this QR code with Google Authenticator</p>
                 {qrCode && (
-                  <img src={qrCode} alt="QR Code" className="mx-auto mb-4" />
+                  <div className="bg-white p-4 rounded-lg inline-block mb-4">
+                    <img src={qrCode} alt="QR Code" className="w-64 h-64" />
+                  </div>
                 )}
-                <p className="text-xs text-muted-foreground">Secret: {secret}</p>
+                <div className="mt-4 p-3 bg-background rounded border">
+                  <p className="text-xs font-mono break-all">{secret}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Manual entry code</p>
+                </div>
               </div>
               <form onSubmit={handleVerifyTOTP} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="totp">Enter 6-digit code</Label>
-                  <InputOTP
-                    maxLength={6}
-                    value={totpCode}
-                    onChange={setTotpCode}
-                  >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSeparator />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSeparator />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={totpCode}
+                      onChange={setTotpCode}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading || totpCode.length !== 6}>
                   <Shield className="mr-2 h-4 w-4" />
@@ -393,22 +398,22 @@ const Auth = () => {
             <form onSubmit={handleVerifyTOTP} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="totp">Enter code from Google Authenticator</Label>
-                <InputOTP
-                  maxLength={6}
-                  value={totpCode}
-                  onChange={setTotpCode}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSeparator />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSeparator />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={totpCode}
+                    onChange={setTotpCode}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={loading || totpCode.length !== 6}>
                 <Shield className="mr-2 h-4 w-4" />
