@@ -24,14 +24,23 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // Check if email exists in profiles table
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("user_id")
-        .eq("email", email)
-        .single();
+      // Check if email exists in profiles table via edge function
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-email', {
+        body: { email }
+      });
 
-      if (profileError || !profile) {
+      if (checkError) {
+        console.error('Error checking email:', checkError);
+        toast({
+          title: "Error",
+          description: "Failed to verify email. Please try again.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!checkData?.exists) {
         toast({
           title: "Access Denied",
           description: "Email not found in the system. Please contact your administrator.",
