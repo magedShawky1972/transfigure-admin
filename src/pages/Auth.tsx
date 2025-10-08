@@ -297,52 +297,23 @@ const Auth = () => {
 
         const code = totpCode.replace(/\D/g, "");
 
+        // Always verify a pending TOTP with direct verify (no challenge needed in setup)
         let factorIdToUse = mfaFactorId;
-
-        // 1) Try direct verify with current factor id
-        let verifiedOk = false;
-        try {
-          const res = await (supabase.auth.mfa.verify as any)({
-            factorId: factorIdToUse,
-            code,
-          });
+        const tryVerify = async (fid: string) => {
+          const res = await (supabase.auth.mfa.verify as any)({ factorId: fid, code });
           if (res?.error) throw res.error;
-          verifiedOk = true;
-        } catch (firstErr: any) {
-          // 2) If factor id changed (after reset), fetch latest unverified factor and retry
-          const { data: listed } = await supabase.auth.mfa.listFactors();
-          const unverified = (listed?.totp ?? []).find((f: any) => f.status === 'unverified');
-          if (unverified && unverified.id !== factorIdToUse) {
-            factorIdToUse = unverified.id;
-            setMfaFactorId(factorIdToUse);
-            try {
-              const res2 = await (supabase.auth.mfa.verify as any)({
-                factorId: factorIdToUse,
-                code,
-              });
-              if (res2?.error) throw res2.error;
-              verifiedOk = true;
-            } catch (secondErr) {
-              // 3) Final fallback: challenge + verify with the latest factor
-              const challenge = await supabase.auth.mfa.challenge({ factorId: factorIdToUse });
-              if (challenge.error) throw challenge.error;
-              const res3 = await supabase.auth.mfa.verify({
-                factorId: factorIdToUse,
-                challengeId: challenge.data.id,
-                code,
-              });
-              if (res3.error) throw res3.error;
-              verifiedOk = true;
-            }
-          } else {
-            // If we couldn't find the factor, re-enroll a fresh one and ask user to re-scan
-            await handleSetupMFA();
-            throw new Error("MFA setup refreshed. Please re-scan the new QR and try again.");
-          }
-        }
+        };
 
-        if (!verifiedOk) {
-          throw new Error("Verification failed. Please ensure the code is current and try again.");
+        try {
+          await tryVerify(factorIdToUse);
+        } catch (e1: any) {
+          // If current factor id is stale, fetch latest unverified factor and retry once
+          const { data: listed } = await supabase.auth.mfa.listFactors();
+          const latest = (listed?.totp ?? []).find((f: any) => f.status === 'unverified');
+          if (!latest) throw e1;
+          factorIdToUse = latest.id;
+          setMfaFactorId(factorIdToUse);
+          await tryVerify(factorIdToUse);
         }
 
         toast({ title: "Success", description: "Authenticator linked successfully" });
