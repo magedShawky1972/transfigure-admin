@@ -163,11 +163,18 @@ const Auth = () => {
 
       if (updateError) throw updateError;
 
+      // Get current user id
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       // Update profile flag
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ must_change_password: false })
-        .eq('email', email);
+        .eq('user_id', user.id);
 
       if (profileError) throw profileError;
 
