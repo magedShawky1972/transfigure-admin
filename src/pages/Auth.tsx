@@ -6,60 +6,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Mail } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
 
-  const handleSendOTP = async (e: React.FormEvent) => {
+  const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        phone,
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
       });
 
       if (error) throw error;
 
-      setOtpSent(true);
+      setEmailSent(true);
       toast({
-        title: "Success",
-        description: "OTP code sent to your phone",
+        title: "Check your email",
+        description: "We sent you a magic link to sign in",
       });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        phone,
-        token: otp,
-        type: 'sms',
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Logged in successfully",
-      });
-      navigate("/");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -75,75 +49,57 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Phone Authentication</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Edara</CardTitle>
           <CardDescription>
-            {!otpSent ? "Enter your phone number to receive a verification code" : "Enter the code sent to your phone"}
+            {!emailSent 
+              ? "Enter your email to receive a secure login link" 
+              : "Check your email for the login link"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!otpSent ? (
-            <form onSubmit={handleSendOTP} className="space-y-4">
+          {!emailSent ? (
+            <form onSubmit={handleSendMagicLink} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+201234567890"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoFocus
                 />
                 <p className="text-xs text-muted-foreground">
-                  Include country code (e.g., +20 for Egypt, +1 for USA)
+                  No password required - we'll send you a secure link
                 </p>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Sending..." : "Send OTP Code"}
+                <Mail className="mr-2 h-4 w-4" />
+                {loading ? "Sending..." : "Send Magic Link"}
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyOTP} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone-display">Phone Number</Label>
-                <Input
-                  id="phone-display"
-                  type="tel"
-                  value={phone}
-                  disabled
-                  className="bg-muted"
-                />
+            <div className="space-y-4 text-center">
+              <div className="rounded-lg bg-muted p-4">
+                <Mail className="h-12 w-12 mx-auto mb-2 text-primary" />
+                <p className="text-sm font-medium">Email sent to</p>
+                <p className="text-sm text-muted-foreground">{email}</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="otp">Verification Code</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="Enter 6-digit code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  required
-                  maxLength={6}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Verifying..." : "Verify & Login"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtp("");
-                  }}
-                  disabled={loading}
-                >
-                  Change Phone Number
-                </Button>
-              </div>
-            </form>
+              <p className="text-sm text-muted-foreground">
+                Click the link in your email to sign in. You can close this page.
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setEmailSent(false);
+                  setEmail("");
+                }}
+              >
+                Use different email
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
