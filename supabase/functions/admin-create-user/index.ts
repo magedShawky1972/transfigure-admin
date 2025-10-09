@@ -64,17 +64,16 @@ serve(async (req) => {
       );
     }
 
-    // Create profile with must_change_password flag
+    // Update profile (trigger already created it) with additional fields
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        user_id: newUser.user.id,
+      .update({
         user_name,
-        email,
         mobile_number: mobile_number || null,
         is_active,
         must_change_password: true, // Force password change on first login
-      });
+      })
+      .eq('user_id', newUser.user.id);
 
     if (profileError) {
       // Rollback: delete the auth user if profile creation fails
