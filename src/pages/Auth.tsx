@@ -94,16 +94,12 @@ const Auth = () => {
         return;
       }
 
-      // Check MFA status after successful password login
-      const { data: factors } = await supabase.auth.mfa.listFactors();
-      const hasVerified = (factors?.totp ?? []).some((f: any) => f.status === 'verified');
-
-      if (hasVerified) {
-        setStep('verify');
-      } else {
-        // Always start a fresh setup to ensure QR/secret matches the app
-        await handleSetupMFA();
-      }
+      // Skip MFA and go directly to dashboard
+      toast({
+        title: t('common.success'),
+        description: t('auth.signInButton'),
+      });
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -192,19 +188,12 @@ const Auth = () => {
       if (profileError) throw profileError;
 
       toast({
-        title: "Success",
-        description: "Password updated successfully",
+        title: t('common.success'),
+        description: t('auth.changePasswordButton'),
       });
 
-      // Continue to MFA setup/verification
-      const { data: factors } = await supabase.auth.mfa.listFactors();
-      const hasVerified = (factors?.totp ?? []).some((f: any) => f.status === 'verified');
-      
-      if (hasVerified) {
-        setStep('verify');
-      } else {
-        await handleSetupMFA();
-      }
+      // Skip MFA and go directly to dashboard
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Error",
