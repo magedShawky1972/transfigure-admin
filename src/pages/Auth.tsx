@@ -9,10 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp";
 import { Shield } from "lucide-react";
 import { z } from "zod";
+import { useLanguage } from "@/contexts/LanguageContext";
+import logo from "@/assets/edara-logo.png";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -112,20 +115,30 @@ const Auth = () => {
     }
   };
 
-  const handleDevReset = async () => {
+  const handlePasswordReset = async () => {
     if (!email) {
-      toast({ title: 'Enter email first', description: 'Type your email, then click reset.', variant: 'destructive' });
+      toast({ 
+        title: t('auth.enterEmailFirst'), 
+        variant: 'destructive' 
+      });
       return;
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('reset-user-password', {
-        body: { email, new_password: '123456' },
+      const { error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email },
       });
       if (error) throw error;
-      toast({ title: 'Password reset', description: `Password set to 123456 for ${email}` });
+      toast({ 
+        title: t('common.success'), 
+        description: t('auth.passwordResetSent')
+      });
     } catch (err: any) {
-      toast({ title: 'Reset failed', description: err.message, variant: 'destructive' });
+      toast({ 
+        title: t('common.error'), 
+        description: t('auth.passwordResetError'), 
+        variant: 'destructive' 
+      });
     } finally {
       setLoading(false);
     }
@@ -366,24 +379,27 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Welcome to Edara</CardTitle>
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={logo} alt="Edara Logo" className="h-16 w-auto" />
+          </div>
+          <CardTitle className="text-2xl">{t('auth.welcome')}</CardTitle>
           <CardDescription>
-            {step === "email" && "Sign in with your credentials"}
-            {step === "change-password" && "Change your password"}
-            {step === "setup" && "Set up Google Authenticator"}
-            {step === "verify" && "Enter code from Google Authenticator"}
+            {step === "email" && t('auth.signIn')}
+            {step === "change-password" && t('auth.changePassword')}
+            {step === "setup" && t('auth.setupMFA')}
+            {step === "verify" && t('auth.verifyMFA')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {step === "email" && (
             <form onSubmit={handleEmailSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">{t('auth.email')}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -391,11 +407,11 @@ const Auth = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t('auth.password')}</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder={t('auth.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -403,35 +419,16 @@ const Auth = () => {
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
-              <Button type="button" variant="outline" className="w-full" onClick={handleDevReset} disabled={loading}>
-                Reset to default password (dev)
+                {loading ? t('auth.signingIn') : t('auth.signInButton')}
               </Button>
               <Button 
                 type="button" 
-                variant="destructive" 
+                variant="outline" 
                 className="w-full" 
-                onClick={async () => {
-                  if (!email) {
-                    toast({ title: 'Enter email first', variant: 'destructive' });
-                    return;
-                  }
-                  setLoading(true);
-                  try {
-                    await supabase.functions.invoke('admin-reset-mfa', {
-                      body: { email }
-                    });
-                    toast({ title: 'MFA reset', description: 'All MFA factors deleted. You can now sign in and set up fresh.' });
-                  } catch (err: any) {
-                    toast({ title: 'Error', description: err.message, variant: 'destructive' });
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
+                onClick={handlePasswordReset} 
                 disabled={loading}
               >
-                Reset MFA (dev)
+                {loading ? t('auth.resetPasswordSending') : t('auth.resetPassword')}
               </Button>
             </form>
           )}
@@ -439,11 +436,11 @@ const Auth = () => {
           {step === "change-password" && (
             <form onSubmit={handlePasswordChange} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
+                <Label htmlFor="new-password">{t('auth.newPassword')}</Label>
                 <Input
                   id="new-password"
                   type="password"
-                  placeholder="Enter new password"
+                  placeholder={t('auth.newPasswordPlaceholder')}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -451,11 +448,11 @@ const Auth = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
                 <Input
                   id="confirm-password"
                   type="password"
-                  placeholder="Confirm new password"
+                  placeholder={t('auth.confirmPasswordPlaceholder')}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -463,7 +460,7 @@ const Auth = () => {
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
-                {loading ? "Updating..." : "Change Password"}
+                {loading ? t('auth.updating') : t('auth.changePasswordButton')}
               </Button>
             </form>
           )}
@@ -472,7 +469,7 @@ const Auth = () => {
             <div className="space-y-4">
               <div className="rounded-lg bg-muted p-6 text-center">
                 <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
-                <p className="text-sm font-medium mb-4">Scan this QR code with Google Authenticator</p>
+                <p className="text-sm font-medium mb-4">{t('auth.scanQR')}</p>
                 {qrCode && (
                   <div className="bg-white p-4 rounded-lg inline-block mb-4">
                     <img src={qrCode} alt="QR Code" className="w-64 h-64" />
@@ -480,12 +477,12 @@ const Auth = () => {
                 )}
                 <div className="mt-4 p-3 bg-background rounded border">
                   <p className="text-xs font-mono break-all">{secret}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Manual entry code</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('auth.manualEntry')}</p>
                 </div>
               </div>
               <form onSubmit={handleVerifyTOTP} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="totp">Enter 6-digit code</Label>
+                  <Label htmlFor="totp">{t('auth.enterCode')}</Label>
                   <div className="flex justify-center">
                     <InputOTP
                       maxLength={6}
@@ -505,7 +502,7 @@ const Auth = () => {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading || totpCode.length !== 6}>
                   <Shield className="mr-2 h-4 w-4" />
-                  {loading ? "Verifying..." : "Verify and Continue"}
+                  {loading ? t('auth.verifying') : t('auth.verifyButton')}
                 </Button>
               </form>
             </div>
@@ -514,7 +511,7 @@ const Auth = () => {
           {step === "verify" && (
             <form onSubmit={handleVerifyTOTP} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="totp">Enter code from Google Authenticator</Label>
+                <Label htmlFor="totp">{t('auth.enterCode')}</Label>
                 <div className="flex justify-center">
                   <InputOTP
                     maxLength={6}
@@ -534,10 +531,7 @@ const Auth = () => {
               </div>
               <Button type="submit" className="w-full" disabled={loading || totpCode.length !== 6}>
                 <Shield className="mr-2 h-4 w-4" />
-                {loading ? "Verifying..." : "Sign In"}
-              </Button>
-              <Button type="button" variant="outline" className="w-full" onClick={handleResetMFA} disabled={loading}>
-                Can't access your app? Reset MFA
+                {loading ? t('auth.verifying') : t('auth.signInButton')}
               </Button>
               <Button
                 type="button"
@@ -550,7 +544,7 @@ const Auth = () => {
                   setTotpCode("");
                 }}
               >
-                Back to login
+                {t('auth.backToLogin')}
               </Button>
             </form>
           )}
