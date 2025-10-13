@@ -106,7 +106,7 @@ const ExcelSheets = () => {
     setSelectedTable(tableName);
     const table = availableTables.find(t => t.table_name === tableName);
     if (table) {
-      const cols = table.columns.map((col: any) => col.name);
+      const cols = table.columns.map((col: any) => String(col.name).trim());
       setTableColumns(cols);
     }
   };
@@ -232,7 +232,7 @@ const ExcelSheets = () => {
       setSheetTargetTable(sheet.target_table);
       const table = availableTables.find(t => t.table_name === sheet.target_table);
       if (table) {
-        const cols = table.columns.map((col: any) => col.name);
+        const cols = table.columns.map((col: any) => String(col.name).trim());
         setSheetTableColumns(cols);
       }
     }
@@ -269,7 +269,7 @@ const ExcelSheets = () => {
     setSheetTargetTable(tableName);
     const table = availableTables.find(t => t.table_name === tableName);
     if (table) {
-      const cols = table.columns.map((col: any) => col.name);
+      const cols = table.columns.map((col: any) => String(col.name).trim());
       setSheetTableColumns(cols);
     }
   };
@@ -299,19 +299,26 @@ const ExcelSheets = () => {
         .update({ target_table: sheetTargetTable })
         .eq("id", selectedSheetForMapping.id);
 
-      // Insert new mappings
-      if (Object.keys(sheetMappings).length > 0) {
-        const mappings = Object.entries(sheetMappings).map(([excelCol, tableCol]) => ({
-          sheet_id: selectedSheetForMapping.id,
-          excel_column: excelCol,
-          table_column: tableCol,
-          data_type: "text",
-        }));
+      // Insert new mappings from the current rows, trim names and skip empties
+      const mappings = sheetExcelColumns
+        .map((excelCol) => {
+          const colName = String(excelCol).trim();
+          const tableCol = sheetMappings[excelCol] ?? sheetMappings[colName];
+          const tableColTrim = tableCol ? String(tableCol).trim() : "";
+          if (!colName || !tableColTrim) return null;
+          return {
+            sheet_id: selectedSheetForMapping.id,
+            excel_column: colName,
+            table_column: tableColTrim,
+            data_type: "text",
+          };
+        })
+        .filter(Boolean) as any[];
 
+      if (mappings.length > 0) {
         const { error } = await supabase
           .from("excel_column_mappings")
           .insert(mappings);
-
         if (error) throw error;
       }
 
@@ -483,7 +490,7 @@ const ExcelSheets = () => {
                           <Select
                             value={columnMappings[excelCol] || ""}
                             onValueChange={(value) =>
-                              setColumnMappings({ ...columnMappings, [excelCol]: value })
+                              setColumnMappings({ ...columnMappings, [excelCol]: value.trim() })
                             }
                           >
                             <SelectTrigger>
@@ -665,7 +672,7 @@ const ExcelSheets = () => {
                           <Select
                             value={sheetMappings[excelCol] || ""}
                             onValueChange={(value) =>
-                              setSheetMappings({ ...sheetMappings, [excelCol]: value })
+                              setSheetMappings({ ...sheetMappings, [excelCol]: value.trim() })
                             }
                           >
                             <SelectTrigger>
