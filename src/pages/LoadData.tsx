@@ -5,10 +5,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ExcelSheet {
   id: string;
@@ -25,6 +36,9 @@ const LoadData = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [showExtraColumnsDialog, setShowExtraColumnsDialog] = useState(false);
+  const [extraColumns, setExtraColumns] = useState<string[]>([]);
+  const [pendingUploadData, setPendingUploadData] = useState<any>(null);
 
   useEffect(() => {
     loadAvailableSheets();
@@ -77,7 +91,83 @@ const LoadData = () => {
     setProgress(0);
     setUploadStatus("Reading Excel file...");
 
-    // Create upload log entry
+    try {
+      // Read the Excel file
+      const data = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        toast({
+          title: "Empty file",
+          description: "The Excel file contains no data",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Get column mappings for the selected sheet
+      const { data: mappings, error: mappingsError } = await supabase
+        .from("excel_column_mappings")
+        .select("excel_column")
+        .eq("sheet_id", selectedSheet);
+
+      if (mappingsError) {
+        toast({
+          title: "Error loading mappings",
+          description: mappingsError.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const mappedColumns = mappings?.map(m => m.excel_column.trim()) || [];
+      const fileColumns = Object.keys(jsonData[0] as object).map(col => col.trim());
+
+      // Check for missing columns (columns in mapping but not in file)
+      const missingColumns = mappedColumns.filter(col => !fileColumns.includes(col));
+      
+      if (missingColumns.length > 0) {
+        toast({
+          title: "Missing Columns",
+          description: `The following columns are missing in the Excel file: ${missingColumns.join(", ")}`,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check for extra columns (columns in file but not in mapping)
+      const extraCols = fileColumns.filter(col => !mappedColumns.includes(col));
+      
+      if (extraCols.length > 0) {
+        setExtraColumns(extraCols);
+        setPendingUploadData(jsonData);
+        setShowExtraColumnsDialog(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // Proceed with upload
+      await processUpload(jsonData);
+    } catch (error: any) {
+      toast({
+        title: "Error reading file",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const processUpload = async (jsonData: any[]) => {
+    setIsLoading(true);
+    setProgress(0);
+    setUploadStatus("Processing data...");
+
     let uploadLogId: string | null = null;
     
     try {
@@ -96,12 +186,6 @@ const LoadData = () => {
         description: "Processing your Excel file...",
       });
 
-      // Read the Excel file
-      const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
       // Extract distinct dates from the data
       const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
       const distinctDates = new Set<string>();
@@ -119,7 +203,7 @@ const LoadData = () => {
       const { data: logData, error: logError } = await supabase
         .from("upload_logs")
         .insert({
-          file_name: selectedFile.name,
+          file_name: selectedFile?.name || "Unknown",
           user_id: user?.id,
           user_name: profile?.user_name || user?.email?.split('@')[0] || "Unknown",
           status: "processing",
@@ -181,11 +265,12 @@ const LoadData = () => {
 
       toast({
         title: "Upload completed successfully! ✓",
-        description: `Successfully loaded ${totalProcessed} records from ${selectedFile.name}`,
+        description: `Successfully loaded ${totalProcessed} records`,
       });
 
       setSelectedFile(null);
       setSelectedSheet("");
+      setPendingUploadData(null);
     } catch (error: any) {
       // Update upload log with error
       if (uploadLogId) {
@@ -292,6 +377,42 @@ const LoadData = () => {
           </Button>
         </CardContent>
       </Card>
+
+      <AlertDialog open={showExtraColumnsDialog} onOpenChange={setShowExtraColumnsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-500" />
+              Extra Columns Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>The Excel file contains columns that are not in the mapping setup:</p>
+              <div className="bg-muted p-3 rounded-md">
+                <p className="font-mono text-sm font-semibold text-foreground">
+                  {extraColumns.join(", ")}
+                </p>
+              </div>
+              <p>These columns will be ignored during upload. Do you want to continue?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setIsLoading(false);
+              setPendingUploadData(null);
+            }}>
+              Cancel Upload
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowExtraColumnsDialog(false);
+              if (pendingUploadData) {
+                processUpload(pendingUploadData);
+              }
+            }}>
+              Continue Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
