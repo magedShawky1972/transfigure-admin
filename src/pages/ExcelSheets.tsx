@@ -641,7 +641,7 @@ const ExcelSheets = () => {
                             value={excelCol}
                             onChange={(e) => {
                               const newColName = e.target.value;
-                              const oldColName = excelCol;
+                              const oldColName = sheetExcelColumns[index]; // Get the actual old value
                               
                               // Update the excel columns array
                               const newCols = [...sheetExcelColumns];
@@ -649,7 +649,7 @@ const ExcelSheets = () => {
                               setSheetExcelColumns(newCols);
                               
                               // If there was a mapping for the old column name, transfer it to the new name
-                              if (sheetMappings[oldColName]) {
+                              if (oldColName !== newColName && sheetMappings[oldColName]) {
                                 const newMappings = { ...sheetMappings };
                                 newMappings[newColName] = newMappings[oldColName];
                                 delete newMappings[oldColName];
@@ -684,9 +684,10 @@ const ExcelSheets = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
+                            const colToDelete = sheetExcelColumns[index];
                             setSheetExcelColumns(sheetExcelColumns.filter((_, i) => i !== index));
                             const newMappings = { ...sheetMappings };
-                            delete newMappings[excelCol];
+                            delete newMappings[colToDelete];
                             setSheetMappings(newMappings);
                           }}
                         >
