@@ -632,9 +632,21 @@ const ExcelSheets = () => {
                           <Input
                             value={excelCol}
                             onChange={(e) => {
+                              const newColName = e.target.value;
+                              const oldColName = excelCol;
+                              
+                              // Update the excel columns array
                               const newCols = [...sheetExcelColumns];
-                              newCols[index] = e.target.value;
+                              newCols[index] = newColName;
                               setSheetExcelColumns(newCols);
+                              
+                              // If there was a mapping for the old column name, transfer it to the new name
+                              if (sheetMappings[oldColName]) {
+                                const newMappings = { ...sheetMappings };
+                                newMappings[newColName] = newMappings[oldColName];
+                                delete newMappings[oldColName];
+                                setSheetMappings(newMappings);
+                              }
                             }}
                             placeholder="Excel column name"
                           />
