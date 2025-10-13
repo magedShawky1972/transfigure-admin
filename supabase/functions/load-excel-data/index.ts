@@ -59,11 +59,34 @@ Deno.serve(async (req) => {
     const tableName = sheetConfig.target_table.toLowerCase();
     console.log(`Found ${mappings.length} column mappings for table ${tableName}`);
 
-    // Transform the data based on mappings
+    // Get actual table columns to validate mappings
+    const { data: tableColumns } = await supabase
+      .from('information_schema.columns')
+      .select('column_name')
+      .eq('table_schema', 'public')
+      .eq('table_name', tableName);
+
+    const validColumnNames = new Set(
+      (tableColumns || []).map((c: any) => c.column_name.toLowerCase())
+    );
+
+    // Filter mappings to only include columns that exist in the table
+    const validMappings = mappings.filter((mapping) => {
+      const targetColumn = (mapping.table_column || '').toLowerCase().trim();
+      const isValid = validColumnNames.has(targetColumn);
+      if (!isValid && targetColumn) {
+        console.warn(`Skipping mapping for non-existent column: ${targetColumn}`);
+      }
+      return isValid;
+    });
+
+    console.log(`Using ${validMappings.length} valid column mappings (${mappings.length - validMappings.length} skipped)`);
+
+    // Transform the data based on valid mappings
     const transformedData = data.map((row: any) => {
       const transformedRow: any = {};
       
-      mappings.forEach((mapping) => {
+      validMappings.forEach((mapping) => {
         const excelValue = row[mapping.excel_column];
         const targetColumn = (mapping.table_column || '').toLowerCase().trim();
 

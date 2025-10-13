@@ -146,8 +146,23 @@ const TableGenerator = () => {
     }
 
     try {
-      // Update the generated_tables record with new column definitions
-      const { error } = await supabase
+      // First, alter the actual database table structure
+      const { data: alterData, error: alterError } = await supabase.functions.invoke("alter-table", {
+        body: {
+          tableName: selectedTableForEdit.table_name,
+          oldColumns: selectedTableForEdit.columns,
+          newColumns: editTableColumns.map((col) => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+          })),
+        },
+      });
+
+      if (alterError) throw alterError;
+
+      // Then update the generated_tables metadata
+      const { error: updateError } = await supabase
         .from("generated_tables")
         .update({
           columns: editTableColumns.map((col) => ({
@@ -158,11 +173,11 @@ const TableGenerator = () => {
         })
         .eq("id", selectedTableForEdit.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       toast({
         title: "Success",
-        description: "Table configuration updated successfully",
+        description: "Table structure updated successfully in database",
       });
 
       setEditDialogOpen(false);
@@ -170,7 +185,7 @@ const TableGenerator = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to update table structure",
         variant: "destructive",
       });
     }
