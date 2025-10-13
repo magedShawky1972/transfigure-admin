@@ -220,7 +220,12 @@ const ExcelSheets = () => {
 
   const handleOpenMappingDialog = async (sheet: any) => {
     setSelectedSheetForMapping(sheet);
-    setMappingDialogOpen(true);
+    
+    // Reset state first
+    setSheetMappings({});
+    setSheetExcelColumns([]);
+    setSheetTargetTable("");
+    setSheetTableColumns([]);
     
     // Load the target table if it exists
     if (sheet.target_table) {
@@ -240,6 +245,7 @@ const ExcelSheets = () => {
 
     if (error) {
       console.error("Error loading mappings:", error);
+      setMappingDialogOpen(true);
       return;
     }
 
@@ -255,6 +261,8 @@ const ExcelSheets = () => {
       const excelCols = mappings.map(m => m.excel_column);
       setSheetExcelColumns(excelCols);
     }
+    
+    setMappingDialogOpen(true);
   };
 
   const handleSheetTableSelect = (tableName: string) => {
