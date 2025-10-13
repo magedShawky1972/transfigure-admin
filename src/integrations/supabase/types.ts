@@ -157,9 +157,11 @@ export type Database = {
           customer_phone: string | null
           id: string
           order_number: string | null
+          order_status: string | null
           payment_brand: string | null
           payment_method: string | null
           payment_type: string | null
+          product_id: string | null
           product_name: string | null
           profit: string | null
           qty: string | null
@@ -167,6 +169,7 @@ export type Database = {
           unit_price: string | null
           updated_at: string
           user_name: string | null
+          vendor_name: string | null
         }
         Insert: {
           brand_name?: string | null
@@ -179,9 +182,11 @@ export type Database = {
           customer_phone?: string | null
           id?: string
           order_number?: string | null
+          order_status?: string | null
           payment_brand?: string | null
           payment_method?: string | null
           payment_type?: string | null
+          product_id?: string | null
           product_name?: string | null
           profit?: string | null
           qty?: string | null
@@ -189,6 +194,7 @@ export type Database = {
           unit_price?: string | null
           updated_at?: string
           user_name?: string | null
+          vendor_name?: string | null
         }
         Update: {
           brand_name?: string | null
@@ -201,9 +207,11 @@ export type Database = {
           customer_phone?: string | null
           id?: string
           order_number?: string | null
+          order_status?: string | null
           payment_brand?: string | null
           payment_method?: string | null
           payment_type?: string | null
+          product_id?: string | null
           product_name?: string | null
           profit?: string | null
           qty?: string | null
@@ -211,38 +219,62 @@ export type Database = {
           unit_price?: string | null
           updated_at?: string
           user_name?: string | null
+          vendor_name?: string | null
         }
         Relationships: []
       }
-      test1: {
+      upload_logs: {
         Row: {
           created_at: string
+          error_message: string | null
+          excel_dates: Json | null
+          file_name: string
           id: string
-          item_code: string | null
-          item_name: string | null
-          itm_group_code: string | null
-          sales_price: number | null
+          records_processed: number | null
+          sheet_id: string | null
+          status: string
           updated_at: string
+          upload_date: string
+          user_id: string | null
+          user_name: string | null
         }
         Insert: {
           created_at?: string
+          error_message?: string | null
+          excel_dates?: Json | null
+          file_name: string
           id?: string
-          item_code?: string | null
-          item_name?: string | null
-          itm_group_code?: string | null
-          sales_price?: number | null
+          records_processed?: number | null
+          sheet_id?: string | null
+          status?: string
           updated_at?: string
+          upload_date?: string
+          user_id?: string | null
+          user_name?: string | null
         }
         Update: {
           created_at?: string
+          error_message?: string | null
+          excel_dates?: Json | null
+          file_name?: string
           id?: string
-          item_code?: string | null
-          item_name?: string | null
-          itm_group_code?: string | null
-          sales_price?: number | null
+          records_processed?: number | null
+          sheet_id?: string | null
+          status?: string
           updated_at?: string
+          upload_date?: string
+          user_id?: string | null
+          user_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "upload_logs_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "excel_sheets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

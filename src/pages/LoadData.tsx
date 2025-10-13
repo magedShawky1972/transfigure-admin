@@ -77,12 +77,64 @@ const LoadData = () => {
     setProgress(0);
     setUploadStatus("Reading Excel file...");
 
+    // Create upload log entry
+    let uploadLogId: string | null = null;
+    
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get user profile for user_name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user?.id)
+        .single();
+
+      toast({
+        title: "Upload started",
+        description: "Processing your Excel file...",
+      });
+
       // Read the Excel file
       const data = await selectedFile.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      // Extract distinct dates from the data
+      const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
+      const distinctDates = new Set<string>();
+      
+      jsonData.forEach((row: any) => {
+        dateFields.forEach(field => {
+          if (row[field]) {
+            const dateStr = new Date(row[field]).toISOString().split('T')[0];
+            distinctDates.add(dateStr);
+          }
+        });
+      });
+
+      // Create upload log
+      const { data: logData, error: logError } = await supabase
+        .from("upload_logs")
+        .insert({
+          file_name: selectedFile.name,
+          user_id: user?.id,
+          user_name: profile?.user_name || user?.email?.split('@')[0] || "Unknown",
+          status: "processing",
+          sheet_id: selectedSheet,
+          excel_dates: Array.from(distinctDates).sort(),
+          records_processed: 0,
+        })
+        .select()
+        .single();
+
+      if (logError) {
+        console.error("Failed to create upload log:", logError);
+      } else {
+        uploadLogId = logData.id;
+      }
 
       setUploadStatus(`Processing ${jsonData.length} rows...`);
 
@@ -116,14 +168,36 @@ const LoadData = () => {
       setProgress(100);
       setUploadStatus("");
 
+      // Update upload log with success
+      if (uploadLogId) {
+        await supabase
+          .from("upload_logs")
+          .update({
+            status: "completed",
+            records_processed: totalProcessed,
+          })
+          .eq("id", uploadLogId);
+      }
+
       toast({
-        title: "Success",
-        description: `Loaded ${totalProcessed} records successfully`,
+        title: "Upload completed successfully! ✓",
+        description: `Successfully loaded ${totalProcessed} records from ${selectedFile.name}`,
       });
 
       setSelectedFile(null);
       setSelectedSheet("");
     } catch (error: any) {
+      // Update upload log with error
+      if (uploadLogId) {
+        await supabase
+          .from("upload_logs")
+          .update({
+            status: "failed",
+            error_message: error.message,
+          })
+          .eq("id", uploadLogId);
+      }
+
       toast({
         title: "Upload failed",
         description: error.message,

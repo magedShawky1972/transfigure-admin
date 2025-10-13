@@ -12,6 +12,7 @@ import TableGenerator from "./pages/TableGenerator";
 import Reports from "./pages/Reports";
 import ReportsSetup from "./pages/ReportsSetup";
 import LoadData from "./pages/LoadData";
+import UploadLog from "./pages/UploadLog";
 import ClearData from "./pages/ClearData";
 import Transactions from "./pages/Transactions";
 import UserSetup from "./pages/UserSetup";
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/load-data" element={<LoadData />} />
+              <Route path="/upload-log" element={<UploadLog />} />
               <Route path="/clear-data" element={<ClearData />} />
               <Route path="/reports-setup" element={<ReportsSetup />} />
               <Route path="/api-config" element={<ApiConfig />} />
