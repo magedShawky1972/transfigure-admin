@@ -59,9 +59,11 @@ const ClearData = () => {
 
     setIsClearing(true);
     try {
+      // Normalize table name to lowercase to match database identifiers
+      const tableName = selectedTable.toLowerCase();
       // First, check which date column the table has
       const { data: sampleData } = await (supabase as any)
-        .from(selectedTable)
+        .from(tableName)
         .select('*')
         .limit(1);
 
@@ -72,7 +74,7 @@ const ClearData = () => {
 
       // Delete data within the date range
       const { error } = await (supabase as any)
-        .from(selectedTable)
+        .from(tableName)
         .delete()
         .gte(dateColumn, fromDate.toISOString())
         .lte(dateColumn, toDate.toISOString());
