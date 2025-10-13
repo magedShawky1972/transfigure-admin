@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Calendar, FileSpreadsheet, User, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface UploadLog {
   id: string;
@@ -22,6 +23,7 @@ interface UploadLog {
 }
 
 const UploadLog = () => {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [logs, setLogs] = useState<UploadLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,11 +63,11 @@ const UploadLog = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
-        return <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Completed</Badge>;
+        return <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />{t("uploadLog.completed")}</Badge>;
       case "failed":
-        return <Badge variant="destructive"><AlertCircle className="h-3 w-3 mr-1" />Failed</Badge>;
+        return <Badge variant="destructive"><AlertCircle className="h-3 w-3 mr-1" />{t("uploadLog.failed")}</Badge>;
       case "processing":
-        return <Badge variant="secondary">Processing</Badge>;
+        return <Badge variant="secondary">{t("uploadLog.processing")}</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -74,17 +76,17 @@ const UploadLog = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Upload Log</h1>
+        <h1 className="text-3xl font-bold mb-2">{t("uploadLog.title")}</h1>
         <p className="text-muted-foreground">
-          Track all Excel file uploads and their processing status
+          {t("uploadLog.subtitle")}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Upload History</CardTitle>
+          <CardTitle>{t("uploadLog.title")}</CardTitle>
           <CardDescription>
-            View details of all uploaded Excel files
+            {t("uploadLog.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,14 +102,14 @@ const UploadLog = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Upload Date</TableHead>
-                    <TableHead>File Name</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Records</TableHead>
-                    <TableHead>New Customers</TableHead>
-                    <TableHead>Excel Dates</TableHead>
-                    <TableHead>Error</TableHead>
+                    <TableHead>{t("uploadLog.date")}</TableHead>
+                    <TableHead>{t("uploadLog.fileName")}</TableHead>
+                    <TableHead>{t("uploadLog.uploadedBy")}</TableHead>
+                    <TableHead>{t("uploadLog.status")}</TableHead>
+                    <TableHead>{t("uploadLog.recordsProcessed")}</TableHead>
+                    <TableHead>{t("uploadLog.newCustomers")}</TableHead>
+                    <TableHead>{t("uploadLog.excelDates")}</TableHead>
+                    <TableHead>{t("uploadLog.errors")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -145,7 +147,7 @@ const UploadLog = () => {
                             size="sm"
                             onClick={() => showExcelDates(log.excel_dates)}
                           >
-                            View Dates ({log.excel_dates.length})
+                            {t("uploadLog.view")} ({log.excel_dates.length})
                           </Button>
                         ) : (
                           <span className="text-muted-foreground text-sm">No dates</span>
@@ -170,9 +172,9 @@ const UploadLog = () => {
       <Dialog open={showDatesDialog} onOpenChange={setShowDatesDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Excel Sheet Dates</DialogTitle>
+            <DialogTitle>{t("uploadLog.excelDatesTitle")}</DialogTitle>
             <DialogDescription>
-              All distinct dates found in the uploaded Excel file
+              {t("uploadLog.subtitle")}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-96 overflow-y-auto">

@@ -105,7 +105,7 @@ const CustomerSetup = () => {
         if (error) throw error;
         toast({
           title: t("common.success"),
-          description: "Customer updated successfully",
+          description: t("customerSetup.success"),
         });
       }
 
@@ -150,7 +150,7 @@ const CustomerSetup = () => {
       
       toast({
         title: t("common.success"),
-        description: customer.is_blocked ? "Customer unblocked" : "Customer blocked",
+        description: t("customerSetup.success"),
       });
     } catch (error: any) {
       toast({
@@ -180,21 +180,21 @@ const CustomerSetup = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Customer Setup</h1>
+        <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
       </div>
 
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Customer Phone</TableHead>
-              <TableHead>Customer Name</TableHead>
-              <TableHead>Creation Date</TableHead>
-              <TableHead>Updated Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Blocked</TableHead>
-              <TableHead>Block Reason</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("customerSetup.phone")}</TableHead>
+              <TableHead>{t("customerSetup.name")}</TableHead>
+              <TableHead>{t("customerSetup.creationDate")}</TableHead>
+              <TableHead>{t("customerSetup.updatedDate")}</TableHead>
+              <TableHead>{t("customerSetup.status")}</TableHead>
+              <TableHead>{t("customerSetup.blocked")}</TableHead>
+              <TableHead>{t("customerSetup.blockReason")}</TableHead>
+              <TableHead className="text-right">{t("customerSetup.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -238,11 +238,11 @@ const CustomerSetup = () => {
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Customer</DialogTitle>
+            <DialogTitle>{t("customerSetup.editCustomer")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="customer_phone">Customer Phone</Label>
+              <Label htmlFor="customer_phone">{t("customerSetup.phone")}</Label>
               <Input
                 id="customer_phone"
                 value={editingCustomer?.customer_phone || ""}
@@ -250,7 +250,7 @@ const CustomerSetup = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customer_name">Customer Name</Label>
+              <Label htmlFor="customer_name">{t("customerSetup.customerName")}</Label>
               <Input
                 id="customer_name"
                 value={formData.customer_name}
@@ -261,7 +261,7 @@ const CustomerSetup = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status">{t("customerSetup.status")}</Label>
               <Select
                 value={formData.status}
                 onValueChange={(value) =>
@@ -272,26 +272,26 @@ const CustomerSetup = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="disable">Disable</SelectItem>
+                  <SelectItem value="active">{t("customerSetup.active")}</SelectItem>
+                  <SelectItem value="disable">{t("customerSetup.disabled")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {formData.status === 'disable' && (
               <div className="space-y-2">
-                <Label htmlFor="block_reason">Block Reason</Label>
+                <Label htmlFor="block_reason">{t("customerSetup.blockReason")}</Label>
                 <Textarea
                   id="block_reason"
                   value={formData.block_reason}
                   onChange={(e) =>
                     setFormData({ ...formData, block_reason: e.target.value })
                   }
-                  placeholder="Enter reason for disabling customer..."
+                  placeholder={t("customerSetup.blockReasonPlaceholder")}
                 />
               </div>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Saving..." : "Update Customer"}
+              {loading ? t("customerSetup.saving") : t("customerSetup.save")}
             </Button>
           </form>
         </DialogContent>

@@ -41,7 +41,7 @@ export function AppSidebar() {
       label: t("sidebar.entry"),
       items: [
         { title: t("menu.loadData"), url: "/load-data", icon: FileSpreadsheet },
-        { title: "Upload Log", url: "/upload-log", icon: Database },
+        { title: t("uploadLog.title"), url: "/upload-log", icon: Database },
         { title: t("menu.clearData"), url: "/clear-data", icon: Database },
       ]
     },
@@ -49,7 +49,7 @@ export function AppSidebar() {
       label: t("sidebar.setup"),
       items: [
         { title: t("menu.reportsSetup"), url: "/reports-setup", icon: Settings },
-        { title: "Customer Setup", url: "/customer-setup", icon: UserCheck },
+        { title: t("customerSetup.title"), url: "/customer-setup", icon: UserCheck },
       ]
     },
     {
