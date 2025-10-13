@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Settings, Trash2, FileSpreadsheet } from "lucide-react";
+import { Settings, Trash2, FileSpreadsheet, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,10 @@ const ExcelSheets = () => {
   const [sheetTargetTable, setSheetTargetTable] = useState<string>("");
   const [sheetTableColumns, setSheetTableColumns] = useState<string[]>([]);
   const [isSavingMappings, setIsSavingMappings] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedSheetForEdit, setSelectedSheetForEdit] = useState<any>(null);
+  const [editSheetCode, setEditSheetCode] = useState("");
+  const [editSheetName, setEditSheetName] = useState("");
 
   useEffect(() => {
     loadSheets();
@@ -329,6 +333,50 @@ const ExcelSheets = () => {
     setSheetExcelColumns([...sheetExcelColumns, newCol]);
   };
 
+  const handleOpenEditDialog = (sheet: any) => {
+    setSelectedSheetForEdit(sheet);
+    setEditSheetCode(sheet.sheet_code);
+    setEditSheetName(sheet.sheet_name);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveSheetEdit = async () => {
+    if (!selectedSheetForEdit || !editSheetCode || !editSheetName) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("excel_sheets")
+        .update({
+          sheet_code: editSheetCode,
+          sheet_name: editSheetName,
+        })
+        .eq("id", selectedSheetForEdit.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Sheet configuration updated successfully",
+      });
+
+      setEditDialogOpen(false);
+      loadSheets();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -507,7 +555,16 @@ const ExcelSheets = () => {
                         <Button 
                           variant="ghost" 
                           size="sm"
+                          onClick={() => handleOpenEditDialog(sheet)}
+                          title="Edit sheet details"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
                           onClick={() => handleOpenMappingDialog(sheet)}
+                          title="Configure column mappings"
                         >
                           <Settings className="h-4 w-4" />
                         </Button>
@@ -515,6 +572,7 @@ const ExcelSheets = () => {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleDeleteSheet(sheet.id)}
+                          title="Delete sheet"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -635,6 +693,51 @@ const ExcelSheets = () => {
                 </div>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Sheet Configuration</DialogTitle>
+            <DialogDescription>
+              Update sheet code and name
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-sheet-code">Sheet Code</Label>
+              <Input 
+                id="edit-sheet-code" 
+                placeholder="e.g., TRANS_001" 
+                value={editSheetCode}
+                onChange={(e) => setEditSheetCode(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-sheet-name">Sheet Name</Label>
+              <Input 
+                id="edit-sheet-name" 
+                placeholder="e.g., Monthly Transactions" 
+                value={editSheetName}
+                onChange={(e) => setEditSheetName(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveSheetEdit}>
+                Save Changes
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

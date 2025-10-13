@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Database as DatabaseIcon, CheckCircle } from "lucide-react";
+import { Plus, Trash2, Database as DatabaseIcon, CheckCircle, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Column {
   id: string;
@@ -22,6 +23,9 @@ const TableGenerator = () => {
   const [columns, setColumns] = useState<Column[]>([]);
   const [generatedTables, setGeneratedTables] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedTableForEdit, setSelectedTableForEdit] = useState<any>(null);
+  const [editTableColumns, setEditTableColumns] = useState<Column[]>([]);
 
   useEffect(() => {
     loadGeneratedTables();
@@ -100,6 +104,75 @@ const TableGenerator = () => {
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleOpenEditDialog = (table: any) => {
+    setSelectedTableForEdit(table);
+    const cols = table.columns.map((col: any) => ({
+      id: Math.random().toString(),
+      name: col.name,
+      type: col.type,
+      nullable: col.nullable ?? true,
+    }));
+    setEditTableColumns(cols);
+    setEditDialogOpen(true);
+  };
+
+  const addEditColumn = () => {
+    setEditTableColumns([
+      ...editTableColumns,
+      {
+        id: Math.random().toString(),
+        name: "",
+        type: "text",
+        nullable: true,
+      },
+    ]);
+  };
+
+  const removeEditColumn = (id: string) => {
+    setEditTableColumns(editTableColumns.filter((col) => col.id !== id));
+  };
+
+  const handleSaveTableEdit = async () => {
+    if (!selectedTableForEdit || editTableColumns.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please add at least one column",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Update the generated_tables record with new column definitions
+      const { error } = await supabase
+        .from("generated_tables")
+        .update({
+          columns: editTableColumns.map((col) => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+          })),
+        })
+        .eq("id", selectedTableForEdit.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Table configuration updated successfully",
+      });
+
+      setEditDialogOpen(false);
+      loadGeneratedTables();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -271,6 +344,7 @@ const TableGenerator = () => {
                   <TableHead>Columns</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -288,6 +362,15 @@ const TableGenerator = () => {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(table.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleOpenEditDialog(table)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -308,6 +391,128 @@ const TableGenerator = () => {
           <p>• You can modify the table structure later through the backend</p>
         </CardContent>
       </Card>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Table Configuration</DialogTitle>
+            <DialogDescription>
+              {selectedTableForEdit?.table_name} - Modify table column definitions
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between">
+              <Label>Columns</Label>
+              <Button variant="outline" size="sm" onClick={addEditColumn}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Column
+              </Button>
+            </div>
+
+            {editTableColumns.length > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Column Name</TableHead>
+                      <TableHead>Data Type</TableHead>
+                      <TableHead>Nullable</TableHead>
+                      <TableHead className="w-16"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editTableColumns.map((column) => (
+                      <TableRow key={column.id}>
+                        <TableCell>
+                          <Input
+                            placeholder="column_name"
+                            value={column.name}
+                            onChange={(e) => {
+                              const updated = editTableColumns.map((col) =>
+                                col.id === column.id
+                                  ? { ...col, name: e.target.value }
+                                  : col
+                              );
+                              setEditTableColumns(updated);
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={column.type}
+                            onValueChange={(value) => {
+                              const updated = editTableColumns.map((col) =>
+                                col.id === column.id ? { ...col, type: value } : col
+                              );
+                              setEditTableColumns(updated);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="integer">Integer</SelectItem>
+                              <SelectItem value="decimal">Decimal</SelectItem>
+                              <SelectItem value="boolean">Boolean</SelectItem>
+                              <SelectItem value="timestamp">Timestamp</SelectItem>
+                              <SelectItem value="uuid">UUID</SelectItem>
+                              <SelectItem value="jsonb">JSONB</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={column.nullable ? "yes" : "no"}
+                            onValueChange={(value) => {
+                              const updated = editTableColumns.map((col) =>
+                                col.id === column.id
+                                  ? { ...col, nullable: value === "yes" }
+                                  : col
+                              );
+                              setEditTableColumns(updated);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="yes">Yes</SelectItem>
+                              <SelectItem value="no">No</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeEditColumn(column.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveTableEdit}>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
