@@ -59,11 +59,23 @@ const ClearData = () => {
 
     setIsClearing(true);
     try {
+      // First, check which date column the table has
+      const { data: sampleData } = await (supabase as any)
+        .from(selectedTable)
+        .select('*')
+        .limit(1);
+
+      // Determine which date column to use
+      const dateColumn = sampleData && sampleData[0] && 'created_at_date' in sampleData[0] 
+        ? 'created_at_date' 
+        : 'created_at';
+
+      // Delete data within the date range
       const { error } = await (supabase as any)
         .from(selectedTable)
         .delete()
-        .gte('created_at_date', fromDate.toISOString())
-        .lte('created_at_date', toDate.toISOString());
+        .gte(dateColumn, fromDate.toISOString())
+        .lte(dateColumn, toDate.toISOString());
 
       if (error) throw error;
 
