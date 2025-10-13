@@ -6,7 +6,8 @@ import {
   Table2,
   Home,
   Settings,
-  Users
+  Users,
+  UserCheck
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -48,6 +49,7 @@ export function AppSidebar() {
       label: t("sidebar.setup"),
       items: [
         { title: t("menu.reportsSetup"), url: "/reports-setup", icon: Settings },
+        { title: "Customer Setup", url: "/customer-setup", icon: UserCheck },
       ]
     },
     {

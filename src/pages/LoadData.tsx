@@ -222,6 +222,52 @@ const LoadData = () => {
 
       setUploadStatus(`Processing ${jsonData.length} rows...`);
 
+      // Extract unique customers from the data
+      const uniqueCustomers = new Map();
+      jsonData.forEach((row: any) => {
+        if (row.customer_phone && row.customer_name) {
+          if (!uniqueCustomers.has(row.customer_phone)) {
+            uniqueCustomers.set(row.customer_phone, {
+              phone: row.customer_phone,
+              name: row.customer_name,
+              creationDate: row.created_at_date || new Date()
+            });
+          }
+        }
+      });
+
+      // Check which customers already exist
+      const customerPhones = Array.from(uniqueCustomers.keys());
+      const { data: existingCustomers } = await supabase
+        .from("customers")
+        .select("customer_phone")
+        .in("customer_phone", customerPhones);
+
+      const existingPhones = new Set(existingCustomers?.map(c => c.customer_phone) || []);
+      
+      // Create new customers
+      const newCustomers = Array.from(uniqueCustomers.values())
+        .filter(c => !existingPhones.has(c.phone))
+        .map(c => ({
+          customer_phone: c.phone,
+          customer_name: c.name,
+          creation_date: c.creationDate,
+          status: 'active',
+        }));
+
+      let newCustomersCount = 0;
+      if (newCustomers.length > 0) {
+        const { error: customerError } = await supabase
+          .from("customers")
+          .insert(newCustomers);
+
+        if (customerError) {
+          console.error("Error creating customers:", customerError);
+        } else {
+          newCustomersCount = newCustomers.length;
+        }
+      }
+
       // Split data into chunks of 1000 rows to avoid timeout
       const BATCH_SIZE = 1000;
       const batches = [];
@@ -259,13 +305,14 @@ const LoadData = () => {
           .update({
             status: "completed",
             records_processed: totalProcessed,
+            new_customers_count: newCustomersCount,
           })
           .eq("id", uploadLogId);
       }
 
       toast({
         title: "Upload completed successfully! ✓",
-        description: `Successfully loaded ${totalProcessed} records`,
+        description: `Successfully loaded ${totalProcessed} records. ${newCustomersCount > 0 ? `Created ${newCustomersCount} new customers.` : ''}`,
       });
 
       setSelectedFile(null);

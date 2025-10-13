@@ -18,6 +18,7 @@ interface UploadLog {
   records_processed: number;
   error_message: string | null;
   excel_dates: any;
+  new_customers_count: number;
 }
 
 const UploadLog = () => {
@@ -104,6 +105,7 @@ const UploadLog = () => {
                     <TableHead>User</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Records</TableHead>
+                    <TableHead>New Customers</TableHead>
                     <TableHead>Excel Dates</TableHead>
                     <TableHead>Error</TableHead>
                   </TableRow>
@@ -132,6 +134,9 @@ const UploadLog = () => {
                       <TableCell>{getStatusBadge(log.status)}</TableCell>
                       <TableCell>
                         <span className="font-mono">{log.records_processed}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono">{log.new_customers_count || 0}</span>
                       </TableCell>
                       <TableCell>
                         {log.excel_dates && log.excel_dates.length > 0 ? (

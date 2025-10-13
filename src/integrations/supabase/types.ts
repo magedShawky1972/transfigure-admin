@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          block_reason: string | null
+          created_at: string
+          creation_date: string
+          customer_name: string
+          customer_phone: string
+          id: string
+          is_blocked: boolean
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          block_reason?: string | null
+          created_at?: string
+          creation_date: string
+          customer_name: string
+          customer_phone: string
+          id?: string
+          is_blocked?: boolean
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          block_reason?: string | null
+          created_at?: string
+          creation_date?: string
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          is_blocked?: boolean
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       excel_column_mappings: {
         Row: {
           created_at: string
@@ -230,6 +269,7 @@ export type Database = {
           excel_dates: Json | null
           file_name: string
           id: string
+          new_customers_count: number | null
           records_processed: number | null
           sheet_id: string | null
           status: string
@@ -244,6 +284,7 @@ export type Database = {
           excel_dates?: Json | null
           file_name: string
           id?: string
+          new_customers_count?: number | null
           records_processed?: number | null
           sheet_id?: string | null
           status?: string
@@ -258,6 +299,7 @@ export type Database = {
           excel_dates?: Json | null
           file_name?: string
           id?: string
+          new_customers_count?: number | null
           records_processed?: number | null
           sheet_id?: string | null
           status?: string
