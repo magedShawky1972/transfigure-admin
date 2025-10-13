@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Database as DatabaseIcon, CheckCircle, Edit } from "lucide-react";
+import { Plus, Trash2, Database as DatabaseIcon, CheckCircle, Edit, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Column {
   id: string;
@@ -26,6 +27,9 @@ const TableGenerator = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTableForEdit, setSelectedTableForEdit] = useState<any>(null);
   const [editTableColumns, setEditTableColumns] = useState<Column[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedTableForDelete, setSelectedTableForDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadGeneratedTables();
@@ -133,6 +137,45 @@ const TableGenerator = () => {
 
   const removeEditColumn = (id: string) => {
     setEditTableColumns(editTableColumns.filter((col) => col.id !== id));
+  };
+
+  const handleOpenDeleteDialog = (table: any) => {
+    setSelectedTableForDelete(table);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteTable = async () => {
+    if (!selectedTableForDelete) return;
+
+    setIsDeleting(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("drop-table", {
+        body: {
+          tableName: selectedTableForDelete.table_name,
+          tableId: selectedTableForDelete.id,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Table "${selectedTableForDelete.table_name}" has been deleted`,
+      });
+
+      setDeleteDialogOpen(false);
+      setSelectedTableForDelete(null);
+      loadGeneratedTables();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete table",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSaveTableEdit = async () => {
@@ -379,13 +422,22 @@ const TableGenerator = () => {
                       {new Date(table.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleOpenEditDialog(table)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenEditDialog(table)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenDeleteDialog(table)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -528,6 +580,39 @@ const TableGenerator = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Table
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the table <strong>{selectedTableForDelete?.table_name}</strong>?
+              <br /><br />
+              This will permanently:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Drop the database table and all its data</li>
+                <li>Remove the table configuration from the system</li>
+                <li>Delete all related Excel sheet mappings</li>
+              </ul>
+              <br />
+              <strong className="text-destructive">This action cannot be undone.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTable}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Table"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
