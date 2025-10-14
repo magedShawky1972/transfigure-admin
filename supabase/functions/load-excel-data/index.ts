@@ -142,6 +142,7 @@ Deno.serve(async (req) => {
     }
 
     // After successful insert, upsert products if this is the transaction table
+    let productsUpserted = 0;
     if (tableName === 'purpletransaction') {
       console.log('Upserting products from transaction data...');
       
@@ -174,15 +175,33 @@ Deno.serve(async (req) => {
         if (productError) {
           console.error('Product upsert error:', productError);
         } else {
-          console.log(`Successfully upserted ${productsToUpsert.length} products`);
+          productsUpserted = productsToUpsert.length;
+          console.log(`Successfully upserted ${productsUpserted} products`);
         }
       }
     }
+
+    // Calculate summary statistics
+    const totalValue = validData.reduce((sum: number, row: any) => {
+      const total = parseFloat((row.total || '0').toString().replace(/[,\s]/g, ''));
+      return sum + (isNaN(total) ? 0 : total);
+    }, 0);
+
+    const uniqueDates = [...new Set(validData
+      .map((row: any) => row.created_at_date)
+      .filter((date: any) => date)
+    )].sort();
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         count: validData.length,
+        totalValue,
+        dateRange: {
+          from: uniqueDates[0] || null,
+          to: uniqueDates[uniqueDates.length - 1] || null
+        },
+        productsUpserted,
         message: `Successfully loaded ${validData.length} records`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

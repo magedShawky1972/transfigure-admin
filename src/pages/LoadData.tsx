@@ -20,6 +20,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ExcelSheet {
   id: string;
@@ -39,6 +46,14 @@ const LoadData = () => {
   const [showExtraColumnsDialog, setShowExtraColumnsDialog] = useState(false);
   const [extraColumns, setExtraColumns] = useState<string[]>([]);
   const [pendingUploadData, setPendingUploadData] = useState<any>(null);
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+  const [uploadSummary, setUploadSummary] = useState<{
+    totalRecords: number;
+    totalValue: number;
+    dateRange: { from: string; to: string };
+    newCustomers: number;
+    newProducts: number;
+  } | null>(null);
 
   useEffect(() => {
     loadAvailableSheets();
@@ -276,6 +291,9 @@ const LoadData = () => {
       }
 
       let totalProcessed = 0;
+      let totalValue = 0;
+      let totalProductsUpserted = 0;
+      let allDates: string[] = [];
 
       // Process each batch
       for (let i = 0; i < batches.length; i++) {
@@ -291,6 +309,12 @@ const LoadData = () => {
         if (error) throw error;
 
         totalProcessed += result.count;
+        totalValue += result.totalValue || 0;
+        totalProductsUpserted += result.productsUpserted || 0;
+        
+        if (result.dateRange?.from) allDates.push(result.dateRange.from);
+        if (result.dateRange?.to) allDates.push(result.dateRange.to);
+        
         const progressPercent = ((i + 1) / batches.length) * 100;
         setProgress(progressPercent);
       }
@@ -310,10 +334,22 @@ const LoadData = () => {
           .eq("id", uploadLogId);
       }
 
-      toast({
-        title: "Upload completed successfully! ✓",
-        description: `Successfully loaded ${totalProcessed} records. ${newCustomersCount > 0 ? `Created ${newCustomersCount} new customers.` : ''}`,
+      // Sort dates and get min/max
+      const sortedDates = allDates.sort();
+      const dateRange = {
+        from: sortedDates[0] || '',
+        to: sortedDates[sortedDates.length - 1] || ''
+      };
+
+      // Show summary dialog
+      setUploadSummary({
+        totalRecords: totalProcessed,
+        totalValue,
+        dateRange,
+        newCustomers: newCustomersCount,
+        newProducts: totalProductsUpserted
       });
+      setShowSummaryDialog(true);
 
       setSelectedFile(null);
       setSelectedSheet("");
@@ -460,6 +496,64 @@ const LoadData = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">Upload Summary</DialogTitle>
+            <DialogDescription className="text-center">
+              Your Excel file has been successfully processed
+            </DialogDescription>
+          </DialogHeader>
+          
+          {uploadSummary && (
+            <div className="space-y-4 py-4">
+              <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">Total Records Uploaded</p>
+                <p className="text-3xl font-bold text-primary">{uploadSummary.totalRecords.toLocaleString()}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">New Customers</p>
+                  <p className="text-xl font-semibold">{uploadSummary.newCustomers}</p>
+                </div>
+                
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">New Products</p>
+                  <p className="text-xl font-semibold">{uploadSummary.newProducts}</p>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">Total Value</p>
+                <p className="text-2xl font-bold text-primary">
+                  {uploadSummary.totalValue.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}
+                </p>
+              </div>
+
+              {uploadSummary.dateRange.from && (
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Date Range</p>
+                  <p className="text-sm font-medium">
+                    {new Date(uploadSummary.dateRange.from).toLocaleDateString()} - {new Date(uploadSummary.dateRange.to).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Button 
+            onClick={() => setShowSummaryDialog(false)}
+            className="w-full bg-gradient-to-r from-primary to-accent"
+          >
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
