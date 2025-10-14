@@ -504,7 +504,12 @@ const CustomerSetup = () => {
       
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
+            <Badge variant="secondary" className="text-lg px-4 py-1">
+              {filteredCustomers.length} {t("customerSetup.customers")}
+            </Badge>
+          </div>
           <Button variant="destructive" onClick={() => setClearDialogOpen(true)}>
             <Trash2 className="h-4 w-4 mr-2" />
             {t("customerSetup.clearAll")}
