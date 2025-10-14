@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import {
   Table,
   TableBody,
@@ -328,14 +329,17 @@ const CustomerSetup = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
-        <Button variant="destructive" onClick={() => setClearDialogOpen(true)}>
-          <Trash2 className="h-4 w-4 mr-2" />
-          {t("customerSetup.clearAll")}
-        </Button>
-      </div>
+    <>
+      {loading && <LoadingOverlay progress={100} message={t("common.loading")} />}
+      
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
+          <Button variant="destructive" onClick={() => setClearDialogOpen(true)}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            {t("customerSetup.clearAll")}
+          </Button>
+        </div>
 
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-card rounded-md border">
@@ -595,7 +599,8 @@ const CustomerSetup = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </>
   );
 };
 
