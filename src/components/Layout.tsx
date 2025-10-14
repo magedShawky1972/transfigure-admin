@@ -12,6 +12,7 @@ import edaraLogo from "@/assets/edara-logo.png";
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,6 +26,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     // Check authentication
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setLoading(false);
       
       // Redirect to auth if not logged in and not already on auth page
       if (!session && location.pathname !== "/auth") {
@@ -72,6 +74,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // Don't show sidebar and header on auth page
   if (location.pathname === "/auth") {
     return <>{children}</>;
+  }
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">{t("common.loading")}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
