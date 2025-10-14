@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Receipt, TrendingUp } from "lucide-react";
+import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import {
   Select,
@@ -106,6 +106,10 @@ const CustomerSetup = () => {
   const [filterBrand, setFilterBrand] = useState("");
   const [filterProduct, setFilterProduct] = useState("");
   const [filterBlocked, setFilterBlocked] = useState<string>("all");
+  
+  // Sorting states
+  const [sortColumn, setSortColumn] = useState<keyof Customer | "">("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [formData, setFormData] = useState({
     customer_name: "",
@@ -281,8 +285,29 @@ const CustomerSetup = () => {
       return nameMatch && phoneMatch && blockedMatch && brandProductMatch;
     });
 
+    // Apply sorting
+    if (sortColumn) {
+      filtered.sort((a, b) => {
+        let aVal: any = a[sortColumn];
+        let bVal: any = b[sortColumn];
+        
+        // Handle special cases
+        if (sortColumn === "totalSpend") {
+          aVal = a.totalSpend || 0;
+          bVal = b.totalSpend || 0;
+        } else if (sortColumn === "creation_date" || sortColumn === "lastTransactionDate") {
+          aVal = aVal ? new Date(aVal).getTime() : 0;
+          bVal = bVal ? new Date(bVal).getTime() : 0;
+        }
+        
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
     return filtered;
-  }, [customers, filterName, filterPhone, filterBlocked, filterBrand, filterProduct, customerTransactions]);
+  }, [customers, filterName, filterPhone, filterBlocked, filterBrand, filterProduct, customerTransactions, sortColumn, sortDirection]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -455,6 +480,24 @@ const CustomerSetup = () => {
     return daysDiff <= 7; // Consider new if created within last 7 days
   };
 
+  const handleSort = (column: keyof Customer) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortIcon = ({ column }: { column: keyof Customer }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="h-4 w-4 ml-1 inline" />
+      : <ArrowDown className="h-4 w-4 ml-1 inline" />;
+  };
+
   return (
     <>
       {loading && <LoadingOverlay progress={100} message={t("common.loading")} />}
@@ -514,13 +557,55 @@ const CustomerSetup = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("customerSetup.phone")}</TableHead>
-              <TableHead>{t("customerSetup.name")}</TableHead>
-              <TableHead>{t("customerSetup.creationDate")}</TableHead>
-              <TableHead>{t("customerSetup.lastTransactionDate")}</TableHead>
-              <TableHead>{t("customerSetup.totalSpend")}</TableHead>
-              <TableHead>{t("customerSetup.status")}</TableHead>
-              <TableHead>{t("customerSetup.blocked")}</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort("customer_phone")}
+              >
+                {t("customerSetup.phone")}
+                <SortIcon column="customer_phone" />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort("customer_name")}
+              >
+                {t("customerSetup.name")}
+                <SortIcon column="customer_name" />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort("creation_date")}
+              >
+                {t("customerSetup.creationDate")}
+                <SortIcon column="creation_date" />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort("lastTransactionDate" as keyof Customer)}
+              >
+                {t("customerSetup.lastTransactionDate")}
+                <SortIcon column={"lastTransactionDate" as keyof Customer} />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort("totalSpend" as keyof Customer)}
+              >
+                {t("customerSetup.totalSpend")}
+                <SortIcon column={"totalSpend" as keyof Customer} />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort("status")}
+              >
+                {t("customerSetup.status")}
+                <SortIcon column="status" />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort("is_blocked")}
+              >
+                {t("customerSetup.blocked")}
+                <SortIcon column="is_blocked" />
+              </TableHead>
               <TableHead className="text-right">{t("customerSetup.actions")}</TableHead>
             </TableRow>
           </TableHeader>
