@@ -100,9 +100,10 @@ const Dashboard = () => {
 
   const getDateRange = () => {
     const now = new Date();
+    const yesterday = subDays(now, 1);
+    
     switch (dateFilter) {
       case "yesterday":
-        const yesterday = subDays(now, 1);
         return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
       case "thisMonth":
         return { start: startOfMonth(now), end: endOfMonth(now) };
