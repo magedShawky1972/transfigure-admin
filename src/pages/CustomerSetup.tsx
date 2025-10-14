@@ -435,12 +435,12 @@ const CustomerSetup = () => {
             <SelectItem value="blocked">{t("customerSetup.blocked")}</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterBrand} onValueChange={setFilterBrand}>
+        <Select value={filterBrand || "all"} onValueChange={(value) => setFilterBrand(value === "all" ? "" : value)}>
           <SelectTrigger>
             <SelectValue placeholder={t("customerSetup.filterByBrand")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">{t("common.all")}</SelectItem>
+            <SelectItem value="all">{t("common.all")}</SelectItem>
             {brands.map((brand) => (
               <SelectItem key={brand.id} value={brand.brand_name}>
                 {brand.brand_name}
