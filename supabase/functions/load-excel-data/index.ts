@@ -59,28 +59,17 @@ Deno.serve(async (req) => {
     const tableName = sheetConfig.target_table.toLowerCase();
     console.log(`Found ${mappings.length} column mappings for table ${tableName}`);
 
-    // Get actual table columns to validate mappings
-    const { data: tableColumns } = await supabase
-      .from('information_schema.columns')
-      .select('column_name')
-      .eq('table_schema', 'public')
-      .eq('table_name', tableName);
+    // Skip database schema validation (information_schema isn't exposed via REST)
+    // Assume mappings are correct and normalize target column names
+    const validMappings = mappings
+      .filter((m) => (m.table_column || '').trim().length > 0)
+      .map((m) => ({
+        excel_column: m.excel_column,
+        table_column: (m.table_column || '').toLowerCase().trim(),
+        data_type: (m.data_type || '').toLowerCase().trim(),
+      }));
 
-    const validColumnNames = new Set(
-      (tableColumns || []).map((c: any) => c.column_name.toLowerCase())
-    );
-
-    // Filter mappings to only include columns that exist in the table
-    const validMappings = mappings.filter((mapping) => {
-      const targetColumn = (mapping.table_column || '').toLowerCase().trim();
-      const isValid = validColumnNames.has(targetColumn);
-      if (!isValid && targetColumn) {
-        console.warn(`Skipping mapping for non-existent column: ${targetColumn}`);
-      }
-      return isValid;
-    });
-
-    console.log(`Using ${validMappings.length} valid column mappings (${mappings.length - validMappings.length} skipped)`);
+    console.log(`Prepared ${validMappings.length} column mappings (schema validation skipped)`);
 
     // Transform the data based on valid mappings
     const transformedData = data.map((row: any) => {
@@ -117,20 +106,40 @@ Deno.serve(async (req) => {
 
     console.log(`Inserting ${validData.length} valid rows into ${tableName}`);
 
-    // Insert the data
-    const { error: insertError } = await supabase
-      .from(tableName)
-      .insert(validData);
+    // Insert the data with a simple retry that removes unknown columns if necessary
+    let rowsToInsert = validData;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error: insertError } = await supabase
+        .from(tableName)
+        .insert(rowsToInsert);
 
-    if (insertError) {
+      if (!insertError) {
+        console.log(`Successfully inserted ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
+        break;
+      }
+
       console.error('Insert error:', insertError);
+
+      // Handle undefined column error (Postgres code 42703)
+      const message = (insertError as any).message || '';
+      const match = message.match(/column \"([^\"]+)\"/i);
+      if (match && match[1]) {
+        const badColumn = match[1];
+        console.warn(`Retrying after removing unknown column: ${badColumn}`);
+        rowsToInsert = rowsToInsert.map((r: any) => {
+          const { [badColumn]: _, ...rest } = r;
+          return rest;
+        });
+        // Continue loop to retry
+        continue;
+      }
+
+      // Other errors: return immediately
       return new Response(
-        JSON.stringify({ error: `Failed to insert data: ${insertError.message}` }),
+        JSON.stringify({ error: `Failed to insert data: ${message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log(`Successfully inserted ${validData.length} rows`);
 
     return new Response(
       JSON.stringify({ 
