@@ -79,6 +79,8 @@ const translations = {
     "customerSetup.lastTransaction": "Last Transaction",
     "customerSetup.newCustomer": "New Customer",
     "customerSetup.lastTransactionDate": "Last Transaction",
+    "customerSetup.customers": "Customers",
+    "customerSetup.orderNumber": "Order Number",
     
     // Brand Setup Page
     "brandSetup.title": "Brand Setup",
@@ -348,6 +350,8 @@ const translations = {
     "customerSetup.lastTransaction": "آخر معاملة",
     "customerSetup.newCustomer": "عميل جديد",
     "customerSetup.lastTransactionDate": "آخر معاملة",
+    "customerSetup.customers": "عملاء",
+    "customerSetup.orderNumber": "رقم الطلب",
     
     // Brand Setup Page
     "brandSetup.title": "إعداد الماركات",
