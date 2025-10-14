@@ -283,6 +283,66 @@ const LoadData = () => {
         }
       }
 
+      // After upload completes, sync ALL customers from purpletransaction table
+      setUploadStatus("Syncing customers from transaction history...");
+      
+      // Get all unique customers from purpletransaction table
+      const { data: allTransactions } = await supabase
+        .from("purpletransaction")
+        .select("customer_phone, customer_name, created_at_date")
+        .not("customer_phone", "is", null)
+        .not("customer_name", "is", null);
+
+      if (allTransactions && allTransactions.length > 0) {
+        // Group by phone to get earliest transaction date per customer
+        const transactionCustomers = new Map();
+        allTransactions.forEach((txn: any) => {
+          if (!transactionCustomers.has(txn.customer_phone)) {
+            transactionCustomers.set(txn.customer_phone, {
+              phone: txn.customer_phone,
+              name: txn.customer_name,
+              creationDate: txn.created_at_date
+            });
+          } else {
+            // Keep the earliest date
+            const existing = transactionCustomers.get(txn.customer_phone);
+            if (txn.created_at_date && (!existing.creationDate || new Date(txn.created_at_date) < new Date(existing.creationDate))) {
+              existing.creationDate = txn.created_at_date;
+            }
+          }
+        });
+
+        // Get all existing customers
+        const { data: allExistingCustomers } = await supabase
+          .from("customers")
+          .select("customer_phone");
+
+        const allExistingPhones = new Set(allExistingCustomers?.map(c => c.customer_phone) || []);
+
+        // Find customers that exist in transactions but not in customers table
+        const missingCustomers = Array.from(transactionCustomers.values())
+          .filter(c => !allExistingPhones.has(c.phone))
+          .map(c => ({
+            customer_phone: c.phone,
+            customer_name: c.name,
+            creation_date: c.creationDate || new Date(),
+            status: 'active',
+          }));
+
+        if (missingCustomers.length > 0) {
+          const { error: syncError } = await supabase
+            .from("customers")
+            .insert(missingCustomers);
+
+          if (syncError) {
+            console.error("Error syncing missing customers:", syncError);
+          } else {
+            console.log(`Synced ${missingCustomers.length} missing customers from transaction history`);
+            newCustomersCount += missingCustomers.length;
+          }
+        }
+      }
+
       // Split data into chunks of 1000 rows to avoid timeout
       const BATCH_SIZE = 1000;
       const batches = [];
