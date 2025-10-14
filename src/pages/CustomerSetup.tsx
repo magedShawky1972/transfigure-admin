@@ -84,6 +84,7 @@ const CustomerSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [totalCustomerCount, setTotalCustomerCount] = useState<number>(0);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -119,6 +120,7 @@ const CustomerSetup = () => {
 
   useEffect(() => {
     fetchCustomers(true);
+    fetchTotalCount();
     fetchBrands();
   }, []);
 
@@ -156,6 +158,19 @@ const CustomerSetup = () => {
       setBrands(data || []);
     } catch (error: any) {
       console.error("Error fetching brands:", error);
+    }
+  };
+
+  const fetchTotalCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from("customers")
+        .select("*", { count: 'exact', head: true });
+
+      if (error) throw error;
+      setTotalCustomerCount(count || 0);
+    } catch (error: any) {
+      console.error("Error fetching total count:", error);
     }
   };
 
@@ -447,6 +462,7 @@ const CustomerSetup = () => {
       });
       
       fetchCustomers(true);
+      fetchTotalCount();
       setClearDialogOpen(false);
     } catch (error: any) {
       toast({
@@ -507,7 +523,7 @@ const CustomerSetup = () => {
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
             <Badge variant="secondary" className="text-lg px-4 py-1">
-              {filteredCustomers.length} {t("customerSetup.customers")}
+              {totalCustomerCount} {t("customerSetup.customers")}
             </Badge>
           </div>
           <Button variant="destructive" onClick={() => setClearDialogOpen(true)}>
