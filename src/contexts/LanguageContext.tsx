@@ -33,6 +33,7 @@ const translations = {
     "menu.tableConfig": "Table Configuration",
     "menu.userSetup": "User Setup",
     "menu.customerSetup": "Customer Setup",
+    "menu.productSetup": "Product Setup",
     
     // Customer Setup Page
     "customerSetup.title": "Customer Setup",
@@ -99,6 +100,32 @@ const translations = {
     "brandSetup.deleted": "Brand deleted successfully",
     "brandSetup.deleteConfirm": "Are you sure you want to delete this brand?",
     "brandSetup.noData": "No brands found",
+    
+    // Product Setup Page
+    "productSetup.title": "Product Setup",
+    "productSetup.productId": "Product ID",
+    "productSetup.productName": "Product Name",
+    "productSetup.productPrice": "Product Price",
+    "productSetup.productCost": "Product Cost",
+    "productSetup.status": "Status",
+    "productSetup.createdDate": "Created Date",
+    "productSetup.actions": "Actions",
+    "productSetup.addNew": "Add New Product",
+    "productSetup.editProduct": "Edit Product",
+    "productSetup.productIdPlaceholder": "Enter product ID (optional)",
+    "productSetup.productNamePlaceholder": "Enter product name",
+    "productSetup.productPricePlaceholder": "Enter product price",
+    "productSetup.productCostPlaceholder": "Enter product cost",
+    "productSetup.active": "Active",
+    "productSetup.inactive": "Inactive",
+    "productSetup.cancel": "Cancel",
+    "productSetup.save": "Save",
+    "productSetup.created": "Product created successfully",
+    "productSetup.updated": "Product updated successfully",
+    "productSetup.deleted": "Product deleted successfully",
+    "productSetup.deleteConfirm": "Are you sure you want to delete this product?",
+    "productSetup.filterByName": "Filter by product name",
+    "productSetup.noData": "No products found",
     
     // Upload Log
     "uploadLog.title": "Upload History",
@@ -275,6 +302,7 @@ const translations = {
     "menu.tableConfig": "إعدادات الجداول",
     "menu.userSetup": "إعداد المستخدمين",
     "menu.customerSetup": "إعداد العملاء",
+    "menu.productSetup": "إعداد المنتجات",
     
     // Customer Setup Page
     "customerSetup.title": "إعداد العملاء",
@@ -341,6 +369,32 @@ const translations = {
     "brandSetup.deleted": "تم حذف الماركة بنجاح",
     "brandSetup.deleteConfirm": "هل أنت متأكد من حذف هذه الماركة؟",
     "brandSetup.noData": "لا توجد ماركات",
+    
+    // Product Setup Page
+    "productSetup.title": "إعداد المنتجات",
+    "productSetup.productId": "معرف المنتج",
+    "productSetup.productName": "اسم المنتج",
+    "productSetup.productPrice": "سعر المنتج",
+    "productSetup.productCost": "تكلفة المنتج",
+    "productSetup.status": "الحالة",
+    "productSetup.createdDate": "تاريخ الإنشاء",
+    "productSetup.actions": "الإجراءات",
+    "productSetup.addNew": "إضافة منتج جديد",
+    "productSetup.editProduct": "تعديل المنتج",
+    "productSetup.productIdPlaceholder": "أدخل معرف المنتج (اختياري)",
+    "productSetup.productNamePlaceholder": "أدخل اسم المنتج",
+    "productSetup.productPricePlaceholder": "أدخل سعر المنتج",
+    "productSetup.productCostPlaceholder": "أدخل تكلفة المنتج",
+    "productSetup.active": "نشط",
+    "productSetup.inactive": "غير نشط",
+    "productSetup.cancel": "إلغاء",
+    "productSetup.save": "حفظ",
+    "productSetup.created": "تم إنشاء المنتج بنجاح",
+    "productSetup.updated": "تم تحديث المنتج بنجاح",
+    "productSetup.deleted": "تم حذف المنتج بنجاح",
+    "productSetup.deleteConfirm": "هل أنت متأكد من حذف هذا المنتج؟",
+    "productSetup.filterByName": "تصفية حسب اسم المنتج",
+    "productSetup.noData": "لا توجد منتجات",
     
     // Upload Log
     "uploadLog.title": "سجل التحميلات",

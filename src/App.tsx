@@ -18,6 +18,7 @@ import Transactions from "./pages/Transactions";
 import UserSetup from "./pages/UserSetup";
 import CustomerSetup from "./pages/CustomerSetup";
 import BrandSetup from "./pages/BrandSetup";
+import ProductSetup from "./pages/ProductSetup";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -45,6 +46,7 @@ const App = () => (
               <Route path="/user-setup" element={<UserSetup />} />
               <Route path="/customer-setup" element={<CustomerSetup />} />
               <Route path="/brand-setup" element={<BrandSetup />} />
+              <Route path="/product-setup" element={<ProductSetup />} />
               <Route path="/auth" element={<Auth />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

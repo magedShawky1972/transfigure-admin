@@ -141,6 +141,44 @@ Deno.serve(async (req) => {
       );
     }
 
+    // After successful insert, upsert products if this is the transaction table
+    if (tableName === 'purpletransaction') {
+      console.log('Upserting products from transaction data...');
+      
+      // Extract unique products from the inserted data
+      const productsToUpsert = validData
+        .filter((row: any) => row.product_name)
+        .map((row: any) => ({
+          product_id: row.product_id || null,
+          product_name: row.product_name,
+          product_price: row.unit_price || null,
+          product_cost: row.cost_price || null,
+          status: 'active'
+        }))
+        .filter((product: any, index: number, self: any[]) => 
+          // Remove duplicates by product_id or product_name
+          index === self.findIndex((p: any) => 
+            (product.product_id && p.product_id === product.product_id) ||
+            (!product.product_id && p.product_name === product.product_name)
+          )
+        );
+
+      if (productsToUpsert.length > 0) {
+        const { error: productError } = await supabase
+          .from('products')
+          .upsert(productsToUpsert, {
+            onConflict: 'product_id',
+            ignoreDuplicates: false
+          });
+
+        if (productError) {
+          console.error('Product upsert error:', productError);
+        } else {
+          console.log(`Successfully upserted ${productsToUpsert.length} products`);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
