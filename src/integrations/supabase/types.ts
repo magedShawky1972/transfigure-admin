@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      brands: {
+        Row: {
+          brand_name: string
+          created_at: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           block_reason: string | null

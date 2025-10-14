@@ -77,6 +77,28 @@ const translations = {
     "customerSetup.product": "Product",
     "customerSetup.lastTransaction": "Last Transaction",
     "customerSetup.newCustomer": "New Customer",
+    "customerSetup.lastTransactionDate": "Last Transaction",
+    
+    // Brand Setup Page
+    "brandSetup.title": "Brand Setup",
+    "brandSetup.brandName": "Brand Name",
+    "brandSetup.status": "Status",
+    "brandSetup.createdDate": "Created Date",
+    "brandSetup.updatedDate": "Updated Date",
+    "brandSetup.actions": "Actions",
+    "brandSetup.addNew": "Add New Brand",
+    "brandSetup.editBrand": "Edit Brand",
+    "brandSetup.brandNamePlaceholder": "Enter brand name",
+    "brandSetup.active": "Active",
+    "brandSetup.inactive": "Inactive",
+    "brandSetup.cancel": "Cancel",
+    "brandSetup.save": "Save",
+    "brandSetup.saving": "Saving...",
+    "brandSetup.created": "Brand created successfully",
+    "brandSetup.updated": "Brand updated successfully",
+    "brandSetup.deleted": "Brand deleted successfully",
+    "brandSetup.deleteConfirm": "Are you sure you want to delete this brand?",
+    "brandSetup.noData": "No brands found",
     
     // Upload Log
     "uploadLog.title": "Upload History",
@@ -226,6 +248,8 @@ const translations = {
     // Common
     "common.success": "Success",
     "common.error": "Error",
+    "common.loading": "Loading...",
+    "common.all": "All",
   },
   ar: {
     // Header
@@ -295,6 +319,28 @@ const translations = {
     "customerSetup.product": "المنتج",
     "customerSetup.lastTransaction": "آخر معاملة",
     "customerSetup.newCustomer": "عميل جديد",
+    "customerSetup.lastTransactionDate": "آخر معاملة",
+    
+    // Brand Setup Page
+    "brandSetup.title": "إعداد الماركات",
+    "brandSetup.brandName": "اسم الماركة",
+    "brandSetup.status": "الحالة",
+    "brandSetup.createdDate": "تاريخ الإنشاء",
+    "brandSetup.updatedDate": "تاريخ التحديث",
+    "brandSetup.actions": "الإجراءات",
+    "brandSetup.addNew": "إضافة ماركة جديدة",
+    "brandSetup.editBrand": "تعديل الماركة",
+    "brandSetup.brandNamePlaceholder": "أدخل اسم الماركة",
+    "brandSetup.active": "نشط",
+    "brandSetup.inactive": "غير نشط",
+    "brandSetup.cancel": "إلغاء",
+    "brandSetup.save": "حفظ",
+    "brandSetup.saving": "جاري الحفظ...",
+    "brandSetup.created": "تم إنشاء الماركة بنجاح",
+    "brandSetup.updated": "تم تحديث الماركة بنجاح",
+    "brandSetup.deleted": "تم حذف الماركة بنجاح",
+    "brandSetup.deleteConfirm": "هل أنت متأكد من حذف هذه الماركة؟",
+    "brandSetup.noData": "لا توجد ماركات",
     
     // Upload Log
     "uploadLog.title": "سجل التحميلات",
@@ -444,6 +490,8 @@ const translations = {
     // Common
     "common.success": "نجح",
     "common.error": "خطأ",
+    "common.loading": "جاري التحميل...",
+    "common.all": "الكل",
   },
 };
 

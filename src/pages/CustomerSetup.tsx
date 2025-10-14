@@ -55,6 +55,13 @@ interface Customer {
   is_blocked: boolean;
   block_reason: string | null;
   totalSpend?: number;
+  lastTransactionDate?: string;
+}
+
+interface Brand {
+  id: string;
+  brand_name: string;
+  status: string;
 }
 
 interface Transaction {
@@ -77,6 +84,7 @@ const CustomerSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
@@ -102,7 +110,23 @@ const CustomerSetup = () => {
 
   useEffect(() => {
     fetchCustomers();
+    fetchBrands();
   }, []);
+
+  const fetchBrands = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("brands")
+        .select("*")
+        .eq("status", "active")
+        .order("brand_name", { ascending: true });
+
+      if (error) throw error;
+      setBrands(data || []);
+    } catch (error: any) {
+      console.error("Error fetching brands:", error);
+    }
+  };
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -114,24 +138,27 @@ const CustomerSetup = () => {
 
       if (error) throw error;
 
-      // Fetch total spend for each customer
-      const customersWithSpend = await Promise.all(
+      // Fetch total spend and last transaction date for each customer
+      const customersWithData = await Promise.all(
         (data || []).map(async (customer) => {
           const { data: transactions } = await supabase
             .from("purpletransaction")
-            .select("total")
-            .eq("customer_phone", customer.customer_phone);
+            .select("total, created_at_date")
+            .eq("customer_phone", customer.customer_phone)
+            .order("created_at_date", { ascending: false });
 
           const totalSpend = (transactions || []).reduce((sum, t) => {
             const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
             return sum + amount;
           }, 0);
 
-          return { ...customer, totalSpend };
+          const lastTransactionDate = transactions?.[0]?.created_at_date || null;
+
+          return { ...customer, totalSpend, lastTransactionDate };
         })
       );
 
-      setCustomers(customersWithSpend);
+      setCustomers(customersWithData);
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -143,19 +170,64 @@ const CustomerSetup = () => {
     }
   };
 
+  const [customerTransactions, setCustomerTransactions] = useState<Record<string, Transaction[]>>({});
+
+  // Fetch transactions for brand/product filtering
+  useEffect(() => {
+    if (filterBrand || filterProduct) {
+      fetchFilteredTransactions();
+    }
+  }, [filterBrand, filterProduct]);
+
+  const fetchFilteredTransactions = async () => {
+    try {
+      let query = supabase
+        .from("purpletransaction")
+        .select("customer_phone, brand_name, product_name");
+
+      if (filterBrand) {
+        query = query.eq("brand_name", filterBrand);
+      }
+      if (filterProduct) {
+        query = query.ilike("product_name", `%${filterProduct}%`);
+      }
+
+      const { data } = await query;
+      
+      // Group by customer phone
+      const grouped: Record<string, Transaction[]> = {};
+      (data || []).forEach((item: any) => {
+        if (!grouped[item.customer_phone]) {
+          grouped[item.customer_phone] = [];
+        }
+        grouped[item.customer_phone].push(item);
+      });
+      
+      setCustomerTransactions(grouped);
+    } catch (error) {
+      console.error("Error fetching filtered transactions:", error);
+    }
+  };
+
   const filteredCustomers = useMemo(() => {
-    return customers.filter((customer) => {
-      const nameMatch = customer.customer_name.toLowerCase().includes(filterName.toLowerCase());
-      const phoneMatch = customer.customer_phone.includes(filterPhone);
+    let filtered = customers.filter((customer) => {
+      const nameMatch = !filterName || customer.customer_name.toLowerCase().includes(filterName.toLowerCase());
+      const phoneMatch = !filterPhone || customer.customer_phone.includes(filterPhone);
       const blockedMatch = filterBlocked === "all" || 
         (filterBlocked === "blocked" && customer.is_blocked) ||
         (filterBlocked === "active" && !customer.is_blocked);
 
-      // For brand and product filters, we need to check if customer has transactions with those
-      // This is a simplified version - in production you'd want to optimize this
-      return nameMatch && phoneMatch && blockedMatch;
+      // Brand and product filter
+      let brandProductMatch = true;
+      if (filterBrand || filterProduct) {
+        brandProductMatch = !!customerTransactions[customer.customer_phone];
+      }
+
+      return nameMatch && phoneMatch && blockedMatch && brandProductMatch;
     });
-  }, [customers, filterName, filterPhone, filterBlocked]);
+
+    return filtered;
+  }, [customers, filterName, filterPhone, filterBlocked, filterBrand, filterProduct, customerTransactions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -342,7 +414,7 @@ const CustomerSetup = () => {
         </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-card rounded-md border">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-card rounded-md border">
         <Input
           placeholder={t("customerSetup.filterByName")}
           value={filterName}
@@ -355,7 +427,7 @@ const CustomerSetup = () => {
         />
         <Select value={filterBlocked} onValueChange={setFilterBlocked}>
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue placeholder={t("customerSetup.blocked")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("common.all")}</SelectItem>
@@ -363,10 +435,23 @@ const CustomerSetup = () => {
             <SelectItem value="blocked">{t("customerSetup.blocked")}</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={filterBrand} onValueChange={setFilterBrand}>
+          <SelectTrigger>
+            <SelectValue placeholder={t("customerSetup.filterByBrand")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">{t("common.all")}</SelectItem>
+            {brands.map((brand) => (
+              <SelectItem key={brand.id} value={brand.brand_name}>
+                {brand.brand_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Input
-          placeholder={t("customerSetup.filterByBrand")}
-          value={filterBrand}
-          onChange={(e) => setFilterBrand(e.target.value)}
+          placeholder={t("customerSetup.filterByProduct")}
+          value={filterProduct}
+          onChange={(e) => setFilterProduct(e.target.value)}
         />
       </div>
 
@@ -377,6 +462,7 @@ const CustomerSetup = () => {
               <TableHead>{t("customerSetup.phone")}</TableHead>
               <TableHead>{t("customerSetup.name")}</TableHead>
               <TableHead>{t("customerSetup.creationDate")}</TableHead>
+              <TableHead>{t("customerSetup.lastTransactionDate")}</TableHead>
               <TableHead>{t("customerSetup.totalSpend")}</TableHead>
               <TableHead>{t("customerSetup.status")}</TableHead>
               <TableHead>{t("customerSetup.blocked")}</TableHead>
@@ -404,6 +490,12 @@ const CustomerSetup = () => {
                   </button>
                 </TableCell>
                 <TableCell>{format(new Date(customer.creation_date), "MMM dd, yyyy")}</TableCell>
+                <TableCell>
+                  {customer.lastTransactionDate 
+                    ? format(new Date(customer.lastTransactionDate), "MMM dd, yyyy")
+                    : "-"
+                  }
+                </TableCell>
                 <TableCell className="font-semibold">
                   {(customer.totalSpend || 0).toLocaleString('en-US', { 
                     minimumFractionDigits: 2,

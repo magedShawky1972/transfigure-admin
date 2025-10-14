@@ -50,6 +50,7 @@ export function AppSidebar() {
       items: [
         { title: t("menu.reportsSetup"), url: "/reports-setup", icon: Settings },
         { title: t("customerSetup.title"), url: "/customer-setup", icon: UserCheck },
+        { title: t("brandSetup.title"), url: "/brand-setup", icon: Settings },
       ]
     },
     {
