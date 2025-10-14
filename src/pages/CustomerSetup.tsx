@@ -95,6 +95,11 @@ const CustomerSetup = () => {
   const [selectedCustomerBrands, setSelectedCustomerBrands] = useState<BrandSummary[]>([]);
   const [selectedCustomerName, setSelectedCustomerName] = useState("");
   
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const ITEMS_PER_PAGE = 30;
+  
   // Filter states
   const [filterName, setFilterName] = useState("");
   const [filterPhone, setFilterPhone] = useState("");
@@ -109,9 +114,31 @@ const CustomerSetup = () => {
   });
 
   useEffect(() => {
-    fetchCustomers();
+    fetchCustomers(true);
     fetchBrands();
   }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop
+        >= document.documentElement.offsetHeight - 100
+      ) {
+        if (hasMore && !loading) {
+          setPage((prev) => prev + 1);
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasMore, loading]);
+
+  useEffect(() => {
+    if (page > 1) {
+      fetchCustomers(false);
+    }
+  }, [page]);
 
   const fetchBrands = async () => {
     try {
@@ -128,37 +155,65 @@ const CustomerSetup = () => {
     }
   };
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (reset: boolean = false) => {
     setLoading(true);
     try {
+      const from = reset ? 0 : (page - 1) * ITEMS_PER_PAGE;
+      const to = reset ? ITEMS_PER_PAGE - 1 : page * ITEMS_PER_PAGE - 1;
+
       const { data, error } = await supabase
         .from("customers")
         .select("*")
-        .order("creation_date", { ascending: false });
+        .order("creation_date", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
-      // Fetch total spend and last transaction date for each customer
+      if ((data || []).length < ITEMS_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      // Fetch total spend and update creation_date with min transaction date
       const customersWithData = await Promise.all(
         (data || []).map(async (customer) => {
           const { data: transactions } = await supabase
             .from("purpletransaction")
             .select("total, created_at_date")
             .eq("customer_phone", customer.customer_phone)
-            .order("created_at_date", { ascending: false });
+            .order("created_at_date", { ascending: true });
 
           const totalSpend = (transactions || []).reduce((sum, t) => {
             const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
             return sum + amount;
           }, 0);
 
-          const lastTransactionDate = transactions?.[0]?.created_at_date || null;
+          const lastTransactionDate = transactions?.[transactions.length - 1]?.created_at_date || null;
+          const minTransactionDate = transactions?.[0]?.created_at_date || customer.creation_date;
 
-          return { ...customer, totalSpend, lastTransactionDate };
+          // Update customer creation_date if different from min transaction date
+          if (minTransactionDate && minTransactionDate !== customer.creation_date) {
+            await supabase
+              .from("customers")
+              .update({ creation_date: minTransactionDate })
+              .eq("id", customer.id);
+          }
+
+          return { 
+            ...customer, 
+            totalSpend, 
+            lastTransactionDate,
+            creation_date: minTransactionDate 
+          };
         })
       );
 
-      setCustomers(customersWithData);
+      if (reset) {
+        setCustomers(customersWithData);
+        setPage(1);
+        setHasMore(true);
+      } else {
+        setCustomers((prev) => [...prev, ...customersWithData]);
+      }
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -256,7 +311,7 @@ const CustomerSetup = () => {
 
       setDialogOpen(false);
       resetForm();
-      fetchCustomers();
+      fetchCustomers(true);
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -291,7 +346,7 @@ const CustomerSetup = () => {
         .eq("id", customer.id);
 
       if (error) throw error;
-      fetchCustomers();
+      fetchCustomers(true);
       
       toast({
         title: t("common.success"),
@@ -366,7 +421,7 @@ const CustomerSetup = () => {
         description: t("customerSetup.cleared"),
       });
       
-      fetchCustomers();
+      fetchCustomers(true);
       setClearDialogOpen(false);
     } catch (error: any) {
       toast({
