@@ -111,6 +111,13 @@ const CustomerSetup = () => {
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof Customer | "">("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Watch for filter changes (name, phone, blocked)
+  useEffect(() => {
+    if ((filterName || filterPhone || filterBlocked !== "all") && hasMore) {
+      fetchAllCustomers();
+    }
+  }, [filterName, filterPhone, filterBlocked]);
   
   const [formData, setFormData] = useState({
     customer_name: "",
@@ -244,11 +251,72 @@ const CustomerSetup = () => {
     }
   };
 
+  const fetchAllCustomers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .order("creation_date", { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch total spend and update creation_date with min transaction date
+      const customersWithData = await Promise.all(
+        (data || []).map(async (customer) => {
+          const { data: transactions } = await supabase
+            .from("purpletransaction")
+            .select("total, created_at_date")
+            .eq("customer_phone", customer.customer_phone)
+            .order("created_at_date", { ascending: true });
+
+          const totalSpend = (transactions || []).reduce((sum, t) => {
+            const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
+            return sum + amount;
+          }, 0);
+
+          const lastTransactionDate = transactions?.[transactions.length - 1]?.created_at_date || null;
+          const minTransactionDate = transactions?.[0]?.created_at_date || customer.creation_date;
+
+          // Update customer creation_date if different from min transaction date
+          if (minTransactionDate && minTransactionDate !== customer.creation_date) {
+            await supabase
+              .from("customers")
+              .update({ creation_date: minTransactionDate })
+              .eq("id", customer.id);
+          }
+
+          return { 
+            ...customer, 
+            totalSpend, 
+            lastTransactionDate,
+            creation_date: minTransactionDate 
+          };
+        })
+      );
+
+      setCustomers(customersWithData);
+      setHasMore(false); // Disable pagination since all loaded
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [customerTransactions, setCustomerTransactions] = useState<Record<string, Transaction[]>>({});
 
   // Fetch transactions for brand/product filtering
   useEffect(() => {
     if (filterBrand || filterProduct) {
+      // Load all customers when filtering
+      if (hasMore) {
+        fetchAllCustomers();
+      }
       fetchFilteredTransactions();
     }
   }, [filterBrand, filterProduct]);
@@ -497,6 +565,11 @@ const CustomerSetup = () => {
   };
 
   const handleSort = (column: keyof Customer) => {
+    // Load all customers when sorting
+    if (hasMore) {
+      fetchAllCustomers();
+    }
+    
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
