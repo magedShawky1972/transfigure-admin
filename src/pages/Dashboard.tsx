@@ -129,8 +129,24 @@ const Dashboard = () => {
   const fetchMetrics = async () => {
     try {
       setLoadingStats(true);
+      
+      // Reset metrics before fetching
+      setMetrics({
+        totalSales: 0,
+        totalProfit: 0,
+        transactionCount: 0,
+        avgOrderValue: 0,
+        couponSales: 0,
+        costOfSales: 0,
+        ePaymentCharges: 0,
+      });
+      setRecentTransactions([]);
+      
       const dateRange = getDateRange();
-      if (!dateRange) return;
+      if (!dateRange) {
+        setLoadingStats(false);
+        return;
+      }
 
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
@@ -189,8 +205,21 @@ const Dashboard = () => {
   const fetchCharts = async () => {
     try {
       setLoadingCharts(true);
+      
+      // Reset charts before fetching
+      setSalesTrend([]);
+      setTopBrands([]);
+      setTopCategories([]);
+      setTopProducts([]);
+      setPaymentMethods([]);
+      setPaymentBrands([]);
+      setMonthComparison([]);
+      
       const dateRange = getDateRange();
-      if (!dateRange) return;
+      if (!dateRange) {
+        setLoadingCharts(false);
+        return;
+      }
 
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
@@ -343,8 +372,20 @@ const Dashboard = () => {
   const fetchTables = async () => {
     try {
       setLoadingTables(true);
+      
+      // Reset tables before fetching
+      setProductSummary([]);
+      setCustomerPurchases([]);
+      setAllProducts([]);
+      setAllCategories([]);
+      setAllBrands([]);
+      setAllCustomers([]);
+      
       const dateRange = getDateRange();
-      if (!dateRange) return;
+      if (!dateRange) {
+        setLoadingTables(false);
+        return;
+      }
 
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
