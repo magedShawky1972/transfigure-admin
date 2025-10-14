@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import {
   Select,
@@ -90,6 +90,7 @@ const CustomerSetup = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [syncingCustomers, setSyncingCustomers] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [selectedCustomerTransactions, setSelectedCustomerTransactions] = useState<Transaction[]>([]);
@@ -541,6 +542,103 @@ const CustomerSetup = () => {
     }
   };
 
+  const handleSyncCustomers = async () => {
+    setSyncingCustomers(true);
+    try {
+      toast({
+        title: "Syncing customers...",
+        description: "Scanning all transactions for missing customers",
+      });
+
+      // Get all unique customers from purpletransaction table
+      const { data: allTransactions } = await supabase
+        .from("purpletransaction")
+        .select("customer_phone, customer_name, created_at_date")
+        .not("customer_phone", "is", null)
+        .not("customer_name", "is", null);
+
+      if (!allTransactions || allTransactions.length === 0) {
+        toast({
+          title: "No transactions found",
+          description: "No transaction data to sync from",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Group by phone to get earliest transaction date per customer
+      const transactionCustomers = new Map();
+      allTransactions.forEach((txn: any) => {
+        if (!transactionCustomers.has(txn.customer_phone)) {
+          transactionCustomers.set(txn.customer_phone, {
+            phone: txn.customer_phone,
+            name: txn.customer_name,
+            creationDate: txn.created_at_date
+          });
+        } else {
+          // Keep the earliest date
+          const existing = transactionCustomers.get(txn.customer_phone);
+          if (txn.created_at_date && (!existing.creationDate || new Date(txn.created_at_date) < new Date(existing.creationDate))) {
+            existing.creationDate = txn.created_at_date;
+          }
+        }
+      });
+
+      // Get all existing customers
+      const { data: allExistingCustomers } = await supabase
+        .from("customers")
+        .select("customer_phone");
+
+      const allExistingPhones = new Set(allExistingCustomers?.map(c => c.customer_phone) || []);
+
+      // Find customers that exist in transactions but not in customers table
+      const missingCustomers = Array.from(transactionCustomers.values())
+        .filter(c => !allExistingPhones.has(c.phone))
+        .map(c => ({
+          customer_phone: c.phone,
+          customer_name: c.name,
+          creation_date: c.creationDate || new Date(),
+          status: 'active',
+        }));
+
+      if (missingCustomers.length === 0) {
+        toast({
+          title: "All synced!",
+          description: "No missing customers found. All customers are already in the database.",
+        });
+        return;
+      }
+
+      // Insert missing customers
+      const { error: syncError } = await supabase
+        .from("customers")
+        .insert(missingCustomers);
+
+      if (syncError) throw syncError;
+
+      toast({
+        title: "Sync completed!",
+        description: `Successfully created ${missingCustomers.length} missing customers from transaction history`,
+      });
+
+      // Refresh the customer list
+      setCustomers([]);
+      setPage(1);
+      setHasMore(true);
+      fetchCustomers(true);
+      fetchTotalCount();
+
+    } catch (error: any) {
+      toast({
+        title: "Sync failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingCustomers(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       customer_name: "",
@@ -599,10 +697,21 @@ const CustomerSetup = () => {
               {totalCustomerCount} {t("customerSetup.customers")}
             </Badge>
           </div>
-          <Button variant="destructive" onClick={() => setClearDialogOpen(true)}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            {t("customerSetup.clearAll")}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSyncCustomers}
+              disabled={syncingCustomers}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncingCustomers ? 'animate-spin' : ''}`} />
+              {syncingCustomers ? "Syncing..." : "Sync Customers"}
+            </Button>
+            <Button variant="destructive" onClick={() => setClearDialogOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t("customerSetup.clearAll")}
+            </Button>
+          </div>
         </div>
 
       {/* Filters */}
