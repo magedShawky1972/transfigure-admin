@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2 } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,7 +75,7 @@ const Dashboard = () => {
   const [customerFilterPurchases, setCustomerFilterPurchases] = useState<string>("all");
   const [productFilterCustomer, setProductFilterCustomer] = useState<string>("all");
   const [categoryFilterCustomer, setCategoryFilterCustomer] = useState<string>("all");
-  const [phoneFilterCustomer, setPhoneFilterCustomer] = useState<string>("all");
+  const [phoneFilterCustomer, setPhoneFilterCustomer] = useState<string>("");
   
   const [allProducts, setAllProducts] = useState<string[]>([]);
   const [allCategories, setAllCategories] = useState<string[]>([]);
@@ -940,17 +941,16 @@ const Dashboard = () => {
               </SelectContent>
             </Select>
 
-            <Select value={phoneFilterCustomer} onValueChange={setPhoneFilterCustomer}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الهاتف' : 'Filter by Phone'} />
-              </SelectTrigger>
-              <SelectContent className="bg-background z-50">
-                <SelectItem value="all">{language === 'ar' ? 'جميع الأرقام' : 'All Phones'}</SelectItem>
-                {allPhones.map(phone => (
-                  <SelectItem key={phone} value={phone}>{phone}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="relative w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder={language === 'ar' ? 'بحث برقم الهاتف' : 'Search by phone'}
+                value={phoneFilterCustomer}
+                onChange={(e) => setPhoneFilterCustomer(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
             <Select value={productFilterCustomer} onValueChange={setProductFilterCustomer}>
               <SelectTrigger className="w-[180px]">
@@ -994,7 +994,7 @@ const Dashboard = () => {
                 {customerPurchases
                   .filter(customer => 
                     (customerFilterPurchases === "all" || customer.customerName === customerFilterPurchases) &&
-                    (phoneFilterCustomer === "all" || customer.customerPhone === phoneFilterCustomer) &&
+                    (phoneFilterCustomer === "" || customer.customerPhone.includes(phoneFilterCustomer)) &&
                     (productFilterCustomer === "all" || customer.product === productFilterCustomer) &&
                     (categoryFilterCustomer === "all" || customer.category === categoryFilterCustomer)
                   )
