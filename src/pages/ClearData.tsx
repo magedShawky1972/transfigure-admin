@@ -72,14 +72,38 @@ const ClearData = () => {
         ? 'created_at_date' 
         : 'created_at';
 
-      // Delete data within the date range
-      const { error } = await (supabase as any)
-        .from(tableName)
-        .delete()
-        .gte(dateColumn, fromDate.toISOString())
-        .lte(dateColumn, toDate.toISOString());
+      // Format dates for comparison - set to start and end of day
+      const fromDateStart = new Date(fromDate);
+      fromDateStart.setHours(0, 0, 0, 0);
+      
+      const toDateEnd = new Date(toDate);
+      toDateEnd.setHours(23, 59, 59, 999);
 
-      if (error) throw error;
+      // For created_at_date (timestamp without time zone), use date format without timezone
+      // For created_at (timestamp with time zone), use ISO format
+      const fromDateStr = dateColumn === 'created_at_date' 
+        ? fromDateStart.toISOString().split('T')[0] + ' 00:00:00'
+        : fromDateStart.toISOString();
+      
+      const toDateStr = dateColumn === 'created_at_date'
+        ? toDateEnd.toISOString().split('T')[0] + ' 23:59:59'
+        : toDateEnd.toISOString();
+
+      console.log('Clearing data:', { tableName, dateColumn, fromDateStr, toDateStr });
+
+      // Delete data within the date range
+      const { error, count } = await (supabase as any)
+        .from(tableName)
+        .delete({ count: 'exact' })
+        .gte(dateColumn, fromDateStr)
+        .lte(dateColumn, toDateStr);
+
+      if (error) {
+        console.error('Delete error:', error);
+        throw error;
+      }
+
+      console.log('Records deleted:', count);
 
       toast.success(t("clearData.success"));
       setSelectedTable("");
