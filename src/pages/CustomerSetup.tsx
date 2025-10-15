@@ -200,39 +200,42 @@ const CustomerSetup = () => {
         setHasMore(false);
       }
 
-      // Fetch total spend and update creation_date with min transaction date
-      const customersWithData = await Promise.all(
-        (data || []).map(async (customer) => {
-          const { data: transactions } = await supabase
-            .from("purpletransaction")
-            .select("total, created_at_date")
-            .eq("customer_phone", customer.customer_phone)
-            .order("created_at_date", { ascending: true });
+      // Fetch ALL transactions for these customers in ONE query
+      const customerPhones = (data || []).map(c => c.customer_phone);
+      const { data: allTransactions } = await supabase
+        .from("purpletransaction")
+        .select("customer_phone, total, created_at_date")
+        .in("customer_phone", customerPhones)
+        .order("created_at_date", { ascending: true });
 
-          const totalSpend = (transactions || []).reduce((sum, t) => {
-            const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
-            return sum + amount;
-          }, 0);
+      // Group transactions by customer phone in memory
+      const transactionsByPhone = new Map<string, any[]>();
+      (allTransactions || []).forEach((t) => {
+        if (!transactionsByPhone.has(t.customer_phone)) {
+          transactionsByPhone.set(t.customer_phone, []);
+        }
+        transactionsByPhone.get(t.customer_phone)!.push(t);
+      });
 
-          const lastTransactionDate = transactions?.[transactions.length - 1]?.created_at_date || null;
-          const minTransactionDate = transactions?.[0]?.created_at_date || customer.creation_date;
+      // Process customers with their transactions
+      const customersWithData = (data || []).map((customer) => {
+        const transactions = transactionsByPhone.get(customer.customer_phone) || [];
+        
+        const totalSpend = transactions.reduce((sum, t) => {
+          const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
+          return sum + amount;
+        }, 0);
 
-          // Update customer creation_date if different from min transaction date
-          if (minTransactionDate && minTransactionDate !== customer.creation_date) {
-            await supabase
-              .from("customers")
-              .update({ creation_date: minTransactionDate })
-              .eq("id", customer.id);
-          }
+        const lastTransactionDate = transactions[transactions.length - 1]?.created_at_date || null;
+        const minTransactionDate = transactions[0]?.created_at_date || customer.creation_date;
 
-          return { 
-            ...customer, 
-            totalSpend, 
-            lastTransactionDate,
-            creation_date: minTransactionDate 
-          };
-        })
-      );
+        return { 
+          ...customer, 
+          totalSpend, 
+          lastTransactionDate,
+          creation_date: minTransactionDate 
+        };
+      });
 
       if (reset) {
         setCustomers(customersWithData);
@@ -262,42 +265,43 @@ const CustomerSetup = () => {
 
       if (error) throw error;
 
-      // Fetch total spend and update creation_date with min transaction date
-      const customersWithData = await Promise.all(
-        (data || []).map(async (customer) => {
-          const { data: transactions } = await supabase
-            .from("purpletransaction")
-            .select("total, created_at_date")
-            .eq("customer_phone", customer.customer_phone)
-            .order("created_at_date", { ascending: true });
+      // Fetch ALL transactions in ONE query
+      const { data: allTransactions } = await supabase
+        .from("purpletransaction")
+        .select("customer_phone, total, created_at_date")
+        .order("created_at_date", { ascending: true });
 
-          const totalSpend = (transactions || []).reduce((sum, t) => {
-            const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
-            return sum + amount;
-          }, 0);
+      // Group transactions by customer phone in memory
+      const transactionsByPhone = new Map<string, any[]>();
+      (allTransactions || []).forEach((t) => {
+        if (!transactionsByPhone.has(t.customer_phone)) {
+          transactionsByPhone.set(t.customer_phone, []);
+        }
+        transactionsByPhone.get(t.customer_phone)!.push(t);
+      });
 
-          const lastTransactionDate = transactions?.[transactions.length - 1]?.created_at_date || null;
-          const minTransactionDate = transactions?.[0]?.created_at_date || customer.creation_date;
+      // Process customers with their transactions
+      const customersWithData = (data || []).map((customer) => {
+        const transactions = transactionsByPhone.get(customer.customer_phone) || [];
+        
+        const totalSpend = transactions.reduce((sum, t) => {
+          const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
+          return sum + amount;
+        }, 0);
 
-          // Update customer creation_date if different from min transaction date
-          if (minTransactionDate && minTransactionDate !== customer.creation_date) {
-            await supabase
-              .from("customers")
-              .update({ creation_date: minTransactionDate })
-              .eq("id", customer.id);
-          }
+        const lastTransactionDate = transactions[transactions.length - 1]?.created_at_date || null;
+        const minTransactionDate = transactions[0]?.created_at_date || customer.creation_date;
 
-          return { 
-            ...customer, 
-            totalSpend, 
-            lastTransactionDate,
-            creation_date: minTransactionDate 
-          };
-        })
-      );
+        return { 
+          ...customer, 
+          totalSpend, 
+          lastTransactionDate,
+          creation_date: minTransactionDate 
+        };
+      });
 
       setCustomers(customersWithData);
-      setHasMore(false); // Disable pagination since all loaded
+      setHasMore(false);
     } catch (error: any) {
       toast({
         title: t("common.error"),
