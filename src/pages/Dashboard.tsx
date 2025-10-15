@@ -67,6 +67,8 @@ const Dashboard = () => {
   const [customerPurchases, setCustomerPurchases] = useState<any[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [paymentBrandsByMethod, setPaymentBrandsByMethod] = useState<any[]>([]);
+  const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([]);
+  const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
   
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
@@ -150,6 +152,7 @@ const Dashboard = () => {
     fetchMetrics();
     fetchCharts();
     fetchTables();
+    fetchInactiveCustomers();
   };
 
   const fetchMetrics = async () => {
@@ -497,7 +500,84 @@ const Dashboard = () => {
     }
   };
 
+  const fetchInactiveCustomers = async () => {
+    try {
+      setLoadingInactiveCustomers(true);
+      setInactiveCustomers([]);
 
+      // Get the date 10 days ago
+      const tenDaysAgo = subDays(new Date(), 10);
+      const tenDaysAgoStr = format(startOfDay(tenDaysAgo), "yyyy-MM-dd'T'00:00:00");
+
+      // Fetch all transactions
+      const pageSize = 1000;
+      let from = 0;
+      let allTransactions: any[] = [];
+      
+      while (true) {
+        const { data, error } = await supabase
+          .from('purpletransaction')
+          .select('customer_phone, customer_name, total, created_at_date')
+          .order('created_at_date', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const batch = data || [];
+        allTransactions = allTransactions.concat(batch);
+        
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      // Group by customer phone and calculate stats
+      const customerMap = new Map<string, {
+        customerName: string;
+        customerPhone: string;
+        totalSpend: number;
+        transactionCount: number;
+        lastTransaction: Date;
+      }>();
+
+      allTransactions.forEach((t: any) => {
+        const phone = t.customer_phone;
+        if (!phone) return;
+
+        const transDate = new Date(t.created_at_date);
+        const totalValue = parseNumber(t.total);
+
+        if (!customerMap.has(phone)) {
+          customerMap.set(phone, {
+            customerName: t.customer_name || 'Unknown',
+            customerPhone: phone,
+            totalSpend: 0,
+            transactionCount: 0,
+            lastTransaction: transDate,
+          });
+        }
+
+        const customer = customerMap.get(phone)!;
+        customer.totalSpend += totalValue;
+        customer.transactionCount += 1;
+        
+        // Update last transaction if this one is more recent
+        if (transDate > customer.lastTransaction) {
+          customer.lastTransaction = transDate;
+        }
+      });
+
+      // Filter for inactive customers (last transaction > 10 days ago)
+      const inactive = Array.from(customerMap.values())
+        .filter(customer => customer.lastTransaction < tenDaysAgo)
+        .sort((a, b) => b.totalSpend - a.totalSpend);
+
+      setInactiveCustomers(inactive);
+      setLoadingInactiveCustomers(false);
+    } catch (error) {
+      console.error('Error fetching inactive customers:', error);
+      setLoadingInactiveCustomers(false);
+    }
+  };
 
   const metricCards = [
     {
@@ -1111,6 +1191,59 @@ const Dashboard = () => {
                       <td className="text-right py-2 px-4">{customer.transactionCount}</td>
                     </tr>
                   ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Inactive Customers - CRM Follow-up */}
+      <Card className="border-2 relative">
+        {loadingInactiveCustomers && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+        <CardHeader>
+          <CardTitle>{language === 'ar' ? 'عملاء بحاجة للمتابعة - CRM' : 'Inactive Customers - CRM Follow-up'}</CardTitle>
+          <CardDescription>
+            {language === 'ar' 
+              ? 'العملاء الذين لم يشتروا منذ أكثر من 10 أيام' 
+              : 'Customers who haven\'t purchased in the last 10 days'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-4">{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</th>
+                  <th className="text-left py-2 px-4">{language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}</th>
+                  <th className="text-right py-2 px-4">{language === 'ar' ? 'إجمالي الإنفاق' : 'Total Spend'}</th>
+                  <th className="text-right py-2 px-4">{language === 'ar' ? 'عدد المعاملات' : 'Transaction Count'}</th>
+                  <th className="text-right py-2 px-4">{language === 'ar' ? 'آخر معاملة' : 'Last Transaction'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inactiveCustomers.length > 0 ? (
+                  inactiveCustomers.slice(0, 20).map((customer: any, index) => (
+                    <tr key={index} className="border-b hover:bg-muted/50">
+                      <td className="py-2 px-4">{customer.customerName}</td>
+                      <td className="py-2 px-4 font-mono">{customer.customerPhone}</td>
+                      <td className="text-right py-2 px-4 font-semibold">{formatCurrency(customer.totalSpend)}</td>
+                      <td className="text-right py-2 px-4">{customer.transactionCount}</td>
+                      <td className="text-right py-2 px-4">
+                        {customer.lastTransaction ? format(new Date(customer.lastTransaction), 'MMM dd, yyyy') : 'N/A'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                      {language === 'ar' ? 'لا توجد بيانات متاحة' : 'No inactive customers found'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
