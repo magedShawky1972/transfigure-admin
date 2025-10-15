@@ -560,13 +560,27 @@ const CustomerSetup = () => {
         return digits;
       };
 
-      // Get all unique customers from purpletransaction table
-      const { data: allTransactions } = await supabase
-        .from("purpletransaction")
-        .select("customer_phone, customer_name, created_at_date")
-        .not("customer_phone", "is", null);
+      // Fetch all transactions in pages to avoid default row limits
+      const pageSize = 1000;
+      let from = 0;
+      let allTransactions: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from("purpletransaction")
+          .select("customer_phone, customer_name, created_at_date")
+          .not("customer_phone", "is", null)
+          .order("created_at_date", { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (!allTransactions || allTransactions.length === 0) {
+        if (error) throw error;
+
+        const batch = data || [];
+        allTransactions = allTransactions.concat(batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      if (allTransactions.length === 0) {
         toast({
           title: "No transactions found",
           description: "No transaction data to sync from",
