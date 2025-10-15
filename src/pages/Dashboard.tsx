@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -65,6 +65,8 @@ const Dashboard = () => {
   const [productSummary, setProductSummary] = useState<any[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [customerPurchases, setCustomerPurchases] = useState<any[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [paymentBrandsByMethod, setPaymentBrandsByMethod] = useState<any[]>([]);
   
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
@@ -99,6 +101,27 @@ const Dashboard = () => {
       maximumFractionDigits: 2,
     }).format(amount);
     return `${formatted} ر.س`;
+  };
+
+  const handlePaymentMethodClick = (data: any, transactions: Transaction[]) => {
+    const methodName = data.name;
+    setSelectedPaymentMethod(methodName);
+    
+    // Filter transactions for this payment method and group by payment brand
+    const filteredTransactions = transactions.filter((t: any) => 
+      (t.payment_method || 'Unknown') === methodName
+    );
+    
+    const brandData = filteredTransactions.reduce((acc: any, t: any) => {
+      const brand = t.payment_brand || 'Unknown';
+      if (!acc[brand]) {
+        acc[brand] = { name: brand, value: 0 };
+      }
+      acc[brand].value += parseNumber(t.total);
+      return acc;
+    }, {});
+    
+    setPaymentBrandsByMethod(Object.values(brandData).sort((a: any, b: any) => b.value - a.value));
   };
 
   const getDateRange = () => {
@@ -342,13 +365,14 @@ const Dashboard = () => {
         }, {});
         setTopProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
-        // Payment methods
+        // Payment methods with click data
         const paymentData = transactions.reduce((acc: any, t) => {
           const method = t.payment_method || 'Unknown';
           if (!acc[method]) {
-            acc[method] = { name: method, value: 0 };
+            acc[method] = { name: method, value: 0, transactions: [] };
           }
           acc[method].value += parseNumber(t.total);
+          acc[method].transactions.push(t);
           return acc;
         }, {});
         setPaymentMethods(Object.values(paymentData));
@@ -772,6 +796,9 @@ const Dashboard = () => {
           )}
           <CardHeader>
             <CardTitle>{t("dashboard.paymentMethods")}</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              {language === 'ar' ? 'انقر على أي طريقة دفع لرؤية تفاصيل العلامات التجارية' : 'Click on any payment method to see brand details'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -784,6 +811,8 @@ const Dashboard = () => {
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
+                  onClick={(data) => handlePaymentMethodClick(data, data.transactions)}
+                  className="cursor-pointer"
                 >
                   {paymentMethods.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -801,6 +830,65 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        {/* Payment Brand Details Dialog */}
+        <Dialog open={selectedPaymentMethod !== null} onOpenChange={() => setSelectedPaymentMethod(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {language === 'ar' ? 'العلامات التجارية للدفع - ' : 'Payment Brands - '}
+                {selectedPaymentMethod}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="mt-4">
+              {paymentBrandsByMethod.length > 0 ? (
+                <div className="space-y-4">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={paymentBrandsByMethod}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {paymentBrandsByMethod.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      <Legend iconType="circle" />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-4">{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</th>
+                          <th className="text-right py-2 px-4">{language === 'ar' ? 'الإجمالي' : 'Total'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paymentBrandsByMethod.map((brand: any, index) => (
+                          <tr key={index} className="border-b hover:bg-muted/50">
+                            <td className="py-2 px-4">{brand.name}</td>
+                            <td className="text-right py-2 px-4 font-semibold">{formatCurrency(brand.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  {language === 'ar' ? 'لا توجد بيانات متاحة' : 'No data available'}
+                </p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Card className="border-2 relative">
           {loadingCharts && (
