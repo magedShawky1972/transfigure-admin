@@ -69,6 +69,7 @@ const Dashboard = () => {
   const [paymentBrandsByMethod, setPaymentBrandsByMethod] = useState<any[]>([]);
   const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([]);
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
+  const [inactivePeriod, setInactivePeriod] = useState<string>("10");
   
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
@@ -505,9 +506,16 @@ const Dashboard = () => {
       setLoadingInactiveCustomers(true);
       setInactiveCustomers([]);
 
-      // Get the date 10 days ago
-      const tenDaysAgo = subDays(new Date(), 10);
-      const tenDaysAgoStr = format(startOfDay(tenDaysAgo), "yyyy-MM-dd'T'00:00:00");
+      // Calculate days based on selected period
+      let daysAgo: number;
+      if (inactivePeriod === "over30") {
+        daysAgo = 31;
+      } else {
+        daysAgo = parseInt(inactivePeriod);
+      }
+      
+      const targetDate = subDays(new Date(), daysAgo);
+      const targetDateStr = format(startOfDay(targetDate), "yyyy-MM-dd'T'00:00:00");
 
       // Fetch all transactions
       const pageSize = 1000;
@@ -566,9 +574,15 @@ const Dashboard = () => {
         }
       });
 
-      // Filter for inactive customers (last transaction > 10 days ago)
+      // Filter for inactive customers based on selected period
       const inactive = Array.from(customerMap.values())
-        .filter(customer => customer.lastTransaction < tenDaysAgo)
+        .filter(customer => {
+          if (inactivePeriod === "over30") {
+            return customer.lastTransaction < subDays(new Date(), 30);
+          } else {
+            return customer.lastTransaction < targetDate;
+          }
+        })
         .sort((a, b) => b.totalSpend - a.totalSpend);
 
       setInactiveCustomers(inactive);
@@ -1208,9 +1222,26 @@ const Dashboard = () => {
           <CardTitle>{language === 'ar' ? 'عملاء بحاجة للمتابعة - CRM' : 'Inactive Customers - CRM Follow-up'}</CardTitle>
           <CardDescription>
             {language === 'ar' 
-              ? 'العملاء الذين لم يشتروا منذ أكثر من 10 أيام' 
-              : 'Customers who haven\'t purchased in the last 10 days'}
+              ? `العملاء الذين لم يشتروا منذ ${inactivePeriod === "over30" ? 'أكثر من 30' : inactivePeriod} ${inactivePeriod === "over30" ? 'يوماً' : 'أيام'}` 
+              : `Customers who haven't purchased in the last ${inactivePeriod === "over30" ? 'over 30' : inactivePeriod} days`}
           </CardDescription>
+          <div className="mt-4">
+            <Select value={inactivePeriod} onValueChange={(value) => {
+              setInactivePeriod(value);
+              setTimeout(() => fetchInactiveCustomers(), 100);
+            }}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder={language === 'ar' ? 'اختر الفترة' : 'Select Period'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">{language === 'ar' ? '10 أيام' : '10 Days'}</SelectItem>
+                <SelectItem value="15">{language === 'ar' ? '15 يوم' : '15 Days'}</SelectItem>
+                <SelectItem value="20">{language === 'ar' ? '20 يوم' : '20 Days'}</SelectItem>
+                <SelectItem value="30">{language === 'ar' ? '30 يوم' : '30 Days'}</SelectItem>
+                <SelectItem value="over30">{language === 'ar' ? 'أكثر من 30 يوم' : 'Over 30 Days'}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
