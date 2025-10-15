@@ -941,10 +941,10 @@ const Dashboard = () => {
             </Select>
 
             <Select value={phoneFilterCustomer} onValueChange={setPhoneFilterCustomer}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الهاتف' : 'Filter by Phone'} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background z-50">
                 <SelectItem value="all">{language === 'ar' ? 'جميع الأرقام' : 'All Phones'}</SelectItem>
                 {allPhones.map(phone => (
                   <SelectItem key={phone} value={phone}>{phone}</SelectItem>
