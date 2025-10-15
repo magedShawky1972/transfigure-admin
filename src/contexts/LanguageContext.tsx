@@ -213,6 +213,7 @@ const translations = {
     "dashboard.notes": "Notes",
     "dashboard.nextAction": "Next Action",
     "dashboard.reminderDate": "Reminder Date",
+    "dashboard.noReminders": "No reminders at this time",
     
     // Transactions Page
     "transactions.title": "All Transactions",
@@ -488,6 +489,7 @@ const translations = {
     "dashboard.notes": "ملاحظات",
     "dashboard.nextAction": "الإجراء التالي",
     "dashboard.reminderDate": "تاريخ التذكير",
+    "dashboard.noReminders": "لا توجد تذكيرات في الوقت الحالي",
     
     // Transactions Page
     "transactions.title": "جميع المعاملات",
