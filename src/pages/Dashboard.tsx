@@ -70,6 +70,8 @@ const Dashboard = () => {
   const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([]);
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
+  const [inactiveCustomersPage, setInactiveCustomersPage] = useState(1);
+  const inactiveCustomersPerPage = 20;
   
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
@@ -505,6 +507,7 @@ const Dashboard = () => {
     try {
       setLoadingInactiveCustomers(true);
       setInactiveCustomers([]);
+      setInactiveCustomersPage(1);
 
       // Calculate days based on selected period
       let daysAgo: number;
@@ -525,7 +528,7 @@ const Dashboard = () => {
       while (true) {
         const { data, error } = await supabase
           .from('purpletransaction')
-          .select('customer_phone, customer_name, total, created_at_date')
+          .select('customer_phone, customer_name, total, created_at_date, brand_name')
           .order('created_at_date', { ascending: false })
           .range(from, from + pageSize - 1);
 
@@ -545,6 +548,8 @@ const Dashboard = () => {
         totalSpend: number;
         transactionCount: number;
         lastTransaction: Date;
+        topBrand: string;
+        brandSpends: Map<string, number>;
       }>();
 
       allTransactions.forEach((t: any) => {
@@ -553,6 +558,7 @@ const Dashboard = () => {
 
         const transDate = new Date(t.created_at_date);
         const totalValue = parseNumber(t.total);
+        const brand = t.brand_name || 'Unknown';
 
         if (!customerMap.has(phone)) {
           customerMap.set(phone, {
@@ -561,6 +567,8 @@ const Dashboard = () => {
             totalSpend: 0,
             transactionCount: 0,
             lastTransaction: transDate,
+            topBrand: brand,
+            brandSpends: new Map(),
           });
         }
 
@@ -568,13 +576,17 @@ const Dashboard = () => {
         customer.totalSpend += totalValue;
         customer.transactionCount += 1;
         
+        // Track brand spending
+        const currentBrandSpend = customer.brandSpends.get(brand) || 0;
+        customer.brandSpends.set(brand, currentBrandSpend + totalValue);
+        
         // Update last transaction if this one is more recent
         if (transDate > customer.lastTransaction) {
           customer.lastTransaction = transDate;
         }
       });
 
-      // Filter for inactive customers based on selected period
+      // Filter for inactive customers and determine top brand
       const inactive = Array.from(customerMap.values())
         .filter(customer => {
           if (inactivePeriod === "over30") {
@@ -582,6 +594,25 @@ const Dashboard = () => {
           } else {
             return customer.lastTransaction < targetDate;
           }
+        })
+        .map(customer => {
+          // Find the brand with highest spend
+          let maxSpend = 0;
+          let topBrand = 'Unknown';
+          customer.brandSpends.forEach((spend, brand) => {
+            if (spend > maxSpend) {
+              maxSpend = spend;
+              topBrand = brand;
+            }
+          });
+          return {
+            customerName: customer.customerName,
+            customerPhone: customer.customerPhone,
+            totalSpend: customer.totalSpend,
+            transactionCount: customer.transactionCount,
+            lastTransaction: customer.lastTransaction,
+            topBrand,
+          };
         })
         .sort((a, b) => b.totalSpend - a.totalSpend);
 
@@ -1252,11 +1283,11 @@ const Dashboard = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {inactiveCustomers.length > 20 && (
+          {inactiveCustomers.length > inactiveCustomersPerPage && (
             <div className="mb-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
               {language === 'ar' 
-                ? `عرض 20 من ${inactiveCustomers.length} عميل` 
-                : `Showing 20 of ${inactiveCustomers.length} customers`}
+                ? `عرض ${(inactiveCustomersPage - 1) * inactiveCustomersPerPage + 1} - ${Math.min(inactiveCustomersPage * inactiveCustomersPerPage, inactiveCustomers.length)} من ${inactiveCustomers.length} عميل` 
+                : `Showing ${(inactiveCustomersPage - 1) * inactiveCustomersPerPage + 1} - ${Math.min(inactiveCustomersPage * inactiveCustomersPerPage, inactiveCustomers.length)} of ${inactiveCustomers.length} customers`}
             </div>
           )}
           <div className="overflow-x-auto">
@@ -1265,6 +1296,7 @@ const Dashboard = () => {
                 <tr className="border-b">
                   <th className="text-left py-2 px-4">{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</th>
                   <th className="text-left py-2 px-4">{language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}</th>
+                  <th className="text-left py-2 px-4">{language === 'ar' ? 'العلامة الرئيسية' : 'Top Brand'}</th>
                   <th className="text-right py-2 px-4">{language === 'ar' ? 'إجمالي الإنفاق' : 'Total Spend'}</th>
                   <th className="text-right py-2 px-4">{language === 'ar' ? 'عدد المعاملات' : 'Transaction Count'}</th>
                   <th className="text-right py-2 px-4">{language === 'ar' ? 'آخر معاملة' : 'Last Transaction'}</th>
@@ -1272,20 +1304,27 @@ const Dashboard = () => {
               </thead>
               <tbody>
                 {inactiveCustomers.length > 0 ? (
-                  inactiveCustomers.slice(0, 20).map((customer: any, index) => (
-                    <tr key={index} className="border-b hover:bg-muted/50">
-                      <td className="py-2 px-4">{customer.customerName}</td>
-                      <td className="py-2 px-4 font-mono">{customer.customerPhone}</td>
-                      <td className="text-right py-2 px-4 font-semibold">{formatCurrency(customer.totalSpend)}</td>
-                      <td className="text-right py-2 px-4">{customer.transactionCount}</td>
-                      <td className="text-right py-2 px-4">
-                        {customer.lastTransaction ? format(new Date(customer.lastTransaction), 'MMM dd, yyyy') : 'N/A'}
-                      </td>
-                    </tr>
-                  ))
+                  inactiveCustomers
+                    .slice((inactiveCustomersPage - 1) * inactiveCustomersPerPage, inactiveCustomersPage * inactiveCustomersPerPage)
+                    .map((customer: any, index) => (
+                      <tr key={index} className="border-b hover:bg-muted/50">
+                        <td className="py-2 px-4">{customer.customerName}</td>
+                        <td className="py-2 px-4 font-mono">{customer.customerPhone}</td>
+                        <td className="py-2 px-4">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium">
+                            {customer.topBrand}
+                          </span>
+                        </td>
+                        <td className="text-right py-2 px-4 font-semibold">{formatCurrency(customer.totalSpend)}</td>
+                        <td className="text-right py-2 px-4">{customer.transactionCount}</td>
+                        <td className="text-right py-2 px-4">
+                          {customer.lastTransaction ? format(new Date(customer.lastTransaction), 'MMM dd, yyyy') : 'N/A'}
+                        </td>
+                      </tr>
+                    ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
                       {language === 'ar' ? 'لا توجد بيانات متاحة' : 'No inactive customers found'}
                     </td>
                   </tr>
@@ -1293,6 +1332,57 @@ const Dashboard = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {inactiveCustomers.length > inactiveCustomersPerPage && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setInactiveCustomersPage(prev => Math.max(1, prev - 1))}
+                disabled={inactiveCustomersPage === 1}
+              >
+                {language === 'ar' ? 'السابق' : 'Previous'}
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                {Array.from({ length: Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage) }, (_, i) => i + 1)
+                  .filter(page => {
+                    const totalPages = Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage);
+                    if (totalPages <= 7) return true;
+                    if (page === 1 || page === totalPages) return true;
+                    if (page >= inactiveCustomersPage - 1 && page <= inactiveCustomersPage + 1) return true;
+                    return false;
+                  })
+                  .map((page, index, array) => {
+                    const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                    return (
+                      <>
+                        {showEllipsis && <span className="px-2">...</span>}
+                        <Button
+                          key={page}
+                          variant={inactiveCustomersPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setInactiveCustomersPage(page)}
+                          className="w-10"
+                        >
+                          {page}
+                        </Button>
+                      </>
+                    );
+                  })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setInactiveCustomersPage(prev => Math.min(Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage), prev + 1))}
+                disabled={inactiveCustomersPage === Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage)}
+              >
+                {language === 'ar' ? 'التالي' : 'Next'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
