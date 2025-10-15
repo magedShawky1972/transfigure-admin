@@ -9,6 +9,7 @@ import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
+import { invalidateCache } from "@/lib/queryCache";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -400,6 +401,10 @@ const LoadData = () => {
         from: sortedDates[0] || '',
         to: sortedDates[sortedDates.length - 1] || ''
       };
+
+      // Invalidate all customer-related cache after successful upload
+      await invalidateCache("customers");
+      console.log("Cache invalidated after Excel upload");
 
       // Show summary dialog
       setUploadSummary({

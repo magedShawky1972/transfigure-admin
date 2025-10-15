@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { getCachedData, setCachedData, getDailyCacheKey } from "@/lib/queryCache";
 import {
   Table,
   TableBody,
@@ -258,6 +259,19 @@ const CustomerSetup = () => {
   const fetchAllCustomers = async () => {
     setLoading(true);
     try {
+      // Try to get from cache first
+      const cacheKey = getDailyCacheKey("customers_all");
+      const cachedData = await getCachedData<Customer[]>(cacheKey);
+      
+      if (cachedData) {
+        console.log("Loading customers from cache");
+        setCustomers(cachedData);
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
+
+      console.log("Cache miss - fetching from database");
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -299,6 +313,10 @@ const CustomerSetup = () => {
           creation_date: minTransactionDate 
         };
       });
+
+      // Cache the result for the day
+      await setCachedData(cacheKey, customersWithData, { expiryHours: 24 });
+      console.log("Customers cached successfully");
 
       setCustomers(customersWithData);
       setHasMore(false);
