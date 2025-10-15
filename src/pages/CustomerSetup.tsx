@@ -242,13 +242,13 @@ const CustomerSetup = () => {
     }
   };
 
-  const fetchAllCustomers = async () => {
+  const fetchAllCustomers = async (ignoreCache: boolean = false) => {
     setLoading(true);
     try {
-      // Try to get from cache first
+      // Try to get from cache first (unless ignored)
       const cacheKey = getDailyCacheKey("customers_all");
-      const cachedData = await getCachedData<Customer[]>(cacheKey);
-      
+      if (!ignoreCache) {
+        const cachedData = await getCachedData<Customer[]>(cacheKey);
         if (cachedData) {
           const hasStats = Array.isArray(cachedData) && cachedData.every((c: any) => typeof c.totalSpend === 'number' && ('lastTransactionDate' in c));
           if (hasStats) {
@@ -263,7 +263,7 @@ const CustomerSetup = () => {
             await invalidateCache("customers_all");
           }
         }
-
+      }
       console.log("Cache miss - fetching from database");
       setCacheLoaded(false);
       const { data, error } = await supabase
@@ -704,7 +704,7 @@ const CustomerSetup = () => {
   const handleSort = (column: keyof Customer) => {
     // Load all customers when sorting
     if (hasMore) {
-      fetchAllCustomers();
+      fetchAllCustomers(true);
     }
     
     if (sortColumn === column) {
