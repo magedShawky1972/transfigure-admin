@@ -217,10 +217,10 @@ const CustomerSetup = () => {
 
       const customersWithData = (data || []).map((customer) => {
         const stats = statsMap.get(customer.customer_phone);
-        return { 
-          ...customer, 
-          totalSpend: stats?.total_spend || 0, 
-          lastTransactionDate: stats?.last_transaction || null
+        return {
+          ...customer,
+          totalSpend: Number(stats?.total_spend ?? 0),
+          lastTransactionDate: stats?.last_transaction ?? null,
         };
       });
 
@@ -249,14 +249,20 @@ const CustomerSetup = () => {
       const cacheKey = getDailyCacheKey("customers_all");
       const cachedData = await getCachedData<Customer[]>(cacheKey);
       
-      if (cachedData) {
-        console.log("Loading customers from cache");
-        setCacheLoaded(true);
-        setCustomers(cachedData);
-        setHasMore(false);
-        setLoading(false);
-        return;
-      }
+        if (cachedData) {
+          const hasStats = Array.isArray(cachedData) && cachedData.every((c: any) => typeof c.totalSpend === 'number' && ('lastTransactionDate' in c));
+          if (hasStats) {
+            console.log("Loading customers from cache");
+            setCacheLoaded(true);
+            setCustomers(cachedData as any);
+            setHasMore(false);
+            setLoading(false);
+            return;
+          } else {
+            console.warn("Cache invalid - missing stats, refetching");
+            await invalidateCache("customers_all");
+          }
+        }
 
       console.log("Cache miss - fetching from database");
       setCacheLoaded(false);
@@ -278,10 +284,10 @@ const CustomerSetup = () => {
 
       const customersWithData = (data || []).map((customer) => {
         const stats = statsMap.get(customer.customer_phone);
-        return { 
-          ...customer, 
-          totalSpend: stats?.total_spend || 0, 
-          lastTransactionDate: stats?.last_transaction || null
+        return {
+          ...customer,
+          totalSpend: Number(stats?.total_spend ?? 0),
+          lastTransactionDate: stats?.last_transaction ?? null,
         };
       });
 
