@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
     // After successful insert, upsert products if this is the transaction table
     let productsUpserted = 0;
     if (tableName === 'purpletransaction') {
-      console.log('Upserting products from transaction data...');
+      console.log('Checking for new products from transaction data...');
       
       // Extract unique products from the inserted data
       const productsToUpsert = validData
@@ -165,6 +165,20 @@ Deno.serve(async (req) => {
         );
 
       if (productsToUpsert.length > 0) {
+        // Check which products already exist
+        const productIds = productsToUpsert.map(p => p.product_id).filter(id => id);
+        const { data: existingProducts } = await supabase
+          .from('products')
+          .select('product_id')
+          .in('product_id', productIds.length > 0 ? productIds : ['']);
+
+        const existingProductIds = new Set(existingProducts?.map(p => p.product_id) || []);
+        
+        // Count only new products (not existing ones)
+        const newProducts = productsToUpsert.filter(p => 
+          p.product_id ? !existingProductIds.has(p.product_id) : true
+        );
+
         const { error: productError } = await supabase
           .from('products')
           .upsert(productsToUpsert, {
@@ -175,8 +189,8 @@ Deno.serve(async (req) => {
         if (productError) {
           console.error('Product upsert error:', productError);
         } else {
-          productsUpserted = productsToUpsert.length;
-          console.log(`Successfully upserted ${productsUpserted} products`);
+          productsUpserted = newProducts.length;
+          console.log(`Successfully processed ${productsToUpsert.length} products (${productsUpserted} new)`);
         }
       }
     }

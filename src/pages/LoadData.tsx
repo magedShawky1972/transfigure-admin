@@ -376,8 +376,7 @@ const LoadData = () => {
           if (syncError) {
             console.error("Error syncing missing customers:", syncError);
           } else {
-            console.log(`Synced ${missingCustomers.length} missing customers from transaction history`);
-            newCustomersCount += missingCustomers.length;
+            console.log(`Synced ${missingCustomers.length} missing customers from transaction history (not counted in new customers for this upload)`);
           }
         }
       }
