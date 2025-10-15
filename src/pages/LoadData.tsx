@@ -54,6 +54,7 @@ const LoadData = () => {
     newCustomers: number;
     newProducts: number;
   } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     loadAvailableSheets();
@@ -80,6 +81,44 @@ const LoadData = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Check if file is Excel format
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        setSelectedFile(file);
+      } else {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an Excel file (.xlsx or .xls)",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -473,9 +512,21 @@ const LoadData = () => {
             </Select>
           </div>
 
-          <div className="border-2 border-dashed rounded-lg p-12 text-center space-y-4">
+          <div 
+            className={`border-2 border-dashed rounded-lg p-12 text-center space-y-4 transition-colors ${
+              isDragging 
+                ? 'border-primary bg-primary/5' 
+                : 'border-border hover:border-primary/50'
+            }`}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <div className="flex justify-center">
-              <FileSpreadsheet className="h-16 w-16 text-muted-foreground" />
+              <FileSpreadsheet className={`h-16 w-16 transition-colors ${
+                isDragging ? 'text-primary' : 'text-muted-foreground'
+              }`} />
             </div>
             <div>
               <Label htmlFor="file-upload" className="cursor-pointer">
