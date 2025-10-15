@@ -97,6 +97,7 @@ const CustomerSetup = () => {
   const [selectedCustomerTransactions, setSelectedCustomerTransactions] = useState<Transaction[]>([]);
   const [selectedCustomerBrands, setSelectedCustomerBrands] = useState<BrandSummary[]>([]);
   const [selectedCustomerName, setSelectedCustomerName] = useState("");
+  const [cacheLoaded, setCacheLoaded] = useState<boolean>(false);
   
   // Pagination states
   const [page, setPage] = useState(1);
@@ -185,6 +186,7 @@ const CustomerSetup = () => {
 
   const fetchCustomers = async (reset: boolean = false) => {
     setLoading(true);
+    setCacheLoaded(false);
     try {
       const from = reset ? 0 : (page - 1) * ITEMS_PER_PAGE;
       const to = reset ? ITEMS_PER_PAGE - 1 : page * ITEMS_PER_PAGE - 1;
@@ -263,6 +265,7 @@ const CustomerSetup = () => {
       
       if (cachedData) {
         console.log("Loading customers from cache");
+        setCacheLoaded(true);
         setCustomers(cachedData);
         setHasMore(false);
         setLoading(false);
@@ -270,6 +273,7 @@ const CustomerSetup = () => {
       }
 
       console.log("Cache miss - fetching from database");
+      setCacheLoaded(false);
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -317,6 +321,7 @@ const CustomerSetup = () => {
         // Set state first
         setCustomers(customersWithData);
         setHasMore(false);
+        setCacheLoaded(false);
         
         // Only cache after successful state update
         await setCachedData(cacheKey, customersWithData, { expiryHours: 24 });
@@ -756,12 +761,12 @@ const CustomerSetup = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              variant="outline"
+              variant={cacheLoaded ? "secondary" : "outline"}
               onClick={handleClearCache}
               className="flex items-center gap-2"
             >
               <Eraser className="h-4 w-4" />
-              Clear Cache
+              {cacheLoaded ? "Clear Cache (Active)" : "Clear Cache"}
             </Button>
             <Button
               variant="outline"
