@@ -6,13 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 interface Transaction {
   id: string;
@@ -72,6 +73,15 @@ const Dashboard = () => {
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
   const [inactiveCustomersPage, setInactiveCustomersPage] = useState(1);
   const inactiveCustomersPerPage = 20;
+  const [inactivePhoneFilter, setInactivePhoneFilter] = useState<string>("");
+  const [inactiveBrandFilter, setInactiveBrandFilter] = useState<string>("all");
+  const [allInactiveBrands, setAllInactiveBrands] = useState<string[]>([]);
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [crmDialogOpen, setCrmDialogOpen] = useState(false);
+  const [crmNotes, setCrmNotes] = useState("");
+  const [crmReminderDate, setCrmReminderDate] = useState<Date>();
+  const [crmNextAction, setCrmNextAction] = useState("");
+  const [savingCrmData, setSavingCrmData] = useState(false);
   
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
@@ -617,10 +627,111 @@ const Dashboard = () => {
         .sort((a, b) => b.totalSpend - a.totalSpend);
 
       setInactiveCustomers(inactive);
+      
+      // Extract unique brands for filter
+      const uniqueBrands = [...new Set(inactive.map((c: any) => c.topBrand))];
+      setAllInactiveBrands(uniqueBrands.filter(Boolean).sort());
+      
       setLoadingInactiveCustomers(false);
     } catch (error) {
       console.error('Error fetching inactive customers:', error);
       setLoadingInactiveCustomers(false);
+    }
+  };
+
+  const handleEditCustomer = async (customer: any) => {
+    setEditingCustomer(customer);
+    
+    // Fetch existing CRM data for this customer
+    const { data, error } = await supabase
+      .from('crm_customer_followup')
+      .select('*')
+      .eq('customer_phone', customer.customerPhone)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (data) {
+      setCrmNotes(data.notes || "");
+      setCrmReminderDate(data.reminder_date ? new Date(data.reminder_date) : undefined);
+      setCrmNextAction(data.next_action || "");
+    } else {
+      setCrmNotes("");
+      setCrmReminderDate(undefined);
+      setCrmNextAction("");
+    }
+    
+    setCrmDialogOpen(true);
+  };
+
+  const handleSaveCrmData = async () => {
+    if (!editingCustomer) return;
+    
+    try {
+      setSavingCrmData(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'يجب تسجيل الدخول' : 'You must be logged in',
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if record exists
+      const { data: existing } = await supabase
+        .from('crm_customer_followup')
+        .select('id')
+        .eq('customer_phone', editingCustomer.customerPhone)
+        .maybeSingle();
+
+      const followupData = {
+        customer_phone: editingCustomer.customerPhone,
+        customer_name: editingCustomer.customerName,
+        notes: crmNotes,
+        reminder_date: crmReminderDate?.toISOString(),
+        next_action: crmNextAction,
+        updated_by: user.id,
+      };
+
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from('crm_customer_followup')
+          .update(followupData)
+          .eq('id', existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('crm_customer_followup')
+          .insert({ ...followupData, created_by: user.id });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: language === 'ar' ? 'تم الحفظ' : 'Saved',
+        description: language === 'ar' ? 'تم حفظ بيانات المتابعة بنجاح' : 'CRM follow-up data saved successfully',
+      });
+
+      setCrmDialogOpen(false);
+      setEditingCustomer(null);
+      setCrmNotes("");
+      setCrmReminderDate(undefined);
+      setCrmNextAction("");
+    } catch (error) {
+      console.error('Error saving CRM data:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل حفظ البيانات' : 'Failed to save data',
+        variant: "destructive",
+      });
+    } finally {
+      setSavingCrmData(false);
     }
   };
 
@@ -1281,13 +1392,60 @@ const Dashboard = () => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-4 mt-4">
+            <div className="relative w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder={language === 'ar' ? 'بحث برقم الهاتف' : 'Search by phone'}
+                value={inactivePhoneFilter}
+                onChange={(e) => {
+                  setInactivePhoneFilter(e.target.value);
+                  setInactiveCustomersPage(1);
+                }}
+                className="pl-10"
+              />
+            </div>
+
+            <Select value={inactiveBrandFilter} onValueChange={(value) => {
+              setInactiveBrandFilter(value);
+              setInactiveCustomersPage(1);
+            }}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder={language === 'ar' ? 'تصفية حسب العلامة' : 'Filter by Brand'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'جميع العلامات' : 'All Brands'}</SelectItem>
+                {allInactiveBrands.map(brand => (
+                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          {inactiveCustomers.length > inactiveCustomersPerPage && (
+          {inactiveCustomers.filter(customer => 
+            (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+            (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+          ).length > inactiveCustomersPerPage && (
             <div className="mb-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
               {language === 'ar' 
-                ? `عرض ${(inactiveCustomersPage - 1) * inactiveCustomersPerPage + 1} - ${Math.min(inactiveCustomersPage * inactiveCustomersPerPage, inactiveCustomers.length)} من ${inactiveCustomers.length} عميل` 
-                : `Showing ${(inactiveCustomersPage - 1) * inactiveCustomersPerPage + 1} - ${Math.min(inactiveCustomersPage * inactiveCustomersPerPage, inactiveCustomers.length)} of ${inactiveCustomers.length} customers`}
+                ? `عرض ${(inactiveCustomersPage - 1) * inactiveCustomersPerPage + 1} - ${Math.min(inactiveCustomersPage * inactiveCustomersPerPage, inactiveCustomers.filter(customer => 
+                    (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                    (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                  ).length)} من ${inactiveCustomers.filter(customer => 
+                    (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                    (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                  ).length} عميل` 
+                : `Showing ${(inactiveCustomersPage - 1) * inactiveCustomersPerPage + 1} - ${Math.min(inactiveCustomersPage * inactiveCustomersPerPage, inactiveCustomers.filter(customer => 
+                    (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                    (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                  ).length)} of ${inactiveCustomers.filter(customer => 
+                    (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                    (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                  ).length} customers`}
             </div>
           )}
           <div className="overflow-x-auto">
@@ -1300,11 +1458,16 @@ const Dashboard = () => {
                   <th className="text-right py-2 px-4">{language === 'ar' ? 'إجمالي الإنفاق' : 'Total Spend'}</th>
                   <th className="text-right py-2 px-4">{language === 'ar' ? 'عدد المعاملات' : 'Transaction Count'}</th>
                   <th className="text-right py-2 px-4">{language === 'ar' ? 'آخر معاملة' : 'Last Transaction'}</th>
+                  <th className="text-center py-2 px-4">{language === 'ar' ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
                 {inactiveCustomers.length > 0 ? (
                   inactiveCustomers
+                    .filter(customer => 
+                      (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                      (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                    )
                     .slice((inactiveCustomersPage - 1) * inactiveCustomersPerPage, inactiveCustomersPage * inactiveCustomersPerPage)
                     .map((customer: any, index) => (
                       <tr key={index} className="border-b hover:bg-muted/50">
@@ -1320,11 +1483,21 @@ const Dashboard = () => {
                         <td className="text-right py-2 px-4">
                           {customer.lastTransaction ? format(new Date(customer.lastTransaction), 'MMM dd, yyyy') : 'N/A'}
                         </td>
+                        <td className="text-center py-2 px-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditCustomer(customer)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            {language === 'ar' ? 'تعديل' : 'Edit'}
+                          </Button>
+                        </td>
                       </tr>
                     ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
                       {language === 'ar' ? 'لا توجد بيانات متاحة' : 'No inactive customers found'}
                     </td>
                   </tr>
@@ -1334,7 +1507,10 @@ const Dashboard = () => {
           </div>
           
           {/* Pagination Controls */}
-          {inactiveCustomers.length > inactiveCustomersPerPage && (
+          {inactiveCustomers.filter(customer => 
+            (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+            (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+          ).length > inactiveCustomersPerPage && (
             <div className="flex items-center justify-between mt-4 pt-4 border-t">
               <Button
                 variant="outline"
@@ -1346,9 +1522,15 @@ const Dashboard = () => {
               </Button>
               
               <div className="flex items-center gap-2">
-                {Array.from({ length: Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage) }, (_, i) => i + 1)
+                {Array.from({ length: Math.ceil(inactiveCustomers.filter(customer => 
+                  (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                  (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                ).length / inactiveCustomersPerPage) }, (_, i) => i + 1)
                   .filter(page => {
-                    const totalPages = Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage);
+                    const totalPages = Math.ceil(inactiveCustomers.filter(customer => 
+                      (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                      (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                    ).length / inactiveCustomersPerPage);
                     if (totalPages <= 7) return true;
                     if (page === 1 || page === totalPages) return true;
                     if (page >= inactiveCustomersPage - 1 && page <= inactiveCustomersPage + 1) return true;
@@ -1376,8 +1558,14 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setInactiveCustomersPage(prev => Math.min(Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage), prev + 1))}
-                disabled={inactiveCustomersPage === Math.ceil(inactiveCustomers.length / inactiveCustomersPerPage)}
+                onClick={() => setInactiveCustomersPage(prev => Math.min(Math.ceil(inactiveCustomers.filter(customer => 
+                  (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                  (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                ).length / inactiveCustomersPerPage), prev + 1))}
+                disabled={inactiveCustomersPage === Math.ceil(inactiveCustomers.filter(customer => 
+                  (inactivePhoneFilter === "" || customer.customerPhone.includes(inactivePhoneFilter)) &&
+                  (inactiveBrandFilter === "all" || customer.topBrand === inactiveBrandFilter)
+                ).length / inactiveCustomersPerPage)}
               >
                 {language === 'ar' ? 'التالي' : 'Next'}
               </Button>
@@ -1385,6 +1573,98 @@ const Dashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* CRM Follow-up Dialog */}
+      <Dialog open={crmDialogOpen} onOpenChange={setCrmDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'بيانات متابعة العميل - CRM' : 'Customer Follow-up - CRM'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingCustomer && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</p>
+                  <p className="font-medium">{editingCustomer.customerName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}</p>
+                  <p className="font-medium font-mono">{editingCustomer.customerPhone}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? 'إجمالي الإنفاق' : 'Total Spend'}</p>
+                  <p className="font-medium">{formatCurrency(editingCustomer.totalSpend)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? 'آخر معاملة' : 'Last Transaction'}</p>
+                  <p className="font-medium">
+                    {editingCustomer.lastTransaction ? format(new Date(editingCustomer.lastTransaction), 'MMM dd, yyyy') : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? 'ملاحظات' : 'Notes'}
+                </label>
+                <textarea
+                  value={crmNotes}
+                  onChange={(e) => setCrmNotes(e.target.value)}
+                  placeholder={language === 'ar' ? 'أدخل ملاحظات حول العميل' : 'Enter notes about the customer'}
+                  className="w-full min-h-[100px] p-3 border rounded-md resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? 'تاريخ التذكير' : 'Reminder Date'}
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !crmReminderDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {crmReminderDate ? format(crmReminderDate, "PPP") : <span>{language === 'ar' ? 'اختر تاريخ التذكير' : 'Pick a reminder date'}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={crmReminderDate} onSelect={setCrmReminderDate} initialFocus className="pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? 'الإجراء التالي' : 'Next Action'}
+                </label>
+                <Input
+                  value={crmNextAction}
+                  onChange={(e) => setCrmNextAction(e.target.value)}
+                  placeholder={language === 'ar' ? 'أدخل الإجراء التالي المطلوب' : 'Enter the next action to take'}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setCrmDialogOpen(false)}>
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button onClick={handleSaveCrmData} disabled={savingCrmData}>
+                  {savingCrmData ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}
+                    </>
+                  ) : (
+                    language === 'ar' ? 'حفظ' : 'Save'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Recent Transactions */}
       <Card className="border-2">

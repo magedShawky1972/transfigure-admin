@@ -38,6 +38,45 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_customer_followup: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_name: string | null
+          customer_phone: string
+          id: string
+          next_action: string | null
+          notes: string | null
+          reminder_date: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          customer_phone: string
+          id?: string
+          next_action?: string | null
+          notes?: string | null
+          reminder_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          customer_phone?: string
+          id?: string
+          next_action?: string | null
+          notes?: string | null
+          reminder_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           block_reason: string | null
@@ -319,6 +358,30 @@ export type Database = {
         }
         Relationships: []
       }
+      query_cache: {
+        Row: {
+          cache_data: Json
+          cache_key: string
+          created_at: string
+          expires_at: string
+          id: string
+        }
+        Insert: {
+          cache_data: Json
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          id?: string
+        }
+        Update: {
+          cache_data?: Json
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       upload_logs: {
         Row: {
           created_at: string
@@ -398,6 +461,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clean_expired_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      customer_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          customer_phone: string
+          last_transaction: string
+          total_spend: number
+        }[]
+      }
+      customer_stats_by_phones: {
+        Args: { _phones: string[] }
+        Returns: {
+          customer_phone: string
+          last_transaction: string
+          total_spend: number
+        }[]
+      }
       exec_sql: {
         Args: { sql: string }
         Returns: undefined
