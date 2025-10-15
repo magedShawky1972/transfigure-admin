@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
-import { getCachedData, setCachedData, getDailyCacheKey, invalidateCache } from "@/lib/queryCache";
 import {
   Table,
   TableBody,
@@ -34,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eraser } from "lucide-react";
+import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import {
   Select,
@@ -97,7 +96,6 @@ const CustomerSetup = () => {
   const [selectedCustomerTransactions, setSelectedCustomerTransactions] = useState<Transaction[]>([]);
   const [selectedCustomerBrands, setSelectedCustomerBrands] = useState<BrandSummary[]>([]);
   const [selectedCustomerName, setSelectedCustomerName] = useState("");
-  const [cacheLoaded, setCacheLoaded] = useState<boolean>(false);
   
   // Pagination states
   const [page, setPage] = useState(1);
@@ -186,7 +184,6 @@ const CustomerSetup = () => {
 
   const fetchCustomers = async (reset: boolean = false) => {
     setLoading(true);
-    setCacheLoaded(false);
     try {
       const from = reset ? 0 : (page - 1) * ITEMS_PER_PAGE;
       const to = reset ? ITEMS_PER_PAGE - 1 : page * ITEMS_PER_PAGE - 1;
@@ -203,26 +200,39 @@ const CustomerSetup = () => {
         setHasMore(false);
       }
 
-      // Use database function to get stats for these customers
-      const customerPhones = (data || []).map(c => c.customer_phone);
-      const { data: statsData } = await supabase.rpc('customer_stats_by_phones', {
-        _phones: customerPhones
-      });
+      // Fetch total spend and update creation_date with min transaction date
+      const customersWithData = await Promise.all(
+        (data || []).map(async (customer) => {
+          const { data: transactions } = await supabase
+            .from("purpletransaction")
+            .select("total, created_at_date")
+            .eq("customer_phone", customer.customer_phone)
+            .order("created_at_date", { ascending: true });
 
-      // Map stats to customers
-      const statsMap = new Map<string, any>();
-      (statsData || []).forEach((stat: any) => {
-        statsMap.set(stat.customer_phone, stat);
-      });
+          const totalSpend = (transactions || []).reduce((sum, t) => {
+            const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
+            return sum + amount;
+          }, 0);
 
-      const customersWithData = (data || []).map((customer) => {
-        const stats = statsMap.get(customer.customer_phone);
-        return {
-          ...customer,
-          totalSpend: Number(stats?.total_spend ?? 0),
-          lastTransactionDate: stats?.last_transaction ?? null,
-        };
-      });
+          const lastTransactionDate = transactions?.[transactions.length - 1]?.created_at_date || null;
+          const minTransactionDate = transactions?.[0]?.created_at_date || customer.creation_date;
+
+          // Update customer creation_date if different from min transaction date
+          if (minTransactionDate && minTransactionDate !== customer.creation_date) {
+            await supabase
+              .from("customers")
+              .update({ creation_date: minTransactionDate })
+              .eq("id", customer.id);
+          }
+
+          return { 
+            ...customer, 
+            totalSpend, 
+            lastTransactionDate,
+            creation_date: minTransactionDate 
+          };
+        })
+      );
 
       if (reset) {
         setCustomers(customersWithData);
@@ -242,30 +252,9 @@ const CustomerSetup = () => {
     }
   };
 
-  const fetchAllCustomers = async (ignoreCache: boolean = false) => {
+  const fetchAllCustomers = async () => {
     setLoading(true);
     try {
-      // Try to get from cache first (unless ignored)
-      const cacheKey = getDailyCacheKey("customers_all");
-      if (!ignoreCache) {
-        const cachedData = await getCachedData<Customer[]>(cacheKey);
-        if (cachedData) {
-          const hasStats = Array.isArray(cachedData) && cachedData.every((c: any) => typeof c.totalSpend === 'number' && ('lastTransactionDate' in c));
-          if (hasStats) {
-            console.log("Loading customers from cache");
-            setCacheLoaded(true);
-            setCustomers(cachedData as any);
-            setHasMore(false);
-            setLoading(false);
-            return;
-          } else {
-            console.warn("Cache invalid - missing stats, refetching");
-            await invalidateCache("customers_all");
-          }
-        }
-      }
-      console.log("Cache miss - fetching from database");
-      setCacheLoaded(false);
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -273,41 +262,42 @@ const CustomerSetup = () => {
 
       if (error) throw error;
 
-      // Use database function to get all stats
-      const { data: statsData } = await supabase.rpc('customer_stats');
+      // Fetch total spend and update creation_date with min transaction date
+      const customersWithData = await Promise.all(
+        (data || []).map(async (customer) => {
+          const { data: transactions } = await supabase
+            .from("purpletransaction")
+            .select("total, created_at_date")
+            .eq("customer_phone", customer.customer_phone)
+            .order("created_at_date", { ascending: true });
 
-      // Map stats to customers
-      const statsMap = new Map<string, any>();
-      (statsData || []).forEach((stat: any) => {
-        statsMap.set(stat.customer_phone, stat);
-      });
+          const totalSpend = (transactions || []).reduce((sum, t) => {
+            const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
+            return sum + amount;
+          }, 0);
 
-      const customersWithData = (data || []).map((customer) => {
-        const stats = statsMap.get(customer.customer_phone);
-        return {
-          ...customer,
-          totalSpend: Number(stats?.total_spend ?? 0),
-          lastTransactionDate: stats?.last_transaction ?? null,
-        };
-      });
+          const lastTransactionDate = transactions?.[transactions.length - 1]?.created_at_date || null;
+          const minTransactionDate = transactions?.[0]?.created_at_date || customer.creation_date;
 
-      // Validate data completeness before caching
-      if (customersWithData && customersWithData.length > 0) {
-        console.log(`Fetched ${customersWithData.length} customers with complete data`);
-        
-        // Set state first
-        setCustomers(customersWithData);
-        setHasMore(false);
-        setCacheLoaded(false);
-        
-        // Only cache after successful state update
-        await setCachedData(cacheKey, customersWithData, { expiryHours: 24 });
-        console.log("Customers cached successfully after validation");
-      } else {
-        console.warn("No customer data to cache");
-        setCustomers([]);
-        setHasMore(false);
-      }
+          // Update customer creation_date if different from min transaction date
+          if (minTransactionDate && minTransactionDate !== customer.creation_date) {
+            await supabase
+              .from("customers")
+              .update({ creation_date: minTransactionDate })
+              .eq("id", customer.id);
+          }
+
+          return { 
+            ...customer, 
+            totalSpend, 
+            lastTransactionDate,
+            creation_date: minTransactionDate 
+          };
+        })
+      );
+
+      setCustomers(customersWithData);
+      setHasMore(false); // Disable pagination since all loaded
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -649,35 +639,6 @@ const CustomerSetup = () => {
     }
   };
 
-  const handleClearCache = async () => {
-    try {
-      toast({
-        title: "Clearing cache...",
-        description: "Removing cached customer data",
-      });
-
-      await invalidateCache("customers");
-
-      // Clear current data and refetch
-      setCustomers([]);
-      setPage(1);
-      setHasMore(true);
-      await fetchCustomers(true);
-      await fetchTotalCount();
-
-      toast({
-        title: "Cache cleared!",
-        description: "Customer data has been refreshed from the database",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Clear cache failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
   const resetForm = () => {
     setFormData({
       customer_name: "",
@@ -704,7 +665,7 @@ const CustomerSetup = () => {
   const handleSort = (column: keyof Customer) => {
     // Load all customers when sorting
     if (hasMore) {
-      fetchAllCustomers(true);
+      fetchAllCustomers();
     }
     
     if (sortColumn === column) {
@@ -737,14 +698,6 @@ const CustomerSetup = () => {
             </Badge>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant={cacheLoaded ? "secondary" : "outline"}
-              onClick={handleClearCache}
-              className="flex items-center gap-2"
-            >
-              <Eraser className="h-4 w-4" />
-              {cacheLoaded ? "Clear Cache (Active)" : "Clear Cache"}
-            </Button>
             <Button
               variant="outline"
               onClick={handleSyncCustomers}
