@@ -203,38 +203,24 @@ const CustomerSetup = () => {
         setHasMore(false);
       }
 
-      // Fetch ALL transactions for these customers in ONE query
+      // Use database function to get stats for these customers
       const customerPhones = (data || []).map(c => c.customer_phone);
-      const { data: allTransactions } = await supabase
-        .from("purpletransaction")
-        .select("customer_phone, total, created_at_date")
-        .in("customer_phone", customerPhones)
-        .order("created_at_date", { ascending: true });
-
-      // Group transactions by customer phone in memory
-      const transactionsByPhone = new Map<string, any[]>();
-      (allTransactions || []).forEach((t) => {
-        if (!transactionsByPhone.has(t.customer_phone)) {
-          transactionsByPhone.set(t.customer_phone, []);
-        }
-        transactionsByPhone.get(t.customer_phone)!.push(t);
+      const { data: statsData } = await supabase.rpc('customer_stats_by_phones', {
+        _phones: customerPhones
       });
 
-      // Process customers with their transactions
+      // Map stats to customers
+      const statsMap = new Map<string, any>();
+      (statsData || []).forEach((stat: any) => {
+        statsMap.set(stat.customer_phone, stat);
+      });
+
       const customersWithData = (data || []).map((customer) => {
-        const transactions = transactionsByPhone.get(customer.customer_phone) || [];
-        
-        const totalSpend = transactions.reduce((sum, t) => {
-          const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
-          return sum + amount;
-        }, 0);
-
-        const lastTransactionDate = transactions[transactions.length - 1]?.created_at_date || null;
-
+        const stats = statsMap.get(customer.customer_phone);
         return { 
           ...customer, 
-          totalSpend, 
-          lastTransactionDate
+          totalSpend: stats?.total_spend || 0, 
+          lastTransactionDate: stats?.last_transaction || null
         };
       });
 
@@ -281,36 +267,21 @@ const CustomerSetup = () => {
 
       if (error) throw error;
 
-      // Fetch ALL transactions in ONE query
-      const { data: allTransactions } = await supabase
-        .from("purpletransaction")
-        .select("customer_phone, total, created_at_date")
-        .order("created_at_date", { ascending: true });
+      // Use database function to get all stats
+      const { data: statsData } = await supabase.rpc('customer_stats');
 
-      // Group transactions by customer phone in memory
-      const transactionsByPhone = new Map<string, any[]>();
-      (allTransactions || []).forEach((t) => {
-        if (!transactionsByPhone.has(t.customer_phone)) {
-          transactionsByPhone.set(t.customer_phone, []);
-        }
-        transactionsByPhone.get(t.customer_phone)!.push(t);
+      // Map stats to customers
+      const statsMap = new Map<string, any>();
+      (statsData || []).forEach((stat: any) => {
+        statsMap.set(stat.customer_phone, stat);
       });
 
-      // Process customers with their transactions
       const customersWithData = (data || []).map((customer) => {
-        const transactions = transactionsByPhone.get(customer.customer_phone) || [];
-        
-        const totalSpend = transactions.reduce((sum, t) => {
-          const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, '') || '0');
-          return sum + amount;
-        }, 0);
-
-        const lastTransactionDate = transactions[transactions.length - 1]?.created_at_date || null;
-
+        const stats = statsMap.get(customer.customer_phone);
         return { 
           ...customer, 
-          totalSpend, 
-          lastTransactionDate
+          totalSpend: stats?.total_spend || 0, 
+          lastTransactionDate: stats?.last_transaction || null
         };
       });
 

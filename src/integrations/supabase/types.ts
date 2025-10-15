@@ -426,6 +426,22 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      customer_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          customer_phone: string
+          last_transaction: string
+          total_spend: number
+        }[]
+      }
+      customer_stats_by_phones: {
+        Args: { _phones: string[] }
+        Returns: {
+          customer_phone: string
+          last_transaction: string
+          total_spend: number
+        }[]
+      }
       exec_sql: {
         Args: { sql: string }
         Returns: undefined
