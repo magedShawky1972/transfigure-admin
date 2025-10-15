@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
-import { getCachedData, setCachedData, getDailyCacheKey } from "@/lib/queryCache";
+import { getCachedData, setCachedData, getDailyCacheKey, invalidateCache } from "@/lib/queryCache";
 import {
   Table,
   TableBody,
@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import {
   Select,
@@ -657,6 +657,35 @@ const CustomerSetup = () => {
     }
   };
 
+  const handleClearCache = async () => {
+    try {
+      toast({
+        title: "Clearing cache...",
+        description: "Removing cached customer data",
+      });
+
+      await invalidateCache("customers");
+
+      // Clear current data and refetch
+      setCustomers([]);
+      setPage(1);
+      setHasMore(true);
+      await fetchCustomers(true);
+      await fetchTotalCount();
+
+      toast({
+        title: "Cache cleared!",
+        description: "Customer data has been refreshed from the database",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Clear cache failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       customer_name: "",
@@ -716,6 +745,14 @@ const CustomerSetup = () => {
             </Badge>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleClearCache}
+              className="flex items-center gap-2"
+            >
+              <Eraser className="h-4 w-4" />
+              Clear Cache
+            </Button>
             <Button
               variant="outline"
               onClick={handleSyncCustomers}
