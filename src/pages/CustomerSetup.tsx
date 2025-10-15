@@ -550,12 +550,21 @@ const CustomerSetup = () => {
         description: "Scanning all transactions for missing customers",
       });
 
+      // Helper: normalize phone to digits only (e.g., 9665xxxx)
+      const normalizePhone = (raw: string | null | undefined) => {
+        if (!raw) return "";
+        const digits = String(raw).replace(/\D+/g, "");
+        // If it starts with 00, drop leading zeros. If it starts with 0 and length 10 (e.g., 05..), convert to 9665.. (KSA)
+        if (digits.startsWith("00")) return digits.replace(/^0+/, "");
+        if (digits.length === 10 && digits.startsWith("05")) return `966${digits.slice(1)}`; // 05xxxxxxxx -> 9665xxxxxxxx
+        return digits;
+      };
+
       // Get all unique customers from purpletransaction table
       const { data: allTransactions } = await supabase
         .from("purpletransaction")
         .select("customer_phone, customer_name, created_at_date")
-        .not("customer_phone", "is", null)
-        .not("customer_name", "is", null);
+        .not("customer_phone", "is", null);
 
       if (!allTransactions || allTransactions.length === 0) {
         toast({
@@ -566,38 +575,44 @@ const CustomerSetup = () => {
         return;
       }
 
-      // Group by phone to get earliest transaction date per customer
-      const transactionCustomers = new Map();
+      // Group by normalized phone to get earliest transaction date per customer
+      const transactionCustomers = new Map<string, { phone: string; name: string; creationDate: string | null }>();
       allTransactions.forEach((txn: any) => {
-        if (!transactionCustomers.has(txn.customer_phone)) {
-          transactionCustomers.set(txn.customer_phone, {
-            phone: txn.customer_phone,
-            name: txn.customer_name,
-            creationDate: txn.created_at_date
-          });
+        const phone = normalizePhone(txn.customer_phone);
+        if (!phone) return;
+        const name = (txn.customer_name ?? "").toString().trim();
+        const creationDate = txn.created_at_date ?? null;
+
+        if (!transactionCustomers.has(phone)) {
+          transactionCustomers.set(phone, { phone, name, creationDate });
         } else {
-          // Keep the earliest date
-          const existing = transactionCustomers.get(txn.customer_phone);
-          if (txn.created_at_date && (!existing.creationDate || new Date(txn.created_at_date) < new Date(existing.creationDate))) {
-            existing.creationDate = txn.created_at_date;
+          const existing = transactionCustomers.get(phone)!;
+          if (
+            creationDate &&
+            (!existing.creationDate || new Date(creationDate) < new Date(existing.creationDate))
+          ) {
+            existing.creationDate = creationDate;
           }
+          if (!existing.name && name) existing.name = name;
         }
       });
 
-      // Get all existing customers
+      // Get all existing customers (normalized phones)
       const { data: allExistingCustomers } = await supabase
         .from("customers")
         .select("customer_phone");
 
-      const allExistingPhones = new Set(allExistingCustomers?.map(c => c.customer_phone) || []);
+      const existingNormalized = new Set(
+        (allExistingCustomers || []).map((c: any) => normalizePhone(c.customer_phone))
+      );
 
-      // Find customers that exist in transactions but not in customers table
+      // Find customers that exist in transactions but not in customers table (by normalized phone)
       const missingCustomers = Array.from(transactionCustomers.values())
-        .filter(c => !allExistingPhones.has(c.phone))
+        .filter(c => !existingNormalized.has(c.phone))
         .map(c => ({
           customer_phone: c.phone,
-          customer_name: c.name,
-          creation_date: c.creationDate || new Date(),
+          customer_name: c.name || "Unknown",
+          creation_date: c.creationDate || new Date().toISOString(),
           status: 'active',
         }));
 
@@ -609,19 +624,21 @@ const CustomerSetup = () => {
         return;
       }
 
-      // Upsert customers (insert new ones, ignore duplicates)
-      const { error: syncError } = await supabase
+      // Upsert customers (insert new ones, ignore duplicates); return inserted rows only
+      const { data: inserted, error: syncError } = await supabase
         .from("customers")
         .upsert(missingCustomers, {
           onConflict: 'customer_phone',
           ignoreDuplicates: true
-        });
+        })
+        .select();
 
       if (syncError) throw syncError;
 
+      const insertedCount = inserted?.length || 0;
       toast({
         title: "Sync completed!",
-        description: `Successfully synced ${missingCustomers.length} customers from transaction history`,
+        description: `Added ${insertedCount} new customers.`,
       });
 
       // Refresh the customer list
