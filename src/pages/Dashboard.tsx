@@ -74,11 +74,13 @@ const Dashboard = () => {
   const [customerFilterPurchases, setCustomerFilterPurchases] = useState<string>("all");
   const [productFilterCustomer, setProductFilterCustomer] = useState<string>("all");
   const [categoryFilterCustomer, setCategoryFilterCustomer] = useState<string>("all");
+  const [phoneFilterCustomer, setPhoneFilterCustomer] = useState<string>("all");
   
   const [allProducts, setAllProducts] = useState<string[]>([]);
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [allCustomers, setAllCustomers] = useState<string[]>([]);
+  const [allPhones, setAllPhones] = useState<string[]>([]);
 
   const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
@@ -430,22 +432,26 @@ const Dashboard = () => {
         const uniqueCategories = [...new Set(transactions.map(t => t.brand_name).filter(Boolean))];
         const uniqueBrands = [...new Set(transactions.map(t => t.brand_name).filter(Boolean))];
         const uniqueCustomers = [...new Set(transactions.map(t => t.customer_name).filter(Boolean))];
+        const uniquePhones = [...new Set(transactions.map((t: any) => t.customer_phone).filter(Boolean))];
         
         setAllProducts(uniqueProducts as string[]);
         setAllCategories(uniqueCategories as string[]);
         setAllBrands(uniqueBrands as string[]);
         setAllCustomers(uniqueCustomers as string[]);
+        setAllPhones(uniquePhones as string[]);
         
         // Customer Purchases Summary
-        const customerData = transactions.reduce((acc: any, t) => {
+        const customerData = transactions.reduce((acc: any, t: any) => {
           const customer = t.customer_name || 'Unknown';
+          const phone = t.customer_phone || 'N/A';
           const category = t.brand_name || 'Unknown';
           const product = t.product_name || 'Unknown';
           
-          const key = `${customer}-${category}-${product}`;
+          const key = `${customer}-${phone}-${category}-${product}`;
           if (!acc[key]) {
             acc[key] = {
               customerName: customer,
+              customerPhone: phone,
               category: category,
               product: product,
               totalValue: 0,
@@ -934,6 +940,18 @@ const Dashboard = () => {
               </SelectContent>
             </Select>
 
+            <Select value={phoneFilterCustomer} onValueChange={setPhoneFilterCustomer}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الهاتف' : 'Filter by Phone'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'جميع الأرقام' : 'All Phones'}</SelectItem>
+                {allPhones.map(phone => (
+                  <SelectItem key={phone} value={phone}>{phone}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={productFilterCustomer} onValueChange={setProductFilterCustomer}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder={t("dashboard.filterProduct")} />
@@ -965,6 +983,7 @@ const Dashboard = () => {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-4">{t("dashboard.customerName")}</th>
+                  <th className="text-left py-2 px-4">{language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}</th>
                   <th className="text-left py-2 px-4">{t("dashboard.category")}</th>
                   <th className="text-left py-2 px-4">{t("dashboard.product")}</th>
                   <th className="text-right py-2 px-4">{t("dashboard.totalValue")}</th>
@@ -975,6 +994,7 @@ const Dashboard = () => {
                 {customerPurchases
                   .filter(customer => 
                     (customerFilterPurchases === "all" || customer.customerName === customerFilterPurchases) &&
+                    (phoneFilterCustomer === "all" || customer.customerPhone === phoneFilterCustomer) &&
                     (productFilterCustomer === "all" || customer.product === productFilterCustomer) &&
                     (categoryFilterCustomer === "all" || customer.category === categoryFilterCustomer)
                   )
@@ -982,6 +1002,7 @@ const Dashboard = () => {
                   .map((customer: any, index) => (
                     <tr key={index} className="border-b hover:bg-muted/50">
                       <td className="py-2 px-4">{customer.customerName}</td>
+                      <td className="py-2 px-4 font-mono">{customer.customerPhone}</td>
                       <td className="py-2 px-4">{customer.category}</td>
                       <td className="py-2 px-4">{customer.product}</td>
                       <td className="text-right py-2 px-4">{formatCurrency(customer.totalValue)}</td>
