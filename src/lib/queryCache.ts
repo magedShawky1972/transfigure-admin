@@ -67,7 +67,7 @@ export async function invalidateCache(keyPattern?: string): Promise<void> {
       await supabase
         .from("query_cache")
         .delete()
-        .like("cache_key", `%${keyPattern}%`);
+        .ilike("cache_key", `%${keyPattern}%`);
     } else {
       // Clear all cache
       await supabase.from("query_cache").delete().neq("id", "00000000-0000-0000-0000-000000000000");

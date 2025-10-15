@@ -228,13 +228,11 @@ const CustomerSetup = () => {
         }, 0);
 
         const lastTransactionDate = transactions[transactions.length - 1]?.created_at_date || null;
-        const minTransactionDate = transactions[0]?.created_at_date || customer.creation_date;
 
         return { 
           ...customer, 
           totalSpend, 
-          lastTransactionDate,
-          creation_date: minTransactionDate 
+          lastTransactionDate
         };
       });
 
@@ -304,13 +302,11 @@ const CustomerSetup = () => {
         }, 0);
 
         const lastTransactionDate = transactions[transactions.length - 1]?.created_at_date || null;
-        const minTransactionDate = transactions[0]?.created_at_date || customer.creation_date;
 
         return { 
           ...customer, 
           totalSpend, 
-          lastTransactionDate,
-          creation_date: minTransactionDate 
+          lastTransactionDate
         };
       });
 
