@@ -609,12 +609,12 @@ const CustomerSetup = () => {
         return;
       }
 
-      // Upsert missing customers (insert new ones, update existing ones)
+      // Upsert customers (insert new ones, ignore duplicates)
       const { error: syncError } = await supabase
         .from("customers")
         .upsert(missingCustomers, {
           onConflict: 'customer_phone',
-          ignoreDuplicates: false
+          ignoreDuplicates: true
         });
 
       if (syncError) throw syncError;
