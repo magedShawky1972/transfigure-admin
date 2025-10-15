@@ -1219,12 +1219,20 @@ const Dashboard = () => {
           </div>
         )}
         <CardHeader>
-          <CardTitle>{language === 'ar' ? 'عملاء بحاجة للمتابعة - CRM' : 'Inactive Customers - CRM Follow-up'}</CardTitle>
-          <CardDescription>
-            {language === 'ar' 
-              ? `العملاء الذين لم يشتروا منذ ${inactivePeriod === "over30" ? 'أكثر من 30' : inactivePeriod} ${inactivePeriod === "over30" ? 'يوماً' : 'أيام'}` 
-              : `Customers who haven't purchased in the last ${inactivePeriod === "over30" ? 'over 30' : inactivePeriod} days`}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{language === 'ar' ? 'عملاء بحاجة للمتابعة - CRM' : 'Inactive Customers - CRM Follow-up'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' 
+                  ? `العملاء الذين لم يشتروا منذ ${inactivePeriod === "over30" ? 'أكثر من 30' : inactivePeriod} ${inactivePeriod === "over30" ? 'يوماً' : 'أيام'}` 
+                  : `Customers who haven't purchased in the last ${inactivePeriod === "over30" ? 'over 30' : inactivePeriod} days`}
+              </CardDescription>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-primary">{inactiveCustomers.length}</p>
+              <p className="text-xs text-muted-foreground">{language === 'ar' ? 'إجمالي السجلات' : 'Total Records'}</p>
+            </div>
+          </div>
           <div className="mt-4">
             <Select value={inactivePeriod} onValueChange={(value) => {
               setInactivePeriod(value);
