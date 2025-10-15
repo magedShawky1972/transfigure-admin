@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import edaraLogo from "@/assets/edara-logo.png";
+import { AlertBanner } from "@/components/AlertBanner";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -138,6 +139,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             </div>
           </header>
+          
+          <AlertBanner />
           
           <div className="flex-1 p-6 w-full">
             {children}

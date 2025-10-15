@@ -209,6 +209,10 @@ const translations = {
     "dashboard.loadingCalculatingStats": "Calculating statistics...",
     "dashboard.loadingProcessingData": "Processing data...",
     "dashboard.loadingCompleting": "Completing...",
+    "dashboard.crmReminder": "CRM Reminder",
+    "dashboard.notes": "Notes",
+    "dashboard.nextAction": "Next Action",
+    "dashboard.reminderDate": "Reminder Date",
     
     // Transactions Page
     "transactions.title": "All Transactions",
@@ -480,6 +484,10 @@ const translations = {
     "dashboard.loadingCalculatingStats": "جاري حساب الإحصائيات...",
     "dashboard.loadingProcessingData": "جاري معالجة البيانات...",
     "dashboard.loadingCompleting": "جاري الإنهاء...",
+    "dashboard.crmReminder": "تذكير إدارة علاقات العملاء",
+    "dashboard.notes": "ملاحظات",
+    "dashboard.nextAction": "الإجراء التالي",
+    "dashboard.reminderDate": "تاريخ التذكير",
     
     // Transactions Page
     "transactions.title": "جميع المعاملات",
