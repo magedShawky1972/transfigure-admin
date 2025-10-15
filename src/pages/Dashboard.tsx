@@ -824,7 +824,13 @@ const Dashboard = () => {
                   align={language === 'ar' ? 'right' : 'left'}
                   verticalAlign="middle" 
                   layout="vertical"
-                  wrapperStyle={{ color: '#ffffff' }}
+                  wrapperStyle={{ color: '#ffffff', cursor: 'pointer' }}
+                  onClick={(data) => {
+                    const method = paymentMethods.find(m => m.name === data.value);
+                    if (method) {
+                      handlePaymentMethodClick(method, method.transactions);
+                    }
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
