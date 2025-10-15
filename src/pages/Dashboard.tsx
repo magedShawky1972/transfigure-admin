@@ -884,6 +884,14 @@ const Dashboard = () => {
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 font-bold bg-muted/30">
+                          <td className="py-3 px-4">{language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}</td>
+                          <td className="text-right py-3 px-4 text-lg">
+                            {formatCurrency(paymentBrandsByMethod.reduce((sum, brand) => sum + brand.value, 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 </div>
