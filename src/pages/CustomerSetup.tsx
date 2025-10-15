@@ -609,16 +609,19 @@ const CustomerSetup = () => {
         return;
       }
 
-      // Insert missing customers
+      // Upsert missing customers (insert new ones, update existing ones)
       const { error: syncError } = await supabase
         .from("customers")
-        .insert(missingCustomers);
+        .upsert(missingCustomers, {
+          onConflict: 'customer_phone',
+          ignoreDuplicates: false
+        });
 
       if (syncError) throw syncError;
 
       toast({
         title: "Sync completed!",
-        description: `Successfully created ${missingCustomers.length} missing customers from transaction history`,
+        description: `Successfully synced ${missingCustomers.length} customers from transaction history`,
       });
 
       // Refresh the customer list
