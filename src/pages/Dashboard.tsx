@@ -1252,6 +1252,13 @@ const Dashboard = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {inactiveCustomers.length > 20 && (
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+              {language === 'ar' 
+                ? `عرض 20 من ${inactiveCustomers.length} عميل` 
+                : `Showing 20 of ${inactiveCustomers.length} customers`}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
