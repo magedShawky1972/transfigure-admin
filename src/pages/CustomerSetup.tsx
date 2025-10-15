@@ -310,12 +310,22 @@ const CustomerSetup = () => {
         };
       });
 
-      // Cache the result for the day
-      await setCachedData(cacheKey, customersWithData, { expiryHours: 24 });
-      console.log("Customers cached successfully");
-
-      setCustomers(customersWithData);
-      setHasMore(false);
+      // Validate data completeness before caching
+      if (customersWithData && customersWithData.length > 0) {
+        console.log(`Fetched ${customersWithData.length} customers with complete data`);
+        
+        // Set state first
+        setCustomers(customersWithData);
+        setHasMore(false);
+        
+        // Only cache after successful state update
+        await setCachedData(cacheKey, customersWithData, { expiryHours: 24 });
+        console.log("Customers cached successfully after validation");
+      } else {
+        console.warn("No customer data to cache");
+        setCustomers([]);
+        setHasMore(false);
+      }
     } catch (error: any) {
       toast({
         title: t("common.error"),
