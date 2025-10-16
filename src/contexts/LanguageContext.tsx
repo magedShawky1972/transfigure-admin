@@ -33,6 +33,7 @@ const translations = {
     "menu.tableConfig": "Table Configuration",
     "menu.userSetup": "User Setup",
     "menu.customerSetup": "Customer Setup",
+    "menu.customerTotals": "Customer Totals",
     "menu.productSetup": "Product Setup",
     
     // Customer Setup Page
@@ -309,6 +310,7 @@ const translations = {
     "menu.tableConfig": "إعدادات الجداول",
     "menu.userSetup": "إعداد المستخدمين",
     "menu.customerSetup": "إعداد العملاء",
+    "menu.customerTotals": "إجماليات العملاء",
     "menu.productSetup": "إعداد المنتجات",
     
     // Customer Setup Page

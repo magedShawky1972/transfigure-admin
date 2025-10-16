@@ -7,7 +7,8 @@ import {
   Home,
   Settings,
   Users,
-  UserCheck
+  UserCheck,
+  TrendingUp
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -49,9 +50,10 @@ export function AppSidebar() {
       label: t("sidebar.setup"),
       items: [
         { title: t("menu.reportsSetup"), url: "/reports-setup", icon: Settings },
-        { title: t("customerSetup.title"), url: "/customer-setup", icon: UserCheck },
-        { title: t("brandSetup.title"), url: "/brand-setup", icon: Settings },
-        { title: t("productSetup.title"), url: "/product-setup", icon: Database },
+        { title: t("menu.customerSetup"), url: "/customer-setup", icon: UserCheck },
+        { title: t("menu.customerTotals"), url: "/customer-totals", icon: TrendingUp },
+        { title: t("menu.brandSetup"), url: "/brand-setup", icon: Settings },
+        { title: t("menu.productSetup"), url: "/product-setup", icon: Database },
       ]
     },
     {
