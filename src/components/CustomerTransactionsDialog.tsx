@@ -20,8 +20,6 @@ import {
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
@@ -49,6 +47,7 @@ interface Transaction {
   qty: string;
   total: string;
   payment_method: string;
+  payment_type: string;
   order_status: string;
 }
 
@@ -65,7 +64,7 @@ export const CustomerTransactionsDialog = ({
   customerPhone,
   customerName,
 }: CustomerTransactionsDialogProps) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -329,137 +328,144 @@ export const CustomerTransactionsDialog = ({
           </Button>
         </div>
 
-        <div className="flex-1 overflow-hidden border rounded-md">
-          <ScrollArea className="h-full w-full">
-            <div className="min-w-max">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background z-10">
-                  <TableRow>
-                    <TableHead className="min-w-[140px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("order_number")}
-                        className="h-8 p-0 hover:bg-transparent"
+        <div dir={language === "ar" ? "rtl" : "ltr"} className="flex-1 overflow-auto border rounded-md">
+          <Table className="min-w-[1100px]">
+            <TableHeader className="sticky top-0 bg-background z-10">
+              <TableRow>
+                <TableHead className="min-w-[140px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("order_number")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.orderNumber") || t("dashboard.orderNumber")}
+                    <SortIcon column="order_number" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("created_at_date")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.date") || t("dashboard.date")}
+                    <SortIcon column="created_at_date" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("brand_name")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.brand")}
+                    <SortIcon column="brand_name" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[150px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("product_name")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.product")}
+                    <SortIcon column="product_name" />
+                  </Button>
+                </TableHead>
+                <TableHead className="text-center min-w-[100px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("qty")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.quantity") || t("dashboard.quantity")}
+                    <SortIcon column="qty" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("order_status")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.status") || t("dashboard.status")}
+                    <SortIcon column="order_status" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[140px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("payment_method")}
+                    className="h-8 p-0 hover-bg-transparent"
+                  >
+                    {t("customerSetup.paymentMethod") || t("dashboard.paymentMethod")}
+                    <SortIcon column="payment_method" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[140px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("payment_type")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.paymentType") || t("transactions.paymentType")}
+                    <SortIcon column="payment_type" />
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right min-w-[120px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("total")}
+                    className="h-8 p-0 hover:bg-transparent"
+                  >
+                    {t("customerSetup.total") || t("dashboard.total")}
+                    <SortIcon column="total" />
+                  </Button>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedTransactions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    {loading ? t("common.loading") || "Loading..." : t("customerSetup.noTransactions") || "No transactions found"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAndSortedTransactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell className="font-mono text-sm">
+                      {transaction.order_number || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {transaction.created_at_date
+                        ? format(new Date(transaction.created_at_date), "MMM dd, yyyy")
+                        : "-"}
+                    </TableCell>
+                    <TableCell>{transaction.brand_name || "-"}</TableCell>
+                    <TableCell>{transaction.product_name || "-"}</TableCell>
+                    <TableCell className="text-center">{transaction.qty || "-"}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={transaction.order_status === "completed" ? "default" : "secondary"}
                       >
-                        {t("customerSetup.orderNumber") || t("dashboard.orderNumber")}
-                        <SortIcon column="order_number" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="min-w-[120px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("created_at_date")}
-                        className="h-8 p-0 hover:bg-transparent"
-                      >
-                        {t("customerSetup.date") || t("dashboard.date")}
-                        <SortIcon column="created_at_date" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="min-w-[120px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("brand_name")}
-                        className="h-8 p-0 hover:bg-transparent"
-                      >
-                        {t("customerSetup.brand")}
-                        <SortIcon column="brand_name" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="min-w-[150px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("product_name")}
-                        className="h-8 p-0 hover:bg-transparent"
-                      >
-                        {t("customerSetup.product")}
-                        <SortIcon column="product_name" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-center min-w-[100px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("qty")}
-                        className="h-8 p-0 hover:bg-transparent"
-                      >
-                        {t("customerSetup.quantity") || t("dashboard.quantity")}
-                        <SortIcon column="qty" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="min-w-[120px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("order_status")}
-                        className="h-8 p-0 hover:bg-transparent"
-                      >
-                        {t("customerSetup.status") || t("dashboard.status")}
-                        <SortIcon column="order_status" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="min-w-[140px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("payment_method")}
-                        className="h-8 p-0 hover:bg-transparent"
-                      >
-                        {t("customerSetup.paymentMethod") || t("dashboard.paymentMethod")}
-                        <SortIcon column="payment_method" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-right min-w-[120px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("total")}
-                        className="h-8 p-0 hover:bg-transparent"
-                      >
-                        {t("customerSetup.total") || t("dashboard.total")}
-                        <SortIcon column="total" />
-                      </Button>
-                    </TableHead>
+                        {transaction.order_status || "-"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{transaction.payment_method || "-"}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{transaction.payment_type || "-"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatCurrency(transaction.total)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAndSortedTransactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        {loading ? t("common.loading") || "Loading..." : t("customerSetup.noTransactions") || "No transactions found"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredAndSortedTransactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell className="font-mono text-sm">
-                          {transaction.order_number || "-"}
-                        </TableCell>
-                        <TableCell>
-                          {transaction.created_at_date
-                            ? format(new Date(transaction.created_at_date), "MMM dd, yyyy")
-                            : "-"}
-                        </TableCell>
-                        <TableCell>{transaction.brand_name || "-"}</TableCell>
-                        <TableCell>{transaction.product_name || "-"}</TableCell>
-                        <TableCell className="text-center">{transaction.qty || "-"}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={transaction.order_status === "completed" ? "default" : "secondary"}
-                          >
-                            {transaction.order_status || "-"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{transaction.payment_method || "-"}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(transaction.total)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            <ScrollBar orientation="horizontal" />
-            <ScrollBar orientation="vertical" />
-          </ScrollArea>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
 
         {filteredAndSortedTransactions.length > 0 && (
