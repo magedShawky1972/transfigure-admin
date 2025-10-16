@@ -38,6 +38,7 @@ const Transactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
+  const [orderNumberFilter, setOrderNumberFilter] = useState("");
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
@@ -135,18 +136,20 @@ const Transactions = () => {
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = searchTerm === "" || 
       transaction.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.order_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      transaction.product_name?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesPhone = phoneFilter === "" || 
       transaction.customer_phone?.toLowerCase().includes(phoneFilter.toLowerCase());
+    
+    const matchesOrderNumber = orderNumberFilter === "" || 
+      transaction.order_number?.toLowerCase().includes(orderNumberFilter.toLowerCase());
     
     const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
     const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
     const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
     const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
 
-    return matchesSearch && matchesPhone && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
+    return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
   });
 
   const sortedTransactions = [...filteredTransactions].sort((a, b) => {
@@ -263,6 +266,14 @@ const Transactions = () => {
                 placeholder={t("transactions.customerPhone")}
                 value={phoneFilter}
                 onChange={(e) => setPhoneFilter(e.target.value)}
+              />
+            </div>
+            
+            <div className="relative min-w-[200px]">
+              <Input 
+                placeholder={t("transactions.orderNumber")}
+                value={orderNumberFilter}
+                onChange={(e) => setOrderNumberFilter(e.target.value)}
               />
             </div>
             
