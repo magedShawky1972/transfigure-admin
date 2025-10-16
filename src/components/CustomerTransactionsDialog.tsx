@@ -19,6 +19,7 @@ import {
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface Transaction {
   id: string;
@@ -121,18 +122,18 @@ export const CustomerTransactionsDialog = ({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto rounded-md border">
+        <ScrollArea className="flex-1 rounded-md border">
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
-                <TableHead>{t("customerSetup.orderNumber") || t("dashboard.orderNumber")}</TableHead>
-                <TableHead>{t("customerSetup.date") || t("dashboard.date")}</TableHead>
-                <TableHead>{t("customerSetup.brand")}</TableHead>
-                <TableHead>{t("customerSetup.product")}</TableHead>
-                <TableHead className="text-center">{t("customerSetup.quantity") || t("dashboard.quantity")}</TableHead>
-                <TableHead>{t("customerSetup.paymentMethod") || t("dashboard.paymentMethod")}</TableHead>
-                <TableHead>{t("customerSetup.status") || t("dashboard.status")}</TableHead>
-                <TableHead className="text-right">{t("customerSetup.total") || t("dashboard.total")}</TableHead>
+                <TableHead className="min-w-[140px]">{t("customerSetup.orderNumber") || t("dashboard.orderNumber")}</TableHead>
+                <TableHead className="min-w-[120px]">{t("customerSetup.date") || t("dashboard.date")}</TableHead>
+                <TableHead className="min-w-[120px]">{t("customerSetup.brand")}</TableHead>
+                <TableHead className="min-w-[150px]">{t("customerSetup.product")}</TableHead>
+                <TableHead className="text-center min-w-[100px]">{t("customerSetup.quantity") || t("dashboard.quantity")}</TableHead>
+                <TableHead className="min-w-[140px]">{t("customerSetup.paymentMethod") || t("dashboard.paymentMethod")}</TableHead>
+                <TableHead className="min-w-[120px]">{t("customerSetup.status") || t("dashboard.status")}</TableHead>
+                <TableHead className="text-right min-w-[120px]">{t("customerSetup.total") || t("dashboard.total")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -174,7 +175,8 @@ export const CustomerTransactionsDialog = ({
               )}
             </TableBody>
           </Table>
-        </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
         {transactions.length > 0 && (
           <div className="flex justify-between items-center pt-4 border-t">

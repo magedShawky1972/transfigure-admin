@@ -87,6 +87,13 @@ const translations = {
     "customerSetup.missingCustomersFound": "Missing customers found",
     "customerSetup.noMissingCustomers": "No missing customers found",
     "customerSetup.customersAdded": "customers added successfully",
+    "customerSetup.date": "Date",
+    "customerSetup.quantity": "Quantity",
+    "customerSetup.paymentMethod": "Payment Method",
+    "customerSetup.total": "Total",
+    "customerSetup.noTransactions": "No transactions found",
+    "customerSetup.totalTransactionsCount": "Total Transactions",
+    "customerSetup.totalAmount": "Total Amount",
     
     // Brand Setup Page
     "brandSetup.title": "Brand Setup",
@@ -220,6 +227,10 @@ const translations = {
     "dashboard.nextAction": "Next Action",
     "dashboard.reminderDate": "Reminder Date",
     "dashboard.noReminders": "No reminders at this time",
+    "dashboard.orderNumber": "Order Number",
+    "dashboard.paymentMethod": "Payment Method",
+    "dashboard.status": "Status",
+    "dashboard.total": "Total",
     
     // Transactions Page
     "transactions.title": "All Transactions",
@@ -370,6 +381,13 @@ const translations = {
     "customerSetup.missingCustomersFound": "تم العثور على عملاء مفقودين",
     "customerSetup.noMissingCustomers": "لم يتم العثور على عملاء مفقودين",
     "customerSetup.customersAdded": "عميل تمت إضافتهم بنجاح",
+    "customerSetup.date": "التاريخ",
+    "customerSetup.quantity": "الكمية",
+    "customerSetup.paymentMethod": "طريقة الدفع",
+    "customerSetup.total": "الإجمالي",
+    "customerSetup.noTransactions": "لا توجد معاملات",
+    "customerSetup.totalTransactionsCount": "إجمالي المعاملات",
+    "customerSetup.totalAmount": "المبلغ الإجمالي",
     
     // Brand Setup Page
     "brandSetup.title": "إعداد الماركات",
@@ -503,6 +521,10 @@ const translations = {
     "dashboard.nextAction": "الإجراء التالي",
     "dashboard.reminderDate": "تاريخ التذكير",
     "dashboard.noReminders": "لا توجد تذكيرات في الوقت الحالي",
+    "dashboard.orderNumber": "رقم الطلب",
+    "dashboard.paymentMethod": "طريقة الدفع",
+    "dashboard.status": "الحالة",
+    "dashboard.total": "الإجمالي",
     
     // Transactions Page
     "transactions.title": "جميع المعاملات",
