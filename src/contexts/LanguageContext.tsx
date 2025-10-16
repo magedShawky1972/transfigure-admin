@@ -328,7 +328,7 @@ const translations = {
     "menu.excelSetup": "إعدادات Excel",
     "menu.tableConfig": "إعدادات الجداول",
     "menu.userSetup": "إعداد المستخدمين",
-    "menu.customerSetup": "إعداد العملاء",
+    "menu.customerSetup": "ملف العملاء",
     "menu.customerTotals": "إجماليات العملاء",
     "menu.brandSetup": "إعداد الماركات",
     "menu.productSetup": "إعداد المنتجات",
