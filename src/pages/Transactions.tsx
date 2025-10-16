@@ -4,11 +4,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { useSearchParams } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface Transaction {
   id: string;
@@ -39,6 +42,8 @@ const Transactions = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
   const [orderNumberFilter, setOrderNumberFilter] = useState("");
+  const [fromDate, setFromDate] = useState<Date>(subDays(new Date(), 1));
+  const [toDate, setToDate] = useState<Date>(new Date());
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
@@ -68,7 +73,7 @@ const Transactions = () => {
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [fromDate, toDate]);
 
   const fetchTransactions = async () => {
     try {
@@ -81,13 +86,10 @@ const Transactions = () => {
         .select('*')
         .order('created_at_date', { ascending: false });
 
-      if (fromDateParam && toDateParam) {
-        const fromDate = new Date(fromDateParam);
-        const toDate = new Date(toDateParam);
-        const startStr = format(startOfDay(fromDate), "yyyy-MM-dd'T'00:00:00");
-        const endStr = format(endOfDay(toDate), "yyyy-MM-dd'T'23:59:59");
-        query = query.gte('created_at_date', startStr).lte('created_at_date', endStr);
-      }
+      // Use date filters
+      const startStr = format(startOfDay(fromDateParam ? new Date(fromDateParam) : fromDate), "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(endOfDay(toDateParam ? new Date(toDateParam) : toDate), "yyyy-MM-dd'T'23:59:59");
+      query = query.gte('created_at_date', startStr).lte('created_at_date', endStr);
 
       const { data, error } = await query;
 
@@ -250,6 +252,32 @@ const Transactions = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("justify-start text-left font-normal", !fromDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {fromDate ? format(fromDate, "PPP") : <span>{language === 'ar' ? 'من تاريخ' : 'From Date'}</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={fromDate} onSelect={(date) => date && setFromDate(date)} initialFocus />
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("justify-start text-left font-normal", !toDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {toDate ? format(toDate, "PPP") : <span>{language === 'ar' ? 'إلى تاريخ' : 'To Date'}</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={toDate} onSelect={(date) => date && setToDate(date)} initialFocus />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
