@@ -60,6 +60,7 @@ const CustomerSetup = () => {
   const [customers, setCustomers] = useState<CustomerTotal[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -104,6 +105,35 @@ const CustomerSetup = () => {
     }).format(amount);
   };
 
+  const handleClearAll = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all records
+
+      if (error) throw error;
+
+      toast({
+        title: t("common.success"),
+        description: t("customerSetup.cleared"),
+      });
+
+      setClearAllDialogOpen(false);
+      fetchCustomers();
+    } catch (error: any) {
+      console.error("Error clearing customers:", error);
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       {loading && <LoadingOverlay progress={50} message="Loading customers..." />}
@@ -125,7 +155,11 @@ const CustomerSetup = () => {
               <RefreshCw className="h-4 w-4" />
               Sync Customers
             </Button>
-            <Button variant="destructive" disabled>
+            <Button 
+              variant="destructive" 
+              onClick={() => setClearAllDialogOpen(true)}
+              disabled={loading}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               {t("customerSetup.clearAll")}
             </Button>
@@ -362,7 +396,7 @@ const CustomerSetup = () => {
         </Dialog>
 
         {/* Clear All Confirmation */}
-        <AlertDialog open={false}>
+        <AlertDialog open={clearAllDialogOpen} onOpenChange={setClearAllDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{t("customerSetup.clearAll")}</AlertDialogTitle>
@@ -372,8 +406,8 @@ const CustomerSetup = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t("customerSetup.cancel")}</AlertDialogCancel>
-              <AlertDialogAction>
-                {t("common.confirm")}
+              <AlertDialogAction onClick={handleClearAll} disabled={loading}>
+                {loading ? t("common.loading") : t("clearData.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
