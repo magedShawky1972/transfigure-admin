@@ -58,15 +58,31 @@ const CustomerSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<CustomerTotal[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<CustomerTotal[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [missingCustomers, setMissingCustomers] = useState<any[]>([]);
+  
+  // Filter states
+  const [nameFilter, setNameFilter] = useState("");
+  const [phoneFilter, setPhoneFilter] = useState("");
+  const [blockedFilter, setBlockedFilter] = useState("all");
+  const [brandFilter, setBrandFilter] = useState("all");
+  const [productFilter, setProductFilter] = useState("");
+  
+  // Sort states
+  const [sortColumn, setSortColumn] = useState<keyof CustomerTotal | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [customers, nameFilter, phoneFilter, blockedFilter, brandFilter, productFilter, sortColumn, sortDirection]);
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -96,6 +112,63 @@ const CustomerSetup = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyFiltersAndSort = () => {
+    let result = [...customers];
+
+    // Apply filters
+    if (nameFilter) {
+      result = result.filter((c) =>
+        c.customer_name?.toLowerCase().includes(nameFilter.toLowerCase())
+      );
+    }
+    if (phoneFilter) {
+      result = result.filter((c) =>
+        c.customer_phone?.includes(phoneFilter)
+      );
+    }
+    if (blockedFilter !== "all") {
+      result = result.filter((c) =>
+        blockedFilter === "blocked" ? c.is_blocked : !c.is_blocked
+      );
+    }
+    if (productFilter) {
+      // Product filter would need to query transactions - skipping for now
+    }
+
+    // Apply sorting
+    if (sortColumn) {
+      result.sort((a, b) => {
+        const aVal = a[sortColumn];
+        const bVal = b[sortColumn];
+        
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+        
+        let comparison = 0;
+        if (typeof aVal === "number" && typeof bVal === "number") {
+          comparison = aVal - bVal;
+        } else if (typeof aVal === "string" && typeof bVal === "string") {
+          comparison = aVal.localeCompare(bVal);
+        } else {
+          comparison = String(aVal).localeCompare(String(bVal));
+        }
+        
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    setFilteredCustomers(result);
+  };
+
+  const handleSort = (column: keyof CustomerTotal) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
     }
   };
 
@@ -255,15 +328,15 @@ const CustomerSetup = () => {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-card rounded-md border">
           <Input
             placeholder={t("customerSetup.filterByName")}
-            value=""
-            disabled
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
           />
           <Input
             placeholder={t("customerSetup.filterByPhone")}
-            value=""
-            disabled
+            value={phoneFilter}
+            onChange={(e) => setPhoneFilter(e.target.value)}
           />
-          <Select value="all" disabled>
+          <Select value={blockedFilter} onValueChange={setBlockedFilter}>
             <SelectTrigger>
               <SelectValue placeholder={t("customerSetup.blocked")} />
             </SelectTrigger>
@@ -273,7 +346,7 @@ const CustomerSetup = () => {
               <SelectItem value="blocked">{t("customerSetup.blocked")}</SelectItem>
             </SelectContent>
           </Select>
-          <Select value="all" disabled>
+          <Select value={brandFilter} onValueChange={setBrandFilter} disabled>
             <SelectTrigger>
               <SelectValue placeholder={t("customerSetup.filterByBrand")} />
             </SelectTrigger>
@@ -283,7 +356,8 @@ const CustomerSetup = () => {
           </Select>
           <Input
             placeholder={t("customerSetup.filterByProduct")}
-            value=""
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
             disabled
           />
         </div>
@@ -292,31 +366,52 @@ const CustomerSetup = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="cursor-pointer hover:bg-muted/50">
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("customer_phone")}
+                >
                   {t("customerSetup.phone")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50">
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("customer_name")}
+                >
                   {t("customerSetup.name")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50">
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("creation_date")}
+                >
                   {t("customerSetup.creationDate")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50">
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("last_trans_date")}
+                >
                   {t("customerSetup.lastTransactionDate")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50">
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("total")}
+                >
                   {t("customerSetup.totalSpend")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50">
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("status")}
+                >
                   {t("customerSetup.status")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50">
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("is_blocked")}
+                >
                   {t("customerSetup.blocked")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
@@ -324,14 +419,14 @@ const CustomerSetup = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.length === 0 ? (
+              {filteredCustomers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No customers to display
                   </TableCell>
                 </TableRow>
               ) : (
-                customers.map((customer) => (
+                filteredCustomers.map((customer) => (
                   <TableRow key={customer.customer_phone}>
                     <TableCell className="font-mono">{customer.customer_phone}</TableCell>
                     <TableCell className="font-medium">{customer.customer_name}</TableCell>
