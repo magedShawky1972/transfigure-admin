@@ -302,6 +302,7 @@ const translations = {
     "common.loading": "Loading...",
     "common.all": "All",
     "common.confirm": "Confirm",
+    "common.clearFilters": "Clear Filters",
   },
   ar: {
     // Header
@@ -596,6 +597,7 @@ const translations = {
     "common.loading": "جاري التحميل...",
     "common.all": "الكل",
     "common.confirm": "تأكيد",
+    "common.clearFilters": "مسح الفلاتر",
   },
 };
 
