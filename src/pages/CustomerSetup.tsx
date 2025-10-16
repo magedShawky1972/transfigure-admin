@@ -58,6 +58,7 @@ const CustomerSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<CustomerTotal[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ const CustomerSetup = () => {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
+      // Fetch customers data
       const { data, error } = await supabase
         .from("customer_totals")
         .select("*")
@@ -74,6 +76,14 @@ const CustomerSetup = () => {
 
       if (error) throw error;
       setCustomers(data || []);
+
+      // Fetch total count
+      const { count, error: countError } = await supabase
+        .from("customer_totals")
+        .select("*", { count: "exact", head: true });
+
+      if (countError) throw countError;
+      setTotalCount(count || 0);
     } catch (error: any) {
       console.error("Error fetching customers:", error);
       toast({
@@ -103,7 +113,7 @@ const CustomerSetup = () => {
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
             <Badge variant="secondary" className="text-lg px-4 py-1">
-              {customers.length} {t("customerSetup.customers")}
+              {totalCount} {t("customerSetup.customers")}
             </Badge>
           </div>
           <div className="flex gap-2">
