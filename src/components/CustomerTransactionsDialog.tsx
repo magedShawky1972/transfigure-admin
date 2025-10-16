@@ -125,21 +125,21 @@ export const CustomerTransactionsDialog = ({
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
-                <TableHead>{t("dashboard.orderNumber")}</TableHead>
-                <TableHead>{t("dashboard.date")}</TableHead>
+                <TableHead>{t("customerSetup.orderNumber") || t("dashboard.orderNumber")}</TableHead>
+                <TableHead>{t("customerSetup.date") || t("dashboard.date")}</TableHead>
                 <TableHead>{t("customerSetup.brand")}</TableHead>
                 <TableHead>{t("customerSetup.product")}</TableHead>
-                <TableHead className="text-center">{t("dashboard.quantity")}</TableHead>
-                <TableHead>{t("dashboard.paymentMethod")}</TableHead>
-                <TableHead>{t("dashboard.status")}</TableHead>
-                <TableHead className="text-right">{t("dashboard.total")}</TableHead>
+                <TableHead className="text-center">{t("customerSetup.quantity") || t("dashboard.quantity")}</TableHead>
+                <TableHead>{t("customerSetup.paymentMethod") || t("dashboard.paymentMethod")}</TableHead>
+                <TableHead>{t("customerSetup.status") || t("dashboard.status")}</TableHead>
+                <TableHead className="text-right">{t("customerSetup.total") || t("dashboard.total")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transactions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    {loading ? "Loading..." : "No transactions found"}
+                    {loading ? t("common.loading") || "Loading..." : t("customerSetup.noTransactions") || "No transactions found"}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -179,10 +179,12 @@ export const CustomerTransactionsDialog = ({
         {transactions.length > 0 && (
           <div className="flex justify-between items-center pt-4 border-t">
             <span className="text-sm text-muted-foreground">
-              Total of {transactions.length} transactions
+              {t("customerSetup.totalTransactionsCount") || `Total of ${transactions.length} transactions`}
             </span>
             <div className="text-right">
-              <span className="text-sm text-muted-foreground mr-2">Total Amount:</span>
+              <span className="text-sm text-muted-foreground mr-2">
+                {t("customerSetup.totalAmount") || "Total Amount:"}
+              </span>
               <span className="text-xl font-bold text-primary">
                 {formatCurrency(getTotalAmount().toString())}
               </span>
