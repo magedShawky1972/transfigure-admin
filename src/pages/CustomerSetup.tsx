@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CustomerTransactionsDialog } from "@/components/CustomerTransactionsDialog";
 
 interface CustomerTotal {
   customer_phone: string;
@@ -64,6 +65,8 @@ const CustomerSetup = () => {
   const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [missingCustomers, setMissingCustomers] = useState<any[]>([]);
+  const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<{ phone: string; name: string } | null>(null);
   
   // Filter states
   const [nameFilter, setNameFilter] = useState("");
@@ -170,6 +173,14 @@ const CustomerSetup = () => {
       setSortColumn(column);
       setSortDirection("asc");
     }
+  };
+
+  const handleViewTransactions = (customer: CustomerTotal) => {
+    setSelectedCustomer({
+      phone: customer.customer_phone,
+      name: customer.customer_name,
+    });
+    setTransactionsDialogOpen(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -453,7 +464,12 @@ const CustomerSetup = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" disabled>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewTransactions(customer)}
+                          title={t("customerSetup.viewTransactions")}
+                        >
                           <Receipt className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="sm" disabled>
@@ -523,31 +539,12 @@ const CustomerSetup = () => {
         </Dialog>
 
         {/* Transactions Dialog */}
-        <Dialog open={false}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{t("customerSetup.customerTransactions")}</DialogTitle>
-            </DialogHeader>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("dashboard.date")}</TableHead>
-                  <TableHead>{t("customerSetup.brand")}</TableHead>
-                  <TableHead>{t("customerSetup.product")}</TableHead>
-                  <TableHead>{t("dashboard.orderNumber")}</TableHead>
-                  <TableHead className="text-right">{t("dashboard.total")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                    No transactions
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </DialogContent>
-        </Dialog>
+        <CustomerTransactionsDialog
+          open={transactionsDialogOpen}
+          onOpenChange={setTransactionsDialogOpen}
+          customerPhone={selectedCustomer?.phone || null}
+          customerName={selectedCustomer?.name || null}
+        />
 
         {/* Summary Dialog */}
         <Dialog open={false}>
