@@ -25,6 +25,7 @@ const translations = {
     "menu.dashboard": "Dashboard",
     "menu.reports": "Reports",
     "menu.transactions": "Transaction Data",
+    "menu.pivotTable": "Pivot Table",
     "menu.loadData": "Load Data From Excel",
     "menu.clearData": "Clear Data",
     "menu.reportsSetup": "Reports Setup",
@@ -297,6 +298,23 @@ const translations = {
     "auth.passwordResetError": "Failed to send password reset email",
     "auth.enterEmailFirst": "Please enter your email first",
     
+    // Pivot Table Page
+    "pivotTable.title": "Transaction Pivot Table",
+    "pivotTable.subtitle": "Analyze transaction data with pivot tables",
+    "pivotTable.configuration": "Pivot Configuration",
+    "pivotTable.rowField": "Row Field",
+    "pivotTable.columnField": "Column Field",
+    "pivotTable.valueField": "Value Field",
+    "pivotTable.aggregation": "Aggregation",
+    "pivotTable.sum": "Sum",
+    "pivotTable.count": "Count",
+    "pivotTable.average": "Average",
+    "pivotTable.min": "Minimum",
+    "pivotTable.max": "Maximum",
+    "pivotTable.generate": "Generate",
+    "pivotTable.result": "Pivot Table Result",
+    "pivotTable.total": "Total",
+    
     // Common
     "common.success": "Success",
     "common.error": "Error",
@@ -321,6 +339,7 @@ const translations = {
     "menu.dashboard": "لوحة التحكم",
     "menu.reports": "التقارير",
     "menu.transactions": "بيانات المعاملات",
+    "menu.pivotTable": "جدول محوري",
     "menu.loadData": "تحميل البيانات من Excel",
     "menu.clearData": "حذف البيانات",
     "menu.reportsSetup": "إعداد التقارير",
@@ -592,6 +611,23 @@ const translations = {
     "auth.passwordResetSent": "تم إرسال كلمة المرور إلى بريدك الإلكتروني",
     "auth.passwordResetError": "فشل إرسال بريد إعادة تعيين كلمة المرور",
     "auth.enterEmailFirst": "الرجاء إدخال بريدك الإلكتروني أولاً",
+    
+    // Pivot Table Page
+    "pivotTable.title": "جدول محوري للمعاملات",
+    "pivotTable.subtitle": "تحليل بيانات المعاملات باستخدام الجداول المحورية",
+    "pivotTable.configuration": "تكوين الجدول المحوري",
+    "pivotTable.rowField": "حقل الصفوف",
+    "pivotTable.columnField": "حقل الأعمدة",
+    "pivotTable.valueField": "حقل القيمة",
+    "pivotTable.aggregation": "التجميع",
+    "pivotTable.sum": "المجموع",
+    "pivotTable.count": "العدد",
+    "pivotTable.average": "المتوسط",
+    "pivotTable.min": "الحد الأدنى",
+    "pivotTable.max": "الحد الأقصى",
+    "pivotTable.generate": "إنشاء",
+    "pivotTable.result": "نتيجة الجدول المحوري",
+    "pivotTable.total": "المجموع",
     
     // Common
     "common.success": "نجح",

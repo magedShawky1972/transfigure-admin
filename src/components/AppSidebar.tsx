@@ -8,7 +8,8 @@ import {
   Settings,
   Users,
   UserCheck,
-  TrendingUp
+  TrendingUp,
+  Grid3x3
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -36,6 +37,7 @@ export function AppSidebar() {
         { title: t("menu.dashboard"), url: "/", icon: Home },
         { title: t("menu.reports"), url: "/reports", icon: BarChart3 },
         { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
+        { title: t("menu.pivotTable"), url: "/pivot-table", icon: Grid3x3 },
       ]
     },
     {
