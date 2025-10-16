@@ -34,6 +34,7 @@ const translations = {
     "menu.userSetup": "User Setup",
     "menu.customerSetup": "Customer Setup",
     "menu.customerTotals": "Customer Totals",
+    "menu.brandSetup": "Brand Setup",
     "menu.productSetup": "Product Setup",
     
     // Customer Setup Page
@@ -289,6 +290,7 @@ const translations = {
     "common.error": "Error",
     "common.loading": "Loading...",
     "common.all": "All",
+    "common.confirm": "Confirm",
   },
   ar: {
     // Header
@@ -315,6 +317,7 @@ const translations = {
     "menu.userSetup": "إعداد المستخدمين",
     "menu.customerSetup": "إعداد العملاء",
     "menu.customerTotals": "إجماليات العملاء",
+    "menu.brandSetup": "إعداد الماركات",
     "menu.productSetup": "إعداد المنتجات",
     
     // Customer Setup Page
@@ -570,6 +573,7 @@ const translations = {
     "common.error": "خطأ",
     "common.loading": "جاري التحميل...",
     "common.all": "الكل",
+    "common.confirm": "تأكيد",
   },
 };
 
