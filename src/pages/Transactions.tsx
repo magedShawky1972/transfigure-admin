@@ -33,6 +33,8 @@ interface Transaction {
   cost_sold: number;
   qty: number;
   coins_number: number;
+  vendor_name: string;
+  order_status: string;
 }
 
 const Transactions = () => {
@@ -67,6 +69,8 @@ const Transactions = () => {
     { id: "product_name", label: t("dashboard.product"), enabled: true },
     { id: "order_number", label: t("transactions.orderNumber"), enabled: true },
     { id: "user_name", label: t("transactions.userName"), enabled: true },
+    { id: "vendor_name", label: t("transactions.vendorName"), enabled: false },
+    { id: "order_status", label: t("transactions.orderStatus"), enabled: false },
     { id: "total", label: t("dashboard.amount"), enabled: true },
     { id: "profit", label: t("dashboard.profit"), enabled: true },
     { id: "payment_method", label: t("transactions.paymentMethod"), enabled: true },
@@ -542,6 +546,18 @@ const Transactions = () => {
                         <SortIcon column="user_name" />
                       </TableHead>
                     )}
+                    {visibleColumns.vendor_name && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("vendor_name")}>
+                        {t("transactions.vendorName")}
+                        <SortIcon column="vendor_name" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.order_status && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("order_status")}>
+                        {t("transactions.orderStatus")}
+                        <SortIcon column="order_status" />
+                      </TableHead>
+                    )}
                     {visibleColumns.total && (
                       <TableHead className="text-right cursor-pointer" onClick={() => handleSort("total")}>
                         {t("dashboard.amount")}
@@ -622,6 +638,8 @@ const Transactions = () => {
                       {visibleColumns.product_name && <TableCell>{transaction.product_name || 'N/A'}</TableCell>}
                       {visibleColumns.order_number && <TableCell>{transaction.order_number || 'N/A'}</TableCell>}
                       {visibleColumns.user_name && <TableCell>{transaction.user_name || 'N/A'}</TableCell>}
+                      {visibleColumns.vendor_name && <TableCell>{transaction.vendor_name || 'N/A'}</TableCell>}
+                      {visibleColumns.order_status && <TableCell>{transaction.order_status || 'N/A'}</TableCell>}
                       {visibleColumns.total && <TableCell className="text-right">{formatNumber(transaction.total)}</TableCell>}
                       {visibleColumns.profit && <TableCell className="text-right text-green-600">{formatNumber(transaction.profit)}</TableCell>}
                       {visibleColumns.payment_method && <TableCell>{transaction.payment_method || 'N/A'}</TableCell>}
