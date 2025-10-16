@@ -479,6 +479,102 @@ export type Database = {
         }
         Relationships: []
       }
+      purpletransaction_enriched: {
+        Row: {
+          brand_name: string | null
+          coins_number: string | null
+          cost_price: string | null
+          cost_price_num: number | null
+          cost_sold: string | null
+          cost_sold_num: number | null
+          created_at: string | null
+          created_at_date: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string | null
+          order_number: string | null
+          order_status: string | null
+          payment_brand: string | null
+          payment_method: string | null
+          payment_type: string | null
+          product_id: string | null
+          product_name: string | null
+          profit: string | null
+          profit_num: number | null
+          qty: string | null
+          qty_num: number | null
+          total: string | null
+          total_num: number | null
+          unit_price: string | null
+          unit_price_num: number | null
+          updated_at: string | null
+          user_name: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          brand_name?: string | null
+          coins_number?: string | null
+          cost_price?: string | null
+          cost_price_num?: never
+          cost_sold?: string | null
+          cost_sold_num?: never
+          created_at?: string | null
+          created_at_date?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string | null
+          order_number?: string | null
+          order_status?: string | null
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_type?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          profit?: string | null
+          profit_num?: never
+          qty?: string | null
+          qty_num?: never
+          total?: string | null
+          total_num?: never
+          unit_price?: string | null
+          unit_price_num?: never
+          updated_at?: string | null
+          user_name?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          brand_name?: string | null
+          coins_number?: string | null
+          cost_price?: string | null
+          cost_price_num?: never
+          cost_sold?: string | null
+          cost_sold_num?: never
+          created_at?: string | null
+          created_at_date?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string | null
+          order_number?: string | null
+          order_status?: string | null
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_type?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          profit?: string | null
+          profit_num?: never
+          qty?: string | null
+          qty_num?: never
+          total?: string | null
+          total_num?: never
+          unit_price?: string | null
+          unit_price_num?: never
+          updated_at?: string | null
+          user_name?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       clean_expired_cache: {

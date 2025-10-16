@@ -110,7 +110,7 @@ const Transactions = () => {
         ? 'purpletransaction_enriched'
         : 'purpletransaction';
 
-      let q = supabase
+      let q = (supabase as any)
         .from(table)
         .select('*');
 
@@ -502,8 +502,8 @@ const Transactions = () => {
                       <TableCell>{transaction.product_name || 'N/A'}</TableCell>
                       <TableCell>{transaction.order_number || 'N/A'}</TableCell>
                       <TableCell>{transaction.user_name || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{transaction.total || 'N/A'}</TableCell>
-                      <TableCell className="text-right text-green-600">{transaction.profit || 'N/A'}</TableCell>
+                      <TableCell className="text-right">{formatNumber(parseNumber(transaction.total))}</TableCell>
+                      <TableCell className="text-right text-green-600">{formatNumber(parseNumber(transaction.profit))}</TableCell>
                       <TableCell>{transaction.payment_method || 'N/A'}</TableCell>
                       <TableCell>{transaction.payment_type || 'N/A'}</TableCell>
                       <TableCell>{transaction.payment_brand || 'N/A'}</TableCell>
