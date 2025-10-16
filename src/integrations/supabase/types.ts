@@ -458,7 +458,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      customer_totals: {
+        Row: {
+          block_reason: string | null
+          creation_date: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          is_blocked: boolean | null
+          last_trans_date: string | null
+          status: string | null
+          total: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       clean_expired_cache: {
