@@ -61,6 +61,8 @@ const CustomerSetup = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [missingCustomers, setMissingCustomers] = useState<any[]>([]);
 
   useEffect(() => {
     fetchCustomers();
@@ -134,6 +136,66 @@ const CustomerSetup = () => {
     }
   };
 
+  const handleSyncCustomers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("notin_customer_incustomer")
+        .select("*");
+
+      if (error) throw error;
+
+      setMissingCustomers(data || []);
+      setSyncDialogOpen(true);
+    } catch (error: any) {
+      console.error("Error fetching missing customers:", error);
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmSync = async () => {
+    setLoading(true);
+    try {
+      const customersToInsert = missingCustomers.map((customer) => ({
+        customer_phone: customer.customer_phone,
+        customer_name: customer.customer_name,
+        creation_date: customer.creation_date,
+        status: "active",
+        is_blocked: false,
+      }));
+
+      const { error } = await supabase
+        .from("customers")
+        .insert(customersToInsert);
+
+      if (error) throw error;
+
+      toast({
+        title: t("common.success"),
+        description: `${missingCustomers.length} ${t("customerSetup.customersAdded")}`,
+      });
+
+      setSyncDialogOpen(false);
+      setMissingCustomers([]);
+      fetchCustomers();
+    } catch (error: any) {
+      console.error("Error syncing customers:", error);
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       {loading && <LoadingOverlay progress={50} message="Loading customers..." />}
@@ -149,11 +211,12 @@ const CustomerSetup = () => {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              disabled
+              onClick={handleSyncCustomers}
+              disabled={loading}
               className="flex items-center gap-2"
             >
               <RefreshCw className="h-4 w-4" />
-              Sync Customers
+              {t("customerSetup.syncCustomers")}
             </Button>
             <Button 
               variant="destructive" 
@@ -408,6 +471,29 @@ const CustomerSetup = () => {
               <AlertDialogCancel>{t("customerSetup.cancel")}</AlertDialogCancel>
               <AlertDialogAction onClick={handleClearAll} disabled={loading}>
                 {loading ? t("common.loading") : t("clearData.confirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Sync Customers Confirmation */}
+        <AlertDialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("customerSetup.syncCustomers")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {missingCustomers.length > 0
+                  ? `${t("customerSetup.missingCustomersFound")}: ${missingCustomers.length}`
+                  : t("customerSetup.noMissingCustomers")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("customerSetup.cancel")}</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleConfirmSync} 
+                disabled={loading || missingCustomers.length === 0}
+              >
+                {loading ? t("common.loading") : t("common.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

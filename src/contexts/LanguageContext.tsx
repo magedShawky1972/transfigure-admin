@@ -82,6 +82,10 @@ const translations = {
     "customerSetup.lastTransactionDate": "Last Transaction",
     "customerSetup.customers": "Customers",
     "customerSetup.orderNumber": "Order Number",
+    "customerSetup.syncCustomers": "Sync Customers",
+    "customerSetup.missingCustomersFound": "Missing customers found",
+    "customerSetup.noMissingCustomers": "No missing customers found",
+    "customerSetup.customersAdded": "customers added successfully",
     
     // Brand Setup Page
     "brandSetup.title": "Brand Setup",
@@ -359,6 +363,10 @@ const translations = {
     "customerSetup.lastTransactionDate": "آخر معاملة",
     "customerSetup.customers": "عملاء",
     "customerSetup.orderNumber": "رقم الطلب",
+    "customerSetup.syncCustomers": "مزامنة العملاء",
+    "customerSetup.missingCustomersFound": "تم العثور على عملاء مفقودين",
+    "customerSetup.noMissingCustomers": "لم يتم العثور على عملاء مفقودين",
+    "customerSetup.customersAdded": "عميل تمت إضافتهم بنجاح",
     
     // Brand Setup Page
     "brandSetup.title": "إعداد الماركات",
