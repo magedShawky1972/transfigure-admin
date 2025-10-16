@@ -139,9 +139,18 @@ const CustomerSetup = () => {
   const handleSyncCustomers = async () => {
     setLoading(true);
     try {
+      // First, get the count
+      const { count, error: countError } = await supabase
+        .from("notin_customer_incustomer")
+        .select("*", { count: "exact", head: true });
+
+      if (countError) throw countError;
+
+      // Fetch all records without limit
       const { data, error } = await supabase
         .from("notin_customer_incustomer")
-        .select("*");
+        .select("*")
+        .limit(count || 10000);
 
       if (error) throw error;
 
