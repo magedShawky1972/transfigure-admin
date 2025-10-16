@@ -54,6 +54,9 @@ const Transactions = () => {
   const [products, setProducts] = useState<string[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [customers, setCustomers] = useState<string[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const pageSize = 500;
 
   const parseNumber = (value?: string | null) => {
     if (value == null) return 0;
@@ -78,9 +81,14 @@ const Transactions = () => {
     if (toParam) setToDate(new Date(toParam));
   }, [searchParams]);
 
+  // Reset paging when key filters change
+  useEffect(() => {
+    setPage(1);
+  }, [fromDate, toDate, orderNumberFilter, phoneFilter]);
+
   useEffect(() => {
     fetchTransactions();
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, page, orderNumberFilter, phoneFilter]);
 
   const fetchTransactions = async () => {
     try {
@@ -91,29 +99,57 @@ const Transactions = () => {
         .select('*')
         .order('created_at_date', { ascending: false });
 
-      // Always use component state for date range; fallback to sensible defaults
+      // Date range
       const start = startOfDay(fromDate || subDays(new Date(), 1));
       const end = endOfDay(toDate || new Date());
       const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
       const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
       query = query.gte('created_at_date', startStr).lte('created_at_date', endStr);
 
+      // Server-side filters when provided
+      const phone = phoneFilter.trim();
+      if (phone) {
+        query = query.ilike('customer_phone', `%${phone}%`);
+      }
+      const orderNo = orderNumberFilter.trim();
+      if (orderNo) {
+        query = query.ilike('order_number', `%${orderNo}%`);
+      }
+
+      // Pagination (avoid 1k row cap)
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      query = query.range(from, to);
+
       const { data, error } = await query;
 
       if (error) throw error;
       if (data) {
-        setTransactions(data);
-        
-        // Extract unique values for filters
-        const uniqueBrands = [...new Set(data.map(t => t.brand_name).filter(Boolean))];
-        const uniqueProducts = [...new Set(data.map(t => t.product_name).filter(Boolean))];
-        const uniquePaymentMethods = [...new Set(data.map(t => t.payment_method).filter(Boolean))];
-        const uniqueCustomers = [...new Set(data.map(t => t.customer_name).filter(Boolean))];
-        
-        setBrands(uniqueBrands as string[]);
-        setProducts(uniqueProducts as string[]);
-        setPaymentMethods(uniquePaymentMethods as string[]);
-        setCustomers(uniqueCustomers as string[]);
+        setHasMore(data.length === pageSize);
+        setTransactions(prev => {
+          if (page === 1) return data as Transaction[];
+          const merged = [...prev, ...(data as Transaction[])];
+          // de-duplicate by id
+          const seen = new Set<string>();
+          return merged.filter(t => {
+            if (seen.has(t.id)) return false;
+            seen.add(t.id);
+            return true;
+          });
+        });
+
+        // Extract unique values for filters from the cumulative list (use latest state after merge)
+        const source = page === 1 ? (data as Transaction[]) : undefined;
+        if (source) {
+          const uniqueBrands = [...new Set(source.map(t => t.brand_name).filter(Boolean))];
+          const uniqueProducts = [...new Set(source.map(t => t.product_name).filter(Boolean))];
+          const uniquePaymentMethods = [...new Set(source.map(t => t.payment_method).filter(Boolean))];
+          const uniqueCustomers = [...new Set(source.map(t => t.customer_name).filter(Boolean))];
+          setBrands(uniqueBrands as string[]);
+          setProducts(uniqueProducts as string[]);
+          setPaymentMethods(uniquePaymentMethods as string[]);
+          setCustomers(uniqueCustomers as string[]);
+        }
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -454,6 +490,13 @@ const Transactions = () => {
               </Table>
             )}
           </div>
+          {!loading && hasMore && (
+            <div className="flex justify-center mt-4">
+              <Button variant="outline" onClick={() => setPage(p => p + 1)}>
+                {language === 'ar' ? 'تحميل المزيد' : 'Load more'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
