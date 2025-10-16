@@ -249,6 +249,8 @@ const translations = {
     "transactions.costSold": "Cost Sold",
     "transactions.qty": "Qty",
     "transactions.coinsNumber": "Coins Number",
+    "transactions.vendorName": "Vendor Name",
+    "transactions.orderStatus": "Order Status",
     
     // Clear Data Page
     "clearData.title": "Clear Data",
@@ -563,6 +565,8 @@ const translations = {
     "transactions.costSold": "التكلفة المباعة",
     "transactions.qty": "الكمية",
     "transactions.coinsNumber": "رقم العملات",
+    "transactions.vendorName": "اسم المورد",
+    "transactions.orderStatus": "حالة الطلب",
     
     // Clear Data Page
     "clearData.title": "حذف البيانات",
