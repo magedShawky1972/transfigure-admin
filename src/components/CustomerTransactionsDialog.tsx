@@ -44,8 +44,8 @@ interface Transaction {
   created_at_date: string;
   brand_name: string;
   product_name: string;
-  qty: string;
-  total: string;
+  qty: number;
+  total: number;
   payment_method: string;
   payment_type: string;
   order_status: string;
@@ -196,8 +196,8 @@ export const CustomerTransactionsDialog = ({
     );
   };
 
-  const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount?.replace(/[^0-9.-]/g, "") || "0");
+  const formatCurrency = (amount: number | null | undefined) => {
+    const num = amount || 0;
     return new Intl.NumberFormat("en-US", {
       style: "decimal",
       minimumFractionDigits: 2,
@@ -207,8 +207,7 @@ export const CustomerTransactionsDialog = ({
 
   const getTotalAmount = () => {
     return filteredAndSortedTransactions.reduce((sum, t) => {
-      const amount = parseFloat(t.total?.replace(/[^0-9.-]/g, "") || "0");
-      return sum + amount;
+      return sum + (t.total || 0);
     }, 0);
   };
 
@@ -480,7 +479,7 @@ export const CustomerTransactionsDialog = ({
                 {t("customerSetup.totalAmount")}:
               </span>
               <span className="text-xl font-bold text-primary">
-                {formatCurrency(getTotalAmount().toString())}
+                {formatCurrency(getTotalAmount())}
               </span>
             </div>
           </div>

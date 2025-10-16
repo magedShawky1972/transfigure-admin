@@ -283,9 +283,9 @@ export type Database = {
       purpletransaction: {
         Row: {
           brand_name: string | null
-          coins_number: string | null
-          cost_price: string | null
-          cost_sold: string | null
+          coins_number: number | null
+          cost_price: number | null
+          cost_sold: number | null
           created_at: string
           created_at_date: string | null
           customer_name: string | null
@@ -298,19 +298,19 @@ export type Database = {
           payment_type: string | null
           product_id: string | null
           product_name: string | null
-          profit: string | null
-          qty: string | null
-          total: string | null
-          unit_price: string | null
+          profit: number | null
+          qty: number | null
+          total: number | null
+          unit_price: number | null
           updated_at: string
           user_name: string | null
           vendor_name: string | null
         }
         Insert: {
           brand_name?: string | null
-          coins_number?: string | null
-          cost_price?: string | null
-          cost_sold?: string | null
+          coins_number?: number | null
+          cost_price?: number | null
+          cost_sold?: number | null
           created_at?: string
           created_at_date?: string | null
           customer_name?: string | null
@@ -323,19 +323,19 @@ export type Database = {
           payment_type?: string | null
           product_id?: string | null
           product_name?: string | null
-          profit?: string | null
-          qty?: string | null
-          total?: string | null
-          unit_price?: string | null
+          profit?: number | null
+          qty?: number | null
+          total?: number | null
+          unit_price?: number | null
           updated_at?: string
           user_name?: string | null
           vendor_name?: string | null
         }
         Update: {
           brand_name?: string | null
-          coins_number?: string | null
-          cost_price?: string | null
-          cost_sold?: string | null
+          coins_number?: number | null
+          cost_price?: number | null
+          cost_sold?: number | null
           created_at?: string
           created_at_date?: string | null
           customer_name?: string | null
@@ -348,10 +348,10 @@ export type Database = {
           payment_type?: string | null
           product_id?: string | null
           product_name?: string | null
-          profit?: string | null
-          qty?: string | null
-          total?: string | null
-          unit_price?: string | null
+          profit?: number | null
+          qty?: number | null
+          total?: number | null
+          unit_price?: number | null
           updated_at?: string
           user_name?: string | null
           vendor_name?: string | null
@@ -482,10 +482,10 @@ export type Database = {
       purpletransaction_enriched: {
         Row: {
           brand_name: string | null
-          coins_number: string | null
-          cost_price: string | null
+          coins_number: number | null
+          cost_price: number | null
           cost_price_num: number | null
-          cost_sold: string | null
+          cost_sold: number | null
           cost_sold_num: number | null
           created_at: string | null
           created_at_date: string | null
@@ -499,13 +499,13 @@ export type Database = {
           payment_type: string | null
           product_id: string | null
           product_name: string | null
-          profit: string | null
+          profit: number | null
           profit_num: number | null
-          qty: string | null
+          qty: number | null
           qty_num: number | null
-          total: string | null
+          total: number | null
           total_num: number | null
-          unit_price: string | null
+          unit_price: number | null
           unit_price_num: number | null
           updated_at: string | null
           user_name: string | null
@@ -513,11 +513,11 @@ export type Database = {
         }
         Insert: {
           brand_name?: string | null
-          coins_number?: string | null
-          cost_price?: string | null
-          cost_price_num?: never
-          cost_sold?: string | null
-          cost_sold_num?: never
+          coins_number?: number | null
+          cost_price?: number | null
+          cost_price_num?: number | null
+          cost_sold?: number | null
+          cost_sold_num?: number | null
           created_at?: string | null
           created_at_date?: string | null
           customer_name?: string | null
@@ -530,25 +530,25 @@ export type Database = {
           payment_type?: string | null
           product_id?: string | null
           product_name?: string | null
-          profit?: string | null
-          profit_num?: never
-          qty?: string | null
-          qty_num?: never
-          total?: string | null
-          total_num?: never
-          unit_price?: string | null
-          unit_price_num?: never
+          profit?: number | null
+          profit_num?: number | null
+          qty?: number | null
+          qty_num?: number | null
+          total?: number | null
+          total_num?: number | null
+          unit_price?: number | null
+          unit_price_num?: number | null
           updated_at?: string | null
           user_name?: string | null
           vendor_name?: string | null
         }
         Update: {
           brand_name?: string | null
-          coins_number?: string | null
-          cost_price?: string | null
-          cost_price_num?: never
-          cost_sold?: string | null
-          cost_sold_num?: never
+          coins_number?: number | null
+          cost_price?: number | null
+          cost_price_num?: number | null
+          cost_sold?: number | null
+          cost_sold_num?: number | null
           created_at?: string | null
           created_at_date?: string | null
           customer_name?: string | null
@@ -561,14 +561,14 @@ export type Database = {
           payment_type?: string | null
           product_id?: string | null
           product_name?: string | null
-          profit?: string | null
-          profit_num?: never
-          qty?: string | null
-          qty_num?: never
-          total?: string | null
-          total_num?: never
-          unit_price?: string | null
-          unit_price_num?: never
+          profit?: number | null
+          profit_num?: number | null
+          qty?: number | null
+          qty_num?: number | null
+          total?: number | null
+          total_num?: number | null
+          unit_price?: number | null
+          unit_price_num?: number | null
           updated_at?: string | null
           user_name?: string | null
           vendor_name?: string | null

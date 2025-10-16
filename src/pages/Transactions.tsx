@@ -20,18 +20,18 @@ interface Transaction {
   customer_phone: string;
   brand_name: string;
   product_name: string;
-  total: string;
-  profit: string;
+  total: number;
+  profit: number;
   payment_method: string;
   payment_type: string;
   payment_brand: string;
   order_number: string;
   user_name: string;
-  cost_price: string;
-  unit_price: string;
-  cost_sold: string;
-  qty: string;
-  coins_number: string;
+  cost_price: number;
+  unit_price: number;
+  cost_sold: number;
+  qty: number;
+  coins_number: number;
 }
 
 const Transactions = () => {
@@ -58,13 +58,6 @@ const Transactions = () => {
   const [hasMore, setHasMore] = useState<boolean>(false);
   const pageSize = 500;
 
-  const parseNumber = (value?: string | null) => {
-    if (value == null) return 0;
-    const cleaned = value.replace(/,/g, '').replace(/[^0-9.\-]/g, '');
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : parsed;
-  };
-
   const formatCurrency = (amount: number) => {
     if (!isFinite(amount)) amount = 0;
     const formatted = new Intl.NumberFormat('en-US', {
@@ -74,8 +67,8 @@ const Transactions = () => {
     return `${formatted} ر.س`;
   };
 
-  const formatNumber = (amount: number) => {
-    if (!isFinite(amount)) amount = 0;
+  const formatNumber = (amount: number | null | undefined) => {
+    if (amount == null || !isFinite(amount)) amount = 0;
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -232,10 +225,10 @@ const Transactions = () => {
       aValue = new Date(aValue || 0).getTime();
       bValue = new Date(bValue || 0).getTime();
     }
-    // Handle numeric sorting
-    else if (["total", "profit", "cost_price", "unit_price", "cost_sold", "qty"].includes(sortColumn)) {
-      aValue = parseNumber(aValue);
-      bValue = parseNumber(bValue);
+    // Handle numeric sorting - values are already numeric
+    else if (["total", "profit", "cost_price", "unit_price", "cost_sold", "qty", "coins_number"].includes(sortColumn)) {
+      aValue = aValue || 0;
+      bValue = bValue || 0;
     }
     // Handle string sorting
     else {
@@ -502,8 +495,8 @@ const Transactions = () => {
                       <TableCell>{transaction.product_name || 'N/A'}</TableCell>
                       <TableCell>{transaction.order_number || 'N/A'}</TableCell>
                       <TableCell>{transaction.user_name || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{formatNumber(parseNumber(transaction.total))}</TableCell>
-                      <TableCell className="text-right text-green-600">{formatNumber(parseNumber(transaction.profit))}</TableCell>
+                      <TableCell className="text-right">{formatNumber(transaction.total)}</TableCell>
+                      <TableCell className="text-right text-green-600">{formatNumber(transaction.profit)}</TableCell>
                       <TableCell>{transaction.payment_method || 'N/A'}</TableCell>
                       <TableCell>{transaction.payment_type || 'N/A'}</TableCell>
                       <TableCell>{transaction.payment_brand || 'N/A'}</TableCell>
@@ -536,7 +529,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalSales")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0))}
+              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + (t.total || 0), 0))}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -545,7 +538,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + parseNumber(t.profit), 0))}
+              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + (t.profit || 0), 0))}
             </CardTitle>
           </CardHeader>
         </Card>
