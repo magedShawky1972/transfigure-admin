@@ -139,22 +139,31 @@ const CustomerSetup = () => {
   const handleSyncCustomers = async () => {
     setLoading(true);
     try {
-      // First, get the count
+      const pageSize = 1000;
+      // Get total count first
       const { count, error: countError } = await supabase
         .from("notin_customer_incustomer")
         .select("*", { count: "exact", head: true });
-
       if (countError) throw countError;
 
-      // Fetch all records without limit
-      const { data, error } = await supabase
-        .from("notin_customer_incustomer")
-        .select("*")
-        .limit(count || 10000);
+      const total = count || 0;
+      const all: any[] = [];
+      // Paginate to bypass 1000-row limit
+      const pages = total > 0 ? Math.ceil(total / pageSize) : 0;
+      for (let p = 0; p < pages; p++) {
+        const from = p * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await supabase
+          .from("notin_customer_incustomer")
+          .select("*")
+          .range(from, to);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < pageSize) break;
+      }
 
-      if (error) throw error;
-
-      setMissingCustomers(data || []);
+      setMissingCustomers(all);
       setSyncDialogOpen(true);
     } catch (error: any) {
       console.error("Error fetching missing customers:", error);
@@ -179,11 +188,12 @@ const CustomerSetup = () => {
         is_blocked: false,
       }));
 
-      const { error } = await supabase
-        .from("customers")
-        .insert(customersToInsert);
-
-      if (error) throw error;
+      const batchSize = 1000;
+      for (let i = 0; i < customersToInsert.length; i += batchSize) {
+        const chunk = customersToInsert.slice(i, i + batchSize);
+        const { error } = await supabase.from("customers").insert(chunk);
+        if (error) throw error;
+      }
 
       toast({
         title: t("common.success"),
