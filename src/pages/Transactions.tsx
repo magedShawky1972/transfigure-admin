@@ -37,6 +37,7 @@ const Transactions = () => {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [phoneFilter, setPhoneFilter] = useState("");
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
@@ -115,12 +116,15 @@ const Transactions = () => {
       transaction.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.order_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
+    const matchesPhone = phoneFilter === "" || 
+      transaction.customer_phone?.toLowerCase().includes(phoneFilter.toLowerCase());
+    
     const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
     const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
     const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
     const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
 
-    return matchesSearch && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
+    return matchesSearch && matchesPhone && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
   });
 
   const exportToCSV = () => {
@@ -202,6 +206,14 @@ const Transactions = () => {
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="relative min-w-[200px]">
+              <Input 
+                placeholder={t("transactions.customerPhone")}
+                value={phoneFilter}
+                onChange={(e) => setPhoneFilter(e.target.value)}
               />
             </div>
             
