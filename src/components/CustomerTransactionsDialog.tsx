@@ -180,12 +180,14 @@ export const CustomerTransactionsDialog = ({
 
         {transactions.length > 0 && (
           <div className="flex justify-between items-center pt-4 border-t">
-            <span className="text-sm text-muted-foreground">
-              {t("customerSetup.totalTransactionsCount") || `Total of ${transactions.length} transactions`}
-            </span>
+            <div className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{transactions.length}</span>
+              {" "}
+              <span>{t("customerSetup.totalTransactionsCount")}</span>
+            </div>
             <div className="text-right">
               <span className="text-sm text-muted-foreground mr-2">
-                {t("customerSetup.totalAmount") || "Total Amount:"}
+                {t("customerSetup.totalAmount")}:
               </span>
               <span className="text-xl font-bold text-primary">
                 {formatCurrency(getTotalAmount().toString())}
