@@ -180,9 +180,10 @@ const CustomerSetup = () => {
   const handleConfirmSync = async () => {
     setLoading(true);
     try {
+      const normalizePhone = (p: string) => (p ?? "").trim();
       const customersToInsert = missingCustomers.map((customer) => ({
-        customer_phone: customer.customer_phone,
-        customer_name: customer.customer_name,
+        customer_phone: normalizePhone(customer.customer_phone),
+        customer_name: customer.customer_name?.trim?.() ?? customer.customer_name,
         creation_date: customer.creation_date,
         status: "active",
         is_blocked: false,
@@ -191,7 +192,9 @@ const CustomerSetup = () => {
       const batchSize = 1000;
       for (let i = 0; i < customersToInsert.length; i += batchSize) {
         const chunk = customersToInsert.slice(i, i + batchSize);
-        const { error } = await supabase.from("customers").insert(chunk);
+        const { error } = await supabase
+          .from("customers")
+          .upsert(chunk, { onConflict: "customer_phone" });
         if (error) throw error;
       }
 
