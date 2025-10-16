@@ -72,23 +72,30 @@ const Transactions = () => {
   };
 
   useEffect(() => {
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+    if (fromParam) setFromDate(new Date(fromParam));
+    if (toParam) setToDate(new Date(toParam));
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchTransactions();
   }, [fromDate, toDate]);
 
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const fromDateParam = searchParams.get('from');
-      const toDateParam = searchParams.get('to');
 
       let query = supabase
         .from('purpletransaction')
         .select('*')
         .order('created_at_date', { ascending: false });
 
-      // Use date filters
-      const startStr = format(startOfDay(fromDateParam ? new Date(fromDateParam) : fromDate), "yyyy-MM-dd'T'00:00:00");
-      const endStr = format(endOfDay(toDateParam ? new Date(toDateParam) : toDate), "yyyy-MM-dd'T'23:59:59");
+      // Always use component state for date range; fallback to sensible defaults
+      const start = startOfDay(fromDate || subDays(new Date(), 1));
+      const end = endOfDay(toDate || new Date());
+      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
       query = query.gte('created_at_date', startStr).lte('created_at_date', endStr);
 
       const { data, error } = await query;
