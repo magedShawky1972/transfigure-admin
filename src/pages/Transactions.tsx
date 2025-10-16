@@ -74,6 +74,14 @@ const Transactions = () => {
     return `${formatted} ر.س`;
   };
 
+  const formatNumber = (amount: number) => {
+    if (!isFinite(amount)) amount = 0;
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
   useEffect(() => {
     const fromParam = searchParams.get('from');
     const toParam = searchParams.get('to');
@@ -98,91 +106,74 @@ const Transactions = () => {
         'total', 'profit', 'cost_price', 'unit_price', 'cost_sold', 'qty'
       ]);
 
-      const buildBaseQuery = () => {
-        let q = supabase
-          .from('purpletransaction')
-          .select('*');
+      const table = sortColumn && numericSortColumns.has(sortColumn)
+        ? 'purpletransaction_enriched'
+        : 'purpletransaction';
 
-        // Date range
-        const start = startOfDay(fromDate || subDays(new Date(), 1));
-        const end = endOfDay(toDate || new Date());
-        const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
-        const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
-        q = q.gte('created_at_date', startStr).lte('created_at_date', endStr);
+      let q = supabase
+        .from(table)
+        .select('*');
 
-        // Server-side filters when provided
-        const phone = phoneFilter.trim();
-        if (phone) {
-          q = q.ilike('customer_phone', `%${phone}%`);
-        }
-        const orderNo = orderNumberFilter.trim();
-        if (orderNo) {
-          q = q.ilike('order_number', `%${orderNo}%`);
-        }
-        return q;
-      };
+      // Date range
+      const start = startOfDay(fromDate || subDays(new Date(), 1));
+      const end = endOfDay(toDate || new Date());
+      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
+      q = q.gte('created_at_date', startStr).lte('created_at_date', endStr);
 
-      // If sorting by a numeric text column, fetch all pages to sort accurately client-side
-      if (sortColumn && numericSortColumns.has(sortColumn)) {
-        const all: Transaction[] = [];
-        for (let p = 1; p <= 4; p++) { // max 2k rows for performance
-          const from = (p - 1) * pageSize;
-          const to = from + pageSize - 1;
-          const { data, error } = await buildBaseQuery()
-            .order('created_at_date', { ascending: false })
-            .range(from, to);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          all.push(...(data as any as Transaction[]));
-          if (data.length < pageSize) break;
+      // Server-side filters
+      const phone = phoneFilter.trim();
+      if (phone) q = q.ilike('customer_phone', `%${phone}%`);
+      const orderNo = orderNumberFilter.trim();
+      if (orderNo) q = q.ilike('order_number', `%${orderNo}%`);
+
+      // Server-side sorting
+      if (sortColumn) {
+        if (numericSortColumns.has(sortColumn)) {
+          const map: Record<string, string> = {
+            total: 'total_num',
+            profit: 'profit_num',
+            qty: 'qty_num',
+            cost_price: 'cost_price_num',
+            unit_price: 'unit_price_num',
+            cost_sold: 'cost_sold_num',
+          };
+          q = q.order(map[sortColumn], { ascending: sortDirection === 'asc' });
+        } else {
+          q = q.order(sortColumn, { ascending: sortDirection === 'asc' });
         }
-        setHasMore(false);
-        setTransactions(all);
-        // Extract unique values for filters from full dataset
-        const uniqueBrands = [...new Set(all.map(t => t.brand_name).filter(Boolean))];
-        const uniqueProducts = [...new Set(all.map(t => t.product_name).filter(Boolean))];
-        const uniquePaymentMethods = [...new Set(all.map(t => t.payment_method).filter(Boolean))];
-        const uniqueCustomers = [...new Set(all.map(t => t.customer_name).filter(Boolean))];
+      } else {
+        q = q.order('created_at_date', { ascending: false });
+      }
+
+      // Pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const { data, error } = await q.range(from, to);
+
+      if (error) throw error;
+      const rows = (data as any) as Transaction[];
+      setHasMore(rows.length === pageSize);
+      setTransactions(prev => {
+        if (page === 1) return rows;
+        const merged = [...prev, ...rows];
+        const seen = new Set<string>();
+        return merged.filter(t => {
+          if (seen.has(t.id)) return false;
+          seen.add(t.id);
+          return true;
+        });
+      });
+
+      if (page === 1) {
+        const uniqueBrands = [...new Set(rows.map(t => t.brand_name).filter(Boolean))];
+        const uniqueProducts = [...new Set(rows.map(t => t.product_name).filter(Boolean))];
+        const uniquePaymentMethods = [...new Set(rows.map(t => t.payment_method).filter(Boolean))];
+        const uniqueCustomers = [...new Set(rows.map(t => t.customer_name).filter(Boolean))];
         setBrands(uniqueBrands as string[]);
         setProducts(uniqueProducts as string[]);
         setPaymentMethods(uniquePaymentMethods as string[]);
         setCustomers(uniqueCustomers as string[]);
-      } else {
-        // Normal paginated path with server-side sorting for non-numeric fields
-        let q = buildBaseQuery();
-        if (sortColumn) {
-          q = q.order(sortColumn, { ascending: sortDirection === 'asc', nullsFirst: false });
-        } else {
-          q = q.order('created_at_date', { ascending: false });
-        }
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize - 1;
-        const { data, error } = await q.range(from, to);
-        if (error) throw error;
-        if (data) {
-          setHasMore((data as any[]).length === pageSize);
-          setTransactions(prev => {
-            if (page === 1) return data as Transaction[];
-            const merged = [...prev, ...(data as Transaction[])];
-            const seen = new Set<string>();
-            return merged.filter(t => {
-              if (seen.has(t.id)) return false;
-              seen.add(t.id);
-              return true;
-            });
-          });
-          if (page === 1) {
-            const source = data as Transaction[];
-            const uniqueBrands = [...new Set(source.map(t => t.brand_name).filter(Boolean))];
-            const uniqueProducts = [...new Set(source.map(t => t.product_name).filter(Boolean))];
-            const uniquePaymentMethods = [...new Set(source.map(t => t.payment_method).filter(Boolean))];
-            const uniqueCustomers = [...new Set(source.map(t => t.customer_name).filter(Boolean))];
-            setBrands(uniqueBrands as string[]);
-            setProducts(uniqueProducts as string[]);
-            setPaymentMethods(uniquePaymentMethods as string[]);
-            setCustomers(uniqueCustomers as string[]);
-          }
-        }
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
