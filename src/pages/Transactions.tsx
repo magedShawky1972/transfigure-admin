@@ -125,7 +125,7 @@ const Transactions = () => {
       // If sorting by a numeric text column, fetch all pages to sort accurately client-side
       if (sortColumn && numericSortColumns.has(sortColumn)) {
         const all: Transaction[] = [];
-        for (let p = 1; p <= 20; p++) { // up to 10k rows
+        for (let p = 1; p <= 4; p++) { // max 2k rows for performance
           const from = (p - 1) * pageSize;
           const to = from + pageSize - 1;
           const { data, error } = await buildBaseQuery()
@@ -511,8 +511,8 @@ const Transactions = () => {
                       <TableCell>{transaction.product_name || 'N/A'}</TableCell>
                       <TableCell>{transaction.order_number || 'N/A'}</TableCell>
                       <TableCell>{transaction.user_name || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(parseNumber(transaction.total))}</TableCell>
-                      <TableCell className="text-right text-green-600">{formatCurrency(parseNumber(transaction.profit))}</TableCell>
+                      <TableCell className="text-right">{transaction.total || 'N/A'}</TableCell>
+                      <TableCell className="text-right text-green-600">{transaction.profit || 'N/A'}</TableCell>
                       <TableCell>{transaction.payment_method || 'N/A'}</TableCell>
                       <TableCell>{transaction.payment_type || 'N/A'}</TableCell>
                       <TableCell>{transaction.payment_brand || 'N/A'}</TableCell>
