@@ -81,14 +81,14 @@ const Transactions = () => {
     if (toParam) setToDate(new Date(toParam));
   }, [searchParams]);
 
-  // Reset paging when key filters change
   useEffect(() => {
     setPage(1);
-  }, [fromDate, toDate, orderNumberFilter, phoneFilter]);
+    setTransactions([]); // Clear when sort/filter changes
+  }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
   useEffect(() => {
     fetchTransactions();
-  }, [fromDate, toDate, page, orderNumberFilter, phoneFilter]);
+  }, [fromDate, toDate, page, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
   const fetchTransactions = async () => {
     try {
@@ -96,8 +96,7 @@ const Transactions = () => {
 
       let query = supabase
         .from('purpletransaction')
-        .select('*')
-        .order('created_at_date', { ascending: false });
+        .select('*');
 
       // Date range
       const start = startOfDay(fromDate || subDays(new Date(), 1));
@@ -114,6 +113,19 @@ const Transactions = () => {
       const orderNo = orderNumberFilter.trim();
       if (orderNo) {
         query = query.ilike('order_number', `%${orderNo}%`);
+      }
+
+      // Server-side sorting
+      if (sortColumn) {
+        // For numeric fields, we need to cast and handle nulls
+        if (['total', 'profit', 'cost_price', 'unit_price', 'cost_sold', 'qty'].includes(sortColumn)) {
+          // Supabase doesn't support complex casting in order, so we'll do client-side sort for numeric
+          query = query.order('created_at_date', { ascending: false });
+        } else {
+          query = query.order(sortColumn, { ascending: sortDirection === 'asc', nullsFirst: false });
+        }
+      } else {
+        query = query.order('created_at_date', { ascending: false });
       }
 
       // Pagination (avoid 1k row cap)
