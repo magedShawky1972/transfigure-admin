@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download } from "lucide-react";
+import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay } from "date-fns";
@@ -42,6 +42,8 @@ const Transactions = () => {
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
   const [filterCustomer, setFilterCustomer] = useState<string>("all");
+  const [sortColumn, setSortColumn] = useState<string>("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
@@ -110,6 +112,26 @@ const Transactions = () => {
     }
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 inline-block ml-1 opacity-50" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-4 w-4 inline-block ml-1" />
+    ) : (
+      <ArrowDown className="h-4 w-4 inline-block ml-1" />
+    );
+  };
+
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = searchTerm === "" || 
       transaction.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -125,6 +147,33 @@ const Transactions = () => {
     const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
 
     return matchesSearch && matchesPhone && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
+  });
+
+  const sortedTransactions = [...filteredTransactions].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let aValue: any = a[sortColumn as keyof Transaction];
+    let bValue: any = b[sortColumn as keyof Transaction];
+
+    // Handle date sorting
+    if (sortColumn === "created_at_date") {
+      aValue = new Date(aValue || 0).getTime();
+      bValue = new Date(bValue || 0).getTime();
+    }
+    // Handle numeric sorting
+    else if (["total", "profit", "cost_price", "unit_price", "cost_sold", "qty"].includes(sortColumn)) {
+      aValue = parseNumber(aValue);
+      bValue = parseNumber(bValue);
+    }
+    // Handle string sorting
+    else {
+      aValue = (aValue || "").toString().toLowerCase();
+      bValue = (bValue || "").toString().toLowerCase();
+    }
+
+    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+    return 0;
   });
 
   const exportToCSV = () => {
@@ -150,7 +199,7 @@ const Transactions = () => {
 
     const csvContent = [
       headers.join(','),
-      ...filteredTransactions.map(t => [
+      ...sortedTransactions.map(t => [
         t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd') : '',
         t.customer_name || '',
         t.customer_phone || '',
@@ -271,7 +320,7 @@ const Transactions = () => {
               <div className="text-center py-16 text-muted-foreground">
                 {t("dashboard.loading")}
               </div>
-            ) : filteredTransactions.length === 0 ? (
+            ) : sortedTransactions.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 {t("dashboard.noData")}
               </div>
@@ -279,23 +328,62 @@ const Transactions = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("dashboard.date")}</TableHead>
-                    <TableHead>{t("dashboard.customer")}</TableHead>
-                    <TableHead>{t("transactions.customerPhone")}</TableHead>
-                    <TableHead>{t("dashboard.brand")}</TableHead>
-                    <TableHead>{t("dashboard.product")}</TableHead>
-                    <TableHead>{t("transactions.orderNumber")}</TableHead>
-                    <TableHead>{t("transactions.userName")}</TableHead>
-                    <TableHead className="text-right">{t("dashboard.amount")}</TableHead>
-                    <TableHead className="text-right">{t("dashboard.profit")}</TableHead>
-                    <TableHead>{t("transactions.paymentMethod")}</TableHead>
-                    <TableHead>{t("transactions.paymentType")}</TableHead>
-                    <TableHead>{t("dashboard.paymentBrands")}</TableHead>
-                    <TableHead className="text-right">{t("transactions.qty")}</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("created_at_date")}>
+                      {t("dashboard.date")}
+                      <SortIcon column="created_at_date" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("customer_name")}>
+                      {t("dashboard.customer")}
+                      <SortIcon column="customer_name" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("customer_phone")}>
+                      {t("transactions.customerPhone")}
+                      <SortIcon column="customer_phone" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("brand_name")}>
+                      {t("dashboard.brand")}
+                      <SortIcon column="brand_name" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("product_name")}>
+                      {t("dashboard.product")}
+                      <SortIcon column="product_name" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("order_number")}>
+                      {t("transactions.orderNumber")}
+                      <SortIcon column="order_number" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("user_name")}>
+                      {t("transactions.userName")}
+                      <SortIcon column="user_name" />
+                    </TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => handleSort("total")}>
+                      {t("dashboard.amount")}
+                      <SortIcon column="total" />
+                    </TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => handleSort("profit")}>
+                      {t("dashboard.profit")}
+                      <SortIcon column="profit" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("payment_method")}>
+                      {t("transactions.paymentMethod")}
+                      <SortIcon column="payment_method" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("payment_type")}>
+                      {t("transactions.paymentType")}
+                      <SortIcon column="payment_type" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("payment_brand")}>
+                      {t("dashboard.paymentBrands")}
+                      <SortIcon column="payment_brand" />
+                    </TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => handleSort("qty")}>
+                      {t("transactions.qty")}
+                      <SortIcon column="qty" />
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTransactions.map((transaction) => (
+                  {sortedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>
                         {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
@@ -327,7 +415,7 @@ const Transactions = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.transactions")}</CardTitle>
-            <CardTitle className="text-3xl">{filteredTransactions.length}</CardTitle>
+            <CardTitle className="text-3xl">{sortedTransactions.length}</CardTitle>
           </CardHeader>
         </Card>
         
@@ -335,7 +423,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalSales")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(filteredTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0))}
+              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0))}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -344,7 +432,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(filteredTransactions.reduce((sum, t) => sum + parseNumber(t.profit), 0))}
+              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + parseNumber(t.profit), 0))}
             </CardTitle>
           </CardHeader>
         </Card>
