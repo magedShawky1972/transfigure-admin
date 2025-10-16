@@ -471,6 +471,14 @@ export type Database = {
         }
         Relationships: []
       }
+      notin_customer_incustomer: {
+        Row: {
+          creation_date: string | null
+          customer_name: string | null
+          customer_phone: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       clean_expired_cache: {
