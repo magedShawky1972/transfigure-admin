@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon } from "lucide-react";
+import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon, Settings2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Transaction {
   id: string;
@@ -57,6 +58,30 @@ const Transactions = () => {
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const pageSize = 500;
+
+  const allColumns = [
+    { id: "created_at_date", label: t("dashboard.date"), enabled: true },
+    { id: "customer_name", label: t("dashboard.customer"), enabled: true },
+    { id: "customer_phone", label: t("transactions.customerPhone"), enabled: true },
+    { id: "brand_name", label: t("dashboard.brand"), enabled: true },
+    { id: "product_name", label: t("dashboard.product"), enabled: true },
+    { id: "order_number", label: t("transactions.orderNumber"), enabled: true },
+    { id: "user_name", label: t("transactions.userName"), enabled: true },
+    { id: "total", label: t("dashboard.amount"), enabled: true },
+    { id: "profit", label: t("dashboard.profit"), enabled: true },
+    { id: "payment_method", label: t("transactions.paymentMethod"), enabled: true },
+    { id: "payment_type", label: t("transactions.paymentType"), enabled: true },
+    { id: "payment_brand", label: t("dashboard.paymentBrands"), enabled: true },
+    { id: "qty", label: t("transactions.qty"), enabled: false },
+    { id: "cost_price", label: t("transactions.costPrice"), enabled: false },
+    { id: "unit_price", label: t("transactions.unitPrice"), enabled: false },
+    { id: "cost_sold", label: t("transactions.costSold"), enabled: false },
+    { id: "coins_number", label: t("transactions.coinsNumber"), enabled: false },
+  ];
+
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
+    allColumns.reduce((acc, col) => ({ ...acc, [col.id]: col.enabled }), {})
+  );
 
   const formatCurrency = (amount: number) => {
     if (!isFinite(amount)) amount = 0;
@@ -305,10 +330,42 @@ const Transactions = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>{t("transactions.title")}</CardTitle>
-            <Button variant="outline" className="gap-2" onClick={exportToCSV}>
-              <Download className="h-4 w-4" />
-              {t("transactions.export")}
-            </Button>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Settings2 className="h-4 w-4" />
+                    {language === 'ar' ? 'الأعمدة' : 'Columns'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 pointer-events-auto" align="end">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">{language === 'ar' ? 'إظهار الأعمدة' : 'Show Columns'}</h4>
+                    {allColumns.map((column) => (
+                      <div key={column.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={column.id}
+                          checked={visibleColumns[column.id]}
+                          onCheckedChange={(checked) =>
+                            setVisibleColumns((prev) => ({ ...prev, [column.id]: !!checked }))
+                          }
+                        />
+                        <label
+                          htmlFor={column.id}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {column.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button variant="outline" className="gap-2" onClick={exportToCSV}>
+                <Download className="h-4 w-4" />
+                {t("transactions.export")}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -321,7 +378,15 @@ const Transactions = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={fromDate} onSelect={(date) => date && setFromDate(date)} initialFocus />
+                <Calendar 
+                  mode="single" 
+                  selected={fromDate} 
+                  onSelect={(date) => date && setFromDate(date)} 
+                  initialFocus
+                  captionLayout="dropdown-buttons"
+                  fromYear={2020}
+                  toYear={2030}
+                />
               </PopoverContent>
             </Popover>
 
@@ -333,7 +398,15 @@ const Transactions = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={toDate} onSelect={(date) => date && setToDate(date)} initialFocus />
+                <Calendar 
+                  mode="single" 
+                  selected={toDate} 
+                  onSelect={(date) => date && setToDate(date)} 
+                  initialFocus
+                  captionLayout="dropdown-buttons"
+                  fromYear={2020}
+                  toYear={2030}
+                />
               </PopoverContent>
             </Popover>
           </div>
@@ -427,80 +500,138 @@ const Transactions = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("created_at_date")}>
-                      {t("dashboard.date")}
-                      <SortIcon column="created_at_date" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("customer_name")}>
-                      {t("dashboard.customer")}
-                      <SortIcon column="customer_name" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("customer_phone")}>
-                      {t("transactions.customerPhone")}
-                      <SortIcon column="customer_phone" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("brand_name")}>
-                      {t("dashboard.brand")}
-                      <SortIcon column="brand_name" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("product_name")}>
-                      {t("dashboard.product")}
-                      <SortIcon column="product_name" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("order_number")}>
-                      {t("transactions.orderNumber")}
-                      <SortIcon column="order_number" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("user_name")}>
-                      {t("transactions.userName")}
-                      <SortIcon column="user_name" />
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer" onClick={() => handleSort("total")}>
-                      {t("dashboard.amount")}
-                      <SortIcon column="total" />
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer" onClick={() => handleSort("profit")}>
-                      {t("dashboard.profit")}
-                      <SortIcon column="profit" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("payment_method")}>
-                      {t("transactions.paymentMethod")}
-                      <SortIcon column="payment_method" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("payment_type")}>
-                      {t("transactions.paymentType")}
-                      <SortIcon column="payment_type" />
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("payment_brand")}>
-                      {t("dashboard.paymentBrands")}
-                      <SortIcon column="payment_brand" />
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer" onClick={() => handleSort("qty")}>
-                      {t("transactions.qty")}
-                      <SortIcon column="qty" />
-                    </TableHead>
+                    {visibleColumns.created_at_date && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("created_at_date")}>
+                        {t("dashboard.date")}
+                        <SortIcon column="created_at_date" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.customer_name && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("customer_name")}>
+                        {t("dashboard.customer")}
+                        <SortIcon column="customer_name" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.customer_phone && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("customer_phone")}>
+                        {t("transactions.customerPhone")}
+                        <SortIcon column="customer_phone" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.brand_name && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("brand_name")}>
+                        {t("dashboard.brand")}
+                        <SortIcon column="brand_name" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.product_name && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("product_name")}>
+                        {t("dashboard.product")}
+                        <SortIcon column="product_name" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.order_number && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("order_number")}>
+                        {t("transactions.orderNumber")}
+                        <SortIcon column="order_number" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.user_name && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("user_name")}>
+                        {t("transactions.userName")}
+                        <SortIcon column="user_name" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.total && (
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("total")}>
+                        {t("dashboard.amount")}
+                        <SortIcon column="total" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.profit && (
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("profit")}>
+                        {t("dashboard.profit")}
+                        <SortIcon column="profit" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.payment_method && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("payment_method")}>
+                        {t("transactions.paymentMethod")}
+                        <SortIcon column="payment_method" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.payment_type && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("payment_type")}>
+                        {t("transactions.paymentType")}
+                        <SortIcon column="payment_type" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.payment_brand && (
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("payment_brand")}>
+                        {t("dashboard.paymentBrands")}
+                        <SortIcon column="payment_brand" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.qty && (
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("qty")}>
+                        {t("transactions.qty")}
+                        <SortIcon column="qty" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.cost_price && (
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("cost_price")}>
+                        {t("transactions.costPrice")}
+                        <SortIcon column="cost_price" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.unit_price && (
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("unit_price")}>
+                        {t("transactions.unitPrice")}
+                        <SortIcon column="unit_price" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.cost_sold && (
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("cost_sold")}>
+                        {t("transactions.costSold")}
+                        <SortIcon column="cost_sold" />
+                      </TableHead>
+                    )}
+                    {visibleColumns.coins_number && (
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("coins_number")}>
+                        {t("transactions.coinsNumber")}
+                        <SortIcon column="coins_number" />
+                      </TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell>
-                        {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
-                      </TableCell>
-                      <TableCell>{transaction.customer_name || 'N/A'}</TableCell>
-                      <TableCell>{transaction.customer_phone || 'N/A'}</TableCell>
-                      <TableCell className="max-w-[120px] truncate" title={transaction.brand_name || 'N/A'}>
-                        {transaction.brand_name || 'N/A'}
-                      </TableCell>
-                      <TableCell>{transaction.product_name || 'N/A'}</TableCell>
-                      <TableCell>{transaction.order_number || 'N/A'}</TableCell>
-                      <TableCell>{transaction.user_name || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{formatNumber(transaction.total)}</TableCell>
-                      <TableCell className="text-right text-green-600">{formatNumber(transaction.profit)}</TableCell>
-                      <TableCell>{transaction.payment_method || 'N/A'}</TableCell>
-                      <TableCell>{transaction.payment_type || 'N/A'}</TableCell>
-                      <TableCell>{transaction.payment_brand || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{transaction.qty || 'N/A'}</TableCell>
+                      {visibleColumns.created_at_date && (
+                        <TableCell>
+                          {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.customer_name && <TableCell>{transaction.customer_name || 'N/A'}</TableCell>}
+                      {visibleColumns.customer_phone && <TableCell>{transaction.customer_phone || 'N/A'}</TableCell>}
+                      {visibleColumns.brand_name && (
+                        <TableCell className="max-w-[120px] truncate" title={transaction.brand_name || 'N/A'}>
+                          {transaction.brand_name || 'N/A'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.product_name && <TableCell>{transaction.product_name || 'N/A'}</TableCell>}
+                      {visibleColumns.order_number && <TableCell>{transaction.order_number || 'N/A'}</TableCell>}
+                      {visibleColumns.user_name && <TableCell>{transaction.user_name || 'N/A'}</TableCell>}
+                      {visibleColumns.total && <TableCell className="text-right">{formatNumber(transaction.total)}</TableCell>}
+                      {visibleColumns.profit && <TableCell className="text-right text-green-600">{formatNumber(transaction.profit)}</TableCell>}
+                      {visibleColumns.payment_method && <TableCell>{transaction.payment_method || 'N/A'}</TableCell>}
+                      {visibleColumns.payment_type && <TableCell>{transaction.payment_type || 'N/A'}</TableCell>}
+                      {visibleColumns.payment_brand && <TableCell>{transaction.payment_brand || 'N/A'}</TableCell>}
+                      {visibleColumns.qty && <TableCell className="text-right">{formatNumber(transaction.qty)}</TableCell>}
+                      {visibleColumns.cost_price && <TableCell className="text-right">{formatNumber(transaction.cost_price)}</TableCell>}
+                      {visibleColumns.unit_price && <TableCell className="text-right">{formatNumber(transaction.unit_price)}</TableCell>}
+                      {visibleColumns.cost_sold && <TableCell className="text-right">{formatNumber(transaction.cost_sold)}</TableCell>}
+                      {visibleColumns.coins_number && <TableCell className="text-right">{formatNumber(transaction.coins_number)}</TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
