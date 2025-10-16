@@ -1,10 +1,14 @@
+import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import {
   Table,
   TableBody,
@@ -30,6 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, RefreshCw } from "lucide-react";
+import { format } from "date-fns";
 import {
   Select,
   SelectContent,
@@ -38,17 +43,67 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface CustomerTotal {
+  customer_phone: string;
+  customer_name: string;
+  creation_date: string;
+  last_trans_date: string;
+  total: number;
+  status: string;
+  is_blocked: boolean;
+  block_reason: string | null;
+}
+
 const CustomerSetup = () => {
   const { t } = useLanguage();
+  const { toast } = useToast();
+  const [customers, setCustomers] = useState<CustomerTotal[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("customer_totals")
+        .select("*")
+        .order("total", { ascending: false });
+
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (error: any) {
+      console.error("Error fetching customers:", error);
+      toast({
+        title: "Error loading customers",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "decimal",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
 
   return (
     <>
+      {loading && <LoadingOverlay progress={50} message="Loading customers..." />}
+      
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
             <Badge variant="secondary" className="text-lg px-4 py-1">
-              0 {t("customerSetup.customers")}
+              {customers.length} {t("customerSetup.customers")}
             </Badge>
           </div>
           <div className="flex gap-2">
@@ -140,11 +195,54 @@ const CustomerSetup = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No customers to display
-                </TableCell>
-              </TableRow>
+              {customers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No customers to display
+                  </TableCell>
+                </TableRow>
+              ) : (
+                customers.map((customer) => (
+                  <TableRow key={customer.customer_phone}>
+                    <TableCell className="font-mono">{customer.customer_phone}</TableCell>
+                    <TableCell className="font-medium">{customer.customer_name}</TableCell>
+                    <TableCell>
+                      {customer.creation_date
+                        ? format(new Date(customer.creation_date), "MMM dd, yyyy")
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {customer.last_trans_date
+                        ? format(new Date(customer.last_trans_date), "MMM dd, yyyy")
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="font-semibold text-right">
+                      {formatCurrency(customer.total)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={customer.status === "active" ? "default" : "secondary"}>
+                        {customer.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Switch checked={customer.is_blocked} disabled />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" disabled>
+                          <Receipt className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" disabled>
+                          <TrendingUp className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" disabled>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
