@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -167,6 +167,11 @@ const Dashboard = () => {
     fetchTables();
     fetchInactiveCustomers();
   };
+
+  // Fetch data when component mounts or date filters change
+  useEffect(() => {
+    handleApplyFilter();
+  }, [dateFilter, fromDate, toDate]);
 
   const fetchMetrics = async () => {
     try {
