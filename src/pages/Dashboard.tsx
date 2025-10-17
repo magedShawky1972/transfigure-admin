@@ -102,8 +102,9 @@ const Dashboard = () => {
 
   const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
-  const parseNumber = (value?: string | null) => {
+  const parseNumber = (value?: string | number | null) => {
     if (value == null) return 0;
+    if (typeof value === 'number') return isNaN(value) ? 0 : value;
     const cleaned = value.replace(/,/g, '').replace(/[^0-9.\-]/g, '');
     const parsed = parseFloat(cleaned);
     return isNaN(parsed) ? 0 : parsed;
@@ -167,11 +168,6 @@ const Dashboard = () => {
     fetchTables();
     fetchInactiveCustomers();
   };
-
-  // Fetch data when component mounts or date filters change
-  useEffect(() => {
-    handleApplyFilter();
-  }, [dateFilter, fromDate, toDate]);
 
   const fetchMetrics = async () => {
     try {
