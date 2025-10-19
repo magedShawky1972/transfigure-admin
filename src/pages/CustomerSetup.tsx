@@ -107,6 +107,8 @@ const CustomerSetup = () => {
         .order("total", { ascending: false });
 
       if (error) throw error;
+      console.log('Fetched customers count:', data?.length);
+      console.log('Sample customer phones:', data?.slice(0, 5).map(c => c.customer_phone));
       setCustomers(data || []);
 
       // Fetch total count
@@ -130,6 +132,7 @@ const CustomerSetup = () => {
 
   const applyFiltersAndSort = () => {
     let result = [...customers];
+    console.log('Total customers before filters:', result.length);
 
     // Apply filters
     if (nameFilter) {
@@ -173,6 +176,7 @@ const CustomerSetup = () => {
       });
     }
 
+    console.log('Customers after filters:', result.length);
     setFilteredCustomers(result);
   };
 
