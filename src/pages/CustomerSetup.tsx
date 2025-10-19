@@ -104,7 +104,8 @@ const CustomerSetup = () => {
       const { data, error } = await supabase
         .from("customer_totals")
         .select("*")
-        .order("total", { ascending: false });
+        .order("total", { ascending: false })
+        .range(0, 9999);
 
       if (error) throw error;
       console.log('Fetched customers count:', data?.length);
@@ -141,9 +142,11 @@ const CustomerSetup = () => {
       );
     }
     if (phoneFilter) {
-      result = result.filter((c) =>
-        c.customer_phone?.includes(phoneFilter)
-      );
+      const pf = phoneFilter.replace(/\D/g, "").trim();
+      result = result.filter((c) => {
+        const cp = (c.customer_phone ?? "").replace(/\D/g, "");
+        return pf === "" ? true : cp.includes(pf);
+      });
     }
     if (blockedFilter !== "all") {
       result = result.filter((c) =>
