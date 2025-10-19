@@ -81,6 +81,16 @@ const CustomerSetup = () => {
 
   useEffect(() => {
     fetchCustomers();
+
+    // Listen for data upload events to auto-refresh
+    const handleDataUploaded = () => {
+      fetchCustomers();
+    };
+    window.addEventListener('dataUploaded', handleDataUploaded);
+
+    return () => {
+      window.removeEventListener('dataUploaded', handleDataUploaded);
+    };
   }, []);
 
   useEffect(() => {

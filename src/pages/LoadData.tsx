@@ -452,6 +452,9 @@ const LoadData = () => {
       setSelectedFile(null);
       setSelectedSheet("");
       setPendingUploadData(null);
+
+      // Trigger a custom event to notify other components to refresh
+      window.dispatchEvent(new CustomEvent('dataUploaded'));
     } catch (error: any) {
       // Update upload log with error
       if (uploadLogId) {
