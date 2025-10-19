@@ -183,6 +183,25 @@ const CustomerSetup = () => {
     setFilteredCustomers(result);
   };
 
+  // Fallback: if local filtering returns nothing, query backend by phone
+  useEffect(() => {
+    const run = async () => {
+      const pf = phoneFilter.replace(/\D/g, "").trim();
+      if (!pf) return;
+      if (filteredCustomers.length === 0 && customers.length > 0) {
+        const { data, error } = await supabase
+          .from("customer_totals")
+          .select("*")
+          .ilike("customer_phone", `%${pf}%`)
+          .limit(100);
+        if (!error && data && data.length > 0) {
+          setFilteredCustomers(data as any);
+        }
+      }
+    };
+    run();
+  }, [phoneFilter, customers]);
+
   const handleSort = (column: keyof CustomerTotal) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
