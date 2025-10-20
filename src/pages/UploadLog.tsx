@@ -235,55 +235,60 @@ const UploadLog = () => {
       </Dialog>
 
       <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("uploadLog.uploadSummary")}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl font-bold text-center">{t("uploadLog.uploadSummary")}</DialogTitle>
+            <DialogDescription className="text-center">
               {t("uploadLog.summaryDescription")}
             </DialogDescription>
           </DialogHeader>
+          
           {selectedSummary && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t("uploadLog.recordsProcessed")}</p>
-                  <p className="text-2xl font-bold">{selectedSummary.recordsProcessed.toLocaleString()}</p>
+            <div className="space-y-4 py-4">
+              <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">{t("uploadLog.recordsProcessed")}</p>
+                <p className="text-3xl font-bold text-primary">{selectedSummary.recordsProcessed.toLocaleString()}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">{t("uploadLog.newCustomers")}</p>
+                  <p className="text-xl font-semibold">{selectedSummary.newCustomers}</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t("uploadLog.totalValue")}</p>
-                  <p className="text-2xl font-bold">{selectedSummary.totalValue.toLocaleString()}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t("uploadLog.newCustomers")}</p>
-                  <p className="text-2xl font-bold text-green-600">{selectedSummary.newCustomers}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t("uploadLog.newProducts")}</p>
-                  <p className="text-2xl font-bold text-blue-600">{selectedSummary.newProducts}</p>
+                
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">{t("uploadLog.newProducts")}</p>
+                  <p className="text-xl font-semibold">{selectedSummary.newProducts}</p>
                 </div>
               </div>
+
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">{t("uploadLog.totalValue")}</p>
+                <p className="text-2xl font-bold text-primary">
+                  {selectedSummary.totalValue.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}
+                </p>
+              </div>
+
               {selectedSummary.dateRangeStart && selectedSummary.dateRangeEnd && (
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground mb-2">{t("uploadLog.dateRange")}</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      <span className="font-mono text-sm">
-                        {format(new Date(selectedSummary.dateRangeStart), "MMM dd, yyyy")}
-                      </span>
-                    </div>
-                    <span className="text-muted-foreground">→</span>
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      <span className="font-mono text-sm">
-                        {format(new Date(selectedSummary.dateRangeEnd), "MMM dd, yyyy")}
-                      </span>
-                    </div>
-                  </div>
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">{t("uploadLog.dateRange")}</p>
+                  <p className="text-sm font-medium">
+                    {new Date(selectedSummary.dateRangeStart).toLocaleDateString()} - {new Date(selectedSummary.dateRangeEnd).toLocaleDateString()}
+                  </p>
                 </div>
               )}
             </div>
           )}
+
+          <Button 
+            onClick={() => setShowSummaryDialog(false)}
+            className="w-full bg-gradient-to-r from-primary to-accent"
+          >
+            {t("uploadLog.close")}
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
