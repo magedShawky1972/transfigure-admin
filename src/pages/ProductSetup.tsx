@@ -352,7 +352,7 @@ const ProductSetup = () => {
         ) : (
           <div className="space-y-2">
             {Object.entries(productsByBrand).map(([brand, brandProducts]) => (
-              <Collapsible key={brand} defaultOpen>
+              <Collapsible key={brand}>
                 <div className="rounded-md border bg-card">
                   <CollapsibleTrigger className="w-full">
                     <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
