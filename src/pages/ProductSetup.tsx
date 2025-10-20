@@ -37,8 +37,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Grid3x3, List } from "lucide-react";
 import { format } from "date-fns";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronRight } from "lucide-react";
 
 interface Product {
   id: string;
@@ -65,6 +71,9 @@ const ProductSetup = () => {
   // Filter states
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  
+  // View mode state
+  const [viewMode, setViewMode] = useState<"grid" | "tree">("grid");
   
   const [formData, setFormData] = useState({
     product_id: "",
@@ -105,6 +114,16 @@ const ProductSetup = () => {
     const statusMatch = filterStatus === "all" || product.status === filterStatus;
     return nameMatch && statusMatch;
   });
+
+  // Group products by brand for tree view
+  const productsByBrand = filteredProducts.reduce((acc, product) => {
+    const brand = product.brand_name || "No Brand";
+    if (!acc[brand]) {
+      acc[brand] = [];
+    }
+    acc[brand].push(product);
+    return acc;
+  }, {} as Record<string, Product[]>);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,9 +248,29 @@ const ProductSetup = () => {
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">{t("productSetup.title")}</h1>
-          <Button onClick={() => setDialogOpen(true)}>
-            {t("productSetup.addNew")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-muted rounded-md p-1">
+              <Button
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid3x3 className="h-4 w-4 mr-2" />
+                Grid
+              </Button>
+              <Button
+                variant={viewMode === "tree" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("tree")}
+              >
+                <List className="h-4 w-4 mr-2" />
+                Tree
+              </Button>
+            </div>
+            <Button onClick={() => setDialogOpen(true)}>
+              {t("productSetup.addNew")}
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -253,62 +292,140 @@ const ProductSetup = () => {
           </Select>
         </div>
 
-        <div className="rounded-md border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("productSetup.productId")}</TableHead>
-                <TableHead>{t("productSetup.productName")}</TableHead>
-                <TableHead>{t("productSetup.productPrice")}</TableHead>
-                <TableHead>{t("productSetup.productCost")}</TableHead>
-                <TableHead>Brand</TableHead>
-                <TableHead>{t("productSetup.status")}</TableHead>
-                <TableHead>{t("productSetup.createdDate")}</TableHead>
-                <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
-                  <TableCell>{product.product_name}</TableCell>
-                  <TableCell>{product.product_price || "-"}</TableCell>
-                  <TableCell>{product.product_cost || "-"}</TableCell>
-                  <TableCell>{product.brand_name || "-"}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      product.status === "active" 
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-                    }`}>
-                      {product.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{format(new Date(product.created_at), "MMM dd, yyyy")}</TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(product)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setProductToDelete(product.id);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+        {viewMode === "grid" ? (
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("productSetup.productId")}</TableHead>
+                  <TableHead>{t("productSetup.productName")}</TableHead>
+                  <TableHead>{t("productSetup.productPrice")}</TableHead>
+                  <TableHead>{t("productSetup.productCost")}</TableHead>
+                  <TableHead>Brand</TableHead>
+                  <TableHead>{t("productSetup.status")}</TableHead>
+                  <TableHead>{t("productSetup.createdDate")}</TableHead>
+                  <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
+                    <TableCell>{product.product_name}</TableCell>
+                    <TableCell>{product.product_price || "-"}</TableCell>
+                    <TableCell>{product.product_cost || "-"}</TableCell>
+                    <TableCell>{product.brand_name || "-"}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        product.status === "active" 
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                      }`}>
+                        {product.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{format(new Date(product.created_at), "MMM dd, yyyy")}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(product)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setProductToDelete(product.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {Object.entries(productsByBrand).map(([brand, brandProducts]) => (
+              <Collapsible key={brand} defaultOpen>
+                <div className="rounded-md border bg-card">
+                  <CollapsibleTrigger className="w-full">
+                    <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <ChevronRight className="h-5 w-5 transition-transform duration-200 [&[data-state=open]]:rotate-90" />
+                        <span className="text-lg font-semibold">{brand}</span>
+                        <span className="text-sm text-muted-foreground">
+                          ({brandProducts.length} {brandProducts.length === 1 ? 'product' : 'products'})
+                        </span>
+                      </div>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border-t">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("productSetup.productId")}</TableHead>
+                            <TableHead>{t("productSetup.productName")}</TableHead>
+                            <TableHead>{t("productSetup.productPrice")}</TableHead>
+                            <TableHead>{t("productSetup.productCost")}</TableHead>
+                            <TableHead>{t("productSetup.status")}</TableHead>
+                            <TableHead>{t("productSetup.createdDate")}</TableHead>
+                            <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {brandProducts.map((product) => (
+                            <TableRow key={product.id}>
+                              <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
+                              <TableCell>{product.product_name}</TableCell>
+                              <TableCell>{product.product_price || "-"}</TableCell>
+                              <TableCell>{product.product_cost || "-"}</TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  product.status === "active" 
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
+                                    : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                                }`}>
+                                  {product.status}
+                                </span>
+                              </TableCell>
+                              <TableCell>{format(new Date(product.created_at), "MMM dd, yyyy")}</TableCell>
+                              <TableCell className="text-right space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEdit(product)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setProductToDelete(product.id);
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Edit/Add Dialog */}
