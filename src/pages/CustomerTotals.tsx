@@ -70,12 +70,19 @@ const CustomerTotals = () => {
   const fetchCustomerTotals = async () => {
     setLoading(true);
     try {
+      console.log("Fetching customer totals...");
       const { data, error } = await supabase
         .from("customer_totals")
         .select("*")
         .order("total", { ascending: false });
 
-      if (error) throw error;
+      console.log("Customer totals response:", { data, error, count: data?.length });
+      
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
+      
       setCustomerTotals(data || []);
     } catch (error: any) {
       console.error("Error fetching customer totals:", error);
