@@ -167,7 +167,13 @@ const CustomerSetup = () => {
         if (bVal == null) return -1;
         
         let comparison = 0;
-        if (typeof aVal === "number" && typeof bVal === "number") {
+        
+        // Handle date columns specially
+        if (sortColumn === "creation_date" || sortColumn === "last_trans_date") {
+          const aDate = new Date(aVal as string).getTime();
+          const bDate = new Date(bVal as string).getTime();
+          comparison = aDate - bDate;
+        } else if (typeof aVal === "number" && typeof bVal === "number") {
           comparison = aVal - bVal;
         } else if (typeof aVal === "string" && typeof bVal === "string") {
           comparison = aVal.localeCompare(bVal);
