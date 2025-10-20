@@ -141,8 +141,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // After successful insert, upsert products if this is the transaction table
+    // After successful insert, upsert products and brands if this is the transaction table
     let productsUpserted = 0;
+    let brandsUpserted = 0;
+    
     if (tableName === 'purpletransaction') {
       console.log('Checking for new products from transaction data...');
       
@@ -154,6 +156,7 @@ Deno.serve(async (req) => {
           product_name: row.product_name,
           product_price: row.unit_price || null,
           product_cost: row.cost_price || null,
+          brand_name: row.brand_name || null,
           status: 'active'
         }))
         .filter((product: any, index: number, self: any[]) => 
@@ -193,6 +196,49 @@ Deno.serve(async (req) => {
           console.log(`Successfully processed ${productsToUpsert.length} products (${productsUpserted} new)`);
         }
       }
+
+      // Extract and upsert brands
+      console.log('Checking for new brands from transaction data...');
+      
+      const brandsToUpsert = validData
+        .filter((row: any) => row.brand_name && row.brand_name.trim())
+        .map((row: any) => ({
+          brand_name: row.brand_name.trim(),
+          status: 'active'
+        }))
+        .filter((brand: any, index: number, self: any[]) => 
+          // Remove duplicates by brand_name
+          index === self.findIndex((b: any) => b.brand_name === brand.brand_name)
+        );
+
+      if (brandsToUpsert.length > 0) {
+        // Check which brands already exist
+        const brandNames = brandsToUpsert.map(b => b.brand_name);
+        const { data: existingBrands } = await supabase
+          .from('brands')
+          .select('brand_name')
+          .in('brand_name', brandNames);
+
+        const existingBrandNames = new Set(existingBrands?.map(b => b.brand_name) || []);
+        
+        // Filter only new brands
+        const newBrands = brandsToUpsert.filter(b => !existingBrandNames.has(b.brand_name));
+
+        if (newBrands.length > 0) {
+          const { error: brandError } = await supabase
+            .from('brands')
+            .insert(newBrands);
+
+          if (brandError) {
+            console.error('Brand insert error:', brandError);
+          } else {
+            brandsUpserted = newBrands.length;
+            console.log(`Successfully inserted ${brandsUpserted} new brands`);
+          }
+        } else {
+          console.log('No new brands to insert');
+        }
+      }
     }
 
     // Calculate summary statistics
@@ -216,7 +262,8 @@ Deno.serve(async (req) => {
           to: uniqueDates[uniqueDates.length - 1] || null
         },
         productsUpserted,
-        message: `Successfully loaded ${validData.length} records`
+        brandsUpserted,
+        message: `Successfully loaded ${validData.length} records${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
