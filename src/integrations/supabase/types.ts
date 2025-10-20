@@ -19,6 +19,7 @@ export type Database = {
           brand_name: string
           created_at: string
           id: string
+          short_name: string | null
           status: string
           updated_at: string
         }
@@ -26,6 +27,7 @@ export type Database = {
           brand_name: string
           created_at?: string
           id?: string
+          short_name?: string | null
           status?: string
           updated_at?: string
         }
@@ -33,6 +35,7 @@ export type Database = {
           brand_name?: string
           created_at?: string
           id?: string
+          short_name?: string | null
           status?: string
           updated_at?: string
         }

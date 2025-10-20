@@ -34,6 +34,7 @@ import { format } from "date-fns";
 interface Brand {
   id: string;
   brand_name: string;
+  short_name?: string;
   status: string;
   created_at: string;
   updated_at: string;
@@ -48,6 +49,7 @@ const BrandSetup = () => {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [formData, setFormData] = useState({
     brand_name: "",
+    short_name: "",
     status: "active",
   });
 
@@ -86,6 +88,7 @@ const BrandSetup = () => {
           .from("brands")
           .update({
             brand_name: formData.brand_name,
+            short_name: formData.short_name,
             status: formData.status,
           })
           .eq("id", editingBrand.id);
@@ -100,6 +103,7 @@ const BrandSetup = () => {
           .from("brands")
           .insert({
             brand_name: formData.brand_name,
+            short_name: formData.short_name,
             status: formData.status,
           });
 
@@ -128,6 +132,7 @@ const BrandSetup = () => {
     setEditingBrand(brand);
     setFormData({
       brand_name: brand.brand_name,
+      short_name: brand.short_name || "",
       status: brand.status,
     });
     setDialogOpen(true);
@@ -163,6 +168,7 @@ const BrandSetup = () => {
   const resetForm = () => {
     setFormData({
       brand_name: "",
+      short_name: "",
       status: "active",
     });
     setEditingBrand(null);
@@ -191,6 +197,7 @@ const BrandSetup = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("brandSetup.brandName")}</TableHead>
+                <TableHead>Short Name</TableHead>
                 <TableHead>{t("brandSetup.status")}</TableHead>
                 <TableHead>{t("brandSetup.createdDate")}</TableHead>
                 <TableHead>{t("brandSetup.updatedDate")}</TableHead>
@@ -200,7 +207,7 @@ const BrandSetup = () => {
             <TableBody>
               {brands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     {t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -208,6 +215,7 @@ const BrandSetup = () => {
                 brands.map((brand) => (
                   <TableRow key={brand.id}>
                     <TableCell className="font-medium">{brand.brand_name}</TableCell>
+                    <TableCell>{brand.short_name || '-'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         brand.status === 'active' 
@@ -262,6 +270,18 @@ const BrandSetup = () => {
                   }
                   placeholder={t("brandSetup.brandNamePlaceholder")}
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="short_name">Short Name</Label>
+                <Input
+                  id="short_name"
+                  value={formData.short_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, short_name: e.target.value })
+                  }
+                  placeholder="Enter short name"
                 />
               </div>
 
