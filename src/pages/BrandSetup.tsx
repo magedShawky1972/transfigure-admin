@@ -52,6 +52,8 @@ const BrandSetup = () => {
     short_name: "",
     status: "active",
   });
+  const [filterBrandName, setFilterBrandName] = useState("");
+  const [filterShortName, setFilterShortName] = useState("");
 
   useEffect(() => {
     fetchBrands();
@@ -179,6 +181,16 @@ const BrandSetup = () => {
     setDialogOpen(true);
   };
 
+  // Filter brands based on search criteria
+  const filteredBrands = brands.filter((brand) => {
+    const matchesBrandName = !filterBrandName || 
+      brand.brand_name.toLowerCase().includes(filterBrandName.toLowerCase());
+    const matchesShortName = !filterShortName || 
+      (brand.short_name && brand.short_name.toLowerCase().includes(filterShortName.toLowerCase()));
+    
+    return matchesBrandName && matchesShortName;
+  });
+
   return (
     <>
       {loading && <LoadingOverlay progress={100} message={t("common.loading")} />}
@@ -190,6 +202,27 @@ const BrandSetup = () => {
             <Plus className="h-4 w-4 mr-2" />
             {t("brandSetup.addNew")}
           </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="filterBrandName">Filter by Brand Name</Label>
+            <Input
+              id="filterBrandName"
+              placeholder="Search brand name..."
+              value={filterBrandName}
+              onChange={(e) => setFilterBrandName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterShortName">Filter by Short Name</Label>
+            <Input
+              id="filterShortName"
+              placeholder="Search short name..."
+              value={filterShortName}
+              onChange={(e) => setFilterShortName(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="rounded-md border">
@@ -205,14 +238,14 @@ const BrandSetup = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {brands.length === 0 ? (
+              {filteredBrands.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    {t("brandSetup.noData")}
+                    {filterBrandName || filterShortName ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
               ) : (
-                brands.map((brand) => (
+                filteredBrands.map((brand) => (
                   <TableRow key={brand.id}>
                     <TableCell className="font-medium">{brand.brand_name}</TableCell>
                     <TableCell>{brand.short_name || '-'}</TableCell>
