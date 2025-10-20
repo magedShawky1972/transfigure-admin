@@ -46,6 +46,7 @@ interface Product {
   product_name: string;
   product_price: string | null;
   product_cost: string | null;
+  brand_name: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -70,6 +71,7 @@ const ProductSetup = () => {
     product_name: "",
     product_price: "",
     product_cost: "",
+    brand_name: "",
     status: "active",
   });
 
@@ -117,6 +119,7 @@ const ProductSetup = () => {
             product_name: formData.product_name,
             product_price: formData.product_price || null,
             product_cost: formData.product_cost || null,
+            brand_name: formData.brand_name || null,
             status: formData.status,
           })
           .eq("id", editingProduct.id);
@@ -134,6 +137,7 @@ const ProductSetup = () => {
             product_name: formData.product_name,
             product_price: formData.product_price || null,
             product_cost: formData.product_cost || null,
+            brand_name: formData.brand_name || null,
             status: formData.status,
           });
 
@@ -165,6 +169,7 @@ const ProductSetup = () => {
       product_name: product.product_name,
       product_price: product.product_price || "",
       product_cost: product.product_cost || "",
+      brand_name: product.brand_name || "",
       status: product.status,
     });
     setDialogOpen(true);
@@ -204,6 +209,7 @@ const ProductSetup = () => {
       product_name: "",
       product_price: "",
       product_cost: "",
+      brand_name: "",
       status: "active",
     });
     setEditingProduct(null);
@@ -255,6 +261,7 @@ const ProductSetup = () => {
                 <TableHead>{t("productSetup.productName")}</TableHead>
                 <TableHead>{t("productSetup.productPrice")}</TableHead>
                 <TableHead>{t("productSetup.productCost")}</TableHead>
+                <TableHead>Brand</TableHead>
                 <TableHead>{t("productSetup.status")}</TableHead>
                 <TableHead>{t("productSetup.createdDate")}</TableHead>
                 <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
@@ -267,6 +274,7 @@ const ProductSetup = () => {
                   <TableCell>{product.product_name}</TableCell>
                   <TableCell>{product.product_price || "-"}</TableCell>
                   <TableCell>{product.product_cost || "-"}</TableCell>
+                  <TableCell>{product.brand_name || "-"}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs ${
                       product.status === "active" 
@@ -347,6 +355,15 @@ const ProductSetup = () => {
                 value={formData.product_cost}
                 onChange={(e) => setFormData({ ...formData, product_cost: e.target.value })}
                 placeholder={t("productSetup.productCostPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand_name">Brand</Label>
+              <Input
+                id="brand_name"
+                value={formData.brand_name}
+                onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
+                placeholder="Enter brand name"
               />
             </div>
             <div className="space-y-2">
