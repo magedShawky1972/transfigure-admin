@@ -290,10 +290,10 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Sales trend - calculate 10 days starting FROM the fromDate
-      const referenceDate = (dateFilter === "dateRange" && fromDate) ? fromDate : new Date();
-      const trendStartDate = startOfDay(referenceDate);
-      const trendEndDate = endOfDay(addDays(referenceDate, 9));
+      // Sales trend - calculate last 10 days of the selected range
+      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
+      const trendEndDate = endOfDay(referenceDate);
+      const trendStartDate = startOfDay(subDays(referenceDate, 9));
 
       const { data: trendData, error: trendError } = await (supabase as any)
         .rpc('sales_trend', {
