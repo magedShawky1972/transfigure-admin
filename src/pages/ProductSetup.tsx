@@ -117,7 +117,7 @@ const ProductSetup = () => {
 
   // Group products by brand for tree view
   const productsByBrand = filteredProducts.reduce((acc, product) => {
-    const brand = product.brand_name || "No Brand";
+    const brand = product.brand_name || t("productSetup.noBrand");
     if (!acc[brand]) {
       acc[brand] = [];
     }
@@ -256,7 +256,7 @@ const ProductSetup = () => {
                 onClick={() => setViewMode("grid")}
               >
                 <Grid3x3 className="h-4 w-4 mr-2" />
-                Grid
+                {t("productSetup.viewGrid")}
               </Button>
               <Button
                 variant={viewMode === "tree" ? "default" : "ghost"}
@@ -264,7 +264,7 @@ const ProductSetup = () => {
                 onClick={() => setViewMode("tree")}
               >
                 <List className="h-4 w-4 mr-2" />
-                Tree
+                {t("productSetup.viewTree")}
               </Button>
             </div>
             <Button onClick={() => setDialogOpen(true)}>
@@ -301,7 +301,7 @@ const ProductSetup = () => {
                   <TableHead>{t("productSetup.productName")}</TableHead>
                   <TableHead>{t("productSetup.productPrice")}</TableHead>
                   <TableHead>{t("productSetup.productCost")}</TableHead>
-                  <TableHead>Brand</TableHead>
+                  <TableHead>{t("productSetup.brand")}</TableHead>
                   <TableHead>{t("productSetup.status")}</TableHead>
                   <TableHead>{t("productSetup.createdDate")}</TableHead>
                   <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
@@ -355,12 +355,12 @@ const ProductSetup = () => {
               <Collapsible key={brand}>
                 <div className="rounded-md border bg-card">
                   <CollapsibleTrigger className="w-full">
-                    <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center gap-2">
                         <ChevronRight className="h-5 w-5 transition-transform duration-200 [&[data-state=open]]:rotate-90" />
                         <span className="text-lg font-semibold">{brand}</span>
                         <span className="text-sm text-muted-foreground">
-                          ({brandProducts.length} {brandProducts.length === 1 ? 'product' : 'products'})
+                          ({brandProducts.length} {brandProducts.length === 1 ? t("productSetup.product") : t("productSetup.products")})
                         </span>
                       </div>
                     </div>
@@ -475,12 +475,12 @@ const ProductSetup = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="brand_name">Brand</Label>
+              <Label htmlFor="brand_name">{t("productSetup.brand")}</Label>
               <Input
                 id="brand_name"
                 value={formData.brand_name}
                 onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
-                placeholder="Enter brand name"
+                placeholder={t("productSetup.brandPlaceholder")}
               />
             </div>
             <div className="space-y-2">

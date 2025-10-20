@@ -124,6 +124,8 @@ const translations = {
     "productSetup.productName": "Product Name",
     "productSetup.productPrice": "Product Price",
     "productSetup.productCost": "Product Cost",
+    "productSetup.brand": "Brand",
+    "productSetup.brandPlaceholder": "Enter brand name",
     "productSetup.status": "Status",
     "productSetup.createdDate": "Created Date",
     "productSetup.actions": "Actions",
@@ -143,6 +145,11 @@ const translations = {
     "productSetup.deleteConfirm": "Are you sure you want to delete this product?",
     "productSetup.filterByName": "Filter by product name",
     "productSetup.noData": "No products found",
+    "productSetup.viewGrid": "Grid",
+    "productSetup.viewTree": "Tree",
+    "productSetup.noBrand": "No Brand",
+    "productSetup.product": "product",
+    "productSetup.products": "products",
     
     // Upload Log
     "uploadLog.title": "Upload History",
@@ -440,6 +447,8 @@ const translations = {
     "productSetup.productName": "اسم المنتج",
     "productSetup.productPrice": "سعر المنتج",
     "productSetup.productCost": "تكلفة المنتج",
+    "productSetup.brand": "الماركة",
+    "productSetup.brandPlaceholder": "أدخل اسم الماركة",
     "productSetup.status": "الحالة",
     "productSetup.createdDate": "تاريخ الإنشاء",
     "productSetup.actions": "الإجراءات",
@@ -459,6 +468,11 @@ const translations = {
     "productSetup.deleteConfirm": "هل أنت متأكد من حذف هذا المنتج؟",
     "productSetup.filterByName": "تصفية حسب اسم المنتج",
     "productSetup.noData": "لا توجد منتجات",
+    "productSetup.viewGrid": "شبكة",
+    "productSetup.viewTree": "شجرة",
+    "productSetup.noBrand": "بدون ماركة",
+    "productSetup.product": "منتج",
+    "productSetup.products": "منتجات",
     
     // Upload Log
     "uploadLog.title": "سجل التحميلات",
