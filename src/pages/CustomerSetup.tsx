@@ -75,12 +75,12 @@ const CustomerSetup = () => {
   const [brandFilter, setBrandFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("");
   
-  // Sort states
-  const [sortColumn, setSortColumn] = useState<keyof CustomerTotal | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  // Sort states - default to creation_date desc
+  const [sortColumn, setSortColumn] = useState<keyof CustomerTotal | null>("creation_date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
-    fetchCustomers();
+    fetchCustomers("creation_date", "desc");
 
     // Listen for data upload events to auto-refresh
     const handleDataUploaded = () => {
@@ -266,6 +266,14 @@ const CustomerSetup = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
+  };
+
+  const isNewCustomer = (creationDate: string) => {
+    const created = new Date(creationDate);
+    const now = new Date();
+    const diffTime = now.getTime() - created.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    return diffDays <= 2 && diffDays >= 0;
   };
 
   const handleClearAll = async () => {
@@ -519,9 +527,14 @@ const CustomerSetup = () => {
                     <TableCell className="font-mono">{customer.customer_phone}</TableCell>
                     <TableCell className="font-medium">{customer.customer_name}</TableCell>
                     <TableCell>
-                      {customer.creation_date
-                        ? format(new Date(customer.creation_date), "MMM dd, yyyy")
-                        : "-"}
+                      <div className="flex items-center gap-2">
+                        {customer.creation_date
+                          ? format(new Date(customer.creation_date), "MMM dd, yyyy")
+                          : "-"}
+                        {customer.creation_date && isNewCustomer(customer.creation_date) && (
+                          <Badge variant="default" className="text-xs">NEW</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {customer.last_trans_date
