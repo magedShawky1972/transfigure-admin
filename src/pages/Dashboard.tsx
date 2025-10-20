@@ -1038,7 +1038,7 @@ const Dashboard = () => {
             </div>
           )}
           <CardHeader>
-            <CardTitle>{language === 'ar' ? 'أفضل 5 منتجات' : 'Top 5 Products'}</CardTitle>
+            <CardTitle>{language === 'ar' ? 'أفضل 5 علامات تجارية' : 'Top 5 Brands'}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
