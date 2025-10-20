@@ -246,6 +246,38 @@ const Dashboard = () => {
     }
   };
 
+  const fetchSalesTrend = async () => {
+    try {
+      const daysCount = parseInt(trendDays) - 1;
+      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
+      const trendEndDate = endOfDay(referenceDate);
+      const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
+
+      const { data: trendData, error: trendError } = await (supabase as any)
+        .rpc('sales_trend', {
+          date_from: format(trendStartDate, 'yyyy-MM-dd'),
+          date_to: format(trendEndDate, 'yyyy-MM-dd')
+        });
+
+      if (trendError) throw trendError;
+
+      const byDate: Record<string, number> = {};
+      (trendData || []).forEach((row: any) => {
+        byDate[row.created_at_date] = Number(row.total_sum);
+      });
+
+      const points: any[] = [];
+      for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
+        const key = format(d, 'yyyy-MM-dd');
+        const sales = byDate[key] ?? 0;
+        points.push({ date: format(d, 'MMM dd'), sales });
+      }
+      setSalesTrend(points);
+    } catch (error) {
+      console.error('Error fetching sales trend:', error);
+    }
+  };
+
   const fetchCharts = async () => {
     try {
       setLoadingCharts(true);
@@ -738,10 +770,10 @@ const Dashboard = () => {
     }
   };
 
-  // Re-fetch charts when trend days selection changes
+  // Re-fetch only sales trend when trend days selection changes
   useEffect(() => {
     if (dateFilter && (dateFilter !== 'dateRange' || (fromDate && toDate))) {
-      fetchCharts();
+      fetchSalesTrend();
     }
   }, [trendDays]);
 
