@@ -813,7 +813,16 @@ const Dashboard = () => {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus />
+                      <Calendar 
+                        mode="single" 
+                        selected={fromDate} 
+                        onSelect={setFromDate} 
+                        initialFocus 
+                        captionLayout="dropdown"
+                        fromYear={2020}
+                        toYear={new Date().getFullYear() + 1}
+                        className="pointer-events-auto"
+                      />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -828,7 +837,16 @@ const Dashboard = () => {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus />
+                      <Calendar 
+                        mode="single" 
+                        selected={toDate} 
+                        onSelect={setToDate} 
+                        initialFocus 
+                        captionLayout="dropdown"
+                        fromYear={2020}
+                        toYear={new Date().getFullYear() + 1}
+                        className="pointer-events-auto"
+                      />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -1631,7 +1649,16 @@ const Dashboard = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={crmReminderDate} onSelect={setCrmReminderDate} initialFocus className="pointer-events-auto" />
+                    <Calendar 
+                      mode="single" 
+                      selected={crmReminderDate} 
+                      onSelect={setCrmReminderDate} 
+                      initialFocus 
+                      captionLayout="dropdown"
+                      fromYear={new Date().getFullYear()}
+                      toYear={new Date().getFullYear() + 5}
+                      className="pointer-events-auto" 
+                    />
                   </PopoverContent>
                 </Popover>
               </div>
