@@ -388,14 +388,18 @@ export type Database = {
       upload_logs: {
         Row: {
           created_at: string
+          date_range_end: string | null
+          date_range_start: string | null
           error_message: string | null
           excel_dates: Json | null
           file_name: string
           id: string
           new_customers_count: number | null
+          new_products_count: number | null
           records_processed: number | null
           sheet_id: string | null
           status: string
+          total_value: number | null
           updated_at: string
           upload_date: string
           user_id: string | null
@@ -403,14 +407,18 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
           error_message?: string | null
           excel_dates?: Json | null
           file_name: string
           id?: string
           new_customers_count?: number | null
+          new_products_count?: number | null
           records_processed?: number | null
           sheet_id?: string | null
           status?: string
+          total_value?: number | null
           updated_at?: string
           upload_date?: string
           user_id?: string | null
@@ -418,14 +426,18 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
           error_message?: string | null
           excel_dates?: Json | null
           file_name?: string
           id?: string
           new_customers_count?: number | null
+          new_products_count?: number | null
           records_processed?: number | null
           sheet_id?: string | null
           status?: string
+          total_value?: number | null
           updated_at?: string
           upload_date?: string
           user_id?: string | null

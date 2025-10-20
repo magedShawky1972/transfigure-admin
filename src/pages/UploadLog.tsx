@@ -20,6 +20,19 @@ interface UploadLog {
   error_message: string | null;
   excel_dates: any;
   new_customers_count: number;
+  new_products_count: number;
+  total_value: number;
+  date_range_start: string | null;
+  date_range_end: string | null;
+}
+
+interface UploadSummary {
+  newCustomers: number;
+  newProducts: number;
+  totalValue: number;
+  dateRangeStart: string | null;
+  dateRangeEnd: string | null;
+  recordsProcessed: number;
 }
 
 const UploadLog = () => {
@@ -29,6 +42,8 @@ const UploadLog = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [showDatesDialog, setShowDatesDialog] = useState(false);
+  const [selectedSummary, setSelectedSummary] = useState<UploadSummary | null>(null);
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
 
   useEffect(() => {
     loadUploadLogs();
@@ -58,6 +73,18 @@ const UploadLog = () => {
       setSelectedDates(dates);
       setShowDatesDialog(true);
     }
+  };
+
+  const showSummary = (log: UploadLog) => {
+    setSelectedSummary({
+      newCustomers: log.new_customers_count || 0,
+      newProducts: log.new_products_count || 0,
+      totalValue: log.total_value || 0,
+      dateRangeStart: log.date_range_start,
+      dateRangeEnd: log.date_range_end,
+      recordsProcessed: log.records_processed || 0,
+    });
+    setShowSummaryDialog(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -110,6 +137,7 @@ const UploadLog = () => {
                     <TableHead>{t("uploadLog.newCustomers")}</TableHead>
                     <TableHead>{t("uploadLog.excelDates")}</TableHead>
                     <TableHead>{t("uploadLog.errors")}</TableHead>
+                    <TableHead>{t("uploadLog.summary")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -160,6 +188,17 @@ const UploadLog = () => {
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {log.status === "completed" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => showSummary(log)}
+                          >
+                            {t("uploadLog.viewSummary")}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -192,6 +231,59 @@ const UploadLog = () => {
               ))}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("uploadLog.uploadSummary")}</DialogTitle>
+            <DialogDescription>
+              {t("uploadLog.summaryDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSummary && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("uploadLog.recordsProcessed")}</p>
+                  <p className="text-2xl font-bold">{selectedSummary.recordsProcessed.toLocaleString()}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("uploadLog.totalValue")}</p>
+                  <p className="text-2xl font-bold">{selectedSummary.totalValue.toLocaleString()}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("uploadLog.newCustomers")}</p>
+                  <p className="text-2xl font-bold text-green-600">{selectedSummary.newCustomers}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("uploadLog.newProducts")}</p>
+                  <p className="text-2xl font-bold text-blue-600">{selectedSummary.newProducts}</p>
+                </div>
+              </div>
+              {selectedSummary.dateRangeStart && selectedSummary.dateRangeEnd && (
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-2">{t("uploadLog.dateRange")}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span className="font-mono text-sm">
+                        {format(new Date(selectedSummary.dateRangeStart), "MMM dd, yyyy")}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground">→</span>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span className="font-mono text-sm">
+                        {format(new Date(selectedSummary.dateRangeEnd), "MMM dd, yyyy")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

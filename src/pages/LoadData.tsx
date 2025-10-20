@@ -420,6 +420,13 @@ const LoadData = () => {
       setProgress(100);
       setUploadStatus("");
 
+      // Sort dates and get min/max
+      const sortedDates = allDates.sort();
+      const dateRange = {
+        from: sortedDates[0] || '',
+        to: sortedDates[sortedDates.length - 1] || ''
+      };
+
       // Update upload log with success
       if (uploadLogId) {
         await supabase
@@ -428,16 +435,13 @@ const LoadData = () => {
             status: "completed",
             records_processed: totalProcessed,
             new_customers_count: newCustomersCount,
+            new_products_count: totalProductsUpserted,
+            total_value: totalValue,
+            date_range_start: sortedDates[0] || null,
+            date_range_end: sortedDates[sortedDates.length - 1] || null,
           })
           .eq("id", uploadLogId);
       }
-
-      // Sort dates and get min/max
-      const sortedDates = allDates.sort();
-      const dateRange = {
-        from: sortedDates[0] || '',
-        to: sortedDates[sortedDates.length - 1] || ''
-      };
 
       // Show summary dialog
       setUploadSummary({
