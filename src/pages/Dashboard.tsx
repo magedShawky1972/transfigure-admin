@@ -71,6 +71,7 @@ const Dashboard = () => {
   const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([]);
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
+  const [trendDays, setTrendDays] = useState<string>("10");
   const [inactiveCustomersPage, setInactiveCustomersPage] = useState(1);
   const inactiveCustomersPerPage = 20;
   const [inactivePhoneFilter, setInactivePhoneFilter] = useState<string>("");
@@ -290,10 +291,11 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Sales trend - calculate last 10 days of the selected range
+      // Sales trend - calculate last N days of the selected range based on trendDays
+      const daysCount = parseInt(trendDays) - 1;
       const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
       const trendEndDate = endOfDay(referenceDate);
-      const trendStartDate = startOfDay(subDays(referenceDate, 9));
+      const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
       const { data: trendData, error: trendError } = await (supabase as any)
         .rpc('sales_trend', {
@@ -736,6 +738,13 @@ const Dashboard = () => {
     }
   };
 
+  // Re-fetch charts when trend days selection changes
+  useEffect(() => {
+    if (dateFilter && (dateFilter !== 'dateRange' || (fromDate && toDate))) {
+      fetchCharts();
+    }
+  }, [trendDays]);
+
   const metricCards = [
     {
       title: t("dashboard.totalSales"),
@@ -916,7 +925,19 @@ const Dashboard = () => {
             </div>
           )}
           <CardHeader>
-            <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
+              <Select value={trendDays} onValueChange={setTrendDays}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Select days" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="10">10 Days</SelectItem>
+                  <SelectItem value="20">20 Days</SelectItem>
+                  <SelectItem value="30">30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
