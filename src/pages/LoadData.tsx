@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Calendar } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -36,6 +38,7 @@ interface ExcelSheet {
 }
 
 const LoadData = () => {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
@@ -617,47 +620,50 @@ const LoadData = () => {
       <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center">Upload Summary</DialogTitle>
-            <DialogDescription className="text-center">
-              Your Excel file has been successfully processed
+            <DialogTitle>{t("loadData.uploadSummary")}</DialogTitle>
+            <DialogDescription>
+              {t("loadData.successMessage")}
             </DialogDescription>
           </DialogHeader>
           
           {uploadSummary && (
-            <div className="space-y-4 py-4">
-              <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">Total Records Uploaded</p>
-                <p className="text-3xl font-bold text-primary">{uploadSummary.totalRecords.toLocaleString()}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">New Customers</p>
-                  <p className="text-xl font-semibold">{uploadSummary.newCustomers}</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("uploadLog.recordsProcessed")}</p>
+                  <p className="text-2xl font-bold">{uploadSummary.totalRecords.toLocaleString()}</p>
                 </div>
-                
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">New Products</p>
-                  <p className="text-xl font-semibold">{uploadSummary.newProducts}</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("loadData.totalValue")}</p>
+                  <p className="text-2xl font-bold">{uploadSummary.totalValue.toLocaleString()}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("loadData.newCustomers")}</p>
+                  <p className="text-2xl font-bold text-green-600">{uploadSummary.newCustomers}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t("loadData.newProducts")}</p>
+                  <p className="text-2xl font-bold text-blue-600">{uploadSummary.newProducts}</p>
                 </div>
               </div>
-
-              <div className="bg-muted/50 p-3 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">Total Value</p>
-                <p className="text-2xl font-bold text-primary">
-                  {uploadSummary.totalValue.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  })}
-                </p>
-              </div>
-
-              {uploadSummary.dateRange.from && (
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Date Range</p>
-                  <p className="text-sm font-medium">
-                    {new Date(uploadSummary.dateRange.from).toLocaleDateString()} - {new Date(uploadSummary.dateRange.to).toLocaleDateString()}
-                  </p>
+              {uploadSummary.dateRange.from && uploadSummary.dateRange.to && (
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-2">{t("loadData.dateRange")}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span className="font-mono text-sm">
+                        {format(new Date(uploadSummary.dateRange.from), "MMM dd, yyyy")}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground">→</span>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span className="font-mono text-sm">
+                        {format(new Date(uploadSummary.dateRange.to), "MMM dd, yyyy")}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -665,9 +671,9 @@ const LoadData = () => {
 
           <Button 
             onClick={() => setShowSummaryDialog(false)}
-            className="w-full bg-gradient-to-r from-primary to-accent"
+            className="w-full"
           >
-            Close
+            {t("loadData.close")}
           </Button>
         </DialogContent>
       </Dialog>
