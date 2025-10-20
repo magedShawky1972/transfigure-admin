@@ -71,6 +71,7 @@ const ProductSetup = () => {
   // Filter states
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterBrand, setFilterBrand] = useState<string>("all");
   
   // View mode state
   const [viewMode, setViewMode] = useState<"grid" | "tree">("grid");
@@ -112,8 +113,12 @@ const ProductSetup = () => {
   const filteredProducts = products.filter((product) => {
     const nameMatch = !filterName || product.product_name.toLowerCase().includes(filterName.toLowerCase());
     const statusMatch = filterStatus === "all" || product.status === filterStatus;
-    return nameMatch && statusMatch;
+    const brandMatch = filterBrand === "all" || product.brand_name === filterBrand;
+    return nameMatch && statusMatch && brandMatch;
   });
+
+  // Get unique brands for filter
+  const uniqueBrands = Array.from(new Set(products.map(p => p.brand_name).filter(Boolean)));
 
   // Group products by brand for tree view
   const productsByBrand = filteredProducts.reduce((acc, product) => {
@@ -274,12 +279,25 @@ const ProductSetup = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-card rounded-md border">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-card rounded-md border">
           <Input
             placeholder={t("productSetup.filterByName")}
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
           />
+          <Select value={filterBrand} onValueChange={setFilterBrand}>
+            <SelectTrigger>
+              <SelectValue placeholder={t("productSetup.filterByBrand")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("common.all")}</SelectItem>
+              {uniqueBrands.map((brand) => (
+                <SelectItem key={brand} value={brand!}>
+                  {brand}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger>
               <SelectValue placeholder={t("productSetup.status")} />
