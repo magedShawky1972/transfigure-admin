@@ -84,7 +84,7 @@ const CustomerSetup = () => {
 
     // Listen for data upload events to auto-refresh
     const handleDataUploaded = () => {
-      fetchCustomers();
+      fetchCustomers(sortColumn ?? undefined, sortDirection);
     };
     window.addEventListener('dataUploaded', handleDataUploaded);
 
@@ -93,32 +93,67 @@ const CustomerSetup = () => {
     };
   }, []);
 
+  // Refetch from backend when sort column/direction changes to avoid 1000-row client limits
+  useEffect(() => {
+    if (sortColumn) {
+      fetchCustomers(sortColumn, sortDirection);
+    }
+  }, [sortColumn, sortDirection]);
+
   useEffect(() => {
     applyFiltersAndSort();
   }, [customers, nameFilter, phoneFilter, blockedFilter, brandFilter, productFilter, sortColumn, sortDirection]);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (
+    orderBy?: keyof CustomerTotal,
+    direction: "asc" | "desc" = "desc"
+  ) => {
     setLoading(true);
     try {
-      // Fetch customers data
-      const { data, error } = await supabase
-        .from("customer_totals")
-        .select("*")
-        .order("total", { ascending: false })
-        .range(0, 9999);
+      const pageSize = 1000;
+      const orderColumn: keyof CustomerTotal = (orderBy as keyof CustomerTotal) || "total";
 
-      if (error) throw error;
-      console.log('Fetched customers count:', data?.length);
-      console.log('Sample customer phones:', data?.slice(0, 5).map(c => c.customer_phone));
-      setCustomers(data || []);
-
-      // Fetch total count
+      // Fetch total count first (head request)
       const { count, error: countError } = await supabase
         .from("customer_totals")
         .select("*", { count: "exact", head: true });
-
       if (countError) throw countError;
-      setTotalCount(count || 0);
+
+      const total = count ?? 0;
+
+      const all: CustomerTotal[] = [];
+      const pages = total > 0 ? Math.ceil(total / pageSize) : 0;
+      for (let p = 0; p < pages; p++) {
+        const from = p * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await supabase
+          .from("customer_totals")
+          .select("*")
+          .order(orderColumn as string, { ascending: direction === "asc", nullsFirst: false })
+          .range(from, to);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...(data as CustomerTotal[]));
+        if (data.length < pageSize) break;
+      }
+
+      // Fallback if count is 0 or pagination returned nothing
+      if (all.length === 0) {
+        const { data, error } = await supabase
+          .from("customer_totals")
+          .select("*")
+          .order(orderColumn as string, { ascending: direction === "asc", nullsFirst: false })
+          .range(0, pageSize - 1);
+        if (error) throw error;
+        setCustomers((data as CustomerTotal[]) || []);
+        setTotalCount(data?.length ?? 0);
+      } else {
+        setCustomers(all);
+        setTotalCount(total);
+      }
+
+      console.log("Fetched customers count:", (all.length || 0) || "unknown");
+      console.log("Sample customer phones:", (all.length ? all : undefined)?.slice(0, 5)?.map((c) => c.customer_phone));
     } catch (error: any) {
       console.error("Error fetching customers:", error);
       toast({
