@@ -284,12 +284,6 @@ const UploadLog = () => {
               )}
             </div>
           )}
-          <Button 
-            onClick={() => setShowSummaryDialog(false)}
-            className="w-full"
-          >
-            {t("uploadLog.close")}
-          </Button>
         </DialogContent>
       </Dialog>
     </div>

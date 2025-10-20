@@ -177,16 +177,6 @@ const translations = {
     "uploadLog.processing": "Processing",
     "uploadLog.close": "Close",
     
-    // Load Data Page - Summary
-    "loadData.uploadSummary": "Upload Summary",
-    "loadData.successMessage": "Your Excel file has been successfully processed",
-    "loadData.totalRecordsUploaded": "Total Records Uploaded",
-    "loadData.newCustomers": "New Customers",
-    "loadData.newProducts": "New Products",
-    "loadData.totalValue": "Total Value",
-    "loadData.dateRange": "Date Range",
-    "loadData.close": "Close",
-    
     // Dashboard - Sales Analytics
     "dashboard.title": "Sales Dashboard",
     "dashboard.subtitle": "Sales Overview",
@@ -517,16 +507,6 @@ const translations = {
     "uploadLog.failed": "فشل",
     "uploadLog.processing": "جاري المعالجة",
     "uploadLog.close": "إغلاق",
-    
-    // Load Data Page - Summary
-    "loadData.uploadSummary": "ملخص الرفع",
-    "loadData.successMessage": "تم معالجة ملف Excel بنجاح",
-    "loadData.totalRecordsUploaded": "إجمالي السجلات المرفوعة",
-    "loadData.newCustomers": "عملاء جدد",
-    "loadData.newProducts": "منتجات جديدة",
-    "loadData.totalValue": "القيمة الإجمالية",
-    "loadData.dateRange": "النطاق الزمني",
-    "loadData.close": "إغلاق",
     
     // Dashboard - Sales Analytics
     "dashboard.title": "لوحة المبيعات",
