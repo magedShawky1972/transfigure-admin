@@ -27,6 +27,7 @@ interface Transaction {
   payment_brand: string;
   cost_sold: string;
   qty: string;
+  bank_fee: string;
 }
 
 interface DashboardMetrics {
@@ -274,7 +275,11 @@ const Dashboard = () => {
         const avgOrderValue = totalSales / (regularTransactions.length || 1);
         const costOfSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
         const couponSales = 0;
-        const ePaymentCharges = totalSales * 0.025;
+        
+        // Calculate E-Payment Charges from bank_fee column
+        const ePaymentCharges = regularTransactions.reduce((sum, t) => {
+          return sum + (parseNumber(t.bank_fee) || 0);
+        }, 0);
 
         setMetrics({
           totalSales,

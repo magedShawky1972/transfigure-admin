@@ -104,6 +104,44 @@ Deno.serve(async (req) => {
       Object.keys(row).length > 0
     );
 
+    // Calculate bank_fee for purpletransaction records
+    if (tableName === 'purpletransaction') {
+      console.log('Calculating bank_fee for transactions...');
+      
+      // Fetch all active payment methods
+      const { data: paymentMethods, error: pmError } = await supabase
+        .from('payment_methods')
+        .select('payment_method, gateway_fee, fixed_value, vat_fee')
+        .eq('is_active', true);
+
+      if (pmError) {
+        console.error('Error fetching payment methods:', pmError);
+      }
+
+      const paymentMethodMap = new Map(
+        (paymentMethods || []).map(pm => [pm.payment_method, pm])
+      );
+
+      // Calculate bank_fee for each record
+      for (const record of validData) {
+        if (record.payment_method) {
+          const pm = paymentMethodMap.get(record.payment_method);
+          if (pm) {
+            const total = parseFloat(record.total) || 0;
+            const gatewayFeeAmount = (pm.gateway_fee / 100.0) * total;
+            const vatOnGateway = gatewayFeeAmount * 0.15;
+            record.bank_fee = gatewayFeeAmount + pm.fixed_value + vatOnGateway;
+          } else {
+            record.bank_fee = 0;
+          }
+        } else {
+          record.bank_fee = 0;
+        }
+      }
+      
+      console.log('Bank fee calculation completed');
+    }
+
     console.log(`Inserting ${validData.length} valid rows into ${tableName}`);
 
     // Insert the data with a simple retry that removes unknown columns if necessary
