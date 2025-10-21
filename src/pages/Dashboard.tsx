@@ -103,6 +103,12 @@ const Dashboard = () => {
   const [newCustomersSortColumn, setNewCustomersSortColumn] = useState<'name' | 'phone' | 'creation_date'>('creation_date');
   const [newCustomersSortDirection, setNewCustomersSortDirection] = useState<'asc' | 'desc'>('desc');
   
+  // Point Transactions Dialog
+  const [pointTransactionsDialogOpen, setPointTransactionsDialogOpen] = useState(false);
+  const [pointTransactionsList, setPointTransactionsList] = useState<any[]>([]);
+  const [pointTransactionsSortColumn, setPointTransactionsSortColumn] = useState<'customer_name' | 'customer_phone' | 'created_at_date' | 'total_point'>('created_at_date');
+  const [pointTransactionsSortDirection, setPointTransactionsSortDirection] = useState<'asc' | 'desc'>('desc');
+  
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -914,6 +920,68 @@ const Dashboard = () => {
     setNewCustomersList(sorted);
   };
 
+  const handlePointsClick = async () => {
+    try {
+      const dateRange = getDateRange();
+      if (!dateRange) return;
+
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      const { data, error } = await supabase
+        .from('purpletransaction')
+        .select('customer_name, customer_phone, created_at_date, total')
+        .eq('payment_method', 'point')
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endNextStr)
+        .order('created_at_date', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedData = (data || []).map(item => ({
+        customer_name: item.customer_name || '',
+        customer_phone: item.customer_phone || '',
+        created_at_date: item.created_at_date,
+        total_point: parseNumber(item.total)
+      }));
+
+      setPointTransactionsList(formattedData);
+      setPointTransactionsSortColumn('created_at_date');
+      setPointTransactionsSortDirection('desc');
+      setPointTransactionsDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching point transactions:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في تحميل معاملات النقاط' : 'Failed to load point transactions',
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePointTransactionSort = (column: 'customer_name' | 'customer_phone' | 'created_at_date' | 'total_point') => {
+    const newDirection = pointTransactionsSortColumn === column && pointTransactionsSortDirection === 'asc' ? 'desc' : 'asc';
+    setPointTransactionsSortColumn(column);
+    setPointTransactionsSortDirection(newDirection);
+    
+    const sorted = [...pointTransactionsList].sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+      
+      if (column === 'customer_name' || column === 'customer_phone') {
+        aVal = (aVal || '').toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+        return newDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      } else if (column === 'created_at_date') {
+        return newDirection === 'asc' ? new Date(aVal).getTime() - new Date(bVal).getTime() : new Date(bVal).getTime() - new Date(aVal).getTime();
+      } else {
+        return newDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+    });
+    
+    setPointTransactionsList(sorted);
+  };
+
   const metricCards = [
     {
       title: t("dashboard.totalSales"),
@@ -932,6 +1000,7 @@ const Dashboard = () => {
       value: metrics.totalPoints.toLocaleString(),
       icon: Coins,
       gradient: "from-yellow-500 to-amber-500",
+      onClick: handlePointsClick,
     },
     {
       title: t("dashboard.transactions"),
@@ -2001,6 +2070,81 @@ const Dashboard = () => {
                   </div>
                   <div className="text-right">
                     {formatCurrency(brandProducts.reduce((sum, p) => sum + p.value, 0))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Point Transactions Dialog */}
+      <Dialog open={pointTransactionsDialogOpen} onOpenChange={setPointTransactionsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'معاملات النقاط' : 'Point Transactions'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {pointTransactionsList.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {language === 'ar' ? 'لا توجد معاملات نقاط' : 'No point transactions found'}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-4 font-semibold text-sm border-b pb-2">
+                  <button 
+                    onClick={() => handlePointTransactionSort('customer_name')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                  >
+                    {language === 'ar' ? 'اسم العميل' : 'Customer Name'}
+                    {pointTransactionsSortColumn === 'customer_name' && (
+                      pointTransactionsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handlePointTransactionSort('customer_phone')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                  >
+                    {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                    {pointTransactionsSortColumn === 'customer_phone' && (
+                      pointTransactionsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handlePointTransactionSort('created_at_date')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                  >
+                    {language === 'ar' ? 'التاريخ' : 'Date'}
+                    {pointTransactionsSortColumn === 'created_at_date' && (
+                      pointTransactionsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handlePointTransactionSort('total_point')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                  >
+                    {language === 'ar' ? 'النقاط' : 'Points'}
+                    {pointTransactionsSortColumn === 'total_point' && (
+                      pointTransactionsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+                {pointTransactionsList.map((transaction, index) => (
+                  <div key={index} className="grid grid-cols-4 gap-4 py-2 border-b">
+                    <div className="text-sm">{transaction.customer_name || 'N/A'}</div>
+                    <div className="text-sm">{transaction.customer_phone || 'N/A'}</div>
+                    <div className="text-sm text-right">
+                      {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
+                    </div>
+                    <div className="text-sm font-medium text-right">{transaction.total_point.toLocaleString()}</div>
+                  </div>
+                ))}
+                <div className="grid grid-cols-4 gap-4 pt-4 font-bold">
+                  <div className="col-span-3 text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                  <div className="text-right">
+                    {pointTransactionsList.reduce((sum, t) => sum + t.total_point, 0).toLocaleString()}
                   </div>
                 </div>
               </div>
