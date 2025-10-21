@@ -928,7 +928,7 @@ const Dashboard = () => {
       gradient: "from-blue-500 to-cyan-500",
     },
     {
-      title: "Total Points",
+      title: t("dashboard.totalPoints"),
       value: metrics.totalPoints.toLocaleString(),
       icon: Coins,
       gradient: "from-yellow-500 to-amber-500",
@@ -960,7 +960,7 @@ const Dashboard = () => {
     { label: t("dashboard.discountCoupons"), value: metrics.couponSales, percentage: (metrics.couponSales / metrics.totalSales) * 100 },
     { label: t("dashboard.salesPlusCoupon"), value: metrics.totalSales + metrics.couponSales, percentage: ((metrics.totalSales + metrics.couponSales) / metrics.totalSales) * 100 },
     { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100 },
-    { label: "Points Cost (COGS)", value: metrics.pointsCostSold, percentage: (metrics.pointsCostSold / metrics.totalSales) * 100 },
+    { label: t("dashboard.pointsCost"), value: metrics.pointsCostSold, percentage: (metrics.pointsCostSold / metrics.totalSales) * 100 },
     { label: t("dashboard.shipping"), value: 0, percentage: 0 },
     { label: t("dashboard.taxes"), value: 0, percentage: 0 },
     { label: t("dashboard.ePaymentCharges"), value: metrics.ePaymentCharges, percentage: (metrics.ePaymentCharges / metrics.totalSales) * 100 },
