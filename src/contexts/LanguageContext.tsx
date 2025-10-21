@@ -252,6 +252,10 @@ const translations = {
     "dashboard.paymentMethod": "Payment Method",
     "dashboard.status": "Status",
     "dashboard.total": "Total",
+    "dashboard.coinsByBrand": "Total Coins by Brand",
+    "dashboard.brandName": "Brand Name",
+    "dashboard.totalCoins": "Total Coins",
+    "dashboard.noCoinsData": "No coins data available",
     
     // Transactions Page
     "transactions.title": "All Transactions",
@@ -587,6 +591,10 @@ const translations = {
     "dashboard.paymentMethod": "طريقة الدفع",
     "dashboard.status": "الحالة",
     "dashboard.total": "الإجمالي",
+    "dashboard.coinsByBrand": "إجمالي النقاط حسب الماركة",
+    "dashboard.brandName": "اسم الماركة",
+    "dashboard.totalCoins": "إجمالي النقاط",
+    "dashboard.noCoinsData": "لا توجد بيانات نقاط متاحة",
     
     // Transactions Page
     "transactions.title": "جميع المعاملات",

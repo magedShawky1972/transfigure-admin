@@ -115,6 +115,11 @@ const Dashboard = () => {
   const [pointTransactionsSortColumn, setPointTransactionsSortColumn] = useState<'customer_name' | 'customer_phone' | 'created_at_date' | 'total_point'>('created_at_date');
   const [pointTransactionsSortDirection, setPointTransactionsSortDirection] = useState<'asc' | 'desc'>('desc');
   
+  // Coins by Brand
+  const [coinsByBrand, setCoinsByBrand] = useState<any[]>([]);
+  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins'>('total_coins');
+  const [coinsSortDirection, setCoinsSortDirection] = useState<'asc' | 'desc'>('desc');
+  
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -604,6 +609,24 @@ const Dashboard = () => {
           return acc;
         }, {});
         setCustomerPurchases(Object.values(customerData).sort((a: any, b: any) => b.totalValue - a.totalValue));
+        
+        // Coins by Brand
+        const coinsByBrandData = transactions.reduce((acc: any, t: any) => {
+          const brand = t.brand_name || 'Unknown';
+          const coins = parseNumber(t.coins_number);
+          
+          if (!acc[brand]) {
+            acc[brand] = {
+              brand_name: brand,
+              total_coins: 0
+            };
+          }
+          acc[brand].total_coins += coins;
+          return acc;
+        }, {});
+        
+        const sortedCoins = Object.values(coinsByBrandData).sort((a: any, b: any) => b.total_coins - a.total_coins);
+        setCoinsByBrand(sortedCoins);
       }
 
       setLoadingTables(false);
@@ -878,6 +901,27 @@ const Dashboard = () => {
     });
     
     setBrandProducts(sorted);
+  };
+  
+  const handleCoinsSort = (column: 'brand_name' | 'total_coins') => {
+    const newDirection = coinsSortColumn === column && coinsSortDirection === 'asc' ? 'desc' : 'asc';
+    setCoinsSortColumn(column);
+    setCoinsSortDirection(newDirection);
+    
+    const sorted = [...coinsByBrand].sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+      
+      if (column === 'brand_name') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+        return newDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      } else {
+        return newDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+    });
+    
+    setCoinsByBrand(sorted);
   };
 
   // Re-fetch only sales trend when trend days selection changes
@@ -1237,6 +1281,89 @@ const Dashboard = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Coins by Brand Grid */}
+      <Card className="border-2 relative">
+        {loadingTables && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="h-5 w-5" />
+            {t("dashboard.coinsByBrand")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th 
+                    className="text-left py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('brand_name')}
+                  >
+                    <div className="flex items-center gap-2">
+                      {t("dashboard.brandName")}
+                      {coinsSortColumn === 'brand_name' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'brand_name' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('total_coins')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      {t("dashboard.totalCoins")}
+                      {coinsSortColumn === 'total_coins' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'total_coins' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {coinsByBrand.length > 0 ? (
+                  coinsByBrand.map((item: any, index) => (
+                    <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
+                      <td className="py-3 px-4 font-medium">{item.brand_name}</td>
+                      <td className="text-right py-3 px-4 font-semibold">
+                        {new Intl.NumberFormat('en-US', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        }).format(item.total_coins)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={2} className="text-center py-8 text-muted-foreground">
+                      {t("dashboard.noCoinsData")}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {coinsByBrand.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 font-bold bg-muted/30">
+                    <td className="py-3 px-4">{language === 'ar' ? 'الإجمالي الكلي' : 'Total'}</td>
+                    <td className="text-right py-3 px-4 text-lg">
+                      {new Intl.NumberFormat('en-US', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      }).format(coinsByBrand.reduce((sum, item) => sum + item.total_coins, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         </CardContent>
       </Card>
