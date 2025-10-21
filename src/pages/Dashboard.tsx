@@ -97,6 +97,11 @@ const Dashboard = () => {
   const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
   const [brandProductsSortDirection, setBrandProductsSortDirection] = useState<'asc' | 'desc'>('desc');
   
+  // Payment Charges Dialog
+  const [paymentChargesDialogOpen, setPaymentChargesDialogOpen] = useState(false);
+  const [paymentChargesBreakdown, setPaymentChargesBreakdown] = useState<any[]>([]);
+  const [loadingPaymentCharges, setLoadingPaymentCharges] = useState(false);
+  
   // New Customers Dialog
   const [newCustomersCount, setNewCustomersCount] = useState(0);
   const [newCustomersDialogOpen, setNewCustomersDialogOpen] = useState(false);
@@ -987,6 +992,55 @@ const Dashboard = () => {
     setPointTransactionsList(sorted);
   };
 
+  const handlePaymentChargesClick = async () => {
+    try {
+      setLoadingPaymentCharges(true);
+      const dateRange = getDateRange();
+      if (!dateRange) return;
+
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      const { data, error } = await supabase
+        .from('purpletransaction')
+        .select('payment_brand, total, bank_fee')
+        .neq('payment_method', 'point')
+        .not('payment_method', 'is', null)
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endNextStr);
+
+      if (error) throw error;
+
+      // Group by payment_brand and sum totals and bank_fees
+      const grouped = (data || []).reduce((acc: any, item) => {
+        const brand = item.payment_brand || 'Unknown';
+        if (!acc[brand]) {
+          acc[brand] = {
+            payment_brand: brand,
+            total: 0,
+            bank_fee: 0
+          };
+        }
+        acc[brand].total += parseNumber(item.total);
+        acc[brand].bank_fee += parseNumber(item.bank_fee);
+        return acc;
+      }, {});
+
+      const breakdown = Object.values(grouped).sort((a: any, b: any) => b.bank_fee - a.bank_fee);
+      setPaymentChargesBreakdown(breakdown);
+      setPaymentChargesDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching payment charges:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في تحميل رسوم الدفع' : 'Failed to load payment charges',
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPaymentCharges(false);
+    }
+  };
+
   const metricCards = [
     {
       title: t("dashboard.totalSales"),
@@ -1037,7 +1091,7 @@ const Dashboard = () => {
     { label: t("dashboard.pointsCost"), value: metrics.pointsCostSold, percentage: (metrics.pointsCostSold / metrics.totalSales) * 100 },
     { label: t("dashboard.shipping"), value: 0, percentage: 0 },
     { label: t("dashboard.taxes"), value: 0, percentage: 0 },
-    { label: t("dashboard.ePaymentCharges"), value: metrics.ePaymentCharges, percentage: (metrics.ePaymentCharges / metrics.totalSales) * 100 },
+    { label: t("dashboard.ePaymentCharges"), value: metrics.ePaymentCharges, percentage: (metrics.ePaymentCharges / metrics.totalSales) * 100, onClick: handlePaymentChargesClick },
     { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
   ];
 
@@ -1166,7 +1220,14 @@ const Dashboard = () => {
         <CardContent>
           <div className="space-y-3">
             {incomeStatementData.map((item, index) => (
-              <div key={index} className={`flex justify-between items-center py-2 ${index === incomeStatementData.length - 1 ? 'border-t-2 pt-4 font-bold' : 'border-b'}`}>
+              <div 
+                key={index} 
+                className={cn(
+                  `flex justify-between items-center py-2 ${index === incomeStatementData.length - 1 ? 'border-t-2 pt-4 font-bold' : 'border-b'}`,
+                  item.onClick && "cursor-pointer hover:bg-muted/50 transition-colors rounded px-2"
+                )}
+                onClick={item.onClick}
+              >
                 <span className={`${index === incomeStatementData.length - 1 ? 'text-lg' : ''}`}>{item.label}</span>
                 <div className="flex gap-4 items-center">
                   <span className={`${item.percentage < 0 ? 'text-red-500' : item.percentage > 20 ? 'text-green-500' : ''} ${index === incomeStatementData.length - 1 ? 'text-lg' : 'text-sm'}`}>
@@ -2155,6 +2216,54 @@ const Dashboard = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Charges Dialog */}
+      <Dialog open={paymentChargesDialogOpen} onOpenChange={setPaymentChargesDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تفاصيل رسوم الدفع الإلكتروني' : 'E-Payment Charges Breakdown'}
+            </DialogTitle>
+          </DialogHeader>
+          {loadingPaymentCharges ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paymentChargesBreakdown.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {language === 'ar' ? 'لا توجد رسوم دفع' : 'No payment charges found'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-4 font-semibold text-sm border-b pb-2">
+                    <div className="text-left">{language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}</div>
+                    <div className="text-right">{language === 'ar' ? 'المبيعات' : 'Total Sales'}</div>
+                    <div className="text-right">{language === 'ar' ? 'رسوم البنك' : 'Bank Fee'}</div>
+                  </div>
+                  {paymentChargesBreakdown.map((item, index) => (
+                    <div key={index} className="grid grid-cols-3 gap-4 py-2 border-b">
+                      <div className="text-sm">{item.payment_brand}</div>
+                      <div className="text-sm text-right">{formatCurrency(item.total)}</div>
+                      <div className="text-sm font-medium text-right">{formatCurrency(item.bank_fee)}</div>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-3 gap-4 pt-4 font-bold border-t-2">
+                    <div className="text-left">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                    <div className="text-right">
+                      {formatCurrency(paymentChargesBreakdown.reduce((sum, item) => sum + item.total, 0))}
+                    </div>
+                    <div className="text-right">
+                      {formatCurrency(paymentChargesBreakdown.reduce((sum, item) => sum + item.bank_fee, 0))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
