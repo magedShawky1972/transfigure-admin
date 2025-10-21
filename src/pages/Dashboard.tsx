@@ -1443,17 +1443,21 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={topCategories}
+                  data={topBrands}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
+                  label={(entry) => {
+                    const match = entry.name.match(/\(([\d.]+)%\)/);
+                    return match ? `${match[1]}%` : '';
+                  }}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
                   onClick={handleBrandClick}
                   cursor="pointer"
                 >
-                  {topCategories.map((entry, index) => (
+                  {topBrands.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -1465,8 +1469,9 @@ const Dashboard = () => {
                   layout="vertical"
                   wrapperStyle={{ color: '#ffffff' }}
                   formatter={(value) => {
-                    if (value.length <= 9) return value;
-                    const truncated = value.substring(0, 9);
+                    const shortName = value.replace(/\s*\([\d.]+%\)/, '');
+                    if (shortName.length <= 9) return shortName;
+                    const truncated = shortName.substring(0, 9);
                     const lastSpace = truncated.lastIndexOf(' ');
                     return lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
                   }}
