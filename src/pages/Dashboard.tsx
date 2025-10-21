@@ -625,7 +625,9 @@ const Dashboard = () => {
           return acc;
         }, {});
         
-        const sortedCoins = Object.values(coinsByBrandData).sort((a: any, b: any) => b.total_coins - a.total_coins);
+        const sortedCoins = Object.values(coinsByBrandData)
+          .filter((item: any) => item.total_coins > 0)
+          .sort((a: any, b: any) => b.total_coins - a.total_coins);
         setCoinsByBrand(sortedCoins);
       }
 
