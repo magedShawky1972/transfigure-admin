@@ -37,6 +37,7 @@ interface DashboardMetrics {
   couponSales: number;
   costOfSales: number;
   ePaymentCharges: number;
+  totalPoints: number;
 }
 
 const Dashboard = () => {
@@ -55,6 +56,7 @@ const Dashboard = () => {
     couponSales: 0,
     costOfSales: 0,
     ePaymentCharges: 0,
+    totalPoints: 0,
   });
   const [salesTrend, setSalesTrend] = useState<any[]>([]);
   const [topBrands, setTopBrands] = useState<any[]>([]);
@@ -183,6 +185,7 @@ const Dashboard = () => {
         couponSales: 0,
         costOfSales: 0,
         ePaymentCharges: 0,
+        totalPoints: 0,
       });
       setRecentTransactions([]);
       
@@ -225,6 +228,7 @@ const Dashboard = () => {
         const costOfSales = transactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
         const couponSales = 0;
         const ePaymentCharges = totalSales * 0.025;
+        const totalPoints = transactions.reduce((sum, t) => sum + parseNumber((t as any).coins_number), 0);
 
         setMetrics({
           totalSales,
@@ -234,6 +238,7 @@ const Dashboard = () => {
           couponSales,
           costOfSales,
           ePaymentCharges,
+          totalPoints,
         });
 
         setRecentTransactions(transactions.slice(0, 5));
@@ -789,6 +794,12 @@ const Dashboard = () => {
       value: formatCurrency(metrics.totalProfit),
       icon: TrendingUp,
       gradient: "from-blue-500 to-cyan-500",
+    },
+    {
+      title: "Total Points",
+      value: metrics.totalPoints.toLocaleString(),
+      icon: ShoppingCart,
+      gradient: "from-yellow-500 to-amber-500",
     },
     {
       title: t("dashboard.transactions"),
