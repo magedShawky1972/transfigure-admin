@@ -88,6 +88,12 @@ const Dashboard = () => {
   const [crmNextAction, setCrmNextAction] = useState("");
   const [savingCrmData, setSavingCrmData] = useState(false);
   
+  // Brand Products Dialog
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+  const [brandProductsDialogOpen, setBrandProductsDialogOpen] = useState(false);
+  const [brandProducts, setBrandProducts] = useState<any[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -410,6 +416,9 @@ const Dashboard = () => {
       setMonthComparison(months.reverse());
 
       if (transactions && transactions.length > 0) {
+        // Store transactions for brand filtering
+        setAllTransactions(transactions);
+        
         // Top brands
         const brandSales = transactions.reduce((acc: any, t) => {
           const brand = t.brand_name || 'Unknown';
@@ -788,6 +797,28 @@ const Dashboard = () => {
     }
   };
 
+  const handleBrandClick = (data: any) => {
+    if (!data || !data.name) return;
+    
+    const brandName = data.name;
+    setSelectedBrand(brandName);
+    
+    // Filter transactions by brand and aggregate products
+    const brandTransactions = allTransactions.filter(t => t.brand_name === brandName);
+    const productSales = brandTransactions.reduce((acc: any, t) => {
+      const product = t.product_name || 'Unknown';
+      if (!acc[product]) {
+        acc[product] = { name: product, value: 0, qty: 0 };
+      }
+      acc[product].value += parseNumber(t.total);
+      acc[product].qty += parseNumber(t.qty);
+      return acc;
+    }, {});
+    
+    setBrandProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
+    setBrandProductsDialogOpen(true);
+  };
+
   // Re-fetch only sales trend when trend days selection changes
   useEffect(() => {
     if (dateFilter && (dateFilter !== 'dateRange' || (fromDate && toDate))) {
@@ -1029,6 +1060,8 @@ const Dashboard = () => {
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
+                  onClick={handleBrandClick}
+                  cursor="pointer"
                 >
                   {topCategories.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -1807,6 +1840,48 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Brand Products Dialog */}
+      <Dialog open={brandProductsDialogOpen} onOpenChange={setBrandProductsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? `منتجات ${selectedBrand}` : `${selectedBrand} Products`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {brandProducts.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {language === 'ar' ? 'لا توجد منتجات' : 'No products found'}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-4 font-semibold text-sm border-b pb-2">
+                  <div>{language === 'ar' ? 'المنتج' : 'Product'}</div>
+                  <div className="text-right">{language === 'ar' ? 'الكمية' : 'Quantity'}</div>
+                  <div className="text-right">{language === 'ar' ? 'القيمة' : 'Value'}</div>
+                </div>
+                {brandProducts.map((product, index) => (
+                  <div key={index} className="grid grid-cols-3 gap-4 py-2 border-b">
+                    <div className="text-sm">{product.name}</div>
+                    <div className="text-sm text-right">{product.qty.toLocaleString()}</div>
+                    <div className="text-sm font-medium text-right">{formatCurrency(product.value)}</div>
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-4 pt-4 font-bold">
+                  <div>{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                  <div className="text-right">
+                    {brandProducts.reduce((sum, p) => sum + p.qty, 0).toLocaleString()}
+                  </div>
+                  <div className="text-right">
+                    {formatCurrency(brandProducts.reduce((sum, p) => sum + p.value, 0))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
