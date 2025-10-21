@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -221,14 +221,21 @@ const Dashboard = () => {
       }
 
       if (transactions && transactions.length > 0) {
-        const totalSales = transactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
-        const totalProfit = transactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
+        // Separate point transactions from regular transactions
+        const pointTransactions = transactions.filter(t => t.payment_method?.toLowerCase() === 'point');
+        const regularTransactions = transactions.filter(t => t.payment_method?.toLowerCase() !== 'point');
+        
+        // Total points from point payment transactions (cost, not revenue)
+        const totalPoints = pointTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
+        
+        // Total sales excludes point transactions (only real revenue)
+        const totalSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
+        const totalProfit = regularTransactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
         const transactionCount = transactions.length;
-        const avgOrderValue = totalSales / transactionCount;
-        const costOfSales = transactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
+        const avgOrderValue = totalSales / (regularTransactions.length || 1);
+        const costOfSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
         const couponSales = 0;
         const ePaymentCharges = totalSales * 0.025;
-        const totalPoints = transactions.reduce((sum, t) => sum + parseNumber((t as any).coins_number), 0);
 
         setMetrics({
           totalSales,
@@ -798,7 +805,7 @@ const Dashboard = () => {
     {
       title: "Total Points",
       value: metrics.totalPoints.toLocaleString(),
-      icon: ShoppingCart,
+      icon: Coins,
       gradient: "from-yellow-500 to-amber-500",
     },
     {
@@ -821,10 +828,11 @@ const Dashboard = () => {
     { label: t("dashboard.discountCoupons"), value: metrics.couponSales, percentage: (metrics.couponSales / metrics.totalSales) * 100 },
     { label: t("dashboard.salesPlusCoupon"), value: metrics.totalSales + metrics.couponSales, percentage: ((metrics.totalSales + metrics.couponSales) / metrics.totalSales) * 100 },
     { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100 },
+    { label: "Points Cost (COGS)", value: metrics.totalPoints, percentage: (metrics.totalPoints / metrics.totalSales) * 100 },
     { label: t("dashboard.shipping"), value: 0, percentage: 0 },
     { label: t("dashboard.taxes"), value: 0, percentage: 0 },
     { label: t("dashboard.ePaymentCharges"), value: metrics.ePaymentCharges, percentage: (metrics.ePaymentCharges / metrics.totalSales) * 100 },
-    { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
+    { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - metrics.totalPoints - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - metrics.totalPoints - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
   ];
 
   return (
@@ -911,7 +919,7 @@ const Dashboard = () => {
       </Card>
 
       {/* Metrics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {metricCards.map((card) => (
           <Card key={card.title} className="border-2 hover:shadow-lg transition-all duration-300 relative">
             {loadingStats && (
