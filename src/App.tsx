@@ -20,6 +20,7 @@ import CustomerSetup from "./pages/CustomerSetup";
 import CustomerTotals from "./pages/CustomerTotals";
 import BrandSetup from "./pages/BrandSetup";
 import ProductSetup from "./pages/ProductSetup";
+import PaymentMethodSetup from "./pages/PaymentMethodSetup";
 import PivotTable from "./pages/PivotTable";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/customer-totals" element={<CustomerTotals />} />
               <Route path="/brand-setup" element={<BrandSetup />} />
               <Route path="/product-setup" element={<ProductSetup />} />
+              <Route path="/payment-method-setup" element={<PaymentMethodSetup />} />
               <Route path="/pivot-table" element={<PivotTable />} />
               <Route path="/auth" element={<Auth />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

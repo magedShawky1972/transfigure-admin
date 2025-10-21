@@ -214,6 +214,39 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          created_at: string
+          fixed_value: number
+          gateway_fee: number
+          id: string
+          is_active: boolean
+          payment_method: string
+          updated_at: string
+          vat_fee: number
+        }
+        Insert: {
+          created_at?: string
+          fixed_value?: number
+          gateway_fee?: number
+          id?: string
+          is_active?: boolean
+          payment_method: string
+          updated_at?: string
+          vat_fee?: number
+        }
+        Update: {
+          created_at?: string
+          fixed_value?: number
+          gateway_fee?: number
+          id?: string
+          is_active?: boolean
+          payment_method?: string
+          updated_at?: string
+          vat_fee?: number
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           brand_name: string | null

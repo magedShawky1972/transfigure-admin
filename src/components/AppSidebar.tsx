@@ -9,7 +9,8 @@ import {
   Users,
   UserCheck,
   TrendingUp,
-  Grid3x3
+  Grid3x3,
+  CreditCard
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -56,6 +57,7 @@ export function AppSidebar() {
         { title: t("menu.customerTotals"), url: "/customer-totals", icon: TrendingUp },
         { title: t("menu.brandSetup"), url: "/brand-setup", icon: Settings },
         { title: t("menu.productSetup"), url: "/product-setup", icon: Database },
+        { title: language === 'ar' ? 'إعداد طرق الدفع' : 'Payment Method Setup', url: "/payment-method-setup", icon: CreditCard },
       ]
     },
     {
