@@ -462,6 +462,16 @@ const Dashboard = () => {
         // Store transactions for brand filtering
         setAllTransactions(transactions);
         
+        // Fetch brands for short names
+        const { data: brandsData } = await supabase
+          .from('brands')
+          .select('brand_name, short_name');
+        
+        const brandsMap = brandsData?.reduce((acc: any, b: any) => {
+          acc[b.brand_name] = b.short_name || b.brand_name;
+          return acc;
+        }, {}) || {};
+        
         // Top brands
         const brandSales = transactions.reduce((acc: any, t) => {
           const brand = t.brand_name || 'Unknown';
@@ -471,7 +481,21 @@ const Dashboard = () => {
           acc[brand].value += parseNumber(t.total);
           return acc;
         }, {});
-        setTopBrands(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
+        
+        const totalBrandRevenue = Object.values(brandSales).reduce((sum: number, val: any) => sum + val.value, 0) as number;
+        
+        const top5Brands = Object.values(brandSales)
+          .sort((a: any, b: any) => b.value - a.value)
+          .slice(0, 5)
+          .map((item: any) => {
+            const percentage = totalBrandRevenue > 0 ? ((item.value / totalBrandRevenue) * 100).toFixed(1) : '0.0';
+            return {
+              name: `${brandsMap[item.name] || item.name} (${percentage}%)`,
+              value: item.value
+            };
+          });
+        
+        setTopBrands(top5Brands);
         setTopCategories(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
         // Top products
