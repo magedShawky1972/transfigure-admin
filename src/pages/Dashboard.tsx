@@ -96,6 +96,13 @@ const Dashboard = () => {
   const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
   const [brandProductsSortDirection, setBrandProductsSortDirection] = useState<'asc' | 'desc'>('desc');
   
+  // New Customers Dialog
+  const [newCustomersCount, setNewCustomersCount] = useState(0);
+  const [newCustomersDialogOpen, setNewCustomersDialogOpen] = useState(false);
+  const [newCustomersList, setNewCustomersList] = useState<any[]>([]);
+  const [newCustomersSortColumn, setNewCustomersSortColumn] = useState<'name' | 'phone' | 'creation_date'>('creation_date');
+  const [newCustomersSortDirection, setNewCustomersSortDirection] = useState<'asc' | 'desc'>('desc');
+  
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -199,6 +206,7 @@ const Dashboard = () => {
         pointsCostSold: 0,
       });
       setRecentTransactions([]);
+      setNewCustomersCount(0);
       
       const dateRange = getDateRange();
       if (!dateRange) {
@@ -208,6 +216,18 @@ const Dashboard = () => {
 
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      // Fetch new customers in the selected period
+      const { data: newCustomers, error: customersError } = await supabase
+        .from('customers')
+        .select('*')
+        .gte('creation_date', startStr)
+        .lt('creation_date', endNextStr)
+        .order('creation_date', { ascending: false });
+
+      if (!customersError && newCustomers) {
+        setNewCustomersCount(newCustomers.length);
+      }
 
       const pageSize = 1000;
       let from = 0;
@@ -851,6 +871,49 @@ const Dashboard = () => {
     }
   }, [trendDays]);
 
+  const handleNewCustomersClick = async () => {
+    const dateRange = getDateRange();
+    if (!dateRange) return;
+
+    const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+    const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+    const { data: newCustomers, error } = await supabase
+      .from('customers')
+      .select('*')
+      .gte('creation_date', startStr)
+      .lt('creation_date', endNextStr)
+      .order('creation_date', { ascending: false });
+
+    if (!error && newCustomers) {
+      setNewCustomersList(newCustomers);
+      setNewCustomersSortColumn('creation_date');
+      setNewCustomersSortDirection('desc');
+      setNewCustomersDialogOpen(true);
+    }
+  };
+
+  const handleNewCustomerSort = (column: 'name' | 'phone' | 'creation_date') => {
+    const newDirection = newCustomersSortColumn === column && newCustomersSortDirection === 'asc' ? 'desc' : 'asc';
+    setNewCustomersSortColumn(column);
+    setNewCustomersSortDirection(newDirection);
+    
+    const sorted = [...newCustomersList].sort((a, b) => {
+      let aVal = a[column === 'name' ? 'customer_name' : column === 'phone' ? 'customer_phone' : 'creation_date'];
+      let bVal = b[column === 'name' ? 'customer_name' : column === 'phone' ? 'customer_phone' : 'creation_date'];
+      
+      if (column === 'name' || column === 'phone') {
+        aVal = (aVal || '').toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+        return newDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      } else {
+        return newDirection === 'asc' ? new Date(aVal).getTime() - new Date(bVal).getTime() : new Date(bVal).getTime() - new Date(aVal).getTime();
+      }
+    });
+    
+    setNewCustomersList(sorted);
+  };
+
   const metricCards = [
     {
       title: t("dashboard.totalSales"),
@@ -881,6 +944,13 @@ const Dashboard = () => {
       value: formatCurrency(metrics.avgOrderValue),
       icon: CreditCard,
       gradient: "from-orange-500 to-red-500",
+    },
+    {
+      title: language === 'ar' ? 'عملاء جدد' : 'New Customers',
+      value: newCustomersCount.toLocaleString(),
+      icon: TrendingUp,
+      gradient: "from-indigo-500 to-purple-500",
+      onClick: handleNewCustomersClick,
     },
   ];
 
@@ -981,9 +1051,16 @@ const Dashboard = () => {
       </Card>
 
       {/* Metrics Cards */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {metricCards.map((card) => (
-          <Card key={card.title} className="border-2 hover:shadow-lg transition-all duration-300 relative">
+          <Card 
+            key={card.title} 
+            className={cn(
+              "border-2 hover:shadow-lg transition-all duration-300 relative",
+              card.onClick && "cursor-pointer hover:border-primary"
+            )}
+            onClick={card.onClick}
+          >
             {loadingStats && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1925,6 +2002,68 @@ const Dashboard = () => {
                   <div className="text-right">
                     {formatCurrency(brandProducts.reduce((sum, p) => sum + p.value, 0))}
                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Customers Dialog */}
+      <Dialog open={newCustomersDialogOpen} onOpenChange={setNewCustomersDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'العملاء الجدد' : 'New Customers'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {newCustomersList.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {language === 'ar' ? 'لا يوجد عملاء جدد' : 'No new customers found'}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-4 font-semibold text-sm border-b pb-2">
+                  <button 
+                    onClick={() => handleNewCustomerSort('name')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                  >
+                    {language === 'ar' ? 'الاسم' : 'Name'}
+                    {newCustomersSortColumn === 'name' && (
+                      newCustomersSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleNewCustomerSort('phone')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                  >
+                    {language === 'ar' ? 'الهاتف' : 'Phone'}
+                    {newCustomersSortColumn === 'phone' && (
+                      newCustomersSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleNewCustomerSort('creation_date')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                  >
+                    {language === 'ar' ? 'تاريخ الإنشاء' : 'Creation Date'}
+                    {newCustomersSortColumn === 'creation_date' && (
+                      newCustomersSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+                {newCustomersList.map((customer, index) => (
+                  <div key={index} className="grid grid-cols-3 gap-4 py-2 border-b">
+                    <div className="text-sm">{customer.customer_name}</div>
+                    <div className="text-sm">{customer.customer_phone}</div>
+                    <div className="text-sm text-right">
+                      {customer.creation_date ? format(new Date(customer.creation_date), 'MMM dd, yyyy') : 'N/A'}
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-4 font-bold">
+                  {language === 'ar' ? 'الإجمالي' : 'Total'}: {newCustomersList.length.toLocaleString()}
                 </div>
               </div>
             )}
