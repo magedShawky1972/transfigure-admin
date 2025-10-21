@@ -1447,9 +1447,26 @@ const Dashboard = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(entry) => {
-                    const match = entry.name.match(/\(([\d.]+)%\)/);
-                    return match ? `${match[1]}%` : '';
+                  label={({ cx, cy, midAngle, innerRadius, outerRadius, name }) => {
+                    const RADIAN = Math.PI / 180;
+                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    const match = name.match(/\(([\d.]+)%\)/);
+                    const percentage = match ? `${match[1]}%` : '';
+                    
+                    return (
+                      <text 
+                        x={x} 
+                        y={y} 
+                        fill="white" 
+                        textAnchor={x > cx ? 'start' : 'end'} 
+                        dominantBaseline="central"
+                        style={{ fontSize: '14px', fontWeight: 'bold' }}
+                      >
+                        {percentage}
+                      </text>
+                    );
                   }}
                   outerRadius={80}
                   fill="#8884d8"
