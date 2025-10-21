@@ -591,7 +591,7 @@ const translations = {
     "dashboard.paymentMethod": "طريقة الدفع",
     "dashboard.status": "الحالة",
     "dashboard.total": "الإجمالي",
-    "dashboard.coinsByBrand": "إجمالي النقاط حسب الماركة",
+    "dashboard.coinsByBrand": "إجمالى الكوينز المباعة",
     "dashboard.brandName": "اسم الماركة",
     "dashboard.totalCoins": "إجمالي النقاط",
     "dashboard.noCoinsData": "لا توجد بيانات نقاط متاحة",
