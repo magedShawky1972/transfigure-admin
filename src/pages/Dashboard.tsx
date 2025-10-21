@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +93,8 @@ const Dashboard = () => {
   const [brandProductsDialogOpen, setBrandProductsDialogOpen] = useState(false);
   const [brandProducts, setBrandProducts] = useState<any[]>([]);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
+  const [brandProductsSortDirection, setBrandProductsSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Product Summary Filters
   const [productFilter, setProductFilter] = useState<string>("all");
@@ -816,7 +818,30 @@ const Dashboard = () => {
     }, {});
     
     setBrandProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
+    setBrandProductsSortColumn('value');
+    setBrandProductsSortDirection('desc');
     setBrandProductsDialogOpen(true);
+  };
+
+  const handleBrandProductSort = (column: 'name' | 'qty' | 'value') => {
+    const newDirection = brandProductsSortColumn === column && brandProductsSortDirection === 'asc' ? 'desc' : 'asc';
+    setBrandProductsSortColumn(column);
+    setBrandProductsSortDirection(newDirection);
+    
+    const sorted = [...brandProducts].sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+      
+      if (column === 'name') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+        return newDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      } else {
+        return newDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+    });
+    
+    setBrandProducts(sorted);
   };
 
   // Re-fetch only sales trend when trend days selection changes
@@ -1857,9 +1882,33 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-2">
                 <div className="grid grid-cols-3 gap-4 font-semibold text-sm border-b pb-2">
-                  <div>{language === 'ar' ? 'المنتج' : 'Product'}</div>
-                  <div className="text-right">{language === 'ar' ? 'الكمية' : 'Quantity'}</div>
-                  <div className="text-right">{language === 'ar' ? 'القيمة' : 'Value'}</div>
+                  <button 
+                    onClick={() => handleBrandProductSort('name')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                  >
+                    {language === 'ar' ? 'المنتج' : 'Product'}
+                    {brandProductsSortColumn === 'name' && (
+                      brandProductsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleBrandProductSort('qty')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                  >
+                    {language === 'ar' ? 'الكمية' : 'Quantity'}
+                    {brandProductsSortColumn === 'qty' && (
+                      brandProductsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleBrandProductSort('value')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                  >
+                    {language === 'ar' ? 'القيمة' : 'Value'}
+                    {brandProductsSortColumn === 'value' && (
+                      brandProductsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
                 </div>
                 {brandProducts.map((product, index) => (
                   <div key={index} className="grid grid-cols-3 gap-4 py-2 border-b">
