@@ -38,6 +38,7 @@ interface DashboardMetrics {
   costOfSales: number;
   ePaymentCharges: number;
   totalPoints: number;
+  pointsCostSold: number;
 }
 
 const Dashboard = () => {
@@ -57,6 +58,7 @@ const Dashboard = () => {
     costOfSales: 0,
     ePaymentCharges: 0,
     totalPoints: 0,
+    pointsCostSold: 0,
   });
   const [salesTrend, setSalesTrend] = useState<any[]>([]);
   const [topBrands, setTopBrands] = useState<any[]>([]);
@@ -186,6 +188,7 @@ const Dashboard = () => {
         costOfSales: 0,
         ePaymentCharges: 0,
         totalPoints: 0,
+        pointsCostSold: 0,
       });
       setRecentTransactions([]);
       
@@ -227,6 +230,8 @@ const Dashboard = () => {
         
         // Total points from point payment transactions (cost, not revenue)
         const totalPoints = pointTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
+        // Cost sold for point transactions
+        const pointsCostSold = pointTransactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
         
         // Total sales excludes point transactions (only real revenue)
         const totalSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
@@ -246,6 +251,7 @@ const Dashboard = () => {
           costOfSales,
           ePaymentCharges,
           totalPoints,
+          pointsCostSold,
         });
 
         setRecentTransactions(transactions.slice(0, 5));
@@ -823,16 +829,17 @@ const Dashboard = () => {
   ];
 
   // Income Statement Data
+  const totalPointsCost = metrics.totalPoints + metrics.pointsCostSold;
   const incomeStatementData = [
     { label: t("dashboard.totalSalesWithDiscount"), value: metrics.totalSales, percentage: 100 },
     { label: t("dashboard.discountCoupons"), value: metrics.couponSales, percentage: (metrics.couponSales / metrics.totalSales) * 100 },
     { label: t("dashboard.salesPlusCoupon"), value: metrics.totalSales + metrics.couponSales, percentage: ((metrics.totalSales + metrics.couponSales) / metrics.totalSales) * 100 },
     { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100 },
-    { label: "Points Cost (COGS)", value: metrics.totalPoints, percentage: (metrics.totalPoints / metrics.totalSales) * 100 },
+    { label: "Points Cost (COGS)", value: totalPointsCost, percentage: (totalPointsCost / metrics.totalSales) * 100 },
     { label: t("dashboard.shipping"), value: 0, percentage: 0 },
     { label: t("dashboard.taxes"), value: 0, percentage: 0 },
     { label: t("dashboard.ePaymentCharges"), value: metrics.ePaymentCharges, percentage: (metrics.ePaymentCharges / metrics.totalSales) * 100 },
-    { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - metrics.totalPoints - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - metrics.totalPoints - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
+    { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - totalPointsCost - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - totalPointsCost - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
   ];
 
   return (
