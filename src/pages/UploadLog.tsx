@@ -83,17 +83,22 @@ const UploadLog = () => {
   };
 
   const updateBankFees = async () => {
-    try {
-      toast.loading(t("uploadLog.updatingBankFees"));
-      const { error } = await supabase.functions.invoke('update-bank-fees');
-      
-      if (error) throw error;
-      
-      toast.success(t("uploadLog.bankFeesUpdated"));
-    } catch (error: any) {
-      console.error("Error updating bank fees:", error);
-      toast.error(t("uploadLog.bankFeesUpdateError"));
-    }
+    const updatePromise = supabase.functions.invoke('update-bank-fees');
+
+    toast.promise(updatePromise, {
+      loading: t("uploadLog.updatingBankFees"),
+      success: (response) => {
+        console.log('Bank fees update response:', response);
+        if (response.error) {
+          throw response.error;
+        }
+        return t("uploadLog.bankFeesUpdated");
+      },
+      error: (error) => {
+        console.error("Error updating bank fees:", error);
+        return t("uploadLog.bankFeesUpdateError") + ': ' + (error.message || 'Unknown error');
+      }
+    });
   };
 
   const getStatusBadge = (status: string) => {
