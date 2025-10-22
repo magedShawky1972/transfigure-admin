@@ -83,16 +83,17 @@ const UploadLog = () => {
   };
 
   const updateBankFees = async () => {
-    const updatePromise = supabase.functions.invoke('update-bank-fees');
+    const updatePromise = (async () => {
+      const { data, error } = await supabase.rpc('update_bank_fees_from_payment_brand');
+      if (error) throw error;
+      return data; // number of rows updated
+    })();
 
     toast.promise(updatePromise, {
       loading: t("uploadLog.updatingBankFees"),
-      success: (response) => {
-        console.log('Bank fees update response:', response);
-        if (response.error) {
-          throw response.error;
-        }
-        return t("uploadLog.bankFeesUpdated");
+      success: (updated) => {
+        console.log('Bank fees updated count:', updated);
+        return `${t("uploadLog.bankFeesUpdated")} (${updated ?? 0})`;
       },
       error: (error) => {
         console.error("Error updating bank fees:", error);

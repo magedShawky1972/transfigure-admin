@@ -669,6 +669,10 @@ export type Database = {
           total_sum: number
         }[]
       }
+      update_bank_fees_from_payment_brand: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "user"
