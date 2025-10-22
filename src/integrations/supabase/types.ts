@@ -222,6 +222,7 @@ export type Database = {
           id: string
           is_active: boolean
           payment_method: string
+          payment_type: string | null
           updated_at: string
           vat_fee: number
         }
@@ -232,6 +233,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           payment_method: string
+          payment_type?: string | null
           updated_at?: string
           vat_fee?: number
         }
@@ -242,6 +244,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           payment_method?: string
+          payment_type?: string | null
           updated_at?: string
           vat_fee?: number
         }
@@ -631,12 +634,9 @@ export type Database = {
       }
     }
     Functions: {
-      clean_expired_cache: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      clean_expired_cache: { Args: never; Returns: undefined }
       customer_stats: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           customer_phone: string
           last_transaction: string
@@ -651,10 +651,7 @@ export type Database = {
           total_spend: number
         }[]
       }
-      exec_sql: {
-        Args: { sql: string }
-        Returns: undefined
-      }
+      exec_sql: { Args: { sql: string }; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -669,10 +666,7 @@ export type Database = {
           total_sum: number
         }[]
       }
-      update_bank_fees_from_payment_brand: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      update_bank_fees_from_payment_brand: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "user"

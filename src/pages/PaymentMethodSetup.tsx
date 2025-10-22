@@ -10,6 +10,7 @@ import { z } from "zod";
 
 interface PaymentMethod {
   id: string;
+  payment_type: string;
   payment_method: string;
   gateway_fee: number;
   fixed_value: number;
@@ -18,7 +19,8 @@ interface PaymentMethod {
 }
 
 const paymentMethodSchema = z.object({
-  payment_method: z.string().trim().min(1, { message: "Payment method name is required" }).max(100),
+  payment_type: z.string().trim().min(1, { message: "Payment method is required" }).max(100),
+  payment_method: z.string().trim().min(1, { message: "Payment brand is required" }).max(100),
   gateway_fee: z.number().min(0, { message: "Gateway fee must be 0 or greater" }),
   fixed_value: z.number().min(0, { message: "Fixed value must be 0 or greater" }),
   vat_fee: z.number().min(0, { message: "VAT fee must be 0 or greater" }),
@@ -30,6 +32,7 @@ const PaymentMethodSetup = () => {
   const [saving, setSaving] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [newMethod, setNewMethod] = useState({
+    payment_type: "",
     payment_method: "",
     gateway_fee: 0,
     fixed_value: 0,
@@ -70,6 +73,7 @@ const PaymentMethodSetup = () => {
     try {
       // Validate input
       paymentMethodSchema.parse({
+        payment_type: method.payment_type,
         payment_method: method.payment_method,
         gateway_fee: method.gateway_fee,
         fixed_value: method.fixed_value,
@@ -79,6 +83,8 @@ const PaymentMethodSetup = () => {
       const { error } = await supabase
         .from("payment_methods")
         .update({
+          payment_type: method.payment_type,
+          payment_method: method.payment_method,
           gateway_fee: method.gateway_fee,
           fixed_value: method.fixed_value,
           vat_fee: method.vat_fee,
@@ -135,6 +141,7 @@ const PaymentMethodSetup = () => {
       });
 
       setNewMethod({
+        payment_type: "",
         payment_method: "",
         gateway_fee: 0,
         fixed_value: 0,
@@ -243,7 +250,10 @@ const PaymentMethodSetup = () => {
           ) : (
             <div className="space-y-4">
               {/* Header */}
-              <div className="grid grid-cols-5 gap-4 font-semibold text-sm pb-2 border-b">
+              <div className="grid grid-cols-6 gap-4 font-semibold text-sm pb-2 border-b">
+                <div className={language === "ar" ? "text-right" : ""}>
+                  {language === "ar" ? "طريقة الدفع" : "Payment Method"}
+                </div>
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "علامة الدفع التجارية" : "Payment Brand"}
                 </div>
@@ -263,8 +273,29 @@ const PaymentMethodSetup = () => {
 
               {/* Existing Payment Methods */}
               {paymentMethods.map((method) => (
-                <div key={method.id} className="grid grid-cols-5 gap-4 items-center">
-                  <div className="font-medium">{method.payment_method}</div>
+                <div key={method.id} className="grid grid-cols-6 gap-4 items-center">
+                  <Input
+                    value={method.payment_type || ""}
+                    onChange={(e) => {
+                      setPaymentMethods((prev) =>
+                        prev.map((m) =>
+                          m.id === method.id ? { ...m, payment_type: e.target.value } : m
+                        )
+                      );
+                    }}
+                    placeholder={language === "ar" ? "نوع الدفع" : "Payment type"}
+                  />
+                  <Input
+                    value={method.payment_method}
+                    onChange={(e) => {
+                      setPaymentMethods((prev) =>
+                        prev.map((m) =>
+                          m.id === method.id ? { ...m, payment_method: e.target.value } : m
+                        )
+                      );
+                    }}
+                    placeholder={language === "ar" ? "علامة الدفع" : "Payment brand"}
+                  />
                   <Input
                     type="number"
                     step="0.01"
@@ -318,9 +349,19 @@ const PaymentMethodSetup = () => {
               ))}
 
               {/* Add New Method */}
-              <div className="grid grid-cols-5 gap-4 items-center pt-4 border-t">
+              <div className="grid grid-cols-6 gap-4 items-center pt-4 border-t">
                 <Input
-                  placeholder={language === "ar" ? "اسم طريقة الدفع" : "Payment method name"}
+                  placeholder={language === "ar" ? "نوع الدفع" : "Payment method"}
+                  value={newMethod.payment_type}
+                  onChange={(e) =>
+                    setNewMethod((prev) => ({
+                      ...prev,
+                      payment_type: e.target.value,
+                    }))
+                  }
+                />
+                <Input
+                  placeholder={language === "ar" ? "علامة الدفع التجارية" : "Payment brand"}
                   value={newMethod.payment_method}
                   onChange={(e) =>
                     setNewMethod((prev) => ({
