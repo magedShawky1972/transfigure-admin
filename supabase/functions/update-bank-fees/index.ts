@@ -31,10 +31,12 @@ Deno.serve(async (req) => {
     console.log(`Found ${paymentMethods?.length || 0} payment methods:`, 
       paymentMethods?.map(pm => pm.payment_method));
 
-    // Get all transactions that need bank_fee calculation
+    // Get transactions where payment_method != 'point' and bank_fee is null
     const { data: transactions, error: txError } = await supabase
       .from('purpletransaction')
-      .select('id, payment_method, payment_brand, payment_type, total');
+      .select('id, payment_method, payment_brand, total')
+      .neq('payment_method', 'point')
+      .is('bank_fee', null);
 
     if (txError) {
       console.error('Error fetching transactions:', txError);
@@ -53,32 +55,26 @@ Deno.serve(async (req) => {
       const batch = transactions.slice(i, i + batchSize);
       
       const updates = batch.map(tx => {
-        // Normalize helper and try multiple candidate fields for matching
-        const norm = (s?: string | null) => (s?.toString().trim().toLowerCase() || '');
-        const candidates = [tx.payment_method, tx.payment_brand, tx.payment_type]
-          .map(norm)
-          .filter(Boolean) as string[];
-
-        const paymentMethod = paymentMethods.find(pm => {
-          const name = norm(pm.payment_method);
-          if (!name) return false;
-          return candidates.some(c => name === c || name.includes(c) || c.includes(name));
-        });
+        // Match on payment_brand against payment_method in payment_methods
+        const paymentMethod = paymentMethods.find(pm => 
+          pm.payment_method?.toLowerCase() === tx.payment_brand?.toLowerCase()
+        );
 
         let bankFee = 0;
         if (paymentMethod && tx.total) {
           const totalNum = Number(tx.total) || 0;
           const gatewayPct = Number(paymentMethod.gateway_fee) || 0;
-          const vatPct = Number(paymentMethod.vat_fee) || 0;
           const fixed = Number(paymentMethod.fixed_value) || 0;
 
+          // Apply 15% VAT to both gateway fee and fixed value
           const gatewayFee = (totalNum * gatewayPct) / 100;
-          const vatFee = (gatewayFee * vatPct) / 100;
-          bankFee = gatewayFee + vatFee + fixed;
+          const gatewayFeeWithVat = gatewayFee * 1.15;
+          const fixedWithVat = fixed * 1.15;
+          
+          bankFee = gatewayFeeWithVat + fixedWithVat;
           matchedCount++;
         } else {
-          // Track unmatched for visibility
-          const label = tx.payment_method || tx.payment_brand || tx.payment_type;
+          const label = tx.payment_brand;
           if (label) unmatchedMethods.add(label);
         }
 
