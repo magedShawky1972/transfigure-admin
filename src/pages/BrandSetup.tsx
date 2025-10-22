@@ -36,6 +36,7 @@ interface Brand {
   brand_name: string;
   short_name?: string;
   usd_value_for_coins?: number;
+  recharge_usd_value?: number;
   status: string;
   created_at: string;
   updated_at: string;
@@ -52,6 +53,7 @@ const BrandSetup = () => {
     brand_name: "",
     short_name: "",
     usd_value_for_coins: "",
+    recharge_usd_value: "",
     status: "active",
   });
   const [filterBrandName, setFilterBrandName] = useState("");
@@ -94,6 +96,7 @@ const BrandSetup = () => {
             brand_name: formData.brand_name,
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
+            recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             status: formData.status,
           })
           .eq("id", editingBrand.id);
@@ -110,6 +113,7 @@ const BrandSetup = () => {
             brand_name: formData.brand_name,
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
+            recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             status: formData.status,
           });
 
@@ -140,6 +144,7 @@ const BrandSetup = () => {
       brand_name: brand.brand_name,
       short_name: brand.short_name || "",
       usd_value_for_coins: brand.usd_value_for_coins?.toString() || "",
+      recharge_usd_value: brand.recharge_usd_value?.toString() || "",
       status: brand.status,
     });
     setDialogOpen(true);
@@ -177,6 +182,7 @@ const BrandSetup = () => {
       brand_name: "",
       short_name: "",
       usd_value_for_coins: "",
+      recharge_usd_value: "",
       status: "active",
     });
     setEditingBrand(null);
@@ -238,6 +244,7 @@ const BrandSetup = () => {
                 <TableHead>{t("brandSetup.brandName")}</TableHead>
                 <TableHead>Short Name</TableHead>
                 <TableHead>USD Value For Coins</TableHead>
+                <TableHead>Recharge USD Value</TableHead>
                 <TableHead>{t("brandSetup.status")}</TableHead>
                 <TableHead>{t("brandSetup.createdDate")}</TableHead>
                 <TableHead>{t("brandSetup.updatedDate")}</TableHead>
@@ -247,7 +254,7 @@ const BrandSetup = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -257,6 +264,7 @@ const BrandSetup = () => {
                     <TableCell className="font-medium">{brand.brand_name}</TableCell>
                     <TableCell>{brand.short_name || '-'}</TableCell>
                     <TableCell>{brand.usd_value_for_coins || 0}</TableCell>
+                    <TableCell>{brand.recharge_usd_value?.toFixed(3) || '0.000'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         brand.status === 'active' 
@@ -337,6 +345,20 @@ const BrandSetup = () => {
                     setFormData({ ...formData, usd_value_for_coins: e.target.value })
                   }
                   placeholder="Enter USD value for coins"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recharge_usd_value">Recharge USD Value</Label>
+                <Input
+                  id="recharge_usd_value"
+                  type="number"
+                  step="0.001"
+                  value={formData.recharge_usd_value}
+                  onChange={(e) =>
+                    setFormData({ ...formData, recharge_usd_value: e.target.value })
+                  }
+                  placeholder="Enter recharge USD value"
                 />
               </div>
 
