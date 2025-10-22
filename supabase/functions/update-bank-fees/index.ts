@@ -27,7 +27,8 @@ Deno.serve(async (req) => {
       throw pmError;
     }
 
-    console.log(`Found ${paymentMethods?.length || 0} payment methods`);
+    console.log(`Found ${paymentMethods?.length || 0} payment methods:`, 
+      paymentMethods?.map(pm => pm.payment_method));
 
     // Get all transactions that need bank_fee calculation
     const { data: transactions, error: txError } = await supabase
@@ -42,6 +43,8 @@ Deno.serve(async (req) => {
     console.log(`Processing ${transactions?.length || 0} transactions`);
 
     let updatedCount = 0;
+    let matchedCount = 0;
+    let unmatchedMethods = new Set();
     const batchSize = 100;
 
     // Process in batches
@@ -49,8 +52,11 @@ Deno.serve(async (req) => {
       const batch = transactions.slice(i, i + batchSize);
       
       const updates = batch.map(tx => {
+        // Case-insensitive and flexible matching
         const paymentMethod = paymentMethods.find(
-          pm => pm.payment_method === tx.payment_method
+          pm => pm.payment_method?.toLowerCase() === tx.payment_method?.toLowerCase() ||
+                pm.payment_method?.toLowerCase().includes(tx.payment_method?.toLowerCase()) ||
+                tx.payment_method?.toLowerCase().includes(pm.payment_method?.toLowerCase())
         );
 
         let bankFee = 0;
@@ -58,6 +64,9 @@ Deno.serve(async (req) => {
           const gatewayFee = (tx.total * paymentMethod.gateway_fee) / 100;
           const vatFee = (gatewayFee * paymentMethod.vat_fee) / 100;
           bankFee = gatewayFee + vatFee + paymentMethod.fixed_value;
+          matchedCount++;
+        } else if (tx.payment_method) {
+          unmatchedMethods.add(tx.payment_method);
         }
 
         return {
@@ -80,19 +89,27 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Bank fee update completed. Updated ${updatedCount} transactions.`);
+    console.log(`Matched ${matchedCount} transactions with payment methods.`);
+    
+    if (unmatchedMethods.size > 0) {
+      console.warn(`Unmatched payment methods found:`, Array.from(unmatchedMethods));
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully updated bank fees for ${updatedCount} transactions`,
-        updatedCount
+        message: `Successfully updated bank fees for ${updatedCount} transactions (${matchedCount} matched)`,
+        updatedCount,
+        matchedCount,
+        unmatchedMethods: Array.from(unmatchedMethods)
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error in update-bank-fees:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
