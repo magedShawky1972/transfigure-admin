@@ -254,7 +254,7 @@ const PaymentMethodSetup = () => {
                   {language === "ar" ? "القيمة الثابتة" : "Fixed Value"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
-                  {language === "ar" ? "رسوم القيمة المضافة" : "VAT Fee"}
+                  {language === "ar" ? "رسوم القيمة المضافة %" : "VAT Fee %"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "إجراءات" : "Actions"}
