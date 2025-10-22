@@ -101,6 +101,7 @@ const Dashboard = () => {
   const [paymentChargesDialogOpen, setPaymentChargesDialogOpen] = useState(false);
   const [paymentChargesBreakdown, setPaymentChargesBreakdown] = useState<any[]>([]);
   const [loadingPaymentCharges, setLoadingPaymentCharges] = useState(false);
+  const [regularTransactionsData, setRegularTransactionsData] = useState<Transaction[]>([]);
   
   // New Customers Dialog
   const [newCustomersCount, setNewCustomersCount] = useState(0);
@@ -272,6 +273,9 @@ const Dashboard = () => {
         // Separate point transactions from regular transactions
         const pointTransactions = transactions.filter(t => t.payment_method?.toLowerCase() === 'point');
         const regularTransactions = transactions.filter(t => t.payment_method?.toLowerCase() !== 'point');
+        
+        // Store regular transactions for payment charges dialog
+        setRegularTransactionsData(regularTransactions);
         
         // Total points from point payment transactions (cost, not revenue)
         const totalPoints = pointTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
@@ -1066,24 +1070,13 @@ const Dashboard = () => {
   const handlePaymentChargesClick = async () => {
     try {
       setLoadingPaymentCharges(true);
-      const dateRange = getDateRange();
-      if (!dateRange) return;
-
-      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
-      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
-
-      const { data, error } = await supabase
-        .from('purpletransaction')
-        .select('payment_brand, total, bank_fee')
-        .neq('payment_method', 'point')
-        .not('payment_method', 'is', null)
-        .gte('created_at_date', startStr)
-        .lt('created_at_date', endNextStr);
-
-      if (error) throw error;
+      
+      // Use already-loaded transaction data instead of making a new query
+      // This ensures consistency with the dashboard metrics
+      const data = regularTransactionsData.filter(t => t.payment_method && t.payment_method.toLowerCase() !== 'point');
 
       // Group by payment_brand and sum totals and bank_fees
-      const grouped = (data || []).reduce((acc: any, item) => {
+      const grouped = data.reduce((acc: any, item) => {
         const brand = item.payment_brand || 'Unknown';
         if (!acc[brand]) {
           acc[brand] = {
@@ -1101,7 +1094,7 @@ const Dashboard = () => {
       setPaymentChargesBreakdown(breakdown);
       setPaymentChargesDialogOpen(true);
     } catch (error) {
-      console.error('Error fetching payment charges:', error);
+      console.error('Error calculating payment charges:', error);
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في تحميل رسوم الدفع' : 'Failed to load payment charges',
