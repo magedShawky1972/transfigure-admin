@@ -491,6 +491,7 @@ const Dashboard = () => {
             const percentage = totalBrandRevenue > 0 ? ((item.value / totalBrandRevenue) * 100).toFixed(1) : '0.0';
             return {
               name: `${brandsMap[item.name] || item.name} (${percentage}%)`,
+              brandName: item.name, // Store original brand_name for drilldown
               value: item.value
             };
           });
@@ -885,9 +886,9 @@ const Dashboard = () => {
   };
 
   const handleBrandClick = (data: any) => {
-    if (!data || !data.name) return;
+    if (!data || !data.brandName) return;
     
-    const brandName = data.name;
+    const brandName = data.brandName; // Use the original brand_name stored in data
     setSelectedBrand(brandName);
     
     // Filter transactions by brand and aggregate products
