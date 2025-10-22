@@ -301,10 +301,10 @@ const PaymentMethodSetup = () => {
                     step="0.01"
                     value={method.gateway_fee}
                     onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
+                      const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                       setPaymentMethods((prev) =>
                         prev.map((m) =>
-                          m.id === method.id ? { ...m, gateway_fee: value } : m
+                          m.id === method.id ? { ...m, gateway_fee: isNaN(value) ? 0 : value } : m
                         )
                       );
                     }}
@@ -315,10 +315,10 @@ const PaymentMethodSetup = () => {
                     step="0.01"
                     value={method.fixed_value}
                     onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
+                      const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                       setPaymentMethods((prev) =>
                         prev.map((m) =>
-                          m.id === method.id ? { ...m, fixed_value: value } : m
+                          m.id === method.id ? { ...m, fixed_value: isNaN(value) ? 0 : value } : m
                         )
                       );
                     }}
@@ -329,10 +329,10 @@ const PaymentMethodSetup = () => {
                     step="0.01"
                     value={method.vat_fee}
                     onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
+                      const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                       setPaymentMethods((prev) =>
                         prev.map((m) =>
-                          m.id === method.id ? { ...m, vat_fee: value } : m
+                          m.id === method.id ? { ...m, vat_fee: isNaN(value) ? 0 : value } : m
                         )
                       );
                     }}
@@ -375,12 +375,13 @@ const PaymentMethodSetup = () => {
                   step="0.01"
                   placeholder="0.00"
                   value={newMethod.gateway_fee}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     setNewMethod((prev) => ({
                       ...prev,
-                      gateway_fee: parseFloat(e.target.value) || 0,
-                    }))
-                  }
+                      gateway_fee: isNaN(value) ? 0 : value,
+                    }));
+                  }}
                   className="text-right"
                 />
                 <Input
@@ -388,12 +389,13 @@ const PaymentMethodSetup = () => {
                   step="0.01"
                   placeholder="0"
                   value={newMethod.fixed_value}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     setNewMethod((prev) => ({
                       ...prev,
-                      fixed_value: parseFloat(e.target.value) || 0,
-                    }))
-                  }
+                      fixed_value: isNaN(value) ? 0 : value,
+                    }));
+                  }}
                   className="text-right"
                 />
                 <Input
@@ -401,12 +403,13 @@ const PaymentMethodSetup = () => {
                   step="0.01"
                   placeholder="0"
                   value={newMethod.vat_fee}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     setNewMethod((prev) => ({
                       ...prev,
-                      vat_fee: parseFloat(e.target.value) || 0,
-                    }))
-                  }
+                      vat_fee: isNaN(value) ? 0 : value,
+                    }));
+                  }}
                   className="text-right"
                 />
                 <Button onClick={handleAddMethod} size="icon">
