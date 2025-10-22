@@ -239,7 +239,7 @@ const PaymentMethodSetup = () => {
       <Card>
         <CardHeader>
           <CardTitle>
-            {language === "ar" ? "تخصيص عمولات هايبر باي" : "Customize HyperPay Commissions"}
+            {language === "ar" ? "عمولات البنوك" : "Bank Commissions"}
           </CardTitle>
         </CardHeader>
         <CardContent>
