@@ -35,6 +35,7 @@ interface Brand {
   id: string;
   brand_name: string;
   short_name?: string;
+  usd_value_for_coins?: number;
   status: string;
   created_at: string;
   updated_at: string;
@@ -50,6 +51,7 @@ const BrandSetup = () => {
   const [formData, setFormData] = useState({
     brand_name: "",
     short_name: "",
+    usd_value_for_coins: "",
     status: "active",
   });
   const [filterBrandName, setFilterBrandName] = useState("");
@@ -91,6 +93,7 @@ const BrandSetup = () => {
           .update({
             brand_name: formData.brand_name,
             short_name: formData.short_name,
+            usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             status: formData.status,
           })
           .eq("id", editingBrand.id);
@@ -106,6 +109,7 @@ const BrandSetup = () => {
           .insert({
             brand_name: formData.brand_name,
             short_name: formData.short_name,
+            usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             status: formData.status,
           });
 
@@ -135,6 +139,7 @@ const BrandSetup = () => {
     setFormData({
       brand_name: brand.brand_name,
       short_name: brand.short_name || "",
+      usd_value_for_coins: brand.usd_value_for_coins?.toString() || "",
       status: brand.status,
     });
     setDialogOpen(true);
@@ -171,6 +176,7 @@ const BrandSetup = () => {
     setFormData({
       brand_name: "",
       short_name: "",
+      usd_value_for_coins: "",
       status: "active",
     });
     setEditingBrand(null);
@@ -231,6 +237,7 @@ const BrandSetup = () => {
               <TableRow>
                 <TableHead>{t("brandSetup.brandName")}</TableHead>
                 <TableHead>Short Name</TableHead>
+                <TableHead>USD Value For Coins</TableHead>
                 <TableHead>{t("brandSetup.status")}</TableHead>
                 <TableHead>{t("brandSetup.createdDate")}</TableHead>
                 <TableHead>{t("brandSetup.updatedDate")}</TableHead>
@@ -240,7 +247,7 @@ const BrandSetup = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -249,6 +256,7 @@ const BrandSetup = () => {
                   <TableRow key={brand.id}>
                     <TableCell className="font-medium">{brand.brand_name}</TableCell>
                     <TableCell>{brand.short_name || '-'}</TableCell>
+                    <TableCell>{brand.usd_value_for_coins || 0}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         brand.status === 'active' 
@@ -315,6 +323,20 @@ const BrandSetup = () => {
                     setFormData({ ...formData, short_name: e.target.value })
                   }
                   placeholder="Enter short name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="usd_value_for_coins">USD Value For Coins</Label>
+                <Input
+                  id="usd_value_for_coins"
+                  type="number"
+                  step="0.01"
+                  value={formData.usd_value_for_coins}
+                  onChange={(e) =>
+                    setFormData({ ...formData, usd_value_for_coins: e.target.value })
+                  }
+                  placeholder="Enter USD value for coins"
                 />
               </div>
 

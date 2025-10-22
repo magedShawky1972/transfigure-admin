@@ -22,6 +22,7 @@ export type Database = {
           short_name: string | null
           status: string
           updated_at: string
+          usd_value_for_coins: number | null
         }
         Insert: {
           brand_name: string
@@ -30,6 +31,7 @@ export type Database = {
           short_name?: string | null
           status?: string
           updated_at?: string
+          usd_value_for_coins?: number | null
         }
         Update: {
           brand_name?: string
@@ -38,6 +40,7 @@ export type Database = {
           short_name?: string | null
           status?: string
           updated_at?: string
+          usd_value_for_coins?: number | null
         }
         Relationships: []
       }
