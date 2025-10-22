@@ -667,7 +667,7 @@ const Dashboard = () => {
           .filter((item: any) => item.total_coins > 0)
           .map((item: any) => ({
             ...item,
-            usd_cost: item.usd_value > 0 ? item.total_coins / item.usd_value : 0
+            usd_cost: item.usd_value > 0 ? item.total_coins * item.usd_value : 0
           }))
           .sort((a: any, b: any) => b.total_coins - a.total_coins);
         setCoinsByBrand(sortedCoins);
