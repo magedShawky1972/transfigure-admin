@@ -176,6 +176,10 @@ const translations = {
     "uploadLog.failed": "Failed",
     "uploadLog.processing": "Processing",
     "uploadLog.close": "Close",
+    "uploadLog.updateBankFees": "Update Bank Fees",
+    "uploadLog.updatingBankFees": "Updating bank fees...",
+    "uploadLog.bankFeesUpdated": "Bank fees updated successfully",
+    "uploadLog.bankFeesUpdateError": "Error updating bank fees",
     
     // Dashboard - Sales Analytics
     "dashboard.title": "Sales Dashboard",
@@ -515,6 +519,10 @@ const translations = {
     "uploadLog.failed": "فشل",
     "uploadLog.processing": "جاري المعالجة",
     "uploadLog.close": "إغلاق",
+    "uploadLog.updateBankFees": "تحديث رسوم البنك",
+    "uploadLog.updatingBankFees": "جاري تحديث رسوم البنك...",
+    "uploadLog.bankFeesUpdated": "تم تحديث رسوم البنك بنجاح",
+    "uploadLog.bankFeesUpdateError": "خطأ في تحديث رسوم البنك",
     
     // Dashboard - Sales Analytics
     "dashboard.title": "لوحة المبيعات",

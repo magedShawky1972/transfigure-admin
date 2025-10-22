@@ -457,6 +457,19 @@ const LoadData = () => {
       setSelectedSheet("");
       setPendingUploadData(null);
 
+      // Auto-update bank fees after successful upload
+      try {
+        console.log("Updating bank fees...");
+        const { error: bankFeeError } = await supabase.functions.invoke('update-bank-fees');
+        if (bankFeeError) {
+          console.error("Error updating bank fees:", bankFeeError);
+        } else {
+          console.log("Bank fees updated successfully");
+        }
+      } catch (bankFeeError) {
+        console.error("Error updating bank fees:", bankFeeError);
+      }
+
       // Trigger a custom event to notify other components to refresh
       window.dispatchEvent(new CustomEvent('dataUploaded'));
     } catch (error: any) {

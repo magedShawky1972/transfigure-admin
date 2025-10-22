@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Calendar, FileSpreadsheet, User, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -37,7 +37,6 @@ interface UploadSummary {
 
 const UploadLog = () => {
   const { t } = useLanguage();
-  const { toast } = useToast();
   const [logs, setLogs] = useState<UploadLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
@@ -57,11 +56,7 @@ const UploadLog = () => {
       .order("upload_date", { ascending: false });
 
     if (error) {
-      toast({
-        title: "Error loading upload logs",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Error loading upload logs: " + error.message);
     } else {
       setLogs(data || []);
     }
@@ -85,6 +80,20 @@ const UploadLog = () => {
       recordsProcessed: log.records_processed || 0,
     });
     setShowSummaryDialog(true);
+  };
+
+  const updateBankFees = async () => {
+    try {
+      toast.loading(t("uploadLog.updatingBankFees"));
+      const { error } = await supabase.functions.invoke('update-bank-fees');
+      
+      if (error) throw error;
+      
+      toast.success(t("uploadLog.bankFeesUpdated"));
+    } catch (error: any) {
+      console.error("Error updating bank fees:", error);
+      toast.error(t("uploadLog.bankFeesUpdateError"));
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -283,12 +292,21 @@ const UploadLog = () => {
             </div>
           )}
 
-          <Button 
-            onClick={() => setShowSummaryDialog(false)}
-            className="w-full bg-gradient-to-r from-primary to-accent"
-          >
-            {t("uploadLog.close")}
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              onClick={updateBankFees}
+              className="w-full"
+            >
+              {t("uploadLog.updateBankFees")}
+            </Button>
+            
+            <Button 
+              onClick={() => setShowSummaryDialog(false)}
+              className="w-full bg-gradient-to-r from-primary to-accent"
+            >
+              {t("uploadLog.close")}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
