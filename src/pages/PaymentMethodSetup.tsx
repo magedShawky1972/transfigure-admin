@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Save } from "lucide-react";
 import { z } from "zod";
 
 interface PaymentMethod {
@@ -347,10 +347,10 @@ const PaymentMethodSetup = () => {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   <Button
-                    size="sm"
+                    size="icon"
                     onClick={() => handleUpdateMethod(method)}
                   >
-                    {language === "ar" ? "حفظ" : "Save"}
+                    <Save className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
