@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
     // Get all payment methods with their fees
     const { data: paymentMethods, error: pmError } = await supabase
       .from('payment_methods')
-      .select('payment_method, gateway_fee, fixed_value, vat_fee');
+      .select('payment_method, gateway_fee, fixed_value, vat_fee')
+      .eq('is_active', true);
 
     if (pmError) {
       console.error('Error fetching payment methods:', pmError);
@@ -33,7 +34,7 @@ Deno.serve(async (req) => {
     // Get all transactions that need bank_fee calculation
     const { data: transactions, error: txError } = await supabase
       .from('purpletransaction')
-      .select('id, payment_method, total');
+      .select('id, payment_method, payment_brand, payment_type, total');
 
     if (txError) {
       console.error('Error fetching transactions:', txError);
@@ -52,21 +53,33 @@ Deno.serve(async (req) => {
       const batch = transactions.slice(i, i + batchSize);
       
       const updates = batch.map(tx => {
-        // Case-insensitive and flexible matching
-        const paymentMethod = paymentMethods.find(
-          pm => pm.payment_method?.toLowerCase() === tx.payment_method?.toLowerCase() ||
-                pm.payment_method?.toLowerCase().includes(tx.payment_method?.toLowerCase()) ||
-                tx.payment_method?.toLowerCase().includes(pm.payment_method?.toLowerCase())
-        );
+        // Normalize helper and try multiple candidate fields for matching
+        const norm = (s?: string | null) => (s?.toString().trim().toLowerCase() || '');
+        const candidates = [tx.payment_method, tx.payment_brand, tx.payment_type]
+          .map(norm)
+          .filter(Boolean) as string[];
+
+        const paymentMethod = paymentMethods.find(pm => {
+          const name = norm(pm.payment_method);
+          if (!name) return false;
+          return candidates.some(c => name === c || name.includes(c) || c.includes(name));
+        });
 
         let bankFee = 0;
         if (paymentMethod && tx.total) {
-          const gatewayFee = (tx.total * paymentMethod.gateway_fee) / 100;
-          const vatFee = (gatewayFee * paymentMethod.vat_fee) / 100;
-          bankFee = gatewayFee + vatFee + paymentMethod.fixed_value;
+          const totalNum = Number(tx.total) || 0;
+          const gatewayPct = Number(paymentMethod.gateway_fee) || 0;
+          const vatPct = Number(paymentMethod.vat_fee) || 0;
+          const fixed = Number(paymentMethod.fixed_value) || 0;
+
+          const gatewayFee = (totalNum * gatewayPct) / 100;
+          const vatFee = (gatewayFee * vatPct) / 100;
+          bankFee = gatewayFee + vatFee + fixed;
           matchedCount++;
-        } else if (tx.payment_method) {
-          unmatchedMethods.add(tx.payment_method);
+        } else {
+          // Track unmatched for visibility
+          const label = tx.payment_method || tx.payment_brand || tx.payment_type;
+          if (label) unmatchedMethods.add(label);
         }
 
         return {
