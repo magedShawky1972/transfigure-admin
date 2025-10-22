@@ -250,7 +250,7 @@ const PaymentMethodSetup = () => {
           ) : (
             <div className="space-y-4">
               {/* Header */}
-              <div className="grid grid-cols-7 gap-4 font-semibold text-sm pb-2 border-b">
+              <div className="grid grid-cols-6 gap-4 font-semibold text-sm pb-2 border-b">
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "طريقة الدفع" : "Payment Method"}
                 </div>
@@ -269,12 +269,11 @@ const PaymentMethodSetup = () => {
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "إجراءات" : "Actions"}
                 </div>
-                <div></div>
               </div>
 
               {/* Existing Payment Methods */}
               {paymentMethods.map((method) => (
-                <div key={method.id} className="grid grid-cols-7 gap-4 items-center">
+                <div key={method.id} className="grid grid-cols-6 gap-4 items-center">
                   <Input
                     value={method.payment_type || ""}
                     onChange={(e) => {
@@ -339,24 +338,26 @@ const PaymentMethodSetup = () => {
                     }}
                     className="text-right"
                   />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => handleDeleteMethod(method.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    onClick={() => handleUpdateMethod(method)}
-                  >
-                    <Save className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="icon"
+                      onClick={() => handleUpdateMethod(method)}
+                    >
+                      <Save className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDeleteMethod(method.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
 
               {/* Add New Method */}
-              <div className="grid grid-cols-7 gap-4 items-center pt-4 border-t">
+              <div className="grid grid-cols-6 gap-4 items-center pt-4 border-t">
                 <Input
                   placeholder={language === "ar" ? "نوع الدفع" : "Payment method"}
                   value={newMethod.payment_type}
@@ -422,7 +423,6 @@ const PaymentMethodSetup = () => {
                 <Button onClick={handleAddMethod} size="icon">
                   <Plus className="h-4 w-4" />
                 </Button>
-                <div></div>
               </div>
 
               {/* Action Buttons */}
