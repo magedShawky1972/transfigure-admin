@@ -22,6 +22,7 @@ interface UploadLog {
   new_customers_count: number;
   new_products_count: number;
   total_value: number;
+  duplicates_found: number;
   date_range_start: string | null;
   date_range_end: string | null;
 }
@@ -30,6 +31,7 @@ interface UploadSummary {
   newCustomers: number;
   newProducts: number;
   totalValue: number;
+  duplicatesFound: number;
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
   recordsProcessed: number;
@@ -75,6 +77,7 @@ const UploadLog = () => {
       newCustomers: log.new_customers_count || 0,
       newProducts: log.new_products_count || 0,
       totalValue: log.total_value || 0,
+      duplicatesFound: log.duplicates_found || 0,
       dateRangeStart: log.date_range_start,
       dateRangeEnd: log.date_range_end,
       recordsProcessed: log.records_processed || 0,
@@ -274,6 +277,11 @@ const UploadLog = () => {
                 <div className="bg-muted/50 p-3 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">{t("uploadLog.newProducts")}</p>
                   <p className="text-xl font-semibold">{selectedSummary.newProducts}</p>
+                </div>
+
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Duplicates Found</p>
+                  <p className="text-xl font-semibold text-orange-500">{selectedSummary.duplicatesFound}</p>
                 </div>
               </div>
 

@@ -142,11 +142,39 @@ Deno.serve(async (req) => {
       console.log('Bank fee calculation completed');
     }
 
-    console.log(`Inserting ${validData.length} valid rows into ${tableName}`);
+    // Deduplicate within the batch to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+    // Keep only the most recent transaction for each order_number
+    const duplicatesMap = new Map<string, any>();
+    const originalCount = validData.length;
+    
+    validData.forEach((row: any) => {
+      const orderNumber = row.order_number;
+      if (!orderNumber) {
+        // If no order_number, add it directly with a unique key
+        duplicatesMap.set(`no_order_${Math.random()}`, row);
+        return;
+      }
+      
+      const existing = duplicatesMap.get(orderNumber);
+      if (!existing) {
+        duplicatesMap.set(orderNumber, row);
+      } else {
+        // Keep the one with the latest created_at_date
+        const existingDate = existing.created_at_date ? new Date(existing.created_at_date).getTime() : 0;
+        const newDate = row.created_at_date ? new Date(row.created_at_date).getTime() : 0;
+        if (newDate > existingDate) {
+          duplicatesMap.set(orderNumber, row);
+        }
+      }
+    });
+    
+    const deduplicatedData = Array.from(duplicatesMap.values());
+    const duplicatesFound = originalCount - deduplicatedData.length;
+    
+    console.log(`Found ${duplicatesFound} duplicates within batch. Inserting ${deduplicatedData.length} unique rows into ${tableName}`);
 
-    // Upsert the data with a simple retry that removes unknown columns if necessary
-    // This will update existing orders with the same order_number instead of inserting duplicates
-    let rowsToInsert = validData;
+    // Upsert the deduplicated data with a simple retry that removes unknown columns if necessary
+    let rowsToInsert = deduplicatedData;
     for (let attempt = 0; attempt < 3; attempt++) {
       const { error: insertError } = await supabase
         .from(tableName)
@@ -297,7 +325,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        count: validData.length,
+        count: deduplicatedData.length,
+        duplicatesFound,
         totalValue,
         dateRange: {
           from: uniqueDates[0] || null,
@@ -305,7 +334,7 @@ Deno.serve(async (req) => {
         },
         productsUpserted,
         brandsUpserted,
-        message: `Successfully loaded ${validData.length} records${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}`
+        message: `Successfully loaded ${deduplicatedData.length} records${duplicatesFound > 0 ? ` (${duplicatesFound} duplicates found)` : ''}${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

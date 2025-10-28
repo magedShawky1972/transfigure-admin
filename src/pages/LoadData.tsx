@@ -53,6 +53,7 @@ const LoadData = () => {
     dateRange: { from: string; to: string };
     newCustomers: number;
     newProducts: number;
+    duplicatesFound: number;
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -391,6 +392,7 @@ const LoadData = () => {
       let totalProcessed = 0;
       let totalValue = 0;
       let totalProductsUpserted = 0;
+      let totalDuplicates = 0;
       let allDates: string[] = [];
 
       // Process each batch
@@ -409,6 +411,7 @@ const LoadData = () => {
         totalProcessed += result.count;
         totalValue += result.totalValue || 0;
         totalProductsUpserted += result.productsUpserted || 0;
+        totalDuplicates += result.duplicatesFound || 0;
         
         if (result.dateRange?.from) allDates.push(result.dateRange.from);
         if (result.dateRange?.to) allDates.push(result.dateRange.to);
@@ -437,6 +440,7 @@ const LoadData = () => {
             new_customers_count: newCustomersCount,
             new_products_count: totalProductsUpserted,
             total_value: totalValue,
+            duplicates_found: totalDuplicates,
             date_range_start: sortedDates[0] || null,
             date_range_end: sortedDates[sortedDates.length - 1] || null,
           })
@@ -449,7 +453,8 @@ const LoadData = () => {
         totalValue,
         dateRange,
         newCustomers: newCustomersCount,
-        newProducts: totalProductsUpserted
+        newProducts: totalProductsUpserted,
+        duplicatesFound: totalDuplicates
       });
       setShowSummaryDialog(true);
 
@@ -652,6 +657,11 @@ const LoadData = () => {
                 <div className="bg-muted/50 p-3 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">New Products</p>
                   <p className="text-xl font-semibold">{uploadSummary.newProducts}</p>
+                </div>
+
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Duplicates Found</p>
+                  <p className="text-xl font-semibold text-orange-500">{uploadSummary.duplicatesFound}</p>
                 </div>
               </div>
 
