@@ -394,6 +394,7 @@ const LoadData = () => {
       let totalProductsUpserted = 0;
       let totalDuplicates = 0;
       let allDates: string[] = [];
+      let allDuplicateOrders: string[] = [];
 
       // Process each batch
       for (let i = 0; i < batches.length; i++) {
@@ -412,6 +413,10 @@ const LoadData = () => {
         totalValue += result.totalValue || 0;
         totalProductsUpserted += result.productsUpserted || 0;
         totalDuplicates += result.duplicatesFound || 0;
+        
+        if (result.duplicateOrders && result.duplicateOrders.length > 0) {
+          allDuplicateOrders.push(...result.duplicateOrders);
+        }
         
         if (result.dateRange?.from) allDates.push(result.dateRange.from);
         if (result.dateRange?.to) allDates.push(result.dateRange.to);
@@ -441,6 +446,7 @@ const LoadData = () => {
             new_products_count: totalProductsUpserted,
             total_value: totalValue,
             duplicates_found: totalDuplicates,
+            duplicate_orders: allDuplicateOrders,
             date_range_start: sortedDates[0] || null,
             date_range_end: sortedDates[sortedDates.length - 1] || null,
           })

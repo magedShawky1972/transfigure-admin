@@ -146,6 +146,7 @@ Deno.serve(async (req) => {
     // Keep only the most recent transaction for each order_number
     const duplicatesMap = new Map<string, any>();
     const originalCount = validData.length;
+    const duplicateOrders: string[] = [];
     
     validData.forEach((row: any) => {
       const orderNumber = row.order_number;
@@ -159,6 +160,8 @@ Deno.serve(async (req) => {
       if (!existing) {
         duplicatesMap.set(orderNumber, row);
       } else {
+        // This is a duplicate
+        duplicateOrders.push(orderNumber);
         // Keep the one with the latest created_at_date
         const existingDate = existing.created_at_date ? new Date(existing.created_at_date).getTime() : 0;
         const newDate = row.created_at_date ? new Date(row.created_at_date).getTime() : 0;
@@ -327,6 +330,7 @@ Deno.serve(async (req) => {
         success: true, 
         count: deduplicatedData.length,
         duplicatesFound,
+        duplicateOrders,
         totalValue,
         dateRange: {
           from: uniqueDates[0] || null,
