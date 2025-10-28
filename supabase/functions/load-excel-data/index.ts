@@ -144,15 +144,19 @@ Deno.serve(async (req) => {
 
     console.log(`Inserting ${validData.length} valid rows into ${tableName}`);
 
-    // Insert the data with a simple retry that removes unknown columns if necessary
+    // Upsert the data with a simple retry that removes unknown columns if necessary
+    // This will update existing orders with the same order_number instead of inserting duplicates
     let rowsToInsert = validData;
     for (let attempt = 0; attempt < 3; attempt++) {
       const { error: insertError } = await supabase
         .from(tableName)
-        .insert(rowsToInsert);
+        .upsert(rowsToInsert, { 
+          onConflict: 'order_number',
+          ignoreDuplicates: false 
+        });
 
       if (!insertError) {
-        console.log(`Successfully inserted ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
+        console.log(`Successfully upserted ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
         break;
       }
 
