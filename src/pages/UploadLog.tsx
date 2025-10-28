@@ -22,8 +22,6 @@ interface UploadLog {
   new_customers_count: number;
   new_products_count: number;
   total_value: number;
-  duplicates_found: number;
-  duplicate_orders: string[];
   date_range_start: string | null;
   date_range_end: string | null;
 }
@@ -32,8 +30,6 @@ interface UploadSummary {
   newCustomers: number;
   newProducts: number;
   totalValue: number;
-  duplicatesFound: number;
-  duplicateOrders: string[];
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
   recordsProcessed: number;
@@ -47,8 +43,6 @@ const UploadLog = () => {
   const [showDatesDialog, setShowDatesDialog] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<UploadSummary | null>(null);
   const [showSummaryDialog, setShowSummaryDialog] = useState(false);
-  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
-  const [duplicateOrders, setDuplicateOrders] = useState<string[]>([]);
 
   useEffect(() => {
     loadUploadLogs();
@@ -64,11 +58,7 @@ const UploadLog = () => {
     if (error) {
       toast.error("Error loading upload logs: " + error.message);
     } else {
-      const typedData = (data || []).map(log => ({
-        ...log,
-        duplicate_orders: Array.isArray(log.duplicate_orders) ? log.duplicate_orders : []
-      })) as UploadLog[];
-      setLogs(typedData);
+      setLogs(data || []);
     }
     setIsLoading(false);
   };
@@ -85,18 +75,11 @@ const UploadLog = () => {
       newCustomers: log.new_customers_count || 0,
       newProducts: log.new_products_count || 0,
       totalValue: log.total_value || 0,
-      duplicatesFound: log.duplicates_found || 0,
-      duplicateOrders: log.duplicate_orders || [],
       dateRangeStart: log.date_range_start,
       dateRangeEnd: log.date_range_end,
       recordsProcessed: log.records_processed || 0,
     });
     setShowSummaryDialog(true);
-  };
-
-  const showDuplicates = (orders: string[]) => {
-    setDuplicateOrders(orders);
-    setShowDuplicatesDialog(true);
   };
 
   const updateBankFees = async () => {
@@ -292,23 +275,6 @@ const UploadLog = () => {
                   <p className="text-xs text-muted-foreground mb-1">{t("uploadLog.newProducts")}</p>
                   <p className="text-xl font-semibold">{selectedSummary.newProducts}</p>
                 </div>
-
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Duplicates Found</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xl font-semibold text-orange-500">{selectedSummary.duplicatesFound}</p>
-                    {selectedSummary.duplicatesFound > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => showDuplicates(selectedSummary.duplicateOrders)}
-                        className="ml-2"
-                      >
-                        {t("uploadLog.view")}
-                      </Button>
-                    )}
-                  </div>
-                </div>
               </div>
 
               <div className="bg-muted/50 p-3 rounded-lg">
@@ -346,30 +312,6 @@ const UploadLog = () => {
             >
               {t("uploadLog.close")}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDuplicatesDialog} onOpenChange={setShowDuplicatesDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Duplicate Orders Found</DialogTitle>
-            <DialogDescription>
-              These order numbers were duplicated in the uploaded file
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-2">
-              {duplicateOrders.map((orderNumber, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 rounded-md bg-muted border border-orange-200"
-                >
-                  <AlertCircle className="h-4 w-4 text-orange-500" />
-                  <span className="font-mono text-sm">{orderNumber}</span>
-                </div>
-              ))}
-            </div>
           </div>
         </DialogContent>
       </Dialog>

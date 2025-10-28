@@ -438,8 +438,6 @@ export type Database = {
           created_at: string
           date_range_end: string | null
           date_range_start: string | null
-          duplicate_orders: Json | null
-          duplicates_found: number | null
           error_message: string | null
           excel_dates: Json | null
           file_name: string
@@ -459,8 +457,6 @@ export type Database = {
           created_at?: string
           date_range_end?: string | null
           date_range_start?: string | null
-          duplicate_orders?: Json | null
-          duplicates_found?: number | null
           error_message?: string | null
           excel_dates?: Json | null
           file_name: string
@@ -480,8 +476,6 @@ export type Database = {
           created_at?: string
           date_range_end?: string | null
           date_range_start?: string | null
-          duplicate_orders?: Json | null
-          duplicates_found?: number | null
           error_message?: string | null
           excel_dates?: Json | null
           file_name?: string
