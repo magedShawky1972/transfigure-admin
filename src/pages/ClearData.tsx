@@ -163,8 +163,17 @@ const ClearData = () => {
                     {fromDate ? format(fromDate, "PPP") : <span>{t("clearData.fromDate")}</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus />
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar 
+                    mode="single" 
+                    selected={fromDate} 
+                    onSelect={setFromDate} 
+                    initialFocus
+                    captionLayout="dropdown-buttons"
+                    fromYear={2020}
+                    toYear={new Date().getFullYear() + 1}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -184,8 +193,17 @@ const ClearData = () => {
                     {toDate ? format(toDate, "PPP") : <span>{t("clearData.toDate")}</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus />
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar 
+                    mode="single" 
+                    selected={toDate} 
+                    onSelect={setToDate} 
+                    initialFocus
+                    captionLayout="dropdown-buttons"
+                    fromYear={2020}
+                    toYear={new Date().getFullYear() + 1}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
                 </PopoverContent>
               </Popover>
             </div>
