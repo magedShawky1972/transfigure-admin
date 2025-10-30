@@ -672,6 +672,14 @@ export type Database = {
           total_sum: number
         }[]
       }
+      transactions_summary: {
+        Args: { date_from: string; date_to: string }
+        Returns: {
+          total_profit: number
+          total_sales: number
+          tx_count: number
+        }[]
+      }
       update_bank_fees_from_payment_brand: { Args: never; Returns: number }
     }
     Enums: {

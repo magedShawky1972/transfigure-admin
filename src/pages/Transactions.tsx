@@ -215,32 +215,26 @@ const Transactions = () => {
     try {
       const start = startOfDay(fromDate || subDays(new Date(), 1));
       const end = endOfDay(toDate || new Date());
-      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
-      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
+      const dateFrom = format(start, 'yyyy-MM-dd');
+      const dateTo = format(end, 'yyyy-MM-dd');
 
-      const tableAgg = 'purpletransaction_enriched';
+      // Use RPC function for proper server-side aggregation
+      const { data, error } = await supabase.rpc('transactions_summary', {
+        date_from: dateFrom,
+        date_to: dateTo
+      });
 
-      // Run server-side aggregates to avoid 1k row limits
-      const [sumRes, countHead] = await Promise.all([
-        (supabase as any)
-          .from(tableAgg)
-          .select('sum_total:sum(total_num),sum_profit:sum(profit_num)')
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
-          .maybeSingle(),
-        (supabase as any)
-          .from(tableAgg)
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
-      ]);
+      if (error) throw error;
 
-      if (sumRes.error) throw sumRes.error;
-
-      const sums = (sumRes.data || {}) as { sum_total?: number; sum_profit?: number };
-      setTotalSalesAll(Number(sums.sum_total) || 0);
-      setTotalProfitAll(Number(sums.sum_profit) || 0);
-      setTotalCountAll(countHead.count || 0);
+      if (data && data.length > 0) {
+        setTotalSalesAll(Number(data[0].total_sales) || 0);
+        setTotalProfitAll(Number(data[0].total_profit) || 0);
+        setTotalCountAll(Number(data[0].tx_count) || 0);
+      } else {
+        setTotalSalesAll(0);
+        setTotalProfitAll(0);
+        setTotalCountAll(0);
+      }
     } catch (error) {
       console.error('Error fetching totals:', error);
     }
