@@ -1088,18 +1088,20 @@ const Dashboard = () => {
       // This ensures consistency with the dashboard metrics
       const data = regularTransactionsData.filter(t => t.payment_method && t.payment_method.toLowerCase() !== 'point');
 
-      // Group by payment_brand and sum totals and bank_fees
+      // Group by payment_brand and sum totals, bank_fees, and count transactions
       const grouped = data.reduce((acc: any, item) => {
         const brand = item.payment_brand || 'Unknown';
         if (!acc[brand]) {
           acc[brand] = {
             payment_brand: brand,
             total: 0,
-            bank_fee: 0
+            bank_fee: 0,
+            transaction_count: 0
           };
         }
         acc[brand].total += parseNumber(item.total);
         acc[brand].bank_fee += parseNumber(item.bank_fee);
+        acc[brand].transaction_count += 1;
         return acc;
       }, {});
 
@@ -2449,20 +2451,25 @@ const Dashboard = () => {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-3 gap-4 font-semibold text-sm border-b pb-2">
+                  <div className="grid grid-cols-4 gap-4 font-semibold text-sm border-b pb-2">
                     <div className="text-left">{language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}</div>
+                    <div className="text-right">{language === 'ar' ? 'عدد المعاملات' : 'Transactions'}</div>
                     <div className="text-right">{language === 'ar' ? 'المبيعات' : 'Total Sales'}</div>
                     <div className="text-right">{language === 'ar' ? 'رسوم البنك' : 'Bank Fee'}</div>
                   </div>
                   {paymentChargesBreakdown.map((item, index) => (
-                    <div key={index} className="grid grid-cols-3 gap-4 py-2 border-b">
+                    <div key={index} className="grid grid-cols-4 gap-4 py-2 border-b">
                       <div className="text-sm">{item.payment_brand}</div>
+                      <div className="text-sm text-right">{item.transaction_count?.toLocaleString() || 0}</div>
                       <div className="text-sm text-right">{formatCurrency(item.total)}</div>
                       <div className="text-sm font-medium text-right">{formatCurrency(item.bank_fee)}</div>
                     </div>
                   ))}
-                  <div className="grid grid-cols-3 gap-4 pt-4 font-bold border-t-2">
+                  <div className="grid grid-cols-4 gap-4 pt-4 font-bold border-t-2">
                     <div className="text-left">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                    <div className="text-right">
+                      {paymentChargesBreakdown.reduce((sum, item) => sum + (item.transaction_count || 0), 0).toLocaleString()}
+                    </div>
                     <div className="text-right">
                       {formatCurrency(paymentChargesBreakdown.reduce((sum, item) => sum + item.total, 0))}
                     </div>
