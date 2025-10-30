@@ -31,19 +31,26 @@ Deno.serve(async (req) => {
     console.log(`Found ${paymentMethods?.length || 0} payment methods:`, 
       paymentMethods?.map(pm => pm.payment_method));
 
+    // Build a list of method names to filter only matchable transactions
+    const methodNames = (paymentMethods || [])
+      .map(pm => (pm.payment_method || '').trim())
+      .filter(Boolean);
+
+
     // Count total transactions to update
     const { count, error: countError } = await supabase
       .from('purpletransaction')
       .select('*', { count: 'exact', head: true })
       .neq('payment_method', 'point')
-      .is('bank_fee', null);
+      .or('bank_fee.is.null,bank_fee.eq.0')
+      .in('payment_brand', methodNames);
 
     if (countError) {
       console.error('Error counting transactions:', countError);
       throw countError;
     }
 
-    console.log(`Total transactions to update: ${count || 0}`);
+    console.log(`Total transactions to update (eligible brands only): ${count || 0}`);
 
     let updatedCount = 0;
     let matchedCount = 0;
@@ -59,7 +66,9 @@ Deno.serve(async (req) => {
         .from('purpletransaction')
         .select('id, payment_method, payment_brand, total')
         .neq('payment_method', 'point')
-        .is('bank_fee', null)
+        .or('bank_fee.is.null,bank_fee.eq.0')
+        .in('payment_brand', methodNames)
+        .order('id', { ascending: true })
         .limit(batchSize);
 
       if (txError) {
@@ -74,9 +83,10 @@ Deno.serve(async (req) => {
       }
 
       const updates = transactions.map(tx => {
-        // Match on payment_brand against payment_method in payment_methods
+        // Match on payment_brand against payment_method in payment_methods (trim + lowercase)
+        const brand = (tx.payment_brand || '').trim().toLowerCase();
         const paymentMethod = paymentMethods.find(pm => 
-          pm.payment_method?.toLowerCase() === tx.payment_brand?.toLowerCase()
+          (pm.payment_method || '').trim().toLowerCase() === brand
         );
 
         let bankFee = 0;
