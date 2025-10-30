@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon, Settings2 } from "lucide-react";
@@ -58,7 +59,7 @@ const Transactions = () => {
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [customers, setCustomers] = useState<string[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const pageSize = 500;
 
   const allColumns = [
@@ -113,7 +114,6 @@ const Transactions = () => {
 
   useEffect(() => {
     setPage(1);
-    setTransactions([]); // Clear when sort/filter changes
   }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
   useEffect(() => {
@@ -168,6 +168,15 @@ const Transactions = () => {
         q = q.order('created_at_date', { ascending: false });
       }
 
+      // Get total count with same filters
+      let countQuery = (supabase as any).from(table).select('*', { count: 'exact', head: true });
+      countQuery = countQuery.gte('created_at_date', startStr).lte('created_at_date', endStr);
+      if (phone) countQuery = countQuery.ilike('customer_phone', `%${phone}%`);
+      if (orderNo) countQuery = countQuery.ilike('order_number', `%${orderNo}%`);
+      
+      const { count } = await countQuery;
+      setTotalCount(count || 0);
+
       // Pagination
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -175,17 +184,7 @@ const Transactions = () => {
 
       if (error) throw error;
       const rows = (data as any) as Transaction[];
-      setHasMore(rows.length === pageSize);
-      setTransactions(prev => {
-        if (page === 1) return rows;
-        const merged = [...prev, ...rows];
-        const seen = new Set<string>();
-        return merged.filter(t => {
-          if (seen.has(t.id)) return false;
-          seen.add(t.id);
-          return true;
-        });
-      });
+      setTransactions(rows);
 
       if (page === 1) {
         const uniqueBrands = [...new Set(rows.map(t => t.brand_name).filter(Boolean))];
@@ -656,11 +655,58 @@ const Transactions = () => {
               </Table>
             )}
           </div>
-          {!loading && hasMore && (
+          {!loading && sortedTransactions.length > 0 && (
             <div className="flex justify-center mt-4">
-              <Button variant="outline" onClick={() => setPage(p => p + 1)}>
-                {language === 'ar' ? 'تحميل المزيد' : 'Load more'}
-              </Button>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: Math.min(5, Math.ceil(totalCount / pageSize)) }, (_, i) => {
+                    const totalPages = Math.ceil(totalCount / pageSize);
+                    let pageNum: number;
+                    
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (page <= 3) {
+                      pageNum = i + 1;
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = page - 2 + i;
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => setPage(pageNum)}
+                          isActive={page === pageNum}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  {Math.ceil(totalCount / pageSize) > 5 && page < Math.ceil(totalCount / pageSize) - 2 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
+                      className={page >= Math.ceil(totalCount / pageSize) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
         </CardContent>
