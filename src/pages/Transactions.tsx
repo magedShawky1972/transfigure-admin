@@ -60,6 +60,8 @@ const Transactions = () => {
   const [customers, setCustomers] = useState<string[]>([]);
   const [page, setPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalSales, setTotalSales] = useState<number>(0);
+  const [totalProfit, setTotalProfit] = useState<number>(0);
   const pageSize = 500;
 
   const allColumns = [
@@ -168,14 +170,23 @@ const Transactions = () => {
         q = q.order('created_at_date', { ascending: false });
       }
 
-      // Get total count with same filters
-      let countQuery = (supabase as any).from(table).select('*', { count: 'exact', head: true });
-      countQuery = countQuery.gte('created_at_date', startStr).lte('created_at_date', endStr);
-      if (phone) countQuery = countQuery.ilike('customer_phone', `%${phone}%`);
-      if (orderNo) countQuery = countQuery.ilike('order_number', `%${orderNo}%`);
+      // Get total count and sums with same filters
+      let aggregateQuery = (supabase as any).from('purpletransaction_enriched')
+        .select('total_num, profit_num');
+      aggregateQuery = aggregateQuery.gte('created_at_date', startStr).lte('created_at_date', endStr);
+      if (phone) aggregateQuery = aggregateQuery.ilike('customer_phone', `%${phone}%`);
+      if (orderNo) aggregateQuery = aggregateQuery.ilike('order_number', `%${orderNo}%`);
       
-      const { count } = await countQuery;
+      const { data: allData, count } = await aggregateQuery;
       setTotalCount(count || 0);
+      
+      // Calculate totals from all records
+      if (allData) {
+        const salesSum = allData.reduce((sum: number, row: any) => sum + (row.total_num || 0), 0);
+        const profitSum = allData.reduce((sum: number, row: any) => sum + (row.profit_num || 0), 0);
+        setTotalSales(salesSum);
+        setTotalProfit(profitSum);
+      }
 
       // Pagination
       const from = (page - 1) * pageSize;
@@ -327,6 +338,33 @@ const Transactions = () => {
         <p className="text-muted-foreground">
           {t("transactions.subtitle")}
         </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.transactions")}</CardTitle>
+            <CardTitle className="text-3xl">{totalCount.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalSales")}</CardTitle>
+            <CardTitle className="text-3xl">
+              {formatCurrency(totalSales)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
+            <CardTitle className="text-3xl">
+              {formatCurrency(totalProfit)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
       <Card>
@@ -742,7 +780,7 @@ const Transactions = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.transactions")}</CardTitle>
-            <CardTitle className="text-3xl">{sortedTransactions.length}</CardTitle>
+            <CardTitle className="text-3xl">{totalCount.toLocaleString()}</CardTitle>
           </CardHeader>
         </Card>
         
@@ -750,7 +788,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalSales")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + (t.total || 0), 0))}
+              {formatCurrency(totalSales)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -759,7 +797,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(sortedTransactions.reduce((sum, t) => sum + (t.profit || 0), 0))}
+              {formatCurrency(totalProfit)}
             </CardTitle>
           </CardHeader>
         </Card>
