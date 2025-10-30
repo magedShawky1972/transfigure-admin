@@ -31,30 +31,49 @@ Deno.serve(async (req) => {
     console.log(`Found ${paymentMethods?.length || 0} payment methods:`, 
       paymentMethods?.map(pm => pm.payment_method));
 
-    // Get transactions where payment_method != 'point' and bank_fee is null
-    const { data: transactions, error: txError } = await supabase
+    // Count total transactions to update
+    const { count, error: countError } = await supabase
       .from('purpletransaction')
-      .select('id, payment_method, payment_brand, total')
+      .select('*', { count: 'exact', head: true })
       .neq('payment_method', 'point')
       .is('bank_fee', null);
 
-    if (txError) {
-      console.error('Error fetching transactions:', txError);
-      throw txError;
+    if (countError) {
+      console.error('Error counting transactions:', countError);
+      throw countError;
     }
 
-    console.log(`Processing ${transactions?.length || 0} transactions`);
+    console.log(`Total transactions to update: ${count || 0}`);
 
     let updatedCount = 0;
     let matchedCount = 0;
     let unmatchedMethods = new Set();
-    const batchSize = 100;
+    const batchSize = 500;
+    const maxBatches = 20; // Limit to 10,000 records per execution to avoid timeout
+    let processedBatches = 0;
 
-    // Process in batches
-    for (let i = 0; i < transactions.length; i += batchSize) {
-      const batch = transactions.slice(i, i + batchSize);
-      
-      const updates = batch.map(tx => {
+    // Process in batches with pagination to avoid timeout
+    while (processedBatches < maxBatches) {
+      // Fetch a batch of transactions
+      const { data: transactions, error: txError } = await supabase
+        .from('purpletransaction')
+        .select('id, payment_method, payment_brand, total')
+        .neq('payment_method', 'point')
+        .is('bank_fee', null)
+        .limit(batchSize);
+
+      if (txError) {
+        console.error('Error fetching transactions:', txError);
+        throw txError;
+      }
+
+      // If no more transactions, we're done
+      if (!transactions || transactions.length === 0) {
+        console.log('No more transactions to process');
+        break;
+      }
+
+      const updates = transactions.map(tx => {
         // Match on payment_brand against payment_method in payment_methods
         const paymentMethod = paymentMethods.find(pm => 
           pm.payment_method?.toLowerCase() === tx.payment_brand?.toLowerCase()
@@ -93,9 +112,20 @@ Deno.serve(async (req) => {
         console.error('Error updating batch:', updateError);
       } else {
         updatedCount += updates.length;
-        console.log(`Updated ${updatedCount} / ${transactions.length} transactions`);
+        console.log(`Updated ${updatedCount} transactions so far...`);
+      }
+
+      processedBatches++;
+      
+      // If we've hit the max batches, inform that more updates are needed
+      if (processedBatches >= maxBatches && transactions.length === batchSize) {
+        console.log(`Reached batch limit. ${count! - updatedCount} transactions remaining.`);
+        break;
       }
     }
+
+    const remainingCount = (count || 0) - updatedCount;
+    const needsMoreRuns = remainingCount > 0;
 
     console.log(`Bank fee update completed. Updated ${updatedCount} transactions.`);
     console.log(`Matched ${matchedCount} transactions with payment methods.`);
@@ -104,12 +134,20 @@ Deno.serve(async (req) => {
       console.warn(`Unmatched payment methods found:`, Array.from(unmatchedMethods));
     }
 
+    if (needsMoreRuns) {
+      console.log(`${remainingCount} transactions still need updating. Run again to continue.`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully updated bank fees for ${updatedCount} transactions (${matchedCount} matched)`,
+        message: needsMoreRuns 
+          ? `Updated ${updatedCount} transactions. ${remainingCount} remaining - please run again.`
+          : `Successfully updated bank fees for ${updatedCount} transactions (${matchedCount} matched)`,
         updatedCount,
         matchedCount,
+        remainingCount,
+        needsMoreRuns,
         unmatchedMethods: Array.from(unmatchedMethods)
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

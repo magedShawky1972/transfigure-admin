@@ -119,18 +119,30 @@ Deno.serve(async (req) => {
       }
 
       const paymentMethodMap = new Map(
-        (paymentMethods || []).map(pm => [pm.payment_method, pm])
+        (paymentMethods || []).map(pm => [pm.payment_method?.toLowerCase(), pm])
       );
 
-      // Calculate bank_fee for each record
+      // Calculate bank_fee for each record - match on payment_brand
       for (const record of validData) {
-        if (record.payment_method) {
-          const pm = paymentMethodMap.get(record.payment_method);
-          if (pm) {
+        // Skip if payment_method is 'point'
+        if (record.payment_method === 'point') {
+          record.bank_fee = 0;
+          continue;
+        }
+
+        // Match on payment_brand (not payment_method)
+        if (record.payment_brand) {
+          const pm = paymentMethodMap.get(record.payment_brand.toLowerCase());
+          if (pm && record.total) {
             const total = parseFloat(record.total) || 0;
-            const gatewayFeeAmount = (pm.gateway_fee / 100.0) * total;
-            const vatOnGateway = gatewayFeeAmount * 0.15;
-            record.bank_fee = gatewayFeeAmount + pm.fixed_value + vatOnGateway;
+            const gatewayFee = (total * (pm.gateway_fee || 0)) / 100;
+            const fixed = pm.fixed_value || 0;
+            
+            // Apply 15% VAT to both gateway fee and fixed value
+            const gatewayFeeWithVat = gatewayFee * 1.15;
+            const fixedWithVat = fixed * 1.15;
+            
+            record.bank_fee = gatewayFeeWithVat + fixedWithVat;
           } else {
             record.bank_fee = 0;
           }
