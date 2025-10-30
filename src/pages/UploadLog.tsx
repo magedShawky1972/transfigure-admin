@@ -43,6 +43,7 @@ const UploadLog = () => {
   const [showDatesDialog, setShowDatesDialog] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<UploadSummary | null>(null);
   const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+  const [isUpdatingFees, setIsUpdatingFees] = useState(false);
 
   useEffect(() => {
     loadUploadLogs();
@@ -83,23 +84,42 @@ const UploadLog = () => {
   };
 
   const updateBankFees = async () => {
-    const updatePromise = (async () => {
-      const { data, error } = await supabase.rpc('update_bank_fees_from_payment_brand');
-      if (error) throw error;
-      return data; // number of rows updated
-    })();
+    if (isUpdatingFees) return;
+    setIsUpdatingFees(true);
 
-    toast.promise(updatePromise, {
-      loading: t("uploadLog.updatingBankFees"),
-      success: (updated) => {
-        console.log('Bank fees updated count:', updated);
-        return `${t("uploadLog.bankFeesUpdated")} (${updated ?? 0})`;
-      },
-      error: (error) => {
-        console.error("Error updating bank fees:", error);
-        return t("uploadLog.bankFeesUpdateError") + ': ' + (error.message || 'Unknown error');
+    let totalUpdated = 0;
+    let totalMatched = 0;
+    let cycles = 0;
+    const maxCycles = 50; // safety cap
+
+    const loadingId = toast.loading(t("uploadLog.updatingBankFees"));
+
+    try {
+      // Run the chunked edge function repeatedly until it reports completion
+      while (cycles < maxCycles) {
+        cycles++;
+        const { data, error } = await supabase.functions.invoke('update-bank-fees', { body: {} });
+        if (error) throw error;
+
+        const { updatedCount = 0, matchedCount = 0, remainingCount, needsMoreRuns } = (data as any) || {};
+        totalUpdated += updatedCount;
+        totalMatched += matchedCount;
+
+        toast.message(`${t('uploadLog.updatingBankFees')} - Batch ${cycles}: +${updatedCount} (remaining: ${remainingCount ?? 'unknown'})`);
+
+        if (!needsMoreRuns) break;
+        // brief pause to avoid hammering the function
+        await new Promise((r) => setTimeout(r, 250));
       }
-    });
+
+      toast.success(`${t('uploadLog.bankFeesUpdated')} ${totalUpdated} (${totalMatched} matched)`);
+    } catch (err: any) {
+      console.error('Error updating bank fees (edge function):', err);
+      toast.error(t('uploadLog.bankFeesUpdateError') + ': ' + (err?.message || 'Unknown error'));
+    } finally {
+      toast.dismiss(loadingId);
+      setIsUpdatingFees(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -302,6 +322,7 @@ const UploadLog = () => {
             <Button 
               onClick={updateBankFees}
               className="w-full"
+              disabled={isUpdatingFees}
             >
               {t("uploadLog.updateBankFees")}
             </Button>
