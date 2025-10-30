@@ -220,21 +220,27 @@ const Transactions = () => {
 
       const tableAgg = 'purpletransaction_enriched';
 
-      // Query only based on date range, independent from grid filters
-      let q = (supabase as any)
-        .from(tableAgg)
-        .select('total_num,profit_num', { count: 'exact' })
-        .gte('created_at_date', startStr)
-        .lte('created_at_date', endStr);
+      // Run server-side aggregates to avoid 1k row limits
+      const [sumRes, countHead] = await Promise.all([
+        (supabase as any)
+          .from(tableAgg)
+          .select('sum_total:sum(total_num),sum_profit:sum(profit_num)')
+          .gte('created_at_date', startStr)
+          .lte('created_at_date', endStr)
+          .maybeSingle(),
+        (supabase as any)
+          .from(tableAgg)
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at_date', startStr)
+          .lte('created_at_date', endStr)
+      ]);
 
-      const { data, error, count } = await q;
-      if (error) throw error;
+      if (sumRes.error) throw sumRes.error;
 
-      setTotalCountAll(count || 0);
-      const salesSum = (data || []).reduce((sum: number, row: any) => sum + (Number(row.total_num) || 0), 0);
-      const profitSum = (data || []).reduce((sum: number, row: any) => sum + (Number(row.profit_num) || 0), 0);
-      setTotalSalesAll(salesSum);
-      setTotalProfitAll(profitSum);
+      const sums = (sumRes.data || {}) as { sum_total?: number; sum_profit?: number };
+      setTotalSalesAll(Number(sums.sum_total) || 0);
+      setTotalProfitAll(Number(sums.sum_profit) || 0);
+      setTotalCountAll(countHead.count || 0);
     } catch (error) {
       console.error('Error fetching totals:', error);
     }
