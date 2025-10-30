@@ -59,9 +59,10 @@ const Transactions = () => {
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [customers, setCustomers] = useState<string[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [totalSales, setTotalSales] = useState<number>(0);
-  const [totalProfit, setTotalProfit] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(0); // For pagination only
+  const [totalCountAll, setTotalCountAll] = useState<number>(0); // For cards
+  const [totalSalesAll, setTotalSalesAll] = useState<number>(0);
+  const [totalProfitAll, setTotalProfitAll] = useState<number>(0);
   const pageSize = 500;
 
   const allColumns = [
@@ -122,6 +123,11 @@ const Transactions = () => {
     fetchTransactions();
   }, [fromDate, toDate, page, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
+  // Fetch totals for the full filtered dataset
+  useEffect(() => {
+    fetchTotals();
+  }, [fromDate, toDate, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterCustomer]);
+
   const fetchTransactions = async () => {
     try {
       setLoading(true);
@@ -170,23 +176,14 @@ const Transactions = () => {
         q = q.order('created_at_date', { ascending: false });
       }
 
-      // Get total count and sums with same filters
-      let aggregateQuery = (supabase as any).from('purpletransaction_enriched')
-        .select('total_num, profit_num');
-      aggregateQuery = aggregateQuery.gte('created_at_date', startStr).lte('created_at_date', endStr);
-      if (phone) aggregateQuery = aggregateQuery.ilike('customer_phone', `%${phone}%`);
-      if (orderNo) aggregateQuery = aggregateQuery.ilike('order_number', `%${orderNo}%`);
+      // Get total count with same filters
+      let countQuery = (supabase as any).from(table).select('*', { count: 'exact', head: true });
+      countQuery = countQuery.gte('created_at_date', startStr).lte('created_at_date', endStr);
+      if (phone) countQuery = countQuery.ilike('customer_phone', `%${phone}%`);
+      if (orderNo) countQuery = countQuery.ilike('order_number', `%${orderNo}%`);
       
-      const { data: allData, count } = await aggregateQuery;
+      const { count } = await countQuery;
       setTotalCount(count || 0);
-      
-      // Calculate totals from all records
-      if (allData) {
-        const salesSum = allData.reduce((sum: number, row: any) => sum + (row.total_num || 0), 0);
-        const profitSum = allData.reduce((sum: number, row: any) => sum + (row.profit_num || 0), 0);
-        setTotalSales(salesSum);
-        setTotalProfit(profitSum);
-      }
 
       // Pagination
       const from = (page - 1) * pageSize;
@@ -214,6 +211,44 @@ const Transactions = () => {
     }
   };
 
+  const fetchTotals = async () => {
+    try {
+      const start = startOfDay(fromDate || subDays(new Date(), 1));
+      const end = endOfDay(toDate || new Date());
+      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
+
+      const phone = phoneFilter.trim();
+      const orderNo = orderNumberFilter.trim();
+      const tableAgg = 'purpletransaction_enriched';
+
+      let q = (supabase as any)
+        .from(tableAgg)
+        .select('total_num,profit_num', { count: 'exact' })
+        .gte('created_at_date', startStr)
+        .lte('created_at_date', endStr);
+
+      if (phone) q = q.ilike('customer_phone', `%${phone}%`);
+      if (orderNo) q = q.ilike('order_number', `%${orderNo}%`);
+      if (filterBrand !== 'all') q = q.eq('brand_name', filterBrand);
+      if (filterProduct !== 'all') q = q.eq('product_name', filterProduct);
+      if (filterPaymentMethod !== 'all') q = q.eq('payment_method', filterPaymentMethod);
+      if (filterCustomer !== 'all') q = q.eq('customer_name', filterCustomer);
+      const term = searchTerm.trim();
+      if (term) q = q.or(`customer_name.ilike.%${term}%,product_name.ilike.%${term}%`);
+
+      const { data, error, count } = await q;
+      if (error) throw error;
+
+      setTotalCountAll(count || 0);
+      const salesSum = (data || []).reduce((sum: number, row: any) => sum + (Number(row.total_num) || 0), 0);
+      const profitSum = (data || []).reduce((sum: number, row: any) => sum + (Number(row.profit_num) || 0), 0);
+      setTotalSalesAll(salesSum);
+      setTotalProfitAll(profitSum);
+    } catch (error) {
+      console.error('Error fetching totals:', error);
+    }
+  };
   const handleSort = (column: string) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -252,6 +287,11 @@ const Transactions = () => {
 
     return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
   });
+
+  // Calculate totals from filtered transactions
+  const filteredTotalCount = filteredTransactions.length;
+  const filteredTotalSales = filteredTransactions.reduce((sum, t) => sum + (t.total || 0), 0);
+  const filteredTotalProfit = filteredTransactions.reduce((sum, t) => sum + (t.profit || 0), 0);
 
   const sortedTransactions = [...filteredTransactions].sort((a, b) => {
     if (!sortColumn) return 0;
@@ -344,7 +384,7 @@ const Transactions = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.transactions")}</CardTitle>
-            <CardTitle className="text-3xl">{totalCount.toLocaleString()}</CardTitle>
+            <CardTitle className="text-3xl">{totalCountAll.toLocaleString()}</CardTitle>
           </CardHeader>
         </Card>
         
@@ -352,7 +392,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalSales")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(totalSales)}
+              {formatCurrency(totalSalesAll)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -361,7 +401,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(totalProfit)}
+              {formatCurrency(totalProfitAll)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -780,7 +820,7 @@ const Transactions = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.transactions")}</CardTitle>
-            <CardTitle className="text-3xl">{totalCount.toLocaleString()}</CardTitle>
+            <CardTitle className="text-3xl">{filteredTotalCount.toLocaleString()}</CardTitle>
           </CardHeader>
         </Card>
         
@@ -788,7 +828,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalSales")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(totalSales)}
+              {formatCurrency(filteredTotalSales)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -797,7 +837,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(totalProfit)}
+              {formatCurrency(filteredTotalProfit)}
             </CardTitle>
           </CardHeader>
         </Card>
