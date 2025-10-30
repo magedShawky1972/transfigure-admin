@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon, Settings2 } from "lucide-react";
+import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
@@ -660,6 +660,19 @@ const Transactions = () => {
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      onClick={() => setPage(1)}
+                      disabled={page === 1}
+                      className="gap-1 pl-2.5 cursor-pointer"
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                      <span>{language === 'ar' ? 'الأولى' : 'First'}</span>
+                    </Button>
+                  </PaginationItem>
+                  
+                  <PaginationItem>
                     <PaginationPrevious 
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                       className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
@@ -704,6 +717,19 @@ const Transactions = () => {
                       onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
                       className={page >= Math.ceil(totalCount / pageSize) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                     />
+                  </PaginationItem>
+                  
+                  <PaginationItem>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      onClick={() => setPage(Math.ceil(totalCount / pageSize))}
+                      disabled={page >= Math.ceil(totalCount / pageSize)}
+                      className="gap-1 pr-2.5 cursor-pointer"
+                    >
+                      <span>{language === 'ar' ? 'الأخيرة' : 'Last'}</span>
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
