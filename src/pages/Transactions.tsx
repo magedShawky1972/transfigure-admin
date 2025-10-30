@@ -123,10 +123,10 @@ const Transactions = () => {
     fetchTransactions();
   }, [fromDate, toDate, page, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
-  // Fetch totals for the full filtered dataset
+  // Fetch totals based only on date range
   useEffect(() => {
     fetchTotals();
-  }, [fromDate, toDate, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterCustomer]);
+  }, [fromDate, toDate]);
 
   const fetchTransactions = async () => {
     try {
@@ -218,24 +218,14 @@ const Transactions = () => {
       const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
       const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
 
-      const phone = phoneFilter.trim();
-      const orderNo = orderNumberFilter.trim();
       const tableAgg = 'purpletransaction_enriched';
 
+      // Query only based on date range, independent from grid filters
       let q = (supabase as any)
         .from(tableAgg)
         .select('total_num,profit_num', { count: 'exact' })
         .gte('created_at_date', startStr)
         .lte('created_at_date', endStr);
-
-      if (phone) q = q.ilike('customer_phone', `%${phone}%`);
-      if (orderNo) q = q.ilike('order_number', `%${orderNo}%`);
-      if (filterBrand !== 'all') q = q.eq('brand_name', filterBrand);
-      if (filterProduct !== 'all') q = q.eq('product_name', filterProduct);
-      if (filterPaymentMethod !== 'all') q = q.eq('payment_method', filterPaymentMethod);
-      if (filterCustomer !== 'all') q = q.eq('customer_name', filterCustomer);
-      const term = searchTerm.trim();
-      if (term) q = q.or(`customer_name.ilike.%${term}%,product_name.ilike.%${term}%`);
 
       const { data, error, count } = await q;
       if (error) throw error;
