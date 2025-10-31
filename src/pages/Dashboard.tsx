@@ -297,8 +297,8 @@ const Dashboard = () => {
           return sum + (parseNumber(t.bank_fee) || 0);
         }, 0);
         
-        // Net Profit = Gross Profit - Points Cost - E-Payment Charges
-        const totalProfit = grossProfit - pointsCostSold - ePaymentCharges;
+        // Net Profit (align with Income Statement Net Sales): Total Sales - Cost of Sales - Points Cost - E-Payment Charges
+        const totalProfit = totalSales - costOfSales - pointsCostSold - ePaymentCharges;
 
         setMetrics({
           totalSales,
