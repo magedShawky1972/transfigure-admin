@@ -117,6 +117,9 @@ const Dashboard = () => {
   const [pointTransactionsList, setPointTransactionsList] = useState<any[]>([]);
   const [pointTransactionsSortColumn, setPointTransactionsSortColumn] = useState<'customer_name' | 'customer_phone' | 'created_at_date' | 'sales_amount' | 'cost_amount'>('created_at_date');
   const [pointTransactionsSortDirection, setPointTransactionsSortDirection] = useState<'asc' | 'desc'>('desc');
+  // Applied date range snapshot to keep popup in sync with cards
+  const [appliedStartStr, setAppliedStartStr] = useState<string | null>(null);
+  const [appliedEndNextStr, setAppliedEndNextStr] = useState<string | null>(null);
   
   // Coins by Brand
   const [coinsByBrand, setCoinsByBrand] = useState<any[]>([]);
@@ -236,6 +239,8 @@ const Dashboard = () => {
 
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+      setAppliedStartStr(startStr);
+      setAppliedEndNextStr(endNextStr);
 
       // Fetch new customers in the selected period
       const { data: newCustomers, error: customersError } = await supabase
@@ -1062,8 +1067,8 @@ const Dashboard = () => {
       const dateRange = getDateRange();
       if (!dateRange) return;
 
-      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
-      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+      const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
 
       const { data, error } = await supabase
         .from('purpletransaction')
@@ -1075,33 +1080,55 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // Group by order_number (fallback to id) to avoid duplicate rows for the same order
-      const grouped = new Map<string, any>();
+      // Use exact same grouping logic as dashboard card calculation
+      const orderGrouped = new Map<string, { total: number; cost: number; customer_name: string; customer_phone: string; created_at_date: string }>();
       (data || []).forEach((item: any) => {
         const key = item.order_number || item.id;
-        const sales = parseNumber(item.total);
+        const total = parseNumber(item.total);
         const cost = parseNumber(item.cost_sold);
-        const createdAt = item.created_at_date;
-        const existing = grouped.get(key);
+        const existing = orderGrouped.get(key);
         if (!existing) {
-          grouped.set(key, {
-            order_number: item.order_number || '',
+          orderGrouped.set(key, { 
+            total, 
+            cost, 
             customer_name: item.customer_name || '',
             customer_phone: item.customer_phone || '',
-            created_at_date: createdAt,
-            sales_amount: sales,
-            cost_amount: cost,
+            created_at_date: item.created_at_date
           });
         } else {
-          existing.sales_amount += sales;
-          existing.cost_amount += cost;
-          if (createdAt && new Date(createdAt).getTime() > new Date(existing.created_at_date).getTime()) {
-            existing.created_at_date = createdAt;
+          existing.total += total;
+          existing.cost += cost;
+          // Keep the latest date for this order
+          if (item.created_at_date && new Date(item.created_at_date).getTime() > new Date(existing.created_at_date).getTime()) {
+            existing.created_at_date = item.created_at_date;
           }
         }
       });
 
-      const formattedData = Array.from(grouped.values());
+      // Now group by customer for the summary display
+      const customerGrouped = new Map<string, any>();
+      Array.from(orderGrouped.values()).forEach((order) => {
+        const customerKey = `${order.customer_name}-${order.customer_phone}`;
+        const existing = customerGrouped.get(customerKey);
+        if (!existing) {
+          customerGrouped.set(customerKey, {
+            customer_name: order.customer_name,
+            customer_phone: order.customer_phone,
+            created_at_date: order.created_at_date,
+            sales_amount: order.total,
+            cost_amount: order.cost,
+          });
+        } else {
+          existing.sales_amount += order.total;
+          existing.cost_amount += order.cost;
+          // Keep the latest transaction date for this customer
+          if (order.created_at_date && new Date(order.created_at_date).getTime() > new Date(existing.created_at_date).getTime()) {
+            existing.created_at_date = order.created_at_date;
+          }
+        }
+      });
+
+      const formattedData = Array.from(customerGrouped.values());
 
       setPointTransactionsList(formattedData);
       setPointTransactionsSortColumn('created_at_date');
@@ -2430,7 +2457,7 @@ const Dashboard = () => {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {language === 'ar' ? 'تفاصيل معاملات النقاط (المبيعات والتكلفة)' : 'Points Transactions (Sales & Cost)'}
+              {language === 'ar' ? 'ملخص معاملات النقاط حسب العميل' : 'Points Transactions Summary by Customer'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
