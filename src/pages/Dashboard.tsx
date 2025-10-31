@@ -284,7 +284,7 @@ const Dashboard = () => {
         
         // Total sales excludes point transactions (only real revenue)
         const totalSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
-        const totalProfit = regularTransactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
+        const grossProfit = regularTransactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
         const transactionCount = transactions.length;
         const avgOrderValue = totalSales / (regularTransactions.length || 1);
         const costOfSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
@@ -294,6 +294,9 @@ const Dashboard = () => {
         const ePaymentCharges = regularTransactions.reduce((sum, t) => {
           return sum + (parseNumber(t.bank_fee) || 0);
         }, 0);
+        
+        // Net Profit = Gross Profit - Points Cost - E-Payment Charges
+        const totalProfit = grossProfit - totalPoints - ePaymentCharges;
 
         setMetrics({
           totalSales,
