@@ -1108,7 +1108,16 @@ const Dashboard = () => {
         return acc;
       }, {});
 
-      const breakdown = Object.values(grouped).sort((a: any, b: any) => b.bank_fee - a.bank_fee);
+      // Calculate total bank fees for percentage calculation
+      const groupedArray = Object.values(grouped) as Array<{payment_brand: string, total: number, bank_fee: number, transaction_count: number}>;
+      const totalBankFees = groupedArray.reduce((sum, item) => sum + item.bank_fee, 0);
+      
+      // Add percentage to each item
+      const breakdown = groupedArray.map((item) => ({
+        ...item,
+        percentage: totalBankFees > 0 ? (item.bank_fee / totalBankFees) * 100 : 0
+      })).sort((a, b) => b.bank_fee - a.bank_fee);
+      
       setPaymentChargesBreakdown(breakdown);
       setPaymentChargesDialogOpen(true);
     } catch (error) {
@@ -2454,21 +2463,23 @@ const Dashboard = () => {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-4 gap-4 font-semibold text-sm border-b pb-2">
+                  <div className="grid grid-cols-5 gap-4 font-semibold text-sm border-b pb-2">
                     <div className="text-left">{language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}</div>
                     <div className="text-right">{language === 'ar' ? 'عدد المعاملات' : 'Transactions'}</div>
                     <div className="text-right">{language === 'ar' ? 'المبيعات' : 'Total Sales'}</div>
                     <div className="text-right">{language === 'ar' ? 'رسوم البنك' : 'Bank Fee'}</div>
+                    <div className="text-right">{language === 'ar' ? 'النسبة' : 'Percentage'}</div>
                   </div>
                   {paymentChargesBreakdown.map((item, index) => (
-                    <div key={index} className="grid grid-cols-4 gap-4 py-2 border-b">
+                    <div key={index} className="grid grid-cols-5 gap-4 py-2 border-b">
                       <div className="text-sm">{item.payment_brand}</div>
                       <div className="text-sm text-right">{item.transaction_count?.toLocaleString() || 0}</div>
                       <div className="text-sm text-right">{formatCurrency(item.total)}</div>
                       <div className="text-sm font-medium text-right">{formatCurrency(item.bank_fee)}</div>
+                      <div className="text-sm font-medium text-right text-primary">{item.percentage.toFixed(2)}%</div>
                     </div>
                   ))}
-                  <div className="grid grid-cols-4 gap-4 pt-4 font-bold border-t-2">
+                  <div className="grid grid-cols-5 gap-4 pt-4 font-bold border-t-2">
                     <div className="text-left">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
                     <div className="text-right">
                       {paymentChargesBreakdown.reduce((sum, item) => sum + (item.transaction_count || 0), 0).toLocaleString()}
@@ -2479,6 +2490,7 @@ const Dashboard = () => {
                     <div className="text-right">
                       {formatCurrency(paymentChargesBreakdown.reduce((sum, item) => sum + item.bank_fee, 0))}
                     </div>
+                    <div className="text-right">100.00%</div>
                   </div>
                 </div>
               )}
