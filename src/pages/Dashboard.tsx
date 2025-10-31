@@ -279,10 +279,23 @@ const Dashboard = () => {
         // Store regular transactions for payment charges dialog
         setRegularTransactionsData(regularTransactions);
         
-        // Total points from point payment transactions (cost, not revenue)
-        const totalPoints = pointTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
-        // Cost sold for point transactions
-        const pointsCostSold = pointTransactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
+        // Group point transactions by order to avoid duplicates
+        const pointGrouped = new Map<string, { total: number; cost: number }>();
+        pointTransactions.forEach((t) => {
+          const key = (t as any).order_number || (t as any).id;
+          const total = parseNumber((t as any).total);
+          const cost = parseNumber((t as any).cost_sold);
+          const existing = pointGrouped.get(key);
+          if (!existing) {
+            pointGrouped.set(key, { total, cost });
+          } else {
+            existing.total += total;
+            existing.cost += cost;
+          }
+        });
+        
+        const totalPoints = Array.from(pointGrouped.values()).reduce((sum, v) => sum + v.total, 0);
+        const pointsCostSold = Array.from(pointGrouped.values()).reduce((sum, v) => sum + v.cost, 0);
         
         // Total sales excludes point transactions (only real revenue)
         const totalSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
@@ -1190,8 +1203,8 @@ const Dashboard = () => {
       gradient: "from-blue-500 to-cyan-500",
     },
     {
-      title: t("dashboard.pointsCost"),
-      value: formatCurrency(metrics.pointsCostSold),
+      title: language === 'ar' ? 'مبيعات النقاط' : 'Points Sales',
+      value: formatCurrency(metrics.totalPoints),
       icon: Coins,
       gradient: "from-yellow-500 to-amber-500",
       onClick: handlePointsClick,
