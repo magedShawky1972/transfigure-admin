@@ -298,7 +298,7 @@ const Dashboard = () => {
         }, 0);
         
         // Net Profit = Gross Profit - Points Cost - E-Payment Charges
-        const totalProfit = grossProfit - totalPoints - ePaymentCharges;
+        const totalProfit = grossProfit - pointsCostSold - ePaymentCharges;
 
         setMetrics({
           totalSales,
