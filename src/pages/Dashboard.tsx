@@ -115,7 +115,7 @@ const Dashboard = () => {
   // Point Transactions Dialog
   const [pointTransactionsDialogOpen, setPointTransactionsDialogOpen] = useState(false);
   const [pointTransactionsList, setPointTransactionsList] = useState<any[]>([]);
-  const [pointTransactionsSortColumn, setPointTransactionsSortColumn] = useState<'customer_name' | 'customer_phone' | 'created_at_date' | 'total_point'>('created_at_date');
+  const [pointTransactionsSortColumn, setPointTransactionsSortColumn] = useState<'customer_name' | 'customer_phone' | 'created_at_date' | 'sales_amount' | 'cost_amount'>('created_at_date');
   const [pointTransactionsSortDirection, setPointTransactionsSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Coins by Brand
@@ -1054,20 +1054,41 @@ const Dashboard = () => {
 
       const { data, error } = await supabase
         .from('purpletransaction')
-        .select('customer_name, customer_phone, created_at_date, cost_sold')
-        .eq('payment_method', 'point')
+        .select('id, order_number, customer_name, customer_phone, created_at_date, total, cost_sold')
+        .ilike('payment_method', 'point')
         .gte('created_at_date', startStr)
         .lt('created_at_date', endNextStr)
         .order('created_at_date', { ascending: false });
 
       if (error) throw error;
 
-      const formattedData = (data || []).map(item => ({
-        customer_name: item.customer_name || '',
-        customer_phone: item.customer_phone || '',
-        created_at_date: item.created_at_date,
-        total_point: parseNumber(item.cost_sold)
-      }));
+      // Group by order_number (fallback to id) to avoid duplicate rows for the same order
+      const grouped = new Map<string, any>();
+      (data || []).forEach((item: any) => {
+        const key = item.order_number || item.id;
+        const sales = parseNumber(item.total);
+        const cost = parseNumber(item.cost_sold);
+        const createdAt = item.created_at_date;
+        const existing = grouped.get(key);
+        if (!existing) {
+          grouped.set(key, {
+            order_number: item.order_number || '',
+            customer_name: item.customer_name || '',
+            customer_phone: item.customer_phone || '',
+            created_at_date: createdAt,
+            sales_amount: sales,
+            cost_amount: cost,
+          });
+        } else {
+          existing.sales_amount += sales;
+          existing.cost_amount += cost;
+          if (createdAt && new Date(createdAt).getTime() > new Date(existing.created_at_date).getTime()) {
+            existing.created_at_date = createdAt;
+          }
+        }
+      });
+
+      const formattedData = Array.from(grouped.values());
 
       setPointTransactionsList(formattedData);
       setPointTransactionsSortColumn('created_at_date');
@@ -1083,9 +1104,9 @@ const Dashboard = () => {
     }
   };
 
-  const handlePointTransactionSort = (column: 'customer_name' | 'customer_phone' | 'created_at_date' | 'total_point') => {
+  const handlePointTransactionSort = (column: 'customer_name' | 'customer_phone' | 'created_at_date' | 'sales_amount' | 'cost_amount') => {
     const newDirection = pointTransactionsSortColumn === column && pointTransactionsSortDirection === 'asc' ? 'desc' : 'asc';
-    setPointTransactionsSortColumn(column);
+    setPointTransactionsSortColumn(column as any);
     setPointTransactionsSortDirection(newDirection);
     
     const sorted = [...pointTransactionsList].sort((a, b) => {
@@ -1099,7 +1120,8 @@ const Dashboard = () => {
       } else if (column === 'created_at_date') {
         return newDirection === 'asc' ? new Date(aVal).getTime() - new Date(bVal).getTime() : new Date(bVal).getTime() - new Date(aVal).getTime();
       } else {
-        return newDirection === 'asc' ? aVal - bVal : bVal - aVal;
+        // Numeric columns: sales_amount, cost_amount
+        return newDirection === 'asc' ? (aVal || 0) - (bVal || 0) : (bVal || 0) - (aVal || 0);
       }
     });
     
@@ -2395,7 +2417,7 @@ const Dashboard = () => {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {language === 'ar' ? 'تفاصيل تكلفة النقاط' : 'Points Cost Breakdown'}
+              {language === 'ar' ? 'تفاصيل معاملات النقاط (المبيعات والتكلفة)' : 'Points Transactions (Sales & Cost)'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -2405,7 +2427,7 @@ const Dashboard = () => {
               </p>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-4 gap-4 font-semibold text-sm border-b pb-2">
+                <div className="grid grid-cols-5 gap-4 font-semibold text-sm border-b pb-2">
                   <button 
                     onClick={() => handlePointTransactionSort('customer_name')}
                     className="flex items-center gap-1 hover:text-primary transition-colors text-left"
@@ -2434,29 +2456,42 @@ const Dashboard = () => {
                     )}
                   </button>
                   <button 
-                    onClick={() => handlePointTransactionSort('total_point')}
+                    onClick={() => handlePointTransactionSort('sales_amount')}
                     className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
                   >
-                    {language === 'ar' ? 'التكلفة' : 'Cost'}
-                    {pointTransactionsSortColumn === 'total_point' && (
+                    {language === 'ar' ? 'مبيعات النقاط' : 'Points Sales'}
+                    {pointTransactionsSortColumn === 'sales_amount' && (
+                      pointTransactionsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handlePointTransactionSort('cost_amount')}
+                    className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                  >
+                    {language === 'ar' ? 'تكلفة النقاط' : 'Points Cost'}
+                    {pointTransactionsSortColumn === 'cost_amount' && (
                       pointTransactionsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                     )}
                   </button>
                 </div>
                 {pointTransactionsList.map((transaction, index) => (
-                  <div key={index} className="grid grid-cols-4 gap-4 py-2 border-b">
+                  <div key={index} className="grid grid-cols-5 gap-4 py-2 border-b">
                     <div className="text-sm">{transaction.customer_name || 'N/A'}</div>
                     <div className="text-sm">{transaction.customer_phone || 'N/A'}</div>
                     <div className="text-sm text-right">
                       {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
                     </div>
-                    <div className="text-sm font-medium text-right">{formatCurrency(transaction.total_point)}</div>
+                    <div className="text-sm font-medium text-right">{formatCurrency(transaction.sales_amount || 0)}</div>
+                    <div className="text-sm font-medium text-right">{formatCurrency(transaction.cost_amount || 0)}</div>
                   </div>
                 ))}
-                <div className="grid grid-cols-4 gap-4 pt-4 font-bold">
-                  <div className="col-span-3 text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                <div className="grid grid-cols-5 gap-4 pt-4 font-bold">
+                  <div className="col-span-3 text-right">{language === 'ar' ? 'الإجمالي' : 'Totals'}</div>
                   <div className="text-right">
-                    {formatCurrency(pointTransactionsList.reduce((sum, t) => sum + t.total_point, 0))}
+                    {formatCurrency(pointTransactionsList.reduce((sum, t) => sum + (t.sales_amount || 0), 0))}
+                  </div>
+                  <div className="text-right">
+                    {formatCurrency(pointTransactionsList.reduce((sum, t) => sum + (t.cost_amount || 0), 0))}
                   </div>
                 </div>
               </div>
