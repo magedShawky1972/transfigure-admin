@@ -115,7 +115,6 @@ const Dashboard = () => {
   // Point Transactions Dialog
   const [pointTransactionsDialogOpen, setPointTransactionsDialogOpen] = useState(false);
   const [pointTransactionsList, setPointTransactionsList] = useState<any[]>([]);
-  const [pointTransactionsData, setPointTransactionsData] = useState<Transaction[]>([]);
   const [pointTransactionsSortColumn, setPointTransactionsSortColumn] = useState<'customer_name' | 'customer_phone' | 'created_at_date' | 'sales_amount' | 'cost_amount'>('created_at_date');
   const [pointTransactionsSortDirection, setPointTransactionsSortDirection] = useState<'asc' | 'desc'>('desc');
   
@@ -279,8 +278,6 @@ const Dashboard = () => {
         
         // Store regular transactions for payment charges dialog
         setRegularTransactionsData(regularTransactions);
-        // Store point transactions for drilldown to match card exactly
-        setPointTransactionsData(pointTransactions as any);
         
         // Group point transactions by order to avoid duplicates
         const pointGrouped = new Map<string, { total: number; cost: number }>();
@@ -1062,12 +1059,25 @@ const Dashboard = () => {
 
   const handlePointsClick = async () => {
     try {
-      // Use the already-fetched point transactions to avoid any mismatch with card
-      const data = pointTransactionsData || [];
+      const dateRange = getDateRange();
+      if (!dateRange) return;
+
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      const { data, error } = await supabase
+        .from('purpletransaction')
+        .select('id, order_number, customer_name, customer_phone, created_at_date, total, cost_sold')
+        .ilike('payment_method', 'point')
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endNextStr)
+        .order('created_at_date', { ascending: false });
+
+      if (error) throw error;
 
       // Group by order_number (fallback to id) to avoid duplicate rows for the same order
       const grouped = new Map<string, any>();
-      (data as any[]).forEach((item: any) => {
+      (data || []).forEach((item: any) => {
         const key = item.order_number || item.id;
         const sales = parseNumber(item.total);
         const cost = parseNumber(item.cost_sold);
@@ -1098,7 +1108,7 @@ const Dashboard = () => {
       setPointTransactionsSortDirection('desc');
       setPointTransactionsDialogOpen(true);
     } catch (error) {
-      console.error('Error preparing point transactions drilldown:', error);
+      console.error('Error fetching point transactions:', error);
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في تحميل معاملات النقاط' : 'Failed to load point transactions',
