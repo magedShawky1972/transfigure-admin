@@ -102,6 +102,8 @@ const Dashboard = () => {
   const [paymentChargesBreakdown, setPaymentChargesBreakdown] = useState<any[]>([]);
   const [loadingPaymentCharges, setLoadingPaymentCharges] = useState(false);
   const [regularTransactionsData, setRegularTransactionsData] = useState<Transaction[]>([]);
+  const [paymentChargesSortColumn, setPaymentChargesSortColumn] = useState<'payment_brand' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage'>('bank_fee');
+  const [paymentChargesSortDirection, setPaymentChargesSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // New Customers Dialog
   const [newCustomersCount, setNewCustomersCount] = useState(0);
@@ -1021,6 +1023,27 @@ const Dashboard = () => {
     setNewCustomersList(sorted);
   };
 
+  const handlePaymentChargesSort = (column: 'payment_brand' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage') => {
+    const newDirection = paymentChargesSortColumn === column && paymentChargesSortDirection === 'asc' ? 'desc' : 'asc';
+    setPaymentChargesSortColumn(column);
+    setPaymentChargesSortDirection(newDirection);
+    
+    const sorted = [...paymentChargesBreakdown].sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+      
+      if (column === 'payment_brand') {
+        aVal = (aVal || '').toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+        return newDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      } else {
+        return newDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+    });
+    
+    setPaymentChargesBreakdown(sorted);
+  };
+
   const handlePointsClick = async () => {
     try {
       const dateRange = getDateRange();
@@ -1116,6 +1139,8 @@ const Dashboard = () => {
       })).sort((a, b) => b.bank_fee - a.bank_fee);
       
       setPaymentChargesBreakdown(breakdown);
+      setPaymentChargesSortColumn('bank_fee');
+      setPaymentChargesSortDirection('desc');
       setPaymentChargesDialogOpen(true);
     } catch (error) {
       console.error('Error calculating payment charges:', error);
@@ -2461,11 +2486,51 @@ const Dashboard = () => {
               ) : (
                 <div className="space-y-2">
                   <div className="grid grid-cols-5 gap-4 font-semibold text-sm border-b pb-2">
-                    <div className="text-left">{language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}</div>
-                    <div className="text-right">{language === 'ar' ? 'عدد المعاملات' : 'Transactions'}</div>
-                    <div className="text-right">{language === 'ar' ? 'المبيعات' : 'Total Sales'}</div>
-                    <div className="text-right">{language === 'ar' ? 'رسوم البنك' : 'Bank Fee'}</div>
-                    <div className="text-right">{language === 'ar' ? 'النسبة' : 'Percentage'}</div>
+                    <button 
+                      onClick={() => handlePaymentChargesSort('payment_brand')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}
+                      {paymentChargesSortColumn === 'payment_brand' && (
+                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentChargesSort('transaction_count')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                    >
+                      {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
+                      {paymentChargesSortColumn === 'transaction_count' && (
+                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentChargesSort('total')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                    >
+                      {language === 'ar' ? 'المبيعات' : 'Total Sales'}
+                      {paymentChargesSortColumn === 'total' && (
+                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentChargesSort('bank_fee')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                    >
+                      {language === 'ar' ? 'رسوم البنك' : 'Bank Fee'}
+                      {paymentChargesSortColumn === 'bank_fee' && (
+                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentChargesSort('percentage')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                    >
+                      {language === 'ar' ? 'النسبة' : 'Percentage'}
+                      {paymentChargesSortColumn === 'percentage' && (
+                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
                   </div>
                   {paymentChargesBreakdown.map((item, index) => (
                     <div key={index} className="grid grid-cols-5 gap-4 py-2 border-b">
