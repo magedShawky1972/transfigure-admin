@@ -282,6 +282,7 @@ const Dashboard = () => {
             .gte('created_at_date', startStr)
             .lt('created_at_date', endNextStr)
             .neq('payment_method', 'point')
+            .order('created_at_date', { ascending: true })
             .range(from, from + pageSize - 1);
 
           if (error) throw error;
@@ -312,6 +313,7 @@ const Dashboard = () => {
             .ilike('payment_method', 'point')
             .gte('created_at_date', startStr)
             .lt('created_at_date', endNextStr)
+            .order('created_at_date', { ascending: true })
             .range(pointsFrom, pointsFrom + pageSize - 1);
 
           if (error) throw error;
