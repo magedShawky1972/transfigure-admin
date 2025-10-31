@@ -101,7 +101,6 @@ const Dashboard = () => {
   const [paymentChargesDialogOpen, setPaymentChargesDialogOpen] = useState(false);
   const [paymentChargesBreakdown, setPaymentChargesBreakdown] = useState<any[]>([]);
   const [loadingPaymentCharges, setLoadingPaymentCharges] = useState(false);
-  const [regularTransactionsData, setRegularTransactionsData] = useState<Transaction[]>([]);
   const [paymentChargesSortColumn, setPaymentChargesSortColumn] = useState<'payment_brand' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage'>('bank_fee');
   const [paymentChargesSortDirection, setPaymentChargesSortDirection] = useState<'asc' | 'desc'>('desc');
   
@@ -237,81 +236,64 @@ const Dashboard = () => {
         return;
       }
 
+      const startDate = format(dateRange.start, 'yyyy-MM-dd');
+      const endDate = format(dateRange.end, 'yyyy-MM-dd');
       const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
       setAppliedStartStr(startStr);
       setAppliedEndNextStr(endNextStr);
 
-      // Fetch new customers in the selected period
-      const { data: newCustomers, error: customersError } = await supabase
+      // Fetch new customers count only
+      const { count: newCustomersCount, error: customersError } = await supabase
         .from('customers')
-        .select('*')
+        .select('*', { count: 'exact', head: true })
         .gte('creation_date', startStr)
-        .lt('creation_date', endNextStr)
-        .order('creation_date', { ascending: false });
+        .lt('creation_date', endNextStr);
 
-      if (!customersError && newCustomers) {
-        setNewCustomersCount(newCustomers.length);
+      if (!customersError) {
+        setNewCustomersCount(newCustomersCount || 0);
       }
 
-      const pageSize = 1000;
-      let from = 0;
-      let transactions: Transaction[] = [];
-      
-      while (true) {
-        const { data, error } = await (supabase as any)
-          .from('purpletransaction')
-          .select('*')
-          .order('created_at_date', { ascending: false })
-          .gte('created_at_date', startStr)
-          .lt('created_at_date', endNextStr)
-          .range(from, from + pageSize - 1);
+      // Use RPC function for fast aggregated metrics
+      const { data: summary, error: summaryError } = await supabase
+        .rpc('transactions_summary', {
+          date_from: startDate,
+          date_to: endDate
+        });
 
-        if (error) throw error;
+      if (summaryError) throw summaryError;
 
-        const batch = (data as Transaction[]) || [];
-        transactions = transactions.concat(batch);
-        
-        if (batch.length < pageSize) break;
-        from += pageSize;
-      }
-
-      if (transactions && transactions.length > 0) {
-        // Filter out point transactions from regular calculations
-        const regularTransactions = transactions.filter(t => t.payment_method?.toLowerCase() !== 'point');
-        
-        // Store regular transactions for payment charges dialog
-        setRegularTransactionsData(regularTransactions);
-        
-        // Total sales excludes point transactions (only real revenue)
-        const totalSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.total), 0);
-        const grossProfit = regularTransactions.reduce((sum, t) => sum + parseNumber(t.profit), 0);
-        const transactionCount = transactions.length;
-        const avgOrderValue = totalSales / (regularTransactions.length || 1);
-        const costOfSales = regularTransactions.reduce((sum, t) => sum + parseNumber(t.cost_sold), 0);
-        const couponSales = 0;
-        
-        // Calculate E-Payment Charges from bank_fee column
-        const ePaymentCharges = regularTransactions.reduce((sum, t) => {
-          return sum + (parseNumber(t.bank_fee) || 0);
-        }, 0);
-        
-        // Net Profit: Total Sales - Cost of Sales - E-Payment Charges (Points calculated on click)
-        const totalProfit = totalSales - costOfSales - ePaymentCharges;
+      if (summary && summary.length > 0) {
+        const stats = summary[0];
+        const totalSales = Number(stats.total_sales || 0);
+        const totalProfit = Number(stats.total_profit || 0);
+        const transactionCount = Number(stats.tx_count || 0);
+        const avgOrderValue = transactionCount > 0 ? totalSales / transactionCount : 0;
 
         setMetrics({
           totalSales,
           totalProfit,
           transactionCount,
           avgOrderValue,
-          couponSales,
-          costOfSales,
-          ePaymentCharges,
+          couponSales: 0,
+          costOfSales: 0, // Can add to RPC if needed
+          ePaymentCharges: 0, // Can add to RPC if needed
           totalPoints: 0, // Will be calculated when Points Sales card is clicked
           pointsCostSold: 0, // Will be calculated when Points Sales card is clicked
         });
+      }
 
-        setRecentTransactions(transactions.slice(0, 5));
+      // Fetch only recent 5 transactions for display
+      const { data: recentTxns, error: recentError } = await supabase
+        .from('purpletransaction')
+        .select('*')
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endNextStr)
+        .order('created_at_date', { ascending: false })
+        .limit(5);
+
+      if (!recentError && recentTxns) {
+        setRecentTransactions(recentTxns as unknown as Transaction[]);
       }
 
       setLoadingStats(false);
@@ -1178,13 +1160,37 @@ const Dashboard = () => {
   const handlePaymentChargesClick = async () => {
     try {
       setLoadingPaymentCharges(true);
+      const dateRange = getDateRange();
+      if (!dateRange) return;
+
+      const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      // Fetch only non-point transactions with pagination
+      const pageSize = 1000;
+      let from = 0;
+      let allData: any[] = [];
       
-      // Use already-loaded transaction data instead of making a new query
-      // This ensures consistency with the dashboard metrics
-      const data = regularTransactionsData.filter(t => t.payment_method && t.payment_method.toLowerCase() !== 'point');
+      while (true) {
+        const { data, error } = await supabase
+          .from('purpletransaction')
+          .select('payment_brand, total, bank_fee')
+          .neq('payment_method', 'point')
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const batch = data || [];
+        allData = allData.concat(batch);
+        
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
 
       // Group by payment_brand and sum totals, bank_fees, and count transactions
-      const grouped = data.reduce((acc: any, item) => {
+      const grouped = allData.reduce((acc: any, item) => {
         const brand = item.payment_brand || 'Unknown';
         if (!acc[brand]) {
           acc[brand] = {
