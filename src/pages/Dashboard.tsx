@@ -301,6 +301,46 @@ const Dashboard = () => {
           ePaymentCharges += parseNumber(row.bank_fee);
         });
 
+        // Fetch point transactions data for Points Sales metric
+        let pointsFrom = 0;
+        let allPointsData: any[] = [];
+
+        while (true) {
+          const { data, error } = await supabase
+            .from('purpletransaction')
+            .select('id, order_number, total, cost_sold')
+            .ilike('payment_method', 'point')
+            .gte('created_at_date', startStr)
+            .lt('created_at_date', endNextStr)
+            .range(pointsFrom, pointsFrom + pageSize - 1);
+
+          if (error) throw error;
+
+          const batch = data || [];
+          allPointsData = allPointsData.concat(batch);
+
+          if (batch.length < pageSize) break;
+          pointsFrom += pageSize;
+        }
+
+        // Group by order to avoid duplicate counting
+        const orderGrouped = new Map<string, { total: number; cost: number }>();
+        allPointsData.forEach((item: any) => {
+          const key = item.order_number || item.id;
+          const total = parseNumber(item.total);
+          const cost = parseNumber(item.cost_sold);
+          const existing = orderGrouped.get(key);
+          if (!existing) {
+            orderGrouped.set(key, { total, cost });
+          } else {
+            existing.total += total;
+            existing.cost += cost;
+          }
+        });
+
+        const totalPointsSales = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.total, 0);
+        const totalPointsCost = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.cost, 0);
+
         setMetrics({
           totalSales,
           totalProfit,
@@ -309,8 +349,8 @@ const Dashboard = () => {
           couponSales: 0,
           costOfSales,
           ePaymentCharges,
-          totalPoints: 0, // Will be calculated when Points Sales card is clicked
-          pointsCostSold: 0, // Will be calculated when Points Sales card is clicked
+          totalPoints: totalPointsSales,
+          pointsCostSold: totalPointsCost,
         });
       }
 
@@ -1140,12 +1180,11 @@ const Dashboard = () => {
       const totalPointsSales = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.total, 0);
       const totalPointsCost = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.cost, 0);
 
-      // Update metrics with points data
+      // Update metrics with points data and recalculate profit
       setMetrics(prev => ({
         ...prev,
         totalPoints: totalPointsSales,
         pointsCostSold: totalPointsCost,
-        totalProfit: prev.totalSales - prev.costOfSales - totalPointsCost - prev.ePaymentCharges
       }));
 
       const formattedData = Array.from(customerGrouped.values());
