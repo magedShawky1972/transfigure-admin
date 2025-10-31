@@ -1108,14 +1108,11 @@ const Dashboard = () => {
         return acc;
       }, {});
 
-      // Calculate total bank fees for percentage calculation
+      // Add percentage to each item (bank_fee / sales * 100)
       const groupedArray = Object.values(grouped) as Array<{payment_brand: string, total: number, bank_fee: number, transaction_count: number}>;
-      const totalBankFees = groupedArray.reduce((sum, item) => sum + item.bank_fee, 0);
-      
-      // Add percentage to each item
       const breakdown = groupedArray.map((item) => ({
         ...item,
-        percentage: totalBankFees > 0 ? (item.bank_fee / totalBankFees) * 100 : 0
+        percentage: item.total > 0 ? (item.bank_fee / item.total) * 100 : 0
       })).sort((a, b) => b.bank_fee - a.bank_fee);
       
       setPaymentChargesBreakdown(breakdown);
@@ -2490,7 +2487,13 @@ const Dashboard = () => {
                     <div className="text-right">
                       {formatCurrency(paymentChargesBreakdown.reduce((sum, item) => sum + item.bank_fee, 0))}
                     </div>
-                    <div className="text-right">100.00%</div>
+                    <div className="text-right">
+                      {(() => {
+                        const totalSales = paymentChargesBreakdown.reduce((sum, item) => sum + item.total, 0);
+                        const totalFees = paymentChargesBreakdown.reduce((sum, item) => sum + item.bank_fee, 0);
+                        return totalSales > 0 ? ((totalFees / totalSales) * 100).toFixed(2) + '%' : '0.00%';
+                      })()}
+                    </div>
                   </div>
                 </div>
               )}
