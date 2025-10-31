@@ -270,14 +270,45 @@ const Dashboard = () => {
         const transactionCount = Number(stats.tx_count || 0);
         const avgOrderValue = transactionCount > 0 ? totalSales / transactionCount : 0;
 
+        // Fetch COGS and E-Payment Charges separately for Income Statement with pagination
+        const pageSize = 1000;
+        let from = 0;
+        let allCogsData: any[] = [];
+
+        while (true) {
+          const { data, error } = await supabase
+            .from('purpletransaction')
+            .select('cost_sold, bank_fee')
+            .gte('created_at_date', startStr)
+            .lt('created_at_date', endNextStr)
+            .neq('payment_method', 'point')
+            .range(from, from + pageSize - 1);
+
+          if (error) throw error;
+
+          const batch = data || [];
+          allCogsData = allCogsData.concat(batch);
+
+          if (batch.length < pageSize) break;
+          from += pageSize;
+        }
+
+        let costOfSales = 0;
+        let ePaymentCharges = 0;
+
+        allCogsData.forEach((row) => {
+          costOfSales += parseNumber(row.cost_sold);
+          ePaymentCharges += parseNumber(row.bank_fee);
+        });
+
         setMetrics({
           totalSales,
           totalProfit,
           transactionCount,
           avgOrderValue,
           couponSales: 0,
-          costOfSales: 0, // Can add to RPC if needed
-          ePaymentCharges: 0, // Can add to RPC if needed
+          costOfSales,
+          ePaymentCharges,
           totalPoints: 0, // Will be calculated when Points Sales card is clicked
           pointsCostSold: 0, // Will be calculated when Points Sales card is clicked
         });
