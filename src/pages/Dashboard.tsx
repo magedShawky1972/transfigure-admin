@@ -1054,7 +1054,7 @@ const Dashboard = () => {
 
       const { data, error } = await supabase
         .from('purpletransaction')
-        .select('customer_name, customer_phone, created_at_date, total')
+        .select('customer_name, customer_phone, created_at_date, cost_sold')
         .eq('payment_method', 'point')
         .gte('created_at_date', startStr)
         .lt('created_at_date', endNextStr)
@@ -1066,7 +1066,7 @@ const Dashboard = () => {
         customer_name: item.customer_name || '',
         customer_phone: item.customer_phone || '',
         created_at_date: item.created_at_date,
-        total_point: parseNumber(item.total)
+        total_point: parseNumber(item.cost_sold)
       }));
 
       setPointTransactionsList(formattedData);
@@ -1168,8 +1168,8 @@ const Dashboard = () => {
       gradient: "from-blue-500 to-cyan-500",
     },
     {
-      title: t("dashboard.totalPoints"),
-      value: metrics.totalPoints.toLocaleString(),
+      title: t("dashboard.pointsCost"),
+      value: formatCurrency(metrics.pointsCostSold),
       icon: Coins,
       gradient: "from-yellow-500 to-amber-500",
       onClick: handlePointsClick,
@@ -2395,7 +2395,7 @@ const Dashboard = () => {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {language === 'ar' ? 'معاملات النقاط' : 'Point Transactions'}
+              {language === 'ar' ? 'تفاصيل تكلفة النقاط' : 'Points Cost Breakdown'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -2437,7 +2437,7 @@ const Dashboard = () => {
                     onClick={() => handlePointTransactionSort('total_point')}
                     className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
                   >
-                    {language === 'ar' ? 'النقاط' : 'Points'}
+                    {language === 'ar' ? 'التكلفة' : 'Cost'}
                     {pointTransactionsSortColumn === 'total_point' && (
                       pointTransactionsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                     )}
@@ -2450,13 +2450,13 @@ const Dashboard = () => {
                     <div className="text-sm text-right">
                       {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
                     </div>
-                    <div className="text-sm font-medium text-right">{transaction.total_point.toLocaleString()}</div>
+                    <div className="text-sm font-medium text-right">{formatCurrency(transaction.total_point)}</div>
                   </div>
                 ))}
                 <div className="grid grid-cols-4 gap-4 pt-4 font-bold">
                   <div className="col-span-3 text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
                   <div className="text-right">
-                    {pointTransactionsList.reduce((sum, t) => sum + t.total_point, 0).toLocaleString()}
+                    {formatCurrency(pointTransactionsList.reduce((sum, t) => sum + t.total_point, 0))}
                   </div>
                 </div>
               </div>
