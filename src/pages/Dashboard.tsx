@@ -1538,6 +1538,76 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
+      {/* Brand Sales Grid */}
+      <Card className="border-2 relative">
+        {loadingTables && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+        <CardHeader>
+          <CardTitle>{language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</CardTitle>
+          <CardDescription>
+            {language === 'ar' ? 'جميع مبيعات العلامات التجارية للفترة المحددة' : 'All brand sales for the selected period'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {brandSalesGrid.length > 0 ? (
+              brandSalesGrid.map((brand, index) => (
+                <Card key={index} className="border hover:border-primary transition-colors">
+                  <CardContent className="pt-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-lg truncate" title={brand.brandName}>
+                          {brand.brandName}
+                        </h3>
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                          #{index + 1}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
+                          </span>
+                          <span className="font-bold text-primary text-lg">
+                            {formatCurrency(brand.totalSales)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
+                          </span>
+                          <span className="font-semibold">
+                            {brand.transactionCount.toLocaleString()}
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <span className="text-xs text-muted-foreground">
+                            {language === 'ar' ? 'متوسط قيمة المعاملة' : 'Avg Transaction'}
+                          </span>
+                          <span className="text-sm font-medium">
+                            {formatCurrency(brand.totalSales / brand.transactionCount)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8 text-muted-foreground">
+                {language === 'ar' ? 'لا توجد بيانات متاحة' : 'No data available'}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Coins by Brand Grid */}
       <Card className="border-2 relative">
         {loadingTables && (
@@ -1645,76 +1715,6 @@ const Dashboard = () => {
                 </tfoot>
               )}
             </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Brand Sales Grid */}
-      <Card className="border-2 relative">
-        {loadingTables && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
-        <CardHeader>
-          <CardTitle>{language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</CardTitle>
-          <CardDescription>
-            {language === 'ar' ? 'جميع مبيعات العلامات التجارية للفترة المحددة' : 'All brand sales for the selected period'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {brandSalesGrid.length > 0 ? (
-              brandSalesGrid.map((brand, index) => (
-                <Card key={index} className="border hover:border-primary transition-colors">
-                  <CardContent className="pt-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-lg truncate" title={brand.brandName}>
-                          {brand.brandName}
-                        </h3>
-                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
-                          #{index + 1}
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
-                          </span>
-                          <span className="font-bold text-primary text-lg">
-                            {formatCurrency(brand.totalSales)}
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
-                          </span>
-                          <span className="font-semibold">
-                            {brand.transactionCount.toLocaleString()}
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between items-center pt-2 border-t">
-                          <span className="text-xs text-muted-foreground">
-                            {language === 'ar' ? 'متوسط قيمة المعاملة' : 'Avg Transaction'}
-                          </span>
-                          <span className="text-sm font-medium">
-                            {formatCurrency(brand.totalSales / brand.transactionCount)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-8 text-muted-foreground">
-                {language === 'ar' ? 'لا توجد بيانات متاحة' : 'No data available'}
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
