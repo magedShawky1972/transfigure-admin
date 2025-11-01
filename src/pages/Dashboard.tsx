@@ -485,32 +485,80 @@ const Dashboard = () => {
       }
       setSalesTrend(points);
 
-      // Month comparison - use the same date range as the metrics to ensure consistency
-      const months = [];
+      // Month comparison - show base month and previous two months, matching total cards logic
+      const now = new Date();
+      const months: Array<{ month: string; sales: number; profit: number }> = [];
       
-      // Group transactions by month within the selected date range
-      const monthlyData: Record<string, { sales: number; profit: number }> = {};
+      // Determine base month based on date filter (same behavior as before)
+      let baseMonth;
+      if (dateFilter === "lastMonth") {
+        baseMonth = subMonths(now, 1);
+      } else if (dateFilter === "thisMonth") {
+        baseMonth = now;
+      } else if (dateFilter === "yesterday") {
+        baseMonth = subDays(now, 1);
+      } else if (dateFilter === "dateRange" && fromDate) {
+        baseMonth = fromDate;
+      } else {
+        baseMonth = now;
+      }
       
-      transactions.forEach((t: any) => {
-        const txDate = new Date(t.created_at_date);
-        const monthKey = format(txDate, 'MMM yyyy');
+      // Build last 3 months (previous 2 + base)
+      for (let i = 2; i >= 0; i--) {
+        const monthDate = subMonths(baseMonth, i);
+        const start = startOfMonth(monthDate);
+        const end = endOfMonth(monthDate);
         
-        if (!monthlyData[monthKey]) {
-          monthlyData[monthKey] = { sales: 0, profit: 0 };
+        let monthFrom = 0;
+        let allData: any[] = [];
+        
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from('purpletransaction')
+            .select('total, profit, bank_fee, payment_method')
+            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
+            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
+            .range(monthFrom, monthFrom + pageSize - 1);
+
+          if (error) throw error;
+
+          const batch = data || [];
+          allData = allData.concat(batch);
+          
+          if (batch.length < pageSize) break;
+          monthFrom += pageSize;
         }
+
+        // Apply the same logic as total cards:
+        // sales = sum(total) for non-point transactions only
+        // profit = sum(profit) for non-point - sum(total) for point - sum(bank_fee) for non-point
+        let nonPointSales = 0;
+        let nonPointProfit = 0;
+        let nonPointBankFees = 0;
+        let pointsCost = 0;
         
-        monthlyData[monthKey].sales += parseNumber(t.total);
-        monthlyData[monthKey].profit += parseNumber(t.profit);
-      });
-      
-      // Convert to array and sort by date
-      const monthlyArray = Object.entries(monthlyData).map(([month, data]) => ({
-        month,
-        sales: data.sales,
-        profit: data.profit,
-      }));
-      
-      setMonthComparison(monthlyArray);
+        for (const row of allData) {
+          const isPoint = (row.payment_method || '').toLowerCase() === 'point';
+          if (isPoint) {
+            pointsCost += parseNumber(row.total);
+          } else {
+            nonPointSales += parseNumber(row.total);
+            nonPointProfit += parseNumber(row.profit);
+            nonPointBankFees += parseNumber(row.bank_fee);
+          }
+        }
+
+        const monthSales = nonPointSales;
+        const monthProfit = nonPointProfit - pointsCost - nonPointBankFees;
+
+        months.push({
+          month: format(monthDate, 'MMM yyyy'),
+          sales: monthSales,
+          profit: monthProfit,
+        });
+      }
+
+      setMonthComparison(months);
 
       if (transactions && transactions.length > 0) {
         // Store transactions for brand filtering
@@ -1587,7 +1635,7 @@ const Dashboard = () => {
                     : bVal - aVal;
                 })
                 .map((brand, index) => (
-                <Card key={index} className="border hover:border-primary transition-colors">
+                <Card key={brand.brandName} className="border hover:border-primary transition-colors">
                   <CardContent className="pt-6">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
