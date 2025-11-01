@@ -485,61 +485,32 @@ const Dashboard = () => {
       }
       setSalesTrend(points);
 
-      // Month comparison
-      const now = new Date();
+      // Month comparison - use the same date range as the metrics to ensure consistency
       const months = [];
       
-      // Determine base month based on date filter
-      let baseMonth;
-      if (dateFilter === "lastMonth") {
-        baseMonth = subMonths(now, 1);
-      } else if (dateFilter === "thisMonth") {
-        baseMonth = now;
-      } else if (dateFilter === "yesterday") {
-        baseMonth = subDays(now, 1);
-      } else if (dateFilter === "dateRange" && fromDate) {
-        baseMonth = fromDate;
-      } else {
-        baseMonth = now;
-      }
+      // Group transactions by month within the selected date range
+      const monthlyData: Record<string, { sales: number; profit: number }> = {};
       
-      // Go back 2 months from base month, then show 3 months
-      for (let i = 2; i >= 0; i--) {
-        const monthDate = subMonths(baseMonth, i);
-        const start = startOfMonth(monthDate);
-        const end = endOfMonth(monthDate);
+      transactions.forEach((t: any) => {
+        const txDate = new Date(t.created_at_date);
+        const monthKey = format(txDate, 'MMM yyyy');
         
-        let monthFrom = 0;
-        let allData: any[] = [];
-        
-        while (true) {
-          const { data, error } = await (supabase as any)
-            .from('purpletransaction')
-            .select('total, profit')
-            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
-            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
-            .range(monthFrom, monthFrom + pageSize - 1);
-
-          if (error) throw error;
-
-          const batch = data || [];
-          allData = allData.concat(batch);
-          
-          if (batch.length < pageSize) break;
-          monthFrom += pageSize;
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { sales: 0, profit: 0 };
         }
-
-        const totalSales = allData.reduce((sum: number, t: any) => sum + parseNumber(t.total), 0);
-        const totalProfit = allData.reduce((sum: number, t: any) => sum + parseNumber(t.profit), 0);
-
-        months.push({
-          month: format(monthDate, 'MMM yyyy'),
-          sales: totalSales,
-          profit: totalProfit,
-        });
-      }
-
-      setMonthComparison(months);
+        
+        monthlyData[monthKey].sales += parseNumber(t.total);
+        monthlyData[monthKey].profit += parseNumber(t.profit);
+      });
+      
+      // Convert to array and sort by date
+      const monthlyArray = Object.entries(monthlyData).map(([month, data]) => ({
+        month,
+        sales: data.sales,
+        profit: data.profit,
+      }));
+      
+      setMonthComparison(monthlyArray);
 
       if (transactions && transactions.length > 0) {
         // Store transactions for brand filtering
