@@ -484,8 +484,23 @@ const Dashboard = () => {
       const now = new Date();
       const months = [];
       
-      for (let i = 0; i < 3; i++) {
-        const monthDate = subMonths(now, i);
+      // Determine base month based on date filter
+      let baseMonth;
+      if (dateFilter === "lastMonth") {
+        baseMonth = subMonths(now, 1);
+      } else if (dateFilter === "thisMonth") {
+        baseMonth = now;
+      } else if (dateFilter === "yesterday") {
+        baseMonth = subDays(now, 1);
+      } else if (dateFilter === "dateRange" && fromDate) {
+        baseMonth = fromDate;
+      } else {
+        baseMonth = now;
+      }
+      
+      // Go back 2 months from base month, then show 3 months
+      for (let i = 2; i >= 0; i--) {
+        const monthDate = subMonths(baseMonth, i);
         const start = startOfMonth(monthDate);
         const end = endOfMonth(monthDate);
         
@@ -519,7 +534,7 @@ const Dashboard = () => {
         });
       }
 
-      setMonthComparison(months.reverse());
+      setMonthComparison(months);
 
       if (transactions && transactions.length > 0) {
         // Store transactions for brand filtering
