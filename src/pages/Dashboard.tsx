@@ -99,6 +99,8 @@ const Dashboard = () => {
   
   // Brand Sales Grid
   const [brandSalesGrid, setBrandSalesGrid] = useState<any[]>([]);
+  const [brandSalesSortColumn, setBrandSalesSortColumn] = useState<'brandName' | 'transactionCount' | 'totalSales'>('totalSales');
+  const [brandSalesSortDirection, setBrandSalesSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Payment Charges Dialog
   const [paymentChargesDialogOpen, setPaymentChargesDialogOpen] = useState(false);
@@ -1266,6 +1268,12 @@ const Dashboard = () => {
     setPointTransactionsList(sorted);
   };
 
+  const handleBrandSalesSort = (column: 'brandName' | 'transactionCount' | 'totalSales') => {
+    const newDirection = brandSalesSortColumn === column && brandSalesSortDirection === 'asc' ? 'desc' : 'asc';
+    setBrandSalesSortColumn(column);
+    setBrandSalesSortDirection(newDirection);
+  };
+
   const handlePaymentChargesClick = async () => {
     try {
       setLoadingPaymentCharges(true);
@@ -1552,9 +1560,62 @@ const Dashboard = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Sorting Controls */}
+          <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+            <Button
+              variant={brandSalesSortColumn === 'brandName' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleBrandSalesSort('brandName')}
+              className="gap-2"
+            >
+              {language === 'ar' ? 'اسم العلامة' : 'Brand Name'}
+              {brandSalesSortColumn === 'brandName' && (
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant={brandSalesSortColumn === 'totalSales' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleBrandSalesSort('totalSales')}
+              className="gap-2"
+            >
+              {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
+              {brandSalesSortColumn === 'totalSales' && (
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant={brandSalesSortColumn === 'transactionCount' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleBrandSalesSort('transactionCount')}
+              className="gap-2"
+            >
+              {language === 'ar' ? 'عدد المعاملات' : 'Transaction Count'}
+              {brandSalesSortColumn === 'transactionCount' && (
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
+          {/* Grid Display */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {brandSalesGrid.length > 0 ? (
-              brandSalesGrid.map((brand, index) => (
+              [...brandSalesGrid]
+                .sort((a, b) => {
+                  const aVal = a[brandSalesSortColumn];
+                  const bVal = b[brandSalesSortColumn];
+                  
+                  if (typeof aVal === 'string' && typeof bVal === 'string') {
+                    return brandSalesSortDirection === 'asc' 
+                      ? aVal.localeCompare(bVal) 
+                      : bVal.localeCompare(aVal);
+                  }
+                  
+                  return brandSalesSortDirection === 'asc' 
+                    ? aVal - bVal 
+                    : bVal - aVal;
+                })
+                .map((brand, index) => (
                 <Card key={index} className="border hover:border-primary transition-colors">
                   <CardContent className="pt-6">
                     <div className="space-y-3">
