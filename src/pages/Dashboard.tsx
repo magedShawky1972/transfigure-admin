@@ -1619,57 +1619,92 @@ const Dashboard = () => {
           {/* List Display */}
           <div className="space-y-3">
             {brandSalesGrid.length > 0 ? (
-              [...brandSalesGrid]
-                .sort((a, b) => {
-                  const aVal = a[brandSalesSortColumn];
-                  const bVal = b[brandSalesSortColumn];
-                  
-                  if (typeof aVal === 'string' && typeof bVal === 'string') {
+              <>
+                {[...brandSalesGrid]
+                  .sort((a, b) => {
+                    const aVal = a[brandSalesSortColumn];
+                    const bVal = b[brandSalesSortColumn];
+                    
+                    if (typeof aVal === 'string' && typeof bVal === 'string') {
+                      return brandSalesSortDirection === 'asc' 
+                        ? aVal.localeCompare(bVal) 
+                        : bVal.localeCompare(aVal);
+                    }
+                    
                     return brandSalesSortDirection === 'asc' 
-                      ? aVal.localeCompare(bVal) 
-                      : bVal.localeCompare(aVal);
-                  }
-                  
-                  return brandSalesSortDirection === 'asc' 
-                    ? aVal - bVal 
-                    : bVal - aVal;
-                })
-                .map((brand, index) => (
-                <Card key={brand.brandName} className="border hover:border-primary transition-colors">
+                      ? aVal - bVal 
+                      : bVal - aVal;
+                  })
+                  .map((brand, index) => (
+                  <Card key={brand.brandName} className="border hover:border-primary transition-colors">
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary shrink-0">
+                            #{index + 1}
+                          </span>
+                          <h3 className="font-semibold text-base" title={brand.brandName}>
+                            {brand.brandName.length > 15 ? brand.brandName.substring(0, 15) + '...' : brand.brandName}
+                          </h3>
+                        </div>
+                        
+                        <div className="flex items-center gap-6 shrink-0">
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">
+                              {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
+                            </div>
+                            <div className="font-bold text-primary">
+                              {formatCurrency(brand.totalSales)}
+                            </div>
+                          </div>
+                          
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">
+                              {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
+                            </div>
+                            <div className="font-semibold">
+                              {brand.transactionCount.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {/* Total Row */}
+                <Card className="border-2 border-primary bg-primary/5">
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary shrink-0">
-                          #{index + 1}
-                        </span>
-                        <h3 className="font-semibold text-base" title={brand.brandName}>
-                          {brand.brandName.length > 15 ? brand.brandName.substring(0, 15) + '...' : brand.brandName}
+                        <h3 className="font-bold text-lg">
+                          {language === 'ar' ? 'المجموع الكلي' : 'Total'}
                         </h3>
                       </div>
                       
                       <div className="flex items-center gap-6 shrink-0">
                         <div className="text-right">
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground font-semibold">
                             {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
                           </div>
-                          <div className="font-bold text-primary">
-                            {formatCurrency(brand.totalSales)}
+                          <div className="font-bold text-primary text-lg">
+                            {formatCurrency(brandSalesGrid.reduce((sum, brand) => sum + brand.totalSales, 0))}
                           </div>
                         </div>
                         
                         <div className="text-right">
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground font-semibold">
                             {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
                           </div>
-                          <div className="font-semibold">
-                            {brand.transactionCount.toLocaleString()}
+                          <div className="font-bold text-lg">
+                            {brandSalesGrid.reduce((sum, brand) => sum + brand.transactionCount, 0).toLocaleString()}
                           </div>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
+              </>
             ) : (
               <div className="col-span-full text-center py-8 text-muted-foreground">
                 {language === 'ar' ? 'لا توجد بيانات متاحة' : 'No data available'}
