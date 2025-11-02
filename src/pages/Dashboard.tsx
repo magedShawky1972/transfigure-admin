@@ -515,7 +515,7 @@ const Dashboard = () => {
         while (true) {
           const { data, error } = await (supabase as any)
             .from('purpletransaction')
-            .select('total, cost_sold, bank_fee, payment_method')
+            .select('total, profit, bank_fee, payment_method')
             .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
             .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
             .range(monthFrom, monthFrom + pageSize - 1);
@@ -529,24 +529,27 @@ const Dashboard = () => {
           monthFrom += pageSize;
         }
 
-        // Align with Total Sales Card logic:
-        // - Sales: sum(total) for NON-POINT transactions only (matching RPC)
-        // - Profit: nonPointSales - totalCostSold - nonPointBankFees
+        // Apply the same logic as Total Sales/Profit cards (RPC):
+        // sales = sum(total) for NON-POINT transactions only
+        // profit = sum(profit) for NON-POINT - sum(total) for POINT - sum(bank_fee) for NON-POINT
         let nonPointSales = 0;
-        let totalCostSoldAll = 0;
+        let nonPointProfit = 0;
         let nonPointBankFees = 0;
+        let pointsCost = 0;
         
         for (const row of allData) {
           const isPoint = (row.payment_method || '').toLowerCase() === 'point';
-          totalCostSoldAll += parseNumber(row.cost_sold);
-          if (!isPoint) {
+          if (isPoint) {
+            pointsCost += parseNumber(row.total);
+          } else {
             nonPointSales += parseNumber(row.total);
+            nonPointProfit += parseNumber(row.profit);
             nonPointBankFees += parseNumber(row.bank_fee);
           }
         }
         
         const monthSales = nonPointSales;
-        const monthProfit = nonPointSales - totalCostSoldAll - nonPointBankFees;
+        const monthProfit = nonPointProfit - pointsCost - nonPointBankFees;
 
         months.push({
           month: format(monthDate, 'MMM yyyy'),
