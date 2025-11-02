@@ -529,24 +529,24 @@ const Dashboard = () => {
           monthFrom += pageSize;
         }
 
-        // Align with Total cards logic:
-        // - Sales: sum(total) for all transactions
-        // - Profit: totalSalesAll - sum(cost_sold) for all - sum(bank_fee) for non-point
-        let totalSalesAll = 0;
+        // Align with Total Sales Card logic:
+        // - Sales: sum(total) for NON-POINT transactions only (matching RPC)
+        // - Profit: nonPointSales - totalCostSold - nonPointBankFees
+        let nonPointSales = 0;
         let totalCostSoldAll = 0;
         let nonPointBankFees = 0;
         
         for (const row of allData) {
           const isPoint = (row.payment_method || '').toLowerCase() === 'point';
-          totalSalesAll += parseNumber(row.total);
           totalCostSoldAll += parseNumber(row.cost_sold);
           if (!isPoint) {
+            nonPointSales += parseNumber(row.total);
             nonPointBankFees += parseNumber(row.bank_fee);
           }
         }
         
-        const monthSales = totalSalesAll;
-        const monthProfit = totalSalesAll - totalCostSoldAll - nonPointBankFees;
+        const monthSales = nonPointSales;
+        const monthProfit = nonPointSales - totalCostSoldAll - nonPointBankFees;
 
         months.push({
           month: format(monthDate, 'MMM yyyy'),
@@ -767,9 +767,11 @@ const Dashboard = () => {
           .sort((a: any, b: any) => b.total_coins - a.total_coins);
         setCoinsByBrand(sortedCoins);
         
-        // Brand Sales Grid
+        // Brand Sales Grid - exclude point transactions from sales (matching Total Sales Card)
         const brandSalesData = transactions.reduce((acc: any, t) => {
           const brand = t.brand_name || 'Unknown';
+          const isPoint = (t.payment_method || '').toLowerCase() === 'point';
+          
           if (!acc[brand]) {
             acc[brand] = { 
               brandName: brand, 
@@ -778,7 +780,10 @@ const Dashboard = () => {
             };
           }
           acc[brand].transactionCount += 1;
-          acc[brand].totalSales += parseNumber(t.total);
+          // Only add to sales if not a point transaction
+          if (!isPoint) {
+            acc[brand].totalSales += parseNumber(t.total);
+          }
           return acc;
         }, {});
         
