@@ -1678,7 +1678,7 @@ const Dashboard = () => {
                             #{index + 1}
                           </span>
                           <h3 className="font-semibold text-base" title={brand.brandName}>
-                            {brand.brandName.length > 15 ? brand.brandName.substring(0, 15) + '...' : brand.brandName}
+                            {brand.brandName.length > 30 ? brand.brandName.substring(0, 30) + '...' : brand.brandName}
                           </h3>
                         </div>
                         
