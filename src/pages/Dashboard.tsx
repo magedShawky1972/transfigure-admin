@@ -1616,8 +1616,8 @@ const Dashboard = () => {
             </Button>
           </div>
 
-          {/* Grid Display */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* List Display */}
+          <div className="space-y-3">
             {brandSalesGrid.length > 0 ? (
               [...brandSalesGrid]
                 .sort((a, b) => {
@@ -1636,43 +1636,34 @@ const Dashboard = () => {
                 })
                 .map((brand, index) => (
                 <Card key={brand.brandName} className="border hover:border-primary transition-colors">
-                  <CardContent className="pt-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-lg truncate" title={brand.brandName}>
-                          {brand.brandName}
-                        </h3>
-                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary shrink-0">
                           #{index + 1}
                         </span>
+                        <h3 className="font-semibold text-base" title={brand.brandName}>
+                          {brand.brandName.length > 15 ? brand.brandName.substring(0, 15) + '...' : brand.brandName}
+                        </h3>
                       </div>
                       
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
+                      <div className="flex items-center gap-6 shrink-0">
+                        <div className="text-right">
+                          <div className="text-xs text-muted-foreground">
                             {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
-                          </span>
-                          <span className="font-bold text-primary text-lg">
+                          </div>
+                          <div className="font-bold text-primary">
                             {formatCurrency(brand.totalSales)}
-                          </span>
+                          </div>
                         </div>
                         
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
+                        <div className="text-right">
+                          <div className="text-xs text-muted-foreground">
                             {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
-                          </span>
-                          <span className="font-semibold">
+                          </div>
+                          <div className="font-semibold">
                             {brand.transactionCount.toLocaleString()}
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between items-center pt-2 border-t">
-                          <span className="text-xs text-muted-foreground">
-                            {language === 'ar' ? 'متوسط قيمة المعاملة' : 'Avg Transaction'}
-                          </span>
-                          <span className="text-sm font-medium">
-                            {formatCurrency(brand.totalSales / brand.transactionCount)}
-                          </span>
+                          </div>
                         </div>
                       </div>
                     </div>
