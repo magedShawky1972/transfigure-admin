@@ -2019,13 +2019,6 @@ const Dashboard = () => {
                   verticalAlign="middle" 
                   layout="vertical"
                   wrapperStyle={{ color: '#ffffff' }}
-                  formatter={(value) => {
-                    const shortName = value.replace(/\s*\([\d.]+%\)/, '');
-                    if (shortName.length <= 9) return shortName;
-                    const truncated = shortName.substring(0, 9);
-                    const lastSpace = truncated.lastIndexOf(' ');
-                    return lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
-                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
