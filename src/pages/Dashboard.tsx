@@ -509,17 +509,70 @@ const Dashboard = () => {
         const start = startOfMonth(monthDate);
         const end = endOfMonth(monthDate);
         
-        const { data: msum, error: merr } = await (supabase as any)
-          .rpc('transactions_summary', {
-            date_from: format(start, 'yyyy-MM-dd'),
-            date_to: format(end, 'yyyy-MM-dd')
-          });
-        if (merr) throw merr;
-        const statsRow = (msum && msum[0]) || { total_sales: 0, total_profit: 0 };
+        // Calculate monthly metrics matching Income Statement and Profit Card:
+        // Sales = sum(total) for NON-POINT only
+        // Profit = (nonPointSales - nonPointCost) - pointsCost - nonPointBankFees
+        // pointsCost is grouped by order_number to avoid double counting
+        // Fetch non-point data
+        let fromNP = 0;
+        let nonPointData: any[] = [];
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from('purpletransaction')
+            .select('total, cost_sold, bank_fee')
+            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
+            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
+            .neq('payment_method', 'point')
+            .range(fromNP, fromNP + pageSize - 1);
+          if (error) throw error;
+          const batch = data || [];
+          nonPointData = nonPointData.concat(batch);
+          if (batch.length < pageSize) break;
+          fromNP += pageSize;
+        }
+
+        // Fetch point transactions and group by order
+        let fromP = 0;
+        let pointData: any[] = [];
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from('purpletransaction')
+            .select('id, order_number, total')
+            .ilike('payment_method', 'point')
+            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
+            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
+            .range(fromP, fromP + pageSize - 1);
+          if (error) throw error;
+          const batch = data || [];
+          pointData = pointData.concat(batch);
+          if (batch.length < pageSize) break;
+          fromP += pageSize;
+        }
+
+        let nonPointSales = 0;
+        let nonPointCost = 0;
+        let nonPointBankFees = 0;
+        nonPointData.forEach((row) => {
+          nonPointSales += parseNumber(row.total);
+          nonPointCost += parseNumber(row.cost_sold);
+          nonPointBankFees += parseNumber(row.bank_fee);
+        });
+
+        const orderGrouped = new Map<string, number>();
+        pointData.forEach((item: any) => {
+          const key = item.order_number || item.id;
+          const total = parseNumber(item.total);
+          orderGrouped.set(key, (orderGrouped.get(key) || 0) + total);
+        });
+        const pointsCost = Array.from(orderGrouped.values()).reduce((s, v) => s + v, 0);
+
+        const monthSales = nonPointSales;
+        const monthProfit = (nonPointSales - nonPointCost) - pointsCost - nonPointBankFees;
+
         months.push({
           month: format(monthDate, 'MMM yyyy'),
-          sales: Number(statsRow.total_sales || 0),
-          profit: Number(statsRow.total_profit || 0),
+          sales: monthSales,
+          profit: monthProfit,
         });
       }
 
