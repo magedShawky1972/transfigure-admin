@@ -509,52 +509,17 @@ const Dashboard = () => {
         const start = startOfMonth(monthDate);
         const end = endOfMonth(monthDate);
         
-        let monthFrom = 0;
-        let allData: any[] = [];
-        
-        while (true) {
-          const { data, error } = await (supabase as any)
-            .from('purpletransaction')
-            .select('total, profit, bank_fee, payment_method')
-            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
-            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
-            .range(monthFrom, monthFrom + pageSize - 1);
-
-          if (error) throw error;
-
-          const batch = data || [];
-          allData = allData.concat(batch);
-          
-          if (batch.length < pageSize) break;
-          monthFrom += pageSize;
-        }
-
-        // Apply the same logic as Total Sales/Profit cards (RPC):
-        // sales = sum(total) for NON-POINT transactions only
-        // profit = sum(profit) for NON-POINT - sum(total) for POINT - sum(bank_fee) for NON-POINT
-        let nonPointSales = 0;
-        let nonPointProfit = 0;
-        let nonPointBankFees = 0;
-        let pointsCost = 0;
-        
-        for (const row of allData) {
-          const isPoint = (row.payment_method || '').toLowerCase() === 'point';
-          if (isPoint) {
-            pointsCost += parseNumber(row.total);
-          } else {
-            nonPointSales += parseNumber(row.total);
-            nonPointProfit += parseNumber(row.profit);
-            nonPointBankFees += parseNumber(row.bank_fee);
-          }
-        }
-        
-        const monthSales = nonPointSales;
-        const monthProfit = nonPointProfit - pointsCost - nonPointBankFees;
-
+        const { data: msum, error: merr } = await (supabase as any)
+          .rpc('transactions_summary', {
+            date_from: format(start, 'yyyy-MM-dd'),
+            date_to: format(end, 'yyyy-MM-dd')
+          });
+        if (merr) throw merr;
+        const statsRow = (msum && msum[0]) || { total_sales: 0, total_profit: 0 };
         months.push({
           month: format(monthDate, 'MMM yyyy'),
-          sales: monthSales,
-          profit: monthProfit,
+          sales: Number(statsRow.total_sales || 0),
+          profit: Number(statsRow.total_profit || 0),
         });
       }
 
