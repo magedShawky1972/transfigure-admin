@@ -14,6 +14,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, X
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 interface Transaction {
   id: string;
@@ -119,6 +120,7 @@ const Dashboard = () => {
   // Point Transactions Dialog
   const [pointTransactionsDialogOpen, setPointTransactionsDialogOpen] = useState(false);
   const [pointTransactionsList, setPointTransactionsList] = useState<any[]>([]);
+  const [loadingPointTransactions, setLoadingPointTransactions] = useState(false);
   const [pointTransactionsSortColumn, setPointTransactionsSortColumn] = useState<'customer_name' | 'customer_phone' | 'created_at_date' | 'sales_amount' | 'cost_amount'>('created_at_date');
   const [pointTransactionsSortDirection, setPointTransactionsSortDirection] = useState<'asc' | 'desc'>('desc');
   // Applied date range snapshot to keep popup in sync with cards
@@ -1181,8 +1183,12 @@ const Dashboard = () => {
 
   const handlePointsClick = async () => {
     try {
+      setLoadingPointTransactions(true);
       const dateRange = getDateRange();
-      if (!dateRange) return;
+      if (!dateRange) {
+        setLoadingPointTransactions(false);
+        return;
+      }
 
       const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
@@ -1283,6 +1289,8 @@ const Dashboard = () => {
         description: language === 'ar' ? 'فشل في تحميل معاملات النقاط' : 'Failed to load point transactions',
         variant: "destructive",
       });
+    } finally {
+      setLoadingPointTransactions(false);
     }
   };
 
@@ -1320,7 +1328,10 @@ const Dashboard = () => {
     try {
       setLoadingPaymentCharges(true);
       const dateRange = getDateRange();
-      if (!dateRange) return;
+      if (!dateRange) {
+        setLoadingPaymentCharges(false);
+        return;
+      }
 
       const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
@@ -3024,6 +3035,21 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Loading Overlays */}
+      {loadingPaymentCharges && (
+        <LoadingOverlay 
+          progress={100} 
+          message={language === 'ar' ? 'جاري تحميل رسوم الدفع الإلكتروني...' : 'Loading E-Payment Charges...'}
+        />
+      )}
+      
+      {loadingPointTransactions && (
+        <LoadingOverlay 
+          progress={100} 
+          message={language === 'ar' ? 'جاري تحميل معاملات النقاط...' : 'Loading Point Transactions...'}
+        />
+      )}
     </div>
   );
 };
