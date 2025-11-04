@@ -594,8 +594,11 @@ const Dashboard = () => {
           return acc;
         }, {}) || {};
         
+        // Filter out point sales for brand and product calculations
+        const nonPointTransactions = transactions.filter(t => t.payment_method !== 'point');
+        
         // Top brands
-        const brandSales = transactions.reduce((acc: any, t) => {
+        const brandSales = nonPointTransactions.reduce((acc: any, t) => {
           const brand = t.brand_name || 'Unknown';
           if (!acc[brand]) {
             acc[brand] = { name: brand, value: 0 };
@@ -622,7 +625,7 @@ const Dashboard = () => {
         setTopCategories(Object.values(brandSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
         // Top products
-        const productSales = transactions.reduce((acc: any, t) => {
+        const productSales = nonPointTransactions.reduce((acc: any, t) => {
           const product = t.product_name || 'Unknown';
           if (!acc[product]) {
             acc[product] = { name: product, value: 0, qty: 0 };
