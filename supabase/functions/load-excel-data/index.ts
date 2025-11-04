@@ -138,11 +138,8 @@ Deno.serve(async (req) => {
             const gatewayFee = (total * (pm.gateway_fee || 0)) / 100;
             const fixed = pm.fixed_value || 0;
             
-            // Apply 15% VAT to both gateway fee and fixed value
-            const gatewayFeeWithVat = gatewayFee * 1.15;
-            const fixedWithVat = fixed * 1.15;
-            
-            record.bank_fee = gatewayFeeWithVat + fixedWithVat;
+            // Calculate: ((total * percentage/100) + fixed_fee) * 1.15 for VAT
+            record.bank_fee = (gatewayFee + fixed) * 1.15;
           } else {
             record.bank_fee = 0;
           }
