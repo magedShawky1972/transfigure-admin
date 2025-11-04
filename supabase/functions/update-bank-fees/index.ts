@@ -95,12 +95,9 @@ Deno.serve(async (req) => {
           const gatewayPct = Number(paymentMethod.gateway_fee) || 0;
           const fixed = Number(paymentMethod.fixed_value) || 0;
 
-          // Apply 15% VAT to both gateway fee and fixed value
+          // Calculate: ((total * percentage/100) + fixed_fee) * 1.15 for VAT
           const gatewayFee = (totalNum * gatewayPct) / 100;
-          const gatewayFeeWithVat = gatewayFee * 1.15;
-          const fixedWithVat = fixed * 1.15;
-          
-          bankFee = gatewayFeeWithVat + fixedWithVat;
+          bankFee = (gatewayFee + fixed) * 1.15;
           matchedCount++;
         } else {
           const label = tx.payment_brand;
