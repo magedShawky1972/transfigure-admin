@@ -663,15 +663,17 @@ const Dashboard = () => {
         }, {});
         setPaymentMethods(Object.values(paymentData));
 
-        // Payment brands
-        const paymentBrandData = transactions.reduce((acc: any, t) => {
-          const brand = t.payment_brand || 'Unknown';
-          if (!acc[brand]) {
-            acc[brand] = { name: brand, value: 0 };
-          }
-          acc[brand].value += parseNumber(t.total);
-          return acc;
-        }, {});
+        // Payment brands (excluding point sales and unknown brands)
+        const paymentBrandData = transactions
+          .filter(t => t.payment_method?.toLowerCase() !== 'point' && t.payment_brand && t.payment_brand.toLowerCase() !== 'unknown')
+          .reduce((acc: any, t) => {
+            const brand = t.payment_brand;
+            if (!acc[brand]) {
+              acc[brand] = { name: brand, value: 0 };
+            }
+            acc[brand].value += parseNumber(t.total);
+            return acc;
+          }, {});
         setPaymentBrands(Object.values(paymentBrandData));
       }
 
