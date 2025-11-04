@@ -109,7 +109,7 @@ const Dashboard = () => {
   const [paymentChargesDialogOpen, setPaymentChargesDialogOpen] = useState(false);
   const [paymentChargesBreakdown, setPaymentChargesBreakdown] = useState<any[]>([]);
   const [loadingPaymentCharges, setLoadingPaymentCharges] = useState(false);
-  const [paymentChargesSortColumn, setPaymentChargesSortColumn] = useState<'payment_brand' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage'>('bank_fee');
+  const [paymentChargesSortColumn, setPaymentChargesSortColumn] = useState<'payment_brand' | 'payment_method' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage'>('bank_fee');
   const [paymentChargesSortDirection, setPaymentChargesSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // New Customers Dialog
@@ -1207,7 +1207,7 @@ const Dashboard = () => {
     setNewCustomersList(sorted);
   };
 
-  const handlePaymentChargesSort = (column: 'payment_brand' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage') => {
+  const handlePaymentChargesSort = (column: 'payment_brand' | 'payment_method' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage') => {
     const newDirection = paymentChargesSortColumn === column && paymentChargesSortDirection === 'asc' ? 'desc' : 'asc';
     setPaymentChargesSortColumn(column);
     setPaymentChargesSortDirection(newDirection);
@@ -1216,7 +1216,7 @@ const Dashboard = () => {
       let aVal = a[column];
       let bVal = b[column];
       
-      if (column === 'payment_brand') {
+      if (column === 'payment_brand' || column === 'payment_method') {
         aVal = (aVal || '').toLowerCase();
         bVal = (bVal || '').toLowerCase();
         return newDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
@@ -1391,7 +1391,7 @@ const Dashboard = () => {
       while (true) {
         const { data, error } = await supabase
           .from('purpletransaction')
-          .select('payment_brand, total, bank_fee')
+          .select('payment_brand, payment_method, total, bank_fee')
           .neq('payment_method', 'point')
           .gte('created_at_date', startStr)
           .lt('created_at_date', endNextStr)
@@ -1412,6 +1412,7 @@ const Dashboard = () => {
         if (!acc[brand]) {
           acc[brand] = {
             payment_brand: brand,
+            payment_method: item.payment_method || 'Unknown',
             total: 0,
             bank_fee: 0,
             transaction_count: 0
@@ -2998,13 +2999,22 @@ const Dashboard = () => {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-5 gap-4 font-semibold text-sm border-b pb-2">
+                  <div className="grid grid-cols-6 gap-4 font-semibold text-sm border-b pb-2">
                     <button 
                       onClick={() => handlePaymentChargesSort('payment_brand')}
                       className="flex items-center gap-1 hover:text-primary transition-colors text-left"
                     >
                       {language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}
                       {paymentChargesSortColumn === 'payment_brand' && (
+                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentChargesSort('payment_method')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'نوع الدفع' : 'Payment Method'}
+                      {paymentChargesSortColumn === 'payment_method' && (
                         paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                       )}
                     </button>
@@ -3046,16 +3056,18 @@ const Dashboard = () => {
                     </button>
                   </div>
                   {paymentChargesBreakdown.map((item, index) => (
-                    <div key={index} className="grid grid-cols-5 gap-4 py-2 border-b">
+                    <div key={index} className="grid grid-cols-6 gap-4 py-2 border-b">
                       <div className="text-sm">{item.payment_brand}</div>
+                      <div className="text-sm">{item.payment_method}</div>
                       <div className="text-sm text-right">{item.transaction_count?.toLocaleString() || 0}</div>
                       <div className="text-sm text-right">{formatCurrency(item.total)}</div>
                       <div className="text-sm font-medium text-right">{formatCurrency(item.bank_fee)}</div>
                       <div className="text-sm font-medium text-right text-primary">{item.percentage.toFixed(2)}%</div>
                     </div>
                   ))}
-                  <div className="grid grid-cols-5 gap-4 pt-4 font-bold border-t-2">
+                  <div className="grid grid-cols-6 gap-4 pt-4 font-bold border-t-2">
                     <div className="text-left">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                    <div></div>
                     <div className="text-right">
                       {paymentChargesBreakdown.reduce((sum, item) => sum + (item.transaction_count || 0), 0).toLocaleString()}
                     </div>
