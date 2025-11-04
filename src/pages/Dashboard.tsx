@@ -3001,20 +3001,20 @@ const Dashboard = () => {
                 <div className="space-y-2">
                   <div className="grid grid-cols-6 gap-4 font-semibold text-sm border-b pb-2">
                     <button 
-                      onClick={() => handlePaymentChargesSort('payment_brand')}
-                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
-                    >
-                      {language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}
-                      {paymentChargesSortColumn === 'payment_brand' && (
-                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                      )}
-                    </button>
-                    <button 
                       onClick={() => handlePaymentChargesSort('payment_method')}
                       className="flex items-center gap-1 hover:text-primary transition-colors text-left"
                     >
                       {language === 'ar' ? 'نوع الدفع' : 'Payment Method'}
                       {paymentChargesSortColumn === 'payment_method' && (
+                        paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentChargesSort('payment_brand')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}
+                      {paymentChargesSortColumn === 'payment_brand' && (
                         paymentChargesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                       )}
                     </button>
@@ -3057,8 +3057,8 @@ const Dashboard = () => {
                   </div>
                   {paymentChargesBreakdown.map((item, index) => (
                     <div key={index} className="grid grid-cols-6 gap-4 py-2 border-b">
-                      <div className="text-sm">{item.payment_brand}</div>
                       <div className="text-sm">{item.payment_method}</div>
+                      <div className="text-sm">{item.payment_brand}</div>
                       <div className="text-sm text-right">{item.transaction_count?.toLocaleString() || 0}</div>
                       <div className="text-sm text-right">{formatCurrency(item.total)}</div>
                       <div className="text-sm font-medium text-right">{formatCurrency(item.bank_fee)}</div>
