@@ -112,6 +112,14 @@ const Dashboard = () => {
   const [paymentChargesSortColumn, setPaymentChargesSortColumn] = useState<'payment_brand' | 'payment_method' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage'>('bank_fee');
   const [paymentChargesSortDirection, setPaymentChargesSortDirection] = useState<'asc' | 'desc'>('desc');
   
+  // Payment Charges Transaction Details Dialog
+  const [paymentDetailsDialogOpen, setPaymentDetailsDialogOpen] = useState(false);
+  const [paymentDetailsList, setPaymentDetailsList] = useState<any[]>([]);
+  const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
+  const [selectedPaymentForDetails, setSelectedPaymentForDetails] = useState<{payment_method: string, payment_brand: string} | null>(null);
+  const [paymentDetailsSortColumn, setPaymentDetailsSortColumn] = useState<'order_number' | 'customer_name' | 'customer_phone' | 'brand_name' | 'product_name' | 'qty' | 'total'>('total');
+  const [paymentDetailsSortDirection, setPaymentDetailsSortDirection] = useState<'asc' | 'desc'>('desc');
+  
   // New Customers Dialog
   const [newCustomersCount, setNewCustomersCount] = useState(0);
   const [newCustomersDialogOpen, setNewCustomersDialogOpen] = useState(false);
@@ -1445,6 +1453,81 @@ const Dashboard = () => {
     } finally {
       setLoadingPaymentCharges(false);
     }
+  };
+
+  const handlePaymentDetailsClick = async (payment_method: string, payment_brand: string) => {
+    try {
+      setLoadingPaymentDetails(true);
+      setSelectedPaymentForDetails({ payment_method, payment_brand });
+      const dateRange = getDateRange();
+      if (!dateRange) {
+        setLoadingPaymentDetails(false);
+        return;
+      }
+
+      const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
+
+      // Fetch transactions for specific payment method and brand
+      const pageSize = 1000;
+      let from = 0;
+      let allData: any[] = [];
+      
+      while (true) {
+        const { data, error } = await supabase
+          .from('purpletransaction')
+          .select('order_number, customer_name, customer_phone, brand_name, product_name, qty, total')
+          .eq('payment_method', payment_method)
+          .eq('payment_brand', payment_brand)
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const batch = data || [];
+        allData = allData.concat(batch);
+        
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      setPaymentDetailsList(allData);
+      setPaymentDetailsSortColumn('total');
+      setPaymentDetailsSortDirection('desc');
+      setPaymentDetailsDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching payment details:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في تحميل تفاصيل المعاملات' : 'Failed to load transaction details',
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPaymentDetails(false);
+    }
+  };
+
+  const handlePaymentDetailsSort = (column: 'order_number' | 'customer_name' | 'customer_phone' | 'brand_name' | 'product_name' | 'qty' | 'total') => {
+    const newDirection = paymentDetailsSortColumn === column && paymentDetailsSortDirection === 'asc' ? 'desc' : 'asc';
+    setPaymentDetailsSortColumn(column);
+    setPaymentDetailsSortDirection(newDirection);
+    
+    const sorted = [...paymentDetailsList].sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+      
+      if (column === 'order_number' || column === 'customer_name' || column === 'customer_phone' || column === 'brand_name' || column === 'product_name') {
+        aVal = (aVal || '').toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+        return newDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      } else {
+        // Numeric columns: qty, total
+        return newDirection === 'asc' ? (aVal || 0) - (bVal || 0) : (bVal || 0) - (aVal || 0);
+      }
+    });
+    
+    setPaymentDetailsList(sorted);
   };
 
   const metricCards = [
@@ -3059,7 +3142,12 @@ const Dashboard = () => {
                     <div key={index} className="grid grid-cols-6 gap-4 py-2 border-b">
                       <div className="text-sm">{item.payment_method}</div>
                       <div className="text-sm">{item.payment_brand}</div>
-                      <div className="text-sm text-right">{item.transaction_count?.toLocaleString() || 0}</div>
+                      <button 
+                        onClick={() => handlePaymentDetailsClick(item.payment_method, item.payment_brand)}
+                        className="text-sm text-right text-primary hover:underline cursor-pointer"
+                      >
+                        {item.transaction_count?.toLocaleString() || 0}
+                      </button>
                       <div className="text-sm text-right">{formatCurrency(item.total)}</div>
                       <div className="text-sm font-medium text-right">{formatCurrency(item.bank_fee)}</div>
                       <div className="text-sm font-medium text-right text-primary">{item.percentage.toFixed(2)}%</div>
@@ -3154,11 +3242,135 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Payment Details Dialog */}
+      <Dialog open={paymentDetailsDialogOpen} onOpenChange={setPaymentDetailsDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تفاصيل معاملات الدفع' : 'Payment Transaction Details'}
+              {selectedPaymentForDetails && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  ({selectedPaymentForDetails.payment_method} - {selectedPaymentForDetails.payment_brand})
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {loadingPaymentDetails ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paymentDetailsList.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {language === 'ar' ? 'لا توجد معاملات' : 'No transactions found'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-7 gap-4 font-semibold text-sm border-b pb-2">
+                    <button 
+                      onClick={() => handlePaymentDetailsSort('order_number')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'رقم الطلب' : 'Order #'}
+                      {paymentDetailsSortColumn === 'order_number' && (
+                        paymentDetailsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentDetailsSort('customer_name')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'العميل' : 'Customer'}
+                      {paymentDetailsSortColumn === 'customer_name' && (
+                        paymentDetailsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentDetailsSort('customer_phone')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'الهاتف' : 'Phone'}
+                      {paymentDetailsSortColumn === 'customer_phone' && (
+                        paymentDetailsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentDetailsSort('brand_name')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'البراند' : 'Brand'}
+                      {paymentDetailsSortColumn === 'brand_name' && (
+                        paymentDetailsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentDetailsSort('product_name')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors text-left"
+                    >
+                      {language === 'ar' ? 'المنتج' : 'Product'}
+                      {paymentDetailsSortColumn === 'product_name' && (
+                        paymentDetailsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentDetailsSort('qty')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                    >
+                      {language === 'ar' ? 'الكمية' : 'Qty'}
+                      {paymentDetailsSortColumn === 'qty' && (
+                        paymentDetailsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => handlePaymentDetailsSort('total')}
+                      className="flex items-center gap-1 hover:text-primary transition-colors justify-end"
+                    >
+                      {language === 'ar' ? 'المجموع' : 'Total'}
+                      {paymentDetailsSortColumn === 'total' && (
+                        paymentDetailsSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                  </div>
+                  {paymentDetailsList.map((item, index) => (
+                    <div key={index} className="grid grid-cols-7 gap-4 py-2 border-b text-sm">
+                      <div>{item.order_number || '-'}</div>
+                      <div>{item.customer_name || '-'}</div>
+                      <div>{item.customer_phone || '-'}</div>
+                      <div>{item.brand_name || '-'}</div>
+                      <div>{item.product_name || '-'}</div>
+                      <div className="text-right">{item.qty?.toLocaleString() || 0}</div>
+                      <div className="text-right">{formatCurrency(item.total)}</div>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-7 gap-4 pt-4 font-bold border-t-2">
+                    <div className="col-span-5 text-left">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                    <div className="text-right">
+                      {paymentDetailsList.reduce((sum, item) => sum + (parseNumber(item.qty) || 0), 0).toLocaleString()}
+                    </div>
+                    <div className="text-right">
+                      {formatCurrency(paymentDetailsList.reduce((sum, item) => sum + parseNumber(item.total), 0))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Loading Overlays */}
       {loadingPaymentCharges && (
         <LoadingOverlay 
           progress={100} 
           message={language === 'ar' ? 'جاري تحميل رسوم الدفع الإلكتروني...' : 'Loading E-Payment Charges...'}
+        />
+      )}
+      
+      {loadingPaymentDetails && (
+        <LoadingOverlay 
+          progress={100} 
+          message={language === 'ar' ? 'جاري تحميل تفاصيل المعاملات...' : 'Loading Transaction Details...'}
         />
       )}
       
