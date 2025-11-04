@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -68,6 +69,7 @@ const Dashboard = () => {
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [paymentBrands, setPaymentBrands] = useState<any[]>([]);
+  const [unusedPaymentBrands, setUnusedPaymentBrands] = useState<any[]>([]);
   const [monthComparison, setMonthComparison] = useState<any[]>([]);
   const [productSummary, setProductSummary] = useState<any[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
@@ -675,6 +677,31 @@ const Dashboard = () => {
             return acc;
           }, {});
         setPaymentBrands(Object.values(paymentBrandData));
+
+        // Fetch all payment brands from payment_methods table
+        const { data: allPaymentBrands, error: paymentBrandsError } = await supabase
+          .from('payment_methods')
+          .select('payment_method, payment_type')
+          .eq('is_active', true);
+
+        if (!paymentBrandsError && allPaymentBrands) {
+          // Get list of used payment brands from transactions
+          const usedBrands = new Set(
+            transactions
+              .filter(t => t.payment_method?.toLowerCase() !== 'point' && t.payment_brand && t.payment_brand.toLowerCase() !== 'unknown')
+              .map(t => t.payment_brand)
+          );
+
+          // Find payment brands that exist in payment_methods but not in transactions
+          const unused = allPaymentBrands
+            .filter(pm => !usedBrands.has(pm.payment_method))
+            .map(pm => ({
+              payment_method: pm.payment_method,
+              payment_type: pm.payment_type || '-'
+            }));
+
+          setUnusedPaymentBrands(unused);
+        }
       }
 
       setLoadingCharts(false);
@@ -2226,6 +2253,44 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Unused Payment Brands Grid */}
+      {unusedPaymentBrands.length > 0 && (
+        <Card className="border-2 relative mt-6">
+          {loadingCharts && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+          <CardHeader>
+            <CardTitle>{language === 'ar' ? 'وسائل دفع غير مستخدمة في الفترة المحددة' : 'Payment Brands Not Used in Selected Period'}</CardTitle>
+            <CardDescription>
+              {language === 'ar' 
+                ? `${unusedPaymentBrands.length} وسيلة دفع لم تستخدم خلال الفترة المحددة`
+                : `${unusedPaymentBrands.length} payment brand(s) not used during the selected period`
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'نوع الدفع' : 'Payment Type'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unusedPaymentBrands.map((brand, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{brand.payment_method}</TableCell>
+                    <TableCell>{brand.payment_type}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Product Summary Grid with Filters */}
       <Card className="border-2 relative">
