@@ -634,7 +634,22 @@ const Dashboard = () => {
           acc[product].qty += parseNumber(t.qty);
           return acc;
         }, {});
-        setTopProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
+        
+        const totalProductRevenue = Object.values(productSales).reduce((sum: number, val: any) => sum + val.value, 0) as number;
+        
+        const top5Products = Object.values(productSales)
+          .sort((a: any, b: any) => b.value - a.value)
+          .slice(0, 5)
+          .map((item: any) => {
+            const percentage = totalProductRevenue > 0 ? ((item.value / totalProductRevenue) * 100).toFixed(1) : '0.0';
+            return {
+              name: `${item.name} (${percentage}%)`,
+              value: item.value,
+              qty: item.qty
+            };
+          });
+        
+        setTopProducts(top5Products);
 
         // Payment methods with click data
         const paymentData = transactions.reduce((acc: any, t) => {
