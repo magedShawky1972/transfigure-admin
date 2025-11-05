@@ -17,6 +17,8 @@ interface ProductDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   productId: string;
   productName: string;
+  productPrice: string | null;
+  productCost: string | null;
 }
 
 interface FreeCoin {
@@ -48,7 +50,7 @@ interface Discount {
   end_date: string;
 }
 
-export const ProductDetailsDialog = ({ open, onOpenChange, productId, productName }: ProductDetailsDialogProps) => {
+export const ProductDetailsDialog = ({ open, onOpenChange, productId, productName, productPrice, productCost }: ProductDetailsDialogProps) => {
   const { t, language } = useLanguage();
   const isRTL = language === "ar";
   
@@ -62,9 +64,9 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
   const [minCoins, setMinCoins] = useState("0");
   const [maxCoins, setMaxCoins] = useState("0");
   
-  // Pricing section
-  const [costPrice, setCostPrice] = useState("2318.62");
-  const [retailPrice, setRetailPrice] = useState("2702.8");
+  // Pricing section - initialized with actual product data
+  const [costPrice, setCostPrice] = useState(productCost || "");
+  const [retailPrice, setRetailPrice] = useState(productPrice || "");
   const [taxType, setTaxType] = useState("tax_included");
   
   // Free coins section

@@ -579,6 +579,8 @@ const ProductSetup = () => {
           onOpenChange={setDetailsDialogOpen}
           productId={selectedProduct.product_id || selectedProduct.id}
           productName={selectedProduct.product_name}
+          productPrice={selectedProduct.product_price}
+          productCost={selectedProduct.product_cost}
         />
       )}
     </>
