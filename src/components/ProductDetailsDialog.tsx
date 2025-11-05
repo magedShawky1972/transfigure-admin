@@ -169,44 +169,44 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             {/* Stock Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold border-b pb-2">{t("productSetup.stock")}</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className={`grid grid-cols-3 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.quantity")} *</Label>
-                  <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={t("productSetup.quantityPlaceholder")} />
+                  <Label>{t("productSetup.notifyQty")} *</Label>
+                  <Input value={notifyQty} onChange={(e) => setNotifyQty(e.target.value)} placeholder={t("productSetup.notifyQtyPlaceholder")} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t("productSetup.coinsGiven")}</Label>
                   <Input value={coinsNumber} onChange={(e) => setCoinsNumber(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.notifyQty")} *</Label>
-                  <Input value={notifyQty} onChange={(e) => setNotifyQty(e.target.value)} placeholder={t("productSetup.notifyQtyPlaceholder")} />
+                  <Label>{t("productSetup.quantity")} *</Label>
+                  <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={t("productSetup.quantityPlaceholder")} />
                 </div>
               </div>
               
-              <div className="grid grid-cols-3 gap-4">
+              <div className={`grid grid-cols-3 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.sku")} *</Label>
-                  <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("productSetup.skuPlaceholder")} />
+                  <Label>{t("productSetup.maxQuantity")} *</Label>
+                  <Input value={maxOrderQty} onChange={(e) => setMaxOrderQty(e.target.value)} placeholder={t("productSetup.maxQuantityPlaceholder")} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t("productSetup.minQuantity")} *</Label>
                   <Input value={minOrderQty} onChange={(e) => setMinOrderQty(e.target.value)} placeholder={t("productSetup.minQuantityPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.maxQuantity")} *</Label>
-                  <Input value={maxOrderQty} onChange={(e) => setMaxOrderQty(e.target.value)} placeholder={t("productSetup.maxQuantityPlaceholder")} />
+                  <Label>{t("productSetup.sku")} *</Label>
+                  <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("productSetup.skuPlaceholder")} />
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t("productSetup.minCoins")} *</Label>
-                  <Input value={minCoins} onChange={(e) => setMinCoins(e.target.value)} placeholder={t("productSetup.minCoinsPlaceholder")} />
-                </div>
+              <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <div className="space-y-2">
                   <Label>{t("productSetup.maxCoins")} *</Label>
                   <Input value={maxCoins} onChange={(e) => setMaxCoins(e.target.value)} placeholder={t("productSetup.maxCoinsPlaceholder")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("productSetup.minCoins")} *</Label>
+                  <Input value={minCoins} onChange={(e) => setMinCoins(e.target.value)} placeholder={t("productSetup.minCoinsPlaceholder")} />
                 </div>
               </div>
             </div>
@@ -216,14 +216,14 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             {/* Pricing Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold border-b pb-2">{t("productSetup.pricing")}</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t("productSetup.productCost")} *</Label>
-                  <Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder={t("productSetup.productCostPlaceholder")} />
-                </div>
+              <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <div className="space-y-2">
                   <Label>{t("productSetup.productPrice")} *</Label>
                   <Input value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} placeholder={t("productSetup.productPricePlaceholder")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("productSetup.productCost")} *</Label>
+                  <Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder={t("productSetup.productCostPlaceholder")} />
                 </div>
               </div>
               
@@ -250,7 +250,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               </div>
               {freeCoins.map((coin, index) => (
                 <div key={index} className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg relative">
-                  <div className="absolute -top-2 -right-2">
+                  <div className={`absolute ${isRTL ? '-top-2 -left-2' : '-top-2 -right-2'}`}>
                     <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs">
                       #{index + 1}
                     </span>
@@ -312,7 +312,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               </div>
               {options.map((option, index) => (
                 <div key={index} className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg relative">
-                  <div className="absolute -top-2 -right-2">
+                  <div className={`absolute ${isRTL ? '-top-2 -left-2' : '-top-2 -right-2'}`}>
                     <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs">
                       #{index + 1}
                     </span>
@@ -475,22 +475,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               
               {discounts.map((discount, index) => (
                 <div key={index} className="space-y-4 p-4 bg-muted/30 rounded-lg">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t("productSetup.store")}</Label>
-                      <Select value={discount.store} onValueChange={(value) => {
-                        const updated = [...discounts];
-                        updated[index].store = value;
-                        setDiscounts(updated);
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="purple_store">{t("productSetup.purpleStore")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                     <div className="space-y-2">
                       <Label>{t("productSetup.discountGroup")}</Label>
                       <Select value={discount.group_name} onValueChange={(value) => {
@@ -503,6 +488,21 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all_customers_groups">{t("productSetup.allCustomerGroups")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t("productSetup.store")}</Label>
+                      <Select value={discount.store} onValueChange={(value) => {
+                        const updated = [...discounts];
+                        updated[index].store = value;
+                        setDiscounts(updated);
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="purple_store">{t("productSetup.purpleStore")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -535,19 +535,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t("productSetup.discountStartDate")}</Label>
-                      <Input 
-                        type="date"
-                        value={discount.start_date}
-                        onChange={(e) => {
-                          const updated = [...discounts];
-                          updated[index].start_date = e.target.value;
-                          setDiscounts(updated);
-                        }}
-                      />
-                    </div>
+                  <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                     <div className="space-y-2">
                       <Label>{t("productSetup.discountEndDate")}</Label>
                       <Input 
@@ -556,6 +544,18 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         onChange={(e) => {
                           const updated = [...discounts];
                           updated[index].end_date = e.target.value;
+                          setDiscounts(updated);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t("productSetup.discountStartDate")}</Label>
+                      <Input 
+                        type="date"
+                        value={discount.start_date}
+                        onChange={(e) => {
+                          const updated = [...discounts];
+                          updated[index].start_date = e.target.value;
                           setDiscounts(updated);
                         }}
                       />
@@ -650,12 +650,12 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             </div>
             
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                {t("common.cancel")}
-              </Button>
+            <div className={`flex ${isRTL ? 'flex-row-reverse' : ''} justify-end gap-2 pt-4 border-t`}>
               <Button type="button" onClick={handleSave}>
                 {t("productSetup.save")}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
