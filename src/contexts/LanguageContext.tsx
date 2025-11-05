@@ -438,6 +438,7 @@ const translations = {
     "common.loading": "Loading...",
     "common.all": "All",
     "common.confirm": "Confirm",
+    "common.cancel": "Cancel",
     "common.clearFilters": "Clear Filters",
   },
   ar: {
@@ -869,6 +870,7 @@ const translations = {
     "common.loading": "جاري التحميل...",
     "common.all": "الكل",
     "common.confirm": "تأكيد",
+    "common.cancel": "إلغاء",
     "common.clearFilters": "مسح الفلاتر",
   },
 };
