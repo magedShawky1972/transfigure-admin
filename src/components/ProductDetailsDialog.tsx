@@ -139,7 +139,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh]" dir={isRTL ? "rtl" : "ltr"}>
         <DialogHeader>
-          <DialogTitle className="text-2xl">
+          <DialogTitle className={`text-2xl ${isRTL ? 'text-right' : ''}`}>
             {productName} - {t("productSetup.moreDetails")}
           </DialogTitle>
         </DialogHeader>
@@ -172,41 +172,80 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.quantity")} *</Label>
-                  <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={t("productSetup.quantityPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={quantity} 
+                    onChange={(e) => setQuantity(e.target.value)} 
+                    placeholder={t("productSetup.quantityPlaceholder")} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.coinsGiven")}</Label>
-                  <Input value={coinsNumber} onChange={(e) => setCoinsNumber(e.target.value)} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={coinsNumber} 
+                    onChange={(e) => setCoinsNumber(e.target.value)} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.notifyQty")} *</Label>
-                  <Input value={notifyQty} onChange={(e) => setNotifyQty(e.target.value)} placeholder={t("productSetup.notifyQtyPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={notifyQty} 
+                    onChange={(e) => setNotifyQty(e.target.value)} 
+                    placeholder={t("productSetup.notifyQtyPlaceholder")} 
+                  />
                 </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.sku")} *</Label>
-                  <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("productSetup.skuPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={sku} 
+                    onChange={(e) => setSku(e.target.value)} 
+                    placeholder={t("productSetup.skuPlaceholder")} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.minQuantity")} *</Label>
-                  <Input value={minOrderQty} onChange={(e) => setMinOrderQty(e.target.value)} placeholder={t("productSetup.minQuantityPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={minOrderQty} 
+                    onChange={(e) => setMinOrderQty(e.target.value)} 
+                    placeholder={t("productSetup.minQuantityPlaceholder")} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxQuantity")} *</Label>
-                  <Input value={maxOrderQty} onChange={(e) => setMaxOrderQty(e.target.value)} placeholder={t("productSetup.maxQuantityPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={maxOrderQty} 
+                    onChange={(e) => setMaxOrderQty(e.target.value)} 
+                    placeholder={t("productSetup.maxQuantityPlaceholder")} 
+                  />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.minCoins")} *</Label>
-                  <Input value={minCoins} onChange={(e) => setMinCoins(e.target.value)} placeholder={t("productSetup.minCoinsPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={minCoins} 
+                    onChange={(e) => setMinCoins(e.target.value)} 
+                    placeholder={t("productSetup.minCoinsPlaceholder")} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxCoins")} *</Label>
-                  <Input value={maxCoins} onChange={(e) => setMaxCoins(e.target.value)} placeholder={t("productSetup.maxCoinsPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={maxCoins} 
+                    onChange={(e) => setMaxCoins(e.target.value)} 
+                    placeholder={t("productSetup.maxCoinsPlaceholder")} 
+                  />
                 </div>
               </div>
             </div>
@@ -219,18 +258,28 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.productCost")} *</Label>
-                  <Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder={t("productSetup.productCostPlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={costPrice} 
+                    onChange={(e) => setCostPrice(e.target.value)} 
+                    placeholder={t("productSetup.productCostPlaceholder")} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.productPrice")} *</Label>
-                  <Input value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} placeholder={t("productSetup.productPricePlaceholder")} />
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={retailPrice} 
+                    onChange={(e) => setRetailPrice(e.target.value)} 
+                    placeholder={t("productSetup.productPricePlaceholder")} 
+                  />
                 </div>
               </div>
               
               <div className="space-y-2">
                 <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.taxClass")}</Label>
                 <Select value={taxType} onValueChange={setTaxType}>
-                  <SelectTrigger>
+                  <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -258,6 +307,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                   <div className="space-y-2">
                     <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.productPrice")}</Label>
                     <Input 
+                      className={isRTL ? 'text-right' : ''} 
                       placeholder={t("productSetup.productPricePlaceholder")}
                       value={coin.coins_price}
                       onChange={(e) => {
@@ -270,6 +320,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                   <div className="space-y-2">
                     <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.coinsGiven")}</Label>
                     <Input 
+                      className={isRTL ? 'text-right' : ''} 
                       placeholder={t("productSetup.coinsGivenPlaceholder")}
                       value={coin.coins_number}
                       onChange={(e) => {
@@ -339,7 +390,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       updated[index].option_id = value;
                       setOptions(updated);
                     }}>
-                      <SelectTrigger>
+                      <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
                         <SelectValue placeholder={t("productSetup.optionNamePlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
@@ -387,30 +438,54 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                     </div>
                     
                     <div className="grid grid-cols-7 gap-2">
-                      <Input placeholder={t("productSetup.purchasePoints")} value={price.purchase_price} onChange={(e) => {
-                        const updated = [...customerGroupPrices];
-                        updated[index].purchase_price = e.target.value;
-                        setCustomerGroupPrices(updated);
-                      }} />
-                      <Input placeholder={t("productSetup.salePoints")} value={price.sale_price} onChange={(e) => {
-                        const updated = [...customerGroupPrices];
-                        updated[index].sale_price = e.target.value;
-                        setCustomerGroupPrices(updated);
-                      }} />
-                      <Input placeholder={t("productSetup.max")} value={price.max_quantity} onChange={(e) => {
-                        const updated = [...customerGroupPrices];
-                        updated[index].max_quantity = e.target.value;
-                        setCustomerGroupPrices(updated);
-                      }} />
-                      <Input placeholder={t("productSetup.min")} value={price.min_quantity} onChange={(e) => {
-                        const updated = [...customerGroupPrices];
-                        updated[index].min_quantity = e.target.value;
-                        setCustomerGroupPrices(updated);
-                      }} />
-                      <Input placeholder={t("productSetup.quantityPlaceholder")} />
+                      <Input 
+                        className={isRTL ? 'text-right' : ''} 
+                        placeholder={t("productSetup.purchasePoints")} 
+                        value={price.purchase_price} 
+                        onChange={(e) => {
+                          const updated = [...customerGroupPrices];
+                          updated[index].purchase_price = e.target.value;
+                          setCustomerGroupPrices(updated);
+                        }} 
+                      />
+                      <Input 
+                        className={isRTL ? 'text-right' : ''} 
+                        placeholder={t("productSetup.salePoints")} 
+                        value={price.sale_price} 
+                        onChange={(e) => {
+                          const updated = [...customerGroupPrices];
+                          updated[index].sale_price = e.target.value;
+                          setCustomerGroupPrices(updated);
+                        }} 
+                      />
+                      <Input 
+                        className={isRTL ? 'text-right' : ''} 
+                        placeholder={t("productSetup.max")} 
+                        value={price.max_quantity} 
+                        onChange={(e) => {
+                          const updated = [...customerGroupPrices];
+                          updated[index].max_quantity = e.target.value;
+                          setCustomerGroupPrices(updated);
+                        }} 
+                      />
+                      <Input 
+                        className={isRTL ? 'text-right' : ''} 
+                        placeholder={t("productSetup.min")} 
+                        value={price.min_quantity} 
+                        onChange={(e) => {
+                          const updated = [...customerGroupPrices];
+                          updated[index].min_quantity = e.target.value;
+                          setCustomerGroupPrices(updated);
+                        }} 
+                      />
+                      <Input 
+                        className={isRTL ? 'text-right' : ''} 
+                        placeholder={t("productSetup.quantityPlaceholder")} 
+                      />
                       
                       <div className="flex gap-1">
                         <Input 
+                          className={isRTL ? 'text-right' : ''} 
                           placeholder={t("productSetup.groupPricePlaceholder")}
                           value={price.price}
                           onChange={(e) => {
@@ -424,7 +499,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                           updated[index].discount_type = value;
                           setCustomerGroupPrices(updated);
                         }}>
-                          <SelectTrigger className="w-16">
+                          <SelectTrigger className={`w-16 ${isRTL ? 'justify-end text-right' : ''}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -439,7 +514,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         updated[index].group_name = value;
                         setCustomerGroupPrices(updated);
                       }}>
-                        <SelectTrigger>
+                        <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
                           <SelectValue placeholder={t("productSetup.customerGroupPlaceholder")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -486,7 +561,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         updated[index].store = value;
                         setDiscounts(updated);
                       }}>
-                        <SelectTrigger>
+                        <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -501,7 +576,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         updated[index].group_name = value;
                         setDiscounts(updated);
                       }}>
-                        <SelectTrigger>
+                        <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -516,6 +591,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountPrice")}</Label>
                       <div className="flex gap-2">
                         <Input 
+                          className={isRTL ? 'text-right' : ''} 
                           placeholder={t("productSetup.discountPricePlaceholder")}
                           value={discount.amount}
                           onChange={(e) => {
@@ -545,6 +621,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                     <div className="space-y-2">
                       <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountStartDate")}</Label>
                       <Input 
+                        className={isRTL ? 'text-right' : ''} 
                         type="date"
                         value={discount.start_date}
                         onChange={(e) => {
@@ -557,6 +634,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                     <div className="space-y-2">
                       <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountEndDate")}</Label>
                       <Input 
+                        className={isRTL ? 'text-right' : ''} 
                         type="date"
                         value={discount.end_date}
                         onChange={(e) => {
@@ -598,6 +676,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaTitle")} (AR)</Label>
                   <Input 
+                    className={isRTL ? 'text-right' : ''} 
                     value={metaTitleAr}
                     onChange={(e) => setMetaTitleAr(e.target.value)}
                     placeholder={t("productSetup.metaTitlePlaceholder")}
@@ -607,6 +686,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaKeywords")} (AR)</Label>
                   <Input 
+                    className={isRTL ? 'text-right' : ''} 
                     value={metaKeywordsAr}
                     onChange={(e) => setMetaKeywordsAr(e.target.value)}
                     placeholder={t("productSetup.metaKeywordsPlaceholder")}
@@ -616,6 +696,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaDescription")} (AR)</Label>
                   <Textarea 
+                    className={isRTL ? 'text-right' : ''} 
                     value={metaDescriptionAr}
                     onChange={(e) => setMetaDescriptionAr(e.target.value)}
                     placeholder={t("productSetup.metaDescriptionPlaceholder")}
@@ -628,6 +709,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaTitle")} (EN)</Label>
                   <Input 
+                    className={isRTL ? 'text-right' : ''} 
                     value={metaTitleEn}
                     onChange={(e) => setMetaTitleEn(e.target.value)}
                     placeholder={t("productSetup.metaTitlePlaceholder")}
@@ -637,6 +719,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaKeywords")} (EN)</Label>
                   <Input 
+                    className={isRTL ? 'text-right' : ''} 
                     value={metaKeywordsEn}
                     onChange={(e) => setMetaKeywordsEn(e.target.value)}
                     placeholder={t("productSetup.metaKeywordsPlaceholder")}
@@ -646,6 +729,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaDescription")} (EN)</Label>
                   <Textarea 
+                    className={isRTL ? 'text-right' : ''} 
                     value={metaDescriptionEn}
                     onChange={(e) => setMetaDescriptionEn(e.target.value)}
                     placeholder={t("productSetup.metaDescriptionPlaceholder")}
