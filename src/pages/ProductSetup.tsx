@@ -37,7 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Grid3x3, List } from "lucide-react";
+import { Pencil, Trash2, Grid3x3, List, MoreHorizontal } from "lucide-react";
+import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import { format } from "date-fns";
 import {
   Collapsible,
@@ -75,6 +76,10 @@ const ProductSetup = () => {
   
   // View mode state
   const [viewMode, setViewMode] = useState<"grid" | "tree">("grid");
+  
+  // Details dialog state
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
   const [formData, setFormData] = useState({
     product_id: "",
@@ -355,6 +360,17 @@ const ProductSetup = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
+                          setSelectedProduct(product);
+                          setDetailsDialogOpen(true);
+                        }}
+                        title="More Details"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
                           setProductToDelete(product.id);
                           setDeleteDialogOpen(true);
                         }}
@@ -421,6 +437,17 @@ const ProductSetup = () => {
                                   onClick={() => handleEdit(product)}
                                 >
                                   <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setSelectedProduct(product);
+                                    setDetailsDialogOpen(true);
+                                  }}
+                                  title="More Details"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -544,6 +571,16 @@ const ProductSetup = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Product Details Dialog */}
+      {selectedProduct && (
+        <ProductDetailsDialog
+          open={detailsDialogOpen}
+          onOpenChange={setDetailsDialogOpen}
+          productId={selectedProduct.product_id || selectedProduct.id}
+          productName={selectedProduct.product_name}
+        />
+      )}
     </>
   );
 };
