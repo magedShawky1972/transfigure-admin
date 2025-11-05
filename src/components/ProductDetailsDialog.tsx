@@ -49,7 +49,8 @@ interface Discount {
 }
 
 export const ProductDetailsDialog = ({ open, onOpenChange, productId, productName }: ProductDetailsDialogProps) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isRTL = language === "ar";
   
   // Stock section
   const [quantity, setQuantity] = useState("1000");
@@ -136,7 +137,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
+      <DialogContent className="max-w-6xl max-h-[90vh]" dir={isRTL ? "rtl" : "ltr"}>
         <DialogHeader>
           <DialogTitle className="text-2xl">
             {productName} - {t("productSetup.moreDetails")}
@@ -148,10 +149,10 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* Mobile Toggle */}
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-              <Label className="text-base font-semibold">Mobile</Label>
+              <Label className="text-base font-semibold">{t("productSetup.mobile")}</Label>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  {mobileEnabled ? "Enabled" : "Disabled"}
+                  {mobileEnabled ? t("productSetup.enabled") : t("productSetup.disabled")}
                 </span>
                 <Button
                   type="button"
@@ -160,7 +161,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                   onClick={() => setMobileEnabled(!mobileEnabled)}
                   className="w-16"
                 >
-                  {mobileEnabled ? "ON" : "OFF"}
+                  {mobileEnabled ? t("productSetup.on") : t("productSetup.off")}
                 </Button>
               </div>
             </div>
@@ -178,8 +179,8 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                   <Input value={coinsNumber} onChange={(e) => setCoinsNumber(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Notify me when qty drops to *</Label>
-                  <Input value={notifyQty} onChange={(e) => setNotifyQty(e.target.value)} />
+                  <Label>{t("productSetup.notifyQty")} *</Label>
+                  <Input value={notifyQty} onChange={(e) => setNotifyQty(e.target.value)} placeholder={t("productSetup.notifyQtyPlaceholder")} />
                 </div>
               </div>
               
@@ -193,19 +194,19 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                   <Input value={minOrderQty} onChange={(e) => setMinOrderQty(e.target.value)} placeholder={t("productSetup.minQuantityPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Max order qty *</Label>
-                  <Input value={maxOrderQty} onChange={(e) => setMaxOrderQty(e.target.value)} />
+                  <Label>{t("productSetup.maxQuantity")} *</Label>
+                  <Input value={maxOrderQty} onChange={(e) => setMaxOrderQty(e.target.value)} placeholder={t("productSetup.maxQuantityPlaceholder")} />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Min coins *</Label>
-                  <Input value={minCoins} onChange={(e) => setMinCoins(e.target.value)} />
+                  <Label>{t("productSetup.minCoins")} *</Label>
+                  <Input value={minCoins} onChange={(e) => setMinCoins(e.target.value)} placeholder={t("productSetup.minCoinsPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Max coins *</Label>
-                  <Input value={maxCoins} onChange={(e) => setMaxCoins(e.target.value)} />
+                  <Label>{t("productSetup.maxCoins")} *</Label>
+                  <Input value={maxCoins} onChange={(e) => setMaxCoins(e.target.value)} placeholder={t("productSetup.maxCoinsPlaceholder")} />
                 </div>
               </div>
             </div>
@@ -233,8 +234,8 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tax_included">Tax Included</SelectItem>
-                    <SelectItem value="tax_excluded">Tax Excluded</SelectItem>
+                    <SelectItem value="tax_included">{t("productSetup.taxIncluded")}</SelectItem>
+                    <SelectItem value="tax_excluded">{t("productSetup.taxExcluded")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -376,10 +377,10 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       <div>{t("productSetup.customerGroup")}</div>
                       <div>{t("productSetup.groupPrice")}</div>
                       <div>{t("productSetup.quantity")}</div>
-                      <div>Min</div>
-                      <div>Max</div>
-                      <div>Sale Points</div>
-                      <div>Purchase Points</div>
+                      <div>{t("productSetup.min")}</div>
+                      <div>{t("productSetup.max")}</div>
+                      <div>{t("productSetup.salePoints")}</div>
+                      <div>{t("productSetup.purchasePoints")}</div>
                     </div>
                     
                     <div className="grid grid-cols-7 gap-2">
@@ -392,8 +393,8 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                           <SelectValue placeholder={t("productSetup.customerGroupPlaceholder")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Groups</SelectItem>
-                          <SelectItem value="vip">VIP</SelectItem>
+                          <SelectItem value="all">{t("productSetup.allGroups")}</SelectItem>
+                          <SelectItem value="vip">{t("productSetup.vip")}</SelectItem>
                         </SelectContent>
                       </Select>
                       
@@ -423,22 +424,22 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       </div>
                       
                       <Input placeholder={t("productSetup.quantityPlaceholder")} />
-                      <Input placeholder="Min" value={price.min_quantity} onChange={(e) => {
+                      <Input placeholder={t("productSetup.min")} value={price.min_quantity} onChange={(e) => {
                         const updated = [...customerGroupPrices];
                         updated[index].min_quantity = e.target.value;
                         setCustomerGroupPrices(updated);
                       }} />
-                      <Input placeholder="Max" value={price.max_quantity} onChange={(e) => {
+                      <Input placeholder={t("productSetup.max")} value={price.max_quantity} onChange={(e) => {
                         const updated = [...customerGroupPrices];
                         updated[index].max_quantity = e.target.value;
                         setCustomerGroupPrices(updated);
                       }} />
-                      <Input placeholder="Sale" value={price.sale_price} onChange={(e) => {
+                      <Input placeholder={t("productSetup.salePoints")} value={price.sale_price} onChange={(e) => {
                         const updated = [...customerGroupPrices];
                         updated[index].sale_price = e.target.value;
                         setCustomerGroupPrices(updated);
                       }} />
-                      <Input placeholder="Purchase" value={price.purchase_price} onChange={(e) => {
+                      <Input placeholder={t("productSetup.purchasePoints")} value={price.purchase_price} onChange={(e) => {
                         const updated = [...customerGroupPrices];
                         updated[index].purchase_price = e.target.value;
                         setCustomerGroupPrices(updated);
@@ -476,7 +477,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div key={index} className="space-y-4 p-4 bg-muted/30 rounded-lg">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Store</Label>
+                      <Label>{t("productSetup.store")}</Label>
                       <Select value={discount.store} onValueChange={(value) => {
                         const updated = [...discounts];
                         updated[index].store = value;
@@ -486,7 +487,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="purple_store">Purple Store</SelectItem>
+                          <SelectItem value="purple_store">{t("productSetup.purpleStore")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -501,7 +502,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all_customers_groups">All Customers Groups</SelectItem>
+                          <SelectItem value="all_customers_groups">{t("productSetup.allCustomerGroups")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -527,8 +528,8 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="fixed">Fixed</SelectItem>
-                          <SelectItem value="%">%</SelectItem>
+                          <SelectItem value="fixed">{t("productSetup.fixed")}</SelectItem>
+                          <SelectItem value="%">{t("productSetup.percentage")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
