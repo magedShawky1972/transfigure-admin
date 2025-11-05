@@ -168,45 +168,45 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* Stock Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">{t("productSetup.stock")}</h3>
-              <div className={`grid grid-cols-3 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>{t("productSetup.stock")}</h3>
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>{t("productSetup.notifyQty")} *</Label>
-                  <Input value={notifyQty} onChange={(e) => setNotifyQty(e.target.value)} placeholder={t("productSetup.notifyQtyPlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.quantity")} *</Label>
+                  <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={t("productSetup.quantityPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.coinsGiven")}</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.coinsGiven")}</Label>
                   <Input value={coinsNumber} onChange={(e) => setCoinsNumber(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.quantity")} *</Label>
-                  <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={t("productSetup.quantityPlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.notifyQty")} *</Label>
+                  <Input value={notifyQty} onChange={(e) => setNotifyQty(e.target.value)} placeholder={t("productSetup.notifyQtyPlaceholder")} />
                 </div>
               </div>
               
-              <div className={`grid grid-cols-3 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>{t("productSetup.maxQuantity")} *</Label>
-                  <Input value={maxOrderQty} onChange={(e) => setMaxOrderQty(e.target.value)} placeholder={t("productSetup.maxQuantityPlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.sku")} *</Label>
+                  <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("productSetup.skuPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.minQuantity")} *</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.minQuantity")} *</Label>
                   <Input value={minOrderQty} onChange={(e) => setMinOrderQty(e.target.value)} placeholder={t("productSetup.minQuantityPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.sku")} *</Label>
-                  <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("productSetup.skuPlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxQuantity")} *</Label>
+                  <Input value={maxOrderQty} onChange={(e) => setMaxOrderQty(e.target.value)} placeholder={t("productSetup.maxQuantityPlaceholder")} />
                 </div>
               </div>
               
-              <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t("productSetup.maxCoins")} *</Label>
-                  <Input value={maxCoins} onChange={(e) => setMaxCoins(e.target.value)} placeholder={t("productSetup.maxCoinsPlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.minCoins")} *</Label>
+                  <Input value={minCoins} onChange={(e) => setMinCoins(e.target.value)} placeholder={t("productSetup.minCoinsPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.minCoins")} *</Label>
-                  <Input value={minCoins} onChange={(e) => setMinCoins(e.target.value)} placeholder={t("productSetup.minCoinsPlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxCoins")} *</Label>
+                  <Input value={maxCoins} onChange={(e) => setMaxCoins(e.target.value)} placeholder={t("productSetup.maxCoinsPlaceholder")} />
                 </div>
               </div>
             </div>
@@ -215,20 +215,20 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* Pricing Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">{t("productSetup.pricing")}</h3>
-              <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>{t("productSetup.pricing")}</h3>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t("productSetup.productPrice")} *</Label>
-                  <Input value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} placeholder={t("productSetup.productPricePlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.productCost")} *</Label>
+                  <Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder={t("productSetup.productCostPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("productSetup.productCost")} *</Label>
-                  <Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder={t("productSetup.productCostPlaceholder")} />
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.productPrice")} *</Label>
+                  <Input value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} placeholder={t("productSetup.productPricePlaceholder")} />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label>{t("productSetup.taxClass")}</Label>
+                <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.taxClass")}</Label>
                 <Select value={taxType} onValueChange={setTaxType}>
                   <SelectTrigger>
                     <SelectValue />
@@ -245,8 +245,8 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* Free Coins Section */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">{t("productSetup.freeCoins")}</h3>
+              <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <h3 className={`text-lg font-semibold ${isRTL ? 'text-right' : ''}`}>{t("productSetup.freeCoins")}</h3>
               </div>
               {freeCoins.map((coin, index) => (
                 <div key={index} className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg relative">
@@ -256,25 +256,25 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                     </span>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("productSetup.coinsGiven")}</Label>
-                    <Input 
-                      placeholder={t("productSetup.coinsGivenPlaceholder")}
-                      value={coin.coins_number}
-                      onChange={(e) => {
-                        const updated = [...freeCoins];
-                        updated[index].coins_number = e.target.value;
-                        setFreeCoins(updated);
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("productSetup.productPrice")}</Label>
+                    <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.productPrice")}</Label>
                     <Input 
                       placeholder={t("productSetup.productPricePlaceholder")}
                       value={coin.coins_price}
                       onChange={(e) => {
                         const updated = [...freeCoins];
                         updated[index].coins_price = e.target.value;
+                        setFreeCoins(updated);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.coinsGiven")}</Label>
+                    <Input 
+                      placeholder={t("productSetup.coinsGivenPlaceholder")}
+                      value={coin.coins_number}
+                      onChange={(e) => {
+                        const updated = [...freeCoins];
+                        updated[index].coins_number = e.target.value;
                         setFreeCoins(updated);
                       }}
                     />
@@ -287,14 +287,14 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       className="col-span-2"
                       onClick={() => removeFreeCoin(index)}
                     >
-                      <X className="h-4 w-4 mr-2" />
+                      <X className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                       {t("common.cancel")}
                     </Button>
                   )}
                 </div>
               ))}
               <Button type="button" variant="outline" onClick={addFreeCoin} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                 {t("productSetup.addOption")}
               </Button>
             </div>
@@ -303,10 +303,10 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* Options Section */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">{t("productSetup.options")}</h3>
+              <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <h3 className={`text-lg font-semibold ${isRTL ? 'text-right' : ''}`}>{t("productSetup.options")}</h3>
                 <Button type="button" variant="outline" size="sm" onClick={addOption}>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                   {t("productSetup.addOption")}
                 </Button>
               </div>
@@ -318,7 +318,22 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                     </span>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("productSetup.optionName")}</Label>
+                    <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.required")}</Label>
+                    <div className="flex items-center gap-2 h-10">
+                      <Checkbox 
+                        id={`required-${index}`}
+                        checked={option.required}
+                        onCheckedChange={(checked) => {
+                          const updated = [...options];
+                          updated[index].required = checked as boolean;
+                          setOptions(updated);
+                        }}
+                      />
+                      <Label htmlFor={`required-${index}`} className="text-sm font-normal">{t("productSetup.required")}</Label>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.optionName")}</Label>
                     <Select value={option.option_id} onValueChange={(value) => {
                       const updated = [...options];
                       updated[index].option_id = value;
@@ -334,18 +349,6 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2 flex items-center gap-2 mt-8">
-                    <Checkbox 
-                      id={`required-${index}`}
-                      checked={option.required}
-                      onCheckedChange={(checked) => {
-                        const updated = [...options];
-                        updated[index].required = checked as boolean;
-                        setOptions(updated);
-                      }}
-                    />
-                    <Label htmlFor={`required-${index}`}>{t("productSetup.required")}</Label>
-                  </div>
                   {options.length > 1 && (
                     <Button
                       type="button"
@@ -354,7 +357,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       className="col-span-2"
                       onClick={() => removeOption(index)}
                     >
-                      <X className="h-4 w-4 mr-2" />
+                      <X className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                       {t("common.cancel")}
                     </Button>
                   )}
@@ -366,37 +369,45 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* Customer Groups Prices Section */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <h3 className="text-lg font-semibold">{t("productSetup.customerGroupPrices")}</h3>
+              <div className={`flex items-center justify-between p-4 bg-muted/50 rounded-lg ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <h3 className={`text-lg font-semibold ${isRTL ? 'text-right' : ''}`}>{t("productSetup.customerGroupPrices")}</h3>
               </div>
               
               <div className="space-y-4">
                 {customerGroupPrices.map((price, index) => (
                   <div key={index} className="space-y-4 p-4 bg-muted/30 rounded-lg">
-                    <div className="grid grid-cols-7 gap-2 text-sm font-medium text-muted-foreground">
-                      <div>{t("productSetup.customerGroup")}</div>
-                      <div>{t("productSetup.groupPrice")}</div>
-                      <div>{t("productSetup.quantity")}</div>
-                      <div>{t("productSetup.min")}</div>
-                      <div>{t("productSetup.max")}</div>
-                      <div>{t("productSetup.salePoints")}</div>
+                    <div className={`grid grid-cols-7 gap-2 text-sm font-medium text-muted-foreground ${isRTL ? 'text-right' : ''}`}>
                       <div>{t("productSetup.purchasePoints")}</div>
+                      <div>{t("productSetup.salePoints")}</div>
+                      <div>{t("productSetup.max")}</div>
+                      <div>{t("productSetup.min")}</div>
+                      <div>{t("productSetup.quantity")}</div>
+                      <div>{t("productSetup.groupPrice")}</div>
+                      <div>{t("productSetup.customerGroup")}</div>
                     </div>
                     
                     <div className="grid grid-cols-7 gap-2">
-                      <Select value={price.group_name} onValueChange={(value) => {
+                      <Input placeholder={t("productSetup.purchasePoints")} value={price.purchase_price} onChange={(e) => {
                         const updated = [...customerGroupPrices];
-                        updated[index].group_name = value;
+                        updated[index].purchase_price = e.target.value;
                         setCustomerGroupPrices(updated);
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t("productSetup.customerGroupPlaceholder")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t("productSetup.allGroups")}</SelectItem>
-                          <SelectItem value="vip">{t("productSetup.vip")}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      }} />
+                      <Input placeholder={t("productSetup.salePoints")} value={price.sale_price} onChange={(e) => {
+                        const updated = [...customerGroupPrices];
+                        updated[index].sale_price = e.target.value;
+                        setCustomerGroupPrices(updated);
+                      }} />
+                      <Input placeholder={t("productSetup.max")} value={price.max_quantity} onChange={(e) => {
+                        const updated = [...customerGroupPrices];
+                        updated[index].max_quantity = e.target.value;
+                        setCustomerGroupPrices(updated);
+                      }} />
+                      <Input placeholder={t("productSetup.min")} value={price.min_quantity} onChange={(e) => {
+                        const updated = [...customerGroupPrices];
+                        updated[index].min_quantity = e.target.value;
+                        setCustomerGroupPrices(updated);
+                      }} />
+                      <Input placeholder={t("productSetup.quantityPlaceholder")} />
                       
                       <div className="flex gap-1">
                         <Input 
@@ -423,27 +434,19 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         </Select>
                       </div>
                       
-                      <Input placeholder={t("productSetup.quantityPlaceholder")} />
-                      <Input placeholder={t("productSetup.min")} value={price.min_quantity} onChange={(e) => {
+                      <Select value={price.group_name} onValueChange={(value) => {
                         const updated = [...customerGroupPrices];
-                        updated[index].min_quantity = e.target.value;
+                        updated[index].group_name = value;
                         setCustomerGroupPrices(updated);
-                      }} />
-                      <Input placeholder={t("productSetup.max")} value={price.max_quantity} onChange={(e) => {
-                        const updated = [...customerGroupPrices];
-                        updated[index].max_quantity = e.target.value;
-                        setCustomerGroupPrices(updated);
-                      }} />
-                      <Input placeholder={t("productSetup.salePoints")} value={price.sale_price} onChange={(e) => {
-                        const updated = [...customerGroupPrices];
-                        updated[index].sale_price = e.target.value;
-                        setCustomerGroupPrices(updated);
-                      }} />
-                      <Input placeholder={t("productSetup.purchasePoints")} value={price.purchase_price} onChange={(e) => {
-                        const updated = [...customerGroupPrices];
-                        updated[index].purchase_price = e.target.value;
-                        setCustomerGroupPrices(updated);
-                      }} />
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("productSetup.customerGroupPlaceholder")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t("productSetup.allGroups")}</SelectItem>
+                          <SelectItem value="vip">{t("productSetup.vip")}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     {customerGroupPrices.length > 1 && (
@@ -453,7 +456,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         size="sm"
                         onClick={() => removeCustomerGroupPrice(index)}
                       >
-                        <X className="h-4 w-4 mr-2" />
+                        <X className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                         {t("common.cancel")}
                       </Button>
                     )}
@@ -462,7 +465,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               </div>
               
               <Button type="button" variant="outline" onClick={addCustomerGroupPrice} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                 {t("productSetup.addGroupPrice")}
               </Button>
             </div>
@@ -471,28 +474,13 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* Discounts Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">{t("productSetup.discounts")}</h3>
+              <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>{t("productSetup.discounts")}</h3>
               
               {discounts.map((discount, index) => (
                 <div key={index} className="space-y-4 p-4 bg-muted/30 rounded-lg">
-                  <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>{t("productSetup.discountGroup")}</Label>
-                      <Select value={discount.group_name} onValueChange={(value) => {
-                        const updated = [...discounts];
-                        updated[index].group_name = value;
-                        setDiscounts(updated);
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all_customers_groups">{t("productSetup.allCustomerGroups")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t("productSetup.store")}</Label>
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.store")}</Label>
                       <Select value={discount.store} onValueChange={(value) => {
                         const updated = [...discounts];
                         updated[index].store = value;
@@ -506,56 +494,74 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder={t("productSetup.discountPricePlaceholder")}
-                        value={discount.amount}
-                        onChange={(e) => {
-                          const updated = [...discounts];
-                          updated[index].amount = e.target.value;
-                          setDiscounts(updated);
-                        }}
-                      />
-                      <Select value={discount.amount_type} onValueChange={(value) => {
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountGroup")}</Label>
+                      <Select value={discount.group_name} onValueChange={(value) => {
                         const updated = [...discounts];
-                        updated[index].amount_type = value;
+                        updated[index].group_name = value;
                         setDiscounts(updated);
                       }}>
-                        <SelectTrigger className="w-24">
+                        <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="fixed">{t("productSetup.fixed")}</SelectItem>
-                          <SelectItem value="%">{t("productSetup.percentage")}</SelectItem>
+                          <SelectItem value="all_customers_groups">{t("productSetup.allCustomerGroups")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                   
-                  <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>{t("productSetup.discountEndDate")}</Label>
-                      <Input 
-                        type="date"
-                        value={discount.end_date}
-                        onChange={(e) => {
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountPrice")}</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          placeholder={t("productSetup.discountPricePlaceholder")}
+                          value={discount.amount}
+                          onChange={(e) => {
+                            const updated = [...discounts];
+                            updated[index].amount = e.target.value;
+                            setDiscounts(updated);
+                          }}
+                        />
+                        <Select value={discount.amount_type} onValueChange={(value) => {
                           const updated = [...discounts];
-                          updated[index].end_date = e.target.value;
+                          updated[index].amount_type = value;
                           setDiscounts(updated);
-                        }}
-                      />
+                        }}>
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="fixed">{t("productSetup.fixed")}</SelectItem>
+                            <SelectItem value="%">{t("productSetup.percentage")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>{t("productSetup.discountStartDate")}</Label>
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountStartDate")}</Label>
                       <Input 
                         type="date"
                         value={discount.start_date}
                         onChange={(e) => {
                           const updated = [...discounts];
                           updated[index].start_date = e.target.value;
+                          setDiscounts(updated);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountEndDate")}</Label>
+                      <Input 
+                        type="date"
+                        value={discount.end_date}
+                        onChange={(e) => {
+                          const updated = [...discounts];
+                          updated[index].end_date = e.target.value;
                           setDiscounts(updated);
                         }}
                       />
@@ -569,7 +575,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                       size="sm"
                       onClick={() => removeDiscount(index)}
                     >
-                      <X className="h-4 w-4 mr-2" />
+                      <X className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                       {t("common.cancel")}
                     </Button>
                   )}
@@ -577,7 +583,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               ))}
               
               <Button type="button" variant="outline" onClick={addDiscount} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                 {t("productSetup.addDiscount")}
               </Button>
             </div>
@@ -586,11 +592,11 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
             
             {/* SEO Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">{t("productSetup.seo")}</h3>
+              <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>{t("productSetup.seo")}</h3>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>{t("productSetup.metaTitle")} (AR)</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaTitle")} (AR)</Label>
                   <Input 
                     value={metaTitleAr}
                     onChange={(e) => setMetaTitleAr(e.target.value)}
@@ -599,7 +605,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>{t("productSetup.metaKeywords")} (AR)</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaKeywords")} (AR)</Label>
                   <Input 
                     value={metaKeywordsAr}
                     onChange={(e) => setMetaKeywordsAr(e.target.value)}
@@ -608,7 +614,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>{t("productSetup.metaDescription")} (AR)</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaDescription")} (AR)</Label>
                   <Textarea 
                     value={metaDescriptionAr}
                     onChange={(e) => setMetaDescriptionAr(e.target.value)}
@@ -620,7 +626,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <Separator />
                 
                 <div className="space-y-2">
-                  <Label>{t("productSetup.metaTitle")} (EN)</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaTitle")} (EN)</Label>
                   <Input 
                     value={metaTitleEn}
                     onChange={(e) => setMetaTitleEn(e.target.value)}
@@ -629,7 +635,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>{t("productSetup.metaKeywords")} (EN)</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaKeywords")} (EN)</Label>
                   <Input 
                     value={metaKeywordsEn}
                     onChange={(e) => setMetaKeywordsEn(e.target.value)}
@@ -638,7 +644,7 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>{t("productSetup.metaDescription")} (EN)</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaDescription")} (EN)</Label>
                   <Textarea 
                     value={metaDescriptionEn}
                     onChange={(e) => setMetaDescriptionEn(e.target.value)}
