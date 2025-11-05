@@ -39,8 +39,8 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
 
-    --sidebar-background: 270 80% 55%;
-    --sidebar-foreground: 0 0% 100%;
+    --sidebar-background: 0 0% 96%;
+    --sidebar-foreground: 270 80% 45%;
     --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 270 80% 55%;
     --sidebar-accent: 270 80% 70%;
