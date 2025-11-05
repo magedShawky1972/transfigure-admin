@@ -118,11 +118,17 @@ All colors MUST be HSL.
     direction: rtl;
   }
   
-  [dir="rtl"] .text-left {
+  /* Force right alignment for form controls and labels in RTL */
+  [dir="rtl"] input,
+  [dir="rtl"] textarea,
+  [dir="rtl"] select {
     text-align: right;
   }
-  
-  [dir="rtl"] .text-right {
-    text-align: left;
+  [dir="rtl"] label {
+    text-align: right;
+    display: block;
   }
+  
+  /* If something is explicitly text-left, flip it in RTL */
+  [dir="rtl"] .text-left { text-align: right; }
 }
