@@ -412,7 +412,9 @@ const Dashboard = () => {
         .from('purpletransaction')
         .select('created_at_date, total')
         .gte('created_at_date', startStr)
-        .lt('created_at_date', endNextStr);
+        .lt('created_at_date', endNextStr)
+        .neq('payment_method', 'point')
+        .order('created_at_date', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
         base = base.eq('brand_name', trendBrandFilter);
@@ -511,7 +513,9 @@ const Dashboard = () => {
         .from('purpletransaction')
         .select('created_at_date, total')
         .gte('created_at_date', trendStartStr)
-        .lt('created_at_date', trendEndNextStr);
+        .lt('created_at_date', trendEndNextStr)
+        .neq('payment_method', 'point')
+        .order('created_at_date', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
         trendBase = trendBase.eq('brand_name', trendBrandFilter);
