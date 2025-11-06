@@ -1452,9 +1452,10 @@ const Dashboard = () => {
         const { data, error } = await supabase
           .from('purpletransaction')
           .select('payment_brand, payment_method, total, bank_fee')
-          .neq('payment_method', 'point')
           .gte('created_at_date', startStr)
           .lt('created_at_date', endNextStr)
+          .neq('payment_method', 'point')
+          .order('created_at_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
