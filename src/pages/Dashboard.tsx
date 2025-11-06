@@ -80,6 +80,7 @@ const Dashboard = () => {
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
   const [trendDays, setTrendDays] = useState<string>("10");
+  const [trendBrandFilter, setTrendBrandFilter] = useState<string>("all");
   const [inactiveCustomersPage, setInactiveCustomersPage] = useState(1);
   const inactiveCustomersPerPage = 20;
   const [inactivePhoneFilter, setInactivePhoneFilter] = useState<string>("");
@@ -400,17 +401,30 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const { data: trendData, error: trendError } = await (supabase as any)
-        .rpc('sales_trend', {
-          date_from: format(trendStartDate, 'yyyy-MM-dd'),
-          date_to: format(trendEndDate, 'yyyy-MM-dd')
-        });
+      const startStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
+      const endNextStr = format(addDays(trendEndDate, 1), "yyyy-MM-dd'T'00:00:00");
+
+      // Build query with optional brand filter
+      let query = supabase
+        .from('purpletransaction')
+        .select('created_at_date, total')
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endNextStr);
+
+      // Apply brand filter only if specific brand is selected
+      if (trendBrandFilter !== 'all') {
+        query = query.eq('brand_name', trendBrandFilter);
+      }
+
+      const { data: trendData, error: trendError } = await query;
 
       if (trendError) throw trendError;
 
       const byDate: Record<string, number> = {};
       (trendData || []).forEach((row: any) => {
-        byDate[row.created_at_date] = Number(row.total_sum);
+        const dateKey = row.created_at_date.split('T')[0];
+        const sales = parseNumber(row.total);
+        byDate[dateKey] = (byDate[dateKey] || 0) + sales;
       });
 
       const points: any[] = [];
@@ -476,17 +490,30 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const { data: trendData, error: trendError } = await (supabase as any)
-        .rpc('sales_trend', {
-          date_from: format(trendStartDate, 'yyyy-MM-dd'),
-          date_to: format(trendEndDate, 'yyyy-MM-dd')
-        });
+      const trendStartStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
+      const trendEndNextStr = format(addDays(trendEndDate, 1), "yyyy-MM-dd'T'00:00:00");
+
+      // Build query with optional brand filter
+      let trendQuery = supabase
+        .from('purpletransaction')
+        .select('created_at_date, total')
+        .gte('created_at_date', trendStartStr)
+        .lt('created_at_date', trendEndNextStr);
+
+      // Apply brand filter only if specific brand is selected
+      if (trendBrandFilter !== 'all') {
+        trendQuery = trendQuery.eq('brand_name', trendBrandFilter);
+      }
+
+      const { data: trendData, error: trendError } = await trendQuery;
 
       if (trendError) throw trendError;
 
       const byDate: Record<string, number> = {};
       (trendData || []).forEach((row: any) => {
-        byDate[row.created_at_date] = Number(row.total_sum);
+        const dateKey = row.created_at_date.split('T')[0];
+        const sales = parseNumber(row.total);
+        byDate[dateKey] = (byDate[dateKey] || 0) + sales;
       });
 
       const points: any[] = [];
@@ -1165,12 +1192,12 @@ const Dashboard = () => {
     setCoinsByBrand(sorted);
   };
 
-  // Re-fetch only sales trend when trend days selection changes
+  // Re-fetch only sales trend when trend days or brand selection changes
   useEffect(() => {
     if (dateFilter && (dateFilter !== 'dateRange' || (fromDate && toDate))) {
       fetchSalesTrend();
     }
-  }, [trendDays]);
+  }, [trendDays, trendBrandFilter]);
 
   const handleNewCustomersClick = async () => {
     const dateRange = getDateRange();
@@ -1999,21 +2026,34 @@ const Dashboard = () => {
             </div>
           )}
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
-              <Select value={trendDays} onValueChange={setTrendDays}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Select days" />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  <SelectItem value="10">10 Days</SelectItem>
-                  <SelectItem value="20">20 Days</SelectItem>
-                  <SelectItem value="30">30 Days</SelectItem>
-                  <SelectItem value="60">60 Days</SelectItem>
-                  <SelectItem value="90">90 Days</SelectItem>
-                  <SelectItem value="120">120 Days</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={trendBrandFilter} onValueChange={setTrendBrandFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder={t("dashboard.filterBrand")} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="all">{t("dashboard.allBrands")}</SelectItem>
+                    {allBrands.map(brand => (
+                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={trendDays} onValueChange={setTrendDays}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Select days" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="10">10 Days</SelectItem>
+                    <SelectItem value="20">20 Days</SelectItem>
+                    <SelectItem value="30">30 Days</SelectItem>
+                    <SelectItem value="60">60 Days</SelectItem>
+                    <SelectItem value="90">90 Days</SelectItem>
+                    <SelectItem value="120">120 Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
