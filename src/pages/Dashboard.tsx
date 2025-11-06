@@ -397,75 +397,51 @@ const Dashboard = () => {
 
   const fetchSalesTrend = async () => {
     try {
-      const daysCount = parseInt(trendDays) - 1;
-      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
-      const trendEndDate = endOfDay(referenceDate);
-      const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
-      const periodLength = daysCount + 1; // total days in period
+      const daysCount = parseInt(trendDays);
+      // Use yesterday as reference date, going back N days
+      const yesterday = subDays(new Date(), 1);
+      const trendEndDate = endOfDay(yesterday);
+      const trendStartDate = startOfDay(subDays(yesterday, daysCount - 1));
 
-      const currStartStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
-      const currEndStr = format(addDays(startOfDay(trendEndDate), 1), "yyyy-MM-dd'T'00:00:00");
+      const startStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(addDays(startOfDay(trendEndDate), 1), "yyyy-MM-dd'T'00:00:00");
 
-      const prevStartDate = startOfDay(subDays(trendStartDate, periodLength));
-      const prevEndDate = endOfDay(subDays(trendStartDate, 1));
-      const prevStartStr = format(prevStartDate, "yyyy-MM-dd'T'00:00:00");
-      const prevEndStr = format(addDays(startOfDay(prevEndDate), 1), "yyyy-MM-dd'T'00:00:00");
+      // Build query - only apply filters if NOT "all"
+      let query = supabase
+        .from('purpletransaction')
+        .select('created_at_date, total')
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endStr);
 
-      // Build base filters
-      const withFilters = (q: any) => {
-        if (trendBrandFilter !== 'all') q = q.eq('brand_name', trendBrandFilter);
-        if (trendProductFilter !== 'all') q = q.eq('product_name', trendProductFilter);
-        return q;
-      };
+      // Only filter by brand if a specific brand is selected
+      if (trendBrandFilter !== 'all' && trendBrandFilter) {
+        query = query.eq('brand_name', trendBrandFilter);
+      }
 
-      const currQuery = withFilters(
-        supabase
-          .from('purpletransaction')
-          .select('created_at_date, total')
-          .gte('created_at_date', currStartStr)
-          .lt('created_at_date', currEndStr)
-      );
+      // Only filter by product if a specific product is selected
+      if (trendProductFilter !== 'all' && trendProductFilter) {
+        query = query.eq('product_name', trendProductFilter);
+      }
 
-      const prevQuery = withFilters(
-        supabase
-          .from('purpletransaction')
-          .select('created_at_date, total')
-          .gte('created_at_date', prevStartStr)
-          .lt('created_at_date', prevEndStr)
-      );
+      const { data: trendData, error: trendError } = await query;
 
-      const [{ data: currData, error: currErr }, { data: prevData, error: prevErr }] = await Promise.all([
-        currQuery, prevQuery
-      ]);
+      if (trendError) throw trendError;
 
-      if (currErr) throw currErr;
-      if (prevErr) throw prevErr;
-
-      const byCurr: Record<string, number> = {};
-      (currData || []).forEach((row: any) => {
-        const key = row.created_at_date?.split('T')[0];
-        if (key) byCurr[key] = (byCurr[key] || 0) + parseNumber(row.total);
-      });
-
-      const byPrev: Record<string, number> = {};
-      (prevData || []).forEach((row: any) => {
-        const key = row.created_at_date?.split('T')[0];
-        if (key) byPrev[key] = (byPrev[key] || 0) + parseNumber(row.total);
+      const byDate: Record<string, number> = {};
+      (trendData || []).forEach((row: any) => {
+        const dateKey = row.created_at_date?.split('T')[0];
+        if (dateKey) {
+          const total = parseNumber(row.total);
+          byDate[dateKey] = (byDate[dateKey] || 0) + total;
+        }
       });
 
       const points: any[] = [];
-      for (let i = 0; i < periodLength; i++) {
-        const dCurr = addDays(trendStartDate, i);
-        const dPrev = addDays(prevStartDate, i);
-        const currKey = format(dCurr, 'yyyy-MM-dd');
-        const prevKey = format(dPrev, 'yyyy-MM-dd');
-        points.push({
-          date: format(dCurr, 'MMM dd'),
-          sales: byCurr[currKey] ?? 0,
-          previousSales: byPrev[prevKey] ?? 0,
-        });
+      for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
+        const key = format(d, 'yyyy-MM-dd');
+        const sales = byDate[key] ?? 0;
+        points.push({ date: format(d, 'MMM dd'), sales });
       }
-
       setSalesTrend(points);
     } catch (error) {
       console.error('Error fetching sales trend:', error);
@@ -517,73 +493,50 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Sales trend - calculate last N days of the selected range based on trendDays
-      const daysCount = parseInt(trendDays) - 1;
-      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
-      const trendEndDate = endOfDay(referenceDate);
-      const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
-      const periodLength = daysCount + 1;
+      // Sales trend - calculate last N days from yesterday
+      const daysCount = parseInt(trendDays);
+      const yesterday = subDays(new Date(), 1);
+      const trendEndDate = endOfDay(yesterday);
+      const trendStartDate = startOfDay(subDays(yesterday, daysCount - 1));
 
       const trendStartStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
       const trendEndStr = format(addDays(startOfDay(trendEndDate), 1), "yyyy-MM-dd'T'00:00:00");
 
-      const prevStartDate = startOfDay(subDays(trendStartDate, periodLength));
-      const prevEndDate = endOfDay(subDays(trendStartDate, 1));
-      const prevStartStr = format(prevStartDate, "yyyy-MM-dd'T'00:00:00");
-      const prevEndStr = format(addDays(startOfDay(prevEndDate), 1), "yyyy-MM-dd'T'00:00:00");
+      // Build query - only apply filters if NOT "all"
+      let trendQuery = supabase
+        .from('purpletransaction')
+        .select('created_at_date, total')
+        .gte('created_at_date', trendStartStr)
+        .lt('created_at_date', trendEndStr);
 
-      const applyFilters = (q: any) => {
-        if (trendBrandFilter !== 'all') q = q.eq('brand_name', trendBrandFilter);
-        if (trendProductFilter !== 'all') q = q.eq('product_name', trendProductFilter);
-        return q;
-      };
+      // Only filter by brand if a specific brand is selected
+      if (trendBrandFilter !== 'all' && trendBrandFilter) {
+        trendQuery = trendQuery.eq('brand_name', trendBrandFilter);
+      }
 
-      const currentQ = applyFilters(
-        supabase
-          .from('purpletransaction')
-          .select('created_at_date, total')
-          .gte('created_at_date', trendStartStr)
-          .lt('created_at_date', trendEndStr)
-      );
+      // Only filter by product if a specific product is selected
+      if (trendProductFilter !== 'all' && trendProductFilter) {
+        trendQuery = trendQuery.eq('product_name', trendProductFilter);
+      }
 
-      const previousQ = applyFilters(
-        supabase
-          .from('purpletransaction')
-          .select('created_at_date, total')
-          .gte('created_at_date', prevStartStr)
-          .lt('created_at_date', prevEndStr)
-      );
+      const { data: trendData, error: trendError } = await trendQuery;
 
-      const [{ data: currentData, error: currentErr }, { data: previousData, error: previousErr }] = await Promise.all([
-        currentQ, previousQ
-      ]);
+      if (trendError) throw trendError;
 
-      if (currentErr) throw currentErr;
-      if (previousErr) throw previousErr;
-
-      const currentMap: Record<string, number> = {};
-      (currentData || []).forEach((row: any) => {
-        const key = row.created_at_date?.split('T')[0];
-        if (key) currentMap[key] = (currentMap[key] || 0) + parseNumber(row.total);
-      });
-
-      const previousMap: Record<string, number> = {};
-      (previousData || []).forEach((row: any) => {
-        const key = row.created_at_date?.split('T')[0];
-        if (key) previousMap[key] = (previousMap[key] || 0) + parseNumber(row.total);
+      const byDate: Record<string, number> = {};
+      (trendData || []).forEach((row: any) => {
+        const dateKey = row.created_at_date?.split('T')[0];
+        if (dateKey) {
+          const total = parseNumber(row.total);
+          byDate[dateKey] = (byDate[dateKey] || 0) + total;
+        }
       });
 
       const points: any[] = [];
-      for (let i = 0; i < periodLength; i++) {
-        const dCurr = addDays(trendStartDate, i);
-        const dPrev = addDays(prevStartDate, i);
-        const currKey = format(dCurr, 'yyyy-MM-dd');
-        const prevKey = format(dPrev, 'yyyy-MM-dd');
-        points.push({
-          date: format(dCurr, 'MMM dd'),
-          sales: currentMap[currKey] ?? 0,
-          previousSales: previousMap[prevKey] ?? 0,
-        });
+      for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
+        const key = format(d, 'yyyy-MM-dd');
+        const sales = byDate[key] ?? 0;
+        points.push({ date: format(d, 'MMM dd'), sales });
       }
       setSalesTrend(points);
 
@@ -2139,9 +2092,7 @@ const Dashboard = () => {
                 <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
-                <Area type="monotone" dataKey="sales" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.5} name={language === 'ar' ? 'الفترة الحالية' : 'Current'} />
-                <Area type="monotone" dataKey="previousSales" stroke="#94A3B8" fill="#94A3B8" fillOpacity={0.25} name={language === 'ar' ? 'الفترة السابقة' : 'Previous'} />
+                <Area type="monotone" dataKey="sales" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.6} name={t("dashboard.sales")} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
