@@ -397,32 +397,43 @@ const Dashboard = () => {
   const fetchSalesTrend = async () => {
     try {
       const daysCount = parseInt(trendDays) - 1;
-      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
+      // Use yesterday as the reference day unless a custom range is applied
+      const referenceDate = (dateFilter === "dateRange" && toDate)
+        ? toDate
+        : subDays(new Date(), 1);
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
       const startStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
       const endNextStr = format(addDays(trendEndDate, 1), "yyyy-MM-dd'T'00:00:00");
 
-      // Build query with optional brand filter
-      let query = supabase
+      // Build base query with optional brand filter
+      let base = supabase
         .from('purpletransaction')
         .select('created_at_date, total')
         .gte('created_at_date', startStr)
         .lt('created_at_date', endNextStr);
 
-      // Apply brand filter only if specific brand is selected
       if (trendBrandFilter !== 'all') {
-        query = query.eq('brand_name', trendBrandFilter);
+        base = base.eq('brand_name', trendBrandFilter);
       }
 
-      const { data: trendData, error: trendError } = await query;
-
-      if (trendError) throw trendError;
+      // IMPORTANT: paginate to avoid the default 1000 row limit
+      const pageSize = 1000;
+      let from = 0;
+      let trendRows: any[] = [];
+      while (true) {
+        const { data, error } = await (base as any).range(from, from + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        trendRows = trendRows.concat(batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
 
       const byDate: Record<string, number> = {};
-      (trendData || []).forEach((row: any) => {
-        const dateKey = row.created_at_date.split('T')[0];
+      (trendRows || []).forEach((row: any) => {
+        const dateKey = String(row.created_at_date).split('T')[0];
         const sales = parseNumber(row.total);
         byDate[dateKey] = (byDate[dateKey] || 0) + sales;
       });
@@ -484,45 +495,55 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Sales trend - calculate last N days of the selected range based on trendDays
+      // Sales trend - calculate last N days back from yesterday (or selected end date)
       const daysCount = parseInt(trendDays) - 1;
-      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
+      const referenceDate = (dateFilter === "dateRange" && toDate)
+        ? toDate
+        : subDays(new Date(), 1);
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
       const trendStartStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
       const trendEndNextStr = format(addDays(trendEndDate, 1), "yyyy-MM-dd'T'00:00:00");
 
-      // Build query with optional brand filter
-      let trendQuery = supabase
+      // Build base query with optional brand filter
+      let trendBase = supabase
         .from('purpletransaction')
         .select('created_at_date, total')
         .gte('created_at_date', trendStartStr)
         .lt('created_at_date', trendEndNextStr);
 
-      // Apply brand filter only if specific brand is selected
       if (trendBrandFilter !== 'all') {
-        trendQuery = trendQuery.eq('brand_name', trendBrandFilter);
+        trendBase = trendBase.eq('brand_name', trendBrandFilter);
       }
 
-      const { data: trendData, error: trendError } = await trendQuery;
+      // Paginate to avoid 1000 row limit
+      const trendPageSize = 1000;
+      let trendFrom = 0;
+      let trendRows: any[] = [];
+      while (true) {
+        const { data, error } = await (trendBase as any).range(trendFrom, trendFrom + trendPageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        trendRows = trendRows.concat(batch);
+        if (batch.length < trendPageSize) break;
+        trendFrom += trendPageSize;
+      }
 
-      if (trendError) throw trendError;
-
-      const byDate: Record<string, number> = {};
-      (trendData || []).forEach((row: any) => {
-        const dateKey = row.created_at_date.split('T')[0];
+      const trendByDate: Record<string, number> = {};
+      (trendRows || []).forEach((row: any) => {
+        const dateKey = String(row.created_at_date).split('T')[0];
         const sales = parseNumber(row.total);
-        byDate[dateKey] = (byDate[dateKey] || 0) + sales;
+        trendByDate[dateKey] = (trendByDate[dateKey] || 0) + sales;
       });
 
-      const points: any[] = [];
+      const trendPoints: any[] = [];
       for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
         const key = format(d, 'yyyy-MM-dd');
-        const sales = byDate[key] ?? 0;
-        points.push({ date: format(d, 'MMM dd'), sales });
+        const sales = trendByDate[key] ?? 0;
+        trendPoints.push({ date: format(d, 'MMM dd'), sales });
       }
-      setSalesTrend(points);
+      setSalesTrend(trendPoints);
 
       // Month comparison - show base month and previous two months, matching total cards logic
       const now = new Date();
