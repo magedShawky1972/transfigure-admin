@@ -402,12 +402,15 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
+      const startStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(addDays(startOfDay(trendEndDate), 1), "yyyy-MM-dd'T'00:00:00");
+
       // Build query with filters
       let query = supabase
         .from('purpletransaction')
         .select('created_at_date, total')
-        .gte('created_at_date', format(trendStartDate, 'yyyy-MM-dd'))
-        .lte('created_at_date', format(trendEndDate, 'yyyy-MM-dd'));
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endStr);
 
       // Apply brand filter
       if (trendBrandFilter !== 'all') {
@@ -425,9 +428,11 @@ const Dashboard = () => {
 
       const byDate: Record<string, number> = {};
       (trendData || []).forEach((row: any) => {
-        const dateKey = row.created_at_date;
-        const total = parseNumber(row.total);
-        byDate[dateKey] = (byDate[dateKey] || 0) + total;
+        const dateKey = row.created_at_date?.split('T')[0];
+        if (dateKey) {
+          const total = parseNumber(row.total);
+          byDate[dateKey] = (byDate[dateKey] || 0) + total;
+        }
       });
 
       const points: any[] = [];
@@ -493,12 +498,15 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
+      const trendStartStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
+      const trendEndStr = format(addDays(startOfDay(trendEndDate), 1), "yyyy-MM-dd'T'00:00:00");
+
       // Build query with filters
       let trendQuery = supabase
         .from('purpletransaction')
         .select('created_at_date, total')
-        .gte('created_at_date', format(trendStartDate, 'yyyy-MM-dd'))
-        .lte('created_at_date', format(trendEndDate, 'yyyy-MM-dd'));
+        .gte('created_at_date', trendStartStr)
+        .lt('created_at_date', trendEndStr);
 
       // Apply brand filter
       if (trendBrandFilter !== 'all') {
@@ -516,9 +524,11 @@ const Dashboard = () => {
 
       const byDate: Record<string, number> = {};
       (trendData || []).forEach((row: any) => {
-        const dateKey = row.created_at_date;
-        const total = parseNumber(row.total);
-        byDate[dateKey] = (byDate[dateKey] || 0) + total;
+        const dateKey = row.created_at_date?.split('T')[0];
+        if (dateKey) {
+          const total = parseNumber(row.total);
+          byDate[dateKey] = (byDate[dateKey] || 0) + total;
+        }
       });
 
       const points: any[] = [];
