@@ -79,7 +79,7 @@ const Dashboard = () => {
   const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([]);
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
-  const [trendDays, setTrendDays] = useState<string>("60");
+  const [trendDays, setTrendDays] = useState<string>("10");
   const [trendBrandFilter, setTrendBrandFilter] = useState<string>("all");
   const [trendProductFilter, setTrendProductFilter] = useState<string>("all");
   const [inactiveCustomersPage, setInactiveCustomersPage] = useState(1);
@@ -2039,6 +2039,9 @@ const Dashboard = () => {
                     <SelectValue placeholder="Select days" />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
+                    <SelectItem value="10">10 Days</SelectItem>
+                    <SelectItem value="20">20 Days</SelectItem>
+                    <SelectItem value="30">30 Days</SelectItem>
                     <SelectItem value="60">60 Days</SelectItem>
                     <SelectItem value="90">90 Days</SelectItem>
                     <SelectItem value="120">120 Days</SelectItem>
