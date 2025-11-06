@@ -80,8 +80,6 @@ const Dashboard = () => {
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
   const [trendDays, setTrendDays] = useState<string>("10");
-  const [trendBrandFilter, setTrendBrandFilter] = useState<string>("all");
-  const [trendProductFilter, setTrendProductFilter] = useState<string>("all");
   const [inactiveCustomersPage, setInactiveCustomersPage] = useState(1);
   const inactiveCustomersPerPage = 20;
   const [inactivePhoneFilter, setInactivePhoneFilter] = useState<string>("");
@@ -397,43 +395,22 @@ const Dashboard = () => {
 
   const fetchSalesTrend = async () => {
     try {
-      const daysCount = parseInt(trendDays);
-      // Use yesterday as reference date, going back N days
-      const yesterday = subDays(new Date(), 1);
-      const trendEndDate = endOfDay(yesterday);
-      const trendStartDate = startOfDay(subDays(yesterday, daysCount - 1));
+      const daysCount = parseInt(trendDays) - 1;
+      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
+      const trendEndDate = endOfDay(referenceDate);
+      const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const startStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
-      const endStr = format(addDays(startOfDay(trendEndDate), 1), "yyyy-MM-dd'T'00:00:00");
-
-      // Build query - only apply filters if NOT "all"
-      let query = supabase
-        .from('purpletransaction')
-        .select('created_at_date, total')
-        .gte('created_at_date', startStr)
-        .lt('created_at_date', endStr);
-
-      // Only filter by brand if a specific brand is selected
-      if (trendBrandFilter !== 'all' && trendBrandFilter) {
-        query = query.eq('brand_name', trendBrandFilter);
-      }
-
-      // Only filter by product if a specific product is selected
-      if (trendProductFilter !== 'all' && trendProductFilter) {
-        query = query.eq('product_name', trendProductFilter);
-      }
-
-      const { data: trendData, error: trendError } = await query;
+      const { data: trendData, error: trendError } = await (supabase as any)
+        .rpc('sales_trend', {
+          date_from: format(trendStartDate, 'yyyy-MM-dd'),
+          date_to: format(trendEndDate, 'yyyy-MM-dd')
+        });
 
       if (trendError) throw trendError;
 
       const byDate: Record<string, number> = {};
       (trendData || []).forEach((row: any) => {
-        const dateKey = row.created_at_date?.split('T')[0];
-        if (dateKey) {
-          const total = parseNumber(row.total);
-          byDate[dateKey] = (byDate[dateKey] || 0) + total;
-        }
+        byDate[row.created_at_date] = Number(row.total_sum);
       });
 
       const points: any[] = [];
@@ -493,43 +470,23 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Sales trend - calculate last N days from yesterday
-      const daysCount = parseInt(trendDays);
-      const yesterday = subDays(new Date(), 1);
-      const trendEndDate = endOfDay(yesterday);
-      const trendStartDate = startOfDay(subDays(yesterday, daysCount - 1));
+      // Sales trend - calculate last N days of the selected range based on trendDays
+      const daysCount = parseInt(trendDays) - 1;
+      const referenceDate = (dateFilter === "dateRange" && toDate) ? toDate : new Date();
+      const trendEndDate = endOfDay(referenceDate);
+      const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const trendStartStr = format(trendStartDate, "yyyy-MM-dd'T'00:00:00");
-      const trendEndStr = format(addDays(startOfDay(trendEndDate), 1), "yyyy-MM-dd'T'00:00:00");
-
-      // Build query - only apply filters if NOT "all"
-      let trendQuery = supabase
-        .from('purpletransaction')
-        .select('created_at_date, total')
-        .gte('created_at_date', trendStartStr)
-        .lt('created_at_date', trendEndStr);
-
-      // Only filter by brand if a specific brand is selected
-      if (trendBrandFilter !== 'all' && trendBrandFilter) {
-        trendQuery = trendQuery.eq('brand_name', trendBrandFilter);
-      }
-
-      // Only filter by product if a specific product is selected
-      if (trendProductFilter !== 'all' && trendProductFilter) {
-        trendQuery = trendQuery.eq('product_name', trendProductFilter);
-      }
-
-      const { data: trendData, error: trendError } = await trendQuery;
+      const { data: trendData, error: trendError } = await (supabase as any)
+        .rpc('sales_trend', {
+          date_from: format(trendStartDate, 'yyyy-MM-dd'),
+          date_to: format(trendEndDate, 'yyyy-MM-dd')
+        });
 
       if (trendError) throw trendError;
 
       const byDate: Record<string, number> = {};
       (trendData || []).forEach((row: any) => {
-        const dateKey = row.created_at_date?.split('T')[0];
-        if (dateKey) {
-          const total = parseNumber(row.total);
-          byDate[dateKey] = (byDate[dateKey] || 0) + total;
-        }
+        byDate[row.created_at_date] = Number(row.total_sum);
       });
 
       const points: any[] = [];
@@ -1208,12 +1165,12 @@ const Dashboard = () => {
     setCoinsByBrand(sorted);
   };
 
-  // Re-fetch only sales trend when trend days or filters change
+  // Re-fetch only sales trend when trend days selection changes
   useEffect(() => {
     if (dateFilter && (dateFilter !== 'dateRange' || (fromDate && toDate))) {
       fetchSalesTrend();
     }
-  }, [trendDays, trendBrandFilter, trendProductFilter]);
+  }, [trendDays]);
 
   const handleNewCustomersClick = async () => {
     const dateRange = getDateRange();
@@ -2042,47 +1999,18 @@ const Dashboard = () => {
             </div>
           )}
           <CardHeader>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
-                <Select value={trendDays} onValueChange={setTrendDays}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Select days" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="10">10 Days</SelectItem>
-                    <SelectItem value="20">20 Days</SelectItem>
-                    <SelectItem value="30">30 Days</SelectItem>
-                    <SelectItem value="60">60 Days</SelectItem>
-                    <SelectItem value="90">90 Days</SelectItem>
-                    <SelectItem value="120">120 Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Select value={trendBrandFilter} onValueChange={setTrendBrandFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select brand" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="all">All Brands</SelectItem>
-                    {allBrands.map(brand => (
-                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={trendProductFilter} onValueChange={setTrendProductFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select product" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="all">All Products</SelectItem>
-                    {allProducts.map(product => (
-                      <SelectItem key={product} value={product}>{product}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex items-center justify-between">
+              <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
+              <Select value={trendDays} onValueChange={setTrendDays}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Select days" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="10">10 Days</SelectItem>
+                  <SelectItem value="20">20 Days</SelectItem>
+                  <SelectItem value="30">30 Days</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent>
