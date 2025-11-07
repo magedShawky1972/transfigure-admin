@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -32,6 +32,33 @@ interface Profile {
   is_active: boolean;
 }
 
+interface UserPermission {
+  id: string;
+  user_id: string;
+  menu_item: string;
+  has_access: boolean;
+}
+
+const MENU_ITEMS = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "reports", label: "Reports" },
+  { key: "transactions", label: "Transactions" },
+  { key: "pivotTable", label: "Pivot Table" },
+  { key: "loadData", label: "Load Data" },
+  { key: "uploadLog", label: "Upload Log" },
+  { key: "clearData", label: "Clear Data" },
+  { key: "reportsSetup", label: "Reports Setup" },
+  { key: "customerSetup", label: "Customer Setup" },
+  { key: "customerTotals", label: "Customer Totals" },
+  { key: "brandSetup", label: "Brand Setup" },
+  { key: "productSetup", label: "Product Setup" },
+  { key: "paymentMethodSetup", label: "Payment Method Setup" },
+  { key: "userSetup", label: "User Setup" },
+  { key: "apiConfig", label: "API Config" },
+  { key: "excelSetup", label: "Excel Setup" },
+  { key: "tableConfig", label: "Table Config" },
+];
+
 const UserSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -39,6 +66,10 @@ const UserSetup = () => {
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+  const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({});
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
   
   const [formData, setFormData] = useState({
     user_name: "",
@@ -211,6 +242,71 @@ const UserSetup = () => {
     }
   };
 
+  const handleSecurityClick = async (profile: Profile) => {
+    setSelectedUser(profile);
+    setLoadingPermissions(true);
+    setSecurityDialogOpen(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from("user_permissions")
+        .select("*")
+        .eq("user_id", profile.user_id);
+
+      if (error) throw error;
+
+      const permissionsMap: Record<string, boolean> = {};
+      MENU_ITEMS.forEach(item => {
+        const permission = data?.find(p => p.menu_item === item.key);
+        permissionsMap[item.key] = permission?.has_access ?? false;
+      });
+      
+      setUserPermissions(permissionsMap);
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
+  const handlePermissionToggle = async (menuItem: string, hasAccess: boolean) => {
+    if (!selectedUser) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_permissions")
+        .upsert({
+          user_id: selectedUser.user_id,
+          menu_item: menuItem,
+          has_access: hasAccess,
+        }, {
+          onConflict: "user_id,menu_item"
+        });
+
+      if (error) throw error;
+
+      setUserPermissions(prev => ({
+        ...prev,
+        [menuItem]: hasAccess,
+      }));
+
+      toast({
+        title: t("common.success"),
+        description: "Permission updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -309,6 +405,14 @@ const UserSetup = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => handleSecurityClick(profile)}
+                      title="Security"
+                    >
+                      <Shield className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleEdit(profile)}
                     >
                       <Pencil className="h-4 w-4" />
@@ -327,6 +431,41 @@ const UserSetup = () => {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={securityDialogOpen} onOpenChange={setSecurityDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Security Settings - {selectedUser?.user_name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingPermissions ? (
+            <div className="py-8 text-center">Loading permissions...</div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Enable or disable access to menu items for this user. Disabled items will not appear in their sidebar.
+              </p>
+              
+              <div className="space-y-3">
+                {MENU_ITEMS.map((item) => (
+                  <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <Label htmlFor={`perm-${item.key}`} className="cursor-pointer flex-1">
+                      {item.label}
+                    </Label>
+                    <Switch
+                      id={`perm-${item.key}`}
+                      checked={userPermissions[item.key] || false}
+                      onCheckedChange={(checked) => handlePermissionToggle(item.key, checked)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
