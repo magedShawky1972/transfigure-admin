@@ -37,6 +37,7 @@ interface UserPermission {
   user_id: string;
   menu_item: string;
   has_access: boolean;
+  parent_menu: string | null;
 }
 
 const MENU_ITEMS = [
@@ -59,6 +60,26 @@ const MENU_ITEMS = [
   { key: "tableConfig", label: "Table Config" },
 ];
 
+const DASHBOARD_COMPONENTS = [
+  { key: "sales_metrics", label: "Sales Metrics" },
+  { key: "profit_metrics", label: "Profit Metrics" },
+  { key: "transaction_metrics", label: "Transaction Metrics" },
+  { key: "avg_order_metrics", label: "Average Order Value" },
+  { key: "income_statement", label: "Income Statement" },
+  { key: "brand_sales_grid", label: "Brand Sales Grid" },
+  { key: "coins_by_brand", label: "Coins by Brand" },
+  { key: "sales_trend_chart", label: "Sales Trend Chart" },
+  { key: "top_brands_chart", label: "Top Brands Chart" },
+  { key: "top_products_chart", label: "Top Products Chart" },
+  { key: "month_comparison_chart", label: "Month Comparison Chart" },
+  { key: "payment_methods_chart", label: "Payment Methods Chart" },
+  { key: "payment_brands_chart", label: "Payment Brands Chart" },
+  { key: "unused_payment_brands", label: "Unused Payment Brands" },
+  { key: "product_summary_table", label: "Product Summary Table" },
+  { key: "customer_purchases_table", label: "Customer Purchases Table" },
+  { key: "inactive_customers_section", label: "Inactive Customers Section" },
+];
+
 const UserSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -70,6 +91,8 @@ const UserSetup = () => {
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({});
   const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [dashboardPermissionsDialogOpen, setDashboardPermissionsDialogOpen] = useState(false);
+  const [dashboardPermissions, setDashboardPermissions] = useState<Record<string, boolean>>({});
   
   const [formData, setFormData] = useState({
     user_name: "",
@@ -283,8 +306,9 @@ const UserSetup = () => {
           user_id: selectedUser.user_id,
           menu_item: menuItem,
           has_access: hasAccess,
+          parent_menu: null,
         }, {
-          onConflict: "user_id,menu_item"
+          onConflict: "user_id,menu_item,parent_menu"
         });
 
       if (error) throw error;
@@ -297,6 +321,74 @@ const UserSetup = () => {
       toast({
         title: t("common.success"),
         description: "Permission updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDashboardClick = async () => {
+    if (!selectedUser) return;
+    
+    setLoadingPermissions(true);
+    setDashboardPermissionsDialogOpen(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from("user_permissions")
+        .select("*")
+        .eq("user_id", selectedUser.user_id)
+        .eq("parent_menu", "dashboard");
+
+      if (error) throw error;
+
+      const permissionsMap: Record<string, boolean> = {};
+      DASHBOARD_COMPONENTS.forEach(component => {
+        const permission = data?.find(p => p.menu_item === component.key);
+        permissionsMap[component.key] = permission?.has_access ?? true;
+      });
+      
+      setDashboardPermissions(permissionsMap);
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
+  const handleDashboardPermissionToggle = async (componentKey: string, hasAccess: boolean) => {
+    if (!selectedUser) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_permissions")
+        .upsert({
+          user_id: selectedUser.user_id,
+          menu_item: componentKey,
+          parent_menu: "dashboard",
+          has_access: hasAccess,
+        }, {
+          onConflict: "user_id,menu_item,parent_menu"
+        });
+
+      if (error) throw error;
+
+      setDashboardPermissions(prev => ({
+        ...prev,
+        [componentKey]: hasAccess,
+      }));
+
+      toast({
+        title: t("common.success"),
+        description: "Dashboard permission updated successfully",
       });
     } catch (error: any) {
       toast({
@@ -451,13 +543,59 @@ const UserSetup = () => {
               <div className="space-y-3">
                 {MENU_ITEMS.map((item) => (
                   <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                    <Label htmlFor={`perm-${item.key}`} className="cursor-pointer flex-1">
-                      {item.label}
-                    </Label>
+                    <div className="flex items-center gap-2 flex-1">
+                      <Label htmlFor={`perm-${item.key}`} className="cursor-pointer">
+                        {item.label}
+                      </Label>
+                      {item.key === "dashboard" && userPermissions[item.key] && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDashboardClick}
+                        >
+                          Configure Components
+                        </Button>
+                      )}
+                    </div>
                     <Switch
                       id={`perm-${item.key}`}
                       checked={userPermissions[item.key] || false}
                       onCheckedChange={(checked) => handlePermissionToggle(item.key, checked)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dashboardPermissionsDialogOpen} onOpenChange={setDashboardPermissionsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Dashboard Components - {selectedUser?.user_name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingPermissions ? (
+            <div className="py-8 text-center">Loading permissions...</div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Enable or disable access to specific dashboard components for this user.
+              </p>
+              
+              <div className="space-y-3">
+                {DASHBOARD_COMPONENTS.map((component) => (
+                  <div key={component.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <Label htmlFor={`dash-${component.key}`} className="cursor-pointer flex-1">
+                      {component.label}
+                    </Label>
+                    <Switch
+                      id={`dash-${component.key}`}
+                      checked={dashboardPermissions[component.key] ?? true}
+                      onCheckedChange={(checked) => handleDashboardPermissionToggle(component.key, checked)}
                     />
                   </div>
                 ))}

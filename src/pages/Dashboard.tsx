@@ -46,6 +46,8 @@ interface DashboardMetrics {
 
 const Dashboard = () => {
   const { t, language } = useLanguage();
+  const [dashboardPermissions, setDashboardPermissions] = useState<Record<string, boolean>>({});
+  const [permissionsLoading, setPermissionsLoading] = useState(true);
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingCharts, setLoadingCharts] = useState(false);
   const [loadingTables, setLoadingTables] = useState(false);
@@ -227,6 +229,51 @@ const Dashboard = () => {
     fetchCharts();
     fetchTables();
     fetchInactiveCustomers();
+  };
+
+  // Load dashboard permissions
+  useEffect(() => {
+    const loadPermissions = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          setPermissionsLoading(false);
+          return;
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_permissions?user_id=eq.${session.user.id}&parent_menu=eq.dashboard&select=menu_item,has_access`,
+          {
+            headers: {
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+            }
+          }
+        );
+
+        if (!response.ok) throw new Error('Failed to fetch permissions');
+
+        const permsData = await response.json();
+        const permsMap: Record<string, boolean> = {};
+        permsData?.forEach((p: any) => {
+          permsMap[p.menu_item] = p.has_access;
+        });
+
+        setDashboardPermissions(permsMap);
+      } catch (error) {
+        console.error("Error loading dashboard permissions:", error);
+      } finally {
+        setPermissionsLoading(false);
+      }
+    };
+
+    loadPermissions();
+  }, []);
+
+  // Helper function to check if user has access to a component
+  const hasAccess = (componentKey: string) => {
+    if (permissionsLoading) return false;
+    return dashboardPermissions[componentKey] ?? true; // Default to true if not set
   };
 
   const fetchMetrics = async () => {
@@ -1585,18 +1632,21 @@ const Dashboard = () => {
 
   const metricCards = [
     {
+      key: "sales_metrics",
       title: t("dashboard.totalSales"),
       value: formatCurrency(metrics.totalSales),
       icon: DollarSign,
       gradient: "from-green-500 to-emerald-500",
     },
     {
+      key: "profit_metrics",
       title: t("dashboard.totalProfit"),
       value: formatCurrency(metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges),
       icon: TrendingUp,
       gradient: "from-blue-500 to-cyan-500",
     },
     {
+      key: "profit_metrics",
       title: language === 'ar' ? 'مبيعات النقاط' : 'Points Sales',
       value: formatCurrency(metrics.totalPoints),
       icon: Coins,
@@ -1604,25 +1654,28 @@ const Dashboard = () => {
       onClick: handlePointsClick,
     },
     {
+      key: "transaction_metrics",
       title: t("dashboard.transactions"),
       value: metrics.transactionCount.toLocaleString(),
       icon: ShoppingCart,
       gradient: "from-purple-500 to-pink-500",
     },
     {
+      key: "avg_order_metrics",
       title: t("dashboard.avgOrderValue"),
       value: formatCurrency(metrics.avgOrderValue),
       icon: CreditCard,
       gradient: "from-orange-500 to-red-500",
     },
     {
+      key: "transaction_metrics",
       title: language === 'ar' ? 'عملاء جدد' : 'New Customers',
       value: newCustomersCount.toLocaleString(),
       icon: TrendingUp,
       gradient: "from-indigo-500 to-purple-500",
       onClick: handleNewCustomersClick,
     },
-  ];
+  ].filter(card => hasAccess(card.key));
 
   // Income Statement Data
   const incomeStatementData = [
@@ -1750,7 +1803,8 @@ const Dashboard = () => {
       </div>
 
       {/* Income Statement */}
-      <Card className="border-2 relative">
+      {hasAccess("income_statement") && (
+        <Card className="border-2 relative">
         {loadingStats && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1782,8 +1836,10 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Brand Sales Grid */}
+      {hasAccess("brand_sales_grid") && (
       <Card className="border-2 relative">
         {loadingTables && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
@@ -1931,8 +1987,10 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Coins by Brand Grid */}
+      {hasAccess("coins_by_brand") && (
       <Card className="border-2 relative">
         {loadingTables && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
@@ -2042,8 +2100,10 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Charts Row 1 - Sales Trend & Top 5 Categories */}
+      {(hasAccess("sales_trend_chart") || hasAccess("top_brands_chart")) && (
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-2 relative">
           {loadingCharts && (
@@ -2163,8 +2223,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Charts Row 2 - Top 10 Products & Month Comparison */}
+      {(hasAccess("top_products_chart") || hasAccess("month_comparison_chart")) && (
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-2 relative">
           {loadingCharts && (
@@ -2249,8 +2311,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Charts Row 3 - Payment Methods & Payment Brands (Doughnuts) */}
+      {(hasAccess("payment_methods_chart") || hasAccess("payment_brands_chart")) && (
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-2 relative">
           {loadingCharts && (
@@ -2406,9 +2470,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Unused Payment Brands Grid */}
-      {unusedPaymentBrands.length > 0 && (
+      {hasAccess("unused_payment_brands") && unusedPaymentBrands.length > 0 && (
         <Card className="border-2 relative mt-6">
           {loadingCharts && (
             <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
@@ -2446,6 +2511,7 @@ const Dashboard = () => {
       )}
 
       {/* Product Summary Grid with Filters */}
+      {hasAccess("product_summary_table") && (
       <Card className="border-2 relative">
         {loadingTables && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
@@ -2522,8 +2588,10 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Customer Purchases Summary */}
+      {hasAccess("customer_purchases_table") && (
       <Card className="border-2 relative">
         {loadingTables && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
@@ -2618,8 +2686,10 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Inactive Customers - CRM Follow-up */}
+      {hasAccess("inactive_customers_section") && (
       <Card className="border-2 relative">
         {loadingInactiveCustomers && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
@@ -2839,6 +2909,7 @@ const Dashboard = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* CRM Follow-up Dialog */}
       <Dialog open={crmDialogOpen} onOpenChange={setCrmDialogOpen}>
