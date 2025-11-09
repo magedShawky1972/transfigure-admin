@@ -3013,40 +3013,42 @@ const Dashboard = () => {
       </Dialog>
 
       {/* Recent Transactions */}
-      <Card className="border-2">
-        <CardHeader>
-          <CardTitle>{t("dashboard.recentTransactions")}</CardTitle>
-          <CardDescription>
-            <Link 
-              to={`/transactions?from=${getDateRange() ? format(getDateRange()!.start, 'yyyy-MM-dd') : ''}&to=${getDateRange() ? format(getDateRange()!.end, 'yyyy-MM-dd') : ''}`}
-              className="text-primary hover:underline"
-            >
-              {t("dashboard.viewAll")}
-            </Link>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between border-b pb-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{transaction.customer_name || 'N/A'}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {transaction.brand_name} - {transaction.product_name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
-                  </p>
+      {hasAccess('recent_transactions') && (
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle>{t("dashboard.recentTransactions")}</CardTitle>
+            <CardDescription>
+              <Link 
+                to={`/transactions?from=${getDateRange() ? format(getDateRange()!.start, 'yyyy-MM-dd') : ''}&to=${getDateRange() ? format(getDateRange()!.end, 'yyyy-MM-dd') : ''}`}
+                className="text-primary hover:underline"
+              >
+                {t("dashboard.viewAll")}
+              </Link>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentTransactions.map((transaction) => (
+                <div key={transaction.id} className="flex items-center justify-between border-b pb-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{transaction.customer_name || 'N/A'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {transaction.brand_name} - {transaction.product_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold">{formatCurrency(parseNumber(transaction.total))}</p>
+                    <p className="text-xs text-green-600">+{formatCurrency(parseNumber(transaction.profit))}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold">{formatCurrency(parseNumber(transaction.total))}</p>
-                  <p className="text-xs text-green-600">+{formatCurrency(parseNumber(transaction.profit))}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Brand Products Dialog */}
       <Dialog open={brandProductsDialogOpen} onOpenChange={setBrandProductsDialogOpen}>

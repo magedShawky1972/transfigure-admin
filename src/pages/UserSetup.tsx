@@ -78,6 +78,7 @@ const DASHBOARD_COMPONENTS = [
   { key: "product_summary_table", label: "Product Summary Table" },
   { key: "customer_purchases_table", label: "Customer Purchases Table" },
   { key: "inactive_customers_section", label: "Inactive Customers Section" },
+  { key: "recent_transactions", label: "Recent Transactions" },
 ];
 
 const UserSetup = () => {
@@ -338,6 +339,7 @@ const UserSetup = () => {
     setDashboardPermissionsDialogOpen(true);
     
     try {
+      // @ts-ignore - Supabase type recursion issue
       const { data, error } = await supabase
         .from("user_permissions")
         .select("*")
