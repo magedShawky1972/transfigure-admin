@@ -1639,14 +1639,14 @@ const Dashboard = () => {
       gradient: "from-green-500 to-emerald-500",
     },
     {
-      key: "profit_metrics",
+      key: "total_profit",
       title: t("dashboard.totalProfit"),
       value: formatCurrency(metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges),
       icon: TrendingUp,
       gradient: "from-blue-500 to-cyan-500",
     },
     {
-      key: "profit_metrics",
+      key: "points_sales",
       title: language === 'ar' ? 'مبيعات النقاط' : 'Points Sales',
       value: formatCurrency(metrics.totalPoints),
       icon: Coins,

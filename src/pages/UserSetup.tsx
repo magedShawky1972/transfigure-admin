@@ -62,7 +62,8 @@ const MENU_ITEMS = [
 
 const DASHBOARD_COMPONENTS = [
   { key: "sales_metrics", label: "Sales Metrics" },
-  { key: "profit_metrics", label: "Profit Metrics" },
+  { key: "total_profit", label: "Total Profit" },
+  { key: "points_sales", label: "Points Sales" },
   { key: "transaction_metrics", label: "Transaction Metrics" },
   { key: "avg_order_metrics", label: "Average Order Value" },
   { key: "income_statement", label: "Income Statement" },
