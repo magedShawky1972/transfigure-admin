@@ -1654,7 +1654,7 @@ const Dashboard = () => {
       onClick: handlePointsClick,
     },
     {
-      key: "transaction_metrics",
+      key: "transaction_count",
       title: t("dashboard.transactions"),
       value: metrics.transactionCount.toLocaleString(),
       icon: ShoppingCart,
@@ -1668,7 +1668,7 @@ const Dashboard = () => {
       gradient: "from-orange-500 to-red-500",
     },
     {
-      key: "transaction_metrics",
+      key: "new_customers",
       title: language === 'ar' ? 'عملاء جدد' : 'New Customers',
       value: newCustomersCount.toLocaleString(),
       icon: TrendingUp,
