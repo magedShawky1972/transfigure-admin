@@ -2103,267 +2103,272 @@ const Dashboard = () => {
       )}
 
       {/* Charts Row 1 - Sales Trend & Top 5 Categories */}
-      {(hasAccess("sales_trend_chart") || hasAccess("top_brands_chart")) && (
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-2 relative">
-          {loadingCharts && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-          <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
-              <div className="flex gap-2">
-                <Select value={trendBrandFilter} onValueChange={setTrendBrandFilter}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder={t("dashboard.filterBrand")} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="all">{t("dashboard.allBrands")}</SelectItem>
-                    {allBrands.map(brand => (
-                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={trendDays} onValueChange={setTrendDays}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Select days" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="10">10 Days</SelectItem>
-                    <SelectItem value="20">20 Days</SelectItem>
-                    <SelectItem value="30">30 Days</SelectItem>
-                    <SelectItem value="60">60 Days</SelectItem>
-                    <SelectItem value="90">90 Days</SelectItem>
-                    <SelectItem value="120">120 Days</SelectItem>
-                  </SelectContent>
-                </Select>
+        {hasAccess("sales_trend_chart") && (
+          <Card className="border-2 relative">
+            {loadingCharts && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={salesTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Area type="monotone" dataKey="sales" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.6} name={t("dashboard.sales")} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+            )}
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle>{t("dashboard.salesTrend")}</CardTitle>
+                <div className="flex gap-2">
+                  <Select value={trendBrandFilter} onValueChange={setTrendBrandFilter}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder={t("dashboard.filterBrand")} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="all">{t("dashboard.allBrands")}</SelectItem>
+                      {allBrands.map(brand => (
+                        <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={trendDays} onValueChange={setTrendDays}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Select days" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="10">10 Days</SelectItem>
+                      <SelectItem value="20">20 Days</SelectItem>
+                      <SelectItem value="30">30 Days</SelectItem>
+                      <SelectItem value="60">60 Days</SelectItem>
+                      <SelectItem value="90">90 Days</SelectItem>
+                      <SelectItem value="120">120 Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={salesTrend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Area type="monotone" dataKey="sales" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.6} name={t("dashboard.sales")} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="border-2 relative">
-          {loadingCharts && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-          <CardHeader>
-            <CardTitle>{language === 'ar' ? 'أفضل 5 علامات تجارية' : 'Top 5 Brand'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={topBrands}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, name }) => {
-                    const RADIAN = Math.PI / 180;
-                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                    const match = name.match(/\(([\d.]+)%\)/);
-                    const percentage = match ? `${match[1]}%` : '';
-                    
-                    return (
-                      <text 
-                        x={x} 
-                        y={y} 
-                        fill="white" 
-                        textAnchor={x > cx ? 'start' : 'end'} 
-                        dominantBaseline="central"
-                        style={{ fontSize: '14px', fontWeight: 'bold' }}
-                      >
-                        {percentage}
-                      </text>
-                    );
-                  }}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  onClick={handleBrandClick}
-                  cursor="pointer"
-                >
-                  {topBrands.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend 
-                  iconType="circle" 
-                  align="left"
-                  verticalAlign="middle" 
-                  layout="vertical"
-                  wrapperStyle={{ color: '#ffffff' }}
-                  formatter={(value) => {
-                    const shortName = value.replace(/\s*\([\d.]+%\)/, '');
-                    if (shortName.length <= 9) return shortName;
-                    const truncated = shortName.substring(0, 9);
-                    const lastSpace = truncated.lastIndexOf(' ');
-                    return lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {hasAccess("top_brands_chart") && (
+          <Card className="border-2 relative">
+            {loadingCharts && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'أفضل 5 علامات تجارية' : 'Top 5 Brand'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={topBrands}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, name }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      const match = name.match(/\(([\d.]+)%\)/);
+                      const percentage = match ? `${match[1]}%` : '';
+                      
+                      return (
+                        <text 
+                          x={x} 
+                          y={y} 
+                          fill="white" 
+                          textAnchor={x > cx ? 'start' : 'end'} 
+                          dominantBaseline="central"
+                          style={{ fontSize: '14px', fontWeight: 'bold' }}
+                        >
+                          {percentage}
+                        </text>
+                      );
+                    }}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    onClick={handleBrandClick}
+                    cursor="pointer"
+                  >
+                    {topBrands.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Legend 
+                    iconType="circle" 
+                    align="left"
+                    verticalAlign="middle" 
+                    layout="vertical"
+                    wrapperStyle={{ color: '#ffffff' }}
+                    formatter={(value) => {
+                      const shortName = value.replace(/\s*\([\d.]+%\)/, '');
+                      if (shortName.length <= 9) return shortName;
+                      const truncated = shortName.substring(0, 9);
+                      const lastSpace = truncated.lastIndexOf(' ');
+                      return lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
       </div>
-      )}
 
       {/* Charts Row 2 - Top 10 Products & Month Comparison */}
-      {(hasAccess("top_products_chart") || hasAccess("month_comparison_chart")) && (
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-2 relative">
-          {loadingCharts && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-          <CardHeader>
-            <CardTitle>{language === 'ar' ? 'أفضل 5 منتجات' : 'Top 5 Products'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={topProducts}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, name }) => {
-                    const RADIAN = Math.PI / 180;
-                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                    const match = name.match(/\(([\d.]+)%\)/);
-                    const percentage = match ? `${match[1]}%` : '';
-                    
-                    return (
-                      <text 
-                        x={x} 
-                        y={y} 
-                        fill="white" 
-                        textAnchor={x > cx ? 'start' : 'end'} 
-                        dominantBaseline="central"
-                        style={{ fontSize: '14px', fontWeight: 'bold' }}
-                      >
-                        {percentage}
-                      </text>
-                    );
-                  }}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {topProducts.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend 
-                  iconType="circle" 
-                  align="left"
-                  verticalAlign="middle" 
-                  layout="vertical"
-                  wrapperStyle={{ color: '#ffffff' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {hasAccess("top_products_chart") && (
+          <Card className="border-2 relative">
+            {loadingCharts && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'أفضل 5 منتجات' : 'Top 5 Products'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={topProducts}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, name }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      const match = name.match(/\(([\d.]+)%\)/);
+                      const percentage = match ? `${match[1]}%` : '';
+                      
+                      return (
+                        <text 
+                          x={x} 
+                          y={y} 
+                          fill="white" 
+                          textAnchor={x > cx ? 'start' : 'end'} 
+                          dominantBaseline="central"
+                          style={{ fontSize: '14px', fontWeight: 'bold' }}
+                        >
+                          {percentage}
+                        </text>
+                      );
+                    }}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {topProducts.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Legend 
+                    iconType="circle" 
+                    align="left"
+                    verticalAlign="middle" 
+                    layout="vertical"
+                    wrapperStyle={{ color: '#ffffff' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="border-2 relative">
-          {loadingCharts && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-          <CardHeader>
-            <CardTitle>{t("dashboard.monthComparison")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthComparison}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
-                <Bar dataKey="sales" fill="#8B5CF6" name={t("dashboard.sales")} />
-                <Bar dataKey="profit" fill="#10B981" name={t("dashboard.profit")} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {hasAccess("month_comparison_chart") && (
+          <Card className="border-2 relative">
+            {loadingCharts && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <CardHeader>
+              <CardTitle>{t("dashboard.monthComparison")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthComparison}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Legend />
+                  <Bar dataKey="sales" fill="#8B5CF6" name={t("dashboard.sales")} />
+                  <Bar dataKey="profit" fill="#10B981" name={t("dashboard.profit")} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
       </div>
-      )}
 
       {/* Charts Row 3 - Payment Methods & Payment Brands (Doughnuts) */}
-      {(hasAccess("payment_methods_chart") || hasAccess("payment_brands_chart")) && (
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-2 relative">
-          {loadingCharts && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-          <CardHeader>
-            <CardTitle>{t("dashboard.paymentMethods")}</CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              {language === 'ar' ? 'انقر على أي طريقة دفع لرؤية تفاصيل العلامات التجارية' : 'Click on any payment method to see brand details'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={paymentMethods}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                  onClick={(data) => handlePaymentMethodClick(data, data.transactions)}
-                  className="cursor-pointer"
-                >
-                  {paymentMethods.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend 
-                  iconType="circle" 
-                  align={language === 'ar' ? 'right' : 'left'}
-                  verticalAlign="middle" 
-                  layout="vertical"
-                  wrapperStyle={{ color: '#ffffff', cursor: 'pointer' }}
-                  onClick={(data) => {
-                    const method = paymentMethods.find(m => m.name === data.value);
-                    if (method) {
-                      handlePaymentMethodClick(method, method.transactions);
-                    }
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {hasAccess("payment_methods_chart") && (
+          <Card className="border-2 relative">
+            {loadingCharts && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <CardHeader>
+              <CardTitle>{t("dashboard.paymentMethods")}</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                {language === 'ar' ? 'انقر على أي طريقة دفع لرؤية تفاصيل العلامات التجارية' : 'Click on any payment method to see brand details'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={paymentMethods}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    onClick={(data) => handlePaymentMethodClick(data, data.transactions)}
+                    className="cursor-pointer"
+                  >
+                    {paymentMethods.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Legend 
+                    iconType="circle" 
+                    align={language === 'ar' ? 'right' : 'left'}
+                    verticalAlign="middle" 
+                    layout="vertical"
+                    wrapperStyle={{ color: '#ffffff', cursor: 'pointer' }}
+                    onClick={(data) => {
+                      const method = paymentMethods.find(m => m.name === data.value);
+                      if (method) {
+                        handlePaymentMethodClick(method, method.transactions);
+                      }
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Payment Brand Details Dialog */}
         <Dialog open={selectedPaymentMethod !== null} onOpenChange={() => setSelectedPaymentMethod(null)}>
@@ -2432,45 +2437,46 @@ const Dashboard = () => {
           </DialogContent>
         </Dialog>
 
-        <Card className="border-2 relative">
-          {loadingCharts && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-          <CardHeader>
-            <CardTitle>{t("dashboard.paymentBrands")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={paymentBrands}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {paymentBrands.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend 
-                  iconType="circle" 
-                  align={language === 'ar' ? 'right' : 'left'}
-                  verticalAlign="middle" 
-                  layout="vertical"
-                  wrapperStyle={{ color: '#ffffff' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {hasAccess("payment_brands_chart") && (
+          <Card className="border-2 relative">
+            {loadingCharts && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <CardHeader>
+              <CardTitle>{t("dashboard.paymentBrands")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={paymentBrands}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {paymentBrands.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Legend 
+                    iconType="circle" 
+                    align={language === 'ar' ? 'right' : 'left'}
+                    verticalAlign="middle" 
+                    layout="vertical"
+                    wrapperStyle={{ color: '#ffffff' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
       </div>
-      )}
 
       {/* Unused Payment Brands Grid */}
       {hasAccess("unused_payment_brands") && unusedPaymentBrands.length > 0 && (
