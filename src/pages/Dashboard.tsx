@@ -2479,7 +2479,7 @@ const Dashboard = () => {
       </div>
 
       {/* Unused Payment Brands Grid */}
-      {hasAccess("unused_payment_brands") && unusedPaymentBrands.length > 0 && (
+      {hasAccess("unused_payment_brands") && (
         <Card className="border-2 relative mt-6">
           {loadingCharts && (
             <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
@@ -2496,22 +2496,30 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'نوع الدفع' : 'Payment Type'}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {unusedPaymentBrands.map((brand, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{brand.payment_method}</TableCell>
-                    <TableCell>{brand.payment_type}</TableCell>
+            {unusedPaymentBrands.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {language === 'ar' 
+                  ? 'جميع وسائل الدفع المفعلة قيد الاستخدام' 
+                  : 'All active payment brands are being used'}
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Brand'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'نوع الدفع' : 'Payment Type'}</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {unusedPaymentBrands.map((brand, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{brand.payment_method}</TableCell>
+                      <TableCell>{brand.payment_type}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       )}
