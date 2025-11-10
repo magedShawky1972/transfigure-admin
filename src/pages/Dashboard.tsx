@@ -335,7 +335,7 @@ const Dashboard = () => {
         const transactionCount = Number(stats.tx_count || 0);
         const avgOrderValue = transactionCount > 0 ? totalSales / transactionCount : 0;
 
-        // Fetch COGS and E-Payment Charges separately for Income Statement with pagination
+        // Fetch COGS from purpletransaction and E-Payment Charges from ordertotals with pagination
         const pageSize = 1000;
         let from = 0;
         let allCogsData: any[] = [];
@@ -343,7 +343,7 @@ const Dashboard = () => {
         while (true) {
           const { data, error } = await supabase
             .from('purpletransaction')
-            .select('cost_sold, bank_fee')
+            .select('cost_sold')
             .gte('created_at_date', startStr)
             .lt('created_at_date', endNextStr)
             .neq('payment_method', 'point')
@@ -360,10 +360,35 @@ const Dashboard = () => {
         }
 
         let costOfSales = 0;
-        let ePaymentCharges = 0;
-
         allCogsData.forEach((row) => {
           costOfSales += parseNumber(row.cost_sold);
+        });
+
+        // Fetch E-Payment Charges from ordertotals table
+        let orderFrom = 0;
+        let allOrderData: any[] = [];
+        
+        while (true) {
+          const { data, error } = await supabase
+            .from('ordertotals')
+            .select('bank_fee')
+            .gte('created_at', startStr)
+            .lt('created_at', endNextStr)
+            .neq('payment_method', 'point')
+            .order('created_at', { ascending: true })
+            .range(orderFrom, orderFrom + pageSize - 1);
+
+          if (error) throw error;
+
+          const batch = data || [];
+          allOrderData = allOrderData.concat(batch);
+
+          if (batch.length < pageSize) break;
+          orderFrom += pageSize;
+        }
+
+        let ePaymentCharges = 0;
+        allOrderData.forEach((row) => {
           ePaymentCharges += parseNumber(row.bank_fee);
         });
 
@@ -1490,19 +1515,19 @@ const Dashboard = () => {
       const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd'T'00:00:00");
       const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd'T'00:00:00");
 
-      // Fetch only non-point transactions with pagination
+      // Fetch only non-point orders from ordertotals table with pagination
       const pageSize = 1000;
       let from = 0;
       let allData: any[] = [];
       
       while (true) {
         const { data, error } = await supabase
-          .from('purpletransaction')
+          .from('ordertotals')
           .select('payment_brand, payment_method, total, bank_fee')
-          .gte('created_at_date', startStr)
-          .lt('created_at_date', endNextStr)
+          .gte('created_at', startStr)
+          .lt('created_at', endNextStr)
           .neq('payment_method', 'point')
-          .order('created_at_date', { ascending: true })
+          .order('created_at', { ascending: true })
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
@@ -1514,7 +1539,7 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Group by payment_brand and sum totals, bank_fees, and count transactions
+      // Group by payment_brand and sum totals, bank_fees, and count orders
       const grouped = allData.reduce((acc: any, item) => {
         const brand = item.payment_brand || 'Unknown';
         if (!acc[brand]) {
