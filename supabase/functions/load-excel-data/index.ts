@@ -286,6 +286,79 @@ Deno.serve(async (req) => {
           console.log('No new brands to insert');
         }
       }
+
+      // Group transactions by order_number and create ordertotals
+      console.log('Calculating order totals and bank fees...');
+      const orderTotalsMap = new Map();
+      
+      validData.forEach((row: any) => {
+        if (row.order_number) {
+          const orderNum = row.order_number;
+          if (!orderTotalsMap.has(orderNum)) {
+            orderTotalsMap.set(orderNum, {
+              order_number: orderNum,
+              total: 0,
+              payment_method: row.payment_method,
+              payment_type: row.payment_type,
+              payment_brand: row.payment_brand
+            });
+          }
+          const order = orderTotalsMap.get(orderNum);
+          order.total += Number(row.total) || 0;
+        }
+      });
+
+      // Fetch payment methods for bank fee calculation
+      const { data: paymentMethods, error: pmError } = await supabase
+        .from('payment_methods')
+        .select('payment_method, gateway_fee, fixed_value, vat_fee')
+        .eq('is_active', true);
+
+      if (pmError) {
+        console.error('Error fetching payment methods:', pmError);
+      }
+
+      // Calculate bank fees for each order
+      const orderTotalsToUpsert = Array.from(orderTotalsMap.values()).map((order: any) => {
+        let bankFee = 0;
+        if (order.payment_method !== 'point' && paymentMethods) {
+          const brand = (order.payment_brand || '').trim().toLowerCase();
+          const paymentMethod = paymentMethods.find((pm: any) => 
+            (pm.payment_method || '').trim().toLowerCase() === brand
+          );
+          
+          if (paymentMethod) {
+            const totalNum = Number(order.total) || 0;
+            const gatewayPct = Number(paymentMethod.gateway_fee) || 0;
+            const fixed = Number(paymentMethod.fixed_value) || 0;
+            const gatewayFee = (totalNum * gatewayPct) / 100;
+            bankFee = (gatewayFee + fixed) * 1.15;
+          }
+        }
+        
+        return {
+          ...order,
+          bank_fee: bankFee
+        };
+      });
+
+      console.log(`Upserting ${orderTotalsToUpsert.length} order totals...`);
+
+      // Upsert order totals
+      if (orderTotalsToUpsert.length > 0) {
+        const { error: orderTotalsError } = await supabase
+          .from('ordertotals')
+          .upsert(orderTotalsToUpsert, {
+            onConflict: 'order_number',
+            ignoreDuplicates: false
+          });
+
+        if (orderTotalsError) {
+          console.error('Error upserting order totals:', orderTotalsError);
+        } else {
+          console.log(`Successfully upserted ${orderTotalsToUpsert.length} order totals`);
+        }
+      }
     }
 
     // Calculate summary statistics

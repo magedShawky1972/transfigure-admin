@@ -220,6 +220,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ordertotals: {
+        Row: {
+          bank_fee: number | null
+          created_at: string
+          id: string
+          order_number: string
+          payment_brand: string | null
+          payment_method: string | null
+          payment_type: string | null
+          total: number | null
+          updated_at: string
+        }
+        Insert: {
+          bank_fee?: number | null
+          created_at?: string
+          id?: string
+          order_number: string
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_type?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bank_fee?: number | null
+          created_at?: string
+          id?: string
+          order_number?: string
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_type?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_methods: {
         Row: {
           created_at: string
@@ -507,6 +543,7 @@ export type Database = {
           has_access: boolean
           id: string
           menu_item: string
+          parent_menu: string | null
           updated_at: string
           user_id: string
         }
@@ -515,6 +552,7 @@ export type Database = {
           has_access?: boolean
           id?: string
           menu_item: string
+          parent_menu?: string | null
           updated_at?: string
           user_id: string
         }
@@ -523,6 +561,7 @@ export type Database = {
           has_access?: boolean
           id?: string
           menu_item?: string
+          parent_menu?: string | null
           updated_at?: string
           user_id?: string
         }
