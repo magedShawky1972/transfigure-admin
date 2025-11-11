@@ -292,7 +292,8 @@ Deno.serve(async (req) => {
       const orderTotalsMap = new Map();
       
       validData.forEach((row: any) => {
-        if (row.order_number) {
+        // Skip orders paid with points - don't add to ordertotals
+        if (row.order_number && row.payment_method !== 'point') {
           const orderNum = row.order_number;
           if (!orderTotalsMap.has(orderNum)) {
             orderTotalsMap.set(orderNum, {
