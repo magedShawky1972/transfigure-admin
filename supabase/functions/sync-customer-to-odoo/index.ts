@@ -48,7 +48,7 @@ serve(async (req) => {
       name: customerName,
       email: email || "",
       customer_group: customerGroup || "",
-      status: status === "active" ? 1 : 0,
+      status: status === "active" ? "active" : "suspended",
       is_blocked: isBlocked ? 1 : 0,
       block_reason: blockReason || "",
     };
