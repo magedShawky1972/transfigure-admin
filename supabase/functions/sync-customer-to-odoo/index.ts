@@ -83,7 +83,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Customer synced to Odoo successfully',
+        message: odooData.message || 'Customer synced to Odoo successfully',
+        partner_id: odooData.partner_id,
+        partner_name: odooData.partner_name,
         data: odooData 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

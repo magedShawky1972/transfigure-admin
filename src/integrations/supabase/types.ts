@@ -95,6 +95,7 @@ export type Database = {
           customer_phone: string
           id: string
           is_blocked: boolean
+          partner_id: number | null
           status: string
           updated_at: string
           updated_by: string | null
@@ -107,6 +108,7 @@ export type Database = {
           customer_phone: string
           id?: string
           is_blocked?: boolean
+          partner_id?: number | null
           status?: string
           updated_at?: string
           updated_by?: string | null
@@ -119,6 +121,7 @@ export type Database = {
           customer_phone?: string
           id?: string
           is_blocked?: boolean
+          partner_id?: number | null
           status?: string
           updated_at?: string
           updated_by?: string | null

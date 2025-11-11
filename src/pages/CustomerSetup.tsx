@@ -53,6 +53,7 @@ interface CustomerTotal {
   status: string;
   is_blocked: boolean;
   block_reason: string | null;
+  partner_id?: number | null;
 }
 
 const CustomerSetup = () => {
@@ -67,6 +68,8 @@ const CustomerSetup = () => {
   const [missingCustomers, setMissingCustomers] = useState<any[]>([]);
   const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{ phone: string; name: string } | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerTotal | null>(null);
   
   // Filter states
   const [nameFilter, setNameFilter] = useState("");
@@ -405,9 +408,24 @@ const CustomerSetup = () => {
       if (error) throw error;
 
       if (data?.success) {
+        // Update customer with partner_id from Odoo response
+        if (data.partner_id) {
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update({ partner_id: data.partner_id })
+            .eq('customer_phone', customer.customer_phone);
+          
+          if (updateError) {
+            console.error('Error updating partner_id:', updateError);
+          } else {
+            // Refresh customers list to show updated partner_id
+            fetchCustomers(sortColumn ?? undefined, sortDirection);
+          }
+        }
+
         toast({
           title: t("common.success"),
-          description: "Customer sent to Odoo successfully",
+          description: `Customer sent to Odoo successfully. Partner ID: ${data.partner_id}`,
         });
       } else {
         throw new Error(data?.error || 'Failed to send customer to Odoo');
@@ -417,6 +435,48 @@ const CustomerSetup = () => {
       toast({
         title: t("common.error"),
         description: error.message || 'Failed to send customer to Odoo',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditCustomer = (customer: CustomerTotal) => {
+    setEditingCustomer(customer);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveCustomer = async () => {
+    if (!editingCustomer) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({
+          customer_name: editingCustomer.customer_name,
+          status: editingCustomer.status,
+          is_blocked: editingCustomer.is_blocked,
+          block_reason: editingCustomer.block_reason,
+        })
+        .eq('customer_phone', editingCustomer.customer_phone);
+
+      if (error) throw error;
+
+      toast({
+        title: t("common.success"),
+        description: t("customerSetup.customerUpdated"),
+      });
+
+      setEditDialogOpen(false);
+      setEditingCustomer(null);
+      fetchCustomers(sortColumn ?? undefined, sortDirection);
+    } catch (error: any) {
+      console.error('Error updating customer:', error);
+      toast({
+        title: t("common.error"),
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -603,7 +663,12 @@ const CustomerSetup = () => {
                         <Button variant="outline" size="sm" disabled>
                           <TrendingUp className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" disabled>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEditCustomer(customer)}
+                          title={t("customerSetup.editCustomer")}
+                        >
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </div>
@@ -626,17 +691,17 @@ const CustomerSetup = () => {
         </div>
 
         {/* Edit Dialog */}
-        <Dialog open={false}>
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t("customerSetup.editCustomer")}</DialogTitle>
             </DialogHeader>
-            <form className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveCustomer(); }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="customer_phone">{t("customerSetup.phone")}</Label>
                 <Input
                   id="customer_phone"
-                  value=""
+                  value={editingCustomer?.customer_phone || ""}
                   disabled
                 />
               </div>
@@ -644,13 +709,24 @@ const CustomerSetup = () => {
                 <Label htmlFor="customer_name">{t("customerSetup.customerName")}</Label>
                 <Input
                   id="customer_name"
-                  value=""
+                  value={editingCustomer?.customer_name || ""}
+                  onChange={(e) => setEditingCustomer(editingCustomer ? {...editingCustomer, customer_name: e.target.value} : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partner_id">Partner ID (Odoo)</Label>
+                <Input
+                  id="partner_id"
+                  value={editingCustomer?.partner_id?.toString() || "Not synced"}
                   disabled
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">{t("customerSetup.status")}</Label>
-                <Select value="active" disabled>
+                <Select 
+                  value={editingCustomer?.status || "active"}
+                  onValueChange={(value) => setEditingCustomer(editingCustomer ? {...editingCustomer, status: value} : null)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -660,17 +736,25 @@ const CustomerSetup = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-2">
+                <Switch 
+                  id="is_blocked"
+                  checked={editingCustomer?.is_blocked || false}
+                  onCheckedChange={(checked) => setEditingCustomer(editingCustomer ? {...editingCustomer, is_blocked: checked} : null)}
+                />
+                <Label htmlFor="is_blocked">{t("customerSetup.blocked")}</Label>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="block_reason">{t("customerSetup.blockReason")}</Label>
                 <Textarea
                   id="block_reason"
-                  value=""
-                  disabled
+                  value={editingCustomer?.block_reason || ""}
+                  onChange={(e) => setEditingCustomer(editingCustomer ? {...editingCustomer, block_reason: e.target.value} : null)}
                   placeholder={t("customerSetup.blockReasonPlaceholder")}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled>
-                {t("customerSetup.save")}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? t("common.loading") : t("customerSetup.save")}
               </Button>
             </form>
           </DialogContent>
