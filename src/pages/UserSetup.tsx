@@ -56,6 +56,7 @@ const MENU_ITEMS = [
   { key: "paymentMethodSetup", label: "Payment Method Setup" },
   { key: "userSetup", label: "User Setup" },
   { key: "apiConfig", label: "API Config" },
+  { key: "odooSetup", label: "Odoo Setup" },
   { key: "excelSetup", label: "Excel Setup" },
   { key: "tableConfig", label: "Table Config" },
 ];
