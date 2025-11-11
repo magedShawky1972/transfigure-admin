@@ -138,7 +138,7 @@ const OdooSetup = () => {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="api_url">
-              {language === "ar" ? "عنوان API" : "API URL"}
+              {language === "ar" ? "عنوان API للعملاء" : "Customer API URL"}
               <span className="text-destructive ml-1">*</span>
             </Label>
             <Input
@@ -151,8 +151,8 @@ const OdooSetup = () => {
             />
             <p className="text-sm text-muted-foreground">
               {language === "ar"
-                ? "أدخل عنوان URL الكامل لنقطة نهاية API"
-                : "Enter the full URL of the API endpoint"}
+                ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالعملاء"
+                : "Enter the full URL of the customer API endpoint"}
             </p>
           </div>
 
