@@ -46,6 +46,7 @@ export function AppSidebar() {
     "/clear-data": "clearData",
     "/reports-setup": "reportsSetup",
     "/customer-setup": "customerSetup",
+    "/customer-profile": "customerProfile",
     "/customer-totals": "customerTotals",
     "/brand-setup": "brandSetup",
     "/product-setup": "productSetup",
@@ -114,6 +115,7 @@ export function AppSidebar() {
       items: [
         { title: t("menu.reportsSetup"), url: "/reports-setup", icon: Settings },
         { title: t("menu.customerSetup"), url: "/customer-setup", icon: UserCheck },
+        { title: t("menu.customerProfile"), url: "/customer-profile", icon: Users },
         { title: t("menu.customerTotals"), url: "/customer-totals", icon: TrendingUp },
         { title: t("menu.brandSetup"), url: "/brand-setup", icon: Settings },
         { title: t("menu.productSetup"), url: "/product-setup", icon: Database },

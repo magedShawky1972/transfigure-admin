@@ -17,6 +17,7 @@ import ClearData from "./pages/ClearData";
 import Transactions from "./pages/Transactions";
 import UserSetup from "./pages/UserSetup";
 import CustomerSetup from "./pages/CustomerSetup";
+import CustomerProfile from "./pages/CustomerProfile";
 import CustomerTotals from "./pages/CustomerTotals";
 import BrandSetup from "./pages/BrandSetup";
 import ProductSetup from "./pages/ProductSetup";
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/table-generator" element={<TableGenerator />} />
               <Route path="/user-setup" element={<UserSetup />} />
               <Route path="/customer-setup" element={<CustomerSetup />} />
+              <Route path="/customer-profile" element={<CustomerProfile />} />
               <Route path="/customer-totals" element={<CustomerTotals />} />
               <Route path="/brand-setup" element={<BrandSetup />} />
               <Route path="/product-setup" element={<ProductSetup />} />
