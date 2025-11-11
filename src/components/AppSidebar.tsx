@@ -10,7 +10,8 @@ import {
   UserCheck,
   TrendingUp,
   Grid3x3,
-  CreditCard
+  CreditCard,
+  Link2
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -53,6 +54,7 @@ export function AppSidebar() {
     "/api-config": "apiConfig",
     "/excel-sheets": "excelSetup",
     "/table-generator": "tableConfig",
+    "/odoo-setup": "odooSetup",
   };
 
   useEffect(() => {
@@ -123,6 +125,7 @@ export function AppSidebar() {
       items: [
         { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
         { title: t("menu.apiConfig"), url: "/api-config", icon: Cloud },
+        { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
       ]

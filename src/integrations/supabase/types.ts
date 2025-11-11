@@ -220,6 +220,33 @@ export type Database = {
         }
         Relationships: []
       }
+      odoo_api_config: {
+        Row: {
+          api_key: string
+          api_url: string
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          api_url: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          api_url?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ordertotals: {
         Row: {
           bank_fee: number | null

@@ -22,6 +22,7 @@ import BrandSetup from "./pages/BrandSetup";
 import ProductSetup from "./pages/ProductSetup";
 import PaymentMethodSetup from "./pages/PaymentMethodSetup";
 import PivotTable from "./pages/PivotTable";
+import OdooSetup from "./pages/OdooSetup";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="/product-setup" element={<ProductSetup />} />
               <Route path="/payment-method-setup" element={<PaymentMethodSetup />} />
               <Route path="/pivot-table" element={<PivotTable />} />
+              <Route path="/odoo-setup" element={<OdooSetup />} />
               <Route path="/auth" element={<Auth />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,11 +17,28 @@ serve(async (req) => {
 
     console.log('Syncing customer to Odoo:', { customerPhone, customerName });
 
-    const odooUrl = Deno.env.get('ODOO_URL');
-    const odooApiKey = Deno.env.get('ODOO_API_KEY');
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch Odoo configuration from database
+    const { data: config, error: configError } = await supabase
+      .from('odoo_api_config')
+      .select('api_url, api_key')
+      .eq('is_active', true)
+      .single();
+
+    if (configError || !config) {
+      console.error('Error fetching Odoo config:', configError);
+      throw new Error('Odoo API configuration not found. Please configure it in the admin panel.');
+    }
+
+    const odooUrl = config.api_url;
+    const odooApiKey = config.api_key;
 
     if (!odooUrl || !odooApiKey) {
-      throw new Error('Odoo credentials not configured');
+      throw new Error('Odoo credentials not properly configured');
     }
 
     // Prepare Odoo request body
