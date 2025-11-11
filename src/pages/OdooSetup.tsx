@@ -10,7 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 interface OdooConfig {
   id?: string;
-  api_url: string;
+  customer_api_url: string;
   api_key: string;
   is_active: boolean;
 }
@@ -20,7 +20,7 @@ const OdooSetup = () => {
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<OdooConfig>({
-    api_url: "",
+    customer_api_url: "",
     api_key: "",
     is_active: true,
   });
@@ -36,7 +36,7 @@ const OdooSetup = () => {
         .from("odoo_api_config")
         .select("*")
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") {
         throw error;
@@ -60,7 +60,7 @@ const OdooSetup = () => {
   };
 
   const handleSave = async () => {
-    if (!config.api_url || !config.api_key) {
+    if (!config.customer_api_url || !config.api_key) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description: language === "ar" 
@@ -79,7 +79,7 @@ const OdooSetup = () => {
         const { error } = await supabase
           .from("odoo_api_config")
           .update({
-            api_url: config.api_url,
+            customer_api_url: config.customer_api_url,
             api_key: config.api_key,
             is_active: config.is_active,
           })
@@ -91,7 +91,7 @@ const OdooSetup = () => {
         const { error } = await supabase
           .from("odoo_api_config")
           .insert({
-            api_url: config.api_url,
+            customer_api_url: config.customer_api_url,
             api_key: config.api_key,
             is_active: config.is_active,
           });
@@ -137,16 +137,16 @@ const OdooSetup = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="api_url">
+            <Label htmlFor="customer_api_url">
               {language === "ar" ? "عنوان API للعملاء" : "Customer API URL"}
               <span className="text-destructive ml-1">*</span>
             </Label>
             <Input
-              id="api_url"
+              id="customer_api_url"
               type="url"
               placeholder="https://your-odoo-instance.com/api/partners"
-              value={config.api_url}
-              onChange={(e) => setConfig({ ...config, api_url: e.target.value })}
+              value={config.customer_api_url}
+              onChange={(e) => setConfig({ ...config, customer_api_url: e.target.value })}
               disabled={loading}
             />
             <p className="text-sm text-muted-foreground">

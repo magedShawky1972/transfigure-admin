@@ -223,24 +223,24 @@ export type Database = {
       odoo_api_config: {
         Row: {
           api_key: string
-          api_url: string
           created_at: string
+          customer_api_url: string
           id: string
           is_active: boolean
           updated_at: string
         }
         Insert: {
           api_key: string
-          api_url: string
           created_at?: string
+          customer_api_url: string
           id?: string
           is_active?: boolean
           updated_at?: string
         }
         Update: {
           api_key?: string
-          api_url?: string
           created_at?: string
+          customer_api_url?: string
           id?: string
           is_active?: boolean
           updated_at?: string

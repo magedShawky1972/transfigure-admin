@@ -25,16 +25,16 @@ serve(async (req) => {
     // Fetch Odoo configuration from database
     const { data: config, error: configError } = await supabase
       .from('odoo_api_config')
-      .select('api_url, api_key')
+      .select('customer_api_url, api_key')
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (configError || !config) {
       console.error('Error fetching Odoo config:', configError);
       throw new Error('Odoo API configuration not found. Please configure it in the admin panel.');
     }
 
-    const odooUrl = config.api_url;
+    const odooUrl = config.customer_api_url;
     const odooApiKey = config.api_key;
 
     if (!odooUrl || !odooApiKey) {
