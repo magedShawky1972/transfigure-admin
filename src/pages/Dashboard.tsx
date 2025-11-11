@@ -785,16 +785,18 @@ const Dashboard = () => {
         
         setTopProducts(top5Products);
 
-        // Payment methods with click data
-        const paymentData = transactions.reduce((acc: any, t) => {
-          const method = t.payment_method || 'Unknown';
-          if (!acc[method]) {
-            acc[method] = { name: method, value: 0, transactions: [] };
-          }
-          acc[method].value += parseNumber(t.total);
-          acc[method].transactions.push(t);
-          return acc;
-        }, {});
+        // Payment methods with click data (excluding point payments)
+        const paymentData = transactions
+          .filter(t => t.payment_method?.toLowerCase() !== 'point')
+          .reduce((acc: any, t) => {
+            const method = t.payment_method || 'Unknown';
+            if (!acc[method]) {
+              acc[method] = { name: method, value: 0, transactions: [] };
+            }
+            acc[method].value += parseNumber(t.total);
+            acc[method].transactions.push(t);
+            return acc;
+          }, {});
         setPaymentMethods(Object.values(paymentData));
 
         // Payment brands (excluding point sales and unknown brands)
