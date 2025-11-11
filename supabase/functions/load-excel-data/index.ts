@@ -298,6 +298,7 @@ Deno.serve(async (req) => {
             orderTotalsMap.set(orderNum, {
               order_number: orderNum,
               total: 0,
+              order_date: row.created_at_date,
               payment_method: row.payment_method,
               payment_type: row.payment_type,
               payment_brand: row.payment_brand
@@ -305,6 +306,10 @@ Deno.serve(async (req) => {
           }
           const order = orderTotalsMap.get(orderNum);
           order.total += Number(row.total) || 0;
+          // Keep the earliest date for this order if multiple transactions
+          if (row.created_at_date && (!order.order_date || row.created_at_date < order.order_date)) {
+            order.order_date = row.created_at_date;
+          }
         }
       });
 

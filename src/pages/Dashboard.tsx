@@ -372,10 +372,10 @@ const Dashboard = () => {
           const { data, error } = await supabase
             .from('ordertotals')
             .select('bank_fee')
-            .gte('created_at', startStr)
-            .lt('created_at', endNextStr)
+            .gte('order_date', startStr)
+            .lt('order_date', endNextStr)
             .neq('payment_method', 'point')
-            .order('created_at', { ascending: true })
+            .order('order_date', { ascending: true })
             .range(orderFrom, orderFrom + pageSize - 1);
 
           if (error) throw error;
@@ -1524,10 +1524,10 @@ const Dashboard = () => {
         const { data, error } = await supabase
           .from('ordertotals')
           .select('payment_brand, payment_method, total, bank_fee')
-          .gte('created_at', startStr)
-          .lt('created_at', endNextStr)
+          .gte('order_date', startStr)
+          .lt('order_date', endNextStr)
           .neq('payment_method', 'point')
-          .order('created_at', { ascending: true })
+          .order('order_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
