@@ -37,8 +37,8 @@ serve(async (req) => {
 
     console.log('Sending to Odoo:', odooRequestBody);
 
-    // Call Odoo API
-    const odooResponse = await fetch(`${odooUrl}/api/partners`, {
+    // Call Odoo API (ODOO_URL should include the full endpoint path)
+    const odooResponse = await fetch(odooUrl, {
       method: 'POST',
       headers: {
         'Authorization': odooApiKey,
@@ -76,7 +76,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       }),
       { 
         status: 500,
