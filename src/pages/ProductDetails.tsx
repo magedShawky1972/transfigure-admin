@@ -132,7 +132,7 @@ const ProductDetails = () => {
 
       toast({
         title: t("common.success"),
-        description: "Product details updated successfully",
+        description: t("productSetup.updated"),
       });
     } catch (error: any) {
       toast({
@@ -154,29 +154,29 @@ const ProductDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" dir={isRTL ? "rtl" : "ltr"}>
       {/* Header with Back Button */}
       <div className="sticky top-0 z-10 bg-background border-b">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate("/product-setup")}
                 className="gap-2"
               >
-                <ArrowLeft className="h-4 w-4" />
+                {isRTL ? <ArrowLeft className="h-4 w-4 rotate-180" /> : <ArrowLeft className="h-4 w-4" />}
                 {t("common.back")}
               </Button>
-              <div>
+              <div className={isRTL ? 'text-right' : ''}>
                 <h1 className="text-2xl font-bold">{productName}</h1>
                 <p className="text-sm text-muted-foreground">{brandName}</p>
               </div>
             </div>
             <Button onClick={handleSave} disabled={loading} className="gap-2">
               <Save className="h-4 w-4" />
-              {t("common.save")}
+              {t("productSetup.save")}
             </Button>
           </div>
         </div>
@@ -184,86 +184,93 @@ const ProductDetails = () => {
 
       {/* Content */}
       <ScrollArea className="h-[calc(100vh-80px)]">
-        <div className="container mx-auto px-4 py-6" dir={isRTL ? "rtl" : "ltr"}>
+        <div className="container mx-auto px-4 py-6">
           <div className="max-w-6xl mx-auto space-y-6">
             {/* Product Information */}
             <Card>
               <CardHeader>
-                <CardTitle>Product Information</CardTitle>
+                <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.productInformation")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sku">SKU</Label>
+                    <Label htmlFor="sku" className={isRTL ? 'text-right block' : ''}>SKU</Label>
                     <Input
                       id="sku"
+                      className={isRTL ? 'text-right' : ''}
                       value={sku}
                       onChange={(e) => setSku(e.target.value)}
-                      placeholder="Enter SKU"
+                      placeholder={isRTL ? "أدخل SKU" : "Enter SKU"}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="barcode">Barcode</Label>
+                    <Label htmlFor="barcode" className={isRTL ? 'text-right block' : ''}>{t("productSetup.barcode")}</Label>
                     <Input
                       id="barcode"
+                      className={isRTL ? 'text-right' : ''}
                       value={barcode}
                       onChange={(e) => setBarcode(e.target.value)}
-                      placeholder="Enter barcode"
+                      placeholder={isRTL ? "أدخل الباركود" : "Enter barcode"}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
+                    <Label htmlFor="category" className={isRTL ? 'text-right block' : ''}>{t("productSetup.category")}</Label>
                     <Input
                       id="category"
+                      className={isRTL ? 'text-right' : ''}
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      placeholder="Enter category"
+                      placeholder={isRTL ? "أدخل الفئة" : "Enter category"}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="weight">Weight</Label>
+                    <Label htmlFor="weight" className={isRTL ? 'text-right block' : ''}>{t("productSetup.weight")}</Label>
                     <Input
                       id="weight"
                       type="number"
                       step="0.01"
+                      className={isRTL ? 'text-right' : ''}
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
-                      placeholder="Enter weight"
+                      placeholder={isRTL ? "أدخل الوزن" : "Enter weight"}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="supplier">Supplier</Label>
+                  <Label htmlFor="supplier" className={isRTL ? 'text-right block' : ''}>{t("productSetup.supplier")}</Label>
                   <Input
                     id="supplier"
+                    className={isRTL ? 'text-right' : ''}
                     value={supplier}
                     onChange={(e) => setSupplier(e.target.value)}
-                    placeholder="Enter supplier name"
+                    placeholder={isRTL ? "أدخل اسم المورد" : "Enter supplier name"}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description" className={isRTL ? 'text-right block' : ''}>{t("productSetup.description")}</Label>
                   <Textarea
                     id="description"
+                    className={isRTL ? 'text-right' : ''}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Enter product description"
+                    placeholder={isRTL ? "أدخل وصف المنتج" : "Enter product description"}
                     rows={3}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
+                  <Label htmlFor="notes" className={isRTL ? 'text-right block' : ''}>{t("productSetup.notes")}</Label>
                   <Textarea
                     id="notes"
+                    className={isRTL ? 'text-right' : ''}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Enter internal notes"
+                    placeholder={isRTL ? "أدخل الملاحظات الداخلية" : "Enter internal notes"}
                     rows={2}
                   />
                 </div>
@@ -273,38 +280,41 @@ const ProductDetails = () => {
             {/* Stock Management */}
             <Card>
               <CardHeader>
-                <CardTitle>Stock Management</CardTitle>
+                <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.stockManagement")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="quantity">Stock Quantity *</Label>
+                    <Label htmlFor="quantity" className={isRTL ? 'text-right block' : ''}>{t("productSetup.stockQuantity")} *</Label>
                     <Input
                       id="quantity"
                       type="number"
+                      className={isRTL ? 'text-right' : ''}
                       value={quantity}
                       onChange={(e) => setQuantity(e.target.value)}
-                      placeholder="Enter quantity"
+                      placeholder={isRTL ? "أدخل الكمية" : "Enter quantity"}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="minOrderQty">Minimum Order Quantity *</Label>
+                    <Label htmlFor="minOrderQty" className={isRTL ? 'text-right block' : ''}>{t("productSetup.minQuantity")} *</Label>
                     <Input
                       id="minOrderQty"
                       type="number"
+                      className={isRTL ? 'text-right' : ''}
                       value={minOrderQty}
                       onChange={(e) => setMinOrderQty(e.target.value)}
-                      placeholder="Minimum quantity"
+                      placeholder={isRTL ? "الحد الأدنى للكمية" : "Minimum quantity"}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="notifyQty">Reorder Point *</Label>
+                    <Label htmlFor="notifyQty" className={isRTL ? 'text-right block' : ''}>{t("productSetup.reorderPoint")} *</Label>
                     <Input
                       id="notifyQty"
                       type="number"
+                      className={isRTL ? 'text-right' : ''}
                       value={notifyQty}
                       onChange={(e) => setNotifyQty(e.target.value)}
-                      placeholder="Stock level to reorder"
+                      placeholder={isRTL ? "مستوى إعادة الطلب" : "Stock level to reorder"}
                     />
                   </div>
                 </div>
@@ -314,30 +324,32 @@ const ProductDetails = () => {
             {/* Pricing */}
             <Card>
               <CardHeader>
-                <CardTitle>Pricing</CardTitle>
+                <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.pricing")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="costPrice">Cost Price *</Label>
+                    <Label htmlFor="costPrice" className={isRTL ? 'text-right block' : ''}>{t("productSetup.productCost")} *</Label>
                     <Input
                       id="costPrice"
                       type="number"
                       step="0.01"
+                      className={isRTL ? 'text-right' : ''}
                       value={costPrice}
                       onChange={(e) => setCostPrice(e.target.value)}
-                      placeholder="Enter cost price"
+                      placeholder={isRTL ? "أدخل سعر التكلفة" : "Enter cost price"}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="retailPrice">Retail Price *</Label>
+                    <Label htmlFor="retailPrice" className={isRTL ? 'text-right block' : ''}>{t("productSetup.productPrice")} *</Label>
                     <Input
                       id="retailPrice"
                       type="number"
                       step="0.01"
+                      className={isRTL ? 'text-right' : ''}
                       value={retailPrice}
                       onChange={(e) => setRetailPrice(e.target.value)}
-                      placeholder="Enter retail price"
+                      placeholder={isRTL ? "أدخل سعر البيع" : "Enter retail price"}
                     />
                   </div>
                 </div>
