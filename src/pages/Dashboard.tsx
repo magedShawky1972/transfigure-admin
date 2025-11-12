@@ -1891,13 +1891,6 @@ const Dashboard = () => {
       </Card>
       )}
 
-      {/* Transaction Type Chart */}
-      <TransactionTypeChart
-        data={transactionTypeData}
-        language={language}
-        loading={loadingCharts}
-      />
-
       {/* Brand Sales Grid */}
       {hasAccess("brand_sales_grid") && (
       <Card className="border-2 relative">
@@ -2582,6 +2575,15 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Transaction Type Chart */}
+      {hasAccess("transaction_type_chart") && (
+        <TransactionTypeChart
+          data={transactionTypeData}
+          language={language}
+          loading={loadingCharts}
+        />
       )}
 
       {/* Product Summary Grid with Filters */}
