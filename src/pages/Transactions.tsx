@@ -176,7 +176,7 @@ const Transactions = () => {
         if (profile.transaction_group_by) {
           const saved = profile.transaction_group_by;
           if (Array.isArray(saved)) {
-            setGroupLevels(saved as GroupLevel[]);
+            setGroupLevels(saved as any as GroupLevel[]); // Type will update after migration
           } else if (typeof saved === 'string') {
             // Migrate old single-level grouping
             setGroupLevels([{ columnId: saved, label: getColumnLabel(saved), sortDirection: 'asc' }]);
@@ -197,7 +197,7 @@ const Transactions = () => {
       .update({
         transaction_column_order: columnOrder,
         transaction_column_visibility: visibleColumns,
-        transaction_group_by: groupLevels,
+        transaction_group_by: groupLevels as any, // Type will update after migration
       })
       .eq('user_id', userId);
   };
