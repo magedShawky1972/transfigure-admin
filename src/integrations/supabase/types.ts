@@ -440,6 +440,7 @@ export type Database = {
           profit: number | null
           qty: number | null
           total: number | null
+          trans_type: string | null
           unit_price: number | null
           updated_at: string
           user_name: string | null
@@ -466,6 +467,7 @@ export type Database = {
           profit?: number | null
           qty?: number | null
           total?: number | null
+          trans_type?: string | null
           unit_price?: number | null
           updated_at?: string
           user_name?: string | null
@@ -492,6 +494,7 @@ export type Database = {
           profit?: number | null
           qty?: number | null
           total?: number | null
+          trans_type?: string | null
           unit_price?: number | null
           updated_at?: string
           user_name?: string | null
