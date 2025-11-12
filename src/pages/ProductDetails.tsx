@@ -172,16 +172,16 @@ const ProductDetails = () => {
         
         // Load JSON fields
         if (data.free_coins && Array.isArray(data.free_coins) && data.free_coins.length > 0) {
-          setFreeCoins(data.free_coins);
+          setFreeCoins(data.free_coins as unknown as FreeCoin[]);
         }
         if (data.options && Array.isArray(data.options) && data.options.length > 0) {
-          setOptions(data.options);
+          setOptions(data.options as unknown as ProductOption[]);
         }
         if (data.customer_group_prices && Array.isArray(data.customer_group_prices) && data.customer_group_prices.length > 0) {
-          setCustomerGroupPrices(data.customer_group_prices);
+          setCustomerGroupPrices(data.customer_group_prices as unknown as CustomerGroupPrice[]);
         }
         if (data.discounts && Array.isArray(data.discounts) && data.discounts.length > 0) {
-          setDiscounts(data.discounts);
+          setDiscounts(data.discounts as unknown as Discount[]);
         }
         
         // Load SEO fields
@@ -242,6 +242,7 @@ const ProductDetails = () => {
       const { error } = await supabase
         .from("products")
         .update({
+          product_id: productId,
           sku,
           description,
           category,
@@ -260,10 +261,10 @@ const ProductDetails = () => {
           min_coins: minCoins ? parseFloat(minCoins) : 0,
           max_coins: maxCoins ? parseFloat(maxCoins) : 0,
           tax_type: taxType,
-          free_coins: freeCoins,
-          options: options,
-          customer_group_prices: customerGroupPrices,
-          discounts: discounts,
+          free_coins: freeCoins as any,
+          options: options as any,
+          customer_group_prices: customerGroupPrices as any,
+          discounts: discounts as any,
           meta_title_ar: metaTitleAr,
           meta_keywords_ar: metaKeywordsAr,
           meta_description_ar: metaDescriptionAr,
