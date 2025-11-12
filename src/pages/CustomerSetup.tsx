@@ -22,7 +22,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Pencil, Plus, Trash2, Send } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Pencil, Plus, Trash2, Send, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 
 interface Customer {
@@ -37,6 +44,7 @@ const CustomerSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -45,9 +53,23 @@ const CustomerSetup = () => {
     customer_name: "",
   });
 
+  // Filter states
+  const [phoneFilter, setPhoneFilter] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [partnerIdFilter, setPartnerIdFilter] = useState("all");
+
+  // Sort states
+  const [sortColumn, setSortColumn] = useState<keyof Customer | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [customers, phoneFilter, nameFilter, dateFilter, partnerIdFilter, sortColumn, sortDirection]);
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -68,6 +90,77 @@ const CustomerSetup = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyFiltersAndSort = () => {
+    let result = [...customers];
+
+    // Apply filters
+    if (phoneFilter) {
+      const pf = phoneFilter.replace(/\D/g, "").trim();
+      result = result.filter((c) => {
+        const cp = (c.customer_phone ?? "").replace(/\D/g, "");
+        return cp.includes(pf);
+      });
+    }
+
+    if (nameFilter) {
+      result = result.filter((c) =>
+        c.customer_name?.toLowerCase().includes(nameFilter.toLowerCase())
+      );
+    }
+
+    if (dateFilter) {
+      result = result.filter((c) =>
+        c.creation_date?.includes(dateFilter)
+      );
+    }
+
+    if (partnerIdFilter !== "all") {
+      if (partnerIdFilter === "synced") {
+        result = result.filter((c) => c.partner_id !== null);
+      } else if (partnerIdFilter === "not_synced") {
+        result = result.filter((c) => c.partner_id === null);
+      }
+    }
+
+    // Apply sorting
+    if (sortColumn) {
+      result.sort((a, b) => {
+        const aVal = a[sortColumn];
+        const bVal = b[sortColumn];
+        
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+        
+        let comparison = 0;
+        
+        if (sortColumn === "creation_date") {
+          const aDate = new Date(aVal as string).getTime();
+          const bDate = new Date(bVal as string).getTime();
+          comparison = aDate - bDate;
+        } else if (typeof aVal === "number" && typeof bVal === "number") {
+          comparison = aVal - bVal;
+        } else if (typeof aVal === "string" && typeof bVal === "string") {
+          comparison = aVal.localeCompare(bVal);
+        } else {
+          comparison = String(aVal).localeCompare(String(bVal));
+        }
+        
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    setFilteredCustomers(result);
+  };
+
+  const handleSort = (column: keyof Customer) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
     }
   };
 
@@ -248,27 +341,92 @@ const CustomerSetup = () => {
           </Button>
         </div>
 
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-card rounded-md border">
+          <div className="space-y-2">
+            <Label>{t("customerSetup.phone")}</Label>
+            <Input
+              placeholder={t("customerSetup.filterByPhone")}
+              value={phoneFilter}
+              onChange={(e) => setPhoneFilter(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("customerSetup.name")}</Label>
+            <Input
+              placeholder={t("customerSetup.filterByName")}
+              value={nameFilter}
+              onChange={(e) => setNameFilter(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("customerSetup.creationDate")}</Label>
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Odoo Status</Label>
+            <Select value={partnerIdFilter} onValueChange={setPartnerIdFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("common.all")}</SelectItem>
+                <SelectItem value="synced">Synced</SelectItem>
+                <SelectItem value="not_synced">Not Synced</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <div className="rounded-md border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("customerSetup.phone")}</TableHead>
-                <TableHead>{t("customerSetup.name")}</TableHead>
-                <TableHead>{t("customerSetup.creationDate")}</TableHead>
-                <TableHead>{t("customerSetup.partnerId")}</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("customer_phone")}
+                >
+                  {t("customerSetup.phone")}
+                  <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("customer_name")}
+                >
+                  {t("customerSetup.name")}
+                  <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("creation_date")}
+                >
+                  {t("customerSetup.creationDate")}
+                  <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("partner_id")}
+                >
+                  {t("customerSetup.partnerId")}
+                  <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
+                </TableHead>
                 <TableHead className="text-right">{t("customerSetup.actions")}</TableHead>
                 <TableHead className="text-center">Odoo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.length === 0 ? (
+              {filteredCustomers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    {t("customerSetup.noData")}
+                    {customers.length === 0 ? t("customerSetup.noData") : "No matching results"}
                   </TableCell>
                 </TableRow>
               ) : (
-                customers.map((customer) => (
+                filteredCustomers.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className="font-mono">{customer.customer_phone}</TableCell>
                     <TableCell className="font-medium">{customer.customer_name}</TableCell>
