@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Product {
   id: string;
@@ -31,6 +32,35 @@ interface Product {
   barcode?: string | null;
   supplier?: string | null;
   notes?: string | null;
+}
+
+interface FreeCoin {
+  coins_number: string;
+  coins_price: string;
+}
+
+interface ProductOption {
+  option_id: string;
+  required: boolean;
+}
+
+interface CustomerGroupPrice {
+  group_name: string;
+  price: string;
+  discount_type: string;
+  min_quantity: string;
+  max_quantity: string;
+  sale_price: string;
+  purchase_price: string;
+}
+
+interface Discount {
+  store: string;
+  group_name: string;
+  amount_type: string;
+  amount: string;
+  start_date: string;
+  end_date: string;
 }
 
 const ProductDetails = () => {
@@ -70,6 +100,34 @@ const ProductDetails = () => {
 
   // Mobile toggle
   const [mobileEnabled, setMobileEnabled] = useState(true);
+
+  // Free coins section
+  const [freeCoins, setFreeCoins] = useState<FreeCoin[]>([
+    { coins_number: "", coins_price: "" }
+  ]);
+
+  // Options section
+  const [options, setOptions] = useState<ProductOption[]>([
+    { option_id: "Account ID", required: true }
+  ]);
+
+  // Customer group prices
+  const [customerGroupPrices, setCustomerGroupPrices] = useState<CustomerGroupPrice[]>([
+    { group_name: "", price: "", discount_type: "%", min_quantity: "", max_quantity: "", sale_price: "", purchase_price: "" }
+  ]);
+
+  // Discounts
+  const [discounts, setDiscounts] = useState<Discount[]>([
+    { store: "purple_store", group_name: "all_customers_groups", amount_type: "fixed", amount: "", start_date: "", end_date: "" }
+  ]);
+
+  // SEO section
+  const [metaTitleAr, setMetaTitleAr] = useState("");
+  const [metaKeywordsAr, setMetaKeywordsAr] = useState("");
+  const [metaDescriptionAr, setMetaDescriptionAr] = useState("");
+  const [metaTitleEn, setMetaTitleEn] = useState("");
+  const [metaKeywordsEn, setMetaKeywordsEn] = useState("");
+  const [metaDescriptionEn, setMetaDescriptionEn] = useState("");
 
   useEffect(() => {
     fetchProductDetails();
@@ -114,6 +172,38 @@ const ProductDetails = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const addFreeCoin = () => {
+    setFreeCoins([...freeCoins, { coins_number: "", coins_price: "" }]);
+  };
+
+  const removeFreeCoin = (index: number) => {
+    setFreeCoins(freeCoins.filter((_, i) => i !== index));
+  };
+
+  const addOption = () => {
+    setOptions([...options, { option_id: "", required: false }]);
+  };
+
+  const removeOption = (index: number) => {
+    setOptions(options.filter((_, i) => i !== index));
+  };
+
+  const addCustomerGroupPrice = () => {
+    setCustomerGroupPrices([...customerGroupPrices, { group_name: "", price: "", discount_type: "%", min_quantity: "", max_quantity: "", sale_price: "", purchase_price: "" }]);
+  };
+
+  const removeCustomerGroupPrice = (index: number) => {
+    setCustomerGroupPrices(customerGroupPrices.filter((_, i) => i !== index));
+  };
+
+  const addDiscount = () => {
+    setDiscounts([...discounts, { store: "purple_store", group_name: "all_customers_groups", amount_type: "fixed", amount: "", start_date: "", end_date: "" }]);
+  };
+
+  const removeDiscount = (index: number) => {
+    setDiscounts(discounts.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
@@ -469,6 +559,481 @@ const ProductDetails = () => {
                       <SelectItem value="tax_excluded">{t("productSetup.taxExcluded")}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Free Coins */}
+            <Card>
+              <CardHeader>
+                <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.freeCoins")}</CardTitle>
+                  <Button type="button" size="sm" onClick={addFreeCoin} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    {t("common.add")}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {freeCoins.map((coin, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg relative">
+                    <div className={`absolute ${isRTL ? '-top-2 -left-2' : '-top-2 -right-2'}`}>
+                      <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs">
+                        #{index + 1}
+                      </span>
+                    </div>
+                    {freeCoins.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={`absolute ${isRTL ? 'top-2 right-2' : 'top-2 left-2'} h-6 w-6`}
+                        onClick={() => removeFreeCoin(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.coinsNumber")} *</Label>
+                      <Input
+                        type="number"
+                        className={isRTL ? 'text-right' : ''}
+                        value={coin.coins_number}
+                        onChange={(e) => {
+                          const newFreeCoins = [...freeCoins];
+                          newFreeCoins[index].coins_number = e.target.value;
+                          setFreeCoins(newFreeCoins);
+                        }}
+                        placeholder={isRTL ? "عدد النقاط" : "Coins number"}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.coinsPrice")} *</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className={isRTL ? 'text-right' : ''}
+                        value={coin.coins_price}
+                        onChange={(e) => {
+                          const newFreeCoins = [...freeCoins];
+                          newFreeCoins[index].coins_price = e.target.value;
+                          setFreeCoins(newFreeCoins);
+                        }}
+                        placeholder={isRTL ? "سعر النقاط" : "Coins price"}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Options */}
+            <Card>
+              <CardHeader>
+                <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.options")}</CardTitle>
+                  <Button type="button" size="sm" onClick={addOption} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    {t("common.add")}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {options.map((option, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg relative">
+                    <div className={`absolute ${isRTL ? '-top-2 -left-2' : '-top-2 -right-2'}`}>
+                      <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs">
+                        #{index + 1}
+                      </span>
+                    </div>
+                    {options.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={`absolute ${isRTL ? 'top-2 right-2' : 'top-2 left-2'} h-6 w-6`}
+                        onClick={() => removeOption(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.optionId")} *</Label>
+                      <Input
+                        className={isRTL ? 'text-right' : ''}
+                        value={option.option_id}
+                        onChange={(e) => {
+                          const newOptions = [...options];
+                          newOptions[index].option_id = e.target.value;
+                          setOptions(newOptions);
+                        }}
+                        placeholder={isRTL ? "معرف الخيار" : "Option ID"}
+                      />
+                    </div>
+                    <div className="space-y-2 flex items-center gap-2">
+                      <Checkbox
+                        id={`required-${index}`}
+                        checked={option.required}
+                        onCheckedChange={(checked) => {
+                          const newOptions = [...options];
+                          newOptions[index].required = checked as boolean;
+                          setOptions(newOptions);
+                        }}
+                      />
+                      <Label htmlFor={`required-${index}`} className="cursor-pointer">
+                        {t("productSetup.required")}
+                      </Label>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Customer Group Prices */}
+            <Card>
+              <CardHeader>
+                <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.customerGroupPrices")}</CardTitle>
+                  <Button type="button" size="sm" onClick={addCustomerGroupPrice} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    {t("common.add")}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {customerGroupPrices.map((price, index) => (
+                  <div key={index} className="p-4 bg-muted/30 rounded-lg relative space-y-4">
+                    <div className={`absolute ${isRTL ? '-top-2 -left-2' : '-top-2 -right-2'}`}>
+                      <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs">
+                        #{index + 1}
+                      </span>
+                    </div>
+                    {customerGroupPrices.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={`absolute ${isRTL ? 'top-2 right-2' : 'top-2 left-2'} h-6 w-6`}
+                        onClick={() => removeCustomerGroupPrice(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.groupName")} *</Label>
+                        <Input
+                          className={isRTL ? 'text-right' : ''}
+                          value={price.group_name}
+                          onChange={(e) => {
+                            const newPrices = [...customerGroupPrices];
+                            newPrices[index].group_name = e.target.value;
+                            setCustomerGroupPrices(newPrices);
+                          }}
+                          placeholder={isRTL ? "اسم المجموعة" : "Group name"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.price")} *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className={isRTL ? 'text-right' : ''}
+                          value={price.price}
+                          onChange={(e) => {
+                            const newPrices = [...customerGroupPrices];
+                            newPrices[index].price = e.target.value;
+                            setCustomerGroupPrices(newPrices);
+                          }}
+                          placeholder={isRTL ? "السعر" : "Price"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.discountType")} *</Label>
+                        <Select
+                          value={price.discount_type}
+                          onValueChange={(value) => {
+                            const newPrices = [...customerGroupPrices];
+                            newPrices[index].discount_type = value;
+                            setCustomerGroupPrices(newPrices);
+                          }}
+                        >
+                          <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="%">%</SelectItem>
+                            <SelectItem value="fixed">{t("productSetup.fixed")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.minQuantity")}</Label>
+                        <Input
+                          type="number"
+                          className={isRTL ? 'text-right' : ''}
+                          value={price.min_quantity}
+                          onChange={(e) => {
+                            const newPrices = [...customerGroupPrices];
+                            newPrices[index].min_quantity = e.target.value;
+                            setCustomerGroupPrices(newPrices);
+                          }}
+                          placeholder={isRTL ? "الحد الأدنى" : "Min"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxQuantity")}</Label>
+                        <Input
+                          type="number"
+                          className={isRTL ? 'text-right' : ''}
+                          value={price.max_quantity}
+                          onChange={(e) => {
+                            const newPrices = [...customerGroupPrices];
+                            newPrices[index].max_quantity = e.target.value;
+                            setCustomerGroupPrices(newPrices);
+                          }}
+                          placeholder={isRTL ? "الحد الأقصى" : "Max"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.salePrice")}</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className={isRTL ? 'text-right' : ''}
+                          value={price.sale_price}
+                          onChange={(e) => {
+                            const newPrices = [...customerGroupPrices];
+                            newPrices[index].sale_price = e.target.value;
+                            setCustomerGroupPrices(newPrices);
+                          }}
+                          placeholder={isRTL ? "سعر البيع" : "Sale price"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.purchasePrice")}</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className={isRTL ? 'text-right' : ''}
+                          value={price.purchase_price}
+                          onChange={(e) => {
+                            const newPrices = [...customerGroupPrices];
+                            newPrices[index].purchase_price = e.target.value;
+                            setCustomerGroupPrices(newPrices);
+                          }}
+                          placeholder={isRTL ? "سعر الشراء" : "Purchase price"}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Discounts */}
+            <Card>
+              <CardHeader>
+                <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.discounts")}</CardTitle>
+                  <Button type="button" size="sm" onClick={addDiscount} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    {t("common.add")}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {discounts.map((discount, index) => (
+                  <div key={index} className="p-4 bg-muted/30 rounded-lg relative space-y-4">
+                    <div className={`absolute ${isRTL ? '-top-2 -left-2' : '-top-2 -right-2'}`}>
+                      <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs">
+                        #{index + 1}
+                      </span>
+                    </div>
+                    {discounts.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={`absolute ${isRTL ? 'top-2 right-2' : 'top-2 left-2'} h-6 w-6`}
+                        onClick={() => removeDiscount(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.store")} *</Label>
+                        <Input
+                          className={isRTL ? 'text-right' : ''}
+                          value={discount.store}
+                          onChange={(e) => {
+                            const newDiscounts = [...discounts];
+                            newDiscounts[index].store = e.target.value;
+                            setDiscounts(newDiscounts);
+                          }}
+                          placeholder={isRTL ? "المتجر" : "Store"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.groupName")} *</Label>
+                        <Input
+                          className={isRTL ? 'text-right' : ''}
+                          value={discount.group_name}
+                          onChange={(e) => {
+                            const newDiscounts = [...discounts];
+                            newDiscounts[index].group_name = e.target.value;
+                            setDiscounts(newDiscounts);
+                          }}
+                          placeholder={isRTL ? "اسم المجموعة" : "Group name"}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.amountType")} *</Label>
+                        <Select
+                          value={discount.amount_type}
+                          onValueChange={(value) => {
+                            const newDiscounts = [...discounts];
+                            newDiscounts[index].amount_type = value;
+                            setDiscounts(newDiscounts);
+                          }}
+                        >
+                          <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="fixed">{t("productSetup.fixed")}</SelectItem>
+                            <SelectItem value="percentage">%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.amount")} *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className={isRTL ? 'text-right' : ''}
+                          value={discount.amount}
+                          onChange={(e) => {
+                            const newDiscounts = [...discounts];
+                            newDiscounts[index].amount = e.target.value;
+                            setDiscounts(newDiscounts);
+                          }}
+                          placeholder={isRTL ? "المبلغ" : "Amount"}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.startDate")} *</Label>
+                        <Input
+                          type="date"
+                          className={isRTL ? 'text-right' : ''}
+                          value={discount.start_date}
+                          onChange={(e) => {
+                            const newDiscounts = [...discounts];
+                            newDiscounts[index].start_date = e.target.value;
+                            setDiscounts(newDiscounts);
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.endDate")} *</Label>
+                        <Input
+                          type="date"
+                          className={isRTL ? 'text-right' : ''}
+                          value={discount.end_date}
+                          onChange={(e) => {
+                            const newDiscounts = [...discounts];
+                            newDiscounts[index].end_date = e.target.value;
+                            setDiscounts(newDiscounts);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* SEO */}
+            <Card>
+              <CardHeader>
+                <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.seo")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h4 className={`font-semibold ${isRTL ? 'text-right' : ''}`}>{t("productSetup.arabic")}</h4>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaTitle")}</Label>
+                      <Input
+                        className={isRTL ? 'text-right' : ''}
+                        value={metaTitleAr}
+                        onChange={(e) => setMetaTitleAr(e.target.value)}
+                        placeholder={isRTL ? "عنوان الميتا بالعربية" : "Meta title in Arabic"}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaKeywords")}</Label>
+                      <Input
+                        className={isRTL ? 'text-right' : ''}
+                        value={metaKeywordsAr}
+                        onChange={(e) => setMetaKeywordsAr(e.target.value)}
+                        placeholder={isRTL ? "كلمات مفتاحية بالعربية" : "Meta keywords in Arabic"}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaDescription")}</Label>
+                      <Textarea
+                        className={isRTL ? 'text-right' : ''}
+                        value={metaDescriptionAr}
+                        onChange={(e) => setMetaDescriptionAr(e.target.value)}
+                        placeholder={isRTL ? "وصف الميتا بالعربية" : "Meta description in Arabic"}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h4 className={`font-semibold ${isRTL ? 'text-right' : ''}`}>{t("productSetup.english")}</h4>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaTitle")}</Label>
+                      <Input
+                        className={isRTL ? 'text-right' : ''}
+                        value={metaTitleEn}
+                        onChange={(e) => setMetaTitleEn(e.target.value)}
+                        placeholder={isRTL ? "عنوان الميتا بالإنجليزية" : "Meta title in English"}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaKeywords")}</Label>
+                      <Input
+                        className={isRTL ? 'text-right' : ''}
+                        value={metaKeywordsEn}
+                        onChange={(e) => setMetaKeywordsEn(e.target.value)}
+                        placeholder={isRTL ? "كلمات مفتاحية بالإنجليزية" : "Meta keywords in English"}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.metaDescription")}</Label>
+                      <Textarea
+                        className={isRTL ? 'text-right' : ''}
+                        value={metaDescriptionEn}
+                        onChange={(e) => setMetaDescriptionEn(e.target.value)}
+                        placeholder={isRTL ? "وصف الميتا بالإنجليزية" : "Meta description in English"}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
