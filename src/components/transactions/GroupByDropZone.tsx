@@ -19,6 +19,7 @@ export const GroupByDropZone = ({
 }: GroupByDropZoneProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: "group-by-zone",
+    data: { type: 'group-zone' }
   });
 
   return (

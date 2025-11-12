@@ -444,8 +444,13 @@ const Transactions = () => {
 
     if (!over) return;
 
+    const overId = (over as any).id;
+    const overType = (over as any).data?.current?.type;
+    // Debug logs
+    console.log('[DND] dragEnd', { activeId: active.id, overId, overType });
+
     // Check if dropped on group-by zone
-    if (over.id === "group-by-zone") {
+    if (overId === "group-by-zone" || overType === 'group-zone') {
       const columnId = active.id as string;
       setGroupBy(columnId);
       toast({
