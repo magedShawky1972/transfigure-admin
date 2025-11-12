@@ -1668,7 +1668,7 @@ const Dashboard = () => {
     {
       key: "total_profit",
       title: t("dashboard.totalProfit"),
-      value: formatCurrency(metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges),
+      value: formatCurrency(metrics.totalProfit),
       icon: TrendingUp,
       gradient: "from-blue-500 to-cyan-500",
     },

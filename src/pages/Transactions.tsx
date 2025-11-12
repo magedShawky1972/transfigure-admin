@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfDay, endOfDay, subDays } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, addDays } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -461,68 +461,115 @@ const Transactions = () => {
       const start = startOfDay(fromDate || subDays(new Date(), 1));
       const end = endOfDay(toDate || new Date());
       const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
-      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
+      const endNextStr = format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00");
 
-      const phone = phoneFilter.trim();
-      const orderNo = orderNumberFilter.trim();
+      // IMPORTANT: For parity with Dashboard, totals ignore phone/order filters
+      // and follow the same backend aggregation + manual adjustments.
 
-      const pageSize = 1000;
-      let allData: any[] = [];
-      let pointData: any[] = [];
-
-      // Use the same RPC function as Dashboard for consistent totals
+      // 1) Base totals from RPC (same as Dashboard)
       const { data: summary, error: summaryError } = await supabase
         .rpc('transactions_summary', {
-          date_from: format(new Date(startStr), 'yyyy-MM-dd'),
-          date_to: format(new Date(endStr), 'yyyy-MM-dd')
+          date_from: format(start, 'yyyy-MM-dd'),
+          date_to: format(end, 'yyyy-MM-dd')
         });
 
       if (summaryError) throw summaryError;
 
+      let totalSales = 0;
+      let transactionCount = 0;
       if (summary && summary.length > 0) {
         const stats = summary[0];
-        const totalSales = Number(stats.total_sales || 0);
-        const totalProfit = Number(stats.total_profit || 0);
-        const transactionCount = Number(stats.tx_count || 0);
-
-        setTotalSalesAll(totalSales);
-        setTotalProfitAll(totalProfit);
-        setTotalCountAll(transactionCount);
+        totalSales = Number(stats.total_sales || 0);
+        transactionCount = Number(stats.tx_count || 0);
       }
 
-      // Fetch point transactions separately for point metrics
-      let hasMore = true;
-      let from = 0;
-      while (hasMore) {
-        let pointQuery = supabase
+      // 2) Cost of Sales (non-point) from purpletransaction
+      const pageSize = 1000;
+      let fromIdx = 0;
+      let allCogsData: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
           .from('purpletransaction')
-          .select('total')
+          .select('cost_sold')
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
+          .neq('payment_method', 'point')
+          .order('created_at_date', { ascending: true })
+          .range(fromIdx, fromIdx + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        allCogsData = allCogsData.concat(batch);
+        if (batch.length < pageSize) break;
+        fromIdx += pageSize;
+      }
+      let costOfSales = 0;
+      allCogsData.forEach((row) => {
+        costOfSales += Number(row.cost_sold) || 0;
+      });
+
+      // 3) E-Payment Charges from ordertotals (non-point)
+      let orderFrom = 0;
+      let allOrderData: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from('ordertotals')
+          .select('bank_fee')
+          .gte('order_date', startStr)
+          .lt('order_date', endNextStr)
+          .neq('payment_method', 'point')
+          .order('order_date', { ascending: true })
+          .range(orderFrom, orderFrom + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        allOrderData = allOrderData.concat(batch);
+        if (batch.length < pageSize) break;
+        orderFrom += pageSize;
+      }
+      let ePaymentCharges = 0;
+      allOrderData.forEach((row) => {
+        ePaymentCharges += Number(row.bank_fee) || 0;
+      });
+
+      // 4) Points sales and cost (grouped by order to avoid duplicates)
+      let pointsFrom = 0;
+      let allPointsData: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from('purpletransaction')
+          .select('id, order_number, total, cost_sold')
           .ilike('payment_method', 'point')
           .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
+          .lt('created_at_date', endNextStr)
           .order('created_at_date', { ascending: true })
-          .range(from, from + pageSize - 1);
-
-        if (phone) pointQuery = pointQuery.ilike('customer_phone', `%${phone}%`);
-        if (orderNo) pointQuery = pointQuery.ilike('order_number', `%${orderNo}%`);
-
-        const { data, error } = await pointQuery;
-
+          .range(pointsFrom, pointsFrom + pageSize - 1);
         if (error) throw error;
-
         const batch = data || [];
-        pointData = pointData.concat(batch);
-
-        if (batch.length < pageSize) {
-          hasMore = false;
-        } else {
-          from += pageSize;
-        }
+        allPointsData = allPointsData.concat(batch);
+        if (batch.length < pageSize) break;
+        pointsFrom += pageSize;
       }
+      const orderGrouped = new Map<string, { total: number; cost: number }>();
+      allPointsData.forEach((item: any) => {
+        const key = item.order_number || item.id;
+        const total = Number(item.total) || 0;
+        const cost = Number(item.cost_sold) || 0;
+        const existing = orderGrouped.get(key);
+        if (!existing) {
+          orderGrouped.set(key, { total, cost });
+        } else {
+          existing.total += total;
+          existing.cost += cost;
+        }
+      });
+      const totalPointsSales = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.total, 0);
+      const totalPointsCost = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.cost, 0);
 
-      const pointTransTotal = pointData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-      setPointTransactionCount(pointData.length);
-      setPointSales(pointTransTotal);
+      // 5) Final totals exactly like Dashboard card
+      setTotalSalesAll(totalSales);
+      setTotalProfitAll(totalSales - costOfSales - totalPointsCost - ePaymentCharges);
+      setTotalCountAll(transactionCount);
+      setPointTransactionCount(orderGrouped.size);
+      setPointSales(totalPointsSales);
     } catch (error) {
       console.error('Error fetching totals:', error);
     }
