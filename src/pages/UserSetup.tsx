@@ -50,6 +50,7 @@ const MENU_ITEMS = [
   { key: "clearData", label: "Clear Data" },
   { key: "reportsSetup", label: "Reports Setup" },
   { key: "customerSetup", label: "Customer Setup" },
+  { key: "customerProfile", label: "Customer Profile" },
   { key: "customerTotals", label: "Customer Totals" },
   { key: "brandSetup", label: "Brand Setup" },
   { key: "productSetup", label: "Product Setup" },
