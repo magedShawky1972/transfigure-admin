@@ -218,30 +218,48 @@ const Transactions = () => {
       const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
       const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
 
-      // Query with same filters as main table
-      let query = supabase
-        .from('purpletransaction')
-        .select('total, profit');
-
-      // Apply date range
-      query = query.gte('created_at_date', startStr).lte('created_at_date', endStr);
-
       // Apply server-side filters
       const phone = phoneFilter.trim();
-      if (phone) query = query.ilike('customer_phone', `%${phone}%`);
       const orderNo = orderNumberFilter.trim();
-      if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
 
-      const { data, error } = await query;
+      // Fetch ALL data with pagination to avoid Supabase limits
+      const pageSize = 1000;
+      let from = 0;
+      let allData: any[] = [];
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        let query = supabase
+          .from('purpletransaction')
+          .select('total, profit')
+          .gte('created_at_date', startStr)
+          .lte('created_at_date', endStr)
+          .order('created_at_date', { ascending: true })
+          .range(from, from + pageSize - 1);
 
-      if (data && data.length > 0) {
-        const totalSales = data.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-        const totalProfit = data.reduce((sum, row) => sum + (Number(row.profit) || 0), 0);
+        if (phone) query = query.ilike('customer_phone', `%${phone}%`);
+        if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        const batch = data || [];
+        allData = allData.concat(batch);
+
+        if (batch.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
+
+      if (allData.length > 0) {
+        const totalSales = allData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+        const totalProfit = allData.reduce((sum, row) => sum + (Number(row.profit) || 0), 0);
         setTotalSalesAll(totalSales);
         setTotalProfitAll(totalProfit);
-        setTotalCountAll(data.length);
+        setTotalCountAll(allData.length);
       } else {
         setTotalSalesAll(0);
         setTotalProfitAll(0);
@@ -289,11 +307,6 @@ const Transactions = () => {
 
     return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
   });
-
-  // Calculate totals from filtered transactions
-  const filteredTotalCount = filteredTransactions.length;
-  const filteredTotalSales = filteredTransactions.reduce((sum, t) => sum + (t.total || 0), 0);
-  const filteredTotalProfit = filteredTransactions.reduce((sum, t) => sum + (t.profit || 0), 0);
 
   const sortedTransactions = [...filteredTransactions].sort((a, b) => {
     if (!sortColumn) return 0;
@@ -822,7 +835,7 @@ const Transactions = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.transactions")}</CardTitle>
-            <CardTitle className="text-3xl">{filteredTotalCount.toLocaleString()}</CardTitle>
+            <CardTitle className="text-3xl">{totalCountAll.toLocaleString()}</CardTitle>
           </CardHeader>
         </Card>
         
@@ -830,7 +843,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalSales")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(filteredTotalSales)}
+              {formatCurrency(totalSalesAll)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -839,7 +852,7 @@ const Transactions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
             <CardTitle className="text-3xl">
-              {formatCurrency(filteredTotalProfit)}
+              {formatCurrency(totalProfitAll)}
             </CardTitle>
           </CardHeader>
         </Card>
