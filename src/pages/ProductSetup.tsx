@@ -612,12 +612,12 @@ const ProductSetup = () => {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="product_id">{t("productSetup.productId")}</Label>
+              <Label htmlFor="product_id">SKU / {t("productSetup.productId")}</Label>
               <Input
                 id="product_id"
                 value={formData.product_id}
                 onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
-                placeholder={t("productSetup.productIdPlaceholder")}
+                placeholder="Enter product SKU"
               />
             </div>
             <div className="space-y-2">
