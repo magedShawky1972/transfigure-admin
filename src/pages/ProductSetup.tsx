@@ -50,6 +50,7 @@ import { ChevronRight } from "lucide-react";
 interface Product {
   id: string;
   product_id: string | null;
+  odoo_product_id: number | null;
   product_name: string;
   product_price: string | null;
   product_cost: string | null;
@@ -84,6 +85,7 @@ const ProductSetup = () => {
   
   const [formData, setFormData] = useState({
     product_id: "",
+    odoo_product_id: "",
     product_name: "",
     product_price: "",
     product_cost: "",
@@ -146,6 +148,7 @@ const ProductSetup = () => {
           .from("products")
           .update({
             product_id: formData.product_id || null,
+            odoo_product_id: formData.odoo_product_id ? parseInt(formData.odoo_product_id) : null,
             product_name: formData.product_name,
             product_price: formData.product_price || null,
             product_cost: formData.product_cost || null,
@@ -164,6 +167,7 @@ const ProductSetup = () => {
           .from("products")
           .insert({
             product_id: formData.product_id || null,
+            odoo_product_id: formData.odoo_product_id ? parseInt(formData.odoo_product_id) : null,
             product_name: formData.product_name,
             product_price: formData.product_price || null,
             product_cost: formData.product_cost || null,
@@ -196,6 +200,7 @@ const ProductSetup = () => {
     setEditingProduct(product);
     setFormData({
       product_id: product.product_id || "",
+      odoo_product_id: product.odoo_product_id?.toString() || "",
       product_name: product.product_name,
       product_price: product.product_price || "",
       product_cost: product.product_cost || "",
@@ -236,6 +241,7 @@ const ProductSetup = () => {
   const resetForm = () => {
     setFormData({
       product_id: "",
+      odoo_product_id: "",
       product_name: "",
       product_price: "",
       product_cost: "",
@@ -553,6 +559,16 @@ const ProductSetup = () => {
                 value={formData.product_id}
                 onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
                 placeholder={t("productSetup.productIdPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="odoo_product_id">Odoo Product ID</Label>
+              <Input
+                id="odoo_product_id"
+                type="number"
+                value={formData.odoo_product_id}
+                onChange={(e) => setFormData({ ...formData, odoo_product_id: e.target.value })}
+                placeholder="Enter Odoo Product ID"
               />
             </div>
             <div className="space-y-2">
