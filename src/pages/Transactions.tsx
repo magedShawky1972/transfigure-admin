@@ -234,6 +234,7 @@ const Transactions = () => {
           .select('total, profit')
           .gte('created_at_date', startStr)
           .lte('created_at_date', endStr)
+          .neq('payment_method', 'point')
           .order('created_at_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
