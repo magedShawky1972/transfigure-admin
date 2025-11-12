@@ -52,16 +52,24 @@ const ProductDetails = () => {
   const [productName, setProductName] = useState("");
   const [brandName, setBrandName] = useState("");
   const [status, setStatus] = useState("active");
+  const [productId, setProductId] = useState("");
 
   // Stock section
   const [quantity, setQuantity] = useState("0");
+  const [coinsNumber, setCoinsNumber] = useState("4000000");
   const [notifyQty, setNotifyQty] = useState("1");
   const [minOrderQty, setMinOrderQty] = useState("1");
   const [maxOrderQty, setMaxOrderQty] = useState("10");
+  const [minCoins, setMinCoins] = useState("0");
+  const [maxCoins, setMaxCoins] = useState("0");
 
   // Pricing section
   const [costPrice, setCostPrice] = useState("");
   const [retailPrice, setRetailPrice] = useState("");
+  const [taxType, setTaxType] = useState("tax_included");
+
+  // Mobile toggle
+  const [mobileEnabled, setMobileEnabled] = useState(true);
 
   useEffect(() => {
     fetchProductDetails();
@@ -79,6 +87,7 @@ const ProductDetails = () => {
       if (error) throw error;
 
       if (data) {
+        setProductId(data.product_id || "");
         setSku(data.sku || "");
         setDescription(data.description || "");
         setCategory(data.category || "");
@@ -186,12 +195,57 @@ const ProductDetails = () => {
       <ScrollArea className="h-[calc(100vh-80px)]">
         <div className="container mx-auto px-4 py-6">
           <div className="max-w-6xl mx-auto space-y-6">
+            {/* Mobile Toggle */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">{t("productSetup.mobile")}</Label>
+                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-sm text-muted-foreground">
+                      {mobileEnabled ? t("productSetup.enabled") : t("productSetup.disabled")}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={mobileEnabled ? "default" : "outline"}
+                      onClick={() => setMobileEnabled(!mobileEnabled)}
+                      className="w-16"
+                    >
+                      {mobileEnabled ? t("productSetup.on") : t("productSetup.off")}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Product Information */}
             <Card>
               <CardHeader>
                 <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.productInformation")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="productId" className={isRTL ? 'text-right block' : ''}>{t("productSetup.productId")}</Label>
+                    <Input
+                      id="productId"
+                      className={isRTL ? 'text-right' : ''}
+                      value={productId}
+                      onChange={(e) => setProductId(e.target.value)}
+                      placeholder={isRTL ? "معرف المنتج" : "Product ID"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="brandName" className={isRTL ? 'text-right block' : ''}>{t("brandSetup.brandName")}</Label>
+                    <Input
+                      id="brandName"
+                      className={isRTL ? 'text-right' : ''}
+                      value={brandName}
+                      disabled
+                      placeholder={isRTL ? "اسم العلامة التجارية" : "Brand Name"}
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sku" className={isRTL ? 'text-right block' : ''}>SKU</Label>
@@ -296,14 +350,14 @@ const ProductDetails = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="minOrderQty" className={isRTL ? 'text-right block' : ''}>{t("productSetup.minQuantity")} *</Label>
+                    <Label htmlFor="coinsNumber" className={isRTL ? 'text-right block' : ''}>{t("productSetup.coinsGiven")}</Label>
                     <Input
-                      id="minOrderQty"
+                      id="coinsNumber"
                       type="number"
                       className={isRTL ? 'text-right' : ''}
-                      value={minOrderQty}
-                      onChange={(e) => setMinOrderQty(e.target.value)}
-                      placeholder={isRTL ? "الحد الأدنى للكمية" : "Minimum quantity"}
+                      value={coinsNumber}
+                      onChange={(e) => setCoinsNumber(e.target.value)}
+                      placeholder={isRTL ? "عدد النقاط" : "Coins number"}
                     />
                   </div>
                   <div className="space-y-2">
@@ -315,6 +369,56 @@ const ProductDetails = () => {
                       value={notifyQty}
                       onChange={(e) => setNotifyQty(e.target.value)}
                       placeholder={isRTL ? "مستوى إعادة الطلب" : "Stock level to reorder"}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="minOrderQty" className={isRTL ? 'text-right block' : ''}>{t("productSetup.minQuantity")} *</Label>
+                    <Input
+                      id="minOrderQty"
+                      type="number"
+                      className={isRTL ? 'text-right' : ''}
+                      value={minOrderQty}
+                      onChange={(e) => setMinOrderQty(e.target.value)}
+                      placeholder={isRTL ? "الحد الأدنى للكمية" : "Minimum quantity"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxOrderQty" className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxQuantity")} *</Label>
+                    <Input
+                      id="maxOrderQty"
+                      type="number"
+                      className={isRTL ? 'text-right' : ''}
+                      value={maxOrderQty}
+                      onChange={(e) => setMaxOrderQty(e.target.value)}
+                      placeholder={isRTL ? "الحد الأقصى للكمية" : "Maximum quantity"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minCoins" className={isRTL ? 'text-right block' : ''}>{t("productSetup.minCoins")} *</Label>
+                    <Input
+                      id="minCoins"
+                      type="number"
+                      className={isRTL ? 'text-right' : ''}
+                      value={minCoins}
+                      onChange={(e) => setMinCoins(e.target.value)}
+                      placeholder={isRTL ? "الحد الأدنى للنقاط" : "Minimum coins"}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxCoins" className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxCoins")} *</Label>
+                    <Input
+                      id="maxCoins"
+                      type="number"
+                      className={isRTL ? 'text-right' : ''}
+                      value={maxCoins}
+                      onChange={(e) => setMaxCoins(e.target.value)}
+                      placeholder={isRTL ? "الحد الأقصى للنقاط" : "Maximum coins"}
                     />
                   </div>
                 </div>
@@ -352,6 +456,19 @@ const ProductDetails = () => {
                       placeholder={isRTL ? "أدخل سعر البيع" : "Enter retail price"}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="taxType" className={isRTL ? 'text-right block' : ''}>{t("productSetup.taxClass")}</Label>
+                  <Select value={taxType} onValueChange={setTaxType}>
+                    <SelectTrigger className={isRTL ? 'justify-end text-right' : ''}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tax_included">{t("productSetup.taxIncluded")}</SelectItem>
+                      <SelectItem value="tax_excluded">{t("productSetup.taxExcluded")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
