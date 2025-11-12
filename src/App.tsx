@@ -21,6 +21,7 @@ import CustomerProfile from "./pages/CustomerProfile";
 import CustomerTotals from "./pages/CustomerTotals";
 import BrandSetup from "./pages/BrandSetup";
 import ProductSetup from "./pages/ProductSetup";
+import ProductDetails from "./pages/ProductDetails";
 import PaymentMethodSetup from "./pages/PaymentMethodSetup";
 import PivotTable from "./pages/PivotTable";
 import OdooSetup from "./pages/OdooSetup";
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/customer-totals" element={<CustomerTotals />} />
               <Route path="/brand-setup" element={<BrandSetup />} />
               <Route path="/product-setup" element={<ProductSetup />} />
+              <Route path="/product-details/:id" element={<ProductDetails />} />
               <Route path="/payment-method-setup" element={<PaymentMethodSetup />} />
               <Route path="/pivot-table" element={<PivotTable />} />
               <Route path="/odoo-setup" element={<OdooSetup />} />

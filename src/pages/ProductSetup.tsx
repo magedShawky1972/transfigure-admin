@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +39,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw } from "lucide-react";
-import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import { format } from "date-fns";
 import {
   Collapsible,
@@ -75,6 +75,7 @@ interface Product {
 const ProductSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -90,10 +91,6 @@ const ProductSetup = () => {
   
   // View mode state
   const [viewMode, setViewMode] = useState<"grid" | "tree">("grid");
-  
-  // Details dialog state
-  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
   const [formData, setFormData] = useState({
     product_id: "",
@@ -478,10 +475,7 @@ const ProductSetup = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setDetailsDialogOpen(true);
-                        }}
+                        onClick={() => navigate(`/product-details/${product.id}`)}
                         title="More Details"
                       >
                         <MoreHorizontal className="h-4 w-4" />
@@ -583,10 +577,7 @@ const ProductSetup = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => {
-                                    setSelectedProduct(product);
-                                    setDetailsDialogOpen(true);
-                                  }}
+                                  onClick={() => navigate(`/product-details/${product.id}`)}
                                   title="More Details"
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
@@ -732,28 +723,6 @@ const ProductSetup = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
-      {/* Product Details Dialog */}
-      {selectedProduct && (
-        <ProductDetailsDialog
-          open={detailsDialogOpen}
-          onOpenChange={setDetailsDialogOpen}
-          productId={selectedProduct.product_id || selectedProduct.id}
-          productName={selectedProduct.product_name}
-          productPrice={selectedProduct.product_price}
-          productCost={selectedProduct.product_cost}
-          sku={selectedProduct.sku}
-          description={selectedProduct.description}
-          category={selectedProduct.category}
-          stockQuantity={selectedProduct.stock_quantity}
-          minimumOrderQuantity={selectedProduct.minimum_order_quantity}
-          reorderPoint={selectedProduct.reorder_point}
-          weight={selectedProduct.weight}
-          barcode={selectedProduct.barcode}
-          supplier={selectedProduct.supplier}
-          notes={selectedProduct.notes}
-        />
-      )}
     </>
   );
 };
