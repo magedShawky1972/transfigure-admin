@@ -334,6 +334,8 @@ export type Database = {
           created_at: string
           id: string
           odoo_product_id: number | null
+          odoo_sync_status: string | null
+          odoo_synced_at: string | null
           product_cost: string | null
           product_id: string | null
           product_name: string
@@ -346,6 +348,8 @@ export type Database = {
           created_at?: string
           id?: string
           odoo_product_id?: number | null
+          odoo_sync_status?: string | null
+          odoo_synced_at?: string | null
           product_cost?: string | null
           product_id?: string | null
           product_name: string
@@ -358,6 +362,8 @@ export type Database = {
           created_at?: string
           id?: string
           odoo_product_id?: number | null
+          odoo_sync_status?: string | null
+          odoo_synced_at?: string | null
           product_cost?: string | null
           product_id?: string | null
           product_name?: string

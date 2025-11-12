@@ -56,6 +56,8 @@ interface Product {
   product_cost: string | null;
   brand_name: string | null;
   status: string;
+  odoo_sync_status: string | null;
+  odoo_synced_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -255,6 +257,12 @@ const ProductSetup = () => {
     setSyncingProducts(prev => new Set(prev).add(product.id));
     
     try {
+      // Update status to pending
+      await supabase
+        .from("products")
+        .update({ odoo_sync_status: 'pending' })
+        .eq("id", product.id);
+
       const { data, error } = await supabase.functions.invoke('sync-product-to-odoo', {
         body: {
           productId: product.product_id || product.id,
@@ -273,20 +281,43 @@ const ProductSetup = () => {
       if (error) throw error;
 
       if (data?.success) {
+        // Update sync status to synced
+        await supabase
+          .from("products")
+          .update({ 
+            odoo_sync_status: 'synced',
+            odoo_synced_at: new Date().toISOString(),
+            odoo_product_id: data.odoo_product_id || null
+          })
+          .eq("id", product.id);
+
         toast({
           title: t("common.success"),
           description: data.message || "Product synced to Odoo successfully",
         });
+        
+        // Refresh products to show updated status
+        fetchProducts();
       } else {
         throw new Error(data?.error || "Failed to sync product");
       }
     } catch (error: any) {
       console.error('Error syncing product to Odoo:', error);
+      
+      // Update status to failed
+      await supabase
+        .from("products")
+        .update({ odoo_sync_status: 'failed' })
+        .eq("id", product.id);
+      
       toast({
         title: t("common.error"),
         description: error.message || "Failed to sync product to Odoo",
         variant: "destructive",
       });
+      
+      // Refresh products to show updated status
+      fetchProducts();
     } finally {
       setSyncingProducts(prev => {
         const newSet = new Set(prev);
@@ -378,6 +409,7 @@ const ProductSetup = () => {
                   <TableHead>{t("productSetup.productCost")}</TableHead>
                   <TableHead>{t("productSetup.brand")}</TableHead>
                   <TableHead>{t("productSetup.status")}</TableHead>
+                  <TableHead>Odoo Sync Status</TableHead>
                   <TableHead>{t("productSetup.createdDate")}</TableHead>
                   <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
                 </TableRow>
@@ -397,6 +429,19 @@ const ProductSetup = () => {
                           : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                       }`}>
                         {product.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        product.odoo_sync_status === "synced" 
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
+                          : product.odoo_sync_status === "pending"
+                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                          : product.odoo_sync_status === "failed"
+                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                      }`}>
+                        {product.odoo_sync_status || "not_synced"}
                       </span>
                     </TableCell>
                     <TableCell>{format(new Date(product.created_at), "MMM dd, yyyy")}</TableCell>
@@ -470,6 +515,7 @@ const ProductSetup = () => {
                             <TableHead>{t("productSetup.productPrice")}</TableHead>
                             <TableHead>{t("productSetup.productCost")}</TableHead>
                             <TableHead>{t("productSetup.status")}</TableHead>
+                            <TableHead>Odoo Sync Status</TableHead>
                             <TableHead>{t("productSetup.createdDate")}</TableHead>
                             <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
                           </TableRow>
@@ -488,6 +534,19 @@ const ProductSetup = () => {
                                     : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                                 }`}>
                                   {product.status}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  product.odoo_sync_status === "synced" 
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
+                                    : product.odoo_sync_status === "pending"
+                                    ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                                    : product.odoo_sync_status === "failed"
+                                    ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                    : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                                }`}>
+                                  {product.odoo_sync_status || "not_synced"}
                                 </span>
                               </TableCell>
                               <TableCell>{format(new Date(product.created_at), "MMM dd, yyyy")}</TableCell>
