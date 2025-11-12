@@ -1060,7 +1060,7 @@ const Dashboard = () => {
       while (true) {
         const { data, error } = await supabase
           .from('purpletransaction')
-          .select('customer_phone, customer_name, total, created_at_date, brand_name')
+          .select('customer_phone, customer_name, total, created_at_date, brand_name, user_name, payment_method')
           .order('created_at_date', { ascending: false })
           .range(from, from + pageSize - 1);
 
