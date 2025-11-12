@@ -330,9 +330,14 @@ export type Database = {
       }
       products: {
         Row: {
+          barcode: string | null
           brand_name: string | null
+          category: string | null
           created_at: string
+          description: string | null
           id: string
+          minimum_order_quantity: number | null
+          notes: string | null
           odoo_product_id: number | null
           odoo_sync_status: string | null
           odoo_synced_at: string | null
@@ -340,13 +345,23 @@ export type Database = {
           product_id: string | null
           product_name: string
           product_price: string | null
+          reorder_point: number | null
+          sku: string | null
           status: string
+          stock_quantity: number | null
+          supplier: string | null
           updated_at: string
+          weight: number | null
         }
         Insert: {
+          barcode?: string | null
           brand_name?: string | null
+          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          minimum_order_quantity?: number | null
+          notes?: string | null
           odoo_product_id?: number | null
           odoo_sync_status?: string | null
           odoo_synced_at?: string | null
@@ -354,13 +369,23 @@ export type Database = {
           product_id?: string | null
           product_name: string
           product_price?: string | null
+          reorder_point?: number | null
+          sku?: string | null
           status?: string
+          stock_quantity?: number | null
+          supplier?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Update: {
+          barcode?: string | null
           brand_name?: string | null
+          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          minimum_order_quantity?: number | null
+          notes?: string | null
           odoo_product_id?: number | null
           odoo_sync_status?: string | null
           odoo_synced_at?: string | null
@@ -368,8 +393,13 @@ export type Database = {
           product_id?: string | null
           product_name?: string
           product_price?: string | null
+          reorder_point?: number | null
+          sku?: string | null
           status?: string
+          stock_quantity?: number | null
+          supplier?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Relationships: []
       }

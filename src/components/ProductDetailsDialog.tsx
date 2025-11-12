@@ -19,6 +19,16 @@ interface ProductDetailsDialogProps {
   productName: string;
   productPrice: string | null;
   productCost: string | null;
+  sku?: string | null;
+  description?: string | null;
+  category?: string | null;
+  stockQuantity?: number | null;
+  minimumOrderQuantity?: number | null;
+  reorderPoint?: number | null;
+  weight?: number | null;
+  barcode?: string | null;
+  supplier?: string | null;
+  notes?: string | null;
 }
 
 interface FreeCoin {
@@ -50,16 +60,41 @@ interface Discount {
   end_date: string;
 }
 
-export const ProductDetailsDialog = ({ open, onOpenChange, productId, productName, productPrice, productCost }: ProductDetailsDialogProps) => {
+export const ProductDetailsDialog = ({ 
+  open, 
+  onOpenChange, 
+  productId, 
+  productName, 
+  productPrice, 
+  productCost,
+  sku: initialSku,
+  description: initialDescription,
+  category: initialCategory,
+  stockQuantity: initialStockQuantity,
+  minimumOrderQuantity: initialMinOrderQuantity,
+  reorderPoint: initialReorderPoint,
+  weight: initialWeight,
+  barcode: initialBarcode,
+  supplier: initialSupplier,
+  notes: initialNotes
+}: ProductDetailsDialogProps) => {
   const { t, language } = useLanguage();
   const isRTL = language === "ar";
   
+  // Product info section
+  const [sku, setSku] = useState(initialSku || "");
+  const [description, setDescription] = useState(initialDescription || "");
+  const [category, setCategory] = useState(initialCategory || "");
+  const [barcode, setBarcode] = useState(initialBarcode || "");
+  const [weight, setWeight] = useState(initialWeight?.toString() || "");
+  const [supplier, setSupplier] = useState(initialSupplier || "");
+  const [notes, setNotes] = useState(initialNotes || "");
+  
   // Stock section
-  const [quantity, setQuantity] = useState("1000");
+  const [quantity, setQuantity] = useState(initialStockQuantity?.toString() || "0");
   const [coinsNumber, setCoinsNumber] = useState("4000000");
-  const [notifyQty, setNotifyQty] = useState("1");
-  const [sku, setSku] = useState("S0028");
-  const [minOrderQty, setMinOrderQty] = useState("1");
+  const [notifyQty, setNotifyQty] = useState(initialReorderPoint?.toString() || "1");
+  const [minOrderQty, setMinOrderQty] = useState(initialMinOrderQuantity?.toString() || "1");
   const [maxOrderQty, setMaxOrderQty] = useState("10");
   const [minCoins, setMinCoins] = useState("0");
   const [maxCoins, setMaxCoins] = useState("0");
@@ -168,6 +203,88 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               </div>
             </div>
             
+            {/* Product Information Section */}
+            <div className="space-y-4">
+              <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>Product Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className={isRTL ? 'text-right block' : ''}>SKU</Label>
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={sku} 
+                    onChange={(e) => setSku(e.target.value)} 
+                    placeholder="Enter SKU" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className={isRTL ? 'text-right block' : ''}>Barcode</Label>
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={barcode} 
+                    onChange={(e) => setBarcode(e.target.value)} 
+                    placeholder="Enter barcode" 
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className={isRTL ? 'text-right block' : ''}>Category</Label>
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={category} 
+                    onChange={(e) => setCategory(e.target.value)} 
+                    placeholder="Enter category" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className={isRTL ? 'text-right block' : ''}>Weight</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    className={isRTL ? 'text-right' : ''} 
+                    value={weight} 
+                    onChange={(e) => setWeight(e.target.value)} 
+                    placeholder="Enter weight" 
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className={isRTL ? 'text-right block' : ''}>Supplier</Label>
+                <Input 
+                  className={isRTL ? 'text-right' : ''} 
+                  value={supplier} 
+                  onChange={(e) => setSupplier(e.target.value)} 
+                  placeholder="Enter supplier name" 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className={isRTL ? 'text-right block' : ''}>Description</Label>
+                <Textarea 
+                  className={isRTL ? 'text-right' : ''} 
+                  value={description} 
+                  onChange={(e) => setDescription(e.target.value)} 
+                  placeholder="Enter product description" 
+                  rows={3}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className={isRTL ? 'text-right block' : ''}>Notes</Label>
+                <Textarea 
+                  className={isRTL ? 'text-right' : ''} 
+                  value={notes} 
+                  onChange={(e) => setNotes(e.target.value)} 
+                  placeholder="Enter internal notes" 
+                  rows={2}
+                />
+              </div>
+            </div>
+            
+            <Separator />
+            
             {/* Stock Section */}
             <div className="space-y-4">
               <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>{t("productSetup.stock")}</h3>
@@ -202,17 +319,9 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
               
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.sku")} *</Label>
-                  <Input 
-                    className={isRTL ? 'text-right' : ''} 
-                    value={sku} 
-                    onChange={(e) => setSku(e.target.value)} 
-                    placeholder={t("productSetup.skuPlaceholder")} 
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.minQuantity")} *</Label>
                   <Input 
+                    type="number"
                     className={isRTL ? 'text-right' : ''} 
                     value={minOrderQty} 
                     onChange={(e) => setMinOrderQty(e.target.value)} 
@@ -222,10 +331,21 @@ export const ProductDetailsDialog = ({ open, onOpenChange, productId, productNam
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>{t("productSetup.maxQuantity")} *</Label>
                   <Input 
+                    type="number"
                     className={isRTL ? 'text-right' : ''} 
                     value={maxOrderQty} 
                     onChange={(e) => setMaxOrderQty(e.target.value)} 
                     placeholder={t("productSetup.maxQuantityPlaceholder")} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className={isRTL ? 'text-right block' : ''}>Reorder Point *</Label>
+                  <Input 
+                    type="number"
+                    className={isRTL ? 'text-right' : ''} 
+                    value={notifyQty} 
+                    onChange={(e) => setNotifyQty(e.target.value)} 
+                    placeholder="Stock level to reorder" 
                   />
                 </div>
               </div>

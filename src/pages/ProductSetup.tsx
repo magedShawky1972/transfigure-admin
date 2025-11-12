@@ -60,6 +60,16 @@ interface Product {
   odoo_synced_at: string | null;
   created_at: string;
   updated_at: string;
+  sku?: string | null;
+  description?: string | null;
+  category?: string | null;
+  stock_quantity?: number | null;
+  minimum_order_quantity?: number | null;
+  reorder_point?: number | null;
+  weight?: number | null;
+  barcode?: string | null;
+  supplier?: string | null;
+  notes?: string | null;
 }
 
 const ProductSetup = () => {
@@ -93,6 +103,7 @@ const ProductSetup = () => {
     product_cost: "",
     brand_name: "",
     status: "active",
+    sku: "",
   });
 
   useEffect(() => {
@@ -208,6 +219,7 @@ const ProductSetup = () => {
       product_cost: product.product_cost || "",
       brand_name: product.brand_name || "",
       status: product.status,
+      sku: product.sku || "",
     });
     setDialogOpen(true);
   };
@@ -249,6 +261,7 @@ const ProductSetup = () => {
       product_cost: "",
       brand_name: "",
       status: "active",
+      sku: "",
     });
     setEditingProduct(null);
   };
@@ -612,11 +625,20 @@ const ProductSetup = () => {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="product_id">SKU / {t("productSetup.productId")}</Label>
+              <Label htmlFor="product_id">{t("productSetup.productId")}</Label>
               <Input
                 id="product_id"
                 value={formData.product_id}
                 onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
+                placeholder={t("productSetup.productIdPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sku">SKU</Label>
+              <Input
+                id="sku"
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                 placeholder="Enter product SKU"
               />
             </div>
@@ -720,6 +742,16 @@ const ProductSetup = () => {
           productName={selectedProduct.product_name}
           productPrice={selectedProduct.product_price}
           productCost={selectedProduct.product_cost}
+          sku={selectedProduct.sku}
+          description={selectedProduct.description}
+          category={selectedProduct.category}
+          stockQuantity={selectedProduct.stock_quantity}
+          minimumOrderQuantity={selectedProduct.minimum_order_quantity}
+          reorderPoint={selectedProduct.reorder_point}
+          weight={selectedProduct.weight}
+          barcode={selectedProduct.barcode}
+          supplier={selectedProduct.supplier}
+          notes={selectedProduct.notes}
         />
       )}
     </>
