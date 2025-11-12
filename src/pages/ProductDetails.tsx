@@ -84,6 +84,8 @@ const ProductDetails = () => {
   const [status, setStatus] = useState("active");
   const [productId, setProductId] = useState("");
   const [leadtime, setLeadtime] = useState("");
+  const [safetyStock, setSafetyStock] = useState("");
+  const [abcAnalysis, setAbcAnalysis] = useState("C");
 
   // Stock section
   const [quantity, setQuantity] = useState("0");
@@ -155,6 +157,8 @@ const ProductDetails = () => {
         setSupplier(data.supplier || "");
         setNotes(data.notes || "");
         setLeadtime(data.leadtime?.toString() || "0");
+        setSafetyStock(data.safety_stock?.toString() || "0");
+        setAbcAnalysis(data.abc_analysis || "C");
         setProductName(data.product_name);
         setBrandName(data.brand_name || "");
         setStatus(data.status);
@@ -253,6 +257,8 @@ const ProductDetails = () => {
           supplier,
           notes,
           leadtime: leadtime ? parseFloat(leadtime) : 0,
+          safety_stock: safetyStock ? parseFloat(safetyStock) : 0,
+          abc_analysis: abcAnalysis,
           stock_quantity: quantity ? parseFloat(quantity) : 0,
           reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
           minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
@@ -421,6 +427,22 @@ const ProductDetails = () => {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="abcAnalysis" className={isRTL ? 'text-right block' : ''}>{t("productSetup.abcAnalysis")}</Label>
+                    <Select value={abcAnalysis} onValueChange={setAbcAnalysis}>
+                      <SelectTrigger id="abcAnalysis" className={isRTL ? 'justify-end text-right' : ''}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A">A - {isRTL ? "عالي القيمة" : "High Value"}</SelectItem>
+                        <SelectItem value="B">B - {isRTL ? "متوسط القيمة" : "Medium Value"}</SelectItem>
+                        <SelectItem value="C">C - {isRTL ? "منخفض القيمة" : "Low Value"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="leadtime" className={isRTL ? 'text-right block' : ''}>{t("productSetup.leadtime")}</Label>
                     <Input
                       id="leadtime"
@@ -432,8 +454,20 @@ const ProductDetails = () => {
                       placeholder={isRTL ? "أدخل مدة التسليم (بالأيام)" : "Enter lead time (days)"}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="safetyStock" className={isRTL ? 'text-right block' : ''}>{t("productSetup.safetyStock")}</Label>
+                    <Input
+                      id="safetyStock"
+                      type="number"
+                      step="1"
+                      className={isRTL ? 'text-right' : ''}
+                      value={safetyStock}
+                      onChange={(e) => setSafetyStock(e.target.value)}
+                      placeholder={isRTL ? "أدخل مخزون الأمان" : "Enter safety stock"}
+                    />
+                  </div>
                 </div>
-
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="weight" className={isRTL ? 'text-right block' : ''}>{t("productSetup.weight")}</Label>

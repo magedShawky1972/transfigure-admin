@@ -277,6 +277,8 @@ const translations = {
     "productSetup.arabic": "Arabic",
     "productSetup.english": "English",
     "productSetup.leadtime": "Lead Time (Days)",
+    "productSetup.safetyStock": "Safety Stock",
+    "productSetup.abcAnalysis": "ABC Analysis",
     
     // Upload Log
     "uploadLog.title": "Upload History",
@@ -751,6 +753,8 @@ const translations = {
     "productSetup.arabic": "عربي",
     "productSetup.english": "إنجليزي",
     "productSetup.leadtime": "مدة التسليم (بالأيام)",
+    "productSetup.safetyStock": "مخزون الأمان",
+    "productSetup.abcAnalysis": "تحليل ABC",
     
     // Upload Log
     "uploadLog.title": "سجل التحميلات",

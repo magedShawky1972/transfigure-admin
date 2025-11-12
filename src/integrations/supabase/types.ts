@@ -330,6 +330,7 @@ export type Database = {
       }
       products: {
         Row: {
+          abc_analysis: string | null
           barcode: string | null
           brand_name: string | null
           category: string | null
@@ -362,6 +363,7 @@ export type Database = {
           product_name: string
           product_price: string | null
           reorder_point: number | null
+          safety_stock: number | null
           sku: string | null
           status: string
           stock_quantity: number | null
@@ -371,6 +373,7 @@ export type Database = {
           weight: number | null
         }
         Insert: {
+          abc_analysis?: string | null
           barcode?: string | null
           brand_name?: string | null
           category?: string | null
@@ -403,6 +406,7 @@ export type Database = {
           product_name: string
           product_price?: string | null
           reorder_point?: number | null
+          safety_stock?: number | null
           sku?: string | null
           status?: string
           stock_quantity?: number | null
@@ -412,6 +416,7 @@ export type Database = {
           weight?: number | null
         }
         Update: {
+          abc_analysis?: string | null
           barcode?: string | null
           brand_name?: string | null
           category?: string | null
@@ -444,6 +449,7 @@ export type Database = {
           product_name?: string
           product_price?: string | null
           reorder_point?: number | null
+          safety_stock?: number | null
           sku?: string | null
           status?: string
           stock_quantity?: number | null
