@@ -16,6 +16,7 @@ import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOf
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { TransactionTypeChart } from "@/components/TransactionTypeChart";
 
 interface Transaction {
   id: string;
@@ -30,6 +31,7 @@ interface Transaction {
   cost_sold: string;
   qty: string;
   bank_fee: string;
+  trans_type?: string;
 }
 
 interface DashboardMetrics {
@@ -89,6 +91,7 @@ const Dashboard = () => {
   const [inactiveBrandFilter, setInactiveBrandFilter] = useState<string>("all");
   const [allInactiveBrands, setAllInactiveBrands] = useState<string[]>([]);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [transactionTypeData, setTransactionTypeData] = useState<any[]>([]);
   const [crmDialogOpen, setCrmDialogOpen] = useState(false);
   const [crmNotes, setCrmNotes] = useState("");
   const [crmReminderDate, setCrmReminderDate] = useState<Date>();
@@ -536,6 +539,7 @@ const Dashboard = () => {
       setPaymentMethods([]);
       setPaymentBrands([]);
       setMonthComparison([]);
+      setTransactionTypeData([]);
       
       const dateRange = getDateRange();
       if (!dateRange) {
@@ -836,6 +840,28 @@ const Dashboard = () => {
 
           setUnusedPaymentBrands(unused);
         }
+
+        // Transaction Type Data (Manual vs Automatic)
+        const transactionTypeCount = transactions.reduce((acc: any, t) => {
+          const type = t.trans_type || 'automatic'; // Default to automatic if not set
+          const typeName = type === 'manual' 
+            ? (language === 'ar' ? 'يدوي' : 'Manual')
+            : (language === 'ar' ? 'تلقائي' : 'Automatic');
+          
+          if (!acc[typeName]) {
+            acc[typeName] = { name: typeName, value: 0 };
+          }
+          acc[typeName].value += 1;
+          return acc;
+        }, {});
+
+        const transTypeArray = Object.values(transactionTypeCount) as Array<{ name: string; value: number }>;
+        const totalTransType = transTypeArray.reduce((sum, item: any) => sum + item.value, 0);
+        const transTypeWithPercentage = transTypeArray.map((item: any) => ({
+          ...item,
+          percentage: totalTransType > 0 ? (item.value / totalTransType) * 100 : 0
+        }));
+        setTransactionTypeData(transTypeWithPercentage);
       }
 
       setLoadingCharts(false);
@@ -1864,6 +1890,13 @@ const Dashboard = () => {
         </CardContent>
       </Card>
       )}
+
+      {/* Transaction Type Chart */}
+      <TransactionTypeChart
+        data={transactionTypeData}
+        language={language}
+        loading={loadingCharts}
+      />
 
       {/* Brand Sales Grid */}
       {hasAccess("brand_sales_grid") && (
