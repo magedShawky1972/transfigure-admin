@@ -259,6 +259,7 @@ const ProductDetails = () => {
           leadtime: leadtime ? parseFloat(leadtime) : 0,
           safety_stock: safetyStock ? parseFloat(safetyStock) : 0,
           abc_analysis: abcAnalysis,
+          brand_name: brandName || null,
           stock_quantity: quantity ? parseFloat(quantity) : 0,
           reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
           minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
@@ -387,7 +388,7 @@ const ProductDetails = () => {
                       id="brandName"
                       className={isRTL ? 'text-right' : ''}
                       value={brandName}
-                      disabled
+                      onChange={(e) => setBrandName(e.target.value)}
                       placeholder={isRTL ? "اسم العلامة التجارية" : "Brand Name"}
                     />
                   </div>
