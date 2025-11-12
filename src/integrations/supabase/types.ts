@@ -230,6 +230,7 @@ export type Database = {
           customer_api_url: string
           id: string
           is_active: boolean
+          product_api_url: string | null
           updated_at: string
         }
         Insert: {
@@ -238,6 +239,7 @@ export type Database = {
           customer_api_url: string
           id?: string
           is_active?: boolean
+          product_api_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -246,6 +248,7 @@ export type Database = {
           customer_api_url?: string
           id?: string
           is_active?: boolean
+          product_api_url?: string | null
           updated_at?: string
         }
         Relationships: []

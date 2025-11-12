@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Grid3x3, List, MoreHorizontal } from "lucide-react";
+import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw } from "lucide-react";
 import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import { format } from "date-fns";
 import {
@@ -68,6 +68,7 @@ const ProductSetup = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [syncingProducts, setSyncingProducts] = useState<Set<string>>(new Set());
   
   // Filter states
   const [filterName, setFilterName] = useState("");
@@ -244,6 +245,51 @@ const ProductSetup = () => {
     setEditingProduct(null);
   };
 
+  const handleSyncToOdoo = async (product: Product) => {
+    setSyncingProducts(prev => new Set(prev).add(product.id));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-product-to-odoo', {
+        body: {
+          productId: product.product_id || product.id,
+          productName: product.product_name,
+          uom: null,
+          catCode: null,
+          reorderPoint: null,
+          minimumOrder: null,
+          maximumOrder: null,
+          costPrice: product.product_cost ? parseFloat(product.product_cost) : null,
+          salesPrice: product.product_price ? parseFloat(product.product_price) : null,
+          productWeight: null,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: t("common.success"),
+          description: data.message || "Product synced to Odoo successfully",
+        });
+      } else {
+        throw new Error(data?.error || "Failed to sync product");
+      }
+    } catch (error: any) {
+      console.error('Error syncing product to Odoo:', error);
+      toast({
+        title: t("common.error"),
+        description: error.message || "Failed to sync product to Odoo",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingProducts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(product.id);
+        return newSet;
+      });
+    }
+  };
+
   const handleDialogOpenChange = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
@@ -359,6 +405,15 @@ const ProductSetup = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => handleSyncToOdoo(product)}
+                        disabled={syncingProducts.has(product.id)}
+                        title="Sync to Odoo"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${syncingProducts.has(product.id) ? 'animate-spin' : ''}`} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => {
                           setSelectedProduct(product);
                           setDetailsDialogOpen(true);
@@ -437,6 +492,15 @@ const ProductSetup = () => {
                                   onClick={() => handleEdit(product)}
                                 >
                                   <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleSyncToOdoo(product)}
+                                  disabled={syncingProducts.has(product.id)}
+                                  title="Sync to Odoo"
+                                >
+                                  <RefreshCw className={`h-4 w-4 ${syncingProducts.has(product.id) ? 'animate-spin' : ''}`} />
                                 </Button>
                                 <Button
                                   variant="ghost"

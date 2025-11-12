@@ -11,6 +11,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 interface OdooConfig {
   id?: string;
   customer_api_url: string;
+  product_api_url: string;
   api_key: string;
   is_active: boolean;
 }
@@ -21,6 +22,7 @@ const OdooSetup = () => {
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<OdooConfig>({
     customer_api_url: "",
+    product_api_url: "",
     api_key: "",
     is_active: true,
   });
@@ -60,7 +62,7 @@ const OdooSetup = () => {
   };
 
   const handleSave = async () => {
-    if (!config.customer_api_url || !config.api_key) {
+    if (!config.customer_api_url || !config.product_api_url || !config.api_key) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description: language === "ar" 
@@ -80,6 +82,7 @@ const OdooSetup = () => {
           .from("odoo_api_config")
           .update({
             customer_api_url: config.customer_api_url,
+            product_api_url: config.product_api_url,
             api_key: config.api_key,
             is_active: config.is_active,
           })
@@ -92,6 +95,7 @@ const OdooSetup = () => {
           .from("odoo_api_config")
           .insert({
             customer_api_url: config.customer_api_url,
+            product_api_url: config.product_api_url,
             api_key: config.api_key,
             is_active: config.is_active,
           });
@@ -153,6 +157,26 @@ const OdooSetup = () => {
               {language === "ar"
                 ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالعملاء"
                 : "Enter the full URL of the customer API endpoint"}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="product_api_url">
+              {language === "ar" ? "عنوان API للمنتجات" : "Product API URL"}
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="product_api_url"
+              type="url"
+              placeholder="https://your-odoo-instance.com/api/products"
+              value={config.product_api_url}
+              onChange={(e) => setConfig({ ...config, product_api_url: e.target.value })}
+              disabled={loading}
+            />
+            <p className="text-sm text-muted-foreground">
+              {language === "ar"
+                ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالمنتجات"
+                : "Enter the full URL of the product API endpoint"}
             </p>
           </div>
 
