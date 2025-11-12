@@ -610,14 +610,19 @@ const Transactions = () => {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <GroupByDropZone
-            groupBy={groupBy}
-            columnLabel={groupBy ? getColumnLabel(groupBy) : null}
-            onClearGroup={() => setGroupBy(null)}
-            language={language}
-          />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <GroupByDropZone
+              groupBy={groupBy}
+              columnLabel={groupBy ? getColumnLabel(groupBy) : null}
+              onClearGroup={() => setGroupBy(null)}
+              language={language}
+            />
 
-          <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <Popover>
                 <PopoverTrigger asChild>
@@ -734,18 +739,13 @@ const Transactions = () => {
                 {t("dashboard.noData")}
               </div>
             ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortableContext
-                        items={visibleColumnIds}
-                        strategy={horizontalListSortingStrategy}
-                      >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableContext
+                      items={visibleColumnIds}
+                      strategy={horizontalListSortingStrategy}
+                    >
                         {visibleColumnIds.map((columnId) => (
                           <DraggableColumnHeader
                             key={columnId}
@@ -783,10 +783,9 @@ const Transactions = () => {
                     </TableBody>
                   )}
                 </Table>
-              </DndContext>
-            )}
-          </div>
-          {!loading && sortedTransactions.length > 0 && (
+              )}
+            </div>
+            {!loading && sortedTransactions.length > 0 && (
             <div className="flex justify-center mt-4">
               <Pagination>
                 <PaginationContent>
@@ -866,6 +865,7 @@ const Transactions = () => {
               </Pagination>
             </div>
           )}
+          </DndContext>
         </CardContent>
       </Card>
 
