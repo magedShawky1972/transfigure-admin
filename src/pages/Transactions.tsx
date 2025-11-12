@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import {
   DndContext,
   closestCenter,
@@ -94,6 +95,9 @@ const Transactions = () => {
   const [totalProfitAll, setTotalProfitAll] = useState<number>(0);
   const [groupLevels, setGroupLevels] = useState<GroupLevel[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const pageSize = 500;
 
   const allColumns = [
@@ -252,6 +256,7 @@ const Transactions = () => {
 
   useEffect(() => {
     setPage(1);
+    setIsAllDataLoaded(false);
   }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
   useEffect(() => {
@@ -337,6 +342,115 @@ const Transactions = () => {
       console.error('Error fetching transactions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllData = async () => {
+    try {
+      setLoadingAll(true);
+      setLoadingProgress(0);
+      
+      const numericSortColumns = new Set([
+        'total', 'profit', 'cost_price', 'unit_price', 'cost_sold', 'qty'
+      ]);
+
+      const table = sortColumn && numericSortColumns.has(sortColumn)
+        ? 'purpletransaction_enriched'
+        : 'purpletransaction';
+
+      const start = startOfDay(fromDate || subDays(new Date(), 1));
+      const end = endOfDay(toDate || new Date());
+      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
+
+      const phone = phoneFilter.trim();
+      const orderNo = orderNumberFilter.trim();
+
+      const batchSize = 1000;
+      let from = 0;
+      let allData: Transaction[] = [];
+      let hasMore = true;
+      const estimatedTotal = totalCountAll;
+
+      while (hasMore) {
+        let query = (supabase as any)
+          .from(table)
+          .select('*')
+          .gte('created_at_date', startStr)
+          .lte('created_at_date', endStr);
+
+        if (phone) query = query.ilike('customer_phone', `%${phone}%`);
+        if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
+
+        if (sortColumn) {
+          if (numericSortColumns.has(sortColumn)) {
+            const map: Record<string, string> = {
+              total: 'total_num',
+              profit: 'profit_num',
+              qty: 'qty_num',
+              cost_price: 'cost_price_num',
+              unit_price: 'unit_price_num',
+              cost_sold: 'cost_sold_num',
+            };
+            query = query.order(map[sortColumn], { ascending: sortDirection === 'asc' });
+          } else {
+            query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+          }
+        } else {
+          query = query.order('created_at_date', { ascending: false });
+        }
+
+        query = query.range(from, from + batchSize - 1);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const batch = (data as any) as Transaction[];
+        allData = allData.concat(batch);
+
+        // Update progress
+        const progress = Math.min(95, Math.round((allData.length / estimatedTotal) * 100));
+        setLoadingProgress(progress);
+
+        if (batch.length < batchSize) {
+          hasMore = false;
+        } else {
+          from += batchSize;
+        }
+      }
+
+      setLoadingProgress(100);
+      setTransactions(allData);
+      setIsAllDataLoaded(true);
+      setTotalCount(allData.length);
+      
+      toast({
+        title: language === 'ar' ? 'تم تحميل جميع البيانات' : 'All Data Loaded',
+        description: language === 'ar' 
+          ? `تم تحميل ${allData.length.toLocaleString()} معاملة`
+          : `Loaded ${allData.length.toLocaleString()} transactions`,
+      });
+
+      // Update filters with all data
+      const uniqueBrands = [...new Set(allData.map(t => t.brand_name).filter(Boolean))];
+      const uniqueProducts = [...new Set(allData.map(t => t.product_name).filter(Boolean))];
+      const uniquePaymentMethods = [...new Set(allData.map(t => t.payment_method).filter(Boolean))];
+      const uniqueCustomers = [...new Set(allData.map(t => t.customer_name).filter(Boolean))];
+      setBrands(uniqueBrands as string[]);
+      setProducts(uniqueProducts as string[]);
+      setPaymentMethods(uniquePaymentMethods as string[]);
+      setCustomers(uniqueCustomers as string[]);
+    } catch (error) {
+      console.error('Error loading all data:', error);
+      toast({
+        variant: "destructive",
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' 
+          ? 'فشل تحميل جميع البيانات'
+          : 'Failed to load all data',
+      });
+    } finally {
+      setLoadingAll(false);
     }
   };
 
@@ -595,6 +709,12 @@ const Transactions = () => {
 
   return (
     <div className="space-y-6">
+      {loadingAll && (
+        <LoadingOverlay
+          progress={loadingProgress}
+          message={language === 'ar' ? 'جاري تحميل جميع البيانات...' : 'Loading all data...'}
+        />
+      )}
       <div>
         <h1 className="text-3xl font-bold mb-2">{t("transactions.title")}</h1>
         <p className="text-muted-foreground">
@@ -668,6 +788,19 @@ const Transactions = () => {
                   </div>
                 </PopoverContent>
               </Popover>
+              {!isAllDataLoaded && totalCountAll > pageSize && (
+                <Button 
+                  variant="outline" 
+                  className="gap-2" 
+                  onClick={loadAllData}
+                  disabled={loadingAll}
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                  {loadingAll 
+                    ? (language === 'ar' ? 'جاري التحميل...' : 'Loading...') 
+                    : (language === 'ar' ? `تحميل الكل (${totalCountAll.toLocaleString()})` : `Load All (${totalCountAll.toLocaleString()})`)}
+                </Button>
+              )}
               <Button variant="outline" className="gap-2" onClick={exportToCSV}>
                 <Download className="h-4 w-4" />
                 {t("transactions.export")}
