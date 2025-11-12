@@ -35,8 +35,14 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { DraggableColumnHeader } from "@/components/transactions/DraggableColumnHeader";
-import { GroupByDropZone } from "@/components/transactions/GroupByDropZone";
-import { GroupedTransactions } from "@/components/transactions/GroupedTransactions";
+import { MultiLevelGroupByZone } from "@/components/transactions/MultiLevelGroupByZone";
+import { MultiLevelGroupedTransactions } from "@/components/transactions/MultiLevelGroupedTransactions";
+
+interface GroupLevel {
+  columnId: string;
+  label: string;
+  sortDirection: 'asc' | 'desc';
+}
 
 interface Transaction {
   id: string;
@@ -86,7 +92,7 @@ const Transactions = () => {
   const [totalCountAll, setTotalCountAll] = useState<number>(0);
   const [totalSalesAll, setTotalSalesAll] = useState<number>(0);
   const [totalProfitAll, setTotalProfitAll] = useState<number>(0);
-  const [groupBy, setGroupBy] = useState<string | null>(null);
+  const [groupLevels, setGroupLevels] = useState<GroupLevel[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const pageSize = 500;
 
@@ -168,7 +174,13 @@ const Transactions = () => {
           setVisibleColumns(profile.transaction_column_visibility as Record<string, boolean>);
         }
         if (profile.transaction_group_by) {
-          setGroupBy(profile.transaction_group_by as string);
+          const saved = profile.transaction_group_by;
+          if (Array.isArray(saved)) {
+            setGroupLevels(saved as GroupLevel[]);
+          } else if (typeof saved === 'string') {
+            // Migrate old single-level grouping
+            setGroupLevels([{ columnId: saved, label: getColumnLabel(saved), sortDirection: 'asc' }]);
+          }
         }
       }
     };
@@ -185,7 +197,7 @@ const Transactions = () => {
       .update({
         transaction_column_order: columnOrder,
         transaction_column_visibility: visibleColumns,
-        transaction_group_by: groupBy,
+        transaction_group_by: groupLevels,
       })
       .eq('user_id', userId);
   };
@@ -198,20 +210,21 @@ const Transactions = () => {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [columnOrder, visibleColumns, groupBy, userId]);
+  }, [columnOrder, visibleColumns, groupLevels, userId]);
 
-  // Clear groupBy if the grouped column is hidden
+  // Clear grouping levels if columns are hidden
   useEffect(() => {
-    if (groupBy && !visibleColumns[groupBy]) {
-      setGroupBy(null);
+    const updatedLevels = groupLevels.filter(level => visibleColumns[level.columnId]);
+    if (updatedLevels.length !== groupLevels.length) {
+      setGroupLevels(updatedLevels);
       toast({
-        title: language === 'ar' ? 'تم إلغاء التجميع' : 'Grouping Cleared',
+        title: language === 'ar' ? 'تم تحديث التجميع' : 'Grouping Updated',
         description: language === 'ar' 
-          ? 'تم إخفاء العمود المجمع'
-          : 'The grouped column was hidden',
+          ? 'تم إزالة الأعمدة المخفية من التجميع'
+          : 'Hidden columns removed from grouping',
       });
     }
-  }, [visibleColumns, groupBy, language]);
+  }, [visibleColumns, groupLevels, language]);
 
   const formatCurrency = (amount: number) => {
     if (!isFinite(amount)) amount = 0;
@@ -446,18 +459,31 @@ const Transactions = () => {
 
     const overId = (over as any).id;
     const overType = (over as any).data?.current?.type;
-    // Debug logs
-    console.log('[DND] dragEnd', { activeId: active.id, overId, overType });
 
     // Check if dropped on group-by zone
     if (overId === "group-by-zone" || overType === 'group-zone') {
       const columnId = active.id as string;
-      setGroupBy(columnId);
+      const label = getColumnLabel(columnId);
+      
+      // Check if already grouped by this column
+      if (groupLevels.some(level => level.columnId === columnId)) {
+        toast({
+          title: language === 'ar' ? 'موجود بالفعل' : 'Already Grouped',
+          description: language === 'ar' 
+            ? `تم التجميع بالفعل حسب ${label}`
+            : `Already grouped by ${label}`,
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Add new grouping level
+      setGroupLevels(prev => [...prev, { columnId, label, sortDirection: 'asc' }]);
       toast({
-        title: language === 'ar' ? 'تم التجميع' : 'Grouped',
+        title: language === 'ar' ? 'تمت الإضافة للتجميع' : 'Added to Grouping',
         description: language === 'ar' 
-          ? `تم التجميع حسب ${getColumnLabel(columnId)}`
-          : `Grouped by ${getColumnLabel(columnId)}`,
+          ? `المستوى ${groupLevels.length + 1}: ${label}`
+          : `Level ${groupLevels.length + 1}: ${label}`,
       });
       return;
     }
@@ -482,7 +508,7 @@ const Transactions = () => {
     
     setColumnOrder(defaultOrder);
     setVisibleColumns(defaultVisibility);
-    setGroupBy(null);
+    setGroupLevels([]);
 
     if (userId) {
       await supabase
@@ -764,10 +790,19 @@ const Transactions = () => {
             </Select>
           </div>
 
-          <GroupByDropZone
-            groupBy={groupBy}
-            columnLabel={groupBy ? getColumnLabel(groupBy) : null}
-            onClearGroup={() => setGroupBy(null)}
+          <MultiLevelGroupByZone
+            groupLevels={groupLevels}
+            onRemoveLevel={(index) => {
+              setGroupLevels(prev => prev.filter((_, i) => i !== index));
+            }}
+            onToggleSort={(index) => {
+              setGroupLevels(prev => prev.map((level, i) => 
+                i === index 
+                  ? { ...level, sortDirection: level.sortDirection === 'asc' ? 'desc' : 'asc' }
+                  : level
+              ));
+            }}
+            onClearAll={() => setGroupLevels([])}
             language={language}
           />
 
@@ -802,14 +837,13 @@ const Transactions = () => {
                       </SortableContext>
                     </TableRow>
                   </TableHeader>
-                  {groupBy ? (
-                    <GroupedTransactions
-                      groupBy={groupBy}
+                  {groupLevels.length > 0 ? (
+                    <MultiLevelGroupedTransactions
+                      groupLevels={groupLevels}
                       transactions={sortedTransactions}
                       visibleColumns={visibleColumns}
                       columnOrder={columnOrder}
                       formatCurrency={formatCurrency}
-                      formatNumber={formatNumber}
                       renderCell={renderCell}
                     />
                   ) : (
