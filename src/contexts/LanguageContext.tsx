@@ -276,6 +276,7 @@ const translations = {
     "productSetup.endDate": "End Date",
     "productSetup.arabic": "Arabic",
     "productSetup.english": "English",
+    "productSetup.leadtime": "Lead Time (Days)",
     
     // Upload Log
     "uploadLog.title": "Upload History",
@@ -749,6 +750,7 @@ const translations = {
     "productSetup.endDate": "تاريخ النهاية",
     "productSetup.arabic": "عربي",
     "productSetup.english": "إنجليزي",
+    "productSetup.leadtime": "مدة التسليم (بالأيام)",
     
     // Upload Log
     "uploadLog.title": "سجل التحميلات",

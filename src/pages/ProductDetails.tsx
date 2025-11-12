@@ -83,6 +83,7 @@ const ProductDetails = () => {
   const [brandName, setBrandName] = useState("");
   const [status, setStatus] = useState("active");
   const [productId, setProductId] = useState("");
+  const [leadtime, setLeadtime] = useState("");
 
   // Stock section
   const [quantity, setQuantity] = useState("0");
@@ -153,6 +154,7 @@ const ProductDetails = () => {
         setWeight(data.weight?.toString() || "");
         setSupplier(data.supplier || "");
         setNotes(data.notes || "");
+        setLeadtime(data.leadtime?.toString() || "0");
         setProductName(data.product_name);
         setBrandName(data.brand_name || "");
         setStatus(data.status);
@@ -250,6 +252,7 @@ const ProductDetails = () => {
           weight: weight ? parseFloat(weight) : null,
           supplier,
           notes,
+          leadtime: leadtime ? parseFloat(leadtime) : 0,
           stock_quantity: quantity ? parseFloat(quantity) : 0,
           reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
           minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
@@ -418,6 +421,21 @@ const ProductDetails = () => {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="leadtime" className={isRTL ? 'text-right block' : ''}>{t("productSetup.leadtime")}</Label>
+                    <Input
+                      id="leadtime"
+                      type="number"
+                      step="1"
+                      className={isRTL ? 'text-right' : ''}
+                      value={leadtime}
+                      onChange={(e) => setLeadtime(e.target.value)}
+                      placeholder={isRTL ? "أدخل مدة التسليم (بالأيام)" : "Enter lead time (days)"}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="weight" className={isRTL ? 'text-right block' : ''}>{t("productSetup.weight")}</Label>
                     <Input
                       id="weight"
@@ -429,19 +447,18 @@ const ProductDetails = () => {
                       placeholder={isRTL ? "أدخل الوزن" : "Enter weight"}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier" className={isRTL ? 'text-right block' : ''}>{t("productSetup.supplier")}</Label>
+                    <Input
+                      id="supplier"
+                      className={isRTL ? 'text-right' : ''}
+                      value={supplier}
+                      onChange={(e) => setSupplier(e.target.value)}
+                      placeholder={isRTL ? "أدخل اسم المورد" : "Enter supplier name"}
+                    />
+                  </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="supplier" className={isRTL ? 'text-right block' : ''}>{t("productSetup.supplier")}</Label>
-                  <Input
-                    id="supplier"
-                    className={isRTL ? 'text-right' : ''}
-                    value={supplier}
-                    onChange={(e) => setSupplier(e.target.value)}
-                    placeholder={isRTL ? "أدخل اسم المورد" : "Enter supplier name"}
-                  />
-                </div>
-
+                
                 <div className="space-y-2">
                   <Label htmlFor="description" className={isRTL ? 'text-right block' : ''}>{t("productSetup.description")}</Label>
                   <Textarea

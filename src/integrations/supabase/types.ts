@@ -340,6 +340,7 @@ export type Database = {
           discounts: Json | null
           free_coins: Json | null
           id: string
+          leadtime: number | null
           max_coins: number | null
           maximum_order_quantity: number | null
           meta_description_ar: string | null
@@ -380,6 +381,7 @@ export type Database = {
           discounts?: Json | null
           free_coins?: Json | null
           id?: string
+          leadtime?: number | null
           max_coins?: number | null
           maximum_order_quantity?: number | null
           meta_description_ar?: string | null
@@ -420,6 +422,7 @@ export type Database = {
           discounts?: Json | null
           free_coins?: Json | null
           id?: string
+          leadtime?: number | null
           max_coins?: number | null
           maximum_order_quantity?: number | null
           meta_description_ar?: string | null
