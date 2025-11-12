@@ -71,6 +71,8 @@ const DASHBOARD_COMPONENTS = [
   { key: "avg_order_metrics", label: "Average Order Value" },
   { key: "income_statement", label: "Income Statement" },
   { key: "transaction_type_chart", label: "Transaction Type Chart" },
+  { key: "user_transaction_count_chart", label: "User Transaction Count Chart" },
+  { key: "user_transaction_value_chart", label: "User Transaction Value Chart" },
   { key: "brand_sales_grid", label: "Brand Sales Grid" },
   { key: "coins_by_brand", label: "Coins by Brand" },
   { key: "sales_trend_chart", label: "Sales Trend Chart" },

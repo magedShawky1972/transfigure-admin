@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { TransactionTypeChart } from "@/components/TransactionTypeChart";
+import { UserTransactionCountChart } from "@/components/UserTransactionCountChart";
+import { UserTransactionValueChart } from "@/components/UserTransactionValueChart";
 
 interface Transaction {
   id: string;
@@ -92,6 +94,8 @@ const Dashboard = () => {
   const [allInactiveBrands, setAllInactiveBrands] = useState<string[]>([]);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
   const [transactionTypeData, setTransactionTypeData] = useState<any[]>([]);
+  const [userTransactionCountData, setUserTransactionCountData] = useState<any[]>([]);
+  const [userTransactionValueData, setUserTransactionValueData] = useState<any[]>([]);
   const [crmDialogOpen, setCrmDialogOpen] = useState(false);
   const [crmNotes, setCrmNotes] = useState("");
   const [crmReminderDate, setCrmReminderDate] = useState<Date>();
@@ -540,6 +544,8 @@ const Dashboard = () => {
       setPaymentBrands([]);
       setMonthComparison([]);
       setTransactionTypeData([]);
+      setUserTransactionCountData([]);
+      setUserTransactionValueData([]);
       
       const dateRange = getDateRange();
       if (!dateRange) {
@@ -2581,6 +2587,24 @@ const Dashboard = () => {
       {hasAccess("transaction_type_chart") && (
         <TransactionTypeChart
           data={transactionTypeData}
+          language={language}
+          loading={loadingCharts}
+        />
+      )}
+
+      {/* User Transaction Count Chart */}
+      {hasAccess("user_transaction_count_chart") && (
+        <UserTransactionCountChart
+          data={userTransactionCountData}
+          language={language}
+          loading={loadingCharts}
+        />
+      )}
+
+      {/* User Transaction Value Chart */}
+      {hasAccess("user_transaction_value_chart") && (
+        <UserTransactionValueChart
+          data={userTransactionValueData}
           language={language}
           loading={loadingCharts}
         />
