@@ -93,6 +93,8 @@ const Transactions = () => {
   const [totalCountAll, setTotalCountAll] = useState<number>(0);
   const [totalSalesAll, setTotalSalesAll] = useState<number>(0);
   const [totalProfitAll, setTotalProfitAll] = useState<number>(0);
+  const [pointTransactionCount, setPointTransactionCount] = useState<number>(0);
+  const [pointSales, setPointSales] = useState<number>(0);
   const [groupLevels, setGroupLevels] = useState<GroupLevel[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
@@ -467,8 +469,10 @@ const Transactions = () => {
       const pageSize = 1000;
       let from = 0;
       let allData: any[] = [];
+      let pointData: any[] = [];
       let hasMore = true;
 
+      // Fetch non-point transactions
       while (hasMore) {
         let query = supabase
           .from('purpletransaction')
@@ -496,17 +500,47 @@ const Transactions = () => {
         }
       }
 
-      if (allData.length > 0) {
-        const totalSales = allData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-        const totalProfit = allData.reduce((sum, row) => sum + (Number(row.profit) || 0), 0);
-        setTotalSalesAll(totalSales);
-        setTotalProfitAll(totalProfit);
-        setTotalCountAll(allData.length);
-      } else {
-        setTotalSalesAll(0);
-        setTotalProfitAll(0);
-        setTotalCountAll(0);
+      // Fetch point transactions separately
+      from = 0;
+      hasMore = true;
+      while (hasMore) {
+        let pointQuery = supabase
+          .from('purpletransaction')
+          .select('total, cost_sold')
+          .gte('created_at_date', startStr)
+          .lte('created_at_date', endStr)
+          .eq('payment_method', 'point')
+          .order('created_at_date', { ascending: true })
+          .range(from, from + pageSize - 1);
+
+        if (phone) pointQuery = pointQuery.ilike('customer_phone', `%${phone}%`);
+        if (orderNo) pointQuery = pointQuery.ilike('order_number', `%${orderNo}%`);
+
+        const { data, error } = await pointQuery;
+
+        if (error) throw error;
+
+        const batch = data || [];
+        pointData = pointData.concat(batch);
+
+        if (batch.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
       }
+
+      // Calculate totals
+      const totalSales = allData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+      const totalProfit = allData.reduce((sum, row) => sum + (Number(row.profit) || 0), 0);
+      const pointTransTotal = pointData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+      const pointCosts = pointData.reduce((sum, row) => sum + (Number(row.cost_sold) || 0), 0);
+      
+      setTotalSalesAll(totalSales);
+      setTotalProfitAll(totalProfit - pointCosts); // Subtract point costs from profit
+      setTotalCountAll(allData.length);
+      setPointTransactionCount(pointData.length);
+      setPointSales(pointTransTotal);
     } catch (error) {
       console.error('Error fetching totals:', error);
     }
@@ -722,7 +756,7 @@ const Transactions = () => {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.transactions")}</CardTitle>
@@ -744,6 +778,22 @@ const Transactions = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.totalProfit")}</CardTitle>
             <CardTitle className="text-3xl">
               {formatCurrency(totalProfitAll)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{language === 'ar' ? 'معاملات النقاط' : 'Point Transactions'}</CardTitle>
+            <CardTitle className="text-3xl">{pointTransactionCount.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{language === 'ar' ? 'مبيعات النقاط' : 'Point Sales'}</CardTitle>
+            <CardTitle className="text-3xl">
+              {formatCurrency(pointSales)}
             </CardTitle>
           </CardHeader>
         </Card>
