@@ -123,10 +123,10 @@ const Transactions = () => {
     fetchTransactions();
   }, [fromDate, toDate, page, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
-  // Fetch totals based only on date range
+  // Fetch totals with all filters applied
   useEffect(() => {
     fetchTotals();
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, phoneFilter, orderNumberFilter]);
 
   const fetchTransactions = async () => {
     try {
@@ -215,21 +215,33 @@ const Transactions = () => {
     try {
       const start = startOfDay(fromDate || subDays(new Date(), 1));
       const end = endOfDay(toDate || new Date());
-      const dateFrom = format(start, 'yyyy-MM-dd');
-      const dateTo = format(end, 'yyyy-MM-dd');
+      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
+      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
 
-      // Use RPC function for proper server-side aggregation
-      const { data, error } = await supabase.rpc('transactions_summary', {
-        date_from: dateFrom,
-        date_to: dateTo
-      });
+      // Query with same filters as main table
+      let query = supabase
+        .from('purpletransaction')
+        .select('total, profit');
+
+      // Apply date range
+      query = query.gte('created_at_date', startStr).lte('created_at_date', endStr);
+
+      // Apply server-side filters
+      const phone = phoneFilter.trim();
+      if (phone) query = query.ilike('customer_phone', `%${phone}%`);
+      const orderNo = orderNumberFilter.trim();
+      if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setTotalSalesAll(Number(data[0].total_sales) || 0);
-        setTotalProfitAll(Number(data[0].total_profit) || 0);
-        setTotalCountAll(Number(data[0].tx_count) || 0);
+        const totalSales = data.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+        const totalProfit = data.reduce((sum, row) => sum + (Number(row.profit) || 0), 0);
+        setTotalSalesAll(totalSales);
+        setTotalProfitAll(totalProfit);
+        setTotalCountAll(data.length);
       } else {
         setTotalSalesAll(0);
         setTotalProfitAll(0);
