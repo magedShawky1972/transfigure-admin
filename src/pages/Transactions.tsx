@@ -179,6 +179,19 @@ const Transactions = () => {
     }
   }, [columnOrder, visibleColumns, groupBy, userId]);
 
+  // Clear groupBy if the grouped column is hidden
+  useEffect(() => {
+    if (groupBy && !visibleColumns[groupBy]) {
+      setGroupBy(null);
+      toast({
+        title: language === 'ar' ? 'تم إلغاء التجميع' : 'Grouping Cleared',
+        description: language === 'ar' 
+          ? 'تم إخفاء العمود المجمع'
+          : 'The grouped column was hidden',
+      });
+    }
+  }, [visibleColumns, groupBy, language]);
+
   const formatCurrency = (amount: number) => {
     if (!isFinite(amount)) amount = 0;
     const formatted = new Intl.NumberFormat('en-US', {
@@ -524,7 +537,9 @@ const Transactions = () => {
     }
   };
 
-  const visibleColumnIds = columnOrder.filter((id) => visibleColumns[id]);
+  const visibleColumnIds = useMemo(() => {
+    return columnOrder.filter((id) => visibleColumns[id]);
+  }, [columnOrder, visibleColumns]);
 
   return (
     <div className="space-y-6">
@@ -614,6 +629,7 @@ const Transactions = () => {
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
+            id="transactions-dnd"
           >
             <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2">
@@ -740,12 +756,13 @@ const Transactions = () => {
               </div>
             ) : (
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <SortableContext
-                      items={visibleColumnIds}
-                      strategy={horizontalListSortingStrategy}
-                    >
+                  <TableHeader>
+                    <TableRow>
+                      <SortableContext
+                        key={visibleColumnIds.join(',')}
+                        items={visibleColumnIds}
+                        strategy={horizontalListSortingStrategy}
+                      >
                         {visibleColumnIds.map((columnId) => (
                           <DraggableColumnHeader
                             key={columnId}
