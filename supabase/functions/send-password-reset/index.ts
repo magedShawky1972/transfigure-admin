@@ -1,8 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { Resend } from "https://esm.sh/resend@4.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const smtpClient = new SMTPClient({
+  connection: {
+    hostname: "smtp.hostinger.com",
+    port: 465,
+    tls: true,
+    auth: {
+      username: "edara@asuscards.com",
+      password: Deno.env.get("SMTP_PASSWORD") ?? "",
+    },
+  },
+});
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -94,10 +104,11 @@ serve(async (req) => {
 
     // Send email with new password
     try {
-      const emailResponse = await resend.emails.send({
-        from: "Edara System <onboarding@resend.dev>",
-        to: [email],
+      await smtpClient.send({
+        from: "Edara System <edara@asuscards.com>",
+        to: email,
         subject: "تم إعادة تعيين كلمة المرور - Password Reset",
+        content: "auto",
         html: `
           <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px;">
             <h1 style="color: #8B5CF6;">مرحباً</h1>
@@ -116,7 +127,8 @@ serve(async (req) => {
         `,
       });
 
-      console.log('Email sent successfully:', emailResponse);
+      await smtpClient.close();
+      console.log('Email sent successfully');
     } catch (emailError: any) {
       console.error('Error sending email:', emailError);
       // Don't fail the request if email fails, password is already reset
