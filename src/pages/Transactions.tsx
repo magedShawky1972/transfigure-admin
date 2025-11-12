@@ -467,38 +467,51 @@ const Transactions = () => {
       const orderNo = orderNumberFilter.trim();
 
       const pageSize = 1000;
-      let from = 0;
       let allData: any[] = [];
       let pointData: any[] = [];
-      let hasMore = true;
 
-      // Fetch all transactions including non-point
+      // Use the same RPC function as Dashboard for consistent totals
+      const { data: summary, error: summaryError } = await supabase
+        .rpc('transactions_summary', {
+          date_from: format(new Date(startStr), 'yyyy-MM-dd'),
+          date_to: format(new Date(endStr), 'yyyy-MM-dd')
+        });
+
+      if (summaryError) throw summaryError;
+
+      if (summary && summary.length > 0) {
+        const stats = summary[0];
+        const totalSales = Number(stats.total_sales || 0);
+        const totalProfit = Number(stats.total_profit || 0);
+        const transactionCount = Number(stats.tx_count || 0);
+
+        setTotalSalesAll(totalSales);
+        setTotalProfitAll(totalProfit);
+        setTotalCountAll(transactionCount);
+      }
+
+      // Fetch point transactions separately for point metrics
+      let hasMore = true;
+      let from = 0;
       while (hasMore) {
-        let query = supabase
+        let pointQuery = supabase
           .from('purpletransaction')
-          .select('total, profit, payment_method')
+          .select('total')
+          .ilike('payment_method', 'point')
           .gte('created_at_date', startStr)
           .lte('created_at_date', endStr)
           .order('created_at_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
-        if (phone) query = query.ilike('customer_phone', `%${phone}%`);
-        if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
+        if (phone) pointQuery = pointQuery.ilike('customer_phone', `%${phone}%`);
+        if (orderNo) pointQuery = pointQuery.ilike('order_number', `%${orderNo}%`);
 
-        const { data, error } = await query;
+        const { data, error } = await pointQuery;
 
         if (error) throw error;
 
         const batch = data || [];
-        
-        // Separate point and non-point transactions
-        batch.forEach(row => {
-          if (row.payment_method === 'point') {
-            pointData.push(row);
-          } else {
-            allData.push(row);
-          }
-        });
+        pointData = pointData.concat(batch);
 
         if (batch.length < pageSize) {
           hasMore = false;
@@ -507,14 +520,7 @@ const Transactions = () => {
         }
       }
 
-      // Calculate totals (matching Dashboard logic)
-      const totalSales = allData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-      const totalProfit = allData.reduce((sum, row) => sum + (Number(row.profit) || 0), 0);
       const pointTransTotal = pointData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-      
-      setTotalSalesAll(totalSales);
-      setTotalProfitAll(totalProfit); // Use profit as-is, matching Dashboard
-      setTotalCountAll(allData.length);
       setPointTransactionCount(pointData.length);
       setPointSales(pointTransTotal);
     } catch (error) {
