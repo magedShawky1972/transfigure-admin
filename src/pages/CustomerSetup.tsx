@@ -331,9 +331,14 @@ const CustomerSetup = () => {
 
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
-            <p className="text-muted-foreground">{t("customerSetup.subtitle")}</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">{t("customerSetup.title")}</h1>
+              <p className="text-muted-foreground">{t("customerSetup.subtitle")}</p>
+            </div>
+            <Badge variant="secondary" className="text-lg px-4 py-2">
+              {filteredCustomers.length} / {customers.length} {t("customerSetup.customers")}
+            </Badge>
           </div>
           <Button onClick={handleAdd} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
