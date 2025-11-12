@@ -33,6 +33,7 @@ interface Transaction {
   cost_sold: string;
   qty: string;
   bank_fee: string;
+  user_name?: string;
   trans_type?: string;
 }
 
@@ -868,6 +869,39 @@ const Dashboard = () => {
           percentage: totalTransType > 0 ? (item.value / totalTransType) * 100 : 0
         }));
         setTransactionTypeData(transTypeWithPercentage);
+
+        // User Transaction Count (exclude null/empty user_name)
+        const userCountMap = transactions
+          .filter((t: any) => t.user_name && String(t.user_name).trim() !== '')
+          .reduce((acc: any, t: any) => {
+            const name = String(t.user_name);
+            acc[name] = (acc[name] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+        const userCountArray = Object.entries(userCountMap).map(([name, value]) => ({ name, value: value as number }));
+        const userCountTotal = userCountArray.reduce((sum, item: any) => sum + item.value, 0);
+        const userCountWithPct = userCountArray.map((item: any) => ({
+          ...item,
+          percentage: userCountTotal > 0 ? (item.value / userCountTotal) * 100 : 0,
+        })).sort((a: any, b: any) => b.value - a.value);
+        setUserTransactionCountData(userCountWithPct);
+
+        // User Transaction Value (exclude point payments, exclude null/empty user_name)
+        const userValueMap = transactions
+          .filter((t: any) => t.payment_method?.toLowerCase() !== 'point')
+          .filter((t: any) => t.user_name && String(t.user_name).trim() !== '')
+          .reduce((acc: any, t: any) => {
+            const name = String(t.user_name);
+            acc[name] = (acc[name] || 0) + parseNumber(t.total);
+            return acc;
+          }, {} as Record<string, number>);
+        const userValueArray = Object.entries(userValueMap).map(([name, value]) => ({ name, value: value as number }));
+        const userValueTotal = userValueArray.reduce((sum, item: any) => sum + item.value, 0);
+        const userValueWithPct = userValueArray.map((item: any) => ({
+          ...item,
+          percentage: userValueTotal > 0 ? (item.value / userValueTotal) * 100 : 0,
+        })).sort((a: any, b: any) => b.value - a.value);
+        setUserTransactionValueData(userValueWithPct);
       }
 
       setLoadingCharts(false);
