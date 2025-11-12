@@ -24,7 +24,9 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  DragOverEvent,
+  pointerWithin,
+  rectIntersection,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -124,6 +126,25 @@ const Transactions = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const customCollisionDetection: CollisionDetection = (args) => {
+    // Prioritize the Group By zone when pointer is over it
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      const overId = pointerCollisions[0].id;
+      if (overId === 'group-by-zone') {
+        return pointerCollisions;
+      }
+    }
+
+    // If rectangles intersect with the group zone, prioritize it
+    const rectCollisions = rectIntersection(args);
+    const groupHit = rectCollisions.find((c) => c.id === 'group-by-zone');
+    if (groupHit) return [groupHit];
+
+    // Fallbacks
+    return pointerCollisions.length ? pointerCollisions : closestCenter(args);
+  };
 
   // Load user preferences and ID
   useEffect(() => {
@@ -627,7 +648,7 @@ const Transactions = () => {
         <CardContent className="space-y-4">
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={customCollisionDetection}
             onDragEnd={handleDragEnd}
             id="transactions-dnd"
           >
