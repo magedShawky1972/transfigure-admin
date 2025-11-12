@@ -615,13 +615,6 @@ const Transactions = () => {
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
-            <GroupByDropZone
-              groupBy={groupBy}
-              columnLabel={groupBy ? getColumnLabel(groupBy) : null}
-              onClearGroup={() => setGroupBy(null)}
-              language={language}
-            />
-
             <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <Popover>
@@ -728,6 +721,13 @@ const Transactions = () => {
               </SelectContent>
             </Select>
           </div>
+
+          <GroupByDropZone
+            groupBy={groupBy}
+            columnLabel={groupBy ? getColumnLabel(groupBy) : null}
+            onClearGroup={() => setGroupBy(null)}
+            language={language}
+          />
 
           <div className="border rounded-lg overflow-x-auto">
             {loading ? (
