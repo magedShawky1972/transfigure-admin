@@ -25,15 +25,15 @@ export const GroupByDropZone = ({
     <div
       ref={setNodeRef}
       className={cn(
-        "border-2 border-dashed rounded-lg p-4 transition-all mb-4",
-        isOver ? "border-primary bg-primary/10" : "border-muted",
+        "border-2 border-dashed rounded-lg p-4 transition-all mb-4 min-h-[72px]",
+        isOver ? "border-primary bg-primary/20 scale-105" : "border-muted",
         groupBy ? "bg-accent" : "bg-muted/50"
       )}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Layers className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm font-medium">
+          <Layers className={cn("h-5 w-5", isOver ? "text-primary" : "text-muted-foreground")} />
+          <span className={cn("text-sm font-medium", isOver && "text-primary")}>
             {language === 'ar' ? 'تجميع حسب' : 'Group By'}
           </span>
         </div>
@@ -53,10 +53,14 @@ export const GroupByDropZone = ({
           </div>
         )}
         {!groupBy && (
-          <span className="text-sm text-muted-foreground">
-            {language === 'ar' 
-              ? 'اسحب عمود هنا للتجميع' 
-              : 'Drag a column here to group'}
+          <span className={cn(
+            "text-sm",
+            isOver ? "text-primary font-medium" : "text-muted-foreground"
+          )}>
+            {isOver 
+              ? (language === 'ar' ? 'أفلت هنا للتجميع' : 'Drop here to group')
+              : (language === 'ar' ? 'اسحب عمود هنا للتجميع' : 'Drag a column here to group')
+            }
           </span>
         )}
       </div>

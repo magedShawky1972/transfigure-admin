@@ -408,19 +408,10 @@ const Transactions = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      setColumnOrder((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
+    if (!over) return;
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-
-    if (over && over.id === "group-by-zone") {
+    // Check if dropped on group-by zone
+    if (over.id === "group-by-zone") {
       const columnId = active.id as string;
       setGroupBy(columnId);
       toast({
@@ -428,6 +419,16 @@ const Transactions = () => {
         description: language === 'ar' 
           ? `تم التجميع حسب ${getColumnLabel(columnId)}`
           : `Grouped by ${getColumnLabel(columnId)}`,
+      });
+      return;
+    }
+
+    // Handle column reordering
+    if (active.id !== over.id) {
+      setColumnOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        return arrayMove(items, oldIndex, newIndex);
       });
     }
   };
@@ -737,7 +738,6 @@ const Transactions = () => {
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
-                onDragOver={handleDragOver}
               >
                 <Table>
                   <TableHeader>
