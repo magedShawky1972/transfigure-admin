@@ -159,8 +159,38 @@ const ProductDetails = () => {
         setQuantity(data.stock_quantity?.toString() || "0");
         setNotifyQty(data.reorder_point?.toString() || "1");
         setMinOrderQty(data.minimum_order_quantity?.toString() || "1");
+        setMaxOrderQty(data.maximum_order_quantity?.toString() || "10");
         setCostPrice(data.product_cost || "");
         setRetailPrice(data.product_price || "");
+        
+        // Load new fields
+        setMobileEnabled(data.mobile_enabled ?? true);
+        setCoinsNumber(data.coins_number?.toString() || "4000000");
+        setMinCoins(data.min_coins?.toString() || "0");
+        setMaxCoins(data.max_coins?.toString() || "0");
+        setTaxType(data.tax_type || "tax_included");
+        
+        // Load JSON fields
+        if (data.free_coins && Array.isArray(data.free_coins) && data.free_coins.length > 0) {
+          setFreeCoins(data.free_coins);
+        }
+        if (data.options && Array.isArray(data.options) && data.options.length > 0) {
+          setOptions(data.options);
+        }
+        if (data.customer_group_prices && Array.isArray(data.customer_group_prices) && data.customer_group_prices.length > 0) {
+          setCustomerGroupPrices(data.customer_group_prices);
+        }
+        if (data.discounts && Array.isArray(data.discounts) && data.discounts.length > 0) {
+          setDiscounts(data.discounts);
+        }
+        
+        // Load SEO fields
+        setMetaTitleAr(data.meta_title_ar || "");
+        setMetaKeywordsAr(data.meta_keywords_ar || "");
+        setMetaDescriptionAr(data.meta_description_ar || "");
+        setMetaTitleEn(data.meta_title_en || "");
+        setMetaKeywordsEn(data.meta_keywords_en || "");
+        setMetaDescriptionEn(data.meta_description_en || "");
       }
     } catch (error: any) {
       toast({
@@ -222,8 +252,24 @@ const ProductDetails = () => {
           stock_quantity: quantity ? parseFloat(quantity) : 0,
           reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
           minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
+          maximum_order_quantity: maxOrderQty ? parseFloat(maxOrderQty) : 10,
           product_cost: costPrice,
           product_price: retailPrice,
+          mobile_enabled: mobileEnabled,
+          coins_number: coinsNumber ? parseFloat(coinsNumber) : 0,
+          min_coins: minCoins ? parseFloat(minCoins) : 0,
+          max_coins: maxCoins ? parseFloat(maxCoins) : 0,
+          tax_type: taxType,
+          free_coins: freeCoins,
+          options: options,
+          customer_group_prices: customerGroupPrices,
+          discounts: discounts,
+          meta_title_ar: metaTitleAr,
+          meta_keywords_ar: metaKeywordsAr,
+          meta_description_ar: metaDescriptionAr,
+          meta_title_en: metaTitleEn,
+          meta_keywords_en: metaKeywordsEn,
+          meta_description_en: metaDescriptionEn,
         })
         .eq("id", id);
 

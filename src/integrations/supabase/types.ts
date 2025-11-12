@@ -333,14 +333,29 @@ export type Database = {
           barcode: string | null
           brand_name: string | null
           category: string | null
+          coins_number: number | null
           created_at: string
+          customer_group_prices: Json | null
           description: string | null
+          discounts: Json | null
+          free_coins: Json | null
           id: string
+          max_coins: number | null
+          maximum_order_quantity: number | null
+          meta_description_ar: string | null
+          meta_description_en: string | null
+          meta_keywords_ar: string | null
+          meta_keywords_en: string | null
+          meta_title_ar: string | null
+          meta_title_en: string | null
+          min_coins: number | null
           minimum_order_quantity: number | null
+          mobile_enabled: boolean | null
           notes: string | null
           odoo_product_id: number | null
           odoo_sync_status: string | null
           odoo_synced_at: string | null
+          options: Json | null
           product_cost: string | null
           product_id: string | null
           product_name: string
@@ -350,6 +365,7 @@ export type Database = {
           status: string
           stock_quantity: number | null
           supplier: string | null
+          tax_type: string | null
           updated_at: string
           weight: number | null
         }
@@ -357,14 +373,29 @@ export type Database = {
           barcode?: string | null
           brand_name?: string | null
           category?: string | null
+          coins_number?: number | null
           created_at?: string
+          customer_group_prices?: Json | null
           description?: string | null
+          discounts?: Json | null
+          free_coins?: Json | null
           id?: string
+          max_coins?: number | null
+          maximum_order_quantity?: number | null
+          meta_description_ar?: string | null
+          meta_description_en?: string | null
+          meta_keywords_ar?: string | null
+          meta_keywords_en?: string | null
+          meta_title_ar?: string | null
+          meta_title_en?: string | null
+          min_coins?: number | null
           minimum_order_quantity?: number | null
+          mobile_enabled?: boolean | null
           notes?: string | null
           odoo_product_id?: number | null
           odoo_sync_status?: string | null
           odoo_synced_at?: string | null
+          options?: Json | null
           product_cost?: string | null
           product_id?: string | null
           product_name: string
@@ -374,6 +405,7 @@ export type Database = {
           status?: string
           stock_quantity?: number | null
           supplier?: string | null
+          tax_type?: string | null
           updated_at?: string
           weight?: number | null
         }
@@ -381,14 +413,29 @@ export type Database = {
           barcode?: string | null
           brand_name?: string | null
           category?: string | null
+          coins_number?: number | null
           created_at?: string
+          customer_group_prices?: Json | null
           description?: string | null
+          discounts?: Json | null
+          free_coins?: Json | null
           id?: string
+          max_coins?: number | null
+          maximum_order_quantity?: number | null
+          meta_description_ar?: string | null
+          meta_description_en?: string | null
+          meta_keywords_ar?: string | null
+          meta_keywords_en?: string | null
+          meta_title_ar?: string | null
+          meta_title_en?: string | null
+          min_coins?: number | null
           minimum_order_quantity?: number | null
+          mobile_enabled?: boolean | null
           notes?: string | null
           odoo_product_id?: number | null
           odoo_sync_status?: string | null
           odoo_synced_at?: string | null
+          options?: Json | null
           product_cost?: string | null
           product_id?: string | null
           product_name?: string
@@ -398,6 +445,7 @@ export type Database = {
           status?: string
           stock_quantity?: number | null
           supplier?: string | null
+          tax_type?: string | null
           updated_at?: string
           weight?: number | null
         }
