@@ -472,14 +472,13 @@ const Transactions = () => {
       let pointData: any[] = [];
       let hasMore = true;
 
-      // Fetch non-point transactions
+      // Fetch all transactions including non-point
       while (hasMore) {
         let query = supabase
           .from('purpletransaction')
-          .select('total, profit')
+          .select('total, profit, payment_method')
           .gte('created_at_date', startStr)
           .lte('created_at_date', endStr)
-          .neq('payment_method', 'point')
           .order('created_at_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
@@ -491,7 +490,15 @@ const Transactions = () => {
         if (error) throw error;
 
         const batch = data || [];
-        allData = allData.concat(batch);
+        
+        // Separate point and non-point transactions
+        batch.forEach(row => {
+          if (row.payment_method === 'point') {
+            pointData.push(row);
+          } else {
+            allData.push(row);
+          }
+        });
 
         if (batch.length < pageSize) {
           hasMore = false;
@@ -500,44 +507,13 @@ const Transactions = () => {
         }
       }
 
-      // Fetch point transactions separately
-      from = 0;
-      hasMore = true;
-      while (hasMore) {
-        let pointQuery = supabase
-          .from('purpletransaction')
-          .select('total, cost_sold')
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
-          .eq('payment_method', 'point')
-          .order('created_at_date', { ascending: true })
-          .range(from, from + pageSize - 1);
-
-        if (phone) pointQuery = pointQuery.ilike('customer_phone', `%${phone}%`);
-        if (orderNo) pointQuery = pointQuery.ilike('order_number', `%${orderNo}%`);
-
-        const { data, error } = await pointQuery;
-
-        if (error) throw error;
-
-        const batch = data || [];
-        pointData = pointData.concat(batch);
-
-        if (batch.length < pageSize) {
-          hasMore = false;
-        } else {
-          from += pageSize;
-        }
-      }
-
-      // Calculate totals
+      // Calculate totals (matching Dashboard logic)
       const totalSales = allData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
       const totalProfit = allData.reduce((sum, row) => sum + (Number(row.profit) || 0), 0);
       const pointTransTotal = pointData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-      const pointCosts = pointData.reduce((sum, row) => sum + (Number(row.cost_sold) || 0), 0);
       
       setTotalSalesAll(totalSales);
-      setTotalProfitAll(totalProfit - pointCosts); // Subtract point costs from profit
+      setTotalProfitAll(totalProfit); // Use profit as-is, matching Dashboard
       setTotalCountAll(allData.length);
       setPointTransactionCount(pointData.length);
       setPointSales(pointTransTotal);
