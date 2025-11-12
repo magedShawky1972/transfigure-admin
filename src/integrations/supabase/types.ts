@@ -381,6 +381,9 @@ export type Database = {
           is_active: boolean
           mobile_number: string | null
           must_change_password: boolean
+          transaction_column_order: Json | null
+          transaction_column_visibility: Json | null
+          transaction_group_by: string | null
           updated_at: string
           user_id: string
           user_name: string
@@ -392,6 +395,9 @@ export type Database = {
           is_active?: boolean
           mobile_number?: string | null
           must_change_password?: boolean
+          transaction_column_order?: Json | null
+          transaction_column_visibility?: Json | null
+          transaction_group_by?: string | null
           updated_at?: string
           user_id: string
           user_name: string
@@ -403,6 +409,9 @@ export type Database = {
           is_active?: boolean
           mobile_number?: string | null
           must_change_password?: boolean
+          transaction_column_order?: Json | null
+          transaction_column_visibility?: Json | null
+          transaction_group_by?: string | null
           updated_at?: string
           user_id?: string
           user_name?: string

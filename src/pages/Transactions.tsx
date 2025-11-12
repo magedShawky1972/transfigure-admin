@@ -1,19 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Download, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { DraggableColumnHeader } from "@/components/transactions/DraggableColumnHeader";
+import { GroupByDropZone } from "@/components/transactions/GroupByDropZone";
+import { GroupedTransactions } from "@/components/transactions/GroupedTransactions";
 
 interface Transaction {
   id: string;
@@ -59,10 +80,12 @@ const Transactions = () => {
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [customers, setCustomers] = useState<string[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [totalCount, setTotalCount] = useState<number>(0); // For pagination only
-  const [totalCountAll, setTotalCountAll] = useState<number>(0); // For cards
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalCountAll, setTotalCountAll] = useState<number>(0);
   const [totalSalesAll, setTotalSalesAll] = useState<number>(0);
   const [totalProfitAll, setTotalProfitAll] = useState<number>(0);
+  const [groupBy, setGroupBy] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const pageSize = 500;
 
   const allColumns = [
@@ -87,9 +110,74 @@ const Transactions = () => {
     { id: "coins_number", label: t("transactions.coinsNumber"), enabled: false },
   ];
 
+  const [columnOrder, setColumnOrder] = useState<string[]>(
+    allColumns.map((col) => col.id)
+  );
+
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
     allColumns.reduce((acc, col) => ({ ...acc, [col.id]: col.enabled }), {})
   );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Load user preferences and ID
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      setUserId(session.user.id);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('transaction_column_order, transaction_column_visibility, transaction_group_by')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (profile) {
+        if (profile.transaction_column_order) {
+          setColumnOrder(profile.transaction_column_order as string[]);
+        }
+        if (profile.transaction_column_visibility) {
+          setVisibleColumns(profile.transaction_column_visibility as Record<string, boolean>);
+        }
+        if (profile.transaction_group_by) {
+          setGroupBy(profile.transaction_group_by as string);
+        }
+      }
+    };
+
+    loadUserPreferences();
+  }, []);
+
+  // Save user preferences
+  const saveUserPreferences = async () => {
+    if (!userId) return;
+
+    await supabase
+      .from('profiles')
+      .update({
+        transaction_column_order: columnOrder,
+        transaction_column_visibility: visibleColumns,
+        transaction_group_by: groupBy,
+      })
+      .eq('user_id', userId);
+  };
+
+  // Auto-save preferences when they change
+  useEffect(() => {
+    if (userId) {
+      const timer = setTimeout(() => {
+        saveUserPreferences();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [columnOrder, visibleColumns, groupBy, userId]);
 
   const formatCurrency = (amount: number) => {
     if (!isFinite(amount)) amount = 0;
@@ -123,7 +211,6 @@ const Transactions = () => {
     fetchTransactions();
   }, [fromDate, toDate, page, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
-  // Fetch totals with all filters applied
   useEffect(() => {
     fetchTotals();
   }, [fromDate, toDate, phoneFilter, orderNumberFilter]);
@@ -144,20 +231,17 @@ const Transactions = () => {
         .from(table)
         .select('*');
 
-      // Date range
       const start = startOfDay(fromDate || subDays(new Date(), 1));
       const end = endOfDay(toDate || new Date());
       const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
       const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
       q = q.gte('created_at_date', startStr).lte('created_at_date', endStr);
 
-      // Server-side filters
       const phone = phoneFilter.trim();
       if (phone) q = q.ilike('customer_phone', `%${phone}%`);
       const orderNo = orderNumberFilter.trim();
       if (orderNo) q = q.ilike('order_number', `%${orderNo}%`);
 
-      // Server-side sorting
       if (sortColumn) {
         if (numericSortColumns.has(sortColumn)) {
           const map: Record<string, string> = {
@@ -176,7 +260,6 @@ const Transactions = () => {
         q = q.order('created_at_date', { ascending: false });
       }
 
-      // Get total count with same filters
       let countQuery = (supabase as any).from(table).select('*', { count: 'exact', head: true });
       countQuery = countQuery.gte('created_at_date', startStr).lte('created_at_date', endStr);
       if (phone) countQuery = countQuery.ilike('customer_phone', `%${phone}%`);
@@ -185,7 +268,6 @@ const Transactions = () => {
       const { count } = await countQuery;
       setTotalCount(count || 0);
 
-      // Pagination
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       const { data, error } = await q.range(from, to);
@@ -218,11 +300,9 @@ const Transactions = () => {
       const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
       const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
 
-      // Apply server-side filters
       const phone = phoneFilter.trim();
       const orderNo = orderNumberFilter.trim();
 
-      // Fetch ALL data with pagination to avoid Supabase limits
       const pageSize = 1000;
       let from = 0;
       let allData: any[] = [];
@@ -270,6 +350,7 @@ const Transactions = () => {
       console.error('Error fetching totals:', error);
     }
   };
+
   const handleSort = (column: string) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -279,105 +360,128 @@ const Transactions = () => {
     }
   };
 
-  const SortIcon = ({ column }: { column: string }) => {
-    if (sortColumn !== column) {
-      return <ArrowUpDown className="h-4 w-4 inline-block ml-1 opacity-50" />;
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(transaction => {
+      const matchesSearch = searchTerm === "" || 
+        transaction.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.product_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesPhone = phoneFilter === "" || 
+        transaction.customer_phone?.toLowerCase().includes(phoneFilter.toLowerCase());
+      
+      const matchesOrderNumber = orderNumberFilter === "" || 
+        transaction.order_number?.toLowerCase().includes(orderNumberFilter.toLowerCase());
+      
+      const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
+      const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
+      const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
+      const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
+
+      return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
+    });
+  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterCustomer]);
+
+  const sortedTransactions = useMemo(() => {
+    return [...filteredTransactions].sort((a, b) => {
+      if (!sortColumn) return 0;
+
+      let aValue: any = a[sortColumn as keyof Transaction];
+      let bValue: any = b[sortColumn as keyof Transaction];
+
+      if (sortColumn === "created_at_date") {
+        aValue = new Date(aValue || 0).getTime();
+        bValue = new Date(bValue || 0).getTime();
+      } else if (["total", "profit", "cost_price", "unit_price", "cost_sold", "qty", "coins_number"].includes(sortColumn)) {
+        aValue = aValue || 0;
+        bValue = bValue || 0;
+      } else {
+        aValue = (aValue || "").toString().toLowerCase();
+        bValue = (bValue || "").toString().toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredTransactions, sortColumn, sortDirection]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setColumnOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        return arrayMove(items, oldIndex, newIndex);
+      });
     }
-    return sortDirection === "asc" ? (
-      <ArrowUp className="h-4 w-4 inline-block ml-1" />
-    ) : (
-      <ArrowDown className="h-4 w-4 inline-block ml-1" />
-    );
   };
 
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = searchTerm === "" || 
-      transaction.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.product_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesPhone = phoneFilter === "" || 
-      transaction.customer_phone?.toLowerCase().includes(phoneFilter.toLowerCase());
-    
-    const matchesOrderNumber = orderNumberFilter === "" || 
-      transaction.order_number?.toLowerCase().includes(orderNumberFilter.toLowerCase());
-    
-    const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
-    const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
-    const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
-    const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
 
-    return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
-  });
-
-  const sortedTransactions = [...filteredTransactions].sort((a, b) => {
-    if (!sortColumn) return 0;
-
-    let aValue: any = a[sortColumn as keyof Transaction];
-    let bValue: any = b[sortColumn as keyof Transaction];
-
-    // Handle date sorting
-    if (sortColumn === "created_at_date") {
-      aValue = new Date(aValue || 0).getTime();
-      bValue = new Date(bValue || 0).getTime();
+    if (over && over.id === "group-by-zone") {
+      const columnId = active.id as string;
+      setGroupBy(columnId);
+      toast({
+        title: language === 'ar' ? 'تم التجميع' : 'Grouped',
+        description: language === 'ar' 
+          ? `تم التجميع حسب ${getColumnLabel(columnId)}`
+          : `Grouped by ${getColumnLabel(columnId)}`,
+      });
     }
-    // Handle numeric sorting - values are already numeric
-    else if (["total", "profit", "cost_price", "unit_price", "cost_sold", "qty", "coins_number"].includes(sortColumn)) {
-      aValue = aValue || 0;
-      bValue = bValue || 0;
-    }
-    // Handle string sorting
-    else {
-      aValue = (aValue || "").toString().toLowerCase();
-      bValue = (bValue || "").toString().toLowerCase();
+  };
+
+  const getColumnLabel = (columnId: string) => {
+    return allColumns.find(col => col.id === columnId)?.label || columnId;
+  };
+
+  const resetLayout = async () => {
+    const defaultOrder = allColumns.map((col) => col.id);
+    const defaultVisibility = allColumns.reduce((acc, col) => ({ ...acc, [col.id]: col.enabled }), {});
+    
+    setColumnOrder(defaultOrder);
+    setVisibleColumns(defaultVisibility);
+    setGroupBy(null);
+
+    if (userId) {
+      await supabase
+        .from('profiles')
+        .update({
+          transaction_column_order: null,
+          transaction_column_visibility: null,
+          transaction_group_by: null,
+        })
+        .eq('user_id', userId);
     }
 
-    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-    return 0;
-  });
+    toast({
+      title: language === 'ar' ? 'تم إعادة التعيين' : 'Layout Reset',
+      description: language === 'ar' 
+        ? 'تم إعادة تعيين تخطيط الجدول إلى الإعدادات الافتراضية'
+        : 'Table layout has been reset to default settings',
+    });
+  };
 
   const exportToCSV = () => {
-    const headers = [
-      t("dashboard.date"),
-      t("dashboard.customer"),
-      t("transactions.customerPhone"),
-      t("dashboard.brand"),
-      t("dashboard.product"),
-      t("transactions.orderNumber"),
-      t("transactions.userName"),
-      t("dashboard.amount"),
-      t("dashboard.profit"),
-      t("transactions.paymentMethod"),
-      t("transactions.paymentType"),
-      t("dashboard.paymentBrands"),
-      t("transactions.qty"),
-      t("transactions.costPrice"),
-      t("transactions.unitPrice"),
-      t("transactions.costSold"),
-      t("transactions.coinsNumber")
-    ];
+    const headers = columnOrder
+      .filter(id => visibleColumns[id])
+      .map(id => getColumnLabel(id));
 
     const csvContent = [
       headers.join(','),
-      ...sortedTransactions.map(t => [
-        t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd') : '',
-        t.customer_name || '',
-        t.customer_phone || '',
-        t.brand_name || '',
-        t.product_name || '',
-        t.order_number || '',
-        t.user_name || '',
-        t.total || '',
-        t.profit || '',
-        t.payment_method || '',
-        t.payment_type || '',
-        t.payment_brand || '',
-        t.qty || '',
-        t.cost_price || '',
-        t.unit_price || '',
-        t.cost_sold || '',
-        t.coins_number || ''
-      ].join(','))
+      ...sortedTransactions.map(t => 
+        columnOrder
+          .filter(id => visibleColumns[id])
+          .map(id => {
+            const value = t[id as keyof Transaction];
+            if (id === 'created_at_date') {
+              return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
+            }
+            return value || '';
+          })
+          .join(',')
+      )
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -386,6 +490,40 @@ const Transactions = () => {
     link.download = `transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
   };
+
+  const renderCell = (transaction: Transaction, columnId: string) => {
+    const value = transaction[columnId as keyof Transaction];
+
+    switch (columnId) {
+      case 'created_at_date':
+        return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
+      case 'total':
+      case 'profit':
+      case 'cost_price':
+      case 'unit_price':
+      case 'cost_sold':
+        return formatCurrency(Number(value) || 0);
+      case 'qty':
+      case 'coins_number':
+        return formatNumber(Number(value));
+      case 'order_status':
+        return (
+          <Badge variant={value === 'completed' ? 'default' : 'secondary'}>
+            {value as string}
+          </Badge>
+        );
+      case 'payment_method':
+        return (
+          <Badge variant="outline" className="font-mono">
+            {value as string}
+          </Badge>
+        );
+      default:
+        return value as string;
+    }
+  };
+
+  const visibleColumnIds = columnOrder.filter((id) => visibleColumns[id]);
 
   return (
     <div className="space-y-6">
@@ -428,6 +566,10 @@ const Transactions = () => {
           <div className="flex items-center justify-between">
             <CardTitle>{t("transactions.title")}</CardTitle>
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={resetLayout}>
+                <RotateCcw className="h-4 w-4" />
+                {language === 'ar' ? 'إعادة تعيين' : 'Reset Layout'}
+              </Button>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2">
@@ -465,76 +607,73 @@ const Transactions = () => {
             </div>
           </div>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("justify-start text-left font-normal", !fromDate && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {fromDate ? format(fromDate, "PPP") : <span>{language === 'ar' ? 'من تاريخ' : 'From Date'}</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar 
-                  mode="single" 
-                  selected={fromDate} 
-                  onSelect={(date) => date && setFromDate(date)} 
-                  initialFocus
-                  captionLayout="dropdown-buttons"
-                  fromYear={2020}
-                  toYear={2030}
-                />
-              </PopoverContent>
-            </Popover>
+          <GroupByDropZone
+            groupBy={groupBy}
+            columnLabel={groupBy ? getColumnLabel(groupBy) : null}
+            onClearGroup={() => setGroupBy(null)}
+            language={language}
+          />
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("justify-start text-left font-normal", !toDate && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {toDate ? format(toDate, "PPP") : <span>{language === 'ar' ? 'إلى تاريخ' : 'To Date'}</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar 
-                  mode="single" 
-                  selected={toDate} 
-                  onSelect={(date) => date && setToDate(date)} 
-                  initialFocus
-                  captionLayout="dropdown-buttons"
-                  fromYear={2020}
-                  toYear={2030}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("justify-start text-left font-normal", !fromDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fromDate ? format(fromDate, "PPP") : <span>{t("dashboard.selectDate")}</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={fromDate}
+                    onSelect={(date) => date && setFromDate(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground">{language === 'ar' ? 'إلى' : 'to'}</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("justify-start text-left font-normal", !toDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {toDate ? format(toDate, "PPP") : <span>{t("dashboard.selectDate")}</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={toDate}
+                    onSelect={(date) => date && setToDate(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder={t("transactions.search")}
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            <div className="relative min-w-[200px]">
-              <Input 
-                placeholder={t("transactions.customerPhone")}
-                value={phoneFilter}
-                onChange={(e) => setPhoneFilter(e.target.value)}
-              />
-            </div>
-            
-            <div className="relative min-w-[200px]">
-              <Input 
-                placeholder={t("transactions.orderNumber")}
-                value={orderNumberFilter}
-                onChange={(e) => setOrderNumberFilter(e.target.value)}
-              />
-            </div>
-            
+            <Input
+              placeholder={t("transactions.searchCustomerProduct")}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+
+            <Input
+              placeholder={t("transactions.filterByPhone")}
+              value={phoneFilter}
+              onChange={(e) => setPhoneFilter(e.target.value)}
+              className="max-w-sm"
+            />
+
+            <Input
+              placeholder={t("transactions.filterByOrderNumber")}
+              value={orderNumberFilter}
+              onChange={(e) => setOrderNumberFilter(e.target.value)}
+              className="max-w-sm"
+            />
+
             <Select value={filterBrand} onValueChange={setFilterBrand}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder={t("dashboard.filterBrand")} />
@@ -594,159 +733,57 @@ const Transactions = () => {
                 {t("dashboard.noData")}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {visibleColumns.created_at_date && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("created_at_date")}>
-                        {t("dashboard.date")}
-                        <SortIcon column="created_at_date" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.customer_name && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("customer_name")}>
-                        {t("dashboard.customer")}
-                        <SortIcon column="customer_name" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.customer_phone && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("customer_phone")}>
-                        {t("transactions.customerPhone")}
-                        <SortIcon column="customer_phone" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.brand_name && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("brand_name")}>
-                        {t("dashboard.brand")}
-                        <SortIcon column="brand_name" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.product_name && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("product_name")}>
-                        {t("dashboard.product")}
-                        <SortIcon column="product_name" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.order_number && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("order_number")}>
-                        {t("transactions.orderNumber")}
-                        <SortIcon column="order_number" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.user_name && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("user_name")}>
-                        {t("transactions.userName")}
-                        <SortIcon column="user_name" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.vendor_name && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("vendor_name")}>
-                        {t("transactions.vendorName")}
-                        <SortIcon column="vendor_name" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.order_status && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("order_status")}>
-                        {t("transactions.orderStatus")}
-                        <SortIcon column="order_status" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.total && (
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("total")}>
-                        {t("dashboard.amount")}
-                        <SortIcon column="total" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.profit && (
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("profit")}>
-                        {t("dashboard.profit")}
-                        <SortIcon column="profit" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.payment_method && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("payment_method")}>
-                        {t("transactions.paymentMethod")}
-                        <SortIcon column="payment_method" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.payment_type && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("payment_type")}>
-                        {t("transactions.paymentType")}
-                        <SortIcon column="payment_type" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.payment_brand && (
-                      <TableHead className="cursor-pointer" onClick={() => handleSort("payment_brand")}>
-                        {t("dashboard.paymentBrands")}
-                        <SortIcon column="payment_brand" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.qty && (
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("qty")}>
-                        {t("transactions.qty")}
-                        <SortIcon column="qty" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.cost_price && (
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("cost_price")}>
-                        {t("transactions.costPrice")}
-                        <SortIcon column="cost_price" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.unit_price && (
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("unit_price")}>
-                        {t("transactions.unitPrice")}
-                        <SortIcon column="unit_price" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.cost_sold && (
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("cost_sold")}>
-                        {t("transactions.costSold")}
-                        <SortIcon column="cost_sold" />
-                      </TableHead>
-                    )}
-                    {visibleColumns.coins_number && (
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort("coins_number")}>
-                        {t("transactions.coinsNumber")}
-                        <SortIcon column="coins_number" />
-                      </TableHead>
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedTransactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      {visibleColumns.created_at_date && (
-                        <TableCell>
-                          {transaction.created_at_date ? format(new Date(transaction.created_at_date), 'MMM dd, yyyy') : 'N/A'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.customer_name && <TableCell>{transaction.customer_name || 'N/A'}</TableCell>}
-                      {visibleColumns.customer_phone && <TableCell>{transaction.customer_phone || 'N/A'}</TableCell>}
-                      {visibleColumns.brand_name && (
-                        <TableCell className="max-w-[120px] truncate" title={transaction.brand_name || 'N/A'}>
-                          {transaction.brand_name || 'N/A'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.product_name && <TableCell>{transaction.product_name || 'N/A'}</TableCell>}
-                      {visibleColumns.order_number && <TableCell>{transaction.order_number || 'N/A'}</TableCell>}
-                      {visibleColumns.user_name && <TableCell>{transaction.user_name || 'N/A'}</TableCell>}
-                      {visibleColumns.vendor_name && <TableCell>{transaction.vendor_name || 'N/A'}</TableCell>}
-                      {visibleColumns.order_status && <TableCell>{transaction.order_status || 'N/A'}</TableCell>}
-                      {visibleColumns.total && <TableCell className="text-right">{formatNumber(transaction.total)}</TableCell>}
-                      {visibleColumns.profit && <TableCell className="text-right text-green-600">{formatNumber(transaction.profit)}</TableCell>}
-                      {visibleColumns.payment_method && <TableCell>{transaction.payment_method || 'N/A'}</TableCell>}
-                      {visibleColumns.payment_type && <TableCell>{transaction.payment_type || 'N/A'}</TableCell>}
-                      {visibleColumns.payment_brand && <TableCell>{transaction.payment_brand || 'N/A'}</TableCell>}
-                      {visibleColumns.qty && <TableCell className="text-right">{formatNumber(transaction.qty)}</TableCell>}
-                      {visibleColumns.cost_price && <TableCell className="text-right">{formatNumber(transaction.cost_price)}</TableCell>}
-                      {visibleColumns.unit_price && <TableCell className="text-right">{formatNumber(transaction.unit_price)}</TableCell>}
-                      {visibleColumns.cost_sold && <TableCell className="text-right">{formatNumber(transaction.cost_sold)}</TableCell>}
-                      {visibleColumns.coins_number && <TableCell className="text-right">{formatNumber(transaction.coins_number)}</TableCell>}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableContext
+                        items={visibleColumnIds}
+                        strategy={horizontalListSortingStrategy}
+                      >
+                        {visibleColumnIds.map((columnId) => (
+                          <DraggableColumnHeader
+                            key={columnId}
+                            id={columnId}
+                            label={getColumnLabel(columnId)}
+                            sortColumn={sortColumn}
+                            sortDirection={sortDirection}
+                            onSort={handleSort}
+                          />
+                        ))}
+                      </SortableContext>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  {groupBy ? (
+                    <GroupedTransactions
+                      groupBy={groupBy}
+                      transactions={sortedTransactions}
+                      visibleColumns={visibleColumns}
+                      columnOrder={columnOrder}
+                      formatCurrency={formatCurrency}
+                      formatNumber={formatNumber}
+                      renderCell={renderCell}
+                    />
+                  ) : (
+                    <TableBody>
+                      {sortedTransactions.map((transaction) => (
+                        <TableRow key={transaction.id}>
+                          {visibleColumnIds.map((columnId) => (
+                            <TableCell key={columnId}>
+                              {renderCell(transaction, columnId)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  )}
+                </Table>
+              </DndContext>
             )}
           </div>
           {!loading && sortedTransactions.length > 0 && (
