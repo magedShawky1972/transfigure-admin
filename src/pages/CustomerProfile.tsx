@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, RefreshCw, Send } from "lucide-react";
+import { Pencil, Trash2, Receipt, TrendingUp, ArrowUpDown, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import {
   Select,
@@ -390,57 +390,6 @@ const CustomerSetup = () => {
     }
   };
 
-  const handleSendToOdoo = async (customer: CustomerTotal) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-customer-to-odoo', {
-        body: {
-          customerPhone: customer.customer_phone,
-          customerName: customer.customer_name,
-          email: '',
-          customerGroup: '',
-          status: customer.status,
-          isBlocked: customer.is_blocked,
-          blockReason: customer.block_reason || '',
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        // Update customer with partner_id from Odoo response
-        if (data.partner_id) {
-          const { error: updateError } = await supabase
-            .from('customers')
-            .update({ partner_id: data.partner_id })
-            .eq('customer_phone', customer.customer_phone);
-          
-          if (updateError) {
-            console.error('Error updating partner_id:', updateError);
-          } else {
-            // Refresh customers list to show updated partner_id
-            fetchCustomers(sortColumn ?? undefined, sortDirection);
-          }
-        }
-
-        toast({
-          title: t("common.success"),
-          description: `Customer sent to Odoo successfully. Partner ID: ${data.partner_id}`,
-        });
-      } else {
-        throw new Error(data?.error || 'Failed to send customer to Odoo');
-      }
-    } catch (error: any) {
-      console.error('Error sending customer to Odoo:', error);
-      toast({
-        title: t("common.error"),
-        description: error.message || 'Failed to send customer to Odoo',
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEditCustomer = (customer: CustomerTotal) => {
     setEditingCustomer(customer);
@@ -609,13 +558,12 @@ const CustomerSetup = () => {
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
                 <TableHead className="text-right">{t("customerSetup.actions")}</TableHead>
-                <TableHead className="text-center">Odoo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredCustomers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No customers to display
                   </TableCell>
                 </TableRow>
@@ -672,16 +620,6 @@ const CustomerSetup = () => {
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSendToOdoo(customer)}
-                        title="Send customer to Odoo"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))

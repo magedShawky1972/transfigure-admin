@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Send } from "lucide-react";
 import { format } from "date-fns";
 
 interface Customer {
@@ -180,6 +180,58 @@ const CustomerSetup = () => {
     }
   };
 
+  const handleSendToOdoo = async (customer: Customer) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-customer-to-odoo', {
+        body: {
+          customerPhone: customer.customer_phone,
+          customerName: customer.customer_name,
+          email: '',
+          customerGroup: '',
+          status: 'active',
+          isBlocked: false,
+          blockReason: '',
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        // Update customer with partner_id from Odoo response
+        if (data.partner_id) {
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update({ partner_id: data.partner_id })
+            .eq('customer_phone', customer.customer_phone);
+          
+          if (updateError) {
+            console.error('Error updating partner_id:', updateError);
+          } else {
+            // Refresh customers list to show updated partner_id
+            fetchCustomers();
+          }
+        }
+
+        toast({
+          title: t("common.success"),
+          description: `Customer sent to Odoo successfully. Partner ID: ${data.partner_id}`,
+        });
+      } else {
+        throw new Error(data?.error || 'Failed to send customer to Odoo');
+      }
+    } catch (error: any) {
+      console.error('Error sending customer to Odoo:', error);
+      toast({
+        title: t("common.error"),
+        description: error.message || 'Failed to send customer to Odoo',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       {loading && <LoadingOverlay progress={50} message={t("customerSetup.loading")} />}
@@ -205,12 +257,13 @@ const CustomerSetup = () => {
                 <TableHead>{t("customerSetup.creationDate")}</TableHead>
                 <TableHead>{t("customerSetup.partnerId")}</TableHead>
                 <TableHead className="text-right">{t("customerSetup.actions")}</TableHead>
+                <TableHead className="text-center">Odoo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {customers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     {t("customerSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -250,6 +303,16 @@ const CustomerSetup = () => {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendToOdoo(customer)}
+                        title="Send customer to Odoo"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
