@@ -8,6 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   Table,
   TableBody,
   TableCell,
@@ -45,6 +53,9 @@ const CustomerSetup = () => {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(50);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -74,13 +85,38 @@ const CustomerSetup = () => {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Get total count
+      const { count, error: countError } = await supabase
         .from("customers")
-        .select("id, customer_phone, customer_name, creation_date, partner_id")
-        .order("creation_date", { ascending: false });
+        .select("*", { count: "exact", head: true });
+      
+      if (countError) throw countError;
+      
+      const total = count || 0;
+      setTotalCount(total);
 
-      if (error) throw error;
-      setCustomers(data || []);
+      // Fetch all customers in batches
+      const batchSize = 1000;
+      const allCustomers: Customer[] = [];
+      const pages = Math.ceil(total / batchSize);
+
+      for (let p = 0; p < pages; p++) {
+        const from = p * batchSize;
+        const to = from + batchSize - 1;
+        const { data, error } = await supabase
+          .from("customers")
+          .select("id, customer_phone, customer_name, creation_date, partner_id")
+          .order("creation_date", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allCustomers.push(...data);
+        }
+        if (!data || data.length < batchSize) break;
+      }
+
+      setCustomers(allCustomers);
     } catch (error: any) {
       console.error("Error fetching customers:", error);
       toast({
@@ -153,6 +189,8 @@ const CustomerSetup = () => {
     }
 
     setFilteredCustomers(result);
+    // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const handleSort = (column: keyof Customer) => {
@@ -163,6 +201,15 @@ const CustomerSetup = () => {
       setSortDirection("asc");
     }
   };
+
+  // Get paginated data
+  const getPaginatedData = () => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredCustomers.slice(startIndex, endIndex);
+  };
+
+  const totalPages = Math.ceil(filteredCustomers.length / pageSize);
 
   const handleAdd = () => {
     setEditingCustomer(null);
@@ -337,7 +384,7 @@ const CustomerSetup = () => {
               <p className="text-muted-foreground">{t("customerSetup.subtitle")}</p>
             </div>
             <Badge variant="secondary" className="text-lg px-4 py-2">
-              {filteredCustomers.length} / {customers.length} {t("customerSetup.customers")}
+              {totalCount} {t("customerSetup.customers")}
             </Badge>
           </div>
           <Button onClick={handleAdd} className="flex items-center gap-2">
@@ -424,14 +471,14 @@ const CustomerSetup = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCustomers.length === 0 ? (
+              {getPaginatedData().length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     {customers.length === 0 ? t("customerSetup.noData") : "No matching results"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCustomers.map((customer) => (
+                getPaginatedData().map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className="font-mono">{customer.customer_phone}</TableCell>
                     <TableCell className="font-medium">{customer.customer_name}</TableCell>
@@ -483,6 +530,58 @@ const CustomerSetup = () => {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredCustomers.length)} of {filteredCustomers.length} results
+              {filteredCustomers.length !== totalCount && ` (filtered from ${totalCount} total)`}
+            </p>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+                
+                {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(pageNum)}
+                        isActive={currentPage === pageNum}
+                        className="cursor-pointer"
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
