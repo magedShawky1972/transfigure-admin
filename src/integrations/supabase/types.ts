@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      brand_type: {
+        Row: {
+          created_at: string
+          id: string
+          status: string
+          type_code: string
+          type_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: string
+          type_code: string
+          type_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string
+          type_code?: string
+          type_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       brands: {
         Row: {
           brand_code: string | null

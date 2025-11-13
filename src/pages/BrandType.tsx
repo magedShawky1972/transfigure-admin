@@ -33,8 +33,8 @@ import { format } from "date-fns";
 
 interface BrandType {
   id: string;
-  brand_code: string | null;
-  brand_name: string;
+  type_code: string;
+  type_name: string;
   status: string;
   created_at: string;
   updated_at: string;
@@ -48,12 +48,12 @@ const BrandType = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<BrandType | null>(null);
   const [formData, setFormData] = useState({
-    brand_code: "",
-    brand_name: "",
+    type_code: "",
+    type_name: "",
     status: "active",
   });
-  const [filterBrandCode, setFilterBrandCode] = useState("");
-  const [filterBrandName, setFilterBrandName] = useState("");
+  const [filterTypeCode, setFilterTypeCode] = useState("");
+  const [filterTypeName, setFilterTypeName] = useState("");
 
   useEffect(() => {
     fetchBrands();
@@ -63,9 +63,9 @@ const BrandType = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("brands")
+        .from("brand_type")
         .select("*")
-        .order("brand_name", { ascending: true });
+        .order("type_name", { ascending: true });
 
       if (error) throw error;
       setBrands(data || []);
@@ -87,10 +87,10 @@ const BrandType = () => {
     try {
       if (editingBrand) {
         const { error } = await supabase
-          .from("brands")
+          .from("brand_type")
           .update({
-            brand_code: formData.brand_code || null,
-            brand_name: formData.brand_name,
+            type_code: formData.type_code,
+            type_name: formData.type_name,
             status: formData.status,
           })
           .eq("id", editingBrand.id);
@@ -102,10 +102,10 @@ const BrandType = () => {
         });
       } else {
         const { error } = await supabase
-          .from("brands")
+          .from("brand_type")
           .insert({
-            brand_code: formData.brand_code || null,
-            brand_name: formData.brand_name,
+            type_code: formData.type_code,
+            type_name: formData.type_name,
             status: formData.status,
           });
 
@@ -133,8 +133,8 @@ const BrandType = () => {
   const handleEdit = (brand: BrandType) => {
     setEditingBrand(brand);
     setFormData({
-      brand_code: brand.brand_code || "",
-      brand_name: brand.brand_name,
+      type_code: brand.type_code,
+      type_name: brand.type_name,
       status: brand.status,
     });
     setDialogOpen(true);
@@ -146,7 +146,7 @@ const BrandType = () => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from("brands")
+        .from("brand_type")
         .delete()
         .eq("id", id);
 
@@ -169,8 +169,8 @@ const BrandType = () => {
 
   const resetForm = () => {
     setFormData({
-      brand_code: "",
-      brand_name: "",
+      type_code: "",
+      type_name: "",
       status: "active",
     });
     setEditingBrand(null);
@@ -182,12 +182,12 @@ const BrandType = () => {
   };
 
   const filteredBrands = brands.filter((brand) => {
-    const matchesBrandCode = !filterBrandCode || 
-      (brand.brand_code && brand.brand_code.toLowerCase().includes(filterBrandCode.toLowerCase()));
-    const matchesBrandName = !filterBrandName || 
-      brand.brand_name.toLowerCase().includes(filterBrandName.toLowerCase());
+    const matchesTypeCode = !filterTypeCode || 
+      brand.type_code.toLowerCase().includes(filterTypeCode.toLowerCase());
+    const matchesTypeName = !filterTypeName || 
+      brand.type_name.toLowerCase().includes(filterTypeName.toLowerCase());
     
-    return matchesBrandCode && matchesBrandName;
+    return matchesTypeCode && matchesTypeName;
   });
 
   return (
@@ -205,21 +205,21 @@ const BrandType = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="filterBrandCode">{t("brandType.filterByCode")}</Label>
+            <Label htmlFor="filterTypeCode">{t("brandType.filterByCode")}</Label>
             <Input
-              id="filterBrandCode"
+              id="filterTypeCode"
               placeholder={t("brandType.filterByCodePlaceholder")}
-              value={filterBrandCode}
-              onChange={(e) => setFilterBrandCode(e.target.value)}
+              value={filterTypeCode}
+              onChange={(e) => setFilterTypeCode(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="filterBrandName">{t("brandType.filterByName")}</Label>
+            <Label htmlFor="filterTypeName">{t("brandType.filterByName")}</Label>
             <Input
-              id="filterBrandName"
+              id="filterTypeName"
               placeholder={t("brandType.filterByNamePlaceholder")}
-              value={filterBrandName}
-              onChange={(e) => setFilterBrandName(e.target.value)}
+              value={filterTypeName}
+              onChange={(e) => setFilterTypeName(e.target.value)}
             />
           </div>
         </div>
@@ -240,14 +240,14 @@ const BrandType = () => {
               {filteredBrands.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    {filterBrandCode || filterBrandName ? t("brandType.noMatches") : t("brandType.noData")}
+                    {filterTypeCode || filterTypeName ? t("brandType.noMatches") : t("brandType.noData")}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredBrands.map((brand) => (
                   <TableRow key={brand.id}>
-                    <TableCell className="font-medium">{brand.brand_code || '-'}</TableCell>
-                    <TableCell>{brand.brand_name}</TableCell>
+                    <TableCell className="font-medium">{brand.type_code}</TableCell>
+                    <TableCell>{brand.type_name}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         brand.status === 'active' 
@@ -293,24 +293,25 @@ const BrandType = () => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="brand_code">{t("brandType.brandCode")}</Label>
+                <Label htmlFor="type_code">{t("brandType.brandCode")}</Label>
                 <Input
-                  id="brand_code"
-                  value={formData.brand_code}
+                  id="type_code"
+                  value={formData.type_code}
                   onChange={(e) =>
-                    setFormData({ ...formData, brand_code: e.target.value })
+                    setFormData({ ...formData, type_code: e.target.value })
                   }
                   placeholder={t("brandType.brandCodePlaceholder")}
+                  required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="brand_name">{t("brandType.brandName")}</Label>
+                <Label htmlFor="type_name">{t("brandType.brandName")}</Label>
                 <Input
-                  id="brand_name"
-                  value={formData.brand_name}
+                  id="type_name"
+                  value={formData.type_name}
                   onChange={(e) =>
-                    setFormData({ ...formData, brand_name: e.target.value })
+                    setFormData({ ...formData, type_name: e.target.value })
                   }
                   placeholder={t("brandType.brandNamePlaceholder")}
                   required
