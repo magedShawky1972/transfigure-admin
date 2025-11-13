@@ -44,10 +44,14 @@ interface Customer {
   id: string;
   customer_phone: string;
   customer_name: string;
+  email?: string;
   creation_date: string;
   partner_id: number | null;
   partner_profile_id: number | null;
   res_partner_id: number | null;
+  status: string;
+  is_blocked: boolean;
+  block_reason: string | null;
 }
 
 const CustomerSetup = () => {
@@ -64,6 +68,10 @@ const CustomerSetup = () => {
   const [formData, setFormData] = useState({
     customer_phone: "",
     customer_name: "",
+    email: "",
+    status: "active",
+    is_blocked: false,
+    block_reason: "",
   });
 
   // Filter states
@@ -107,7 +115,7 @@ const CustomerSetup = () => {
         const to = from + batchSize - 1;
         const { data, error } = await supabase
           .from("customers")
-          .select("id, customer_phone, customer_name, creation_date, partner_id, partner_profile_id, res_partner_id")
+          .select("id, customer_phone, customer_name, email, creation_date, partner_id, partner_profile_id, res_partner_id, status, is_blocked, block_reason")
           .order("creation_date", { ascending: false })
           .range(from, to);
 
@@ -218,6 +226,10 @@ const CustomerSetup = () => {
     setFormData({
       customer_phone: "",
       customer_name: "",
+      email: "",
+      status: "active",
+      is_blocked: false,
+      block_reason: "",
     });
     setDialogOpen(true);
   };
@@ -227,6 +239,10 @@ const CustomerSetup = () => {
     setFormData({
       customer_phone: customer.customer_phone,
       customer_name: customer.customer_name,
+      email: customer.email || "",
+      status: customer.status,
+      is_blocked: customer.is_blocked,
+      block_reason: customer.block_reason || "",
     });
     setDialogOpen(true);
   };
@@ -279,6 +295,10 @@ const CustomerSetup = () => {
           .from("customers")
           .update({
             customer_name: formData.customer_name,
+            email: formData.email || null,
+            status: formData.status,
+            is_blocked: formData.is_blocked,
+            block_reason: formData.block_reason || null,
           })
           .eq("id", editingCustomer.id);
 
@@ -295,9 +315,11 @@ const CustomerSetup = () => {
           .insert({
             customer_phone: formData.customer_phone,
             customer_name: formData.customer_name,
+            email: formData.email || null,
             creation_date: new Date().toISOString(),
-            status: "active",
-            is_blocked: false,
+            status: formData.status,
+            is_blocked: formData.is_blocked,
+            block_reason: formData.block_reason || null,
           });
 
         if (error) throw error;
@@ -458,11 +480,26 @@ const CustomerSetup = () => {
                   {t("customerSetup.name")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort("creation_date")}
                 >
                   {t("customerSetup.creationDate")}
+                  <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("status")}
+                >
+                  Status
+                  <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort("is_blocked")}
+                >
+                  Blocked
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
                 <TableHead 
@@ -479,7 +516,7 @@ const CustomerSetup = () => {
             <TableBody>
               {getPaginatedData().length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {customers.length === 0 ? t("customerSetup.noData") : "No matching results"}
                   </TableCell>
                 </TableRow>
@@ -488,10 +525,23 @@ const CustomerSetup = () => {
                   <TableRow key={customer.id}>
                     <TableCell className="font-mono">{customer.customer_phone}</TableCell>
                     <TableCell className="font-medium">{customer.customer_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{customer.email || "-"}</TableCell>
                     <TableCell>
                       {customer.creation_date
                         ? format(new Date(customer.creation_date), "MMM dd, yyyy")
                         : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={customer.status === "active" ? "default" : "secondary"}>
+                        {customer.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {customer.is_blocked ? (
+                        <Badge variant="destructive">Blocked</Badge>
+                      ) : (
+                        <Badge variant="outline">Active</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {customer.partner_id ? (
@@ -621,6 +671,55 @@ const CustomerSetup = () => {
                   placeholder={t("customerSetup.namePlaceholder")}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  placeholder="customer@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select 
+                  value={formData.status} 
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="blocked"
+                  checked={formData.is_blocked}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_blocked: checked })}
+                />
+                <Label htmlFor="blocked" className="cursor-pointer">Block Customer</Label>
+              </div>
+              {formData.is_blocked && (
+                <div className="space-y-2">
+                  <Label htmlFor="blockReason">Block Reason</Label>
+                  <Textarea
+                    id="blockReason"
+                    value={formData.block_reason}
+                    onChange={(e) =>
+                      setFormData({ ...formData, block_reason: e.target.value })
+                    }
+                    placeholder="Enter reason for blocking..."
+                    rows={3}
+                  />
+                </div>
+              )}
               {editingCustomer && (
                 <>
                   <div className="space-y-2">
