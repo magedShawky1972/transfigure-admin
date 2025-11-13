@@ -41,7 +41,49 @@ serve(async (req) => {
       throw new Error('Odoo credentials not properly configured');
     }
 
-    // Prepare Odoo request body
+    // First, check if customer exists using PUT request
+    const checkUrl = `https://purplecard-staging-24752844.dev.odoo.com/api/partners/${customerPhone}`;
+    console.log('Checking if customer exists:', checkUrl);
+
+    try {
+      const checkResponse = await fetch(checkUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': odooApiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const checkText = await checkResponse.text();
+      console.log('Check response status:', checkResponse.status);
+      console.log('Check response:', checkText);
+
+      let checkData;
+      try {
+        checkData = JSON.parse(checkText);
+      } catch (e) {
+        checkData = null;
+      }
+
+      // If customer exists, return the existing IDs
+      if (checkResponse.ok && checkData?.success === true) {
+        console.log('Customer already exists, using existing IDs');
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: checkData.message || 'Customer already exists in Odoo',
+            partner_profile_id: checkData.partner_profile_id,
+            res_partner_id: checkData.res_partner_id,
+            data: checkData 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (checkError) {
+      console.log('Customer does not exist or check failed, proceeding with creation:', checkError);
+    }
+
+    // Customer doesn't exist, proceed with creation
     const odooRequestBody = {
       partner_type: "customer",
       phone: customerPhone,
@@ -53,9 +95,9 @@ serve(async (req) => {
       block_reason: blockReason || "",
     };
 
-    console.log('Sending to Odoo:', odooRequestBody);
+    console.log('Creating new customer in Odoo:', odooRequestBody);
 
-    // Call Odoo API (ODOO_URL should include the full endpoint path)
+    // Call Odoo API to create customer
     const odooResponse = await fetch(odooUrl, {
       method: 'POST',
       headers: {
@@ -66,8 +108,8 @@ serve(async (req) => {
     });
 
     const responseText = await odooResponse.text();
-    console.log('Odoo response status:', odooResponse.status);
-    console.log('Odoo response:', responseText);
+    console.log('Odoo creation response status:', odooResponse.status);
+    console.log('Odoo creation response:', responseText);
 
     if (!odooResponse.ok) {
       throw new Error(`Odoo API error: ${odooResponse.status} - ${responseText}`);
