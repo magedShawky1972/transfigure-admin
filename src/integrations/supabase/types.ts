@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       brands: {
         Row: {
+          brand_code: string | null
           brand_name: string
           created_at: string
           id: string
@@ -26,6 +27,7 @@ export type Database = {
           usd_value_for_coins: number | null
         }
         Insert: {
+          brand_code?: string | null
           brand_name: string
           created_at?: string
           id?: string
@@ -36,6 +38,7 @@ export type Database = {
           usd_value_for_coins?: number | null
         }
         Update: {
+          brand_code?: string | null
           brand_name?: string
           created_at?: string
           id?: string

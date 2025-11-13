@@ -49,6 +49,7 @@ export function AppSidebar() {
     "/customer-profile": "customerProfile",
     "/customer-totals": "customerTotals",
     "/brand-setup": "brandSetup",
+    "/brand-type": "brandType",
     "/product-setup": "productSetup",
     "/payment-method-setup": "paymentMethodSetup",
     "/user-setup": "userSetup",
@@ -118,6 +119,7 @@ export function AppSidebar() {
         { title: t("menu.customerProfile"), url: "/customer-profile", icon: Users },
         { title: t("menu.customerTotals"), url: "/customer-totals", icon: TrendingUp },
         { title: t("menu.brandSetup"), url: "/brand-setup", icon: Settings },
+        { title: t("menu.brandType"), url: "/brand-type", icon: Settings },
         { title: t("menu.productSetup"), url: "/product-setup", icon: Database },
         { title: language === 'ar' ? 'إعداد طرق الدفع' : 'Payment Method Setup', url: "/payment-method-setup", icon: CreditCard },
       ]
