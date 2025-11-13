@@ -378,8 +378,17 @@ const CustomerSetup = () => {
           if (updateError) {
             console.error('Error updating partner IDs:', updateError);
           } else {
-            // Refresh customers list to show updated partner IDs
-            fetchCustomers();
+            // Update local state without refetching
+            setCustomers(prev => prev.map(c => 
+              c.customer_phone === customer.customer_phone 
+                ? { 
+                    ...c, 
+                    partner_id: data.partner_profile_id,
+                    partner_profile_id: data.partner_profile_id,
+                    res_partner_id: data.res_partner_id
+                  }
+                : c
+            ));
           }
         }
 
