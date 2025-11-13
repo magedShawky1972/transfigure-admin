@@ -53,6 +53,7 @@ const MENU_ITEMS = [
   { key: "customerProfile", label: "Customer Profile" },
   { key: "customerTotals", label: "Customer Totals" },
   { key: "brandSetup", label: "Brand Setup" },
+  { key: "brandType", label: "Brand Type" },
   { key: "productSetup", label: "Product Setup" },
   { key: "paymentMethodSetup", label: "Payment Method Setup" },
   { key: "userSetup", label: "User Setup" },
