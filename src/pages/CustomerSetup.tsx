@@ -353,11 +353,11 @@ const CustomerSetup = () => {
         body: {
           customerPhone: customer.customer_phone,
           customerName: customer.customer_name,
-          email: '',
+          email: customer.email || '',
           customerGroup: 'Retail',
-          status: 'active',
-          isBlocked: false,
-          blockReason: '',
+          status: customer.status || 'active',
+          isBlocked: customer.is_blocked || false,
+          blockReason: customer.block_reason || '',
         },
       });
 
