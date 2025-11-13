@@ -93,6 +93,7 @@ export type Database = {
           creation_date: string
           customer_name: string
           customer_phone: string
+          email: string | null
           id: string
           is_blocked: boolean
           partner_id: number | null
@@ -108,6 +109,7 @@ export type Database = {
           creation_date: string
           customer_name: string
           customer_phone: string
+          email?: string | null
           id?: string
           is_blocked?: boolean
           partner_id?: number | null
@@ -123,6 +125,7 @@ export type Database = {
           creation_date?: string
           customer_name?: string
           customer_phone?: string
+          email?: string | null
           id?: string
           is_blocked?: boolean
           partner_id?: number | null
