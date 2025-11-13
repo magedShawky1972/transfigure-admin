@@ -96,6 +96,8 @@ export type Database = {
           id: string
           is_blocked: boolean
           partner_id: number | null
+          partner_profile_id: number | null
+          res_partner_id: number | null
           status: string
           updated_at: string
           updated_by: string | null
@@ -109,6 +111,8 @@ export type Database = {
           id?: string
           is_blocked?: boolean
           partner_id?: number | null
+          partner_profile_id?: number | null
+          res_partner_id?: number | null
           status?: string
           updated_at?: string
           updated_by?: string | null
@@ -122,6 +126,8 @@ export type Database = {
           id?: string
           is_blocked?: boolean
           partner_id?: number | null
+          partner_profile_id?: number | null
+          res_partner_id?: number | null
           status?: string
           updated_at?: string
           updated_by?: string | null

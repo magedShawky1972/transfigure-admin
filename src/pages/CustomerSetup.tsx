@@ -328,7 +328,7 @@ const CustomerSetup = () => {
           customerPhone: customer.customer_phone,
           customerName: customer.customer_name,
           email: '',
-          customerGroup: '',
+          customerGroup: 'Retail',
           status: 'active',
           isBlocked: false,
           blockReason: '',
@@ -338,24 +338,28 @@ const CustomerSetup = () => {
       if (error) throw error;
 
       if (data?.success) {
-        // Update customer with partner_id from Odoo response
-        if (data.partner_id) {
+        // Update customer with both partner IDs from Odoo response
+        if (data.partner_profile_id && data.res_partner_id) {
           const { error: updateError } = await supabase
             .from('customers')
-            .update({ partner_id: data.partner_id })
+            .update({ 
+              partner_id: data.partner_profile_id,
+              partner_profile_id: data.partner_profile_id,
+              res_partner_id: data.res_partner_id
+            })
             .eq('customer_phone', customer.customer_phone);
           
           if (updateError) {
-            console.error('Error updating partner_id:', updateError);
+            console.error('Error updating partner IDs:', updateError);
           } else {
-            // Refresh customers list to show updated partner_id
+            // Refresh customers list to show updated partner IDs
             fetchCustomers();
           }
         }
 
         toast({
           title: t("common.success"),
-          description: `Customer sent to Odoo successfully. Partner ID: ${data.partner_id}`,
+          description: `Customer synced to Odoo. Profile ID: ${data.partner_profile_id}, Partner ID: ${data.res_partner_id}`,
         });
       } else {
         throw new Error(data?.error || 'Failed to send customer to Odoo');

@@ -49,7 +49,7 @@ serve(async (req) => {
       email: email || "",
       customer_group: customerGroup || "",
       status: status === "active" ? "active" : "suspended",
-      is_blocked: isBlocked ? 1 : 0,
+      is_blocked: isBlocked ? true : false,
       block_reason: blockReason || "",
     };
 
@@ -84,8 +84,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: odooData.message || 'Customer synced to Odoo successfully',
-        partner_id: odooData.partner_id,
-        partner_name: odooData.partner_name,
+        partner_profile_id: odooData.partner_profile_id,
+        res_partner_id: odooData.res_partner_id,
         data: odooData 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
