@@ -39,7 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Plus, Trash2, Send, ArrowUpDown } from "lucide-react";
+import { Pencil, Plus, Trash2, Send, ArrowUpDown, CheckSquare, Square } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 
 interface Customer {
@@ -67,6 +68,7 @@ const CustomerSetup = () => {
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     customer_phone: "",
     customer_name: "",
@@ -411,6 +413,107 @@ const CustomerSetup = () => {
     }
   };
 
+  const handleBatchSyncToOdoo = async () => {
+    if (selectedCustomers.length === 0) {
+      toast({
+        title: t("common.error"),
+        description: "Please select customers to sync",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const customerId of selectedCustomers) {
+        const customer = customers.find(c => c.id === customerId);
+        if (!customer) continue;
+
+        try {
+          const { data, error } = await supabase.functions.invoke('sync-customer-to-odoo', {
+            body: {
+              customerPhone: customer.customer_phone,
+              customerName: customer.customer_name,
+              email: customer.email || '',
+              customerGroup: 'Retail',
+              status: customer.status || 'active',
+              isBlocked: customer.is_blocked || false,
+              blockReason: customer.block_reason || '',
+            },
+          });
+
+          if (error) throw error;
+
+          if (data?.success && data.partner_profile_id && data.res_partner_id) {
+            await supabase
+              .from('customers')
+              .update({ 
+                partner_id: data.partner_profile_id,
+                partner_profile_id: data.partner_profile_id,
+                res_partner_id: data.res_partner_id
+              })
+              .eq('customer_phone', customer.customer_phone);
+
+            setCustomers(prev => prev.map(c => 
+              c.customer_phone === customer.customer_phone 
+                ? { 
+                    ...c, 
+                    partner_id: data.partner_profile_id,
+                    partner_profile_id: data.partner_profile_id,
+                    res_partner_id: data.res_partner_id
+                  }
+                : c
+            ));
+
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error syncing customer ${customer.customer_phone}:`, error);
+          failCount++;
+        }
+      }
+
+      toast({
+        title: t("common.success"),
+        description: `Synced ${successCount} customers successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
+      });
+
+      setSelectedCustomers([]);
+    } catch (error: any) {
+      console.error('Error in batch sync:', error);
+      toast({
+        title: t("common.error"),
+        description: error.message || 'Batch sync failed',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    const currentPageCustomers = getPaginatedData();
+    const allSelected = currentPageCustomers.every(c => selectedCustomers.includes(c.id));
+    
+    if (allSelected) {
+      setSelectedCustomers(prev => prev.filter(id => !currentPageCustomers.find(c => c.id === id)));
+    } else {
+      const newSelected = currentPageCustomers.map(c => c.id);
+      setSelectedCustomers(prev => [...new Set([...prev, ...newSelected])]);
+    }
+  };
+
+  const toggleSelectCustomer = (customerId: string) => {
+    setSelectedCustomers(prev => 
+      prev.includes(customerId)
+        ? prev.filter(id => id !== customerId)
+        : [...prev, customerId]
+    );
+  };
+
   return (
     <>
       {loading && <LoadingOverlay progress={50} message={t("customerSetup.loading")} />}
@@ -425,11 +528,24 @@ const CustomerSetup = () => {
             <Badge variant="secondary" className="text-lg px-4 py-2">
               {totalCount} {t("customerSetup.customers")}
             </Badge>
+            {selectedCustomers.length > 0 && (
+              <Badge variant="default" className="text-lg px-4 py-2">
+                {selectedCustomers.length} Selected
+              </Badge>
+            )}
           </div>
-          <Button onClick={handleAdd} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            {t("customerSetup.addNew")}
-          </Button>
+          <div className="flex gap-2">
+            {selectedCustomers.length > 0 && (
+              <Button onClick={handleBatchSyncToOdoo} className="flex items-center gap-2" variant="default">
+                <Send className="h-4 w-4" />
+                Batch Sync to Odoo
+              </Button>
+            )}
+            <Button onClick={handleAdd} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              {t("customerSetup.addNew")}
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -477,6 +593,12 @@ const CustomerSetup = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={getPaginatedData().length > 0 && getPaginatedData().every(c => selectedCustomers.includes(c.id))}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort("customer_phone")}
@@ -527,13 +649,19 @@ const CustomerSetup = () => {
             <TableBody>
               {getPaginatedData().length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     {customers.length === 0 ? t("customerSetup.noData") : "No matching results"}
                   </TableCell>
                 </TableRow>
               ) : (
                 getPaginatedData().map((customer) => (
                   <TableRow key={customer.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedCustomers.includes(customer.id)}
+                        onCheckedChange={() => toggleSelectCustomer(customer.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono">{customer.customer_phone}</TableCell>
                     <TableCell className="font-medium">{customer.customer_name}</TableCell>
                     <TableCell className="text-muted-foreground">{customer.email || "-"}</TableCell>
