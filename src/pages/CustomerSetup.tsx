@@ -46,6 +46,8 @@ interface Customer {
   customer_name: string;
   creation_date: string;
   partner_id: number | null;
+  partner_profile_id: number | null;
+  res_partner_id: number | null;
 }
 
 const CustomerSetup = () => {
@@ -105,7 +107,7 @@ const CustomerSetup = () => {
         const to = from + batchSize - 1;
         const { data, error } = await supabase
           .from("customers")
-          .select("id, customer_phone, customer_name, creation_date, partner_id")
+          .select("id, customer_phone, customer_name, creation_date, partner_id, partner_profile_id, res_partner_id")
           .order("creation_date", { ascending: false })
           .range(from, to);
 
@@ -619,6 +621,26 @@ const CustomerSetup = () => {
                   placeholder={t("customerSetup.namePlaceholder")}
                 />
               </div>
+              {editingCustomer && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Partner Profile ID</Label>
+                    <Input
+                      value={editingCustomer.partner_profile_id || 'Not synced'}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Resource Partner ID</Label>
+                    <Input
+                      value={editingCustomer.res_partner_id || 'Not synced'}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
