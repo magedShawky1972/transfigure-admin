@@ -48,7 +48,10 @@ export type Database = {
           brand_type_id: string | null
           created_at: string
           id: string
+          leadtime: number | null
           recharge_usd_value: number | null
+          reorder_point: number | null
+          safety_stock: number | null
           short_name: string | null
           status: string
           updated_at: string
@@ -60,7 +63,10 @@ export type Database = {
           brand_type_id?: string | null
           created_at?: string
           id?: string
+          leadtime?: number | null
           recharge_usd_value?: number | null
+          reorder_point?: number | null
+          safety_stock?: number | null
           short_name?: string | null
           status?: string
           updated_at?: string
@@ -72,7 +78,10 @@ export type Database = {
           brand_type_id?: string | null
           created_at?: string
           id?: string
+          leadtime?: number | null
           recharge_usd_value?: number | null
+          reorder_point?: number | null
+          safety_stock?: number | null
           short_name?: string | null
           status?: string
           updated_at?: string
