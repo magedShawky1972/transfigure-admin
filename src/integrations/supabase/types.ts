@@ -45,6 +45,7 @@ export type Database = {
         Row: {
           brand_code: string | null
           brand_name: string
+          brand_type_id: string | null
           created_at: string
           id: string
           recharge_usd_value: number | null
@@ -56,6 +57,7 @@ export type Database = {
         Insert: {
           brand_code?: string | null
           brand_name: string
+          brand_type_id?: string | null
           created_at?: string
           id?: string
           recharge_usd_value?: number | null
@@ -67,6 +69,7 @@ export type Database = {
         Update: {
           brand_code?: string | null
           brand_name?: string
+          brand_type_id?: string | null
           created_at?: string
           id?: string
           recharge_usd_value?: number | null
@@ -75,7 +78,15 @@ export type Database = {
           updated_at?: string
           usd_value_for_coins?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brands_brand_type_id_fkey"
+            columns: ["brand_type_id"]
+            isOneToOne: false
+            referencedRelation: "brand_type"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_customer_followup: {
         Row: {
