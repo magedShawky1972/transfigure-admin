@@ -38,14 +38,23 @@ interface Brand {
   usd_value_for_coins?: number;
   recharge_usd_value?: number;
   status: string;
+  brand_type_id?: string;
   created_at: string;
   updated_at: string;
+}
+
+interface BrandType {
+  id: string;
+  type_code: string;
+  type_name: string;
+  status: string;
 }
 
 const BrandSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
@@ -54,6 +63,7 @@ const BrandSetup = () => {
     short_name: "",
     usd_value_for_coins: "",
     recharge_usd_value: "",
+    brand_type_id: "",
     status: "active",
   });
   const [filterBrandName, setFilterBrandName] = useState("");
@@ -61,14 +71,36 @@ const BrandSetup = () => {
 
   useEffect(() => {
     fetchBrands();
+    fetchBrandTypes();
   }, []);
+
+  const fetchBrandTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("brand_type")
+        .select("*")
+        .eq("status", "active")
+        .order("type_name", { ascending: true });
+
+      if (error) throw error;
+      setBrandTypes(data || []);
+    } catch (error: any) {
+      console.error("Error fetching brand types:", error);
+    }
+  };
 
   const fetchBrands = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("brands")
-        .select("*")
+        .select(`
+          *,
+          brand_type:brand_type_id (
+            id,
+            type_name
+          )
+        `)
         .order("brand_name", { ascending: true });
 
       if (error) throw error;
@@ -97,6 +129,7 @@ const BrandSetup = () => {
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
+            brand_type_id: formData.brand_type_id || null,
             status: formData.status,
           })
           .eq("id", editingBrand.id);
@@ -114,6 +147,7 @@ const BrandSetup = () => {
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
+            brand_type_id: formData.brand_type_id || null,
             status: formData.status,
           });
 
@@ -145,6 +179,7 @@ const BrandSetup = () => {
       short_name: brand.short_name || "",
       usd_value_for_coins: brand.usd_value_for_coins?.toString() || "",
       recharge_usd_value: brand.recharge_usd_value?.toString() || "",
+      brand_type_id: brand.brand_type_id || "",
       status: brand.status,
     });
     setDialogOpen(true);
@@ -183,6 +218,7 @@ const BrandSetup = () => {
       short_name: "",
       usd_value_for_coins: "",
       recharge_usd_value: "",
+      brand_type_id: "",
       status: "active",
     });
     setEditingBrand(null);
@@ -243,6 +279,7 @@ const BrandSetup = () => {
               <TableRow>
                 <TableHead>{t("brandSetup.brandName")}</TableHead>
                 <TableHead>Short Name</TableHead>
+                <TableHead>{t("brandSetup.brandType")}</TableHead>
                 <TableHead>USD Value For Coins</TableHead>
                 <TableHead>Recharge USD Value</TableHead>
                 <TableHead>{t("brandSetup.status")}</TableHead>
@@ -254,7 +291,7 @@ const BrandSetup = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -263,6 +300,7 @@ const BrandSetup = () => {
                   <TableRow key={brand.id}>
                     <TableCell className="font-medium">{brand.brand_name}</TableCell>
                     <TableCell>{brand.short_name || '-'}</TableCell>
+                    <TableCell>{(brand as any).brand_type?.type_name || '-'}</TableCell>
                     <TableCell>{brand.usd_value_for_coins || 0}</TableCell>
                     <TableCell>{brand.recharge_usd_value?.toFixed(3) || '0.000'}</TableCell>
                     <TableCell>
@@ -360,6 +398,28 @@ const BrandSetup = () => {
                   }
                   placeholder="Enter recharge USD value"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="brand_type_id">{t("brandSetup.brandType")}</Label>
+                <Select
+                  value={formData.brand_type_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, brand_type_id: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("brandSetup.selectBrandType")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{t("brandSetup.noBrandType")}</SelectItem>
+                    {brandTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.type_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
