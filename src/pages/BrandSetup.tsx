@@ -403,16 +403,16 @@ const BrandSetup = () => {
               <div className="space-y-2">
                 <Label htmlFor="brand_type_id">{t("brandSetup.brandType")}</Label>
                 <Select
-                  value={formData.brand_type_id}
+                  value={formData.brand_type_id || "none"}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, brand_type_id: value })
+                    setFormData({ ...formData, brand_type_id: value === "none" ? "" : value })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t("brandSetup.selectBrandType")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t("brandSetup.noBrandType")}</SelectItem>
+                    <SelectItem value="none">{t("brandSetup.noBrandType")}</SelectItem>
                     {brandTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.type_name}
