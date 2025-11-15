@@ -20,6 +20,7 @@ import CustomerSetup from "./pages/CustomerSetup";
 import CustomerProfile from "./pages/CustomerProfile";
 import CustomerTotals from "./pages/CustomerTotals";
 import BrandSetup from "./pages/BrandSetup";
+import BrandEdit from "./pages/BrandEdit";
 import BrandType from "./pages/BrandType";
 import ProductSetup from "./pages/ProductSetup";
 import ProductDetails from "./pages/ProductDetails";
@@ -55,6 +56,7 @@ const App = () => (
               <Route path="/customer-profile" element={<CustomerProfile />} />
               <Route path="/customer-totals" element={<CustomerTotals />} />
               <Route path="/brand-setup" element={<BrandSetup />} />
+              <Route path="/brand-setup/edit" element={<BrandEdit />} />
               <Route path="/brand-type" element={<BrandType />} />
               <Route path="/product-setup" element={<ProductSetup />} />
               <Route path="/product-details/:id" element={<ProductDetails />} />
