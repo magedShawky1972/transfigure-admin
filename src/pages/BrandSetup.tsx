@@ -47,13 +47,32 @@ const BrandSetup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterBrandName, setFilterBrandName] = useState("");
   const [filterShortName, setFilterShortName] = useState("");
+  const [filterABCAnalysis, setFilterABCAnalysis] = useState("");
+  const [filterBrandType, setFilterBrandType] = useState("");
 
   useEffect(() => {
     fetchBrands();
+    fetchBrandTypes();
   }, []);
+
+  const fetchBrandTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("brand_type")
+        .select("*")
+        .eq("status", "active")
+        .order("type_name", { ascending: true });
+
+      if (error) throw error;
+      setBrandTypes(data || []);
+    } catch (error: any) {
+      console.error("Error fetching brand types:", error);
+    }
+  };
 
   const fetchBrands = async () => {
     setLoading(true);
@@ -123,8 +142,12 @@ const BrandSetup = () => {
       brand.brand_name.toLowerCase().includes(filterBrandName.toLowerCase());
     const matchesShortName = !filterShortName || 
       (brand.short_name && brand.short_name.toLowerCase().includes(filterShortName.toLowerCase()));
+    const matchesABCAnalysis = !filterABCAnalysis || 
+      brand.abc_analysis === filterABCAnalysis;
+    const matchesBrandType = !filterBrandType || 
+      brand.brand_type_id === filterBrandType;
     
-    return matchesBrandName && matchesShortName;
+    return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType;
   });
 
   return (
@@ -140,7 +163,7 @@ const BrandSetup = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label htmlFor="filterBrandName">Filter by Brand Name</Label>
             <Input
@@ -158,6 +181,36 @@ const BrandSetup = () => {
               value={filterShortName}
               onChange={(e) => setFilterShortName(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterABCAnalysis">Filter by ABC Analysis</Label>
+            <select
+              id="filterABCAnalysis"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filterABCAnalysis}
+              onChange={(e) => setFilterABCAnalysis(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterBrandType">Filter by Brand Type</Label>
+            <select
+              id="filterBrandType"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filterBrandType}
+              onChange={(e) => setFilterBrandType(e.target.value)}
+            >
+              <option value="">All</option>
+              {brandTypes.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.type_name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -183,7 +236,7 @@ const BrandSetup = () => {
               {filteredBrands.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
-                    {filterBrandName || filterShortName ? "No brands match your filters" : t("brandSetup.noData")}
+                    {filterBrandName || filterShortName || filterABCAnalysis || filterBrandType ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
               ) : (
