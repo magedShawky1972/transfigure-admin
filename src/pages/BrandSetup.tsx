@@ -21,12 +21,14 @@ import { format } from "date-fns";
 interface Brand {
   id: string;
   brand_name: string;
+  brand_code?: string;
   short_name?: string;
   usd_value_for_coins?: number;
   recharge_usd_value?: number;
   leadtime?: number;
   safety_stock?: number;
   reorder_point?: number;
+  abc_analysis?: string;
   status: string;
   brand_type_id?: string;
   created_at: string;
@@ -164,8 +166,10 @@ const BrandSetup = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("brandSetup.brandName")}</TableHead>
+                <TableHead>Brand Code</TableHead>
                 <TableHead>Short Name</TableHead>
                 <TableHead>{t("brandSetup.brandType")}</TableHead>
+                <TableHead>ABC Analysis</TableHead>
                 <TableHead>USD Value</TableHead>
                 <TableHead>Recharge USD</TableHead>
                 <TableHead>Lead Time</TableHead>
@@ -178,7 +182,7 @@ const BrandSetup = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -186,8 +190,20 @@ const BrandSetup = () => {
                 filteredBrands.map((brand) => (
                   <TableRow key={brand.id}>
                     <TableCell className="font-medium">{brand.brand_name}</TableCell>
+                    <TableCell>{brand.brand_code || '-'}</TableCell>
                     <TableCell>{brand.short_name || '-'}</TableCell>
                     <TableCell>{(brand as any).brand_type?.type_name || '-'}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        brand.abc_analysis === 'A' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                          : brand.abc_analysis === 'B'
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                      }`}>
+                        {brand.abc_analysis || 'C'}
+                      </span>
+                    </TableCell>
                     <TableCell>{brand.usd_value_for_coins || 0}</TableCell>
                     <TableCell>{brand.recharge_usd_value?.toFixed(3) || '0.000'}</TableCell>
                     <TableCell>{brand.leadtime || 0}</TableCell>
@@ -202,8 +218,6 @@ const BrandSetup = () => {
                         {brand.status}
                       </span>
                     </TableCell>
-                    <TableCell>{format(new Date(brand.created_at), "PPp")}</TableCell>
-                    <TableCell>{format(new Date(brand.updated_at), "PPp")}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
