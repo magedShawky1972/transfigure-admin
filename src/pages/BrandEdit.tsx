@@ -33,12 +33,14 @@ const BrandEdit = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     brand_name: "",
+    brand_code: "",
     short_name: "",
     usd_value_for_coins: "",
     recharge_usd_value: "",
     leadtime: "",
     safety_stock: "",
     reorder_point: "",
+    abc_analysis: "C",
     brand_type_id: "none",
     status: "active",
   });
@@ -79,12 +81,14 @@ const BrandEdit = () => {
       if (data) {
         setFormData({
           brand_name: data.brand_name,
+          brand_code: data.brand_code || "",
           short_name: data.short_name || "",
           usd_value_for_coins: data.usd_value_for_coins?.toString() || "",
           recharge_usd_value: data.recharge_usd_value?.toString() || "",
           leadtime: data.leadtime?.toString() || "",
           safety_stock: data.safety_stock?.toString() || "",
           reorder_point: data.reorder_point?.toString() || "",
+          abc_analysis: data.abc_analysis || "C",
           brand_type_id: data.brand_type_id || "none",
           status: data.status,
         });
@@ -110,12 +114,14 @@ const BrandEdit = () => {
           .from("brands")
           .update({
             brand_name: formData.brand_name,
+            brand_code: formData.brand_code || null,
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
             safety_stock: formData.safety_stock ? parseFloat(formData.safety_stock) : 0,
             reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : 0,
+            abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
           })
@@ -131,12 +137,14 @@ const BrandEdit = () => {
           .from("brands")
           .insert({
             brand_name: formData.brand_name,
+            brand_code: formData.brand_code || null,
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
             safety_stock: formData.safety_stock ? parseFloat(formData.safety_stock) : 0,
             reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : 0,
+            abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
           });
@@ -189,6 +197,18 @@ const BrandEdit = () => {
               }
               placeholder={t("brandSetup.brandNamePlaceholder")}
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="brand_code">Brand Code</Label>
+            <Input
+              id="brand_code"
+              value={formData.brand_code}
+              onChange={(e) =>
+                setFormData({ ...formData, brand_code: e.target.value })
+              }
+              placeholder="Enter brand code"
             />
           </div>
 
@@ -295,6 +315,25 @@ const BrandEdit = () => {
                     {type.type_name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="abc_analysis">ABC Analysis</Label>
+            <Select
+              value={formData.abc_analysis}
+              onValueChange={(value) =>
+                setFormData({ ...formData, abc_analysis: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="A">A - High Value</SelectItem>
+                <SelectItem value="B">B - Medium Value</SelectItem>
+                <SelectItem value="C">C - Low Value</SelectItem>
               </SelectContent>
             </Select>
           </div>
