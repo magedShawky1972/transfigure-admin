@@ -56,6 +56,7 @@ interface Product {
   product_cost: string | null;
   brand_name: string | null;
   brand_code: string | null;
+  brand_type: string | null;
   status: string;
   odoo_sync_status: string | null;
   odoo_synced_at: string | null;
@@ -100,6 +101,7 @@ const ProductSetup = () => {
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterBrand, setFilterBrand] = useState<string>("all");
+  const [filterBrandType, setFilterBrandType] = useState<string>("all");
   
   // View mode state
   const [viewMode, setViewMode] = useState<"grid" | "tree">("grid");
@@ -112,6 +114,7 @@ const ProductSetup = () => {
     product_cost: "",
     brand_name: "",
     brand_code: "",
+    brand_type: "",
     status: "active",
     sku: "",
   });
@@ -169,11 +172,13 @@ const ProductSetup = () => {
     const nameMatch = !filterName || product.product_name.toLowerCase().includes(filterName.toLowerCase());
     const statusMatch = filterStatus === "all" || product.status === filterStatus;
     const brandMatch = filterBrand === "all" || product.brand_name === filterBrand;
-    return nameMatch && statusMatch && brandMatch;
+    const brandTypeMatch = filterBrandType === "all" || product.brand_type === filterBrandType;
+    return nameMatch && statusMatch && brandMatch && brandTypeMatch;
   });
 
-  // Get unique brands for filter
+  // Get unique brands and brand types for filters
   const uniqueBrands = Array.from(new Set(products.map(p => p.brand_name).filter(Boolean)));
+  const uniqueBrandTypes = Array.from(new Set(products.map(p => p.brand_type).filter(Boolean)));
 
   // Group products by brand for tree view
   const productsByBrand = filteredProducts.reduce((acc, product) => {
@@ -201,6 +206,7 @@ const ProductSetup = () => {
             product_cost: formData.product_cost || null,
             brand_name: formData.brand_name || null,
             brand_code: formData.brand_code || null,
+            brand_type: formData.brand_type || null,
             status: formData.status,
             sku: formData.sku || null,
           })
@@ -222,6 +228,7 @@ const ProductSetup = () => {
             product_cost: formData.product_cost || null,
             brand_name: formData.brand_name || null,
             brand_code: formData.brand_code || null,
+            brand_type: formData.brand_type || null,
             status: formData.status,
             sku: formData.sku || null,
           });
@@ -257,6 +264,7 @@ const ProductSetup = () => {
       product_cost: product.product_cost || "",
       brand_name: product.brand_name || "",
       brand_code: product.brand_code || "",
+      brand_type: product.brand_type || "",
       status: product.status,
       sku: product.sku || "",
     });
@@ -300,6 +308,7 @@ const ProductSetup = () => {
       product_cost: "",
       brand_name: "",
       brand_code: "",
+      brand_type: "",
       status: "active",
       sku: "",
     });
@@ -312,6 +321,7 @@ const ProductSetup = () => {
       ...formData,
       brand_name: brandName,
       brand_code: selectedBrand?.brand_code || "",
+      brand_type: selectedBrand?.brand_type?.type_name || "",
     });
   };
 
@@ -434,7 +444,7 @@ const ProductSetup = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-card rounded-md border">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-card rounded-md border">
           <Input
             placeholder={t("productSetup.filterByName")}
             value={filterName}
@@ -449,6 +459,19 @@ const ProductSetup = () => {
               {uniqueBrands.map((brand) => (
                 <SelectItem key={brand} value={brand!}>
                   {brand}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterBrandType} onValueChange={setFilterBrandType}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by Brand Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("common.all")}</SelectItem>
+              {uniqueBrandTypes.map((type) => (
+                <SelectItem key={type} value={type!}>
+                  {type}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -475,6 +498,7 @@ const ProductSetup = () => {
                   <TableHead>{t("productSetup.productPrice")}</TableHead>
                   <TableHead>{t("productSetup.productCost")}</TableHead>
                   <TableHead>{t("productSetup.brand")}</TableHead>
+                  <TableHead>Brand Type</TableHead>
                   <TableHead>Brand Code</TableHead>
                   <TableHead>{t("productSetup.status")}</TableHead>
                   <TableHead>Odoo Sync Status</TableHead>
@@ -490,6 +514,7 @@ const ProductSetup = () => {
                     <TableCell>{product.product_price || "-"}</TableCell>
                     <TableCell>{product.product_cost || "-"}</TableCell>
                     <TableCell>{product.brand_name || "-"}</TableCell>
+                    <TableCell>{product.brand_type || "-"}</TableCell>
                     <TableCell>{product.brand_code || "-"}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
@@ -749,7 +774,7 @@ const ProductSetup = () => {
               <Label htmlFor="brand_type">Brand Type</Label>
               <Input
                 id="brand_type"
-                value={getSelectedBrandType()}
+                value={formData.brand_type}
                 disabled
                 placeholder="Brand type will be shown here"
               />
