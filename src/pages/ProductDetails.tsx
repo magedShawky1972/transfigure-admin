@@ -21,6 +21,7 @@ interface Product {
   product_price: string | null;
   product_cost: string | null;
   brand_name: string | null;
+  brand_code: string | null;
   status: string;
   sku?: string | null;
   description?: string | null;
@@ -81,6 +82,14 @@ const ProductDetails = () => {
   const [notes, setNotes] = useState("");
   const [productName, setProductName] = useState("");
   const [brandName, setBrandName] = useState("");
+  const [brandCode, setBrandCode] = useState("");
+  const [brands, setBrands] = useState<Array<{
+    id: string;
+    brand_name: string;
+    brand_code: string | null;
+    brand_type_id: string | null;
+    brand_type?: { type_name: string };
+  }>>([]);
   const [status, setStatus] = useState("active");
   const [productId, setProductId] = useState("");
   const [leadtime, setLeadtime] = useState("");
@@ -133,8 +142,32 @@ const ProductDetails = () => {
   const [metaDescriptionEn, setMetaDescriptionEn] = useState("");
 
   useEffect(() => {
+    fetchBrands();
     fetchProductDetails();
   }, [id]);
+
+  const fetchBrands = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("brands")
+        .select(`
+          id,
+          brand_name,
+          brand_code,
+          brand_type_id,
+          brand_type:brand_type_id (
+            type_name
+          )
+        `)
+        .eq("status", "active")
+        .order("brand_name", { ascending: true });
+
+      if (error) throw error;
+      setBrands(data || []);
+    } catch (error: any) {
+      console.error("Error fetching brands:", error);
+    }
+  };
 
   const fetchProductDetails = async () => {
     try {
@@ -161,6 +194,7 @@ const ProductDetails = () => {
         setAbcAnalysis(data.abc_analysis || "C");
         setProductName(data.product_name);
         setBrandName(data.brand_name || "");
+        setBrandCode(data.brand_code || "");
         setStatus(data.status);
         setQuantity(data.stock_quantity?.toString() || "0");
         setNotifyQty(data.reorder_point?.toString() || "1");
@@ -242,6 +276,17 @@ const ProductDetails = () => {
     setDiscounts(discounts.filter((_, i) => i !== index));
   };
 
+  const handleBrandChange = (selectedBrandName: string) => {
+    const selectedBrand = brands.find(b => b.brand_name === selectedBrandName);
+    setBrandName(selectedBrandName);
+    setBrandCode(selectedBrand?.brand_code || "");
+  };
+
+  const getSelectedBrandType = () => {
+    const selectedBrand = brands.find(b => b.brand_name === brandName);
+    return selectedBrand?.brand_type?.type_name || "";
+  };
+
   const handleSave = async () => {
     try {
       setLoading(true);
@@ -260,6 +305,7 @@ const ProductDetails = () => {
           safety_stock: safetyStock ? parseFloat(safetyStock) : 0,
           abc_analysis: abcAnalysis,
           brand_name: brandName || null,
+          brand_code: brandCode || null,
           stock_quantity: quantity ? parseFloat(quantity) : 0,
           reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
           minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
@@ -384,12 +430,39 @@ const ProductDetails = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="brandName" className={isRTL ? 'text-right block' : ''}>{t("brandSetup.brandName")}</Label>
+                    <Select value={brandName} onValueChange={handleBrandChange}>
+                      <SelectTrigger className={isRTL ? 'text-right' : ''}>
+                        <SelectValue placeholder={isRTL ? "اختر العلامة التجارية" : "Select brand"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {brands.map((brand) => (
+                          <SelectItem key={brand.id} value={brand.brand_name}>
+                            {brand.brand_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="brandType" className={isRTL ? 'text-right block' : ''}>Brand Type</Label>
                     <Input
-                      id="brandName"
+                      id="brandType"
                       className={isRTL ? 'text-right' : ''}
-                      value={brandName}
-                      onChange={(e) => setBrandName(e.target.value)}
-                      placeholder={isRTL ? "اسم العلامة التجارية" : "Brand Name"}
+                      value={getSelectedBrandType()}
+                      disabled
+                      placeholder={isRTL ? "نوع العلامة التجارية" : "Brand type"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="brandCode" className={isRTL ? 'text-right block' : ''}>Brand Code</Label>
+                    <Input
+                      id="brandCode"
+                      className={isRTL ? 'text-right' : ''}
+                      value={brandCode}
+                      onChange={(e) => setBrandCode(e.target.value)}
+                      placeholder={isRTL ? "رمز العلامة التجارية" : "Brand code"}
                     />
                   </div>
                 </div>
