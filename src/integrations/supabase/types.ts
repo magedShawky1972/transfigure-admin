@@ -402,6 +402,7 @@ export type Database = {
           barcode: string | null
           brand_code: string | null
           brand_name: string | null
+          brand_type: string | null
           category: string | null
           coins_number: number | null
           created_at: string
@@ -446,6 +447,7 @@ export type Database = {
           barcode?: string | null
           brand_code?: string | null
           brand_name?: string | null
+          brand_type?: string | null
           category?: string | null
           coins_number?: number | null
           created_at?: string
@@ -490,6 +492,7 @@ export type Database = {
           barcode?: string | null
           brand_code?: string | null
           brand_name?: string | null
+          brand_type?: string | null
           category?: string | null
           coins_number?: number | null
           created_at?: string
