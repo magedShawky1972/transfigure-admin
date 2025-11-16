@@ -98,13 +98,34 @@ const ProductSetup = () => {
   const [syncingProducts, setSyncingProducts] = useState<Set<string>>(new Set());
   
   // Filter states
-  const [filterName, setFilterName] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterBrand, setFilterBrand] = useState<string>("all");
-  const [filterBrandType, setFilterBrandType] = useState<string>("all");
+  const [filterName, setFilterName] = useState<string>(() =>
+    localStorage.getItem("ps.filterName") ?? ""
+  );
+  const [filterStatus, setFilterStatus] = useState<string>(() =>
+    localStorage.getItem("ps.filterStatus") ?? "all"
+  );
+  const [filterBrand, setFilterBrand] = useState<string>(() =>
+    localStorage.getItem("ps.filterBrand") ?? "all"
+  );
+  const [filterBrandType, setFilterBrandType] = useState<string>(() =>
+    localStorage.getItem("ps.filterBrandType") ?? "all"
+  );
   
   // View mode state
-  const [viewMode, setViewMode] = useState<"grid" | "tree">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "tree">(
+    localStorage.getItem("ps.viewMode") === "tree" ? "tree" : "grid"
+  );
+
+  // Persist filters and view mode
+  useEffect(() => {
+    try {
+      localStorage.setItem("ps.filterName", filterName);
+      localStorage.setItem("ps.filterStatus", filterStatus);
+      localStorage.setItem("ps.filterBrand", filterBrand);
+      localStorage.setItem("ps.filterBrandType", filterBrandType);
+      localStorage.setItem("ps.viewMode", viewMode);
+    } catch {}
+  }, [filterName, filterStatus, filterBrand, filterBrandType, viewMode]);
   
   const [formData, setFormData] = useState({
     product_id: "",
