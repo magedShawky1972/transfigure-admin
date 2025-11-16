@@ -197,204 +197,206 @@ const BrandEdit = () => {
           </h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-          <div className="space-y-2">
-            <Label htmlFor="brand_name">{t("brandSetup.brandName")}</Label>
-            <Input
-              id="brand_name"
-              value={formData.brand_name}
-              onChange={(e) =>
-                setFormData({ ...formData, brand_name: e.target.value })
-              }
-              placeholder={t("brandSetup.brandNamePlaceholder")}
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="brand_name">{t("brandSetup.brandName")}</Label>
+              <Input
+                id="brand_name"
+                value={formData.brand_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, brand_name: e.target.value })
+                }
+                placeholder={t("brandSetup.brandNamePlaceholder")}
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="brand_code">Brand Code</Label>
-            <Input
-              id="brand_code"
-              value={formData.brand_code}
-              onChange={(e) =>
-                setFormData({ ...formData, brand_code: e.target.value })
-              }
-              placeholder="Enter brand code"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand_code">Brand Code</Label>
+              <Input
+                id="brand_code"
+                value={formData.brand_code}
+                onChange={(e) =>
+                  setFormData({ ...formData, brand_code: e.target.value })
+                }
+                placeholder="Enter brand code"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="short_name">Short Name</Label>
-            <Input
-              id="short_name"
-              value={formData.short_name}
-              onChange={(e) =>
-                setFormData({ ...formData, short_name: e.target.value })
-              }
-              placeholder="Enter short name"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="short_name">Short Name</Label>
+              <Input
+                id="short_name"
+                value={formData.short_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, short_name: e.target.value })
+                }
+                placeholder="Enter short name"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="usd_value_for_coins">USD Value For Coins</Label>
-            <Input
-              id="usd_value_for_coins"
-              type="number"
-              step="0.01"
-              value={formData.usd_value_for_coins}
-              onChange={(e) =>
-                setFormData({ ...formData, usd_value_for_coins: e.target.value })
-              }
-              placeholder="Enter USD value for coins"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="usd_value_for_coins">USD Value For Coins</Label>
+              <Input
+                id="usd_value_for_coins"
+                type="number"
+                step="0.01"
+                value={formData.usd_value_for_coins}
+                onChange={(e) =>
+                  setFormData({ ...formData, usd_value_for_coins: e.target.value })
+                }
+                placeholder="Enter USD value for coins"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="recharge_usd_value">Recharge USD Value</Label>
-            <Input
-              id="recharge_usd_value"
-              type="number"
-              step="0.001"
-              value={formData.recharge_usd_value}
-              onChange={(e) =>
-                setFormData({ ...formData, recharge_usd_value: e.target.value })
-              }
-              placeholder="Enter recharge USD value"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="recharge_usd_value">Recharge USD Value</Label>
+              <Input
+                id="recharge_usd_value"
+                type="number"
+                step="0.001"
+                value={formData.recharge_usd_value}
+                onChange={(e) =>
+                  setFormData({ ...formData, recharge_usd_value: e.target.value })
+                }
+                placeholder="Enter recharge USD value"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="leadtime">Lead Time (Days)</Label>
-            <Input
-              id="leadtime"
-              type="number"
-              min="0"
-              step="1"
-              value={formData.leadtime}
-              onChange={(e) =>
-                setFormData({ ...formData, leadtime: e.target.value })
-              }
-              placeholder="Enter lead time in days"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="leadtime">Lead Time (Days)</Label>
+              <Input
+                id="leadtime"
+                type="number"
+                min="0"
+                step="1"
+                value={formData.leadtime}
+                onChange={(e) =>
+                  setFormData({ ...formData, leadtime: e.target.value })
+                }
+                placeholder="Enter lead time in days"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="safety_stock">Safety Stock</Label>
-            <Input
-              id="safety_stock"
-              type="number"
-              min="0"
-              step="1"
-              value={formData.safety_stock}
-              onChange={(e) =>
-                setFormData({ ...formData, safety_stock: e.target.value })
-              }
-              placeholder="Enter safety stock quantity"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="safety_stock">Safety Stock</Label>
+              <Input
+                id="safety_stock"
+                type="number"
+                min="0"
+                step="1"
+                value={formData.safety_stock}
+                onChange={(e) =>
+                  setFormData({ ...formData, safety_stock: e.target.value })
+                }
+                placeholder="Enter safety stock quantity"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reorder_point">Reorder Point</Label>
-            <Input
-              id="reorder_point"
-              type="number"
-              min="0"
-              step="1"
-              value={formData.reorder_point}
-              onChange={(e) =>
-                setFormData({ ...formData, reorder_point: e.target.value })
-              }
-              placeholder="Enter reorder point quantity"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="reorder_point">Reorder Point</Label>
+              <Input
+                id="reorder_point"
+                type="number"
+                min="0"
+                step="1"
+                value={formData.reorder_point}
+                onChange={(e) =>
+                  setFormData({ ...formData, reorder_point: e.target.value })
+                }
+                placeholder="Enter reorder point quantity"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="average_consumption_per_month">Average Consumption Per Month</Label>
-            <Input
-              id="average_consumption_per_month"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.average_consumption_per_month}
-              onChange={(e) =>
-                setFormData({ ...formData, average_consumption_per_month: e.target.value })
-              }
-              placeholder="Enter average consumption per month"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="average_consumption_per_month">Average Consumption Per Month</Label>
+              <Input
+                id="average_consumption_per_month"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.average_consumption_per_month}
+                onChange={(e) =>
+                  setFormData({ ...formData, average_consumption_per_month: e.target.value })
+                }
+                placeholder="Enter average consumption per month"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="average_consumption_per_day">Average Consumption Per Day</Label>
-            <Input
-              id="average_consumption_per_day"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.average_consumption_per_day}
-              onChange={(e) =>
-                setFormData({ ...formData, average_consumption_per_day: e.target.value })
-              }
-              placeholder="Enter average consumption per day"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="average_consumption_per_day">Average Consumption Per Day</Label>
+              <Input
+                id="average_consumption_per_day"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.average_consumption_per_day}
+                onChange={(e) =>
+                  setFormData({ ...formData, average_consumption_per_day: e.target.value })
+                }
+                placeholder="Enter average consumption per day"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="brand_type_id">{t("brandSetup.brandType")}</Label>
-            <Select
-              value={formData.brand_type_id}
-              onValueChange={(value) =>
-                setFormData({ ...formData, brand_type_id: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("brandSetup.selectBrandType")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t("brandSetup.noBrandType")}</SelectItem>
-                {brandTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    {type.type_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand_type_id">{t("brandSetup.brandType")}</Label>
+              <Select
+                value={formData.brand_type_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, brand_type_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("brandSetup.selectBrandType")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t("brandSetup.noBrandType")}</SelectItem>
+                  {brandTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.type_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="abc_analysis">ABC Analysis</Label>
-            <Select
-              value={formData.abc_analysis}
-              onValueChange={(value) =>
-                setFormData({ ...formData, abc_analysis: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="A">A - High Value</SelectItem>
-                <SelectItem value="B">B - Medium Value</SelectItem>
-                <SelectItem value="C">C - Low Value</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="abc_analysis">ABC Analysis</Label>
+              <Select
+                value={formData.abc_analysis}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, abc_analysis: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A">A - High Value</SelectItem>
+                  <SelectItem value="B">B - Medium Value</SelectItem>
+                  <SelectItem value="C">C - Low Value</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="status">{t("brandSetup.status")}</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) =>
-                setFormData({ ...formData, status: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">{t("brandSetup.active")}</SelectItem>
-                <SelectItem value="inactive">{t("brandSetup.inactive")}</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label htmlFor="status">{t("brandSetup.status")}</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, status: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">{t("brandSetup.active")}</SelectItem>
+                  <SelectItem value="inactive">{t("brandSetup.inactive")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex gap-4 pt-4">
