@@ -48,10 +48,13 @@ const BrandEdit = () => {
   });
 
   useEffect(() => {
-    fetchBrandTypes();
-    if (brandId) {
-      fetchBrand();
-    }
+    const loadData = async () => {
+      await fetchBrandTypes();
+      if (brandId) {
+        await fetchBrand();
+      }
+    };
+    loadData();
   }, [brandId]);
 
   const fetchBrandTypes = async () => {
