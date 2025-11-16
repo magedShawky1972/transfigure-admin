@@ -55,6 +55,7 @@ interface Product {
   product_price: string | null;
   product_cost: string | null;
   brand_name: string | null;
+  brand_code: string | null;
   status: string;
   odoo_sync_status: string | null;
   odoo_synced_at: string | null;
@@ -72,11 +73,22 @@ interface Product {
   notes?: string | null;
 }
 
+interface Brand {
+  id: string;
+  brand_name: string;
+  brand_code: string | null;
+  brand_type_id: string | null;
+  brand_type?: {
+    type_name: string;
+  };
+}
+
 const ProductSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -99,13 +111,38 @@ const ProductSetup = () => {
     product_price: "",
     product_cost: "",
     brand_name: "",
+    brand_code: "",
     status: "active",
     sku: "",
   });
 
   useEffect(() => {
     fetchProducts();
+    fetchBrands();
   }, []);
+
+  const fetchBrands = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("brands")
+        .select(`
+          id,
+          brand_name,
+          brand_code,
+          brand_type_id,
+          brand_type:brand_type_id (
+            type_name
+          )
+        `)
+        .eq("status", "active")
+        .order("brand_name", { ascending: true });
+
+      if (error) throw error;
+      setBrands(data || []);
+    } catch (error: any) {
+      console.error("Error fetching brands:", error);
+    }
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -163,7 +200,9 @@ const ProductSetup = () => {
             product_price: formData.product_price || null,
             product_cost: formData.product_cost || null,
             brand_name: formData.brand_name || null,
+            brand_code: formData.brand_code || null,
             status: formData.status,
+            sku: formData.sku || null,
           })
           .eq("id", editingProduct.id);
 
@@ -182,7 +221,9 @@ const ProductSetup = () => {
             product_price: formData.product_price || null,
             product_cost: formData.product_cost || null,
             brand_name: formData.brand_name || null,
+            brand_code: formData.brand_code || null,
             status: formData.status,
+            sku: formData.sku || null,
           });
 
         if (error) throw error;
@@ -215,6 +256,7 @@ const ProductSetup = () => {
       product_price: product.product_price || "",
       product_cost: product.product_cost || "",
       brand_name: product.brand_name || "",
+      brand_code: product.brand_code || "",
       status: product.status,
       sku: product.sku || "",
     });
@@ -257,10 +299,25 @@ const ProductSetup = () => {
       product_price: "",
       product_cost: "",
       brand_name: "",
+      brand_code: "",
       status: "active",
       sku: "",
     });
     setEditingProduct(null);
+  };
+
+  const handleBrandChange = (brandName: string) => {
+    const selectedBrand = brands.find(b => b.brand_name === brandName);
+    setFormData({
+      ...formData,
+      brand_name: brandName,
+      brand_code: selectedBrand?.brand_code || "",
+    });
+  };
+
+  const getSelectedBrandType = () => {
+    const selectedBrand = brands.find(b => b.brand_name === formData.brand_name);
+    return selectedBrand?.brand_type?.type_name || "";
   };
 
   const handleSyncToOdoo = async (product: Product) => {
@@ -418,6 +475,7 @@ const ProductSetup = () => {
                   <TableHead>{t("productSetup.productPrice")}</TableHead>
                   <TableHead>{t("productSetup.productCost")}</TableHead>
                   <TableHead>{t("productSetup.brand")}</TableHead>
+                  <TableHead>Brand Code</TableHead>
                   <TableHead>{t("productSetup.status")}</TableHead>
                   <TableHead>Odoo Sync Status</TableHead>
                   <TableHead>{t("productSetup.createdDate")}</TableHead>
@@ -432,6 +490,7 @@ const ProductSetup = () => {
                     <TableCell>{product.product_price || "-"}</TableCell>
                     <TableCell>{product.product_cost || "-"}</TableCell>
                     <TableCell>{product.brand_name || "-"}</TableCell>
+                    <TableCell>{product.brand_code || "-"}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         product.status === "active" 
@@ -673,11 +732,35 @@ const ProductSetup = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="brand_name">{t("productSetup.brand")}</Label>
+              <Select value={formData.brand_name} onValueChange={handleBrandChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("productSetup.brandPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.brand_name}>
+                      {brand.brand_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand_type">Brand Type</Label>
               <Input
-                id="brand_name"
-                value={formData.brand_name}
-                onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
-                placeholder={t("productSetup.brandPlaceholder")}
+                id="brand_type"
+                value={getSelectedBrandType()}
+                disabled
+                placeholder="Brand type will be shown here"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand_code">Brand Code</Label>
+              <Input
+                id="brand_code"
+                value={formData.brand_code}
+                onChange={(e) => setFormData({ ...formData, brand_code: e.target.value })}
+                placeholder="Enter brand code"
               />
             </div>
             <div className="space-y-2">

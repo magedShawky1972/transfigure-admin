@@ -400,6 +400,7 @@ export type Database = {
         Row: {
           abc_analysis: string | null
           barcode: string | null
+          brand_code: string | null
           brand_name: string | null
           category: string | null
           coins_number: number | null
@@ -443,6 +444,7 @@ export type Database = {
         Insert: {
           abc_analysis?: string | null
           barcode?: string | null
+          brand_code?: string | null
           brand_name?: string | null
           category?: string | null
           coins_number?: number | null
@@ -486,6 +488,7 @@ export type Database = {
         Update: {
           abc_analysis?: string | null
           barcode?: string | null
+          brand_code?: string | null
           brand_name?: string | null
           category?: string | null
           coins_number?: number | null

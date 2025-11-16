@@ -19,6 +19,7 @@ interface ProductDetailsDialogProps {
   productName: string;
   productPrice: string | null;
   productCost: string | null;
+  brandCode?: string | null;
   sku?: string | null;
   description?: string | null;
   category?: string | null;
@@ -67,6 +68,7 @@ export const ProductDetailsDialog = ({
   productName, 
   productPrice, 
   productCost,
+  brandCode: initialBrandCode,
   sku: initialSku,
   description: initialDescription,
   category: initialCategory,
@@ -238,6 +240,18 @@ export const ProductDetailsDialog = ({
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label className={isRTL ? 'text-right block' : ''}>Brand Code</Label>
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={initialBrandCode || ""} 
+                    disabled
+                    placeholder="Brand code" 
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>Weight</Label>
                   <Input 
                     type="number"
@@ -248,16 +262,15 @@ export const ProductDetailsDialog = ({
                     placeholder="Enter weight" 
                   />
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className={isRTL ? 'text-right block' : ''}>Supplier</Label>
-                <Input 
-                  className={isRTL ? 'text-right' : ''} 
-                  value={supplier} 
-                  onChange={(e) => setSupplier(e.target.value)} 
-                  placeholder="Enter supplier name" 
-                />
+                <div className="space-y-2">
+                  <Label className={isRTL ? 'text-right block' : ''}>Supplier</Label>
+                  <Input 
+                    className={isRTL ? 'text-right' : ''} 
+                    value={supplier} 
+                    onChange={(e) => setSupplier(e.target.value)} 
+                    placeholder="Enter supplier name" 
+                  />
+                </div>
               </div>
               
               <div className="space-y-2">
