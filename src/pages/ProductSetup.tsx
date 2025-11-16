@@ -120,7 +120,7 @@ const ProductSetup = () => {
   });
 
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(true);
     fetchBrands();
   }, []);
 
@@ -147,8 +147,8 @@ const ProductSetup = () => {
     }
   };
 
-  const fetchProducts = async () => {
-    setLoading(true);
+  const fetchProducts = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const { data, error } = await supabase
         .from("products")
@@ -164,7 +164,7 @@ const ProductSetup = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
