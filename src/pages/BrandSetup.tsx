@@ -266,7 +266,7 @@ const BrandSetup = () => {
                   Short Name {sortColumn === "short_name" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("brand_type")}>
-                  Brand Type {sortColumn === "brand_type" && (sortDirection === "asc" ? "↑" : "↓")}
+                  {t("brandSetup.brandType")} {sortColumn === "brand_type" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("abc_analysis")}>
                   ABC Analysis {sortColumn === "abc_analysis" && (sortDirection === "asc" ? "↑" : "↓")}
