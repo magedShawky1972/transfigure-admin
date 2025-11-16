@@ -22,6 +22,7 @@ interface Product {
   product_cost: string | null;
   brand_name: string | null;
   brand_code: string | null;
+  brand_type: string | null;
   status: string;
   sku?: string | null;
   description?: string | null;
@@ -83,6 +84,7 @@ const ProductDetails = () => {
   const [productName, setProductName] = useState("");
   const [brandName, setBrandName] = useState("");
   const [brandCode, setBrandCode] = useState("");
+  const [brandType, setBrandType] = useState("");
   const [brands, setBrands] = useState<Array<{
     id: string;
     brand_name: string;
@@ -195,6 +197,7 @@ const ProductDetails = () => {
         setProductName(data.product_name);
         setBrandName(data.brand_name || "");
         setBrandCode(data.brand_code || "");
+        setBrandType(data.brand_type || "");
         setStatus(data.status);
         setQuantity(data.stock_quantity?.toString() || "0");
         setNotifyQty(data.reorder_point?.toString() || "1");
@@ -280,6 +283,7 @@ const ProductDetails = () => {
     const selectedBrand = brands.find(b => b.brand_name === selectedBrandName);
     setBrandName(selectedBrandName);
     setBrandCode(selectedBrand?.brand_code || "");
+    setBrandType(selectedBrand?.brand_type?.type_name || "");
   };
 
   const getSelectedBrandType = () => {
@@ -306,6 +310,7 @@ const ProductDetails = () => {
           abc_analysis: abcAnalysis,
           brand_name: brandName || null,
           brand_code: brandCode || null,
+          brand_type: brandType || null,
           stock_quantity: quantity ? parseFloat(quantity) : 0,
           reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
           minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
@@ -450,7 +455,7 @@ const ProductDetails = () => {
                     <Input
                       id="brandType"
                       className={isRTL ? 'text-right' : ''}
-                      value={getSelectedBrandType()}
+                      value={brandType}
                       disabled
                       placeholder={isRTL ? "نوع العلامة التجارية" : "Brand type"}
                     />
