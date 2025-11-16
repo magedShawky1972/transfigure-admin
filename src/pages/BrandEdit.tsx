@@ -41,6 +41,7 @@ const BrandEdit = () => {
     safety_stock: "",
     reorder_point: "",
     average_consumption_per_month: "",
+    average_consumption_per_day: "",
     abc_analysis: "C",
     brand_type_id: "none",
     status: "active",
@@ -90,6 +91,7 @@ const BrandEdit = () => {
           safety_stock: data.safety_stock?.toString() || "",
           reorder_point: data.reorder_point?.toString() || "",
           average_consumption_per_month: data.average_consumption_per_month?.toString() || "",
+          average_consumption_per_day: data.average_consumption_per_day?.toString() || "",
           abc_analysis: data.abc_analysis || "C",
           brand_type_id: data.brand_type_id || "none",
           status: data.status,
@@ -124,6 +126,7 @@ const BrandEdit = () => {
             safety_stock: formData.safety_stock ? parseFloat(formData.safety_stock) : 0,
             reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : 0,
             average_consumption_per_month: formData.average_consumption_per_month ? parseFloat(formData.average_consumption_per_month) : 0,
+            average_consumption_per_day: formData.average_consumption_per_day ? parseFloat(formData.average_consumption_per_day) : 0,
             abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
@@ -148,6 +151,7 @@ const BrandEdit = () => {
             safety_stock: formData.safety_stock ? parseFloat(formData.safety_stock) : 0,
             reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : 0,
             average_consumption_per_month: formData.average_consumption_per_month ? parseFloat(formData.average_consumption_per_month) : 0,
+            average_consumption_per_day: formData.average_consumption_per_day ? parseFloat(formData.average_consumption_per_day) : 0,
             abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
@@ -313,6 +317,21 @@ const BrandEdit = () => {
                 setFormData({ ...formData, average_consumption_per_month: e.target.value })
               }
               placeholder="Enter average consumption per month"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="average_consumption_per_day">Average Consumption Per Day</Label>
+            <Input
+              id="average_consumption_per_day"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.average_consumption_per_day}
+              onChange={(e) =>
+                setFormData({ ...formData, average_consumption_per_day: e.target.value })
+              }
+              placeholder="Enter average consumption per day"
             />
           </div>
 
