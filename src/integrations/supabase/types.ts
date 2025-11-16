@@ -44,6 +44,7 @@ export type Database = {
       brands: {
         Row: {
           abc_analysis: string | null
+          average_consumption_per_day: number | null
           average_consumption_per_month: number | null
           brand_code: string | null
           brand_name: string
@@ -61,6 +62,7 @@ export type Database = {
         }
         Insert: {
           abc_analysis?: string | null
+          average_consumption_per_day?: number | null
           average_consumption_per_month?: number | null
           brand_code?: string | null
           brand_name: string
@@ -78,6 +80,7 @@ export type Database = {
         }
         Update: {
           abc_analysis?: string | null
+          average_consumption_per_day?: number | null
           average_consumption_per_month?: number | null
           brand_code?: string | null
           brand_name?: string
