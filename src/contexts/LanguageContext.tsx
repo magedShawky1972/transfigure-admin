@@ -131,6 +131,9 @@ const translations = {
     "brandSetup.deleted": "Brand deleted successfully",
     "brandSetup.deleteConfirm": "Are you sure you want to delete this brand?",
     "brandSetup.noData": "No brands found",
+    "brandSetup.brandType": "Brand Type",
+    "brandSetup.selectBrandType": "Select Brand Type",
+    "brandSetup.noBrandType": "No Brand Type",
     
     // Brand Type Page
     "brandType.title": "Brand Type",
@@ -636,6 +639,9 @@ const translations = {
     "brandSetup.deleted": "تم حذف الماركة بنجاح",
     "brandSetup.deleteConfirm": "هل أنت متأكد من حذف هذه الماركة؟",
     "brandSetup.noData": "لا توجد ماركات",
+    "brandSetup.brandType": "نوع الماركة",
+    "brandSetup.selectBrandType": "اختر نوع الماركة",
+    "brandSetup.noBrandType": "بدون نوع",
     
     // Brand Type Page
     "brandType.title": "نوع الماركة",
