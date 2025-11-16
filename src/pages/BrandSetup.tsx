@@ -50,12 +50,39 @@ const BrandSetup = () => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterBrandName, setFilterBrandName] = useState("");
-  const [filterShortName, setFilterShortName] = useState("");
-  const [filterABCAnalysis, setFilterABCAnalysis] = useState("");
-  const [filterBrandType, setFilterBrandType] = useState("");
+  
+  // Load filters from localStorage or use defaults
+  const [filterBrandName, setFilterBrandName] = useState(() => 
+    localStorage.getItem("brandSetup_filterBrandName") || ""
+  );
+  const [filterShortName, setFilterShortName] = useState(() => 
+    localStorage.getItem("brandSetup_filterShortName") || ""
+  );
+  const [filterABCAnalysis, setFilterABCAnalysis] = useState(() => 
+    localStorage.getItem("brandSetup_filterABCAnalysis") || ""
+  );
+  const [filterBrandType, setFilterBrandType] = useState(() => 
+    localStorage.getItem("brandSetup_filterBrandType") || ""
+  );
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("brandSetup_filterBrandName", filterBrandName);
+  }, [filterBrandName]);
+
+  useEffect(() => {
+    localStorage.setItem("brandSetup_filterShortName", filterShortName);
+  }, [filterShortName]);
+
+  useEffect(() => {
+    localStorage.setItem("brandSetup_filterABCAnalysis", filterABCAnalysis);
+  }, [filterABCAnalysis]);
+
+  useEffect(() => {
+    localStorage.setItem("brandSetup_filterBrandType", filterBrandType);
+  }, [filterBrandType]);
 
   useEffect(() => {
     fetchBrands();
