@@ -40,6 +40,7 @@ const BrandEdit = () => {
     leadtime: "",
     safety_stock: "",
     reorder_point: "",
+    average_consumption_per_month: "",
     abc_analysis: "C",
     brand_type_id: "none",
     status: "active",
@@ -88,6 +89,7 @@ const BrandEdit = () => {
           leadtime: data.leadtime?.toString() || "",
           safety_stock: data.safety_stock?.toString() || "",
           reorder_point: data.reorder_point?.toString() || "",
+          average_consumption_per_month: data.average_consumption_per_month?.toString() || "",
           abc_analysis: data.abc_analysis || "C",
           brand_type_id: data.brand_type_id || "none",
           status: data.status,
@@ -121,6 +123,7 @@ const BrandEdit = () => {
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
             safety_stock: formData.safety_stock ? parseFloat(formData.safety_stock) : 0,
             reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : 0,
+            average_consumption_per_month: formData.average_consumption_per_month ? parseFloat(formData.average_consumption_per_month) : 0,
             abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
@@ -144,6 +147,7 @@ const BrandEdit = () => {
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
             safety_stock: formData.safety_stock ? parseFloat(formData.safety_stock) : 0,
             reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : 0,
+            average_consumption_per_month: formData.average_consumption_per_month ? parseFloat(formData.average_consumption_per_month) : 0,
             abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
@@ -294,6 +298,21 @@ const BrandEdit = () => {
                 setFormData({ ...formData, reorder_point: e.target.value })
               }
               placeholder="Enter reorder point quantity"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="average_consumption_per_month">Average Consumption Per Month</Label>
+            <Input
+              id="average_consumption_per_month"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.average_consumption_per_month}
+              onChange={(e) =>
+                setFormData({ ...formData, average_consumption_per_month: e.target.value })
+              }
+              placeholder="Enter average consumption per month"
             />
           </div>
 

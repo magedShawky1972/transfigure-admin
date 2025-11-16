@@ -28,6 +28,7 @@ interface Brand {
   leadtime?: number;
   safety_stock?: number;
   reorder_point?: number;
+  average_consumption_per_month?: number;
   abc_analysis?: string;
   status: string;
   brand_type_id?: string;
@@ -53,6 +54,8 @@ const BrandSetup = () => {
   const [filterShortName, setFilterShortName] = useState("");
   const [filterABCAnalysis, setFilterABCAnalysis] = useState("");
   const [filterBrandType, setFilterBrandType] = useState("");
+  const [sortColumn, setSortColumn] = useState<string>("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     fetchBrands();
@@ -136,19 +139,54 @@ const BrandSetup = () => {
     navigate("/brand-setup/edit");
   };
 
-  // Filter brands based on search criteria
-  const filteredBrands = brands.filter((brand) => {
-    const matchesBrandName = !filterBrandName || 
-      brand.brand_name.toLowerCase().includes(filterBrandName.toLowerCase());
-    const matchesShortName = !filterShortName || 
-      (brand.short_name && brand.short_name.toLowerCase().includes(filterShortName.toLowerCase()));
-    const matchesABCAnalysis = !filterABCAnalysis || 
-      brand.abc_analysis === filterABCAnalysis;
-    const matchesBrandType = !filterBrandType || 
-      brand.brand_type_id === filterBrandType;
-    
-    return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType;
-  });
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  // Filter and sort brands
+  const filteredBrands = brands
+    .filter((brand) => {
+      const matchesBrandName = !filterBrandName || 
+        brand.brand_name.toLowerCase().includes(filterBrandName.toLowerCase());
+      const matchesShortName = !filterShortName || 
+        (brand.short_name && brand.short_name.toLowerCase().includes(filterShortName.toLowerCase()));
+      const matchesABCAnalysis = !filterABCAnalysis || 
+        brand.abc_analysis === filterABCAnalysis;
+      const matchesBrandType = !filterBrandType || 
+        brand.brand_type_id === filterBrandType;
+      
+      return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType;
+    })
+    .sort((a, b) => {
+      if (!sortColumn) return 0;
+      
+      let aValue: any = a[sortColumn as keyof Brand];
+      let bValue: any = b[sortColumn as keyof Brand];
+      
+      // Handle nested brand_type
+      if (sortColumn === "brand_type") {
+        aValue = (a as any).brand_type?.type_name || "";
+        bValue = (b as any).brand_type?.type_name || "";
+      }
+      
+      // Handle null/undefined values
+      if (aValue == null) aValue = "";
+      if (bValue == null) bValue = "";
+      
+      // Numeric comparison
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
+      }
+      
+      // String comparison
+      const comparison = String(aValue).localeCompare(String(bValue));
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
 
   return (
     <>
@@ -218,24 +256,49 @@ const BrandSetup = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("brandSetup.brandName")}</TableHead>
-                <TableHead>Brand Code</TableHead>
-                <TableHead>Short Name</TableHead>
-                <TableHead>{t("brandSetup.brandType")}</TableHead>
-                <TableHead>ABC Analysis</TableHead>
-                <TableHead>USD Value</TableHead>
-                <TableHead>Recharge USD</TableHead>
-                <TableHead>Lead Time</TableHead>
-                <TableHead>Safety Stock</TableHead>
-                <TableHead>Reorder Point</TableHead>
-                <TableHead>{t("brandSetup.status")}</TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("brand_name")}>
+                  {t("brandSetup.brandName")} {sortColumn === "brand_name" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("brand_code")}>
+                  Brand Code {sortColumn === "brand_code" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("short_name")}>
+                  Short Name {sortColumn === "short_name" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("brand_type")}>
+                  Brand Type {sortColumn === "brand_type" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("abc_analysis")}>
+                  ABC Analysis {sortColumn === "abc_analysis" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("usd_value_for_coins")}>
+                  USD Value {sortColumn === "usd_value_for_coins" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("recharge_usd_value")}>
+                  Recharge USD {sortColumn === "recharge_usd_value" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("leadtime")}>
+                  Lead Time {sortColumn === "leadtime" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("safety_stock")}>
+                  Safety Stock {sortColumn === "safety_stock" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("reorder_point")}>
+                  Reorder Point {sortColumn === "reorder_point" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("average_consumption_per_month")}>
+                  Avg Consumption/Mo {sortColumn === "average_consumption_per_month" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("status")}>
+                  {t("brandSetup.status")} {sortColumn === "status" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead>{t("brandSetup.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName || filterABCAnalysis || filterBrandType ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -262,6 +325,7 @@ const BrandSetup = () => {
                     <TableCell>{brand.leadtime || 0}</TableCell>
                     <TableCell>{brand.safety_stock || 0}</TableCell>
                     <TableCell>{brand.reorder_point || 0}</TableCell>
+                    <TableCell>{brand.average_consumption_per_month || 0}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         brand.status === 'active' 
