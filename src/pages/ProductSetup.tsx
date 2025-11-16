@@ -759,8 +759,8 @@ const ProductSetup = () => {
               <Input
                 id="brand_code"
                 value={formData.brand_code}
-                onChange={(e) => setFormData({ ...formData, brand_code: e.target.value })}
-                placeholder="Enter brand code"
+                disabled
+                placeholder="Brand code will be auto-populated"
               />
             </div>
             <div className="space-y-2">

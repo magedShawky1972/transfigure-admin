@@ -461,7 +461,7 @@ const ProductDetails = () => {
                       id="brandCode"
                       className={isRTL ? 'text-right' : ''}
                       value={brandCode}
-                      onChange={(e) => setBrandCode(e.target.value)}
+                      disabled
                       placeholder={isRTL ? "رمز العلامة التجارية" : "Brand code"}
                     />
                   </div>

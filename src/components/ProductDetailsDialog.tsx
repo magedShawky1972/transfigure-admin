@@ -229,25 +229,24 @@ export const ProductDetailsDialog = ({
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className={isRTL ? 'text-right block' : ''}>Category</Label>
-                  <Input 
-                    className={isRTL ? 'text-right' : ''} 
-                    value={category} 
-                    onChange={(e) => setCategory(e.target.value)} 
-                    placeholder="Enter category" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className={isRTL ? 'text-right block' : ''}>Brand Code</Label>
-                  <Input 
-                    className={isRTL ? 'text-right' : ''} 
-                    value={initialBrandCode || ""} 
-                    disabled
-                    placeholder="Brand code" 
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label className={isRTL ? 'text-right block' : ''}>Category</Label>
+                <Input 
+                  className={isRTL ? 'text-right' : ''} 
+                  value={category} 
+                  onChange={(e) => setCategory(e.target.value)} 
+                  placeholder="Enter category" 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className={isRTL ? 'text-right block' : ''}>Brand Code</Label>
+                <Input 
+                  className={isRTL ? 'text-right' : ''} 
+                  value={initialBrandCode || ""} 
+                  disabled
+                  placeholder="Brand code" 
+                />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
