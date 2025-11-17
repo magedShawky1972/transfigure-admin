@@ -4,11 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Play } from "lucide-react";
+import { ArrowLeft, Download, Play, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface ReportResult {
@@ -24,6 +23,7 @@ const RevenueByBrandType = () => {
   const [selectedBrandType, setSelectedBrandType] = useState<string>("all");
   const [reportResults, setReportResults] = useState<ReportResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [dateRun, setDateRun] = useState<string>("");
 
   const { data: brandTypes = [] } = useQuery({
     queryKey: ["brand-types"],
@@ -110,6 +110,7 @@ const RevenueByBrandType = () => {
       results.sort((a, b) => b.total_revenue - a.total_revenue);
 
       setReportResults(results);
+      setDateRun(new Date().toLocaleString());
       toast.success("Report generated successfully");
     } catch (error: any) {
       console.error("Error running report:", error);
@@ -145,9 +146,13 @@ const RevenueByBrandType = () => {
   const totalRevenue = reportResults.reduce((sum, row) => sum + row.total_revenue, 0);
   const totalTransactions = reportResults.reduce((sum, row) => sum + row.transaction_count, 0);
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 print:hidden">
         <Button variant="outline" size="icon" onClick={() => navigate("/reports")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -159,7 +164,7 @@ const RevenueByBrandType = () => {
         </div>
       </div>
 
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle>Report Parameters</CardTitle>
           <CardDescription>
@@ -209,75 +214,114 @@ const RevenueByBrandType = () => {
               {isRunning ? "Running..." : "Run Report"}
             </Button>
             {reportResults.length > 0 && (
-              <Button variant="outline" onClick={exportToCSV}>
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
-              </Button>
+              <>
+                <Button variant="outline" onClick={exportToCSV}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+                <Button variant="outline" onClick={handlePrint}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print
+                </Button>
+              </>
             )}
           </div>
         </CardContent>
       </Card>
 
       {reportResults.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Report Results</CardTitle>
-            <CardDescription>
-              Revenue from {dateFrom} to {dateTo}
-              {selectedBrandType !== "all" && ` - ${selectedBrandType}`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Brand Type</TableHead>
-                    <TableHead className="text-right">Total Revenue</TableHead>
-                    <TableHead className="text-right">Transaction Count</TableHead>
-                    <TableHead className="text-right">Average per Transaction</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reportResults.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{row.brand_type_name}</TableCell>
-                      <TableCell className="text-right">
-                        {row.total_revenue.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right">{row.transaction_count}</TableCell>
-                      <TableCell className="text-right">
-                        {(row.total_revenue / row.transaction_count).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="font-bold bg-muted/50">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-right">
-                      {totalRevenue.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-right">{totalTransactions}</TableCell>
-                    <TableCell className="text-right">
-                      {(totalRevenue / totalTransactions).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+        <div className="bg-background border rounded-lg p-8 print:border-0 print:p-0">
+          {/* Report Document Header */}
+          <div className="mb-8 pb-6 border-b-2 border-border">
+            <h1 className="text-2xl font-bold mb-4">Revenue by Brand Type Report</h1>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-semibold text-muted-foreground">Report Name</p>
+                <p className="font-medium">Revenue by Brand Type</p>
+              </div>
+              <div>
+                <p className="font-semibold text-muted-foreground">Date Run</p>
+                <p className="font-medium">{dateRun}</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Selection Criteria */}
+          <div className="mb-8 pb-6 border-b border-border">
+            <h2 className="text-lg font-semibold mb-4">Selection Criteria</h2>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-semibold text-muted-foreground">Date From</p>
+                <p className="font-medium">{dateFrom}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-muted-foreground">Date To</p>
+                <p className="font-medium">{dateTo}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-muted-foreground">Brand Type</p>
+                <p className="font-medium">{selectedBrandType === "all" ? "All Brand Types" : selectedBrandType}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Report Data Table */}
+          <div className="mb-6">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b-2 border-border">
+                  <th className="text-left py-3 px-4 font-semibold">Brand Type</th>
+                  <th className="text-right py-3 px-4 font-semibold">Amount</th>
+                  <th className="text-right py-3 px-4 font-semibold">Transaction Count</th>
+                  <th className="text-right py-3 px-4 font-semibold">Average</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportResults.map((row, index) => (
+                  <tr key={index} className="border-b border-border hover:bg-muted/50">
+                    <td className="py-3 px-4">{row.brand_type_name}</td>
+                    <td className="text-right py-3 px-4">
+                      {row.total_revenue.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td className="text-right py-3 px-4">{row.transaction_count}</td>
+                    <td className="text-right py-3 px-4">
+                      {(row.total_revenue / row.transaction_count).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-border font-bold bg-muted/30">
+                  <td className="py-3 px-4">Total</td>
+                  <td className="text-right py-3 px-4">
+                    {totalRevenue.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="text-right py-3 px-4">{totalTransactions}</td>
+                  <td className="text-right py-3 px-4">
+                    {(totalRevenue / totalTransactions).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Report Footer */}
+          <div className="text-xs text-muted-foreground text-right mt-8 pt-4 border-t border-border">
+            <p>Generated on {dateRun}</p>
+          </div>
+        </div>
       )}
     </div>
   );
