@@ -32,6 +32,7 @@ const PaymentMethodSetup = () => {
   const [loading, setLoading] = useState(false);
 const [saving, setSaving] = useState(false);
 const [recalculating, setRecalculating] = useState(false);
+const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [newMethod, setNewMethod] = useState({
     payment_type: "",
@@ -252,6 +253,33 @@ const [recalculating, setRecalculating] = useState(false);
     }
   };
 
+  const handleRecalculateBrandFees = async (paymentMethod: string) => {
+    try {
+      setRecalculatingBrand(paymentMethod);
+      const { data, error } = await supabase.rpc("update_ordertotals_bank_fees_by_brand", { brand_name: paymentMethod });
+      if (error) throw error;
+      toast({
+        title: language === "ar" ? "تم التحديث" : "Updated",
+        description:
+          language === "ar"
+            ? `تمت إعادة احتساب رسوم ${paymentMethod}. عدد الطلبات المحدثة: ${data ?? 0}`
+            : `Recalculated fees for ${paymentMethod}. Updated orders: ${data ?? 0}`,
+      });
+    } catch (error) {
+      console.error("Error recalculating brand fees:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description:
+          language === "ar"
+            ? "فشل في إعادة احتساب رسوم هذه الطريقة"
+            : "Failed to recalculate fees for this brand",
+        variant: "destructive",
+      });
+    } finally {
+      setRecalculatingBrand(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -286,7 +314,7 @@ const [recalculating, setRecalculating] = useState(false);
           ) : (
             <div className="space-y-4">
               {/* Header */}
-              <div className="grid grid-cols-7 gap-4 font-semibold text-sm pb-2 border-b">
+              <div className="grid grid-cols-8 gap-4 font-semibold text-sm pb-2 border-b">
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "طريقة الدفع" : "Payment Method"}
                 </div>
@@ -306,13 +334,16 @@ const [recalculating, setRecalculating] = useState(false);
                   {language === "ar" ? "الحالة" : "Status"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
+                  {language === "ar" ? "إعادة احتساب" : "Recalculate"}
+                </div>
+                <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "إجراءات" : "Actions"}
                 </div>
               </div>
 
               {/* Existing Payment Methods */}
               {paymentMethods.map((method) => (
-                <div key={method.id} className="grid grid-cols-7 gap-4 items-center">
+                <div key={method.id} className="grid grid-cols-8 gap-4 items-center">
                   <Input
                     value={method.payment_type || ""}
                     onChange={(e) => {
@@ -388,6 +419,21 @@ const [recalculating, setRecalculating] = useState(false);
                       aria-label={language === "ar" ? "الحالة" : "Status"}
                     />
                   </div>
+                  <div className="flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRecalculateBrandFees(method.payment_method)}
+                      disabled={recalculatingBrand === method.payment_method}
+                      title={language === "ar" ? "إعادة احتساب رسوم هذه الطريقة" : "Recalculate fees for this brand"}
+                    >
+                      {recalculatingBrand === method.payment_method ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       size="icon"
@@ -407,7 +453,7 @@ const [recalculating, setRecalculating] = useState(false);
               ))}
 
               {/* Add New Method */}
-              <div className="grid grid-cols-7 gap-4 items-center pt-4 border-t">
+              <div className="grid grid-cols-8 gap-4 items-center pt-4 border-t">
                 <Input
                   placeholder={language === "ar" ? "نوع الدفع" : "Payment method"}
                   value={newMethod.payment_type}
@@ -473,6 +519,7 @@ const [recalculating, setRecalculating] = useState(false);
                 <div className="flex items-center">
                   <Switch checked={true} disabled aria-label={language === "ar" ? "الحالة" : "Status"} />
                 </div>
+                <div></div>
                 <Button onClick={handleAddMethod} size="icon">
                   <Plus className="h-4 w-4" />
                 </Button>

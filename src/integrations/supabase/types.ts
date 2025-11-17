@@ -966,6 +966,10 @@ export type Database = {
       }
       update_bank_fees_from_payment_brand: { Args: never; Returns: number }
       update_ordertotals_bank_fees: { Args: never; Returns: number }
+      update_ordertotals_bank_fees_by_brand: {
+        Args: { brand_name: string }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "user"
