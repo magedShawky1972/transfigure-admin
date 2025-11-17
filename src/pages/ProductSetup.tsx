@@ -38,7 +38,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw } from "lucide-react";
+import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload } from "lucide-react";
+import { ProductExcelUpload } from "@/components/ProductExcelUpload";
 import { format } from "date-fns";
 import {
   Collapsible,
@@ -93,6 +94,7 @@ const ProductSetup = () => {
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [syncingProducts, setSyncingProducts] = useState<Set<string>>(new Set());
@@ -458,6 +460,10 @@ const ProductSetup = () => {
                 {t("productSetup.viewTree")}
               </Button>
             </div>
+            <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Excel
+            </Button>
             <Button onClick={() => setDialogOpen(true)}>
               {t("productSetup.addNew")}
             </Button>
@@ -854,6 +860,21 @@ const ProductSetup = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload Excel to Update Products</DialogTitle>
+          </DialogHeader>
+          <ProductExcelUpload
+            onUploadComplete={() => {
+              setUploadDialogOpen(false);
+              fetchProducts();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
