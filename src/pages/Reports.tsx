@@ -2,22 +2,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { FileText, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Reports = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const reports = [
     {
       id: "revenue-by-brand-type",
-      name: "Revenue by Brand Type",
-      description: "Calculate total revenue based on brand type",
+      name: t("reports.revenueByBrandType.name"),
+      description: t("reports.revenueByBrandType.description"),
       icon: TrendingUp,
       route: "/reports/revenue-by-brand-type",
     },
     {
       id: "cost-by-brand-type",
-      name: "Cost by Brand Type",
-      description: "Calculate total cost based on brand type",
+      name: t("reports.costByBrandType.name"),
+      description: t("reports.costByBrandType.description"),
       icon: TrendingUp,
       route: "/reports/cost-by-brand-type",
     },
@@ -26,9 +28,9 @@ const Reports = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Reports</h1>
+        <h1 className="text-3xl font-bold mb-2">{t("reports.title")}</h1>
         <p className="text-muted-foreground">
-          Select a report to view parameters and run
+          {t("reports.subtitle")}
         </p>
       </div>
 
@@ -53,7 +55,7 @@ const Reports = () => {
               <CardContent>
                 <Button className="w-full" variant="outline">
                   <FileText className="mr-2 h-4 w-4" />
-                  View Report
+                  {t("reports.viewReport")}
                 </Button>
               </CardContent>
             </Card>
