@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -49,30 +49,26 @@ const RevenueByBrandType = () => {
     }
 
     const formattedDateFrom = format(dateFrom, "yyyy-MM-dd");
-    const endExclusive = format(addDays(dateTo, 1), "yyyy-MM-dd");
+    const formattedDateTo = format(dateTo, "yyyy-MM-dd");
 
     setIsRunning(true);
     try {
-      // Query to get revenue by brand type (excluding point transactions)
+      // Query to get revenue by brand type using brand_code for accurate joining
       let query = supabase
         .from("purpletransaction")
-        .select("brand_name, total, payment_method")
+        .select("brand_code, total")
         .gte("created_at_date", formattedDateFrom)
-        .lt("created_at_date", endExclusive);
+        .lte("created_at_date", formattedDateTo)
+        .neq("payment_method", "point");
 
       const { data: transactions, error: transError } = await query;
       if (transError) throw transError;
 
-      // Filter out point transactions
-      const filteredTransactions = transactions?.filter(
-        (trans) => (trans.payment_method || "").toLowerCase() !== "point"
-      ) || [];
-
-      // Get all brands with their types
+      // Get all brands with their types using brand_code
       const { data: brands, error: brandsError } = await supabase
         .from("brands")
         .select(`
-          brand_name,
+          brand_code,
           brand_type:brand_type_id (
             id,
             type_name
@@ -81,19 +77,21 @@ const RevenueByBrandType = () => {
       
       if (brandsError) throw brandsError;
 
-      // Create a map of brand_name to brand_type_name
+      // Create a map of brand_code to brand_type_name
       const brandTypeMap = new Map<string, string>();
       brands?.forEach((brand: any) => {
-        if (brand.brand_type) {
-          brandTypeMap.set(brand.brand_name, brand.brand_type.type_name);
+        if (brand.brand_type && brand.brand_code) {
+          brandTypeMap.set(brand.brand_code, brand.brand_type.type_name);
         }
       });
 
       // Group transactions by brand type
       const revenueByType = new Map<string, { revenue: number; count: number }>();
       
-      filteredTransactions.forEach((trans) => {
-        const brandTypeName = brandTypeMap.get(trans.brand_name || "") || "Unknown";
+      transactions?.forEach((trans) => {
+        const brandTypeName = trans.brand_code 
+          ? (brandTypeMap.get(trans.brand_code) || "Unknown")
+          : "Unknown";
         
         // Filter by selected brand type if not "all"
         if (selectedBrandType !== "all" && brandTypeName !== selectedBrandType) {
