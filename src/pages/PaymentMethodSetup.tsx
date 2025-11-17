@@ -271,20 +271,45 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
 
       setRecalculatingBrand(`${paymentType}-${paymentMethod}`);
 
-      const { data, error } = await supabase.rpc("update_ordertotals_bank_fees_by_pair", {
-        p_brand_name: paymentMethod,
-        p_payment_type: paymentType,
-      });
+      // Call the edge function instead of RPC to avoid timeouts
+      const { data, error } = await supabase.functions.invoke(
+        "update-ordertotals-bank-fees-by-pair",
+        {
+          body: {
+            brandName: paymentMethod,
+            paymentType: paymentType,
+          },
+        }
+      );
 
       if (error) throw error;
+
+      const result = data as {
+        success: boolean;
+        updatedCount: number;
+        remainingCount: number;
+        needsMoreRuns: boolean;
+        message: string;
+      };
 
       toast({
         title: language === "ar" ? "تم التحديث" : "Updated",
         description:
           language === "ar"
-            ? `تمت إعادة احتساب رسوم ${paymentType} - ${paymentMethod}. عدد الطلبات المحدثة: ${data ?? 0}`
-            : `Recalculated fees for ${paymentType} - ${paymentMethod}. Updated orders: ${data ?? 0}`,
+            ? `تمت إعادة احتساب رسوم ${paymentType} - ${paymentMethod}. عدد الطلبات المحدثة: ${result?.updatedCount ?? 0}`
+            : `Recalculated fees for ${paymentType} - ${paymentMethod}. Updated orders: ${result?.updatedCount ?? 0}`,
+        variant: result?.needsMoreRuns ? "default" : "default",
       });
+
+      if (result?.needsMoreRuns) {
+        toast({
+          title: language === "ar" ? "تنبيه" : "Notice",
+          description:
+            language === "ar"
+              ? `تبقى ${result.remainingCount} طلب. قم بتشغيل العملية مرة أخرى للمتابعة.`
+              : `${result.remainingCount} orders remaining. Run again to continue.`,
+        });
+      }
     } catch (error) {
       console.error("Error recalculating brand fees:", { error, paymentMethod, paymentType });
       const message =
