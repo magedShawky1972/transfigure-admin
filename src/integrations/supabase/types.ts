@@ -970,7 +970,11 @@ export type Database = {
         | { Args: { batch_size?: number; brand_name: string }; Returns: number }
         | { Args: { brand_name: string }; Returns: number }
       update_ordertotals_bank_fees_by_pair: {
-        Args: { batch_size?: number; brand_name: string; payment_type: string }
+        Args: {
+          batch_size?: number
+          p_brand_name: string
+          p_payment_type: string
+        }
         Returns: number
       }
     }
