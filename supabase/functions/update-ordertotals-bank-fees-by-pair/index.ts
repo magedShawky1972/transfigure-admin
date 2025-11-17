@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { brandName, paymentType } = await req.json();
+    const { brandName, paymentType, cursorId } = await req.json();
 
     if (!brandName || !paymentType) {
       return new Response(
@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
         .order('id', { ascending: false })
         .limit(batchSize);
 
+      if (cursorId) baseQuery = baseQuery.lt('id', cursorId);
       if (lastId) baseQuery = baseQuery.lt('id', lastId);
 
       const { data: orders, error: txError } = await baseQuery;
@@ -130,24 +131,40 @@ Deno.serve(async (req) => {
       }
     }
 
-    const remainingCount = (count || 0) - updatedCount;
+    let remainingCount = 0;
+    const nextCursor = lastId || cursorId || null;
+    if (nextCursor) {
+      const { count: remCount, error: remError } = await supabase
+        .from('ordertotals')
+        .select('*', { count: 'exact', head: true })
+        .ilike('payment_brand', brandName)
+        .ilike('payment_method', paymentType)
+        .neq('payment_method', 'point')
+        .lt('id', nextCursor);
+      if (remError) {
+        console.error('Error counting remaining orders:', remError);
+      }
+      remainingCount = remCount || 0;
+    } else {
+      remainingCount = (count || 0) - updatedCount;
+    }
     const needsMoreRuns = remainingCount > 0;
 
     console.log(`Bank fee update completed. Updated ${updatedCount} orders.`);
-
     if (needsMoreRuns) {
-      console.log(`${remainingCount} orders still need updating. Run again to continue.`);
+      console.log(`${remainingCount} orders still need updating. Continue with nextCursor=${nextCursor}.`);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         message: needsMoreRuns
-          ? `Updated ${updatedCount} orders. ${remainingCount} remaining - please run again.`
+          ? `Updated ${updatedCount} orders. ${remainingCount} remaining - run again.`
           : `Successfully updated bank fees for ${updatedCount} orders`,
         updatedCount,
         remainingCount,
         needsMoreRuns,
+        nextCursor,
         paymentType,
         brandName
       }),
