@@ -12,6 +12,7 @@ import TableGenerator from "./pages/TableGenerator";
 import Reports from "./pages/Reports";
 import ReportsSetup from "./pages/ReportsSetup";
 import RevenueByBrandType from "./pages/RevenueByBrandType";
+import CostByBrandType from "./pages/CostByBrandType";
 import LoadData from "./pages/LoadData";
 import UploadLog from "./pages/UploadLog";
 import ClearData from "./pages/ClearData";
@@ -45,6 +46,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/revenue-by-brand-type" element={<RevenueByBrandType />} />
+              <Route path="/reports/cost-by-brand-type" element={<CostByBrandType />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/load-data" element={<LoadData />} />
               <Route path="/upload-log" element={<UploadLog />} />
