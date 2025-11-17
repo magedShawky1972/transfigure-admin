@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -29,7 +30,8 @@ const paymentMethodSchema = z.object({
 const PaymentMethodSetup = () => {
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+const [saving, setSaving] = useState(false);
+const [recalculating, setRecalculating] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [newMethod, setNewMethod] = useState({
     payment_type: "",
@@ -49,7 +51,6 @@ const PaymentMethodSetup = () => {
       const { data, error } = await supabase
         .from("payment_methods")
         .select("*")
-        .eq("is_active", true)
         .order("payment_method", { ascending: true });
 
       if (error) throw error;
@@ -88,6 +89,7 @@ const PaymentMethodSetup = () => {
           gateway_fee: method.gateway_fee,
           fixed_value: method.fixed_value,
           vat_fee: method.vat_fee,
+          is_active: method.is_active,
         })
         .eq("id", method.id);
 
@@ -223,6 +225,33 @@ const PaymentMethodSetup = () => {
     }
   };
 
+  const handleRecalculateFees = async () => {
+    try {
+      setRecalculating(true);
+      const { data, error } = await supabase.rpc("update_ordertotals_bank_fees");
+      if (error) throw error;
+      toast({
+        title: language === "ar" ? "تم التحديث" : "Updated",
+        description:
+          language === "ar"
+            ? `تمت إعادة احتساب الرسوم. عدد الطلبات المحدثة: ${data ?? 0}`
+            : `Bank fees recalculated. Updated orders: ${data ?? 0}`,
+      });
+    } catch (error) {
+      console.error("Error recalculating bank fees:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description:
+          language === "ar"
+            ? "فشل في إعادة احتساب رسوم الطلبات"
+            : "Failed to recalculate order fees",
+        variant: "destructive",
+      });
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -237,10 +266,17 @@ const PaymentMethodSetup = () => {
       </div>
 
       <Card>
-        <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>
             {language === "ar" ? "عمولات البنوك" : "Bank Commissions"}
           </CardTitle>
+          <Button variant="secondary" onClick={handleRecalculateFees} disabled={recalculating}>
+            {recalculating ? (
+              <span className="inline-flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" />{language === "ar" ? "جارٍ الاحتساب" : "Recalculating"}</span>
+            ) : (
+              language === "ar" ? "إعادة احتساب رسوم الطلبات" : "Recalculate Order Fees"
+            )}
+          </Button>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -250,7 +286,7 @@ const PaymentMethodSetup = () => {
           ) : (
             <div className="space-y-4">
               {/* Header */}
-              <div className="grid grid-cols-6 gap-4 font-semibold text-sm pb-2 border-b">
+              <div className="grid grid-cols-7 gap-4 font-semibold text-sm pb-2 border-b">
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "طريقة الدفع" : "Payment Method"}
                 </div>
@@ -267,13 +303,16 @@ const PaymentMethodSetup = () => {
                   {language === "ar" ? "رسوم القيمة المضافة %" : "VAT Fee %"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
+                  {language === "ar" ? "الحالة" : "Status"}
+                </div>
+                <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "إجراءات" : "Actions"}
                 </div>
               </div>
 
               {/* Existing Payment Methods */}
               {paymentMethods.map((method) => (
-                <div key={method.id} className="grid grid-cols-6 gap-4 items-center">
+                <div key={method.id} className="grid grid-cols-7 gap-4 items-center">
                   <Input
                     value={method.payment_type || ""}
                     onChange={(e) => {
@@ -338,6 +377,17 @@ const PaymentMethodSetup = () => {
                     }}
                     className="text-right"
                   />
+                  <div className="flex items-center">
+                    <Switch
+                      checked={!!method.is_active}
+                      onCheckedChange={(checked) => {
+                        setPaymentMethods((prev) =>
+                          prev.map((m) => (m.id === method.id ? { ...m, is_active: checked } : m))
+                        );
+                      }}
+                      aria-label={language === "ar" ? "الحالة" : "Status"}
+                    />
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       size="icon"
@@ -357,7 +407,7 @@ const PaymentMethodSetup = () => {
               ))}
 
               {/* Add New Method */}
-              <div className="grid grid-cols-6 gap-4 items-center pt-4 border-t">
+              <div className="grid grid-cols-7 gap-4 items-center pt-4 border-t">
                 <Input
                   placeholder={language === "ar" ? "نوع الدفع" : "Payment method"}
                   value={newMethod.payment_type}
@@ -420,6 +470,9 @@ const PaymentMethodSetup = () => {
                   }}
                   className="text-right"
                 />
+                <div className="flex items-center">
+                  <Switch checked={true} disabled aria-label={language === "ar" ? "الحالة" : "Status"} />
+                </div>
                 <Button onClick={handleAddMethod} size="icon">
                   <Plus className="h-4 w-4" />
                 </Button>
