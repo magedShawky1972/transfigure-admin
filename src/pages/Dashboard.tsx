@@ -1607,21 +1607,23 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Group by payment_brand and sum totals, bank_fees, and count orders
+      // Group by payment_method + payment_brand to avoid mixing providers
       const grouped = allData.reduce((acc: any, item) => {
         const brand = item.payment_brand || 'Unknown';
-        if (!acc[brand]) {
-          acc[brand] = {
+        const method = item.payment_method || 'Unknown';
+        const key = `${method}||${brand}`;
+        if (!acc[key]) {
+          acc[key] = {
             payment_brand: brand,
-            payment_method: item.payment_method || 'Unknown',
+            payment_method: method,
             total: 0,
             bank_fee: 0,
             transaction_count: 0
           };
         }
-        acc[brand].total += parseNumber(item.total);
-        acc[brand].bank_fee += parseNumber(item.bank_fee);
-        acc[brand].transaction_count += 1;
+        acc[key].total += parseNumber(item.total);
+        acc[key].bank_fee += parseNumber(item.bank_fee);
+        acc[key].transaction_count += 1;
         return acc;
       }, {});
 
