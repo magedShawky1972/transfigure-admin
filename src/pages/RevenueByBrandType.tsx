@@ -47,16 +47,21 @@ const RevenueByBrandType = () => {
 
     setIsRunning(true);
     try {
-      // Query to get revenue by brand type
+      // Query to get revenue by brand type (excluding point transactions)
       let query = supabase
         .from("purpletransaction")
-        .select("brand_name, total")
+        .select("brand_name, total, payment_method")
         .gte("created_at_date", dateFrom)
         .lte("created_at_date", dateTo)
         .not("brand_name", "is", null);
 
       const { data: transactions, error: transError } = await query;
       if (transError) throw transError;
+
+      // Filter out point transactions
+      const filteredTransactions = transactions?.filter(
+        (trans) => (trans.payment_method || "").toLowerCase() !== "point"
+      ) || [];
 
       // Get all brands with their types
       const { data: brands, error: brandsError } = await supabase
@@ -82,7 +87,7 @@ const RevenueByBrandType = () => {
       // Group transactions by brand type
       const revenueByType = new Map<string, { revenue: number; count: number }>();
       
-      transactions?.forEach((trans) => {
+      filteredTransactions.forEach((trans) => {
         const brandTypeName = brandTypeMap.get(trans.brand_name || "") || "Unknown";
         
         // Filter by selected brand type if not "all"
