@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     // Get all payment methods with their fees
     const { data: paymentMethods, error: pmError } = await supabase
       .from('payment_methods')
-      .select('payment_method, gateway_fee, fixed_value, vat_fee')
+      .select('payment_type, payment_method, gateway_fee, fixed_value, vat_fee')
       .eq('is_active', true);
 
     if (pmError) {
@@ -29,10 +29,10 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Found ${paymentMethods?.length || 0} payment methods:`, 
-      paymentMethods?.map(pm => pm.payment_method));
+      paymentMethods?.map(pm => `${pm.payment_type}:${pm.payment_method}`));
 
-    // Build a list of method names to filter only matchable transactions
-    const methodNames = (paymentMethods || [])
+    // Build a list of payment_brand names to filter only matchable transactions
+    const brandNames = (paymentMethods || [])
       .map(pm => (pm.payment_method || '').trim())
       .filter(Boolean);
 
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       .select('*', { count: 'exact', head: true })
       .neq('payment_method', 'point')
       .or('bank_fee.is.null,bank_fee.eq.0')
-      .in('payment_brand', methodNames);
+      .in('payment_brand', brandNames);
 
     if (countError) {
       console.error('Error counting transactions:', countError);
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
         .select('id, payment_method, payment_brand, total')
         .neq('payment_method', 'point')
         .or('bank_fee.is.null,bank_fee.eq.0')
-        .in('payment_brand', methodNames)
+        .in('payment_brand', brandNames)
         .order('id', { ascending: true })
         .limit(batchSize);
 
@@ -82,11 +82,15 @@ Deno.serve(async (req) => {
         break;
       }
 
-      const updates = transactions.map(tx => {
-        // Match on payment_brand against payment_method in payment_methods (trim + lowercase)
-        const brand = (tx.payment_brand || '').trim().toLowerCase();
+    const updates = transactions.map(tx => {
+        // Match on BOTH payment_method (from tx) and payment_brand (from tx) 
+        // against payment_type and payment_method in payment_methods table
+        const txMethod = (tx.payment_method || '').trim().toLowerCase();
+        const txBrand = (tx.payment_brand || '').trim().toLowerCase();
+        
         const paymentMethod = paymentMethods.find(pm => 
-          (pm.payment_method || '').trim().toLowerCase() === brand
+          (pm.payment_type || '').trim().toLowerCase() === txMethod &&
+          (pm.payment_method || '').trim().toLowerCase() === txBrand
         );
 
         let bankFee = 0;
@@ -100,7 +104,7 @@ Deno.serve(async (req) => {
           bankFee = (gatewayFee + fixed) * 1.15;
           matchedCount++;
         } else {
-          const label = tx.payment_brand;
+          const label = `${tx.payment_method}:${tx.payment_brand}`;
           if (label) unmatchedMethods.add(label);
         }
 
