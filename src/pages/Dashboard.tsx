@@ -351,10 +351,9 @@ const Dashboard = () => {
         while (true) {
           const { data, error } = await supabase
             .from('purpletransaction')
-            .select('cost_sold')
+            .select('cost_sold, payment_method')
             .gte('created_at_date', startStr)
             .lt('created_at_date', endNextStr)
-            .neq('payment_method', 'point')
             .order('created_at_date', { ascending: true })
             .range(from, from + pageSize - 1);
 
@@ -369,6 +368,8 @@ const Dashboard = () => {
 
         let costOfSales = 0;
         allCogsData.forEach((row) => {
+          // Skip point transactions
+          if ((row.payment_method || '').toLowerCase() === 'point') return;
           costOfSales += parseNumber(row.cost_sold);
         });
 
@@ -379,10 +380,9 @@ const Dashboard = () => {
         while (true) {
           const { data, error } = await supabase
             .from('ordertotals')
-            .select('bank_fee')
+            .select('bank_fee, payment_method')
             .gte('order_date', startStr)
             .lt('order_date', endNextStr)
-            .neq('payment_method', 'point')
             .order('order_date', { ascending: true })
             .range(orderFrom, orderFrom + pageSize - 1);
 
@@ -397,6 +397,8 @@ const Dashboard = () => {
 
         let ePaymentCharges = 0;
         allOrderData.forEach((row) => {
+          // Skip point transactions
+          if ((row.payment_method || '').toLowerCase() === 'point') return;
           ePaymentCharges += parseNumber(row.bank_fee);
         });
 
@@ -490,10 +492,9 @@ const Dashboard = () => {
       // Build base query with optional brand filter
       let base = supabase
         .from('purpletransaction')
-        .select('created_at_date, total')
+        .select('created_at_date, total, payment_method')
         .gte('created_at_date', startStr)
         .lt('created_at_date', endNextStr)
-        .neq('payment_method', 'point')
         .order('created_at_date', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
@@ -515,6 +516,8 @@ const Dashboard = () => {
 
       const byDate: Record<string, number> = {};
       (trendRows || []).forEach((row: any) => {
+        // Skip point transactions
+        if ((row.payment_method || '').toLowerCase() === 'point') return;
         const dateKey = String(row.created_at_date).split('T')[0];
         const sales = parseNumber(row.total);
         byDate[dateKey] = (byDate[dateKey] || 0) + sales;
@@ -594,10 +597,9 @@ const Dashboard = () => {
       // Build base query with optional brand filter
       let trendBase = supabase
         .from('purpletransaction')
-        .select('created_at_date, total')
+        .select('created_at_date, total, payment_method')
         .gte('created_at_date', trendStartStr)
         .lt('created_at_date', trendEndNextStr)
-        .neq('payment_method', 'point')
         .order('created_at_date', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
@@ -619,6 +621,8 @@ const Dashboard = () => {
 
       const trendByDate: Record<string, number> = {};
       (trendRows || []).forEach((row: any) => {
+        // Skip point transactions
+        if ((row.payment_method || '').toLowerCase() === 'point') return;
         const dateKey = String(row.created_at_date).split('T')[0];
         const sales = parseNumber(row.total);
         trendByDate[dateKey] = (trendByDate[dateKey] || 0) + sales;
@@ -666,14 +670,14 @@ const Dashboard = () => {
         while (true) {
           const { data, error } = await (supabase as any)
             .from('purpletransaction')
-            .select('total, cost_sold, bank_fee')
+            .select('total, cost_sold, bank_fee, payment_method')
             .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
             .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
-            .neq('payment_method', 'point')
             .range(fromNP, fromNP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
-          nonPointData = nonPointData.concat(batch);
+          // Filter out point transactions on client-side
+          nonPointData = nonPointData.concat(batch.filter((row: any) => (row.payment_method || '').toLowerCase() !== 'point'));
           if (batch.length < pageSize) break;
           fromNP += pageSize;
         }
@@ -1594,7 +1598,6 @@ const Dashboard = () => {
           .select('payment_brand, payment_method, total, bank_fee')
           .gte('order_date', startStr)
           .lt('order_date', endNextStr)
-          .neq('payment_method', 'point')
           .order('order_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
@@ -1609,6 +1612,9 @@ const Dashboard = () => {
 
       // Group by payment_method + payment_brand to avoid mixing providers
       const grouped = allData.reduce((acc: any, item) => {
+        // Skip point transactions
+        if ((item.payment_method || '').toLowerCase() === 'point') return acc;
+        
         const brand = item.payment_brand || 'Unknown';
         const method = item.payment_method || 'Unknown';
         const key = `${method}||${brand}`;
