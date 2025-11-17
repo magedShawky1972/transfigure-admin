@@ -298,33 +298,25 @@ const PaymentMethodSetup = () => {
     try {
       setRecalculatingBrand(`${paymentType}-${brandName}`);
 
-      // 1) Recalc purpletransaction
-      const { data: txData, error: txError } = await supabase.functions.invoke(
-        "update-purpletransaction-bank-fees-by-pair",
-        { body: { brandName, paymentType } }
-      );
-      if (txError) throw txError;
-
-      // 2) Recalc ordertotals
+      // Recalc ordertotals only
       const { data: otData, error: otError } = await supabase.functions.invoke(
         "update-ordertotals-bank-fees-by-pair",
         { body: { brandName, paymentType } }
       );
       if (otError) throw otError;
 
-      const txRes = txData as { updatedCount?: number; remainingCount?: number; needsMoreRuns?: boolean };
       const otRes = otData as { updatedCount?: number; remainingCount?: number; needsMoreRuns?: boolean };
 
       toast({
         title: language === "ar" ? "تم التحديث" : "Updated",
         description:
           language === "ar"
-            ? `تم تحديث ${paymentType} - ${brandName}. معاملات: ${txRes?.updatedCount ?? 0}، الطلبات: ${otRes?.updatedCount ?? 0}`
-            : `Recalculated ${paymentType} - ${brandName}. Transactions: ${txRes?.updatedCount ?? 0}, Orders: ${otRes?.updatedCount ?? 0}`,
+            ? `تم تحديث ${paymentType} - ${brandName}. الطلبات: ${otRes?.updatedCount ?? 0}`
+            : `Recalculated ${paymentType} - ${brandName}. Orders: ${otRes?.updatedCount ?? 0}`,
       });
 
-      if (txRes?.needsMoreRuns || otRes?.needsMoreRuns) {
-        const remaining = (txRes?.remainingCount ?? 0) + (otRes?.remainingCount ?? 0);
+      if (otRes?.needsMoreRuns) {
+        const remaining = otRes?.remainingCount ?? 0;
         toast({
           title: language === "ar" ? "تنبيه" : "Notice",
           description:
@@ -361,32 +353,20 @@ const PaymentMethodSetup = () => {
 
     try {
       let orderCursor: string | null = null;
-      let txCursor: string | null = null;
       let totalOrdersUpdated = 0;
-      let totalTxUpdated = 0;
       let orderTotalCount = 0;
-      let txTotalCount = 0;
 
-      // Get initial counts
+      // Get initial count for orders only
       const { count: orderCount } = await supabase
         .from('ordertotals')
         .select('*', { count: 'exact', head: true })
         .ilike('payment_brand', brandName)
         .ilike('payment_method', paymentType)
         .neq('payment_method', 'point');
-      
-      const { count: txCount } = await supabase
-        .from('purpletransaction')
-        .select('*', { count: 'exact', head: true })
-        .ilike('payment_brand', brandName)
-        .ilike('payment_method', paymentType)
-        .neq('payment_method', 'point');
 
       orderTotalCount = orderCount || 0;
-      txTotalCount = txCount || 0;
-      const totalRecords = orderTotalCount + txTotalCount;
 
-      // Process ordertotals
+      // Process ordertotals only
       let orderNeedsMore = true;
       while (orderNeedsMore) {
         const { data: orderData, error: orderError } = await supabase.functions.invoke(
@@ -400,39 +380,14 @@ const PaymentMethodSetup = () => {
         orderCursor = orderData.nextCursor;
         orderNeedsMore = orderData.needsMoreRuns;
 
-        const progress = totalRecords > 0 
-          ? Math.round(((totalOrdersUpdated + totalTxUpdated) / totalRecords) * 100)
+        const progress = orderTotalCount > 0 
+          ? Math.round((totalOrdersUpdated / orderTotalCount) * 100)
           : 0;
         setBulkProgress(progress);
         setBulkMessage(
           language === "ar" 
-            ? `تم تحديث ${totalOrdersUpdated} طلب و ${totalTxUpdated} معاملة...`
-            : `Updated ${totalOrdersUpdated} orders and ${totalTxUpdated} transactions...`
-        );
-      }
-
-      // Process purpletransaction
-      let txNeedsMore = true;
-      while (txNeedsMore) {
-        const { data: txData, error: txError } = await supabase.functions.invoke(
-          "update-purpletransaction-bank-fees-by-pair",
-          { body: { brandName, paymentType, cursorId: txCursor } }
-        );
-
-        if (txError) throw txError;
-
-        totalTxUpdated += txData.updatedCount || 0;
-        txCursor = txData.nextCursor;
-        txNeedsMore = txData.needsMoreRuns;
-
-        const progress = totalRecords > 0 
-          ? Math.round(((totalOrdersUpdated + totalTxUpdated) / totalRecords) * 100)
-          : 100;
-        setBulkProgress(progress);
-        setBulkMessage(
-          language === "ar" 
-            ? `تم تحديث ${totalOrdersUpdated} طلب و ${totalTxUpdated} معاملة...`
-            : `Updated ${totalOrdersUpdated} orders and ${totalTxUpdated} transactions...`
+            ? `تم تحديث ${totalOrdersUpdated} طلب من ${orderTotalCount}...`
+            : `Updated ${totalOrdersUpdated} of ${orderTotalCount} orders...`
         );
       }
 
@@ -440,8 +395,8 @@ const PaymentMethodSetup = () => {
         title: language === "ar" ? "اكتمل!" : "Completed!",
         description: 
           language === "ar"
-            ? `تم تحديث جميع السجلات. الطلبات: ${totalOrdersUpdated}, المعاملات: ${totalTxUpdated}`
-            : `All records updated. Orders: ${totalOrdersUpdated}, Transactions: ${totalTxUpdated}`,
+            ? `تم تحديث جميع السجلات. الطلبات: ${totalOrdersUpdated}`
+            : `All records updated. Orders: ${totalOrdersUpdated}`,
       });
 
     } catch (error) {
