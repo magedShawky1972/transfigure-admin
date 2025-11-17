@@ -7,6 +7,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Plus, Trash2, Save, RefreshCw } from "lucide-react";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { z } from "zod";
 
 interface PaymentMethod {
@@ -30,9 +41,9 @@ const paymentMethodSchema = z.object({
 const PaymentMethodSetup = () => {
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
-const [saving, setSaving] = useState(false);
-const [recalculating, setRecalculating] = useState(false);
-const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [newMethod, setNewMethod] = useState({
     payment_type: "",
@@ -41,6 +52,13 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
     fixed_value: 0,
     vat_fee: 0,
   });
+  
+  // Bulk recalculation states
+  const [showRecalcDialog, setShowRecalcDialog] = useState(false);
+  const [selectedRecalcBrand, setSelectedRecalcBrand] = useState<{ brandName: string; paymentType: string } | null>(null);
+  const [bulkRecalculating, setBulkRecalculating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkMessage, setBulkMessage] = useState("");
 
   useEffect(() => {
     fetchPaymentMethods();
@@ -256,36 +274,41 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
   };
 
   const handleRecalculateBrandFees = async (paymentMethod: string, paymentType: string) => {
-    try {
-      // Validate inputs to avoid backend errors
-      if (!paymentMethod?.trim() || !paymentType?.trim()) {
-        toast({
-          title: language === "ar" ? "تنبيه" : "Notice",
-          description:
-            language === "ar"
-              ? "يجب تحديد نوع الدفع والعلامة التجارية قبل إعادة الاحتساب"
-              : "Payment type and brand are required to recalculate.",
-        });
-        return;
-      }
+    if (!paymentMethod?.trim() || !paymentType?.trim()) {
+      toast({
+        title: language === "ar" ? "تنبيه" : "Notice",
+        description:
+          language === "ar"
+            ? "يجب تحديد نوع الدفع والعلامة التجارية قبل إعادة الاحتساب"
+            : "Payment type and brand are required to recalculate.",
+      });
+      return;
+    }
+    
+    setSelectedRecalcBrand({ brandName: paymentMethod, paymentType });
+    setShowRecalcDialog(true);
+  };
 
-      setRecalculatingBrand(`${paymentType}-${paymentMethod}`);
+  const handlePhasedRecalc = async () => {
+    if (!selectedRecalcBrand) return;
+    
+    const { brandName, paymentType } = selectedRecalcBrand;
+    setShowRecalcDialog(false);
+    
+    try {
+      setRecalculatingBrand(`${paymentType}-${brandName}`);
 
       // 1) Recalc purpletransaction
       const { data: txData, error: txError } = await supabase.functions.invoke(
         "update-purpletransaction-bank-fees-by-pair",
-        {
-          body: { brandName: paymentMethod, paymentType },
-        }
+        { body: { brandName, paymentType } }
       );
       if (txError) throw txError;
 
       // 2) Recalc ordertotals
       const { data: otData, error: otError } = await supabase.functions.invoke(
         "update-ordertotals-bank-fees-by-pair",
-        {
-          body: { brandName: paymentMethod, paymentType },
-        }
+        { body: { brandName, paymentType } }
       );
       if (otError) throw otError;
 
@@ -296,8 +319,8 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
         title: language === "ar" ? "تم التحديث" : "Updated",
         description:
           language === "ar"
-            ? `تم تحديث ${paymentType} - ${paymentMethod}. معاملات: ${txRes?.updatedCount ?? 0}، الطلبات: ${otRes?.updatedCount ?? 0}`
-            : `Recalculated ${paymentType} - ${paymentMethod}. Transactions: ${txRes?.updatedCount ?? 0}, Orders: ${otRes?.updatedCount ?? 0}`,
+            ? `تم تحديث ${paymentType} - ${brandName}. معاملات: ${txRes?.updatedCount ?? 0}، الطلبات: ${otRes?.updatedCount ?? 0}`
+            : `Recalculated ${paymentType} - ${brandName}. Transactions: ${txRes?.updatedCount ?? 0}, Orders: ${otRes?.updatedCount ?? 0}`,
       });
 
       if (txRes?.needsMoreRuns || otRes?.needsMoreRuns) {
@@ -311,11 +334,8 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
         });
       }
     } catch (error) {
-      console.error("Error recalculating brand fees:", { error, paymentMethod, paymentType });
-      const message =
-        (error as any)?.message ||
-        (error as any)?.error_description ||
-        (typeof error === "string" ? error : "Unknown error");
+      console.error("Error recalculating brand fees:", error);
+      const message = (error as any)?.message || "Unknown error";
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description:
@@ -326,11 +346,156 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
       });
     } finally {
       setRecalculatingBrand(null);
+      setSelectedRecalcBrand(null);
+    }
+  };
+
+  const handleBulkRecalc = async () => {
+    if (!selectedRecalcBrand) return;
+    
+    const { brandName, paymentType } = selectedRecalcBrand;
+    setShowRecalcDialog(false);
+    setBulkRecalculating(true);
+    setBulkProgress(0);
+    setBulkMessage(language === "ar" ? "جاري إعادة حساب رسوم البنك..." : "Recalculating bank fees...");
+
+    try {
+      let orderCursor: string | null = null;
+      let txCursor: string | null = null;
+      let totalOrdersUpdated = 0;
+      let totalTxUpdated = 0;
+      let orderTotalCount = 0;
+      let txTotalCount = 0;
+
+      // Get initial counts
+      const { count: orderCount } = await supabase
+        .from('ordertotals')
+        .select('*', { count: 'exact', head: true })
+        .ilike('payment_brand', brandName)
+        .ilike('payment_method', paymentType)
+        .neq('payment_method', 'point');
+      
+      const { count: txCount } = await supabase
+        .from('purpletransaction')
+        .select('*', { count: 'exact', head: true })
+        .ilike('payment_brand', brandName)
+        .ilike('payment_method', paymentType)
+        .neq('payment_method', 'point');
+
+      orderTotalCount = orderCount || 0;
+      txTotalCount = txCount || 0;
+      const totalRecords = orderTotalCount + txTotalCount;
+
+      // Process ordertotals
+      let orderNeedsMore = true;
+      while (orderNeedsMore) {
+        const { data: orderData, error: orderError } = await supabase.functions.invoke(
+          "update-ordertotals-bank-fees-by-pair",
+          { body: { brandName, paymentType, cursorId: orderCursor } }
+        );
+
+        if (orderError) throw orderError;
+
+        totalOrdersUpdated += orderData.updatedCount || 0;
+        orderCursor = orderData.nextCursor;
+        orderNeedsMore = orderData.needsMoreRuns;
+
+        const progress = totalRecords > 0 
+          ? Math.round(((totalOrdersUpdated + totalTxUpdated) / totalRecords) * 100)
+          : 0;
+        setBulkProgress(progress);
+        setBulkMessage(
+          language === "ar" 
+            ? `تم تحديث ${totalOrdersUpdated} طلب و ${totalTxUpdated} معاملة...`
+            : `Updated ${totalOrdersUpdated} orders and ${totalTxUpdated} transactions...`
+        );
+      }
+
+      // Process purpletransaction
+      let txNeedsMore = true;
+      while (txNeedsMore) {
+        const { data: txData, error: txError } = await supabase.functions.invoke(
+          "update-purpletransaction-bank-fees-by-pair",
+          { body: { brandName, paymentType, cursorId: txCursor } }
+        );
+
+        if (txError) throw txError;
+
+        totalTxUpdated += txData.updatedCount || 0;
+        txCursor = txData.nextCursor;
+        txNeedsMore = txData.needsMoreRuns;
+
+        const progress = totalRecords > 0 
+          ? Math.round(((totalOrdersUpdated + totalTxUpdated) / totalRecords) * 100)
+          : 100;
+        setBulkProgress(progress);
+        setBulkMessage(
+          language === "ar" 
+            ? `تم تحديث ${totalOrdersUpdated} طلب و ${totalTxUpdated} معاملة...`
+            : `Updated ${totalOrdersUpdated} orders and ${totalTxUpdated} transactions...`
+        );
+      }
+
+      toast({
+        title: language === "ar" ? "اكتمل!" : "Completed!",
+        description: 
+          language === "ar"
+            ? `تم تحديث جميع السجلات. الطلبات: ${totalOrdersUpdated}, المعاملات: ${totalTxUpdated}`
+            : `All records updated. Orders: ${totalOrdersUpdated}, Transactions: ${totalTxUpdated}`,
+      });
+
+    } catch (error) {
+      console.error("Error in bulk recalculation:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description:
+          language === "ar"
+            ? "فشل في إعادة حساب رسوم البنك"
+            : "Failed to recalculate bank fees",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkRecalculating(false);
+      setSelectedRecalcBrand(null);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      {bulkRecalculating && (
+        <LoadingOverlay 
+          progress={bulkProgress} 
+          message={bulkMessage}
+        />
+      )}
+
+      <AlertDialog open={showRecalcDialog} onOpenChange={setShowRecalcDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "ar" ? "اختر طريقة إعادة الحساب" : "Choose Recalculation Method"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "ar" 
+                ? "هل تريد إعادة الحساب دفعة واحدة (bulk) أم على مراحل (phases)؟"
+                : "Do you want to recalculate in bulk or in phases?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedRecalcBrand(null)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handlePhasedRecalc}>
+              {language === "ar" ? "مراحل" : "Phases"}
+            </AlertDialogAction>
+            <AlertDialogAction onClick={handleBulkRecalc}>
+              {language === "ar" ? "دفعة واحدة" : "Bulk"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2">
           {language === "ar" ? "إعداد طرق الدفع" : "Payment Method Setup"}
@@ -595,6 +760,7 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 
