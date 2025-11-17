@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ArrowLeft, CalendarIcon, Download, Play, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ReportResult {
   brand_type_name: string;
@@ -21,6 +22,7 @@ interface ReportResult {
 
 const RevenueByBrandType = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selectedBrandType, setSelectedBrandType] = useState<string>("all");
@@ -119,24 +121,24 @@ const RevenueByBrandType = () => {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold mb-2">Revenue by Brand Type</h1>
+          <h1 className="text-3xl font-bold mb-2">{t("revenueReport.title")}</h1>
           <p className="text-muted-foreground">
-            Calculate total revenue based on brand type
+            {t("reports.revenueByBrandType.description")}
           </p>
         </div>
       </div>
 
       <Card className="print:hidden">
         <CardHeader>
-          <CardTitle>Report Parameters</CardTitle>
+          <CardTitle>{t("revenueReport.parameters")}</CardTitle>
           <CardDescription>
-            Select the criteria for your report
+            {t("reports.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Date From</Label>
+              <Label>{t("revenueReport.dateFrom")}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -162,7 +164,7 @@ const RevenueByBrandType = () => {
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label>Date To</Label>
+              <Label>{t("revenueReport.dateTo")}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -188,13 +190,13 @@ const RevenueByBrandType = () => {
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="brandType">Brand Type</Label>
+              <Label htmlFor="brandType">{t("revenueReport.brandType")}</Label>
               <Select value={selectedBrandType} onValueChange={setSelectedBrandType}>
                 <SelectTrigger id="brandType">
-                  <SelectValue placeholder="Select brand type" />
+                  <SelectValue placeholder={t("revenueReport.selectBrandType")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Brand Types</SelectItem>
+                  <SelectItem value="all">{t("revenueReport.allBrandTypes")}</SelectItem>
                   {brandTypes.map((type) => (
                     <SelectItem key={type.id} value={type.type_name}>
                       {type.type_name}
@@ -207,17 +209,17 @@ const RevenueByBrandType = () => {
           <div className="flex gap-2">
             <Button onClick={runReport} disabled={isRunning}>
               <Play className="mr-2 h-4 w-4" />
-              {isRunning ? "Running..." : "Run Report"}
+              {isRunning ? "Running..." : t("revenueReport.runReport")}
             </Button>
             {reportResults.length > 0 && (
               <>
                 <Button variant="outline" onClick={exportToCSV}>
                   <Download className="mr-2 h-4 w-4" />
-                  Export CSV
+                  {t("revenueReport.exportCSV")}
                 </Button>
                 <Button variant="outline" onClick={handlePrint}>
                   <Printer className="mr-2 h-4 w-4" />
-                  Print
+                  {t("revenueReport.print")}
                 </Button>
               </>
             )}
@@ -229,14 +231,14 @@ const RevenueByBrandType = () => {
         <div className="bg-background border rounded-lg p-8 print:border-0 print:p-0">
           {/* Report Document Header */}
           <div className="mb-8 pb-6 border-b-2 border-border">
-            <h1 className="text-2xl font-bold mb-4">Revenue by Brand Type Report</h1>
+            <h1 className="text-2xl font-bold mb-4">{t("revenueReport.title")}</h1>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-semibold text-muted-foreground">Report Name</p>
-                <p className="font-medium">Revenue by Brand Type</p>
+                <p className="font-semibold text-muted-foreground">{t("revenueReport.reportDetails")}</p>
+                <p className="font-medium">{t("reports.revenueByBrandType.name")}</p>
               </div>
               <div>
-                <p className="font-semibold text-muted-foreground">Date Run</p>
+                <p className="font-semibold text-muted-foreground">{t("revenueReport.generatedOn")}</p>
                 <p className="font-medium">{dateRun}</p>
               </div>
             </div>
@@ -244,19 +246,19 @@ const RevenueByBrandType = () => {
 
           {/* Selection Criteria */}
           <div className="mb-8 pb-6 border-b border-border">
-            <h2 className="text-lg font-semibold mb-4">Selection Criteria</h2>
+            <h2 className="text-lg font-semibold mb-4">{t("revenueReport.selectionCriteria")}</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-semibold text-muted-foreground">Date From</p>
+                <p className="font-semibold text-muted-foreground">{t("revenueReport.dateFrom")}</p>
                 <p className="font-medium">{dateFrom ? format(dateFrom, "PPP") : "-"}</p>
               </div>
               <div>
-                <p className="font-semibold text-muted-foreground">Date To</p>
+                <p className="font-semibold text-muted-foreground">{t("revenueReport.dateTo")}</p>
                 <p className="font-medium">{dateTo ? format(dateTo, "PPP") : "-"}</p>
               </div>
               <div>
-                <p className="font-semibold text-muted-foreground">Brand Type</p>
-                <p className="font-medium">{selectedBrandType === "all" ? "All Brand Types" : selectedBrandType}</p>
+                <p className="font-semibold text-muted-foreground">{t("revenueReport.brandType")}</p>
+                <p className="font-medium">{selectedBrandType === "all" ? t("revenueReport.allBrandTypes") : selectedBrandType}</p>
               </div>
             </div>
           </div>
