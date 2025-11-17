@@ -515,6 +515,7 @@ const ProductSetup = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("productSetup.productId")}</TableHead>
+                  <TableHead>SKU</TableHead>
                   <TableHead>{t("productSetup.productName")}</TableHead>
                   <TableHead>{t("productSetup.productPrice")}</TableHead>
                   <TableHead>{t("productSetup.productCost")}</TableHead>
@@ -531,6 +532,7 @@ const ProductSetup = () => {
                 {filteredProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
+                    <TableCell>{product.sku || "-"}</TableCell>
                     <TableCell>{product.product_name}</TableCell>
                     <TableCell>{product.product_price || "-"}</TableCell>
                     <TableCell>{product.product_cost || "-"}</TableCell>
