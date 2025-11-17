@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, Save } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, RefreshCw } from "lucide-react";
 import { z } from "zod";
 
 interface PaymentMethod {
@@ -52,6 +52,7 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
       const { data, error } = await supabase
         .from("payment_methods")
         .select("*")
+        .order("is_active", { ascending: false })
         .order("payment_method", { ascending: true });
 
       if (error) throw error;
@@ -430,7 +431,7 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
                       {recalculatingBrand === method.payment_method ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Save className="h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
