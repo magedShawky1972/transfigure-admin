@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ interface ProductExcelUploadProps {
 
 export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps) => {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -252,22 +253,25 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
           onDrop={handleDrop}
         >
           <FileSpreadsheet className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <Label htmlFor="excel-upload" className="cursor-pointer">
-            <div className="text-sm text-muted-foreground mb-2">
-              Drag & drop your Excel file here, or click to browse
-            </div>
-            <Input
-              id="excel-upload"
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <Button variant="outline" type="button" className="mt-2">
-              <Upload className="mr-2 h-4 w-4" />
-              Select File
-            </Button>
-          </Label>
+          <div className="text-sm text-muted-foreground mb-2">
+            Drag & drop your Excel file here, or click to browse
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <Button 
+            variant="outline" 
+            type="button" 
+            className="mt-2"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Select File
+          </Button>
           {selectedFile && (
             <div className="mt-4 text-sm">
               Selected: <span className="font-medium">{selectedFile.name}</span>
