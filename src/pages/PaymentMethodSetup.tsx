@@ -272,8 +272,8 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
       setRecalculatingBrand(`${paymentType}-${paymentMethod}`);
 
       const { data, error } = await supabase.rpc("update_ordertotals_bank_fees_by_pair", {
-        brand_name: paymentMethod,
-        payment_type: paymentType,
+        p_brand_name: paymentMethod,
+        p_payment_type: paymentType,
       });
 
       if (error) throw error;
