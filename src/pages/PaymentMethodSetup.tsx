@@ -271,43 +271,43 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
 
       setRecalculatingBrand(`${paymentType}-${paymentMethod}`);
 
-      // Call the edge function instead of RPC to avoid timeouts
-      const { data, error } = await supabase.functions.invoke(
-        "update-ordertotals-bank-fees-by-pair",
+      // 1) Recalc purpletransaction
+      const { data: txData, error: txError } = await supabase.functions.invoke(
+        "update-purpletransaction-bank-fees-by-pair",
         {
-          body: {
-            brandName: paymentMethod,
-            paymentType: paymentType,
-          },
+          body: { brandName: paymentMethod, paymentType },
         }
       );
+      if (txError) throw txError;
 
-      if (error) throw error;
+      // 2) Recalc ordertotals
+      const { data: otData, error: otError } = await supabase.functions.invoke(
+        "update-ordertotals-bank-fees-by-pair",
+        {
+          body: { brandName: paymentMethod, paymentType },
+        }
+      );
+      if (otError) throw otError;
 
-      const result = data as {
-        success: boolean;
-        updatedCount: number;
-        remainingCount: number;
-        needsMoreRuns: boolean;
-        message: string;
-      };
+      const txRes = txData as { updatedCount?: number; remainingCount?: number; needsMoreRuns?: boolean };
+      const otRes = otData as { updatedCount?: number; remainingCount?: number; needsMoreRuns?: boolean };
 
       toast({
         title: language === "ar" ? "تم التحديث" : "Updated",
         description:
           language === "ar"
-            ? `تمت إعادة احتساب رسوم ${paymentType} - ${paymentMethod}. عدد الطلبات المحدثة: ${result?.updatedCount ?? 0}`
-            : `Recalculated fees for ${paymentType} - ${paymentMethod}. Updated orders: ${result?.updatedCount ?? 0}`,
-        variant: result?.needsMoreRuns ? "default" : "default",
+            ? `تم تحديث ${paymentType} - ${paymentMethod}. معاملات: ${txRes?.updatedCount ?? 0}، الطلبات: ${otRes?.updatedCount ?? 0}`
+            : `Recalculated ${paymentType} - ${paymentMethod}. Transactions: ${txRes?.updatedCount ?? 0}, Orders: ${otRes?.updatedCount ?? 0}`,
       });
 
-      if (result?.needsMoreRuns) {
+      if (txRes?.needsMoreRuns || otRes?.needsMoreRuns) {
+        const remaining = (txRes?.remainingCount ?? 0) + (otRes?.remainingCount ?? 0);
         toast({
           title: language === "ar" ? "تنبيه" : "Notice",
           description:
             language === "ar"
-              ? `تبقى ${result.remainingCount} طلب. قم بتشغيل العملية مرة أخرى للمتابعة.`
-              : `${result.remainingCount} orders remaining. Run again to continue.`,
+              ? `لا يزال ${remaining} متبقيًا. أعد التشغيل مرة أخرى للمتابعة.`
+              : `${remaining} remaining. Run again to continue.`,
         });
       }
     } catch (error) {
