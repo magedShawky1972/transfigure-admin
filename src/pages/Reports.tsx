@@ -14,6 +14,13 @@ const Reports = () => {
       icon: TrendingUp,
       route: "/reports/revenue-by-brand-type",
     },
+    {
+      id: "cost-by-brand-type",
+      name: "Cost by Brand Type",
+      description: "Calculate total cost based on brand type",
+      icon: TrendingUp,
+      route: "/reports/cost-by-brand-type",
+    },
   ];
 
   return (
