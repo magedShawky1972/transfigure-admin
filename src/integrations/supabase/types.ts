@@ -928,6 +928,14 @@ export type Database = {
     }
     Functions: {
       clean_expired_cache: { Args: never; Returns: undefined }
+      cost_by_brand_type: {
+        Args: { date_from: string; date_to: string; p_brand_type?: string }
+        Returns: {
+          brand_type_name: string
+          total_cost: number
+          transaction_count: number
+        }[]
+      }
       customer_stats: {
         Args: never
         Returns: {
