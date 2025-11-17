@@ -11,7 +11,9 @@ export const LoadingOverlay = ({ progress, message = "Loading dashboard...", tim
   const [displayProgress, setDisplayProgress] = useState(0);
 
   useEffect(() => {
-    setDisplayProgress(progress);
+    // Clamp progress between 0 and 100
+    const clampedProgress = Math.min(Math.max(progress, 0), 100);
+    setDisplayProgress(clampedProgress);
   }, [progress]);
 
   const circumference = 2 * Math.PI * 45;
