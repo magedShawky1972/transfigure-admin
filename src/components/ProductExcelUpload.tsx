@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileSpreadsheet } from "lucide-react";
+import { Upload, FileSpreadsheet, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -29,10 +29,13 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
     notFound: number;
     errors: number;
   } | null>(null);
+  const [updatedExcelData, setUpdatedExcelData] = useState<any[][] | null>(null);
+  const [originalFileName, setOriginalFileName] = useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
+      setOriginalFileName(e.target.files[0].name);
     }
   };
 
@@ -63,6 +66,7 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
       const file = files[0];
       if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
         setSelectedFile(file);
+        setOriginalFileName(file.name);
       } else {
         toast({
           title: "Invalid file type",
@@ -143,11 +147,18 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
       let notFound = 0;
       let errors = 0;
 
+      // Add "Status" header
+      const updatedData = [...jsonData];
+      updatedData[0] = [...updatedData[0], 'Status'];
+
       for (let i = 1; i < jsonData.length; i++) {
         const row = jsonData[i];
         const productName = row[0];
         
-        if (!productName) continue;
+        if (!productName) {
+          updatedData[i] = [...row, 'Skipped (empty name)'];
+          continue;
+        }
 
         const updateData: Record<string, any> = {};
         
@@ -160,7 +171,10 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
           }
         }
 
-        if (Object.keys(updateData).length === 0) continue;
+        if (Object.keys(updateData).length === 0) {
+          updatedData[i] = [...row, 'Skipped (no data)'];
+          continue;
+        }
 
         updateData.updated_at = new Date().toISOString();
 
@@ -172,6 +186,7 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
 
         if (fetchError || !existingProduct) {
           notFound++;
+          updatedData[i] = [...row, 'Not Found'];
           continue;
         }
 
@@ -183,11 +198,14 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
         if (updateError) {
           console.error('Update error:', updateError);
           errors++;
+          updatedData[i] = [...row, 'Error'];
         } else {
           updated++;
+          updatedData[i] = [...row, 'Updated'];
         }
       }
 
+      setUpdatedExcelData(updatedData);
       setUploadSummary({ updated, notFound, errors });
       setShowSummaryDialog(true);
       setSelectedFile(null);
@@ -208,6 +226,17 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const downloadUpdatedExcel = () => {
+    if (!updatedExcelData) return;
+
+    const worksheet = XLSX.utils.aoa_to_sheet(updatedExcelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+    
+    const fileName = originalFileName.replace(/\.(xlsx|xls)$/i, '_with_status.xlsx');
+    XLSX.writeFile(workbook, fileName);
   };
 
   return (
@@ -273,19 +302,27 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
             </DialogDescription>
           </DialogHeader>
           {uploadSummary && (
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span>Products Updated:</span>
-                <span className="font-bold text-green-600">{uploadSummary.updated}</span>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Products Updated:</span>
+                  <span className="font-bold text-green-600">{uploadSummary.updated}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Products Not Found:</span>
+                  <span className="font-bold text-yellow-600">{uploadSummary.notFound}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Errors:</span>
+                  <span className="font-bold text-red-600">{uploadSummary.errors}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Products Not Found:</span>
-                <span className="font-bold text-yellow-600">{uploadSummary.notFound}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Errors:</span>
-                <span className="font-bold text-red-600">{uploadSummary.errors}</span>
-              </div>
+              {updatedExcelData && (
+                <Button onClick={downloadUpdatedExcel} className="w-full">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Excel with Status
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>
