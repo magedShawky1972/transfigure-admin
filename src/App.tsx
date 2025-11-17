@@ -11,6 +11,7 @@ import ApiConfig from "./pages/ApiConfig";
 import TableGenerator from "./pages/TableGenerator";
 import Reports from "./pages/Reports";
 import ReportsSetup from "./pages/ReportsSetup";
+import RevenueByBrandType from "./pages/RevenueByBrandType";
 import LoadData from "./pages/LoadData";
 import UploadLog from "./pages/UploadLog";
 import ClearData from "./pages/ClearData";
@@ -43,6 +44,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/reports/revenue-by-brand-type" element={<RevenueByBrandType />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/load-data" element={<LoadData />} />
               <Route path="/upload-log" element={<UploadLog />} />
