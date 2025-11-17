@@ -5,6 +5,7 @@ import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -72,23 +73,29 @@ function Calendar({
                 handleChange(value)
               }}
             >
-              <SelectTrigger className="pr-1.5 focus:ring-0 w-fit gap-1">
+              <SelectTrigger className="pr-1.5 focus:ring-0 w-fit gap-1 bg-background text-foreground border-border">
                 <SelectValue>{selected?.props?.children}</SelectValue>
               </SelectTrigger>
-              <SelectContent position="popper" className="pointer-events-auto">
-                {options.map((option, id: number) => (
-                  <SelectItem
-                    key={`${option.props.value}-${id}`}
-                    value={option.props.value?.toString() ?? ""}
-                  >
-                    {option.props.children}
-                  </SelectItem>
-                ))}
+              <SelectContent position="popper" className="pointer-events-auto bg-popover text-popover-foreground border-border z-50">
+                <ScrollArea className="h-80">
+                  {options.map((option, id: number) => (
+                    <SelectItem
+                      key={`${option.props.value}-${id}`}
+                      value={option.props.value?.toString() ?? ""}
+                      className="hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {option.props.children}
+                    </SelectItem>
+                  ))}
+                </ScrollArea>
               </SelectContent>
             </Select>
           )
         },
       }}
+      captionLayout="dropdown-buttons"
+      fromYear={2020}
+      toYear={2030}
       {...props}
     />
   )
