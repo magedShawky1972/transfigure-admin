@@ -71,10 +71,10 @@ Deno.serve(async (req) => {
         .ilike('payment_brand', brandName)
         .ilike('payment_method', paymentType)
         .neq('payment_method', 'point')
-        .order('id', { ascending: true })
+        .order('id', { ascending: false })
         .limit(batchSize);
 
-      if (lastId) query = query.gt('id', lastId);
+      if (lastId) query = query.lt('id', lastId);
 
       const { data: txs, error: txError } = await query;
       if (txError) {
