@@ -582,6 +582,7 @@ export type Database = {
       purpletransaction: {
         Row: {
           bank_fee: number | null
+          brand_code: string | null
           brand_name: string | null
           coins_number: number | null
           cost_price: number | null
@@ -609,6 +610,7 @@ export type Database = {
         }
         Insert: {
           bank_fee?: number | null
+          brand_code?: string | null
           brand_name?: string | null
           coins_number?: number | null
           cost_price?: number | null
@@ -636,6 +638,7 @@ export type Database = {
         }
         Update: {
           bank_fee?: number | null
+          brand_code?: string | null
           brand_name?: string | null
           coins_number?: number | null
           cost_price?: number | null
