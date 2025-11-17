@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -49,7 +49,7 @@ const RevenueByBrandType = () => {
     }
 
     const formattedDateFrom = format(dateFrom, "yyyy-MM-dd");
-    const formattedDateTo = format(dateTo, "yyyy-MM-dd");
+    const endExclusive = format(addDays(dateTo, 1), "yyyy-MM-dd");
 
     setIsRunning(true);
     try {
@@ -58,8 +58,7 @@ const RevenueByBrandType = () => {
         .from("purpletransaction")
         .select("brand_name, total, payment_method")
         .gte("created_at_date", formattedDateFrom)
-        .lte("created_at_date", formattedDateTo)
-        .not("brand_name", "is", null);
+        .lt("created_at_date", endExclusive);
 
       const { data: transactions, error: transError } = await query;
       if (transError) throw transError;
