@@ -31,6 +31,7 @@ const BrandEdit = () => {
   const brandId = searchParams.get("id");
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialBrandTypeId, setInitialBrandTypeId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     brand_name: "",
     brand_code: "",
@@ -72,6 +73,51 @@ const BrandEdit = () => {
     }
   };
 
+  const generateBrandCode = async (brandTypeId: string) => {
+    if (brandTypeId === "none") {
+      setFormData(prev => ({ ...prev, brand_code: "" }));
+      return;
+    }
+
+    try {
+      // Get the brand type code
+      const brandType = brandTypes.find(bt => bt.id === brandTypeId);
+      if (!brandType) return;
+
+      // Get the highest existing brand code for this brand type
+      const { data, error } = await supabase
+        .from("brands")
+        .select("brand_code")
+        .ilike("brand_code", `${brandType.type_code}%`)
+        .order("brand_code", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      let nextNumber = 1;
+      if (data && data.length > 0 && data[0].brand_code) {
+        // Extract the numeric part from the last code
+        const lastCode = data[0].brand_code;
+        const numericPart = lastCode.substring(brandType.type_code.length);
+        const lastNumber = parseInt(numericPart, 10);
+        if (!isNaN(lastNumber)) {
+          nextNumber = lastNumber + 1;
+        }
+      }
+
+      // Format with leading zeros (3 digits)
+      const newCode = `${brandType.type_code}${nextNumber.toString().padStart(3, '0')}`;
+      setFormData(prev => ({ ...prev, brand_code: newCode }));
+    } catch (error: any) {
+      console.error("Error generating brand code:", error);
+      toast({
+        title: t("common.error"),
+        description: "Failed to generate brand code",
+        variant: "destructive",
+      });
+    }
+  };
+
   const fetchBrand = async () => {
     setLoading(true);
     try {
@@ -84,6 +130,7 @@ const BrandEdit = () => {
       if (error) throw error;
       
       if (data) {
+        setInitialBrandTypeId(data.brand_type_id || "none");
         setFormData({
           brand_name: data.brand_name,
           brand_code: data.brand_code || "",
@@ -220,7 +267,8 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, brand_code: e.target.value })
                 }
-                placeholder="Enter brand code"
+                placeholder="Auto-generated from brand type"
+                disabled={!!brandId}
               />
             </div>
 
@@ -343,9 +391,13 @@ const BrandEdit = () => {
               <Label htmlFor="brand_type_id">{t("brandSetup.brandType")}</Label>
               <Select
                 value={formData.brand_type_id}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, brand_type_id: value })
-                }
+                onValueChange={async (value) => {
+                  setFormData({ ...formData, brand_type_id: value });
+                  // Generate code for new brands or when type changes in edit mode
+                  if (!brandId || (brandId && value !== initialBrandTypeId)) {
+                    await generateBrandCode(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("brandSetup.selectBrandType")} />
