@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     while (processedBatches < maxBatches) {
       let baseQuery = supabase
         .from('ordertotals')
-        .select('id, payment_method, payment_brand, total')
+        .select('id, order_number, payment_method, payment_brand, total')
         .ilike('payment_brand', brandName)
         .ilike('payment_method', paymentType)
         .neq('payment_method', 'point')
@@ -96,13 +96,15 @@ Deno.serve(async (req) => {
         const totalNum = Number(order.total) || 0;
         const gatewayPct = Number(paymentMethods.gateway_fee) || 0;
         const fixed = Number(paymentMethods.fixed_value) || 0;
+        const vatFee = Number(paymentMethods.vat_fee) || 0;
 
-        // Calculate: ((total * percentage/100) + fixed_fee) * 1.15 for VAT
+        // Calculate: ((total * percentage/100) + fixed_fee) * (1 + vat_fee/100)
         const gatewayFee = (totalNum * gatewayPct) / 100;
-        const bankFee = (gatewayFee + fixed) * 1.15;
+        const bankFee = (gatewayFee + fixed) * (1 + vatFee / 100);
 
         return {
           id: order.id,
+          order_number: order.order_number,
           bank_fee: bankFee
         };
       });
