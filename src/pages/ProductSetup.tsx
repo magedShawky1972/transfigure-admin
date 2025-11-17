@@ -38,8 +38,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { ProductExcelUpload } from "@/components/ProductExcelUpload";
+import { AdvancedProductFilter, FilterRule } from "@/components/AdvancedProductFilter";
 import { format } from "date-fns";
 import {
   Collapsible,
@@ -112,6 +118,13 @@ const ProductSetup = () => {
   const [filterBrandType, setFilterBrandType] = useState<string>(() =>
     localStorage.getItem("ps.filterBrandType") ?? "all"
   );
+  
+  // Advanced filters
+  const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>([]);
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   // View mode state
   const [viewMode, setViewMode] = useState<"grid" | "tree">(
@@ -191,20 +204,111 @@ const ProductSetup = () => {
     }
   };
 
+  const applyAdvancedFilter = (product: Product, filter: FilterRule): boolean => {
+    const value = (product as any)[filter.column];
+    const filterValue = filter.value;
+    
+    if (!filterValue) return true;
+    
+    const stringValue = String(value || "").toLowerCase();
+    const stringFilterValue = String(filterValue).toLowerCase();
+    
+    switch (filter.operator) {
+      case "contains":
+        return stringValue.includes(stringFilterValue);
+      case "equals":
+        return stringValue === stringFilterValue;
+      case "not_equals":
+        return stringValue !== stringFilterValue;
+      case "greater_than":
+        const numValue1 = parseFloat(String(value));
+        const numFilter1 = parseFloat(filterValue);
+        return !isNaN(numValue1) && !isNaN(numFilter1) && numValue1 > numFilter1;
+      case "less_than":
+        const numValue2 = parseFloat(String(value));
+        const numFilter2 = parseFloat(filterValue);
+        return !isNaN(numValue2) && !isNaN(numFilter2) && numValue2 < numFilter2;
+      case "greater_equal":
+        const numValue3 = parseFloat(String(value));
+        const numFilter3 = parseFloat(filterValue);
+        return !isNaN(numValue3) && !isNaN(numFilter3) && numValue3 >= numFilter3;
+      case "less_equal":
+        const numValue4 = parseFloat(String(value));
+        const numFilter4 = parseFloat(filterValue);
+        return !isNaN(numValue4) && !isNaN(numFilter4) && numValue4 <= numFilter4;
+      default:
+        return true;
+    }
+  };
+
   const filteredProducts = products.filter((product) => {
     const nameMatch = !filterName || product.product_name.toLowerCase().includes(filterName.toLowerCase());
     const statusMatch = filterStatus === "all" || product.status === filterStatus;
     const brandMatch = filterBrand === "all" || product.brand_name === filterBrand;
     const brandTypeMatch = filterBrandType === "all" || product.brand_type === filterBrandType;
-    return nameMatch && statusMatch && brandMatch && brandTypeMatch;
+    
+    // Apply advanced filters (all must match)
+    const advancedMatch = advancedFilters.every(filter => applyAdvancedFilter(product, filter));
+    
+    return nameMatch && statusMatch && brandMatch && brandTypeMatch && advancedMatch;
   });
+  
+  // Sort products
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (!sortColumn) return 0;
+    
+    const aValue = (a as any)[sortColumn];
+    const bValue = (b as any)[sortColumn];
+    
+    // Handle null/undefined values
+    if (aValue === null || aValue === undefined) return 1;
+    if (bValue === null || bValue === undefined) return -1;
+    
+    // Try numeric comparison first
+    const aNum = parseFloat(String(aValue));
+    const bNum = parseFloat(String(bValue));
+    
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+    }
+    
+    // String comparison
+    const aStr = String(aValue).toLowerCase();
+    const bStr = String(bValue).toLowerCase();
+    
+    if (sortDirection === "asc") {
+      return aStr.localeCompare(bStr);
+    } else {
+      return bStr.localeCompare(aStr);
+    }
+  });
+  
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+  
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="ml-2 h-4 w-4" />
+    ) : (
+      <ArrowDown className="ml-2 h-4 w-4" />
+    );
+  };
 
   // Get unique brands and brand types for filters
   const uniqueBrands = Array.from(new Set(products.map(p => p.brand_name).filter(Boolean)));
   const uniqueBrandTypes = Array.from(new Set(products.map(p => p.brand_type).filter(Boolean)));
 
   // Group products by brand for tree view
-  const productsByBrand = filteredProducts.reduce((acc, product) => {
+  const productsByBrand = sortedProducts.reduce((acc, product) => {
     const brand = product.brand_name || t("productSetup.noBrand");
     if (!acc[brand]) {
       acc[brand] = [];
@@ -471,48 +575,60 @@ const ProductSetup = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-card rounded-md border">
-          <Input
-            placeholder={t("productSetup.filterByName")}
-            value={filterName}
-            onChange={(e) => setFilterName(e.target.value)}
-          />
-          <Select value={filterBrand} onValueChange={setFilterBrand}>
-            <SelectTrigger>
-              <SelectValue placeholder={t("productSetup.filterByBrand")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("common.all")}</SelectItem>
-              {uniqueBrands.map((brand) => (
-                <SelectItem key={brand} value={brand!}>
-                  {brand}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filterBrandType} onValueChange={setFilterBrandType}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Brand Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("common.all")}</SelectItem>
-              {uniqueBrandTypes.map((type) => (
-                <SelectItem key={type} value={type!}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder={t("productSetup.status")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("common.all")}</SelectItem>
-              <SelectItem value="active">{t("productSetup.active")}</SelectItem>
-              <SelectItem value="inactive">{t("productSetup.inactive")}</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-card rounded-md border">
+            <Input
+              placeholder={t("productSetup.filterByName")}
+              value={filterName}
+              onChange={(e) => setFilterName(e.target.value)}
+            />
+            <Select value={filterBrand} onValueChange={setFilterBrand}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("productSetup.filterByBrand")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("common.all")}</SelectItem>
+                {uniqueBrands.map((brand) => (
+                  <SelectItem key={brand} value={brand!}>
+                    {brand}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterBrandType} onValueChange={setFilterBrandType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by Brand Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("common.all")}</SelectItem>
+                {uniqueBrandTypes.map((type) => (
+                  <SelectItem key={type} value={type!}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("productSetup.status")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("common.all")}</SelectItem>
+                <SelectItem value="active">{t("productSetup.active")}</SelectItem>
+                <SelectItem value="inactive">{t("productSetup.inactive")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <AdvancedProductFilter
+              filters={advancedFilters}
+              onFiltersChange={setAdvancedFilters}
+            />
+            <div className="text-sm text-muted-foreground">
+              Showing {sortedProducts.length} of {products.length} products
+            </div>
+          </div>
         </div>
 
         {viewMode === "grid" ? (
@@ -520,22 +636,110 @@ const ProductSetup = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("productSetup.productId")}</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>{t("productSetup.productName")}</TableHead>
-                  <TableHead>{t("productSetup.productPrice")}</TableHead>
-                  <TableHead>{t("productSetup.productCost")}</TableHead>
-                  <TableHead>{t("productSetup.brand")}</TableHead>
-                  <TableHead>Brand Type</TableHead>
-                  <TableHead>Brand Code</TableHead>
-                  <TableHead>{t("productSetup.status")}</TableHead>
-                  <TableHead>Odoo Sync Status</TableHead>
-                  <TableHead>{t("productSetup.createdDate")}</TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("product_id")}
+                  >
+                    <div className="flex items-center">
+                      {t("productSetup.productId")}
+                      <SortIcon column="product_id" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("sku")}
+                  >
+                    <div className="flex items-center">
+                      SKU
+                      <SortIcon column="sku" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("product_name")}
+                  >
+                    <div className="flex items-center">
+                      {t("productSetup.productName")}
+                      <SortIcon column="product_name" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("product_price")}
+                  >
+                    <div className="flex items-center">
+                      {t("productSetup.productPrice")}
+                      <SortIcon column="product_price" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("product_cost")}
+                  >
+                    <div className="flex items-center">
+                      {t("productSetup.productCost")}
+                      <SortIcon column="product_cost" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("brand_name")}
+                  >
+                    <div className="flex items-center">
+                      {t("productSetup.brand")}
+                      <SortIcon column="brand_name" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("brand_type")}
+                  >
+                    <div className="flex items-center">
+                      Brand Type
+                      <SortIcon column="brand_type" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("brand_code")}
+                  >
+                    <div className="flex items-center">
+                      Brand Code
+                      <SortIcon column="brand_code" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center">
+                      {t("productSetup.status")}
+                      <SortIcon column="status" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("odoo_sync_status")}
+                  >
+                    <div className="flex items-center">
+                      Odoo Sync Status
+                      <SortIcon column="odoo_sync_status" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("created_at")}
+                  >
+                    <div className="flex items-center">
+                      {t("productSetup.createdDate")}
+                      <SortIcon column="created_at" />
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product) => (
+                {sortedProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
                     <TableCell>{product.sku || "-"}</TableCell>
