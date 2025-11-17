@@ -53,6 +53,7 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
         .from("payment_methods")
         .select("*")
         .order("is_active", { ascending: false })
+        .order("payment_type", { ascending: true })
         .order("payment_method", { ascending: true });
 
       if (error) throw error;
