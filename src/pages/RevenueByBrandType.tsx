@@ -53,72 +53,20 @@ const RevenueByBrandType = () => {
 
     setIsRunning(true);
     try {
-      // Query to get revenue by brand type using brand_code for accurate joining
-      // Note: We need to handle NULL payment_method values correctly
-      const { data: transactions, error: transError } = await supabase
-        .from("purpletransaction")
-        .select("brand_code, total, payment_method")
-        .gte("created_at_date", formattedDateFrom)
-        .lte("created_at_date", formattedDateTo);
-      if (transError) throw transError;
-
-      // Get all brands with their types using brand_code
-      const { data: brands, error: brandsError } = await supabase
-        .from("brands")
-        .select(`
-          brand_code,
-          brand_type:brand_type_id (
-            id,
-            type_name
-          )
-        `);
-      
-      if (brandsError) throw brandsError;
-
-      // Create a map of brand_code to brand_type_name
-      const brandTypeMap = new Map<string, string>();
-      brands?.forEach((brand: any) => {
-        if (brand.brand_type && brand.brand_code) {
-          brandTypeMap.set(brand.brand_code, brand.brand_type.type_name);
-        }
+      // Use backend function to get complete data without row limits
+      const { data, error } = await supabase.rpc('revenue_by_brand_type', {
+        date_from: formattedDateFrom,
+        date_to: formattedDateTo,
+        p_brand_type: selectedBrandType === 'all' ? null : selectedBrandType
       });
 
-      // Group transactions by brand type (excluding point transactions)
-      const revenueByType = new Map<string, { revenue: number; count: number }>();
-      
-      transactions?.forEach((trans) => {
-        // Skip point transactions
-        if ((trans.payment_method || "").toLowerCase() === "point") {
-          return;
-        }
+      if (error) throw error;
 
-        const brandTypeName = trans.brand_code 
-          ? (brandTypeMap.get(trans.brand_code) || "Unknown")
-          : "Unknown";
-        
-        // Filter by selected brand type if not "all"
-        if (selectedBrandType !== "all" && brandTypeName !== selectedBrandType) {
-          return;
-        }
-
-        const current = revenueByType.get(brandTypeName) || { revenue: 0, count: 0 };
-        revenueByType.set(brandTypeName, {
-          revenue: current.revenue + (Number(trans.total) || 0),
-          count: current.count + 1,
-        });
-      });
-
-      // Convert to array for display
-      const results: ReportResult[] = Array.from(revenueByType.entries()).map(
-        ([brand_type_name, { revenue, count }]) => ({
-          brand_type_name,
-          total_revenue: revenue,
-          transaction_count: count,
-        })
-      );
-
-      // Sort by revenue descending
-      results.sort((a, b) => b.total_revenue - a.total_revenue);
+      const results: ReportResult[] = (data || []).map((row: any) => ({
+        brand_type_name: row.brand_type_name,
+        total_revenue: Number(row.total_revenue),
+        transaction_count: Number(row.transaction_count),
+      }));
 
       setReportResults(results);
       setDateRun(new Date().toLocaleString());
