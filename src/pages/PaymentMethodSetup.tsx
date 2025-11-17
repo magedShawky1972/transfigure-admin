@@ -255,17 +255,20 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
     }
   };
 
-  const handleRecalculateBrandFees = async (paymentMethod: string) => {
+  const handleRecalculateBrandFees = async (paymentMethod: string, paymentType: string) => {
     try {
-      setRecalculatingBrand(paymentMethod);
-      const { data, error } = await supabase.rpc("update_ordertotals_bank_fees_by_brand", { brand_name: paymentMethod });
+      setRecalculatingBrand(`${paymentType}-${paymentMethod}`);
+      const { data, error } = await supabase.rpc("update_ordertotals_bank_fees_by_pair", { 
+        brand_name: paymentMethod,
+        payment_type: paymentType 
+      });
       if (error) throw error;
       toast({
         title: language === "ar" ? "تم التحديث" : "Updated",
         description:
           language === "ar"
-            ? `تمت إعادة احتساب رسوم ${paymentMethod}. عدد الطلبات المحدثة: ${data ?? 0}`
-            : `Recalculated fees for ${paymentMethod}. Updated orders: ${data ?? 0}`,
+            ? `تمت إعادة احتساب رسوم ${paymentType} - ${paymentMethod}. عدد الطلبات المحدثة: ${data ?? 0}`
+            : `Recalculated fees for ${paymentType} - ${paymentMethod}. Updated orders: ${data ?? 0}`,
       });
     } catch (error) {
       console.error("Error recalculating brand fees:", error);
@@ -425,11 +428,11 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleRecalculateBrandFees(method.payment_method)}
-                      disabled={recalculatingBrand === method.payment_method}
+                      onClick={() => handleRecalculateBrandFees(method.payment_method, method.payment_type || '')}
+                      disabled={recalculatingBrand === `${method.payment_type}-${method.payment_method}`}
                       title={language === "ar" ? "إعادة احتساب رسوم هذه الطريقة" : "Recalculate fees for this brand"}
                     >
-                      {recalculatingBrand === method.payment_method ? (
+                      {recalculatingBrand === `${method.payment_type}-${method.payment_method}` ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <RefreshCw className="h-4 w-4" />
