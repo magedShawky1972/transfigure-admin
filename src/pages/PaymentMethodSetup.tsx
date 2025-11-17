@@ -257,12 +257,27 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
 
   const handleRecalculateBrandFees = async (paymentMethod: string, paymentType: string) => {
     try {
+      // Validate inputs to avoid backend errors
+      if (!paymentMethod?.trim() || !paymentType?.trim()) {
+        toast({
+          title: language === "ar" ? "تنبيه" : "Notice",
+          description:
+            language === "ar"
+              ? "يجب تحديد نوع الدفع والعلامة التجارية قبل إعادة الاحتساب"
+              : "Payment type and brand are required to recalculate.",
+        });
+        return;
+      }
+
       setRecalculatingBrand(`${paymentType}-${paymentMethod}`);
-      const { data, error } = await supabase.rpc("update_ordertotals_bank_fees_by_pair", { 
+
+      const { data, error } = await supabase.rpc("update_ordertotals_bank_fees_by_pair", {
         brand_name: paymentMethod,
-        payment_type: paymentType 
+        payment_type: paymentType,
       });
+
       if (error) throw error;
+
       toast({
         title: language === "ar" ? "تم التحديث" : "Updated",
         description:
@@ -271,13 +286,17 @@ const [recalculatingBrand, setRecalculatingBrand] = useState<string | null>(null
             : `Recalculated fees for ${paymentType} - ${paymentMethod}. Updated orders: ${data ?? 0}`,
       });
     } catch (error) {
-      console.error("Error recalculating brand fees:", error);
+      console.error("Error recalculating brand fees:", { error, paymentMethod, paymentType });
+      const message =
+        (error as any)?.message ||
+        (error as any)?.error_description ||
+        (typeof error === "string" ? error : "Unknown error");
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description:
           language === "ar"
-            ? "فشل في إعادة احتساب رسوم هذه الطريقة"
-            : "Failed to recalculate fees for this brand",
+            ? `فشل في إعادة احتساب رسوم هذه الطريقة. التفاصيل: ${message}`
+            : `Failed to recalculate fees for this brand. Details: ${message}`,
         variant: "destructive",
       });
     } finally {
