@@ -149,6 +149,47 @@ Deno.serve(async (req) => {
       }
       
       console.log('Bank fee calculation completed');
+      
+      // Fill in missing brand_code by looking up from brands table
+      console.log('Checking for transactions with missing brand_code...');
+      
+      // Get all unique brand_names that have NULL brand_code
+      const missingBrandCodes = validData
+        .filter((row: any) => row.brand_name && !row.brand_code)
+        .map((row: any) => row.brand_name);
+      
+      if (missingBrandCodes.length > 0) {
+        const uniqueBrandNames = [...new Set(missingBrandCodes)];
+        console.log(`Found ${missingBrandCodes.length} transactions with missing brand_code for ${uniqueBrandNames.length} brands`);
+        
+        // Lookup brand_codes from brands table
+        const { data: brandData, error: brandLookupError } = await supabase
+          .from('brands')
+          .select('brand_name, brand_code')
+          .in('brand_name', uniqueBrandNames);
+        
+        if (brandLookupError) {
+          console.error('Error looking up brand codes:', brandLookupError);
+        } else if (brandData && brandData.length > 0) {
+          // Create a map of brand_name -> brand_code
+          const brandCodeMap = new Map(
+            brandData.map(b => [b.brand_name, b.brand_code])
+          );
+          
+          // Update validData with the brand_codes
+          let updatedCount = 0;
+          for (const record of validData) {
+            if (record.brand_name && !record.brand_code) {
+              const foundCode = brandCodeMap.get(record.brand_name);
+              if (foundCode) {
+                record.brand_code = foundCode;
+                updatedCount++;
+              }
+            }
+          }
+          console.log(`Filled in ${updatedCount} missing brand_codes from brands table`);
+        }
+      }
     }
 
     console.log(`Inserting ${validData.length} rows into ${tableName}`);
