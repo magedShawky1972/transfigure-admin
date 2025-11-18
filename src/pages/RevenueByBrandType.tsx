@@ -230,35 +230,35 @@ const RevenueByBrandType = () => {
       {reportResults.length > 0 && (
         <div className="bg-background border rounded-lg p-8 print:border-0 print:p-0">
           {/* Report Document Header */}
-          <div className="mb-8 pb-6 border-b-2 border-border">
-            <h1 className="text-2xl font-bold mb-4">{t("revenueReport.title")}</h1>
+          <div className="mb-8 pb-6 border-b-2 border-border print:border-black">
+            <h1 className="text-2xl font-bold mb-4 print:text-black">{t("revenueReport.title")}</h1>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-semibold text-muted-foreground">{t("revenueReport.reportDetails")}</p>
-                <p className="font-medium">{t("reports.revenueByBrandType.name")}</p>
+                <p className="font-semibold text-muted-foreground print:text-gray-700">{t("revenueReport.reportDetails")}</p>
+                <p className="font-medium print:text-black">{t("reports.revenueByBrandType.name")}</p>
               </div>
               <div>
-                <p className="font-semibold text-muted-foreground">{t("revenueReport.generatedOn")}</p>
-                <p className="font-medium">{dateRun}</p>
+                <p className="font-semibold text-muted-foreground print:text-gray-700">{t("revenueReport.generatedOn")}</p>
+                <p className="font-medium print:text-black">{dateRun}</p>
               </div>
             </div>
           </div>
 
           {/* Selection Criteria */}
-          <div className="mb-8 pb-6 border-b border-border">
-            <h2 className="text-lg font-semibold mb-4">{t("revenueReport.selectionCriteria")}</h2>
+          <div className="mb-8 pb-6 border-b border-border print:border-gray-600">
+            <h2 className="text-lg font-semibold mb-4 print:text-black">{t("revenueReport.selectionCriteria")}</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-semibold text-muted-foreground">{t("revenueReport.dateFrom")}</p>
-                <p className="font-medium">{dateFrom ? format(dateFrom, "PPP") : "-"}</p>
+                <p className="font-semibold text-muted-foreground print:text-gray-700">{t("revenueReport.dateFrom")}</p>
+                <p className="font-medium print:text-black">{dateFrom ? format(dateFrom, "PPP") : "-"}</p>
               </div>
               <div>
-                <p className="font-semibold text-muted-foreground">{t("revenueReport.dateTo")}</p>
-                <p className="font-medium">{dateTo ? format(dateTo, "PPP") : "-"}</p>
+                <p className="font-semibold text-muted-foreground print:text-gray-700">{t("revenueReport.dateTo")}</p>
+                <p className="font-medium print:text-black">{dateTo ? format(dateTo, "PPP") : "-"}</p>
               </div>
               <div>
-                <p className="font-semibold text-muted-foreground">{t("revenueReport.brandType")}</p>
-                <p className="font-medium">{selectedBrandType === "all" ? t("revenueReport.allBrandTypes") : selectedBrandType}</p>
+                <p className="font-semibold text-muted-foreground print:text-gray-700">{t("revenueReport.brandType")}</p>
+                <p className="font-medium print:text-black">{selectedBrandType === "all" ? t("revenueReport.allBrandTypes") : selectedBrandType}</p>
               </div>
             </div>
           </div>
@@ -267,25 +267,25 @@ const RevenueByBrandType = () => {
           <div className="mb-6">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b-2 border-border">
-                  <th className="text-left py-3 px-4 font-semibold">Brand Type</th>
-                  <th className="text-right py-3 px-4 font-semibold">Amount</th>
-                  <th className="text-right py-3 px-4 font-semibold">Transaction Count</th>
-                  <th className="text-right py-3 px-4 font-semibold">Average</th>
+                <tr className="border-b-2 border-border print:border-black">
+                  <th className="text-left py-3 px-4 font-semibold print:text-black">Brand Type</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">Amount</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">Transaction Count</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">Average</th>
                 </tr>
               </thead>
               <tbody>
                 {reportResults.map((row, index) => (
-                  <tr key={index} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-3 px-4">{row.brand_type_name}</td>
-                    <td className="text-right py-3 px-4">
+                  <tr key={index} className="border-b border-border print:border-gray-400 hover:bg-muted/50">
+                    <td className="py-3 px-4 print:text-black">{row.brand_type_name}</td>
+                    <td className="text-right py-3 px-4 print:text-black">
                       {row.total_revenue.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </td>
-                    <td className="text-right py-3 px-4">{row.transaction_count}</td>
-                    <td className="text-right py-3 px-4">
+                    <td className="text-right py-3 px-4 print:text-black">{row.transaction_count}</td>
+                    <td className="text-right py-3 px-4 print:text-black">
                       {(row.total_revenue / row.transaction_count).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -295,16 +295,16 @@ const RevenueByBrandType = () => {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-border font-bold bg-muted/30">
-                  <td className="py-3 px-4">Total</td>
-                  <td className="text-right py-3 px-4">
+                <tr className="border-t-2 border-border print:border-black font-bold bg-muted/30 print:bg-gray-200">
+                  <td className="py-3 px-4 print:text-black">Total</td>
+                  <td className="text-right py-3 px-4 print:text-black">
                     {totalRevenue.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
                   </td>
-                  <td className="text-right py-3 px-4">{totalTransactions}</td>
-                  <td className="text-right py-3 px-4">
+                  <td className="text-right py-3 px-4 print:text-black">{totalTransactions}</td>
+                  <td className="text-right py-3 px-4 print:text-black">
                     {(totalRevenue / totalTransactions).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -316,7 +316,7 @@ const RevenueByBrandType = () => {
           </div>
 
           {/* Report Footer */}
-          <div className="text-xs text-muted-foreground text-right mt-8 pt-4 border-t border-border">
+          <div className="text-xs text-muted-foreground print:text-gray-600 text-right mt-8 pt-4 border-t border-border print:border-gray-600">
             <p>Generated on {dateRun}</p>
           </div>
         </div>
