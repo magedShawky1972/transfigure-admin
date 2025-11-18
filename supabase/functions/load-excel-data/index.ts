@@ -251,6 +251,7 @@ Deno.serve(async (req) => {
         .filter((row: any) => row.brand_name && row.brand_name.trim())
         .map((row: any) => ({
           brand_name: row.brand_name.trim(),
+          brand_code: row.brand_code || null,
           status: 'active'
         }))
         .filter((brand: any, index: number, self: any[]) => 
