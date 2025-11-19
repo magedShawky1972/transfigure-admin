@@ -125,22 +125,33 @@ const UserSetup = () => {
   const fetchProfiles = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch profiles
+      const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select(`
-          *,
-          user_roles!user_roles_user_id_fkey (
-            role
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      
-      // Map the data to include is_admin flag
-      const profilesWithAdmin = (data || []).map((profile: any) => ({
+      if (profilesError) throw profilesError;
+
+      // Fetch user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+
+      if (rolesError) throw rolesError;
+
+      // Create a map of user_id to admin status
+      const adminMap = new Map();
+      rolesData?.forEach((role) => {
+        if (role.role === 'admin') {
+          adminMap.set(role.user_id, true);
+        }
+      });
+
+      // Combine the data
+      const profilesWithAdmin = (profilesData || []).map((profile: any) => ({
         ...profile,
-        is_admin: profile.user_roles?.some((ur: any) => ur.role === 'admin') || false,
+        is_admin: adminMap.get(profile.user_id) || false,
       }));
       
       setProfiles(profilesWithAdmin);
