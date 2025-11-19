@@ -868,9 +868,9 @@ export type Database = {
           brand_name?: string | null
           coins_number?: number | null
           cost_price?: number | null
-          cost_price_num?: number | null
+          cost_price_num?: never
           cost_sold?: number | null
-          cost_sold_num?: number | null
+          cost_sold_num?: never
           created_at?: string | null
           created_at_date?: string | null
           customer_name?: string | null
@@ -884,13 +884,13 @@ export type Database = {
           product_id?: string | null
           product_name?: string | null
           profit?: number | null
-          profit_num?: number | null
+          profit_num?: never
           qty?: number | null
-          qty_num?: number | null
+          qty_num?: never
           total?: number | null
-          total_num?: number | null
+          total_num?: never
           unit_price?: number | null
-          unit_price_num?: number | null
+          unit_price_num?: never
           updated_at?: string | null
           user_name?: string | null
           vendor_name?: string | null
@@ -899,9 +899,9 @@ export type Database = {
           brand_name?: string | null
           coins_number?: number | null
           cost_price?: number | null
-          cost_price_num?: number | null
+          cost_price_num?: never
           cost_sold?: number | null
-          cost_sold_num?: number | null
+          cost_sold_num?: never
           created_at?: string | null
           created_at_date?: string | null
           customer_name?: string | null
@@ -915,13 +915,13 @@ export type Database = {
           product_id?: string | null
           product_name?: string | null
           profit?: number | null
-          profit_num?: number | null
+          profit_num?: never
           qty?: number | null
-          qty_num?: number | null
+          qty_num?: never
           total?: number | null
-          total_num?: number | null
+          total_num?: never
           unit_price?: number | null
-          unit_price_num?: number | null
+          unit_price_num?: never
           updated_at?: string | null
           user_name?: string | null
           vendor_name?: string | null
