@@ -239,48 +239,60 @@ const DepartmentManagement = () => {
 
   const fetchAdmins = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: adminsData, error: adminsError } = await supabase
         .from("department_admins")
-        .select(`
-          *,
-          profiles!user_id (
-            user_name,
-            email
-          )
-        `)
+        .select("*")
         .order('admin_order', { ascending: true });
 
-      if (error) throw error;
+      if (adminsError) throw adminsError;
       
-      if (data && data.length > 0) {
-        setAdmins(data as any);
+      if (adminsData && adminsData.length > 0) {
+        // Fetch profiles for these admins
+        const userIds = adminsData.map(admin => admin.user_id);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("user_id, user_name, email")
+          .in("user_id", userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Join the data
+        const adminsWithProfiles = adminsData.map(admin => ({
+          ...admin,
+          profiles: profilesData?.find(p => p.user_id === admin.user_id) || null
+        }));
+
+        setAdmins(adminsWithProfiles as any);
       } else {
         setAdmins([]);
       }
     } catch (error: any) {
       console.error("Error fetching admins:", error);
+      setAdmins([]);
     }
   };
 
   const fetchMembers = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: membersData, error: membersError } = await supabase
         .from("department_members")
         .select("*");
 
-      if (error) throw error;
+      if (membersError) throw membersError;
       
       // Fetch user profiles separately
-      if (data && data.length > 0) {
-        const userIds = data.map(m => m.user_id);
-        const { data: profileData } = await supabase
+      if (membersData && membersData.length > 0) {
+        const userIds = membersData.map(m => m.user_id);
+        const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("user_id, user_name, email")
           .in("user_id", userIds);
+
+        if (profileError) throw profileError;
         
         const profileMap = new Map(profileData?.map(p => [p.user_id, p]) || []);
         
-        const membersWithProfiles = data.map(member => ({
+        const membersWithProfiles = membersData.map(member => ({
           ...member,
           profiles: profileMap.get(member.user_id) || { user_name: "Unknown", email: "" }
         }));
@@ -291,6 +303,7 @@ const DepartmentManagement = () => {
       }
     } catch (error: any) {
       console.error("Error fetching members:", error);
+      setMembers([]);
     }
   };
 
