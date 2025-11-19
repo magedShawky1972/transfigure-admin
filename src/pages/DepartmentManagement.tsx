@@ -173,6 +173,7 @@ const DepartmentManagement = () => {
   const [openDept, setOpenDept] = useState(false);
   const [openEditDept, setOpenEditDept] = useState(false);
   const [openAdmin, setOpenAdmin] = useState(false);
+  const [openMember, setOpenMember] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("");
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [isPurchaseAdmin, setIsPurchaseAdmin] = useState(false);
@@ -367,8 +368,18 @@ const DepartmentManagement = () => {
     if (!selectedDept) return;
 
     try {
-      // Get the current max order for this department
+      // Check if user is already an admin
       const deptAdmins = getDepartmentAdmins(selectedDept);
+      if (deptAdmins.some(a => a.user_id === userId)) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'هذا المستخدم مسؤول بالفعل' : 'User is already an admin',
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get the current max order for this department
       const maxOrder = deptAdmins.length > 0 
         ? Math.max(...deptAdmins.map(a => a.admin_order)) 
         : -1;
@@ -383,16 +394,16 @@ const DepartmentManagement = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Admin added to department",
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تمت إضافة المسؤول بنجاح' : 'Admin added to department',
       });
 
       setOpenAdmin(false);
       setIsPurchaseAdmin(false);
-      fetchAdmins();
+      await fetchAdmins();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === 'ar' ? 'خطأ' : 'Error',
         description: error.message,
         variant: "destructive",
       });
@@ -403,6 +414,17 @@ const DepartmentManagement = () => {
     if (!selectedDept) return;
 
     try {
+      // Check if user is already a member
+      const deptMembers = getDepartmentMembers(selectedDept);
+      if (deptMembers.some(m => m.user_id === userId)) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'هذا المستخدم عضو بالفعل' : 'User is already a member',
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase.from("department_members").insert({
         department_id: selectedDept,
         user_id: userId,
@@ -415,10 +437,11 @@ const DepartmentManagement = () => {
         description: language === 'ar' ? 'تمت إضافة عضو إلى القسم' : 'Member added to department',
       });
 
-      fetchMembers();
+      setOpenMember(false);
+      await fetchMembers();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === 'ar' ? 'خطأ' : 'Error',
         description: error.message,
         variant: "destructive",
       });
@@ -707,12 +730,20 @@ const DepartmentManagement = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <h4 className="font-semibold text-sm">{language === 'ar' ? 'مسؤولو القسم' : 'Department Admins'}</h4>
-                      <Dialog>
+                      <Dialog open={openAdmin && selectedDept === dept.id} onOpenChange={(open) => {
+                        if (!open) {
+                          setOpenAdmin(false);
+                          setIsPurchaseAdmin(false);
+                        }
+                      }}>
                         <DialogTrigger asChild>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setSelectedDept(dept.id)}
+                            onClick={() => {
+                              setSelectedDept(dept.id);
+                              setOpenAdmin(true);
+                            }}
                           >
                             <UserPlus className="h-4 w-4 mr-2" />
                             {language === 'ar' ? 'إضافة مسؤول' : 'Add Admin'}
@@ -793,12 +824,15 @@ const DepartmentManagement = () => {
                     <div className="border-t pt-4 mt-4">
                       <div className="flex justify-between items-center mb-3">
                         <h4 className="font-semibold text-sm">{language === 'ar' ? 'موظفو القسم' : 'Department Staff'}</h4>
-                        <Dialog>
+                        <Dialog open={openMember && selectedDept === dept.id} onOpenChange={setOpenMember}>
                           <DialogTrigger asChild>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedDept(dept.id)}
+                              onClick={() => {
+                                setSelectedDept(dept.id);
+                                setOpenMember(true);
+                              }}
                             >
                               <UserPlus className="h-4 w-4 mr-2" />
                               {language === 'ar' ? 'إضافة موظف' : 'Add Staff'}
