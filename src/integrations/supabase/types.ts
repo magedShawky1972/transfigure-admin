@@ -198,21 +198,27 @@ export type Database = {
       }
       department_admins: {
         Row: {
+          admin_order: number
           created_at: string
           department_id: string
           id: string
+          is_purchase_admin: boolean
           user_id: string
         }
         Insert: {
+          admin_order?: number
           created_at?: string
           department_id: string
           id?: string
+          is_purchase_admin?: boolean
           user_id: string
         }
         Update: {
+          admin_order?: number
           created_at?: string
           department_id?: string
           id?: string
+          is_purchase_admin?: boolean
           user_id?: string
         }
         Relationships: [

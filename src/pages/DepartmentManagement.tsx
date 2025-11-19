@@ -5,7 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Trash2, UserPlus, Edit } from "lucide-react";
+import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +76,8 @@ type DepartmentAdmin = {
   id: string;
   department_id: string;
   user_id: string;
+  is_purchase_admin: boolean;
+  admin_order: number;
   profiles: {
     user_name: string;
     email: string;
@@ -74,6 +94,74 @@ type DepartmentMember = {
   };
 };
 
+interface SortableAdminItemProps {
+  admin: DepartmentAdmin;
+  index: number;
+  language: string;
+  onRemove: () => void;
+}
+
+const SortableAdminItem = ({ admin, index, language, onRemove }: SortableAdminItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: admin.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex justify-between items-center p-3 bg-muted rounded-lg"
+    >
+      <div className="flex items-center gap-3 flex-1">
+        <button
+          className="cursor-grab active:cursor-grabbing touch-none"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5 text-muted-foreground" />
+        </button>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="font-mono text-xs">
+            #{index + 1}
+          </Badge>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{admin.profiles.user_name}</p>
+              {admin.is_purchase_admin && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <ShoppingCart className="h-3 w-3" />
+                  {language === 'ar' ? 'مشتريات' : 'Purchase'}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {admin.profiles.email}
+            </p>
+          </div>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onRemove}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
+
 const DepartmentManagement = () => {
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -87,6 +175,14 @@ const DepartmentManagement = () => {
   const [openAdmin, setOpenAdmin] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("");
   const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [isPurchaseAdmin, setIsPurchaseAdmin] = useState(false);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const form = useForm<z.infer<typeof departmentSchema>>({
     resolver: zodResolver(departmentSchema),
@@ -144,26 +240,19 @@ const DepartmentManagement = () => {
     try {
       const { data, error } = await supabase
         .from("department_admins")
-        .select("*");
+        .select(`
+          *,
+          profiles:user_id (
+            user_name,
+            email
+          )
+        `)
+        .order('admin_order', { ascending: true });
 
       if (error) throw error;
       
-      // Fetch user profiles separately
       if (data && data.length > 0) {
-        const userIds = data.map(a => a.user_id);
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("user_id, user_name, email")
-          .in("user_id", userIds);
-        
-        const profileMap = new Map(profileData?.map(p => [p.user_id, p]) || []);
-        
-        const adminsWithProfiles = data.map(admin => ({
-          ...admin,
-          profiles: profileMap.get(admin.user_id) || { user_name: "Unknown", email: "" }
-        }));
-        
-        setAdmins(adminsWithProfiles);
+        setAdmins(data as any);
       } else {
         setAdmins([]);
       }
@@ -278,9 +367,17 @@ const DepartmentManagement = () => {
     if (!selectedDept) return;
 
     try {
+      // Get the current max order for this department
+      const deptAdmins = getDepartmentAdmins(selectedDept);
+      const maxOrder = deptAdmins.length > 0 
+        ? Math.max(...deptAdmins.map(a => a.admin_order)) 
+        : -1;
+
       const { error } = await supabase.from("department_admins").insert({
         department_id: selectedDept,
         user_id: userId,
+        is_purchase_admin: isPurchaseAdmin,
+        admin_order: maxOrder + 1,
       });
 
       if (error) throw error;
@@ -291,6 +388,7 @@ const DepartmentManagement = () => {
       });
 
       setOpenAdmin(false);
+      setIsPurchaseAdmin(false);
       fetchAdmins();
     } catch (error: any) {
       toast({
@@ -375,8 +473,58 @@ const DepartmentManagement = () => {
     }
   };
 
-  const getDepartmentAdmins = (deptId: string) => {
-    return admins.filter(a => a.department_id === deptId);
+  const getDepartmentAdmins = (departmentId: string) => {
+    return admins
+      .filter((admin) => admin.department_id === departmentId)
+      .sort((a, b) => a.admin_order - b.admin_order);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent, departmentId: string) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const deptAdmins = getDepartmentAdmins(departmentId);
+      const oldIndex = deptAdmins.findIndex((admin) => admin.id === active.id);
+      const newIndex = deptAdmins.findIndex((admin) => admin.id === over.id);
+
+      const reorderedAdmins = arrayMove(deptAdmins, oldIndex, newIndex);
+      
+      // Update local state immediately for smooth UX
+      const updatedAdmins = admins.map(admin => {
+        const reorderedAdmin = reorderedAdmins.find(ra => ra.id === admin.id);
+        if (reorderedAdmin) {
+          const newOrder = reorderedAdmins.indexOf(reorderedAdmin);
+          return { ...admin, admin_order: newOrder };
+        }
+        return admin;
+      });
+      setAdmins(updatedAdmins);
+
+      // Update database
+      try {
+        const updates = reorderedAdmins.map((admin, index) => 
+          supabase
+            .from('department_admins')
+            .update({ admin_order: index })
+            .eq('id', admin.id)
+        );
+
+        await Promise.all(updates);
+
+        toast({
+          title: language === 'ar' ? 'تم' : 'Success',
+          description: language === 'ar' ? 'تم تحديث ترتيب المسؤولين' : 'Admin order updated',
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+        // Revert on error
+        fetchAdmins();
+      }
+    }
   };
 
   const getDepartmentMembers = (deptId: string) => {
@@ -574,27 +722,43 @@ const DepartmentManagement = () => {
                           <DialogHeader>
                             <DialogTitle>{language === 'ar' ? 'إضافة مسؤول قسم' : 'Add Department Admin'}</DialogTitle>
                           </DialogHeader>
-                          <div className="space-y-2">
-                            {profiles.map((profile) => (
-                              <div
-                                key={profile.user_id}
-                                className="flex justify-between items-center p-3 border rounded-lg"
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                              <Checkbox 
+                                id="isPurchase" 
+                                checked={isPurchaseAdmin}
+                                onCheckedChange={(checked) => setIsPurchaseAdmin(checked as boolean)}
+                              />
+                              <label
+                                htmlFor="isPurchase"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
                               >
-                                <div>
-                                  <p className="font-medium">{profile.user_name}</p>
-                                  <p className="text-sm text-muted-foreground">{profile.email}</p>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleAddAdmin(profile.user_id)}
-                                  disabled={deptAdmins.some(a => a.user_id === profile.user_id)}
+                                <ShoppingCart className="h-4 w-4" />
+                                {language === 'ar' ? 'مسؤول المشتريات' : 'Purchase Admin'}
+                              </label>
+                            </div>
+                            <div className="space-y-2">
+                              {profiles.map((profile) => (
+                                <div
+                                  key={profile.user_id}
+                                  className="flex justify-between items-center p-3 border rounded-lg"
                                 >
-                                  {deptAdmins.some(a => a.user_id === profile.user_id)
-                                    ? (language === 'ar' ? 'مسؤول بالفعل' : 'Already Admin')
-                                    : (language === 'ar' ? 'إضافة' : 'Add')}
-                                </Button>
-                              </div>
-                            ))}
+                                  <div>
+                                    <p className="font-medium">{profile.user_name}</p>
+                                    <p className="text-sm text-muted-foreground">{profile.email}</p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAddAdmin(profile.user_id)}
+                                    disabled={deptAdmins.some(a => a.user_id === profile.user_id)}
+                                  >
+                                    {deptAdmins.some(a => a.user_id === profile.user_id)
+                                      ? (language === 'ar' ? 'مسؤول بالفعل' : 'Already Admin')
+                                      : (language === 'ar' ? 'إضافة' : 'Add')}
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </DialogContent>
                       </Dialog>
@@ -602,28 +766,28 @@ const DepartmentManagement = () => {
                     {deptAdmins.length === 0 ? (
                       <p className="text-sm text-muted-foreground">{language === 'ar' ? 'لم يتم تعيين مسؤولين' : 'No admins assigned'}</p>
                     ) : (
-                      <div className="space-y-2">
-                        {deptAdmins.map((admin) => (
-                          <div
-                            key={admin.id}
-                            className="flex justify-between items-center p-3 bg-muted rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium">{admin.profiles.user_name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {admin.profiles.email}
-                              </p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRemoveAdmin(admin.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleDragEnd(event, dept.id)}
+                      >
+                        <SortableContext
+                          items={deptAdmins.map(a => a.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-2">
+                            {deptAdmins.map((admin, index) => (
+                              <SortableAdminItem
+                                key={admin.id}
+                                admin={admin}
+                                index={index}
+                                language={language}
+                                onRemove={() => handleRemoveAdmin(admin.id)}
+                              />
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </SortableContext>
+                      </DndContext>
                     )}
                     
                     <div className="border-t pt-4 mt-4">
