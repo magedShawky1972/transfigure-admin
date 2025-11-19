@@ -72,7 +72,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         .from("profiles")
         .select("user_name")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
