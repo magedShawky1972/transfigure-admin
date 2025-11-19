@@ -30,6 +30,7 @@ interface Profile {
   email: string;
   mobile_number: string | null;
   is_active: boolean;
+  is_admin?: boolean;
 }
 
 interface UserPermission {
@@ -112,6 +113,7 @@ const UserSetup = () => {
     email: "",
     mobile_number: "",
     is_active: true,
+    is_admin: false,
   });
 
   useEffect(() => {
@@ -123,11 +125,23 @@ const UserSetup = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(`
+          *,
+          user_roles!user_roles_user_id_fkey (
+            role
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setProfiles(data || []);
+      
+      // Map the data to include is_admin flag
+      const profilesWithAdmin = (data || []).map((profile: any) => ({
+        ...profile,
+        is_admin: profile.user_roles?.some((ur: any) => ur.role === 'admin') || false,
+      }));
+      
+      setProfiles(profilesWithAdmin);
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -156,6 +170,27 @@ const UserSetup = () => {
           .eq("id", editingProfile.id);
 
         if (error) throw error;
+
+        // Handle admin role
+        if (formData.is_admin) {
+          // Add admin role
+          await supabase
+            .from("user_roles")
+            .upsert({
+              user_id: editingProfile.user_id,
+              role: "admin",
+            }, {
+              onConflict: "user_id,role"
+            });
+        } else {
+          // Remove admin role
+          await supabase
+            .from("user_roles")
+            .delete()
+            .eq("user_id", editingProfile.user_id)
+            .eq("role", "admin");
+        }
+
         toast({
           title: t("common.success"),
           description: "User updated successfully",
@@ -215,6 +250,7 @@ const UserSetup = () => {
       email: profile.email,
       mobile_number: profile.mobile_number || "",
       is_active: profile.is_active,
+      is_admin: profile.is_admin || false,
     });
     setDialogOpen(true);
   };
@@ -267,6 +303,7 @@ const UserSetup = () => {
       email: "",
       mobile_number: "",
       is_active: true,
+      is_admin: false,
     });
     setEditingProfile(null);
   };
@@ -484,6 +521,18 @@ const UserSetup = () => {
                 />
                 <Label htmlFor="is_active">Active</Label>
               </div>
+              {editingProfile && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_admin"
+                    checked={formData.is_admin}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, is_admin: checked })
+                    }
+                  />
+                  <Label htmlFor="is_admin">Admin Access</Label>
+                </div>
+              )}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Saving..." : editingProfile ? "Update User" : "Create User"}
               </Button>
