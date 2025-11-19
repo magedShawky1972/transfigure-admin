@@ -956,6 +956,21 @@ export type Database = {
         }[]
       }
       exec_sql: { Args: { sql: string }; Returns: undefined }
+      get_cost_of_sales: {
+        Args: { date_from: string; date_to: string }
+        Returns: number
+      }
+      get_epayment_charges: {
+        Args: { date_from: string; date_to: string }
+        Returns: number
+      }
+      get_points_summary: {
+        Args: { date_from: string; date_to: string }
+        Returns: {
+          total_cost: number
+          total_sales: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
