@@ -27,6 +27,7 @@ interface ReminderAlert {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [user, setUser] = useState<any>(null);
+  const [userName, setUserName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [reminders, setReminders] = useState<ReminderAlert[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -68,8 +69,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user) {
       fetchReminders();
+      fetchUserProfile();
     }
   }, [user]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setUserName(data.user_name);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+  };
 
   const fetchReminders = async () => {
     try {
@@ -149,6 +169,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               {user && (
                 <>
+                  {userName && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                        {userName.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium text-foreground hidden sm:inline">
+                        {userName}
+                      </span>
+                    </div>
+                  )}
                   <NotificationBell />
                   <Popover open={notificationOpen} onOpenChange={setNotificationOpen}>
                     <PopoverTrigger asChild>
