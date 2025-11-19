@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import logo from "@/assets/edara-logo.png";
 
 const Index = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -65,23 +67,23 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className={`min-h-screen flex items-center justify-center bg-background p-4 ${language === 'ar' ? 'rtl' : 'ltr'}`}>
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <img src={logo} alt="Edara Logo" className="h-24 w-auto" />
           </div>
-          <CardTitle className="text-3xl font-bold">Welcome to Edara</CardTitle>
+          <CardTitle className="text-3xl font-bold">{t('welcome.title')}</CardTitle>
           <CardDescription className="text-lg mt-4">
-            Your business management system
+            {t('welcome.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">
-            You currently don't have access to any dashboard components.
+            {t('welcome.noAccess')}
           </p>
           <p className="text-muted-foreground">
-            Please contact your administrator to request access to the features you need.
+            {t('welcome.contactAdmin')}
           </p>
         </CardContent>
       </Card>
