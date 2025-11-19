@@ -22,37 +22,11 @@ const Index = () => {
           return;
         }
 
-        // Fetch dashboard permissions
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_permissions?user_id=eq.${session.user.id}&parent_menu=eq.dashboard&select=menu_item,has_access`,
-          {
-            headers: {
-              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              'Authorization': `Bearer ${session.access_token}`,
-            }
-          }
-        );
-
-        if (response.ok) {
-          const permsData = await response.json();
-          
-          // If no permissions are set, deny access by default
-          // Only allow access if there's at least one permission with has_access === true
-          const hasAnyAccess = permsData.length > 0 && permsData.some((p: any) => p.has_access === true);
-          
-          if (hasAnyAccess) {
-            navigate("/dashboard");
-          } else {
-            // User has no dashboard access - show welcome page
-            setLoading(false);
-          }
-        } else {
-          // If permissions check fails, show welcome page (deny access)
-          setLoading(false);
-        }
+        // Show landing page to all authenticated users
+        setLoading(false);
       } catch (error) {
         console.error("Error checking access:", error);
-        navigate("/dashboard");
+        setLoading(false);
       }
     };
 
