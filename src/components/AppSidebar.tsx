@@ -14,7 +14,8 @@ import {
   Link2,
   FileText,
   TicketCheck,
-  FileBarChart
+  FileBarChart,
+  Key
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -51,6 +52,7 @@ export function AppSidebar() {
     "/load-data": "loadData",
     "/upload-log": "uploadLog",
     "/clear-data": "clearData",
+    "/software-licenses": "softwareLicenses",
     "/reports-setup": "reportsSetup",
     "/customer-setup": "customerSetup",
     "/customer-profile": "customerProfile",
@@ -64,6 +66,7 @@ export function AppSidebar() {
     "/excel-sheets": "excelSetup",
     "/table-generator": "tableConfig",
     "/odoo-setup": "odooSetup",
+    "/software-license-setup": "softwareLicenseSetup",
   };
 
   useEffect(() => {
@@ -119,6 +122,7 @@ export function AppSidebar() {
         { title: t("menu.clearData"), url: "/clear-data", icon: Database },
         { title: language === 'ar' ? "تذاكري" : "My Tickets", url: "/tickets", icon: FileText },
         { title: language === 'ar' ? "تذاكر القسم" : "Department Tickets", url: "/admin-tickets", icon: Users },
+        { title: language === 'ar' ? "تراخيص البرامج" : "Software Licenses", url: "/software-licenses", icon: Key },
       ]
     },
     {
@@ -132,6 +136,7 @@ export function AppSidebar() {
         { title: t("menu.brandType"), url: "/brand-type", icon: Settings },
         { title: t("menu.productSetup"), url: "/product-setup", icon: Database },
         { title: language === 'ar' ? 'إعداد طرق الدفع' : 'Payment Method Setup', url: "/payment-method-setup", icon: CreditCard },
+        { title: language === 'ar' ? 'إعداد التراخيص' : 'License Setup', url: "/software-license-setup", icon: Key },
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
       ]
     },
