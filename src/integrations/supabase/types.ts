@@ -225,6 +225,35 @@ export type Database = {
           },
         ]
       }
+      department_members: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           created_at: string
@@ -786,6 +815,9 @@ export type Database = {
       }
       tickets: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
+          assigned_to: string | null
           created_at: string
           department_id: string
           description: string
@@ -798,6 +830,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_to?: string | null
           created_at?: string
           department_id: string
           description: string
@@ -810,6 +845,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_to?: string | null
           created_at?: string
           department_id?: string
           description?: string

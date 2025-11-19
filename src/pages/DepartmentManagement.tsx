@@ -64,12 +64,23 @@ type DepartmentAdmin = {
   };
 };
 
+type DepartmentMember = {
+  id: string;
+  department_id: string;
+  user_id: string;
+  profiles: {
+    user_name: string;
+    email: string;
+  };
+};
+
 const DepartmentManagement = () => {
   const { toast } = useToast();
   const { language } = useLanguage();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [admins, setAdmins] = useState<DepartmentAdmin[]>([]);
+  const [members, setMembers] = useState<DepartmentMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDept, setOpenDept] = useState(false);
   const [openAdmin, setOpenAdmin] = useState(false);
@@ -88,6 +99,7 @@ const DepartmentManagement = () => {
     fetchDepartments();
     fetchProfiles();
     fetchAdmins();
+    fetchMembers();
   }, []);
 
   const fetchDepartments = async () => {
@@ -158,6 +170,38 @@ const DepartmentManagement = () => {
     }
   };
 
+  const fetchMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("department_members")
+        .select("*");
+
+      if (error) throw error;
+      
+      // Fetch user profiles separately
+      if (data && data.length > 0) {
+        const userIds = data.map(m => m.user_id);
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("user_id, user_name, email")
+          .in("user_id", userIds);
+        
+        const profileMap = new Map(profileData?.map(p => [p.user_id, p]) || []);
+        
+        const membersWithProfiles = data.map(member => ({
+          ...member,
+          profiles: profileMap.get(member.user_id) || { user_name: "Unknown", email: "" }
+        }));
+        
+        setMembers(membersWithProfiles);
+      } else {
+        setMembers([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching members:", error);
+    }
+  };
+
   const onSubmitDepartment = async (values: z.infer<typeof departmentSchema>) => {
     try {
       const { error } = await supabase
@@ -214,6 +258,56 @@ const DepartmentManagement = () => {
     }
   };
 
+  const handleAddMember = async (userId: string) => {
+    if (!selectedDept) return;
+
+    try {
+      const { error } = await supabase.from("department_members").insert({
+        department_id: selectedDept,
+        user_id: userId,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم' : 'Success',
+        description: language === 'ar' ? 'تمت إضافة عضو إلى القسم' : 'Member added to department',
+      });
+
+      fetchMembers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    try {
+      const { error } = await supabase
+        .from("department_members")
+        .delete()
+        .eq("id", memberId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم' : 'Success',
+        description: language === 'ar' ? 'تمت إزالة العضو من القسم' : 'Member removed from department',
+      });
+
+      fetchMembers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleRemoveAdmin = async (adminId: string) => {
     try {
       const { error } = await supabase
@@ -240,6 +334,10 @@ const DepartmentManagement = () => {
 
   const getDepartmentAdmins = (deptId: string) => {
     return admins.filter(a => a.department_id === deptId);
+  };
+
+  const getDepartmentMembers = (deptId: string) => {
+    return members.filter(m => m.department_id === deptId);
   };
 
   return (
@@ -323,6 +421,7 @@ const DepartmentManagement = () => {
         <div className="grid gap-4">
           {departments.map((dept) => {
             const deptAdmins = getDepartmentAdmins(dept.id);
+            const deptMembers = getDepartmentMembers(dept.id);
             return (
               <Card key={dept.id}>
                 <CardHeader>
@@ -413,6 +512,77 @@ const DepartmentManagement = () => {
                         ))}
                       </div>
                     )}
+                    
+                    <div className="border-t pt-4 mt-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-semibold text-sm">{language === 'ar' ? 'موظفو القسم' : 'Department Staff'}</h4>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedDept(dept.id)}
+                            >
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              {language === 'ar' ? 'إضافة موظف' : 'Add Staff'}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>{language === 'ar' ? 'إضافة موظف إلى القسم' : 'Add Staff to Department'}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-2">
+                              {profiles.map((profile) => (
+                                <div
+                                  key={profile.user_id}
+                                  className="flex justify-between items-center p-3 border rounded-lg"
+                                >
+                                  <div>
+                                    <p className="font-medium">{profile.user_name}</p>
+                                    <p className="text-sm text-muted-foreground">{profile.email}</p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAddMember(profile.user_id)}
+                                    disabled={deptMembers.some(m => m.user_id === profile.user_id)}
+                                  >
+                                    {deptMembers.some(m => m.user_id === profile.user_id)
+                                      ? (language === 'ar' ? 'موظف بالفعل' : 'Already Staff')
+                                      : (language === 'ar' ? 'إضافة' : 'Add')}
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      {deptMembers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{language === 'ar' ? 'لم يتم تعيين موظفين' : 'No staff assigned'}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {deptMembers.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex justify-between items-center p-3 bg-muted/50 rounded-lg"
+                            >
+                              <div>
+                                <p className="font-medium">{member.profiles.user_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {member.profiles.email}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRemoveMember(member.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
