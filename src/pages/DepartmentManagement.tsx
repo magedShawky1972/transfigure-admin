@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { Plus, Trash2, UserPlus, Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -83,8 +83,10 @@ const DepartmentManagement = () => {
   const [members, setMembers] = useState<DepartmentMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDept, setOpenDept] = useState(false);
+  const [openEditDept, setOpenEditDept] = useState(false);
   const [openAdmin, setOpenAdmin] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("");
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
 
   const form = useForm<z.infer<typeof departmentSchema>>({
     resolver: zodResolver(departmentSchema),
@@ -229,6 +231,47 @@ const DepartmentManagement = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const onSubmitEditDepartment = async (values: z.infer<typeof departmentSchema>) => {
+    if (!editingDept) return;
+
+    try {
+      const { error } = await supabase
+        .from("departments")
+        .update({
+          department_name: values.department_name,
+          department_code: values.department_code,
+          description: values.description || null,
+        })
+        .eq("id", editingDept.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم' : 'Success',
+        description: language === 'ar' ? 'تم تحديث القسم بنجاح' : 'Department updated successfully',
+      });
+
+      setOpenEditDept(false);
+      setEditingDept(null);
+      form.reset();
+      fetchDepartments();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditDepartment = (dept: Department) => {
+    setEditingDept(dept);
+    form.setValue("department_name", dept.department_name);
+    form.setValue("department_code", dept.department_code);
+    form.setValue("description", dept.description || "");
+    setOpenEditDept(true);
   };
 
   const handleAddAdmin = async (userId: string) => {
@@ -413,6 +456,67 @@ const DepartmentManagement = () => {
             </Form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={openEditDept} onOpenChange={setOpenEditDept}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{language === 'ar' ? 'تعديل القسم' : 'Edit Department'}</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmitEditDepartment)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="department_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'اسم القسم' : 'Department Name'}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. Technical Support'} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="department_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'كود القسم' : 'Department Code'}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={language === 'ar' ? 'مثال: TECH' : 'e.g. TECH'} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'الوصف (اختياري)' : 'Description (Optional)'}</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder={language === 'ar' ? 'وصف القسم' : 'Department description'} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => {
+                    setOpenEditDept(false);
+                    setEditingDept(null);
+                    form.reset();
+                  }}>
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button type="submit">{language === 'ar' ? 'حفظ' : 'Save'}</Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {loading ? (
@@ -426,7 +530,7 @@ const DepartmentManagement = () => {
               <Card key={dept.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1">
                       <CardTitle>{dept.department_name}</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
                         {language === 'ar' ? 'الكود' : 'Code'}: {dept.department_code}
@@ -437,9 +541,18 @@ const DepartmentManagement = () => {
                         </p>
                       )}
                     </div>
-                    <Badge variant={dept.is_active ? "default" : "secondary"}>
-                      {dept.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleEditDepartment(dept)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Badge variant={dept.is_active ? "default" : "secondary"}>
+                        {dept.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
