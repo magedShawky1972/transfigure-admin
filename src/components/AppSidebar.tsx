@@ -11,7 +11,8 @@ import {
   TrendingUp,
   Grid3x3,
   CreditCard,
-  Link2
+  Link2,
+  FileText
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -40,6 +41,9 @@ export function AppSidebar() {
     "/": "dashboard",
     "/reports": "reports",
     "/transactions": "transactions",
+    "/tickets": "tickets",
+    "/admin-tickets": "admin_tickets",
+    "/department-management": "department_management",
     "/pivot-table": "pivotTable",
     "/load-data": "loadData",
     "/upload-log": "uploadLog",
@@ -132,6 +136,14 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
+      ]
+    },
+    {
+      label: language === 'ar' ? "إدارة التذاكر" : "Ticket Management",
+      items: [
+        { title: language === 'ar' ? "تذاكري" : "My Tickets", url: "/tickets", icon: FileText },
+        { title: language === 'ar' ? "تذاكر القسم" : "Department Tickets", url: "/admin-tickets", icon: Users },
+        { title: language === 'ar' ? "إدارة الأقسام" : "Departments", url: "/department-management", icon: Settings },
       ]
     }
   ];

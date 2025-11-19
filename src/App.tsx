@@ -31,6 +31,10 @@ import PivotTable from "./pages/PivotTable";
 import OdooSetup from "./pages/OdooSetup";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Tickets from "./pages/Tickets";
+import TicketDetails from "./pages/TicketDetails";
+import AdminTickets from "./pages/AdminTickets";
+import DepartmentManagement from "./pages/DepartmentManagement";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +72,10 @@ const App = () => (
               <Route path="/pivot-table" element={<PivotTable />} />
               <Route path="/odoo-setup" element={<OdooSetup />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/tickets" element={<Tickets />} />
+              <Route path="/tickets/:id" element={<TicketDetails />} />
+              <Route path="/admin-tickets" element={<AdminTickets />} />
+              <Route path="/department-management" element={<DepartmentManagement />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
