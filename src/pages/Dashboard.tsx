@@ -289,7 +289,8 @@ const Dashboard = () => {
   // Check if user has no access to any dashboard components
   const hasAnyAccess = () => {
     if (permissionsLoading) return true; // Show loading state
-    if (Object.keys(dashboardPermissions).length === 0) return true; // No permissions set, show all
+    // If no permissions are set, deny access by default
+    if (Object.keys(dashboardPermissions).length === 0) return false;
     return Object.values(dashboardPermissions).some(access => access === true);
   };
 
