@@ -42,6 +42,7 @@ interface UserPermission {
 
 const MENU_ITEMS = [
   { key: "dashboard", label: "Dashboard" },
+  { key: "ticket_dashboard", label: "Ticket Dashboard" },
   { key: "reports", label: "Reports" },
   { key: "transactions", label: "Transactions" },
   { key: "pivotTable", label: "Pivot Table" },
