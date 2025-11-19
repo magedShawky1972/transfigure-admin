@@ -354,105 +354,31 @@ const Dashboard = () => {
         const transactionCount = Number(stats.tx_count || 0);
         const avgOrderValue = transactionCount > 0 ? totalSales / transactionCount : 0;
 
-        // Fetch COGS from purpletransaction and E-Payment Charges from ordertotals with pagination
-        const pageSize = 1000;
-        let from = 0;
-        let allCogsData: any[] = [];
+        // Use optimized RPC functions for fast aggregation
+        const [cogsResult, chargesResult, pointsResult] = await Promise.all([
+          supabase.rpc('get_cost_of_sales', {
+            date_from: startDate,
+            date_to: endDate
+          }),
+          supabase.rpc('get_epayment_charges', {
+            date_from: startDate,
+            date_to: endDate
+          }),
+          supabase.rpc('get_points_summary', {
+            date_from: startDate,
+            date_to: endDate
+          })
+        ]);
 
-        while (true) {
-          const { data, error } = await supabase
-            .from('purpletransaction')
-            .select('cost_sold, payment_method, created_at_date')
-            .gte('created_at_date', startStr)
-            .lt('created_at_date', endNextStr)
-            .order('created_at_date', { ascending: true })
-            .range(from, from + pageSize - 1);
+        if (cogsResult.error) throw cogsResult.error;
+        if (chargesResult.error) throw chargesResult.error;
+        if (pointsResult.error) throw pointsResult.error;
 
-          if (error) throw error;
-
-          const batch = data || [];
-          allCogsData = allCogsData.concat(batch);
-
-          if (batch.length < pageSize) break;
-          from += pageSize;
-        }
-
-        let costOfSales = 0;
-        allCogsData.forEach((row) => {
-          // Skip point transactions
-          if ((row.payment_method || '').toLowerCase() === 'point') return;
-          costOfSales += parseNumber(row.cost_sold);
-        });
-
-        // Fetch E-Payment Charges from ordertotals table
-        let orderFrom = 0;
-        let allOrderData: any[] = [];
-        
-        while (true) {
-          const { data, error } = await supabase
-            .from('ordertotals')
-            .select('bank_fee, payment_method, order_date')
-            .gte('order_date', startStr)
-            .lt('order_date', endNextStr)
-            .order('order_date', { ascending: true })
-            .range(orderFrom, orderFrom + pageSize - 1);
-
-          if (error) throw error;
-
-          const batch = data || [];
-          allOrderData = allOrderData.concat(batch);
-
-          if (batch.length < pageSize) break;
-          orderFrom += pageSize;
-        }
-
-        let ePaymentCharges = 0;
-        allOrderData.forEach((row) => {
-          // Skip point transactions
-          if ((row.payment_method || '').toLowerCase() === 'point') return;
-          ePaymentCharges += parseNumber(row.bank_fee);
-        });
-
-        // Fetch point transactions data for Points Sales metric
-        let pointsFrom = 0;
-        let allPointsData: any[] = [];
-
-        while (true) {
-          const { data, error } = await supabase
-            .from('purpletransaction')
-            .select('id, order_number, total, cost_sold, created_at_date')
-            .ilike('payment_method', 'point')
-            .gte('created_at_date', startStr)
-            .lt('created_at_date', endNextStr)
-            .order('created_at_date', { ascending: true })
-            .range(pointsFrom, pointsFrom + pageSize - 1);
-
-          if (error) throw error;
-
-          const batch = data || [];
-          allPointsData = allPointsData.concat(batch);
-
-          if (batch.length < pageSize) break;
-          pointsFrom += pageSize;
-        }
-
-        // Group by order to avoid duplicate counting
-        const orderGrouped = new Map<string, { total: number; cost: number }>();
-        allPointsData.forEach((item: any) => {
-          const key = item.order_number || item.id;
-          const total = parseNumber(item.total);
-          const cost = parseNumber(item.cost_sold);
-          const existing = orderGrouped.get(key);
-          if (!existing) {
-            orderGrouped.set(key, { total, cost });
-          } else {
-            existing.total += total;
-            existing.cost += cost;
-          }
-        });
-
-        const totalPointsSales = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.total, 0);
-        const totalPointsCost = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.cost, 0);
+        const costOfSales = Number(cogsResult.data || 0);
+        const ePaymentCharges = Number(chargesResult.data || 0);
+        const pointsData = pointsResult.data && pointsResult.data.length > 0 ? pointsResult.data[0] : { total_sales: 0, total_cost: 0 };
+        const totalPointsSales = Number(pointsData.total_sales || 0);
+        const totalPointsCost = Number(pointsData.total_cost || 0);
 
         setMetrics({
           totalSales,
