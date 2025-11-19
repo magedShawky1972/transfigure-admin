@@ -93,10 +93,6 @@ const AdminTickets = () => {
           *,
           departments (
             department_name
-          ),
-          profiles!tickets_user_id_fkey (
-            user_name,
-            email
           )
         `)
         .in("department_id", departmentIds)
