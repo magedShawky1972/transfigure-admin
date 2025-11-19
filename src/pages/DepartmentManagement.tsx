@@ -32,6 +32,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -177,6 +187,8 @@ const DepartmentManagement = () => {
   const [selectedDept, setSelectedDept] = useState<string>("");
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [isPurchaseAdmin, setIsPurchaseAdmin] = useState(false);
+  const [confirmAdminDialog, setConfirmAdminDialog] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -377,13 +389,19 @@ const DepartmentManagement = () => {
     setOpenEditDept(true);
   };
 
-  const handleAddAdmin = async (userId: string) => {
-    if (!selectedDept) return;
+  const handleSelectUserForAdmin = (userId: string) => {
+    setSelectedUserId(userId);
+    setIsPurchaseAdmin(false);
+    setConfirmAdminDialog(true);
+  };
+
+  const handleAddAdmin = async () => {
+    if (!selectedDept || !selectedUserId) return;
 
     try {
       // Check if user is already an admin
       const deptAdmins = getDepartmentAdmins(selectedDept);
-      if (deptAdmins.some(a => a.user_id === userId)) {
+      if (deptAdmins.some(a => a.user_id === selectedUserId)) {
         toast({
           title: language === 'ar' ? 'خطأ' : 'Error',
           description: language === 'ar' ? 'هذا المستخدم مسؤول بالفعل' : 'User is already an admin',
@@ -399,7 +417,7 @@ const DepartmentManagement = () => {
 
       const { error } = await supabase.from("department_admins").insert({
         department_id: selectedDept,
-        user_id: userId,
+        user_id: selectedUserId,
         is_purchase_admin: isPurchaseAdmin,
         admin_order: maxOrder + 1,
       });
@@ -411,6 +429,8 @@ const DepartmentManagement = () => {
         description: language === 'ar' ? 'تمت إضافة المسؤول بنجاح' : 'Admin added to department',
       });
 
+      setConfirmAdminDialog(false);
+      setSelectedUserId(null);
       setOpenAdmin(false);
       setIsPurchaseAdmin(false);
       await fetchAdmins();
@@ -764,46 +784,30 @@ const DepartmentManagement = () => {
                         </DialogTrigger>
                         <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
-                            <DialogTitle>{language === 'ar' ? 'إضافة مسؤول قسم' : 'Add Department Admin'}</DialogTitle>
+                            <DialogTitle>{language === 'ar' ? 'اختر المستخدم' : 'Select User'}</DialogTitle>
                           </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                              <Checkbox 
-                                id="isPurchase" 
-                                checked={isPurchaseAdmin}
-                                onCheckedChange={(checked) => setIsPurchaseAdmin(checked as boolean)}
-                              />
-                              <label
-                                htmlFor="isPurchase"
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
+                          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+                            {profiles.map((profile) => (
+                              <div
+                                key={profile.user_id}
+                                className="flex justify-between items-center p-3 border rounded-lg"
                               >
-                                <ShoppingCart className="h-4 w-4" />
-                                {language === 'ar' ? 'مسؤول المشتريات' : 'Purchase Admin'}
-                              </label>
-                            </div>
-                            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
-                              {profiles.map((profile) => (
-                                <div
-                                  key={profile.user_id}
-                                  className="flex justify-between items-center p-3 border rounded-lg"
-                                >
-                                  <div className="flex-1 min-w-0 mr-2">
-                                    <p className="font-medium truncate">{profile.user_name}</p>
-                                    <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleAddAdmin(profile.user_id)}
-                                    disabled={deptAdmins.some(a => a.user_id === profile.user_id)}
-                                    className="shrink-0"
-                                  >
-                                    {deptAdmins.some(a => a.user_id === profile.user_id)
-                                      ? (language === 'ar' ? 'مسؤول بالفعل' : 'Already Admin')
-                                      : (language === 'ar' ? 'إضافة' : 'Add')}
-                                  </Button>
+                                <div className="flex-1 min-w-0 mr-2">
+                                  <p className="font-medium truncate">{profile.user_name}</p>
+                                  <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
                                 </div>
-                              ))}
-                            </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSelectUserForAdmin(profile.user_id)}
+                                  disabled={deptAdmins.some(a => a.user_id === profile.user_id)}
+                                  className="shrink-0"
+                                >
+                                  {deptAdmins.some(a => a.user_id === profile.user_id)
+                                    ? (language === 'ar' ? 'مسؤول بالفعل' : 'Already Admin')
+                                    : (language === 'ar' ? 'إضافة' : 'Add')}
+                                </Button>
+                              </div>
+                            ))}
                           </div>
                         </DialogContent>
                       </Dialog>
@@ -906,9 +910,61 @@ const DepartmentManagement = () => {
                               </Button>
                             </div>
                           ))}
-                        </div>
-                      )}
+        </div>
+      )}
+
+      {/* Confirmation Dialog for Admin Type */}
+      <AlertDialog open={confirmAdminDialog} onOpenChange={setConfirmAdminDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'نوع المسؤول' : 'Admin Type'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              <p>{language === 'ar' ? 'اختر نوع المسؤول:' : 'Select admin type:'}</p>
+              <div className="flex items-center space-x-2 p-3 border rounded-lg bg-muted/30">
+                <Checkbox 
+                  id="isPurchaseConfirm" 
+                  checked={isPurchaseAdmin}
+                  onCheckedChange={(checked) => setIsPurchaseAdmin(checked as boolean)}
+                />
+                <label
+                  htmlFor="isPurchaseConfirm"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  <div>
+                    <div>{language === 'ar' ? 'مسؤول المشتريات فقط' : 'Purchase Admin Only'}</div>
+                    <div className="text-xs text-muted-foreground font-normal mt-1">
+                      {language === 'ar' 
+                        ? 'سيتلقى إشعارات تذاكر المشتريات فقط' 
+                        : 'Will receive purchase ticket notifications only'}
                     </div>
+                  </div>
+                </label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {language === 'ar' 
+                  ? 'إذا لم يتم التحديد، سيتلقى المسؤول جميع إشعارات التذاكر' 
+                  : 'If not selected, admin will receive all ticket notifications'}
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setConfirmAdminDialog(false);
+              setSelectedUserId(null);
+              setIsPurchaseAdmin(false);
+            }}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleAddAdmin}>
+              {language === 'ar' ? 'إضافة' : 'Add'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
                   </div>
                 </CardContent>
               </Card>
