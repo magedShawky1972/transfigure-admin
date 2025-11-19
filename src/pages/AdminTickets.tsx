@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye } from "lucide-react";
+import { Eye, ShoppingCart } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import {
   Select,
@@ -29,6 +30,7 @@ type Ticket = {
   assigned_to: string | null;
   approved_at: string | null;
   approved_by: string | null;
+  is_purchase_ticket: boolean;
   departments: {
     department_name: string;
   };
@@ -290,14 +292,42 @@ const AdminTickets = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Ticket status updated",
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? 'تم تحديث حالة التذكرة' 
+          : 'Ticket status updated successfully',
       });
 
       fetchTickets();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTogglePurchaseTicket = async (ticketId: string, isPurchase: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ is_purchase_ticket: isPurchase })
+        .eq("id", ticketId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم ${isPurchase ? 'تحديد' : 'إلغاء'} التذكرة كتذكرة مشتريات` 
+          : `Ticket ${isPurchase ? 'marked' : 'unmarked'} as purchase ticket`,
+      });
+
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
         description: error.message,
         variant: "destructive",
       });
@@ -348,6 +378,14 @@ const AdminTickets = () => {
               <span>•</span>
               <span>{format(new Date(ticket.created_at), "PPp")}</span>
             </div>
+            <div className="flex items-center gap-2 mt-2">
+              {ticket.is_purchase_ticket && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <ShoppingCart className="h-3 w-3" />
+                  {language === 'ar' ? 'مشتريات' : 'Purchase'}
+                </Badge>
+              )}
+            </div>
           </div>
           <Badge variant={getPriorityColor(ticket.priority)}>
             {ticket.priority}
@@ -380,6 +418,17 @@ const AdminTickets = () => {
               <SelectItem value="Closed">{language === 'ar' ? 'مغلق' : 'Closed'}</SelectItem>
             </SelectContent>
           </Select>
+          
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md border">
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">
+              {language === 'ar' ? 'مشتريات' : 'Purchase'}
+            </span>
+            <Switch
+              checked={ticket.is_purchase_ticket}
+              onCheckedChange={(checked) => handleTogglePurchaseTicket(ticket.id, checked)}
+            />
+          </div>
           
           {!ticket.approved_at && (
             <Button

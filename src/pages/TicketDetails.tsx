@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingCart, Download } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 
@@ -19,12 +21,24 @@ type Ticket = {
   priority: string;
   status: string;
   created_at: string;
+  is_purchase_ticket: boolean;
   departments: {
     department_name: string;
   };
   profiles: {
     user_name: string;
     email: string;
+  };
+};
+
+type Attachment = {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  created_at: string;
+  profiles: {
+    user_name: string;
   };
 };
 
@@ -46,14 +60,20 @@ const TicketDetails = () => {
   const { t } = useLanguage();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchTicket();
       fetchComments();
+      fetchAttachments();
+      checkAdminStatus();
     }
   }, [id]);
 
@@ -92,6 +112,56 @@ const TicketDetails = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAdminStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("department_admins")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
+  };
+
+  const fetchAttachments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("ticket_attachments")
+        .select("*")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const userIds = data.map(a => a.user_id);
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("user_id, user_name")
+          .in("user_id", userIds);
+
+        const profileMap = new Map(profileData?.map(p => [p.user_id, p]) || []);
+
+        const attachmentsWithProfiles = data.map(attachment => ({
+          ...attachment,
+          profiles: profileMap.get(attachment.user_id) || { user_name: "Unknown" }
+        }));
+
+        setAttachments(attachmentsWithProfiles);
+      } else {
+        setAttachments([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching attachments:", error);
     }
   };
 
@@ -164,6 +234,102 @@ const TicketDetails = () => {
     }
   };
 
+  const handleFileUpload = async () => {
+    if (!selectedFile) return;
+
+    try {
+      setUploading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const fileExt = selectedFile.name.split('.').pop();
+      const filePath = `${id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('ticket-attachments')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      const { error: dbError } = await supabase.from("ticket_attachments").insert({
+        ticket_id: id,
+        user_id: user.id,
+        file_name: selectedFile.name,
+        file_path: filePath,
+        file_size: selectedFile.size,
+        mime_type: selectedFile.type,
+      });
+
+      if (dbError) throw dbError;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم رفع الملف' : 'File uploaded successfully',
+      });
+
+      setSelectedFile(null);
+      fetchAttachments();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownload = async (filePath: string, fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('ticket-attachments')
+        .download(filePath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTogglePurchaseTicket = async () => {
+    if (!ticket) return;
+
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ is_purchase_ticket: !ticket.is_purchase_ticket })
+        .eq("id", ticket.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم ${!ticket.is_purchase_ticket ? 'تحديد' : 'إلغاء'} التذكرة كتذكرة مشتريات` 
+          : `Ticket ${!ticket.is_purchase_ticket ? 'marked' : 'unmarked'} as purchase ticket`,
+      });
+
+      fetchTicket();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
@@ -219,14 +385,20 @@ const TicketDetails = () => {
                   {t("ticketDetails.ticketNumber")}{ticket.ticket_number}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Badge variant={getPriorityColor(ticket.priority)}>
-                  {ticket.priority}
+            <div className="flex gap-2">
+              <Badge variant={getPriorityColor(ticket.priority)}>
+                {ticket.priority}
+              </Badge>
+              <Badge variant={getStatusColor(ticket.status)}>
+                {ticket.status}
+              </Badge>
+              {ticket.is_purchase_ticket && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <ShoppingCart className="h-3 w-3" />
+                  {language === 'ar' ? 'مشتريات' : 'Purchase'}
                 </Badge>
-                <Badge variant={getStatusColor(ticket.status)}>
-                  {ticket.status}
-                </Badge>
-              </div>
+              )}
+            </div>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
@@ -253,6 +425,85 @@ const TicketDetails = () => {
             <div>
               <h3 className="font-semibold mb-2">{t("ticketDetails.description")}</h3>
               <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
+            </div>
+
+            {isAdmin && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between p-4 bg-muted rounded-md">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">
+                      {language === 'ar' ? 'تذكرة مشتريات' : 'Purchase Ticket'}
+                    </span>
+                  </div>
+                  <Switch
+                    checked={ticket.is_purchase_ticket}
+                    onCheckedChange={handleTogglePurchaseTicket}
+                  />
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            <div>
+              <h3 className="font-semibold mb-4">
+                {language === 'ar' ? 'المرفقات' : 'Attachments'}
+              </h3>
+              
+              {isAdmin && (
+                <div className="mb-4 p-4 border rounded-md space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={handleFileUpload}
+                      disabled={!selectedFile || uploading}
+                      size="sm"
+                    >
+                      <Paperclip className="h-4 w-4 mr-2" />
+                      {uploading ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') : (language === 'ar' ? 'رفع' : 'Upload')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {attachments.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    {language === 'ar' ? 'لا توجد مرفقات' : 'No attachments'}
+                  </p>
+                ) : (
+                  attachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <Paperclip className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{attachment.file_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {attachment.profiles.user_name} • {format(new Date(attachment.created_at), "PP")}
+                            {attachment.file_size && ` • ${(attachment.file_size / 1024).toFixed(1)} KB`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDownload(attachment.file_path, attachment.file_name)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
             <Separator />
