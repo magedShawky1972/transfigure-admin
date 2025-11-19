@@ -666,12 +666,15 @@ const Dashboard = () => {
         // Fetch non-point data
         let fromNP = 0;
         let nonPointData: any[] = [];
+        const startDate = format(start, "yyyy-MM-dd");
+        const endDate = format(end, "yyyy-MM-dd");
+        
         while (true) {
           const { data, error } = await (supabase as any)
             .from('purpletransaction')
             .select('total, cost_sold, bank_fee, payment_method')
-            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
-            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
+            .gte('created_at_date', startDate)
+            .lte('created_at_date', endDate)
             .range(fromNP, fromNP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
@@ -689,8 +692,8 @@ const Dashboard = () => {
             .from('purpletransaction')
             .select('id, order_number, total')
             .ilike('payment_method', 'point')
-            .gte('created_at_date', format(startOfDay(start), "yyyy-MM-dd'T'00:00:00"))
-            .lt('created_at_date', format(addDays(startOfDay(end), 1), "yyyy-MM-dd'T'00:00:00"))
+            .gte('created_at_date', startDate)
+            .lte('created_at_date', endDate)
             .range(fromP, fromP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
