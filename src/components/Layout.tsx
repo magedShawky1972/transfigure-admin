@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Languages, LogOut, Bell } from "lucide-react";
+import { Moon, Sun, Languages, LogOut } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -9,28 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import edaraLogo from "@/assets/edara-logo.png";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
-
-interface ReminderAlert {
-  id: string;
-  customer_name: string;
-  customer_phone: string;
-  notes: string;
-  reminder_date: string;
-  next_action: string;
-}
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [reminders, setReminders] = useState<ReminderAlert[]>([]);
-  const [notificationOpen, setNotificationOpen] = useState(false);
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,7 +53,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user) {
-      fetchReminders();
       fetchUserProfile();
     }
   }, [user]);
@@ -88,24 +72,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
-    }
-  };
-
-  const fetchReminders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("crm_customer_followup")
-        .select("*")
-        .lte("reminder_date", new Date().toISOString())
-        .order("reminder_date", { ascending: true });
-
-      if (error) throw error;
-
-      if (data) {
-        setReminders(data);
-      }
-    } catch (error) {
-      console.error("Error fetching reminders:", error);
     }
   };
 
@@ -180,65 +146,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </div>
                   )}
                   <NotificationBell />
-                  <Popover open={notificationOpen} onOpenChange={setNotificationOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full relative"
-                        title={t("dashboard.crmReminder")}
-                      >
-                        <Bell className="h-5 w-5" />
-                        {reminders.length > 0 && (
-                          <Badge 
-                            variant="destructive" 
-                            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                          >
-                            {reminders.length}
-                          </Badge>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-96" align="end">
-                      <div className="space-y-2">
-                        <h3 className="font-semibold text-sm">{t("dashboard.crmReminder")}</h3>
-                        {reminders.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">{t("dashboard.noReminders")}</p>
-                        ) : (
-                          <ScrollArea className="h-[400px]">
-                            <div className="space-y-3">
-                              {reminders.map((reminder) => (
-                                <div 
-                                  key={reminder.id} 
-                                  className="p-3 rounded-lg border border-border bg-card space-y-1 text-sm"
-                                >
-                                  <div className="font-medium">
-                                    {reminder.customer_name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {reminder.customer_phone}
-                                  </div>
-                                  {reminder.notes && (
-                                    <div className="text-xs">
-                                      <strong>{t("dashboard.notes")}:</strong> {reminder.notes}
-                                    </div>
-                                  )}
-                                  {reminder.next_action && (
-                                    <div className="text-xs">
-                                      <strong>{t("dashboard.nextAction")}:</strong> {reminder.next_action}
-                                    </div>
-                                  )}
-                                  <div className="text-xs text-muted-foreground">
-                                    {format(new Date(reminder.reminder_date), "PPP")}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        )}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
                   <Button
                     variant="ghost"
                     size="icon"
