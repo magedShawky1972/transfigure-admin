@@ -35,6 +35,17 @@ serve(async (req) => {
       );
     }
 
+    // Check if user has admin role
+    const { data: hasAdminRole, error: roleError } = await supabaseAdmin
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+
+    if (roleError || !hasAdminRole) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { email, user_name, mobile_number, is_active, password } = await req.json();
 
     // Use provided password or default to "123456"
