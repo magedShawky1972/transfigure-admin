@@ -278,15 +278,7 @@ const Dashboard = () => {
     loadPermissions();
   }, []);
 
-  // Auto-fetch data when permissions are loaded
-  useEffect(() => {
-    if (!permissionsLoading) {
-      fetchMetrics();
-      fetchCharts();
-      fetchTables();
-      fetchInactiveCustomers();
-    }
-  }, [permissionsLoading]);
+  // Removed auto-fetch - user must click Apply button to load data
 
   // Helper function to check if user has access to a component
   const hasAccess = (componentKey: string) => {
@@ -1536,6 +1528,21 @@ const Dashboard = () => {
       const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
       const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
 
+      // Fetch payment methods configuration
+      const { data: paymentMethods, error: pmError } = await supabase
+        .from('payment_methods')
+        .select('payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active')
+        .eq('is_active', true);
+
+      if (pmError) throw pmError;
+
+      // Create a lookup map for payment methods (composite key)
+      const paymentMethodMap = new Map();
+      (paymentMethods || []).forEach((pm: any) => {
+        const key = `${pm.payment_type?.toLowerCase()}||${pm.payment_method?.toLowerCase()}`;
+        paymentMethodMap.set(key, pm);
+      });
+
       // Fetch only non-point orders from ordertotals table with pagination
       const pageSize = 1000;
       let from = 0;
@@ -1544,7 +1551,7 @@ const Dashboard = () => {
       while (true) {
         const { data, error } = await supabase
           .from('ordertotals')
-          .select('payment_brand, payment_method, total, bank_fee')
+          .select('payment_brand, payment_method, total')
           .gte('order_date', startStr)
           .lt('order_date', endNextStr)
           .order('order_date', { ascending: true })
@@ -1559,7 +1566,7 @@ const Dashboard = () => {
         from += pageSize;
       }
 
-      // Group by payment_method + payment_brand to avoid mixing providers
+      // Group by payment_method + payment_brand and calculate fees dynamically
       const grouped = allData.reduce((acc: any, item) => {
         // Skip point transactions
         if ((item.payment_method || '').toLowerCase() === 'point') return acc;
@@ -1567,6 +1574,19 @@ const Dashboard = () => {
         const brand = item.payment_brand || 'Unknown';
         const method = item.payment_method || 'Unknown';
         const key = `${method}||${brand}`;
+        
+        // Get payment method config using composite key
+        const pmKey = `${method.toLowerCase()}||${brand.toLowerCase()}`;
+        const pmConfig = paymentMethodMap.get(pmKey);
+        
+        // Calculate bank fee dynamically: ((total * gateway_fee%) + fixed_value) * (1 + vat_fee%)
+        const total = parseNumber(item.total);
+        let bankFee = 0;
+        if (pmConfig) {
+          const gatewayFee = (total * (pmConfig.gateway_fee || 0)) / 100;
+          bankFee = (gatewayFee + (pmConfig.fixed_value || 0)) * (1 + (pmConfig.vat_fee || 15) / 100);
+        }
+        
         if (!acc[key]) {
           acc[key] = {
             payment_brand: brand,
@@ -1576,8 +1596,8 @@ const Dashboard = () => {
             transaction_count: 0
           };
         }
-        acc[key].total += parseNumber(item.total);
-        acc[key].bank_fee += parseNumber(item.bank_fee);
+        acc[key].total += total;
+        acc[key].bank_fee += bankFee;
         acc[key].transaction_count += 1;
         return acc;
       }, {});
