@@ -313,7 +313,13 @@ const UserSetup = () => {
     if (!selectedUser) return;
 
     try {
-      const { error } = await supabase
+      console.log("Toggling permission:", { menuItem, hasAccess, userId: selectedUser.user_id });
+      
+      // Check current auth status
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Current session:", session?.user?.id);
+      
+      const { data, error } = await supabase
         .from("user_permissions")
         .upsert({
           user_id: selectedUser.user_id,
@@ -322,8 +328,11 @@ const UserSetup = () => {
           parent_menu: null,
         }, {
           onConflict: "user_id,menu_item,parent_menu"
-        });
+        })
+        .select();
 
+      console.log("Upsert result:", { data, error });
+      
       if (error) throw error;
 
       setUserPermissions(prev => ({
