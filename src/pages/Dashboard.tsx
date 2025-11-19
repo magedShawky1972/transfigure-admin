@@ -560,6 +560,8 @@ const Dashboard = () => {
 
       const startDate = format(dateRange.start, 'yyyy-MM-dd');
       const endDate = format(dateRange.end, 'yyyy-MM-dd');
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
       
       // Use RPC function which properly handles date ranges
       const { data: summary, error: summaryError } = await supabase
@@ -578,8 +580,8 @@ const Dashboard = () => {
           .from('purpletransaction')
           .select('*')
           .order('created_at_date', { ascending: false })
-          .gte('created_at_date', startDate)
-          .lte('created_at_date', endDate)
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
