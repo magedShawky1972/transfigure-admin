@@ -243,7 +243,7 @@ const DepartmentManagement = () => {
         .from("department_admins")
         .select(`
           *,
-          profiles:user_id (
+          profiles!user_id (
             user_name,
             email
           )
