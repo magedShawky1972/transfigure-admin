@@ -309,18 +309,20 @@ const Dashboard = () => {
         return;
       }
 
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
       const startDate = format(dateRange.start, 'yyyy-MM-dd');
       const endDate = format(dateRange.end, 'yyyy-MM-dd');
       // Store for applied filter display
-      setAppliedStartStr(startDate);
-      setAppliedEndNextStr(endDate);
+      setAppliedStartStr(startStr);
+      setAppliedEndNextStr(endNextStr);
 
-      // Fetch new customers count only - using date comparison
+      // Fetch new customers count only
       const { count: newCustomersCount, error: customersError } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .gte('creation_date', startDate)
-        .lte('creation_date', endDate);
+        .gte('creation_date', startStr)
+        .lt('creation_date', endNextStr);
 
       if (!customersError) {
         setNewCustomersCount(newCustomersCount || 0);
@@ -351,8 +353,8 @@ const Dashboard = () => {
           const { data, error } = await supabase
             .from('purpletransaction')
             .select('cost_sold, payment_method, created_at_date')
-            .gte('created_at_date', startDate)
-            .lte('created_at_date', endDate)
+            .gte('created_at_date', startStr)
+            .lt('created_at_date', endNextStr)
             .order('created_at_date', { ascending: true })
             .range(from, from + pageSize - 1);
 
@@ -380,8 +382,8 @@ const Dashboard = () => {
           const { data, error } = await supabase
             .from('ordertotals')
             .select('bank_fee, payment_method, order_date')
-            .gte('order_date', startDate)
-            .lte('order_date', endDate)
+            .gte('order_date', startStr)
+            .lt('order_date', endNextStr)
             .order('order_date', { ascending: true })
             .range(orderFrom, orderFrom + pageSize - 1);
 
@@ -410,8 +412,8 @@ const Dashboard = () => {
             .from('purpletransaction')
             .select('id, order_number, total, cost_sold, created_at_date')
             .ilike('payment_method', 'point')
-            .gte('created_at_date', startDate)
-            .lte('created_at_date', endDate)
+            .gte('created_at_date', startStr)
+            .lt('created_at_date', endNextStr)
             .order('created_at_date', { ascending: true })
             .range(pointsFrom, pointsFrom + pageSize - 1);
 
@@ -459,8 +461,8 @@ const Dashboard = () => {
       const { data: recentTxns, error: recentError } = await supabase
         .from('purpletransaction')
         .select('*')
-        .gte('created_at_date', startDate)
-        .lte('created_at_date', endDate)
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endNextStr)
         .order('created_at_date', { ascending: false })
         .limit(5);
 
@@ -485,15 +487,15 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const startDate = format(trendStartDate, "yyyy-MM-dd");
-      const endDate = format(trendEndDate, "yyyy-MM-dd");
+      const startStr = format(trendStartDate, "yyyy-MM-dd HH:mm:ss");
+      const endNextStr = format(addDays(trendEndDate, 1), "yyyy-MM-dd HH:mm:ss");
 
       // Build base query with optional brand filter
       let base = supabase
         .from('purpletransaction')
         .select('created_at_date, total, payment_method')
-        .gte('created_at_date', startDate)
-        .lte('created_at_date', endDate)
+        .gte('created_at_date', startStr)
+        .lt('created_at_date', endNextStr)
         .order('created_at_date', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
@@ -558,6 +560,13 @@ const Dashboard = () => {
 
       const startDate = format(dateRange.start, 'yyyy-MM-dd');
       const endDate = format(dateRange.end, 'yyyy-MM-dd');
+      
+      // Use RPC function which properly handles date ranges
+      const { data: summary, error: summaryError } = await supabase
+        .rpc('transactions_summary', {
+          date_from: startDate,
+          date_to: endDate
+        });
 
       // Fetch transactions for charts
       const pageSize = 1000;
@@ -590,15 +599,15 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const trendStartDate2 = format(trendStartDate, "yyyy-MM-dd");
-      const trendEndDate2 = format(trendEndDate, "yyyy-MM-dd");
+      const trendStartStr = format(trendStartDate, "yyyy-MM-dd HH:mm:ss");
+      const trendEndNextStr = format(addDays(trendEndDate, 1), "yyyy-MM-dd HH:mm:ss");
 
       // Build base query with optional brand filter
       let trendBase = supabase
         .from('purpletransaction')
         .select('created_at_date, total, payment_method')
-        .gte('created_at_date', trendStartDate2)
-        .lte('created_at_date', trendEndDate2)
+        .gte('created_at_date', trendStartStr)
+        .lt('created_at_date', trendEndNextStr)
         .order('created_at_date', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
@@ -666,15 +675,15 @@ const Dashboard = () => {
         // Fetch non-point data
         let fromNP = 0;
         let nonPointData: any[] = [];
-        const startDate = format(start, "yyyy-MM-dd");
-        const endDate = format(end, "yyyy-MM-dd");
+        const startStr = format(start, "yyyy-MM-dd HH:mm:ss");
+        const endNextStr = format(addDays(end, 1), "yyyy-MM-dd HH:mm:ss");
         
         while (true) {
           const { data, error } = await (supabase as any)
             .from('purpletransaction')
             .select('total, cost_sold, bank_fee, payment_method')
-            .gte('created_at_date', startDate)
-            .lte('created_at_date', endDate)
+            .gte('created_at_date', startStr)
+            .lt('created_at_date', endNextStr)
             .range(fromNP, fromNP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
@@ -692,8 +701,8 @@ const Dashboard = () => {
             .from('purpletransaction')
             .select('id, order_number, total')
             .ilike('payment_method', 'point')
-            .gte('created_at_date', startDate)
-            .lte('created_at_date', endDate)
+            .gte('created_at_date', startStr)
+            .lt('created_at_date', endNextStr)
             .range(fromP, fromP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
@@ -935,8 +944,8 @@ const Dashboard = () => {
         return;
       }
 
-      const startDate = format(dateRange.start, 'yyyy-MM-dd');
-      const endDate = format(dateRange.end, 'yyyy-MM-dd');
+      const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
+      const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
 
       const pageSize = 1000;
       let from = 0;
@@ -947,8 +956,8 @@ const Dashboard = () => {
           .from('purpletransaction')
           .select('*')
           .order('created_at_date', { ascending: false })
-          .gte('created_at_date', startDate)
-          .lte('created_at_date', endDate)
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
@@ -1374,14 +1383,14 @@ const Dashboard = () => {
     const dateRange = getDateRange();
     if (!dateRange) return;
 
-    const startDate = format(dateRange.start, 'yyyy-MM-dd');
-    const endDate = format(dateRange.end, 'yyyy-MM-dd');
+    const startStr = format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
+    const endNextStr = format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
 
     const { data: newCustomers, error } = await supabase
       .from('customers')
       .select('*')
-      .gte('creation_date', startDate)
-      .lte('creation_date', endDate)
+      .gte('creation_date', startStr)
+      .lt('creation_date', endNextStr)
       .order('creation_date', { ascending: false });
 
     if (!error && newCustomers) {
@@ -1443,8 +1452,8 @@ const Dashboard = () => {
         return;
       }
 
-      const startDate = appliedStartStr ?? format(dateRange.start, 'yyyy-MM-dd');
-      const endDate = appliedEndNextStr ?? format(dateRange.end, 'yyyy-MM-dd');
+      const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
+      const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
 
       // Fetch ALL point transactions with pagination
       const pageSize = 1000;
@@ -1456,8 +1465,8 @@ const Dashboard = () => {
           .from('purpletransaction')
           .select('id, order_number, customer_name, customer_phone, created_at_date, total, cost_sold')
           .ilike('payment_method', 'point')
-          .gte('created_at_date', startDate)
-          .lte('created_at_date', endDate)
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
           .order('created_at_date', { ascending: false })
           .range(from, from + pageSize - 1);
 
@@ -1586,8 +1595,8 @@ const Dashboard = () => {
         return;
       }
 
-      const startDate = appliedStartStr ?? format(dateRange.start, 'yyyy-MM-dd');
-      const endDate = appliedEndNextStr ?? format(dateRange.end, 'yyyy-MM-dd');
+      const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
+      const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
 
       // Fetch only non-point orders from ordertotals table with pagination
       const pageSize = 1000;
@@ -1598,8 +1607,8 @@ const Dashboard = () => {
         const { data, error } = await supabase
           .from('ordertotals')
           .select('payment_brand, payment_method, total, bank_fee')
-          .gte('order_date', startDate)
-          .lte('order_date', endDate)
+          .gte('order_date', startStr)
+          .lt('order_date', endNextStr)
           .order('order_date', { ascending: true })
           .range(from, from + pageSize - 1);
 
@@ -1668,8 +1677,8 @@ const Dashboard = () => {
         return;
       }
 
-      const startDate = appliedStartStr ?? format(dateRange.start, 'yyyy-MM-dd');
-      const endDate = appliedEndNextStr ?? format(dateRange.end, 'yyyy-MM-dd');
+      const startStr = appliedStartStr ?? format(startOfDay(dateRange.start), "yyyy-MM-dd HH:mm:ss");
+      const endNextStr = appliedEndNextStr ?? format(addDays(startOfDay(dateRange.end), 1), "yyyy-MM-dd HH:mm:ss");
 
       // Fetch transactions for specific payment method and brand
       const pageSize = 1000;
@@ -1682,8 +1691,8 @@ const Dashboard = () => {
           .select('order_number, customer_name, customer_phone, brand_name, product_name, qty, total')
           .eq('payment_method', payment_method)
           .eq('payment_brand', payment_brand)
-          .gte('created_at_date', startDate)
-          .lte('created_at_date', endDate)
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
