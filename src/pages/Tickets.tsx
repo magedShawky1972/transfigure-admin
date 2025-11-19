@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Eye } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -35,10 +36,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-const formSchema = z.object({
-  department_id: z.string().min(1, "Department is required"),
-  subject: z.string().min(3, "Subject must be at least 3 characters"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
+const getFormSchema = (language: string) => z.object({
+  department_id: z.string().min(1, language === 'ar' ? "القسم مطلوب" : "Department is required"),
+  subject: z.string().min(3, language === 'ar' ? "الموضوع يجب أن يكون 3 أحرف على الأقل" : "Subject must be at least 3 characters"),
+  description: z.string().min(10, language === 'ar' ? "الوصف يجب أن يكون 10 أحرف على الأقل" : "Description must be at least 10 characters"),
   priority: z.enum(["Low", "Medium", "High", "Urgent"]),
 });
 
@@ -63,10 +64,13 @@ type Ticket = {
 const Tickets = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+
+  const formSchema = getFormSchema(language);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -95,8 +99,8 @@ const Tickets = () => {
       setDepartments(data || []);
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: "Failed to load departments",
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: language === 'ar' ? "فشل تحميل الأقسام" : "Failed to load departments",
         variant: "destructive",
       });
     }
@@ -119,7 +123,7 @@ const Tickets = () => {
       setTickets(data || []);
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === 'ar' ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -131,7 +135,7 @@ const Tickets = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) throw new Error(language === 'ar' ? "غير مصرح" : "Not authenticated");
 
       const { error } = await supabase.from("tickets").insert({
         user_id: user.id,
@@ -145,8 +149,8 @@ const Tickets = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Ticket created successfully",
+        title: language === 'ar' ? "نجح" : "Success",
+        description: language === 'ar' ? "تم إنشاء التذكرة بنجاح" : "Ticket created successfully",
       });
 
       setOpen(false);
@@ -154,7 +158,7 @@ const Tickets = () => {
       fetchTickets();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === 'ar' ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -184,21 +188,21 @@ const Tickets = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">My Tickets</h1>
+          <h1 className="text-3xl font-bold">{language === 'ar' ? 'تذاكري' : 'My Tickets'}</h1>
           <p className="text-muted-foreground mt-1">
-            Create and track your support tickets
+            {language === 'ar' ? 'إنشاء وتتبع تذاكر الدعم الخاصة بك' : 'Create and track your support tickets'}
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create Ticket
+              {language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket'}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create New Ticket</DialogTitle>
+              <DialogTitle>{language === 'ar' ? 'إنشاء تذكرة جديدة' : 'Create New Ticket'}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -207,11 +211,11 @@ const Tickets = () => {
                   name="department_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Department</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'القسم' : 'Department'}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select department" />
+                            <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select department'} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -231,7 +235,7 @@ const Tickets = () => {
                   name="priority"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Priority</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'الأولوية' : 'Priority'}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -239,10 +243,10 @@ const Tickets = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Urgent">Urgent</SelectItem>
+                          <SelectItem value="Low">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
+                          <SelectItem value="Medium">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
+                          <SelectItem value="High">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
+                          <SelectItem value="Urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -254,9 +258,9 @@ const Tickets = () => {
                   name="subject"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Subject</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'الموضوع' : 'Subject'}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Brief description of the issue" {...field} />
+                        <Input placeholder={language === 'ar' ? 'وصف موجز للمشكلة' : 'Brief description of the issue'} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -267,10 +271,10 @@ const Tickets = () => {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'الوصف' : 'Description'}</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Provide detailed information about your issue"
+                          placeholder={language === 'ar' ? 'قدم معلومات تفصيلية عن مشكلتك' : 'Provide detailed information about your issue'}
                           className="min-h-[120px]"
                           {...field}
                         />
@@ -281,9 +285,9 @@ const Tickets = () => {
                 />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancel
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button type="submit">Create Ticket</Button>
+                  <Button type="submit">{language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket'}</Button>
                 </div>
               </form>
             </Form>
@@ -292,11 +296,13 @@ const Tickets = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-8">Loading tickets...</div>
+        <div className="text-center py-8">{language === 'ar' ? 'جاري تحميل التذاكر...' : 'Loading tickets...'}</div>
       ) : tickets.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">No tickets found. Create your first ticket to get started.</p>
+            <p className="text-muted-foreground">
+              {language === 'ar' ? 'لم يتم العثور على تذاكر. أنشئ تذكرتك الأولى للبدء.' : 'No tickets found. Create your first ticket to get started.'}
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -317,10 +323,17 @@ const Tickets = () => {
                   </div>
                   <div className="flex gap-2">
                     <Badge variant={getPriorityColor(ticket.priority)}>
-                      {ticket.priority}
+                      {language === 'ar' ? 
+                        (ticket.priority === 'Low' ? 'منخفض' : 
+                         ticket.priority === 'Medium' ? 'متوسط' : 
+                         ticket.priority === 'High' ? 'عالي' : 'عاجل') 
+                        : ticket.priority}
                     </Badge>
                     <Badge variant={getStatusColor(ticket.status)}>
-                      {ticket.status}
+                      {language === 'ar' ? 
+                        (ticket.status === 'Open' ? 'مفتوح' : 
+                         ticket.status === 'In Progress' ? 'قيد المعالجة' : 'مغلق') 
+                        : ticket.status}
                     </Badge>
                   </div>
                 </div>
@@ -335,7 +348,7 @@ const Tickets = () => {
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
-                  View Details
+                  {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
                 </Button>
               </CardContent>
             </Card>
