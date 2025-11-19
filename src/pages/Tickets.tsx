@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye } from "lucide-react";
+import { Plus, Eye, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -56,6 +56,7 @@ type Ticket = {
   priority: string;
   status: string;
   created_at: string;
+  assigned_to: string | null;
   departments: {
     department_name: string;
   };
@@ -129,6 +130,30 @@ const Tickets = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (ticketId: string) => {
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .delete()
+        .eq("id", ticketId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? "نجح" : "Success",
+        description: language === 'ar' ? "تم حذف التذكرة بنجاح" : "Ticket deleted successfully",
+      });
+
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -367,14 +392,26 @@ const Tickets = () => {
                 <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                   {ticket.description}
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/tickets/${ticket.id}`)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/tickets/${ticket.id}`)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+                  </Button>
+                  {ticket.status === 'Open' && !ticket.assigned_to && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(ticket.id)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'حذف' : 'Delete'}
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
