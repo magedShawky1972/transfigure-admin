@@ -99,9 +99,12 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send email
+    const fromEmail = Deno.env.get("FROM_EMAIL") || "Edara Support <onboarding@resend.dev>";
+    
     try {
+      console.log("Attempting to send email to:", profile.email, "from:", fromEmail);
       const emailResponse = await resend.emails.send({
-        from: "Edara Support <onboarding@resend.dev>",
+        from: fromEmail,
         to: [profile.email],
         subject: emailSubject,
         html: emailHtml,
