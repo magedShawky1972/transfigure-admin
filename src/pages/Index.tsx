@@ -79,12 +79,6 @@ const Index = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-muted-foreground">
-            {t('welcome.noAccess')}
-          </p>
-          <p className="text-muted-foreground">
-            {t('welcome.contactAdmin')}
-          </p>
         </CardContent>
       </Card>
     </div>
