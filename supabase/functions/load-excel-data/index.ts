@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { sheetId, data } = await req.json();
+    const { sheetId, data, brandTypeSelections } = await req.json();
 
     if (!sheetId || !data || !Array.isArray(data)) {
       return new Response(
@@ -187,6 +187,58 @@ Deno.serve(async (req) => {
         
         // Separate new brands from existing ones that need updates
         const newBrands = brandsToUpsert.filter(b => !existingBrandMap.has(b.brand_name));
+        
+        // If there are new brands and no brand type selections provided, return them for user selection
+        if (newBrands.length > 0 && !brandTypeSelections) {
+          console.log(`Found ${newBrands.length} new brands, requiring brand type selection`);
+          return new Response(
+            JSON.stringify({ 
+              requiresBrandTypeSelection: true,
+              newBrands: newBrands.map(b => ({ brand_name: b.brand_name }))
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // If brand type selections are provided, generate brand codes
+        if (brandTypeSelections && Array.isArray(brandTypeSelections)) {
+          console.log('Processing brand type selections and generating brand codes...');
+          
+          // Fetch brand types
+          const brandTypeIds = [...new Set(brandTypeSelections.map(s => s.brand_type_id))];
+          const { data: brandTypesData } = await supabase
+            .from('brand_type')
+            .select('id, type_code')
+            .in('id', brandTypeIds);
+          
+          const brandTypeMap = new Map(
+            (brandTypesData || []).map(bt => [bt.id, bt])
+          );
+          
+          // Generate brand codes for new brands
+          for (const newBrand of newBrands) {
+            const selection = brandTypeSelections.find(s => s.brand_name === newBrand.brand_name);
+            if (selection) {
+              const brandType = brandTypeMap.get(selection.brand_type_id);
+              if (brandType) {
+                // Count existing brands with this type_code
+                const { count } = await supabase
+                  .from('brands')
+                  .select('*', { count: 'exact', head: true })
+                  .ilike('brand_code', `${brandType.type_code}%`);
+                
+                const nextNumber = (count || 0) + 1;
+                newBrand.brand_code = `${brandType.type_code}-${String(nextNumber).padStart(3, '0')}`;
+                
+                // Also update the brand_type_id
+                (newBrand as any).brand_type_id = selection.brand_type_id;
+                
+                console.log(`Generated brand_code: ${newBrand.brand_code} for ${newBrand.brand_name}`);
+              }
+            }
+          }
+        }
+        
         const brandsToUpdate = brandsToUpsert.filter(b => {
           const existing = existingBrandMap.get(b.brand_name);
           // Update if brand exists but brand_code is missing and we have one
@@ -199,16 +251,16 @@ Deno.serve(async (req) => {
             .from('brands')
             .insert(newBrands);
 
-          if (brandError) {
-            console.error('Brand insert error:', brandError);
-          } else {
-            brandsUpserted = newBrands.length;
-            console.log(`Successfully inserted ${brandsUpserted} new brands`);
-          }
+        if (brandError) {
+          console.error('Brand insert error:', brandError);
+        } else {
+          brandsUpserted = newBrands.length;
+          console.log(`Successfully inserted ${newBrands.length} new brands with generated brand codes`);
         }
-
-        // Update existing brands with missing brand_codes
-        if (brandsToUpdate.length > 0) {
+      }
+      
+      // Update existing brands with missing brand_codes
+      if (brandsToUpdate.length > 0) {
           for (const brand of brandsToUpdate) {
             const { error: updateError } = await supabase
               .from('brands')

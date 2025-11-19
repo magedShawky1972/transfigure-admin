@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BrandTypeSelectionDialog } from "@/components/BrandTypeSelectionDialog";
 
 interface ExcelSheet {
   id: string;
@@ -53,8 +54,12 @@ const LoadData = () => {
     dateRange: { from: string; to: string };
     newCustomers: number;
     newProducts: number;
+    newBrands: number;
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showBrandTypeDialog, setShowBrandTypeDialog] = useState(false);
+  const [newBrandsDetected, setNewBrandsDetected] = useState<{ brand_name: string }[]>([]);
+  const [brandTypeSelections, setBrandTypeSelections] = useState<{ brand_name: string; brand_type_id: string }[]>([]);
 
   useEffect(() => {
     loadAvailableSheets();
@@ -82,6 +87,28 @@ const LoadData = () => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
     }
+  };
+
+  const handleBrandTypeConfirm = (selections: { brand_name: string; brand_type_id: string }[]) => {
+    setBrandTypeSelections(selections);
+    setShowBrandTypeDialog(false);
+    
+    // Retry the upload with brand type selections
+    if (pendingUploadData) {
+      processUpload(pendingUploadData);
+    }
+  };
+
+  const handleBrandTypeCancel = () => {
+    setShowBrandTypeDialog(false);
+    setIsLoading(false);
+    setBrandTypeSelections([]);
+    setNewBrandsDetected([]);
+    setPendingUploadData(null);
+    toast({
+      title: "Upload cancelled",
+      description: "You must select brand types for all new brands to continue",
+    });
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -391,6 +418,7 @@ const LoadData = () => {
       let totalProcessed = 0;
       let totalValue = 0;
       let totalProductsUpserted = 0;
+      let totalBrandsUpserted = 0;
       let allDates: string[] = [];
 
       // Process each batch
@@ -401,14 +429,24 @@ const LoadData = () => {
           body: {
             sheetId: selectedSheet,
             data: batches[i],
+            brandTypeSelections: brandTypeSelections.length > 0 ? brandTypeSelections : undefined,
           },
         });
 
         if (error) throw error;
 
+        // Check if brand type selection is required
+        if (result.requiresBrandTypeSelection && result.newBrands) {
+          setNewBrandsDetected(result.newBrands);
+          setShowBrandTypeDialog(true);
+          setIsLoading(false);
+          return; // Stop processing until user selects brand types
+        }
+
         totalProcessed += result.count;
         totalValue += result.totalValue || 0;
         totalProductsUpserted += result.productsUpserted || 0;
+        totalBrandsUpserted += result.brandsUpserted || 0;
         
         if (result.dateRange?.from) allDates.push(result.dateRange.from);
         if (result.dateRange?.to) allDates.push(result.dateRange.to);
@@ -450,6 +488,7 @@ const LoadData = () => {
         dateRange,
         newCustomers: newCustomersCount,
         newProducts: totalProductsUpserted,
+        newBrands: totalBrandsUpserted,
       });
       setShowSummaryDialog(true);
 
@@ -653,6 +692,11 @@ const LoadData = () => {
                   <p className="text-xs text-muted-foreground mb-1">New Products</p>
                   <p className="text-xl font-semibold">{uploadSummary.newProducts}</p>
                 </div>
+                
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">New Brands</p>
+                  <p className="text-xl font-semibold">{uploadSummary.newBrands}</p>
+                </div>
               </div>
 
               <div className="bg-muted/50 p-3 rounded-lg">
@@ -684,6 +728,13 @@ const LoadData = () => {
           </Button>
         </DialogContent>
       </Dialog>
+
+      <BrandTypeSelectionDialog
+        open={showBrandTypeDialog}
+        newBrands={newBrandsDetected}
+        onConfirm={handleBrandTypeConfirm}
+        onCancel={handleBrandTypeCancel}
+      />
     </div>
   );
 };
