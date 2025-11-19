@@ -1,12 +1,87 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
+import logo from "@/assets/edara-logo.png";
 
 const Index = () => {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user) {
+          navigate("/auth");
+          return;
+        }
+
+        // Fetch dashboard permissions
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_permissions?user_id=eq.${session.user.id}&parent_menu=eq.dashboard&select=menu_item,has_access`,
+          {
+            headers: {
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+            }
+          }
+        );
+
+        if (response.ok) {
+          const permsData = await response.json();
+          const hasAnyAccess = permsData.length === 0 || permsData.some((p: any) => p.has_access === true);
+          
+          if (hasAnyAccess) {
+            navigate("/dashboard");
+          } else {
+            // User has no dashboard access - show welcome page
+            setLoading(false);
+          }
+        } else {
+          // If permissions check fails, default to dashboard
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error("Error checking access:", error);
+        navigate("/dashboard");
+      }
+    };
+
+    checkAccess();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={logo} alt="Edara Logo" className="h-24 w-auto" />
+          </div>
+          <CardTitle className="text-3xl font-bold">Welcome to Edara</CardTitle>
+          <CardDescription className="text-lg mt-4">
+            Your business management system
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <p className="text-muted-foreground">
+            You currently don't have access to any dashboard components.
+          </p>
+          <p className="text-muted-foreground">
+            Please contact your administrator to request access to the features you need.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

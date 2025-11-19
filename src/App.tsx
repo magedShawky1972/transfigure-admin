@@ -35,6 +35,7 @@ import Tickets from "./pages/Tickets";
 import TicketDetails from "./pages/TicketDetails";
 import AdminTickets from "./pages/AdminTickets";
 import DepartmentManagement from "./pages/DepartmentManagement";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -47,7 +48,8 @@ const App = () => (
         <BrowserRouter>
           <Layout>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/revenue-by-brand-type" element={<RevenueByBrandType />} />
               <Route path="/reports/cost-by-brand-type" element={<CostByBrandType />} />
