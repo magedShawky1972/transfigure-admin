@@ -43,6 +43,7 @@ const TicketDetails = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { language } = useLanguage();
+  const { t } = useLanguage();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -146,15 +147,15 @@ const TicketDetails = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Comment added successfully",
+        title: t("ticketDetails.success"),
+        description: t("ticketDetails.commentAdded"),
       });
 
       setNewComment("");
       fetchComments();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: t("ticketDetails.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -183,7 +184,7 @@ const TicketDetails = () => {
   };
 
   if (loading) {
-    return <div className="container mx-auto p-6">Loading ticket details...</div>;
+    return <div className="container mx-auto p-6">{t("ticketDetails.loading")}</div>;
   }
 
   if (!ticket) {
@@ -191,9 +192,9 @@ const TicketDetails = () => {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">Ticket not found</p>
+            <p className="text-muted-foreground">{t("ticketDetails.notFound")}</p>
             <Button className="mt-4" onClick={() => navigate("/tickets")}>
-              Back to Tickets
+              {t("ticketDetails.backToTickets")}
             </Button>
           </CardContent>
         </Card>
@@ -205,7 +206,7 @@ const TicketDetails = () => {
     <div className="container mx-auto p-6 space-y-6">
       <Button variant="ghost" onClick={() => navigate("/tickets")}>
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Tickets
+        {t("ticketDetails.backToTickets")}
       </Button>
 
       <Card>
@@ -215,7 +216,7 @@ const TicketDetails = () => {
               <div>
                 <CardTitle className="text-2xl">{ticket.subject}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Ticket #{ticket.ticket_number}
+                  {t("ticketDetails.ticketNumber")}{ticket.ticket_number}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -229,19 +230,19 @@ const TicketDetails = () => {
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Department:</span>
+                <span className="text-muted-foreground">{t("ticketDetails.department")}</span>
                 <span className="ml-2 font-medium">{ticket.departments.department_name}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">Created:</span>
+                <span className="text-muted-foreground">{t("ticketDetails.created")}</span>
                 <span className="ml-2">{format(new Date(ticket.created_at), "PPp")}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">Created by:</span>
+                <span className="text-muted-foreground">{t("ticketDetails.createdBy")}</span>
                 <span className="ml-2">{ticket.profiles.user_name}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">Email:</span>
+                <span className="text-muted-foreground">{t("ticketDetails.email")}</span>
                 <span className="ml-2">{ticket.profiles.email}</span>
               </div>
             </div>
@@ -250,17 +251,17 @@ const TicketDetails = () => {
         <CardContent>
           <div className="space-y-4">
             <div>
-              <h3 className="font-semibold mb-2">Description</h3>
+              <h3 className="font-semibold mb-2">{t("ticketDetails.description")}</h3>
               <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
             </div>
 
             <Separator />
 
             <div>
-              <h3 className="font-semibold mb-4">Comments & Updates</h3>
+              <h3 className="font-semibold mb-4">{t("ticketDetails.commentsUpdates")}</h3>
               <div className="space-y-4 mb-4">
                 {comments.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No comments yet</p>
+                  <p className="text-muted-foreground text-sm">{t("ticketDetails.noComments")}</p>
                 ) : (
                   comments.map((comment) => (
                     <Card key={comment.id}>
@@ -273,7 +274,7 @@ const TicketDetails = () => {
                         </div>
                         <p className="text-sm whitespace-pre-wrap">{comment.comment}</p>
                         {comment.is_internal && (
-                          <Badge variant="secondary" className="mt-2">Internal Note</Badge>
+                          <Badge variant="secondary" className="mt-2">{t("ticketDetails.internalNote")}</Badge>
                         )}
                       </CardContent>
                     </Card>
@@ -284,7 +285,7 @@ const TicketDetails = () => {
               {ticket.status !== "Closed" && (
                 <div className="space-y-2">
                   <Textarea
-                    placeholder="Add a comment..."
+                    placeholder={t("ticketDetails.addCommentPlaceholder")}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     className="min-h-[100px]"
@@ -294,7 +295,7 @@ const TicketDetails = () => {
                     disabled={submitting || !newComment.trim()}
                   >
                     <Send className="mr-2 h-4 w-4" />
-                    Add Comment
+                    {t("ticketDetails.addComment")}
                   </Button>
                 </div>
               )}
