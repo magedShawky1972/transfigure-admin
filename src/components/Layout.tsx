@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Moon, Sun, Languages, LogOut, Bell } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -148,6 +149,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               {user && (
                 <>
+                  <NotificationBell />
                   <Popover open={notificationOpen} onOpenChange={setNotificationOpen}>
                     <PopoverTrigger asChild>
                       <Button

@@ -191,6 +191,13 @@ const AdminTickets = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Get ticket details first
+      const { data: ticket } = await supabase
+        .from("tickets")
+        .select("user_id, ticket_number, subject")
+        .eq("id", ticketId)
+        .single();
+
       const { error } = await supabase
         .from("tickets")
         .update({
@@ -200,6 +207,19 @@ const AdminTickets = () => {
         .eq("id", ticketId);
 
       if (error) throw error;
+
+      // Send notification to ticket creator
+      if (ticket) {
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_approved",
+            ticketId: ticketId,
+            recipientUserId: ticket.user_id,
+            ticketNumber: ticket.ticket_number,
+            subject: ticket.subject,
+          },
+        });
+      }
 
       toast({
         title: language === 'ar' ? 'تم' : 'Success',
@@ -218,12 +238,32 @@ const AdminTickets = () => {
 
   const handleAssign = async (ticketId: string, userId: string) => {
     try {
+      // Get ticket details first
+      const { data: ticket } = await supabase
+        .from("tickets")
+        .select("ticket_number, subject")
+        .eq("id", ticketId)
+        .single();
+
       const { error } = await supabase
         .from("tickets")
         .update({ assigned_to: userId })
         .eq("id", ticketId);
 
       if (error) throw error;
+
+      // Send notification to assigned user
+      if (ticket) {
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_assigned",
+            ticketId: ticketId,
+            recipientUserId: userId,
+            ticketNumber: ticket.ticket_number,
+            subject: ticket.subject,
+          },
+        });
+      }
 
       toast({
         title: language === 'ar' ? 'تم' : 'Success',
