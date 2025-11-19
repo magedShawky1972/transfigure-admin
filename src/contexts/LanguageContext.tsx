@@ -97,6 +97,25 @@ const translations = {
     "menu.brandType": "Brand Type",
     "menu.productSetup": "Product Setup",
     
+    // Ticket Details Page
+    "ticketDetails.backToTickets": "Back to Tickets",
+    "ticketDetails.loading": "Loading ticket details...",
+    "ticketDetails.notFound": "Ticket not found",
+    "ticketDetails.ticketNumber": "Ticket #",
+    "ticketDetails.department": "Department:",
+    "ticketDetails.created": "Created:",
+    "ticketDetails.createdBy": "Created by:",
+    "ticketDetails.email": "Email:",
+    "ticketDetails.description": "Description",
+    "ticketDetails.commentsUpdates": "Comments & Updates",
+    "ticketDetails.noComments": "No comments yet",
+    "ticketDetails.addCommentPlaceholder": "Add a comment...",
+    "ticketDetails.addComment": "Add Comment",
+    "ticketDetails.internalNote": "Internal Note",
+    "ticketDetails.success": "Success",
+    "ticketDetails.commentAdded": "Comment added successfully",
+    "ticketDetails.error": "Error",
+    
     // Customer Setup Page
     "customerSetup.title": "Customer Setup",
     "customerSetup.subtitle": "Manage customer information",
@@ -665,6 +684,25 @@ const translations = {
     "menu.brandSetup": "إعداد الماركات",
     "menu.brandType": "نوع الماركة",
     "menu.productSetup": "إعداد المنتجات",
+    
+    // Ticket Details Page
+    "ticketDetails.backToTickets": "العودة إلى التذاكر",
+    "ticketDetails.loading": "جاري تحميل تفاصيل التذكرة...",
+    "ticketDetails.notFound": "التذكرة غير موجودة",
+    "ticketDetails.ticketNumber": "رقم التذكرة #",
+    "ticketDetails.department": "القسم:",
+    "ticketDetails.created": "تاريخ الإنشاء:",
+    "ticketDetails.createdBy": "أنشئ بواسطة:",
+    "ticketDetails.email": "البريد الإلكتروني:",
+    "ticketDetails.description": "الوصف",
+    "ticketDetails.commentsUpdates": "التعليقات والتحديثات",
+    "ticketDetails.noComments": "لا توجد تعليقات بعد",
+    "ticketDetails.addCommentPlaceholder": "أضف تعليقاً...",
+    "ticketDetails.addComment": "إضافة تعليق",
+    "ticketDetails.internalNote": "ملاحظة داخلية",
+    "ticketDetails.success": "نجح",
+    "ticketDetails.commentAdded": "تم إضافة التعليق بنجاح",
+    "ticketDetails.error": "خطأ",
     
     // Customer Setup Page
     "customerSetup.title": "إعداد العملاء",
