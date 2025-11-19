@@ -278,6 +278,16 @@ const Dashboard = () => {
     loadPermissions();
   }, []);
 
+  // Auto-fetch data when permissions are loaded
+  useEffect(() => {
+    if (!permissionsLoading) {
+      fetchMetrics();
+      fetchCharts();
+      fetchTables();
+      fetchInactiveCustomers();
+    }
+  }, [permissionsLoading]);
+
   // Helper function to check if user has access to a component
   const hasAccess = (componentKey: string) => {
     if (permissionsLoading) return false;
