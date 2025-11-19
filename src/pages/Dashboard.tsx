@@ -1769,22 +1769,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {!permissionsLoading && !hasAnyAccess() ? (
-        <Card className="max-w-2xl mx-auto mt-20">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Access Restricted</CardTitle>
-            <CardDescription className="text-lg mt-4">
-              You don't have permission to view dashboard components
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <p className="text-muted-foreground">
-              Please contact your administrator to request access to the features you need.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
       <div>
         <h1 className="text-3xl font-bold mb-2">{t("dashboard.title")}</h1>
         <p className="text-muted-foreground">{t("dashboard.subtitle")}</p>
@@ -3655,8 +3639,6 @@ const Dashboard = () => {
           progress={100} 
           message={language === 'ar' ? 'جاري تحميل معاملات النقاط...' : 'Loading Point Transactions...'}
         />
-      )}
-      </>
       )}
     </div>
   );
