@@ -16,6 +16,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -70,6 +80,8 @@ const Tickets = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
 
   const formSchema = getFormSchema(language);
 
@@ -133,12 +145,14 @@ const Tickets = () => {
     }
   };
 
-  const handleDelete = async (ticketId: string) => {
+  const handleDelete = async () => {
+    if (!ticketToDelete) return;
+    
     try {
       const { error } = await supabase
         .from("tickets")
         .delete()
-        .eq("id", ticketId);
+        .eq("id", ticketToDelete);
 
       if (error) throw error;
 
@@ -154,6 +168,9 @@ const Tickets = () => {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setTicketToDelete(null);
     }
   };
 
@@ -405,7 +422,10 @@ const Tickets = () => {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDelete(ticket.id)}
+                      onClick={() => {
+                        setTicketToDelete(ticket.id);
+                        setDeleteDialogOpen(true);
+                      }}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       {language === 'ar' ? 'حذف' : 'Delete'}
@@ -417,6 +437,29 @@ const Tickets = () => {
           ))}
         </div>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? 'هل أنت متأكد أنك تريد حذف هذه التذكرة؟ لا يمكن التراجع عن هذا الإجراء.'
+                : 'Are you sure you want to delete this ticket? This action cannot be undone.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {language === 'ar' ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
