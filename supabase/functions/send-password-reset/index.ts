@@ -103,8 +103,11 @@ serve(async (req) => {
     }
 
     // Send email with new password
+    console.log(`Attempting to send password reset email to: ${email}`);
+    console.log(`SMTP Server: smtp.hostinger.com, From: info@asuscards.com`);
+    
     try {
-      await smtpClient.send({
+      const emailResult = await smtpClient.send({
         from: "Edara System <info@asuscards.com>",
         to: email,
         subject: "تم إعادة تعيين كلمة المرور - Password Reset",
@@ -127,10 +130,16 @@ serve(async (req) => {
         `,
       });
 
+      console.log('SMTP send result:', JSON.stringify(emailResult));
       await smtpClient.close();
-      console.log('Email sent successfully');
+      console.log('Email sent successfully and SMTP connection closed');
     } catch (emailError: any) {
-      console.error('Error sending email:', emailError);
+      console.error('SMTP Error Details:', {
+        message: emailError?.message,
+        code: emailError?.code,
+        stack: emailError?.stack,
+        full: JSON.stringify(emailError)
+      });
       // Don't fail the request if email fails, password is already reset
     }
 
