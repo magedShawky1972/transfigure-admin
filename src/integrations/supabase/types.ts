@@ -825,6 +825,81 @@ export type Database = {
         }
         Relationships: []
       }
+      software_licenses: {
+        Row: {
+          assigned_department: string | null
+          assigned_to: string | null
+          category: string
+          cost: number
+          created_at: string
+          created_by: string | null
+          expiry_date: string | null
+          id: string
+          invoice_file_path: string | null
+          license_key: string | null
+          notes: string | null
+          notification_days: number[] | null
+          payment_method: string | null
+          purchase_date: string
+          renewal_cycle: string
+          software_name: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+          vendor_portal_url: string | null
+          vendor_provider: string
+          version: string | null
+        }
+        Insert: {
+          assigned_department?: string | null
+          assigned_to?: string | null
+          category: string
+          cost?: number
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          id?: string
+          invoice_file_path?: string | null
+          license_key?: string | null
+          notes?: string | null
+          notification_days?: number[] | null
+          payment_method?: string | null
+          purchase_date: string
+          renewal_cycle: string
+          software_name: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          vendor_portal_url?: string | null
+          vendor_provider: string
+          version?: string | null
+        }
+        Update: {
+          assigned_department?: string | null
+          assigned_to?: string | null
+          category?: string
+          cost?: number
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          id?: string
+          invoice_file_path?: string | null
+          license_key?: string | null
+          notes?: string | null
+          notification_days?: number[] | null
+          payment_method?: string | null
+          purchase_date?: string
+          renewal_cycle?: string
+          software_name?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          vendor_portal_url?: string | null
+          vendor_provider?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       ticket_attachments: {
         Row: {
           created_at: string
@@ -1285,6 +1360,7 @@ export type Database = {
         }
         Returns: number
       }
+      update_software_license_status: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"

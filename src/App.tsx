@@ -36,6 +36,8 @@ import TicketDetails from "./pages/TicketDetails";
 import AdminTickets from "./pages/AdminTickets";
 import DepartmentManagement from "./pages/DepartmentManagement";
 import TicketDashboard from "./pages/TicketDashboard";
+import SoftwareLicenses from "./pages/SoftwareLicenses";
+import SoftwareLicenseSetup from "./pages/SoftwareLicenseSetup";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -80,6 +82,8 @@ const App = () => (
               <Route path="/admin-tickets" element={<AdminTickets />} />
               <Route path="/ticket-dashboard" element={<TicketDashboard />} />
               <Route path="/department-management" element={<DepartmentManagement />} />
+              <Route path="/software-licenses" element={<SoftwareLicenses />} />
+              <Route path="/software-license-setup" element={<SoftwareLicenseSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
