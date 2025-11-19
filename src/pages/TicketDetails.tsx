@@ -78,7 +78,7 @@ const TicketDetails = () => {
         .from("profiles")
         .select("user_name, email")
         .eq("user_id", data.user_id)
-        .single();
+        .maybeSingle();
       
       setTicket({
         ...data,
