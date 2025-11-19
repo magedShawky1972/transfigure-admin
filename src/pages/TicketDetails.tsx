@@ -22,6 +22,7 @@ type Ticket = {
   status: string;
   created_at: string;
   is_purchase_ticket: boolean;
+  department_id: string;
   departments: {
     department_name: string;
   };
@@ -73,9 +74,14 @@ const TicketDetails = () => {
       fetchTicket();
       fetchComments();
       fetchAttachments();
-      checkAdminStatus();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (ticket) {
+      checkAdminStatus();
+    }
+  }, [ticket]);
 
   const fetchTicket = async () => {
     try {
@@ -118,12 +124,14 @@ const TicketDetails = () => {
   const checkAdminStatus = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !ticket) return;
 
+      // Check if user is admin for this ticket's department
       const { data } = await supabase
         .from("department_admins")
         .select("id")
         .eq("user_id", user.id)
+        .eq("department_id", ticket.department_id)
         .maybeSingle();
 
       setIsAdmin(!!data);
@@ -452,25 +460,24 @@ const TicketDetails = () => {
                 {language === 'ar' ? 'المرفقات' : 'Attachments'}
               </h3>
               
-              {isAdmin && (
-                <div className="mb-4 p-4 border rounded-md space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="file"
-                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                      className="flex-1"
-                    />
-                    <Button
-                      onClick={handleFileUpload}
-                      disabled={!selectedFile || uploading}
-                      size="sm"
-                    >
-                      <Paperclip className="h-4 w-4 mr-2" />
-                      {uploading ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') : (language === 'ar' ? 'رفع' : 'Upload')}
-                    </Button>
-                  </div>
+              {/* Allow both ticket creator and admins to upload files */}
+              <div className="mb-4 p-4 border rounded-md space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleFileUpload}
+                    disabled={!selectedFile || uploading}
+                    size="sm"
+                  >
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    {uploading ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') : (language === 'ar' ? 'رفع' : 'Upload')}
+                  </Button>
                 </div>
-              )}
+              </div>
 
               <div className="space-y-2">
                 {attachments.length === 0 ? (
