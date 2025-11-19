@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { ar } from "date-fns/locale";
 
 type Notification = {
@@ -24,14 +24,25 @@ type Notification = {
   created_at: string;
 };
 
+type ReminderAlert = {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  notes: string;
+  reminder_date: string;
+  next_action: string;
+};
+
 export const NotificationBell = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [reminders, setReminders] = useState<ReminderAlert[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const { language } = useLanguage();
 
   useEffect(() => {
     fetchNotifications();
+    fetchReminders();
 
     // Subscribe to new notifications
     const channel = supabase
@@ -69,10 +80,33 @@ export const NotificationBell = () => {
       if (error) throw error;
 
       setNotifications(data || []);
-      setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
+      updateUnreadCount(data || [], reminders);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     }
+  };
+
+  const fetchReminders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("crm_customer_followup")
+        .select("*")
+        .lte("reminder_date", new Date().toISOString())
+        .order("reminder_date", { ascending: true });
+
+      if (error) throw error;
+
+      setReminders(data || []);
+      updateUnreadCount(notifications, data || []);
+    } catch (error) {
+      console.error("Error fetching reminders:", error);
+    }
+  };
+
+  const updateUnreadCount = (notifs: Notification[], rems: ReminderAlert[]) => {
+    const unreadNotifications = notifs.filter((n) => !n.is_read).length;
+    const activeReminders = rems.length;
+    setUnreadCount(unreadNotifications + activeReminders);
   };
 
   const markAsRead = async (notificationId: string) => {
@@ -108,21 +142,63 @@ export const NotificationBell = () => {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
-        <div className="space-y-2">
+      <PopoverContent className="w-96" align="end">
+        <div className="space-y-3">
           <h3 className="font-semibold">
             {language === "ar" ? "الإشعارات" : "Notifications"}
           </h3>
-          <ScrollArea className="h-[300px]">
-            {notifications.length === 0 ? (
+          <ScrollArea className="h-[400px]">
+            {notifications.length === 0 && reminders.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 {language === "ar"
                   ? "لا توجد إشعارات"
                   : "No notifications"}
               </p>
             ) : (
-              <div className="space-y-2">
-                {notifications.map((notification) => (
+              <div className="space-y-4">
+                {reminders.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase">
+                      {language === "ar" ? "تذكيرات العملاء" : "Customer Reminders"}
+                    </h4>
+                    <div className="space-y-2">
+                      {reminders.map((reminder) => (
+                        <div
+                          key={reminder.id}
+                          className="p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{reminder.customer_name}</p>
+                              <p className="text-xs text-muted-foreground">{reminder.customer_phone}</p>
+                            </div>
+                            <span className="text-xs text-orange-600 dark:text-orange-400">
+                              {format(new Date(reminder.reminder_date), "MMM dd, yyyy")}
+                            </span>
+                          </div>
+                          {reminder.notes && (
+                            <p className="text-xs text-muted-foreground mb-2">{reminder.notes}</p>
+                          )}
+                          {reminder.next_action && (
+                            <div className="text-xs">
+                              <span className="font-medium">
+                                {language === "ar" ? "الإجراء التالي: " : "Next Action: "}
+                              </span>
+                              <span className="text-muted-foreground">{reminder.next_action}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {notifications.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase">
+                      {language === "ar" ? "إشعارات التذاكر" : "Ticket Notifications"}
+                    </h4>
+                    <div className="space-y-2">
+                      {notifications.map((notification) => (
                   <div
                     key={notification.id}
                     className={`p-3 rounded-lg border cursor-pointer hover:bg-accent transition-colors ${
@@ -149,8 +225,11 @@ export const NotificationBell = () => {
                         <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1" />
                       )}
                     </div>
+                      </div>
+                    ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </ScrollArea>
