@@ -113,6 +113,8 @@ export function AppSidebar() {
         { title: t("menu.loadData"), url: "/load-data", icon: FileSpreadsheet },
         { title: t("uploadLog.title"), url: "/upload-log", icon: Database },
         { title: t("menu.clearData"), url: "/clear-data", icon: Database },
+        { title: language === 'ar' ? "تذاكري" : "My Tickets", url: "/tickets", icon: FileText },
+        { title: language === 'ar' ? "تذاكر القسم" : "Department Tickets", url: "/admin-tickets", icon: Users },
       ]
     },
     {
@@ -126,6 +128,7 @@ export function AppSidebar() {
         { title: t("menu.brandType"), url: "/brand-type", icon: Settings },
         { title: t("menu.productSetup"), url: "/product-setup", icon: Database },
         { title: language === 'ar' ? 'إعداد طرق الدفع' : 'Payment Method Setup', url: "/payment-method-setup", icon: CreditCard },
+        { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
       ]
     },
     {
@@ -136,14 +139,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
-      ]
-    },
-    {
-      label: language === 'ar' ? "إدارة التذاكر" : "Ticket Management",
-      items: [
-        { title: language === 'ar' ? "تذاكري" : "My Tickets", url: "/tickets", icon: FileText },
-        { title: language === 'ar' ? "تذاكر القسم" : "Department Tickets", url: "/admin-tickets", icon: Users },
-        { title: language === 'ar' ? "إدارة الأقسام" : "Departments", url: "/department-management", icon: Settings },
       ]
     }
   ];
