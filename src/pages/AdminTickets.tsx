@@ -199,9 +199,9 @@ const AdminTickets = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Open">Open</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="Closed">Closed</SelectItem>
+              <SelectItem value="Open">{language === 'ar' ? 'مفتوح' : 'Open'}</SelectItem>
+              <SelectItem value="In Progress">{language === 'ar' ? 'قيد المعالجة' : 'In Progress'}</SelectItem>
+              <SelectItem value="Closed">{language === 'ar' ? 'مغلق' : 'Closed'}</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -210,7 +210,7 @@ const AdminTickets = () => {
             onClick={() => navigate(`/tickets/${ticket.id}`)}
           >
             <Eye className="mr-2 h-4 w-4" />
-            View Details
+            {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
           </Button>
         </div>
       </CardContent>
@@ -220,34 +220,36 @@ const AdminTickets = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Department Tickets</h1>
+        <h1 className="text-3xl font-bold">
+          {language === 'ar' ? 'تذاكر الأقسام' : 'Department Tickets'}
+        </h1>
         <p className="text-muted-foreground mt-1">
-          Manage tickets for your departments
+          {language === 'ar' ? 'إدارة التذاكر لأقسامك' : 'Manage tickets for your departments'}
         </p>
       </div>
 
       <div className="flex gap-4">
         <Select value={filterPriority} onValueChange={setFilterPriority}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by priority" />
+            <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الأولوية' : 'Filter by priority'} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Priorities</SelectItem>
-            <SelectItem value="Urgent">Urgent</SelectItem>
-            <SelectItem value="High">High</SelectItem>
-            <SelectItem value="Medium">Medium</SelectItem>
-            <SelectItem value="Low">Low</SelectItem>
+            <SelectItem value="all">{language === 'ar' ? 'كل الأولويات' : 'All Priorities'}</SelectItem>
+            <SelectItem value="Urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
+            <SelectItem value="High">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
+            <SelectItem value="Medium">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
+            <SelectItem value="Low">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {loading ? (
-        <div className="text-center py-8">Loading tickets...</div>
+        <div className="text-center py-8">{language === 'ar' ? 'جاري التحميل...' : 'Loading tickets...'}</div>
       ) : tickets.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">
-              No tickets found for your departments
+              {language === 'ar' ? 'لم يتم العثور على تذاكر لأقسامك' : 'No tickets found for your departments'}
             </p>
           </CardContent>
         </Card>
@@ -255,16 +257,16 @@ const AdminTickets = () => {
         <Tabs defaultValue="open" className="space-y-4">
           <TabsList>
             <TabsTrigger value="open">
-              Open ({openTickets.length})
+              {language === 'ar' ? `مفتوح (${openTickets.length})` : `Open (${openTickets.length})`}
             </TabsTrigger>
             <TabsTrigger value="in-progress">
-              In Progress ({inProgressTickets.length})
+              {language === 'ar' ? `قيد المعالجة (${inProgressTickets.length})` : `In Progress (${inProgressTickets.length})`}
             </TabsTrigger>
             <TabsTrigger value="closed">
-              Closed ({closedTickets.length})
+              {language === 'ar' ? `مغلق (${closedTickets.length})` : `Closed (${closedTickets.length})`}
             </TabsTrigger>
             <TabsTrigger value="all">
-              All ({filteredTickets.length})
+              {language === 'ar' ? `الكل (${filteredTickets.length})` : `All (${filteredTickets.length})`}
             </TabsTrigger>
           </TabsList>
 
@@ -272,7 +274,7 @@ const AdminTickets = () => {
             {openTickets.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground">No open tickets</p>
+                  <p className="text-muted-foreground">{language === 'ar' ? 'لا توجد تذاكر مفتوحة' : 'No open tickets'}</p>
                 </CardContent>
               </Card>
             ) : (
@@ -284,7 +286,7 @@ const AdminTickets = () => {
             {inProgressTickets.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground">No tickets in progress</p>
+                  <p className="text-muted-foreground">{language === 'ar' ? 'لا توجد تذاكر قيد المعالجة' : 'No tickets in progress'}</p>
                 </CardContent>
               </Card>
             ) : (
@@ -296,7 +298,7 @@ const AdminTickets = () => {
             {closedTickets.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground">No closed tickets</p>
+                  <p className="text-muted-foreground">{language === 'ar' ? 'لا توجد تذاكر مغلقة' : 'No closed tickets'}</p>
                 </CardContent>
               </Card>
             ) : (

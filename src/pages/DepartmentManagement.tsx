@@ -66,6 +66,7 @@ type DepartmentAdmin = {
 
 const DepartmentManagement = () => {
   const { toast } = useToast();
+  const { language } = useLanguage();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [admins, setAdmins] = useState<DepartmentAdmin[]>([]);
@@ -245,21 +246,23 @@ const DepartmentManagement = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Department Management</h1>
+          <h1 className="text-3xl font-bold">
+            {language === 'ar' ? 'إدارة الأقسام' : 'Department Management'}
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Manage departments and assign admins
+            {language === 'ar' ? 'إدارة الأقسام وتعيين المسؤولين' : 'Manage departments and assign admins'}
           </p>
         </div>
         <Dialog open={openDept} onOpenChange={setOpenDept}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create Department
+              {language === 'ar' ? 'إنشاء قسم' : 'Create Department'}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Department</DialogTitle>
+              <DialogTitle>{language === 'ar' ? 'إنشاء قسم جديد' : 'Create New Department'}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmitDepartment)} className="space-y-4">
@@ -268,9 +271,9 @@ const DepartmentManagement = () => {
                   name="department_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Department Name</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'اسم القسم' : 'Department Name'}</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Technical Support" {...field} />
+                        <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. Technical Support'} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -281,9 +284,9 @@ const DepartmentManagement = () => {
                   name="department_code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Department Code</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'كود القسم' : 'Department Code'}</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. TECH" {...field} />
+                        <Input placeholder={language === 'ar' ? 'مثال: TECH' : 'e.g. TECH'} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -294,9 +297,9 @@ const DepartmentManagement = () => {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'الوصف (اختياري)' : 'Description (Optional)'}</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Department description" {...field} />
+                        <Textarea placeholder={language === 'ar' ? 'وصف القسم' : 'Department description'} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -304,9 +307,9 @@ const DepartmentManagement = () => {
                 />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setOpenDept(false)}>
-                    Cancel
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button type="submit">Create</Button>
+                  <Button type="submit">{language === 'ar' ? 'إنشاء' : 'Create'}</Button>
                 </div>
               </form>
             </Form>
@@ -315,7 +318,7 @@ const DepartmentManagement = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-8">Loading departments...</div>
+        <div className="text-center py-8">{language === 'ar' ? 'جاري التحميل...' : 'Loading departments...'}</div>
       ) : (
         <div className="grid gap-4">
           {departments.map((dept) => {
@@ -327,7 +330,7 @@ const DepartmentManagement = () => {
                     <div>
                       <CardTitle>{dept.department_name}</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Code: {dept.department_code}
+                        {language === 'ar' ? 'الكود' : 'Code'}: {dept.department_code}
                       </p>
                       {dept.description && (
                         <p className="text-sm text-muted-foreground mt-2">
@@ -336,14 +339,14 @@ const DepartmentManagement = () => {
                       )}
                     </div>
                     <Badge variant={dept.is_active ? "default" : "secondary"}>
-                      {dept.is_active ? "Active" : "Inactive"}
+                      {dept.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <h4 className="font-semibold text-sm">Department Admins</h4>
+                      <h4 className="font-semibold text-sm">{language === 'ar' ? 'مسؤولو القسم' : 'Department Admins'}</h4>
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button
@@ -352,12 +355,12 @@ const DepartmentManagement = () => {
                             onClick={() => setSelectedDept(dept.id)}
                           >
                             <UserPlus className="h-4 w-4 mr-2" />
-                            Add Admin
+                            {language === 'ar' ? 'إضافة مسؤول' : 'Add Admin'}
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Add Department Admin</DialogTitle>
+                            <DialogTitle>{language === 'ar' ? 'إضافة مسؤول قسم' : 'Add Department Admin'}</DialogTitle>
                           </DialogHeader>
                           <div className="space-y-2">
                             {profiles.map((profile) => (
@@ -375,8 +378,8 @@ const DepartmentManagement = () => {
                                   disabled={deptAdmins.some(a => a.user_id === profile.user_id)}
                                 >
                                   {deptAdmins.some(a => a.user_id === profile.user_id)
-                                    ? "Already Admin"
-                                    : "Add"}
+                                    ? (language === 'ar' ? 'مسؤول بالفعل' : 'Already Admin')
+                                    : (language === 'ar' ? 'إضافة' : 'Add')}
                                 </Button>
                               </div>
                             ))}
@@ -385,7 +388,7 @@ const DepartmentManagement = () => {
                       </Dialog>
                     </div>
                     {deptAdmins.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No admins assigned</p>
+                      <p className="text-sm text-muted-foreground">{language === 'ar' ? 'لم يتم تعيين مسؤولين' : 'No admins assigned'}</p>
                     ) : (
                       <div className="space-y-2">
                         {deptAdmins.map((admin) => (
