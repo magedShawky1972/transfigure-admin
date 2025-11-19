@@ -4,7 +4,7 @@ import {
   Cloud, 
   BarChart3, 
   Table2,
-  Home,
+  LayoutDashboard,
   Settings,
   Users,
   UserCheck,
@@ -12,7 +12,9 @@ import {
   Grid3x3,
   CreditCard,
   Link2,
-  FileText
+  FileText,
+  TicketCheck,
+  FileBarChart
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -39,6 +41,7 @@ export function AppSidebar() {
 
   const URL_TO_PERMISSION: Record<string, string> = {
     "/": "dashboard",
+    "/ticket-dashboard": "ticket_dashboard",
     "/reports": "reports",
     "/transactions": "transactions",
     "/tickets": "tickets",
@@ -101,8 +104,9 @@ export function AppSidebar() {
     {
       label: t("sidebar.reports"),
       items: [
-        { title: t("menu.dashboard"), url: "/", icon: Home },
-        { title: t("menu.reports"), url: "/reports", icon: BarChart3 },
+        { title: t("menu.dashboard"), url: "/", icon: LayoutDashboard },
+        { title: language === 'ar' ? "لوحة التذاكر" : "Ticket Dashboard", url: "/ticket-dashboard", icon: TicketCheck },
+        { title: t("menu.reports"), url: "/reports", icon: FileBarChart },
         { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
         { title: t("menu.pivotTable"), url: "/pivot-table", icon: Grid3x3 },
       ]

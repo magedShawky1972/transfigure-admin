@@ -35,6 +35,7 @@ import Tickets from "./pages/Tickets";
 import TicketDetails from "./pages/TicketDetails";
 import AdminTickets from "./pages/AdminTickets";
 import DepartmentManagement from "./pages/DepartmentManagement";
+import TicketDashboard from "./pages/TicketDashboard";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -77,6 +78,7 @@ const App = () => (
               <Route path="/tickets" element={<Tickets />} />
               <Route path="/tickets/:id" element={<TicketDetails />} />
               <Route path="/admin-tickets" element={<AdminTickets />} />
+              <Route path="/ticket-dashboard" element={<TicketDashboard />} />
               <Route path="/department-management" element={<DepartmentManagement />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
