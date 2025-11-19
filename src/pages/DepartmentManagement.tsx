@@ -762,7 +762,7 @@ const DepartmentManagement = () => {
                             {language === 'ar' ? 'إضافة مسؤول' : 'Add Admin'}
                           </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
                             <DialogTitle>{language === 'ar' ? 'إضافة مسؤول قسم' : 'Add Department Admin'}</DialogTitle>
                           </DialogHeader>
@@ -781,20 +781,21 @@ const DepartmentManagement = () => {
                                 {language === 'ar' ? 'مسؤول المشتريات' : 'Purchase Admin'}
                               </label>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
                               {profiles.map((profile) => (
                                 <div
                                   key={profile.user_id}
                                   className="flex justify-between items-center p-3 border rounded-lg"
                                 >
-                                  <div>
-                                    <p className="font-medium">{profile.user_name}</p>
-                                    <p className="text-sm text-muted-foreground">{profile.email}</p>
+                                  <div className="flex-1 min-w-0 mr-2">
+                                    <p className="font-medium truncate">{profile.user_name}</p>
+                                    <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
                                   </div>
                                   <Button
                                     size="sm"
                                     onClick={() => handleAddAdmin(profile.user_id)}
                                     disabled={deptAdmins.some(a => a.user_id === profile.user_id)}
+                                    className="shrink-0"
                                   >
                                     {deptAdmins.some(a => a.user_id === profile.user_id)
                                       ? (language === 'ar' ? 'مسؤول بالفعل' : 'Already Admin')
@@ -851,24 +852,25 @@ const DepartmentManagement = () => {
                               {language === 'ar' ? 'إضافة موظف' : 'Add Staff'}
                             </Button>
                           </DialogTrigger>
-                          <DialogContent>
+                          <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle>{language === 'ar' ? 'إضافة موظف إلى القسم' : 'Add Staff to Department'}</DialogTitle>
                             </DialogHeader>
-                            <div className="space-y-2">
+                            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
                               {profiles.map((profile) => (
                                 <div
                                   key={profile.user_id}
                                   className="flex justify-between items-center p-3 border rounded-lg"
                                 >
-                                  <div>
-                                    <p className="font-medium">{profile.user_name}</p>
-                                    <p className="text-sm text-muted-foreground">{profile.email}</p>
+                                  <div className="flex-1 min-w-0 mr-2">
+                                    <p className="font-medium truncate">{profile.user_name}</p>
+                                    <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
                                   </div>
                                   <Button
                                     size="sm"
                                     onClick={() => handleAddMember(profile.user_id)}
                                     disabled={deptMembers.some(m => m.user_id === profile.user_id)}
+                                    className="shrink-0"
                                   >
                                     {deptMembers.some(m => m.user_id === profile.user_id)
                                       ? (language === 'ar' ? 'موظف بالفعل' : 'Already Staff')
