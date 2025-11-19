@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   DndContext,
   closestCenter,
@@ -109,9 +110,10 @@ interface SortableAdminItemProps {
   index: number;
   language: string;
   onRemove: () => void;
+  onTogglePurchase: (adminId: string, isPurchase: boolean) => void;
 }
 
-const SortableAdminItem = ({ admin, index, language, onRemove }: SortableAdminItemProps) => {
+const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase }: SortableAdminItemProps) => {
   const {
     attributes,
     listeners,
@@ -141,11 +143,11 @@ const SortableAdminItem = ({ admin, index, language, onRemove }: SortableAdminIt
         >
           <GripVertical className="h-5 w-5 text-muted-foreground" />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <Badge variant="outline" className="font-mono text-xs">
             #{index + 1}
           </Badge>
-          <div>
+          <div className="flex-1">
             <div className="flex items-center gap-2">
               <p className="font-medium">{admin.profiles.user_name}</p>
               {admin.is_purchase_admin && (
@@ -161,13 +163,22 @@ const SortableAdminItem = ({ admin, index, language, onRemove }: SortableAdminIt
           </div>
         </div>
       </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={onRemove}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border">
+          <ShoppingCart className="h-3 w-3 text-muted-foreground" />
+          <Switch
+            checked={admin.is_purchase_admin}
+            onCheckedChange={(checked) => onTogglePurchase(admin.id, checked)}
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onRemove}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 };
@@ -433,6 +444,32 @@ const DepartmentManagement = () => {
       setSelectedUserId(null);
       setOpenAdmin(false);
       setIsPurchaseAdmin(false);
+      await fetchAdmins();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTogglePurchaseAdmin = async (adminId: string, isPurchase: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("department_admins")
+        .update({ is_purchase_admin: isPurchase })
+        .eq("id", adminId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم ${isPurchase ? 'تعيين' : 'إلغاء'} المسؤول كمسؤول مشتريات` 
+          : `Admin ${isPurchase ? 'set as' : 'removed from'} purchase admin`,
+      });
+
       await fetchAdmins();
     } catch (error: any) {
       toast({
@@ -832,6 +869,7 @@ const DepartmentManagement = () => {
                                 index={index}
                                 language={language}
                                 onRemove={() => handleRemoveAdmin(admin.id)}
+                                onTogglePurchase={handleTogglePurchaseAdmin}
                               />
                             ))}
                           </div>
