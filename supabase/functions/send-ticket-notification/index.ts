@@ -1,8 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { Resend } from "https://esm.sh/resend@4.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const smtpClient = new SMTPClient({
+  connection: {
+    hostname: "smtp.hostinger.com",
+    port: 465,
+    tls: true,
+    auth: {
+      username: "info@asuscards.com",
+      password: Deno.env.get("SMTP_PASSWORD") ?? "",
+    },
+  },
+});
+
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -99,17 +110,17 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send email
-    const fromEmail = Deno.env.get("FROM_EMAIL") || "Edara Support <onboarding@resend.dev>";
-    
     try {
-      console.log("Attempting to send email to:", profile.email, "from:", fromEmail);
-      const emailResponse = await resend.emails.send({
-        from: fromEmail,
-        to: [profile.email],
+      console.log("Attempting to send email to:", profile.email);
+      await smtpClient.send({
+        from: "Edara Support <info@asuscards.com>",
+        to: profile.email,
         subject: emailSubject,
+        content: "auto",
         html: emailHtml,
       });
-      console.log("Email sent successfully:", emailResponse);
+      await smtpClient.close();
+      console.log("Email sent successfully");
     } catch (emailError) {
       console.error("Failed to send email:", emailError);
       // Don't throw - we still want to create the in-app notification

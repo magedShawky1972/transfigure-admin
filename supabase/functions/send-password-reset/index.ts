@@ -8,7 +8,7 @@ const smtpClient = new SMTPClient({
     port: 465,
     tls: true,
     auth: {
-      username: "edara@asuscards.com",
+      username: "info@asuscards.com",
       password: Deno.env.get("SMTP_PASSWORD") ?? "",
     },
   },
@@ -105,7 +105,7 @@ serve(async (req) => {
     // Send email with new password
     try {
       await smtpClient.send({
-        from: "Edara System <edara@asuscards.com>",
+        from: "Edara System <info@asuscards.com>",
         to: email,
         subject: "تم إعادة تعيين كلمة المرور - Password Reset",
         content: "auto",
