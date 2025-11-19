@@ -12,6 +12,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Admin create user function called');
+    
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -24,27 +26,44 @@ serve(async (req) => {
     );
 
     // Verify the requesting user is authenticated
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header missing' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const token = authHeader.replace('Bearer ', '');
+    console.log('Token extracted, length:', token.length);
+    
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    console.log('Auth validation result:', { userId: user?.id, hasError: !!authError, errorMsg: authError?.message });
 
     if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Unauthorized', details: authError?.message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Check if user has admin role
+    console.log('Checking admin role for user:', user.id);
     const { data: hasAdminRole, error: roleError } = await supabaseAdmin
       .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    
+    console.log('Role check result:', { hasAdminRole, roleError: roleError?.message });
 
     if (roleError || !hasAdminRole) {
       return new Response(
-        JSON.stringify({ error: 'Forbidden - Admin access required' }),
+        JSON.stringify({ error: 'Forbidden - Admin access required', details: roleError?.message }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('User authorized, proceeding with user creation');
 
     const { email, user_name, mobile_number, is_active, password } = await req.json();
 
