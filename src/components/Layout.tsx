@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 
 interface ReminderAlert {
   id: string;
@@ -32,6 +33,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  
+  // Initialize idle timeout session manager (30 minutes)
+  useIdleTimeout();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" || "dark";
