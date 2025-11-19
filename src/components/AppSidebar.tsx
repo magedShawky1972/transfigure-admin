@@ -109,6 +109,7 @@ export function AppSidebar() {
       items: [
         { title: t("menu.dashboard"), url: "/", icon: LayoutDashboard },
         { title: language === 'ar' ? "لوحة التذاكر" : "Ticket Dashboard", url: "/ticket-dashboard", icon: TicketCheck },
+        { title: language === 'ar' ? "لوحة التراخيص" : "Software Licenses", url: "/software-licenses", icon: Key },
         { title: t("menu.reports"), url: "/reports", icon: FileBarChart },
         { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
         { title: t("menu.pivotTable"), url: "/pivot-table", icon: Grid3x3 },
@@ -122,7 +123,7 @@ export function AppSidebar() {
         { title: t("menu.clearData"), url: "/clear-data", icon: Database },
         { title: language === 'ar' ? "تذاكري" : "My Tickets", url: "/tickets", icon: FileText },
         { title: language === 'ar' ? "تذاكر القسم" : "Department Tickets", url: "/admin-tickets", icon: Users },
-        { title: language === 'ar' ? "تراخيص البرامج" : "Software Licenses", url: "/software-licenses", icon: Key },
+        { title: language === 'ar' ? "إدخال الترخيص" : "License Entry", url: "/software-license-setup", icon: Key },
       ]
     },
     {
@@ -136,7 +137,6 @@ export function AppSidebar() {
         { title: t("menu.brandType"), url: "/brand-type", icon: Settings },
         { title: t("menu.productSetup"), url: "/product-setup", icon: Database },
         { title: language === 'ar' ? 'إعداد طرق الدفع' : 'Payment Method Setup', url: "/payment-method-setup", icon: CreditCard },
-        { title: language === 'ar' ? 'إعداد التراخيص' : 'License Setup', url: "/software-license-setup", icon: Key },
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
       ]
     },
