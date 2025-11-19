@@ -516,6 +516,12 @@ const translations = {
     "clearData.selectTableFirst": "Please select a table first",
     "clearData.selectDates": "Please select both from and to dates",
     
+    // Welcome/Landing Page
+    "welcome.title": "Welcome to Edara",
+    "welcome.subtitle": "Your business management system",
+    "welcome.noAccess": "You currently don't have access to any dashboard components",
+    "welcome.contactAdmin": "Please contact your administrator to request access to the features you need",
+    
     // Auth Page
     "auth.welcome": "Welcome to Edara",
     "auth.signIn": "Sign in with your credentials",
@@ -1080,6 +1086,12 @@ const translations = {
     "clearData.error": "خطأ في حذف البيانات",
     "clearData.selectTableFirst": "الرجاء اختيار جدول أولاً",
     "clearData.selectDates": "الرجاء اختيار كلا التاريخين (من وإلى)",
+    
+    // Welcome/Landing Page
+    "welcome.title": "مرحباً بك في إدارة",
+    "welcome.subtitle": "نظام إدارة الأعمال الخاص بك",
+    "welcome.noAccess": "لا يمكنك الوصول حالياً إلى أي من مكونات لوحة المعلومات",
+    "welcome.contactAdmin": "يرجى الاتصال بالمسؤول لطلب الوصول إلى الميزات التي تحتاجها",
     
     // Auth Page
     "auth.welcome": "مرحباً بك في إدارة",
