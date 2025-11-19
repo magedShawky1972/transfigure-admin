@@ -40,10 +40,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const wasLoggedIn = user !== null;
       setUser(session?.user ?? null);
       
       if (!session && location.pathname !== "/auth") {
+        // Only show toast if user was previously logged in (session expired)
+        if (wasLoggedIn && event === 'SIGNED_OUT') {
+          toast({
+            title: language === 'ar' ? 'انتهت الجلسة' : 'Session Expired',
+            description: language === 'ar' ? 'تم تسجيل خروجك تلقائياً. يرجى تسجيل الدخول مرة أخرى.' : 'You have been automatically logged out. Please sign in again.',
+            variant: "destructive",
+          });
+        }
         navigate("/auth");
       }
     });
