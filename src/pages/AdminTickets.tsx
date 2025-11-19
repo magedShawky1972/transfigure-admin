@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Eye } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -36,6 +37,7 @@ type Ticket = {
 const AdminTickets = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
