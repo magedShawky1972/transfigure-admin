@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { format } from "date-fns";
 import logo from "@/assets/edara-logo.png";
 
 const Index = () => {
@@ -70,8 +71,9 @@ const Index = () => {
     <div className={`min-h-screen flex items-center justify-center bg-background p-4 ${language === 'ar' ? 'rtl' : 'ltr'}`}>
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+          <div className="flex flex-col items-center mb-4 space-y-2">
             <img src={logo} alt="Edara Logo" className="h-24 w-auto" />
+            <p className="text-sm text-muted-foreground">{format(new Date(), 'MMMM dd, yyyy')}</p>
           </div>
           <CardTitle className="text-3xl font-bold">{t('welcome.title')}</CardTitle>
           <CardDescription className="text-lg mt-4">
@@ -79,7 +81,7 @@ const Index = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-sm text-muted-foreground">Version 1.0.0</p>
+          <p className="text-sm text-muted-foreground">Version 1.0.1</p>
         </CardContent>
       </Card>
     </div>
