@@ -32,7 +32,10 @@ const Index = () => {
 
         if (response.ok) {
           const permsData = await response.json();
-          const hasAnyAccess = permsData.length === 0 || permsData.some((p: any) => p.has_access === true);
+          
+          // If no permissions are set, deny access by default
+          // Only allow access if there's at least one permission with has_access === true
+          const hasAnyAccess = permsData.length > 0 && permsData.some((p: any) => p.has_access === true);
           
           if (hasAnyAccess) {
             navigate("/dashboard");
@@ -41,8 +44,8 @@ const Index = () => {
             setLoading(false);
           }
         } else {
-          // If permissions check fails, default to dashboard
-          navigate("/dashboard");
+          // If permissions check fails, show welcome page (deny access)
+          setLoading(false);
         }
       } catch (error) {
         console.error("Error checking access:", error);
