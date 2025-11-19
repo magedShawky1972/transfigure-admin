@@ -474,6 +474,7 @@ const LoadData = () => {
             records_processed: totalProcessed,
             new_customers_count: newCustomersCount,
             new_products_count: totalProductsUpserted,
+            new_brands_count: totalBrandsUpserted,
             total_value: totalValue,
             date_range_start: sortedDates[0] || null,
             date_range_end: sortedDates[sortedDates.length - 1] || null,
