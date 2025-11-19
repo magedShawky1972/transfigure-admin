@@ -699,6 +699,7 @@ export type Database = {
           excel_dates: Json | null
           file_name: string
           id: string
+          new_brands_count: number | null
           new_customers_count: number | null
           new_products_count: number | null
           records_processed: number | null
@@ -718,6 +719,7 @@ export type Database = {
           excel_dates?: Json | null
           file_name: string
           id?: string
+          new_brands_count?: number | null
           new_customers_count?: number | null
           new_products_count?: number | null
           records_processed?: number | null
@@ -737,6 +739,7 @@ export type Database = {
           excel_dates?: Json | null
           file_name?: string
           id?: string
+          new_brands_count?: number | null
           new_customers_count?: number | null
           new_products_count?: number | null
           records_processed?: number | null

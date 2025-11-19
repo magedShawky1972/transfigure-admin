@@ -21,6 +21,7 @@ interface UploadLog {
   excel_dates: any;
   new_customers_count: number;
   new_products_count: number;
+  new_brands_count: number;
   total_value: number;
   date_range_start: string | null;
   date_range_end: string | null;
@@ -29,6 +30,7 @@ interface UploadLog {
 interface UploadSummary {
   newCustomers: number;
   newProducts: number;
+  newBrands: number;
   totalValue: number;
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
@@ -75,6 +77,7 @@ const UploadLog = () => {
     setSelectedSummary({
       newCustomers: log.new_customers_count || 0,
       newProducts: log.new_products_count || 0,
+      newBrands: log.new_brands_count || 0,
       totalValue: log.total_value || 0,
       dateRangeStart: log.date_range_start,
       dateRangeEnd: log.date_range_end,
@@ -294,6 +297,11 @@ const UploadLog = () => {
                 <div className="bg-muted/50 p-3 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">{t("uploadLog.newProducts")}</p>
                   <p className="text-xl font-semibold">{selectedSummary.newProducts}</p>
+                </div>
+                
+                <div className="bg-muted/50 p-3 rounded-lg col-span-2">
+                  <p className="text-xs text-muted-foreground mb-1">New Brands</p>
+                  <p className="text-xl font-semibold">{selectedSummary.newBrands}</p>
                 </div>
               </div>
 
