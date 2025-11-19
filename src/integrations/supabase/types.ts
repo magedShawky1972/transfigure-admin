@@ -825,6 +825,47 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_attachments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_comments: {
         Row: {
           comment: string
@@ -869,6 +910,7 @@ export type Database = {
           department_id: string
           description: string
           id: string
+          is_purchase_ticket: boolean
           priority: string
           status: string
           subject: string
@@ -884,6 +926,7 @@ export type Database = {
           department_id: string
           description: string
           id?: string
+          is_purchase_ticket?: boolean
           priority: string
           status?: string
           subject: string
@@ -899,6 +942,7 @@ export type Database = {
           department_id?: string
           description?: string
           id?: string
+          is_purchase_ticket?: boolean
           priority?: string
           status?: string
           subject?: string
