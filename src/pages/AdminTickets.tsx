@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
 import {
   Select,
@@ -61,6 +63,9 @@ const AdminTickets = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [departmentMembers, setDepartmentMembers] = useState<Record<string, DepartmentMember[]>>({});
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
+  const [quickComment, setQuickComment] = useState<Record<string, string>>({});
+  const [submittingComment, setSubmittingComment] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTickets();
@@ -334,6 +339,42 @@ const AdminTickets = () => {
     }
   };
 
+  const handleQuickComment = async (ticketId: string) => {
+    const comment = quickComment[ticketId];
+    if (!comment?.trim()) return;
+
+    try {
+      setSubmittingComment(ticketId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("ticket_comments").insert({
+        ticket_id: ticketId,
+        user_id: user.id,
+        comment: comment,
+        is_internal: false,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إضافة التعليق' : 'Comment added successfully',
+      });
+
+      setQuickComment({ ...quickComment, [ticketId]: "" });
+      setExpandedTicket(null);
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingComment(null);
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
@@ -462,6 +503,48 @@ const AdminTickets = () => {
             </SelectContent>
           </Select>
           
+          <Collapsible
+            open={expandedTicket === ticket.id}
+            onOpenChange={(open) => setExpandedTicket(open ? ticket.id : null)}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3">
+              <div className="space-y-2 p-3 border rounded-md bg-muted/50">
+                <Textarea
+                  placeholder={language === 'ar' ? 'اكتب تعليقك هنا...' : 'Write your comment here...'}
+                  value={quickComment[ticket.id] || ""}
+                  onChange={(e) => setQuickComment({ ...quickComment, [ticket.id]: e.target.value })}
+                  className="min-h-[80px] bg-background"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleQuickComment(ticket.id)}
+                    disabled={submittingComment === ticket.id || !quickComment[ticket.id]?.trim()}
+                    size="sm"
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {submittingComment === ticket.id ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : (language === 'ar' ? 'إرسال' : 'Send')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setExpandedTicket(null)}
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
           <Button
             variant="outline"
             size="sm"
