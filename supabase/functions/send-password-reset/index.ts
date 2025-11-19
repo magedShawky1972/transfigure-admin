@@ -46,7 +46,7 @@ serve(async (req) => {
       }
     );
 
-    const { email } = await req.json();
+    const { email, password } = await req.json();
 
     if (!email) {
       return new Response(
@@ -55,8 +55,8 @@ serve(async (req) => {
       );
     }
 
-    // Generate random password
-    const newPassword = generateRandomPassword(10);
+    // Use provided password or generate random one
+    const newPassword = password || generateRandomPassword(10);
 
     // Get user by email
     const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
