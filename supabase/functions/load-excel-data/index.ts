@@ -149,11 +149,83 @@ Deno.serve(async (req) => {
       }
       
       console.log('Bank fee calculation completed');
+    }
+
+    // For purpletransaction table, ensure brands and products exist BEFORE inserting transactions
+    let productsUpserted = 0;
+    let brandsUpserted = 0;
+    
+    if (tableName === 'purpletransaction') {
+      console.log('Pre-processing: Creating/updating brands and products before transaction insertion...');
       
-      // Fill in missing brand_code by looking up from brands table
-      console.log('Checking for transactions with missing brand_code...');
+      // Step 1: Extract and create brands FIRST
+      console.log('Step 1: Processing brands...');
       
-      // Get all unique brand_names that have NULL brand_code
+      const brandsToUpsert = validData
+        .filter((row: any) => row.brand_name && row.brand_name.trim())
+        .map((row: any) => ({
+          brand_name: row.brand_name.trim(),
+          brand_code: row.brand_code || null,
+          status: 'active'
+        }))
+        .filter((brand: any, index: number, self: any[]) => 
+          // Remove duplicates by brand_name
+          index === self.findIndex((b: any) => b.brand_name === brand.brand_name)
+        );
+
+      if (brandsToUpsert.length > 0) {
+        // Check which brands already exist
+        const brandNames = brandsToUpsert.map(b => b.brand_name);
+        const { data: existingBrands } = await supabase
+          .from('brands')
+          .select('brand_name, brand_code')
+          .in('brand_name', brandNames);
+
+        const existingBrandMap = new Map(
+          (existingBrands || []).map(b => [b.brand_name, b])
+        );
+        
+        // Separate new brands from existing ones that need updates
+        const newBrands = brandsToUpsert.filter(b => !existingBrandMap.has(b.brand_name));
+        const brandsToUpdate = brandsToUpsert.filter(b => {
+          const existing = existingBrandMap.get(b.brand_name);
+          // Update if brand exists but brand_code is missing and we have one
+          return existing && !existing.brand_code && b.brand_code;
+        });
+
+        // Insert new brands
+        if (newBrands.length > 0) {
+          const { error: brandError } = await supabase
+            .from('brands')
+            .insert(newBrands);
+
+          if (brandError) {
+            console.error('Brand insert error:', brandError);
+          } else {
+            brandsUpserted = newBrands.length;
+            console.log(`Successfully inserted ${brandsUpserted} new brands`);
+          }
+        }
+
+        // Update existing brands with missing brand_codes
+        if (brandsToUpdate.length > 0) {
+          for (const brand of brandsToUpdate) {
+            const { error: updateError } = await supabase
+              .from('brands')
+              .update({ brand_code: brand.brand_code })
+              .eq('brand_name', brand.brand_name);
+            
+            if (updateError) {
+              console.error(`Error updating brand_code for ${brand.brand_name}:`, updateError);
+            }
+          }
+          console.log(`Updated ${brandsToUpdate.length} existing brands with brand_codes`);
+        }
+      }
+
+      // Step 2: Now look up and fill in missing brand_codes in transaction data
+      console.log('Step 2: Filling in missing brand_codes in transaction data...');
+      
       const missingBrandCodes = validData
         .filter((row: any) => row.brand_name && !row.brand_code)
         .map((row: any) => row.brand_name);
@@ -162,7 +234,7 @@ Deno.serve(async (req) => {
         const uniqueBrandNames = [...new Set(missingBrandCodes)];
         console.log(`Found ${missingBrandCodes.length} transactions with missing brand_code for ${uniqueBrandNames.length} brands`);
         
-        // Lookup brand_codes from brands table
+        // Lookup brand_codes from brands table (after we just created/updated them)
         const { data: brandData, error: brandLookupError } = await supabase
           .from('brands')
           .select('brand_name, brand_code')
@@ -190,53 +262,10 @@ Deno.serve(async (req) => {
           console.log(`Filled in ${updatedCount} missing brand_codes from brands table`);
         }
       }
-    }
 
-    console.log(`Inserting ${validData.length} rows into ${tableName}`);
-
-    // Insert data with retry logic that removes unknown columns if necessary
-    let rowsToInsert = validData;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const { error: insertError } = await supabase
-        .from(tableName)
-        .insert(rowsToInsert);
-
-      if (!insertError) {
-        console.log(`Successfully upserted ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
-        break;
-      }
-
-      console.error('Insert error:', insertError);
-
-      // Handle undefined column error (Postgres code 42703)
-      const message = (insertError as any).message || '';
-      const match = message.match(/column \"([^\"]+)\"/i);
-      if (match && match[1]) {
-        const badColumn = match[1];
-        console.warn(`Retrying after removing unknown column: ${badColumn}`);
-        rowsToInsert = rowsToInsert.map((r: any) => {
-          const { [badColumn]: _, ...rest } = r;
-          return rest;
-        });
-        // Continue loop to retry
-        continue;
-      }
-
-      // Other errors: return immediately
-      return new Response(
-        JSON.stringify({ error: `Failed to insert data: ${message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // After successful insert, upsert products and brands if this is the transaction table
-    let productsUpserted = 0;
-    let brandsUpserted = 0;
-    
-    if (tableName === 'purpletransaction') {
-      console.log('Checking for new products from transaction data...');
+      // Step 3: Extract and create products
+      console.log('Step 3: Processing products...');
       
-      // Extract unique products from the inserted data
       const productsToUpsert = validData
         .filter((row: any) => row.product_name)
         .map((row: any) => ({
@@ -245,6 +274,7 @@ Deno.serve(async (req) => {
           product_price: row.unit_price || null,
           product_cost: row.cost_price || null,
           brand_name: row.brand_name || null,
+          brand_code: row.brand_code || null,
           status: 'active'
         }))
         .filter((product: any, index: number, self: any[]) => 
@@ -284,51 +314,50 @@ Deno.serve(async (req) => {
           console.log(`Successfully processed ${productsToUpsert.length} products (${productsUpserted} new)`);
         }
       }
-
-      // Extract and upsert brands
-      console.log('Checking for new brands from transaction data...');
       
-      const brandsToUpsert = validData
-        .filter((row: any) => row.brand_name && row.brand_name.trim())
-        .map((row: any) => ({
-          brand_name: row.brand_name.trim(),
-          brand_code: row.brand_code || null,
-          status: 'active'
-        }))
-        .filter((brand: any, index: number, self: any[]) => 
-          // Remove duplicates by brand_name
-          index === self.findIndex((b: any) => b.brand_name === brand.brand_name)
-        );
+      console.log('Pre-processing complete. All brands and products are now ready.');
+    }
 
-      if (brandsToUpsert.length > 0) {
-        // Check which brands already exist
-        const brandNames = brandsToUpsert.map(b => b.brand_name);
-        const { data: existingBrands } = await supabase
-          .from('brands')
-          .select('brand_name')
-          .in('brand_name', brandNames);
+    console.log(`Inserting ${validData.length} rows into ${tableName}`);
 
-        const existingBrandNames = new Set(existingBrands?.map(b => b.brand_name) || []);
-        
-        // Filter only new brands
-        const newBrands = brandsToUpsert.filter(b => !existingBrandNames.has(b.brand_name));
+    // Insert data with retry logic that removes unknown columns if necessary
+    let rowsToInsert = validData;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error: insertError } = await supabase
+        .from(tableName)
+        .insert(rowsToInsert);
 
-        if (newBrands.length > 0) {
-          const { error: brandError } = await supabase
-            .from('brands')
-            .insert(newBrands);
-
-          if (brandError) {
-            console.error('Brand insert error:', brandError);
-          } else {
-            brandsUpserted = newBrands.length;
-            console.log(`Successfully inserted ${brandsUpserted} new brands`);
-          }
-        } else {
-          console.log('No new brands to insert');
-        }
+      if (!insertError) {
+        console.log(`Successfully upserted ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
+        break;
       }
 
+      console.error('Insert error:', insertError);
+
+      // Handle undefined column error (Postgres code 42703)
+      const message = (insertError as any).message || '';
+      const match = message.match(/column \"([^\"]+)\"/i);
+      if (match && match[1]) {
+        const badColumn = match[1];
+        console.warn(`Retrying after removing unknown column: ${badColumn}`);
+        rowsToInsert = rowsToInsert.map((r: any) => {
+          const { [badColumn]: _, ...rest } = r;
+          return rest;
+        });
+        // Continue loop to retry
+        continue;
+      }
+
+      // Other errors: return immediately
+      return new Response(
+        JSON.stringify({ error: `Failed to insert data: ${message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+
+    // After successful insert, handle ordertotals if this is the transaction table
+    if (tableName === 'purpletransaction') {
       // Group transactions by order_number and create ordertotals
       console.log('Calculating order totals and bank fees...');
       const orderTotalsMap = new Map();
