@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Shield, KeyRound } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -119,6 +119,12 @@ const UserSetup = () => {
   const [reportsPermissionsDialogOpen, setReportsPermissionsDialogOpen] = useState(false);
   const [reportsPermissions, setReportsPermissions] = useState<Record<string, boolean>>({});
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    searchTerm: "",
+    statusFilter: "all", // all, active, inactive
+    roleFilter: "all", // all, admin, user
+  });
   
   const [formData, setFormData] = useState({
     user_name: "",
@@ -608,17 +614,49 @@ const UserSetup = () => {
     }
   };
 
+  // Filter profiles based on search and filters
+  const filteredProfiles = profiles.filter((profile) => {
+    // Search term filter
+    const searchLower = filters.searchTerm.toLowerCase();
+    const matchesSearch = 
+      profile.user_name.toLowerCase().includes(searchLower) ||
+      profile.email.toLowerCase().includes(searchLower) ||
+      (profile.mobile_number?.toLowerCase().includes(searchLower) || false);
+
+    // Status filter
+    const matchesStatus = 
+      filters.statusFilter === "all" ||
+      (filters.statusFilter === "active" && profile.is_active) ||
+      (filters.statusFilter === "inactive" && !profile.is_active);
+
+    // Role filter
+    const matchesRole = 
+      filters.roleFilter === "all" ||
+      (filters.roleFilter === "admin" && profile.is_admin) ||
+      (filters.roleFilter === "user" && !profile.is_admin);
+
+    return matchesSearch && matchesStatus && matchesRole;
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">User Setup</h1>
-        <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            {showFilters ? "Hide Filters" : "Show Filters"}
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
@@ -688,7 +726,70 @@ const UserSetup = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {showFilters && (
+        <div className="rounded-lg border bg-card p-4 space-y-4">
+          <h3 className="text-lg font-semibold">Advanced Filters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by name, email, or mobile..."
+                  value={filters.searchTerm}
+                  onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <select
+                id="status"
+                value={filters.statusFilter}
+                onChange={(e) => setFilters({ ...filters, statusFilter: e.target.value })}
+                className="w-full h-10 px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <select
+                id="role"
+                value={filters.roleFilter}
+                onChange={(e) => setFilters({ ...filters, roleFilter: e.target.value })}
+                className="w-full h-10 px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin Only</option>
+                <option value="user">User Only</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center pt-2">
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredProfiles.length} of {profiles.length} users
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilters({ searchTerm: "", statusFilter: "all", roleFilter: "all" })}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-md border bg-card">
         <Table>
@@ -702,7 +803,7 @@ const UserSetup = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {profiles.map((profile) => (
+            {filteredProfiles.map((profile) => (
               <TableRow key={profile.id}>
                 <TableCell className="font-medium">{profile.user_name}</TableCell>
                 <TableCell>{profile.email}</TableCell>
