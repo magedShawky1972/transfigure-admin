@@ -11,12 +11,19 @@ import { Shield, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import logo from "@/assets/edara-logo.png";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,6 +37,9 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
 
   const authSchema = z.object({
     email: z.string().email("Invalid email address").max(255),
@@ -143,71 +153,110 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' ? "كلمات المرور غير متطابقة" : "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' ? "يجب أن تكون كلمة المرور 6 أحرف على الأقل" : "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Validate passwords
-      if (newPassword !== confirmPassword) {
-        toast({
-          title: "Error",
-          description: "Passwords do not match",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (newPassword.length < 6) {
-        toast({
-          title: "Error",
-          description: "Password must be at least 6 characters",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Update password
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
+        password: newPassword
       });
 
       if (updateError) throw updateError;
 
-      // Get current user id
+      // Update the must_change_password flag
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
+      if (user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ must_change_password: false })
+          .eq('user_id', user.id);
+
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+        }
       }
-
-      // Update profile flag
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ must_change_password: false })
-        .eq('user_id', user.id);
-
-      if (profileError) throw profileError;
 
       toast({
         title: t('common.success'),
-        description: t('auth.changePasswordButton'),
+        description: language === 'ar' ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully",
       });
-
-      // Skip MFA and go directly to dashboard
-      navigate("/");
+      
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
     } catch (error: any) {
+      console.error('Error changing password:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: t('common.error'),
+        description: error.message || (language === 'ar' ? "حدث خطأ أثناء تغيير كلمة المرور" : "Error changing password"),
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!resetEmail) {
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' ? "يرجى إدخال البريد الإلكتروني" : "Please enter your email",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: t('common.success'),
+        description: language === 'ar' ? "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني" : "Password reset link sent to your email",
+      });
+      
+      setShowForgotPassword(false);
+      setResetEmail("");
+    } catch (error: any) {
+      console.error('Error sending reset email:', error);
+      toast({
+        title: t('common.error'),
+        description: error.message || (language === 'ar' ? "حدث خطأ أثناء إرسال البريد الإلكتروني" : "Error sending reset email"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
 
   const handleSetupMFA = async () => {
     setLoading(true);
@@ -425,18 +474,19 @@ const Auth = () => {
                   </Button>
                 </div>
               </div>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="text-sm text-primary hover:underline p-0 h-auto"
+                  onClick={() => setShowForgotPassword(true)}
+                >
+                  {language === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
+                </Button>
+              </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
                 {loading ? t('auth.signingIn') : t('auth.signInButton')}
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full" 
-                onClick={handlePasswordReset} 
-                disabled={loading}
-              >
-                {loading ? t('auth.resetPasswordSending') : t('auth.resetPassword')}
               </Button>
             </form>
           )}
@@ -593,6 +643,43 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className={language === 'ar' ? 'text-right' : ''}>
+              {language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}
+            </DialogTitle>
+            <DialogDescription className={language === 'ar' ? 'text-right' : ''}>
+              {language === 'ar' 
+                ? 'أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور'
+                : 'Enter your email and we will send you a link to reset your password'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email" className={language === 'ar' ? 'text-right block' : ''}>
+                {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+              </Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder={language === 'ar' ? 'أدخل بريدك الإلكتروني' : 'Enter your email'}
+                required
+                disabled={isResetting}
+                className={language === 'ar' ? 'text-right' : ''}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isResetting}>
+              {isResetting 
+                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') 
+                : (language === 'ar' ? 'إرسال رابط إعادة التعيين' : 'Send Reset Link')}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
