@@ -281,9 +281,8 @@ const LoadData = () => {
         });
       });
 
-      // Create upload log with explicit upload_date in local timezone
+      // Create upload log with current timestamp
       const now = new Date();
-      const uploadDate = format(now, "yyyy-MM-dd");
       
       const { data: logData, error: logError } = await supabase
         .from("upload_logs")
@@ -295,7 +294,7 @@ const LoadData = () => {
           sheet_id: selectedSheet,
           excel_dates: Array.from(distinctDates).sort(),
           records_processed: 0,
-          upload_date: uploadDate,
+          upload_date: now.toISOString(),
         })
         .select()
         .single();
