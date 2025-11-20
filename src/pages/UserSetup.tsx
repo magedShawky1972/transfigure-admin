@@ -96,6 +96,13 @@ const DASHBOARD_COMPONENTS = [
   { key: "recent_transactions", label: "Recent Transactions" },
 ];
 
+const REPORTS = [
+  { key: "revenue-by-brand-type", label: "Revenue by Brand Type" },
+  { key: "cost-by-brand-type", label: "Cost by Brand Type" },
+  { key: "tickets", label: "Tickets Report" },
+  { key: "software-licenses", label: "Software Licenses Report" },
+];
+
 const UserSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -109,6 +116,8 @@ const UserSetup = () => {
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [dashboardPermissionsDialogOpen, setDashboardPermissionsDialogOpen] = useState(false);
   const [dashboardPermissions, setDashboardPermissions] = useState<Record<string, boolean>>({});
+  const [reportsPermissionsDialogOpen, setReportsPermissionsDialogOpen] = useState(false);
+  const [reportsPermissions, setReportsPermissions] = useState<Record<string, boolean>>({});
   
   const [formData, setFormData] = useState({
     user_name: "",
@@ -479,6 +488,78 @@ const UserSetup = () => {
     }
   };
 
+  const handleReportsClick = async () => {
+    if (!selectedUser) return;
+    
+    setLoadingPermissions(true);
+    setReportsPermissionsDialogOpen(true);
+    
+    try {
+      // @ts-ignore - Supabase type recursion issue
+      const { data, error } = await supabase
+        .from("user_permissions")
+        .select("*")
+        .eq("user_id", selectedUser.user_id)
+        .eq("parent_menu", "Reports")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const permissionsMap: Record<string, boolean> = {};
+      REPORTS.forEach(report => {
+        // Get the most recent permission entry for each report
+        const permissions = data?.filter(p => p.menu_item === report.key);
+        const latestPermission = permissions && permissions.length > 0 ? permissions[0] : null;
+        permissionsMap[report.key] = latestPermission?.has_access ?? true;
+      });
+      
+      setReportsPermissions(permissionsMap);
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
+  const handleReportsPermissionToggle = async (reportKey: string, hasAccess: boolean) => {
+    if (!selectedUser) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_permissions")
+        .upsert({
+          user_id: selectedUser.user_id,
+          menu_item: reportKey,
+          parent_menu: "Reports",
+          has_access: hasAccess,
+        }, {
+          onConflict: "user_id,menu_item,parent_menu"
+        });
+
+      if (error) throw error;
+
+      setReportsPermissions(prev => ({
+        ...prev,
+        [reportKey]: hasAccess,
+      }));
+
+      toast({
+        title: t("common.success"),
+        description: "Report permission updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -648,6 +729,15 @@ const UserSetup = () => {
                           Configure Components
                         </Button>
                       )}
+                      {item.key === "reports" && userPermissions[item.key] && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleReportsClick}
+                        >
+                          Configure Reports
+                        </Button>
+                      )}
                     </div>
                     <Switch
                       id={`perm-${item.key}`}
@@ -688,6 +778,41 @@ const UserSetup = () => {
                       id={`dash-${component.key}`}
                       checked={dashboardPermissions[component.key] ?? true}
                       onCheckedChange={(checked) => handleDashboardPermissionToggle(component.key, checked)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reportsPermissionsDialogOpen} onOpenChange={setReportsPermissionsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Reports Permissions - {selectedUser?.user_name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingPermissions ? (
+            <div className="py-8 text-center">Loading permissions...</div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Enable or disable access to specific reports for this user.
+              </p>
+              
+              <div className="space-y-3">
+                {REPORTS.map((report) => (
+                  <div key={report.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <Label htmlFor={`report-${report.key}`} className="cursor-pointer flex-1">
+                      {report.label}
+                    </Label>
+                    <Switch
+                      id={`report-${report.key}`}
+                      checked={reportsPermissions[report.key] ?? true}
+                      onCheckedChange={(checked) => handleReportsPermissionToggle(report.key, checked)}
                     />
                   </div>
                 ))}
