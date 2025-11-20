@@ -42,6 +42,7 @@ export function AppSidebar() {
 
   const URL_TO_PERMISSION: Record<string, string> = {
     "/": "dashboard",
+    "/dashboard": "dashboard",
     "/ticket-dashboard": "ticket_dashboard",
     "/reports": "reports",
     "/transactions": "transactions",
@@ -107,7 +108,7 @@ export function AppSidebar() {
     {
       label: t("sidebar.reports"),
       items: [
-        { title: t("menu.dashboard"), url: "/", icon: LayoutDashboard },
+        { title: t("menu.dashboard"), url: "/dashboard", icon: LayoutDashboard },
         { title: language === 'ar' ? "لوحة التذاكر" : "Ticket Dashboard", url: "/ticket-dashboard", icon: TicketCheck },
         { title: language === 'ar' ? "لوحة التراخيص" : "Software Licenses", url: "/software-licenses", icon: Key },
         { title: t("menu.reports"), url: "/reports", icon: FileBarChart },
