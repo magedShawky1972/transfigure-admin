@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,6 +85,7 @@ const Dashboard = () => {
   const [paymentBrandsByMethod, setPaymentBrandsByMethod] = useState<any[]>([]);
   const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([]);
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
+  const [showDateInfo, setShowDateInfo] = useState(false);
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
   const [trendDays, setTrendDays] = useState<string>("10");
   const [trendBrandFilter, setTrendBrandFilter] = useState<string>("all");
@@ -1846,10 +1847,57 @@ const Dashboard = () => {
               </>
             )}
 
-            <Button onClick={handleApplyFilter}>{t("dashboard.apply")}</Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDateInfo(true)}
+                className="w-fit self-center"
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+              <Button onClick={handleApplyFilter}>{t("dashboard.apply")}</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Date Info Dialog */}
+      <Dialog open={showDateInfo} onOpenChange={setShowDateInfo}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("dashboard.selectedDateRange")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 p-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-muted-foreground">From Date (yyyymmdd):</span>
+              <span className="text-2xl font-bold">
+                {fromDate ? format(fromDate, "yyyyMMdd") : "Not selected"}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-muted-foreground">To Date (yyyymmdd):</span>
+              <span className="text-2xl font-bold">
+                {toDate ? format(toDate, "yyyyMMdd") : "Not selected"}
+              </span>
+            </div>
+            {fromDate && toDate && (
+              <div className="flex flex-col gap-2 pt-4 border-t">
+                <span className="text-sm font-medium text-muted-foreground">Integer Format:</span>
+                <div className="flex gap-2 items-center">
+                  <span className="text-lg font-mono bg-muted px-3 py-1 rounded">
+                    {format(fromDate, "yyyyMMdd")}
+                  </span>
+                  <span className="text-muted-foreground">to</span>
+                  <span className="text-lg font-mono bg-muted px-3 py-1 rounded">
+                    {format(toDate, "yyyyMMdd")}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Metrics Cards */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
