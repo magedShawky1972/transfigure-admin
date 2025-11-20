@@ -231,24 +231,22 @@ const Tickets = () => {
         .eq("role", "admin");
 
       // Combine department admins and admin role users (remove duplicates)
-      const allNotificationRecipients = new Set([
+      const allNotificationRecipients = Array.from(new Set([
         ...(admins?.map(a => a.user_id) || []),
         ...(adminUsers?.map(a => a.user_id) || [])
-      ]);
+      ]));
 
-      // Send notifications to all recipients
-      if (allNotificationRecipients.size > 0 && ticketData) {
-        for (const userId of allNotificationRecipients) {
-          await supabase.functions.invoke("send-ticket-notification", {
-            body: {
-              type: "ticket_created",
-              ticketId: ticketData.id,
-              recipientUserId: userId,
-              ticketNumber: ticketData.ticket_number,
-              subject: values.subject,
-            },
-          });
-        }
+      // Send batch notification to all recipients (much faster)
+      if (allNotificationRecipients.length > 0 && ticketData) {
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_created",
+            ticketId: ticketData.id,
+            recipientUserIds: allNotificationRecipients,
+            ticketNumber: ticketData.ticket_number,
+            subject: values.subject,
+          },
+        });
       }
 
       toast({
