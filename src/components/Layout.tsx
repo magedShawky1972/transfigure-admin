@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Languages, LogOut } from "lucide-react";
+import { Moon, Sun, Languages, LogOut, Home } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -155,6 +155,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </div>
                   )}
                   <NotificationBell />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate("/dashboard")}
+                    className="rounded-full"
+                    title={t("navigation.home")}
+                  >
+                    <Home className="h-5 w-5" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
