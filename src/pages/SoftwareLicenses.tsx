@@ -198,14 +198,19 @@ const SoftwareLicenses = () => {
         if (match) {
           const [, accessType, bucketName, filePath] = match;
           
-          // Always create signed URL for secure access
-          const { data, error } = await supabase.storage
-            .from(bucketName)
-            .createSignedUrl(filePath, 3600);
+          if (accessType === 'public') {
+            // For public buckets, open URL directly
+            window.open(filePathOrUrl, '_blank');
+          } else {
+            // For private buckets, create signed URL
+            const { data, error } = await supabase.storage
+              .from(bucketName)
+              .createSignedUrl(filePath, 3600);
 
-          if (error) throw error;
-          if (data?.signedUrl) {
-            window.open(data.signedUrl, '_blank');
+            if (error) throw error;
+            if (data?.signedUrl) {
+              window.open(data.signedUrl, '_blank');
+            }
           }
         } else {
           // If URL format doesn't match, try to open directly
