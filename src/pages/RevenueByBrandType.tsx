@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,61 @@ const RevenueByBrandType = () => {
   const [reportResults, setReportResults] = useState<ReportResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [dateRun, setDateRun] = useState<string>("");
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkAccess();
+  }, []);
+
+  const checkAccess = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/');
+        return;
+      }
+
+      // Check if user is admin
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      if (roles) {
+        setHasAccess(true);
+        return;
+      }
+
+      // Check specific permission
+      const { data: permission } = await supabase
+        .from('user_permissions')
+        .select('has_access')
+        .eq('user_id', user.id)
+        .eq('menu_item', 'revenue-by-brand-type')
+        .eq('parent_menu', 'Reports')
+        .single();
+
+      if (permission?.has_access) {
+        setHasAccess(true);
+      } else {
+        toast.error(t('common.accessDenied') || 'Access denied to this report');
+        navigate('/reports');
+      }
+    } catch (error) {
+      console.error('Error checking access:', error);
+      navigate('/reports');
+    }
+  };
+
+  if (hasAccess === null) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  if (!hasAccess) {
+    return null;
+  }
 
   const { data: brandTypes = [] } = useQuery({
     queryKey: ["brand-types"],

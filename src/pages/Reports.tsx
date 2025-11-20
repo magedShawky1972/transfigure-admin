@@ -1,12 +1,54 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, TrendingUp, TicketCheck, Key } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const Reports = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const [allowedReports, setAllowedReports] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchUserPermissions();
+  }, []);
+
+  const fetchUserPermissions = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if user is admin
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      // If admin, allow all reports
+      if (roles) {
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses']);
+        return;
+      }
+
+      // Otherwise, fetch specific permissions
+      const { data: permissions } = await supabase
+        .from('user_permissions')
+        .select('menu_item')
+        .eq('user_id', user.id)
+        .eq('parent_menu', 'Reports')
+        .eq('has_access', true);
+
+      if (permissions) {
+        setAllowedReports(permissions.map(p => p.menu_item));
+      }
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+    }
+  };
 
   const reports = [
     {
@@ -39,6 +81,8 @@ const Reports = () => {
     },
   ];
 
+  const filteredReports = reports.filter(report => allowedReports.includes(report.id));
+
   return (
     <div className="space-y-6">
       <div>
@@ -49,7 +93,7 @@ const Reports = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {reports.map((report) => {
+        {filteredReports.map((report) => {
           const Icon = report.icon;
           return (
             <Card key={report.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(report.route)}>
