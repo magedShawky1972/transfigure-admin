@@ -95,9 +95,19 @@ const TicketDetails = () => {
           )
         `)
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      
+      if (!data) {
+        toast({
+          title: "Error",
+          description: "Ticket not found or you don't have access to it",
+          variant: "destructive",
+        });
+        navigate("/tickets");
+        return;
+      }
       
       // Fetch user profile separately
       const { data: profileData } = await supabase
