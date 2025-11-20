@@ -92,6 +92,7 @@ const Tickets = () => {
   const [open, setOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const formSchema = getFormSchema(language);
 
@@ -108,9 +109,30 @@ const Tickets = () => {
   });
 
   useEffect(() => {
+    checkAdminStatus();
     fetchTickets();
     fetchDepartments();
   }, []);
+
+  const checkAdminStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      if (!error && data) {
+        setIsAdmin(true);
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const fetchDepartments = async () => {
     try {
@@ -167,9 +189,17 @@ const Tickets = () => {
     if (!ticketToDelete) return;
     
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(language === 'ar' ? "غير مصرح" : "Not authenticated");
+
+      // Soft delete: mark as deleted instead of removing from database
       const { error } = await supabase
         .from("tickets")
-        .delete()
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id
+        })
         .eq("id", ticketToDelete);
 
       if (error) throw error;
@@ -527,7 +557,7 @@ const Tickets = () => {
                     <Eye className="mr-2 h-4 w-4" />
                     {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
                   </Button>
-                  {ticket.status === 'Open' && !ticket.assigned_to && (
+                  {(isAdmin || (ticket.status === 'Open' && !ticket.assigned_to)) && (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -555,8 +585,8 @@ const Tickets = () => {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {language === 'ar' 
-                ? 'هل أنت متأكد أنك تريد حذف هذه التذكرة؟ لا يمكن التراجع عن هذا الإجراء.'
-                : 'Are you sure you want to delete this ticket? This action cannot be undone.'}
+                ? 'هل أنت متأكد أنك تريد حذف هذه التذكرة؟ سيتم وضع علامة حذف عليها.'
+                : 'Are you sure you want to delete this ticket? It will be marked as deleted.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
