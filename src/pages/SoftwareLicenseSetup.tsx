@@ -999,34 +999,11 @@ const SoftwareLicenseSetup = () => {
                             const filePathOrUrl = formData.invoice_file_path;
                             if (!filePathOrUrl) return;
 
-                            // If it's a full URL, parse and open appropriately
+                            // If it's already a full URL, just open it directly
                             if (filePathOrUrl.startsWith('http')) {
-                              // Extract bucket and file path from URL using regex
-                              const match = filePathOrUrl.match(/\/storage\/v1\/object\/(public|authenticated)\/([^\/]+)\/(.+)$/);
-                              
-                              if (match) {
-                                const [, accessType, bucketName, filePath] = match;
-                                
-                                if (accessType === 'public') {
-                                  // For public buckets, open URL directly
-                                  window.open(filePathOrUrl, '_blank');
-                                } else {
-                                  // For private buckets, create signed URL
-                                  const { data, error } = await supabase.storage
-                                    .from(bucketName)
-                                    .createSignedUrl(filePath, 3600);
-
-                                  if (error) throw error;
-                                  if (data?.signedUrl) {
-                                    window.open(data.signedUrl, '_blank');
-                                  }
-                                }
-                              } else {
-                                // If URL format doesn't match, try to open directly
-                                window.open(filePathOrUrl, '_blank');
-                              }
+                              window.open(filePathOrUrl, '_blank');
                             } else {
-                              // If it's just a path, assume software-license-invoices bucket
+                              // If it's just a path, create signed URL from software-license-invoices bucket
                               const { data, error } = await supabase.storage
                                 .from('software-license-invoices')
                                 .createSignedUrl(filePathOrUrl, 3600);
