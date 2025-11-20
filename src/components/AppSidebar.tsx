@@ -84,13 +84,28 @@ export function AppSidebar() {
 
       const { data, error } = await supabase
         .from("user_permissions")
-        .select("menu_item, has_access")
+        .select("menu_item, has_access, created_at")
         .eq("user_id", user.id)
-        .eq("has_access", true);
+        .is("parent_menu", null)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      const permissions = new Set(data?.map(p => p.menu_item) || []);
+      // Get only the most recent permission for each menu item
+      const permissionsMap = new Map<string, boolean>();
+      data?.forEach(p => {
+        if (!permissionsMap.has(p.menu_item)) {
+          permissionsMap.set(p.menu_item, p.has_access);
+        }
+      });
+
+      // Only include items where has_access is true
+      const permissions = new Set(
+        Array.from(permissionsMap.entries())
+          .filter(([_, hasAccess]) => hasAccess)
+          .map(([menuItem]) => menuItem)
+      );
+      
       setUserPermissions(permissions);
     } catch (error) {
       console.error("Error fetching permissions:", error);
