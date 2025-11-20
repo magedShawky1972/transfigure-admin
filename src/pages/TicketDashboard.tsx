@@ -77,10 +77,11 @@ const TicketDashboard = () => {
 
       const isAdmin = adminDepts && adminDepts.length > 0;
 
-      // Fetch tickets based on role
+      // Fetch tickets based on role (exclude deleted tickets)
       let query = supabase
         .from("tickets")
-        .select("*, departments(department_name)");
+        .select("*, departments(department_name)")
+        .eq("is_deleted", false);
 
       if (isAdmin) {
         const departmentIds = adminDepts?.map(d => d.department_id) || [];
