@@ -319,10 +319,10 @@ const Dashboard = () => {
         return;
       }
 
-      const startStr = format(dateRange.start, "yyyy-MM-dd");
-      const endStr = format(dateRange.end, "yyyy-MM-dd");
-      const startDate = startStr;
-      const endDate = endStr;
+      const startStr = format(dateRange.start, "yyyy-MM-dd 00:00:00");
+      const endStr = format(dateRange.end, "yyyy-MM-dd 23:59:59");
+      const startDate = format(dateRange.start, "yyyy-MM-dd");
+      const endDate = format(dateRange.end, "yyyy-MM-dd");
       // Store for applied filter display
       setAppliedStartStr(startStr);
       setAppliedEndNextStr(endStr);
@@ -423,8 +423,8 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const startStr = format(trendStartDate, "yyyy-MM-dd");
-      const endStr = format(trendEndDate, "yyyy-MM-dd");
+      const startStr = format(trendStartDate, "yyyy-MM-dd 00:00:00");
+      const endStr = format(trendEndDate, "yyyy-MM-dd 23:59:59");
 
       // Build base query with optional brand filter
       let base = supabase
@@ -496,8 +496,8 @@ const Dashboard = () => {
 
       const startDate = format(dateRange.start, 'yyyy-MM-dd');
       const endDate = format(dateRange.end, 'yyyy-MM-dd');
-      const startStr = format(dateRange.start, "yyyy-MM-dd");
-      const endStr = format(dateRange.end, "yyyy-MM-dd");
+      const startStr = format(dateRange.start, "yyyy-MM-dd 00:00:00");
+      const endStr = format(dateRange.end, "yyyy-MM-dd 23:59:59");
       
       // Use RPC function which properly handles date ranges
       const { data: summary, error: summaryError } = await supabase
@@ -537,8 +537,8 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const trendStartStr = format(trendStartDate, "yyyy-MM-dd");
-      const trendEndStr = format(trendEndDate, "yyyy-MM-dd");
+      const trendStartStr = format(trendStartDate, "yyyy-MM-dd 00:00:00");
+      const trendEndStr = format(trendEndDate, "yyyy-MM-dd 23:59:59");
 
       // Build base query with optional brand filter
       let trendBase = supabase
@@ -613,8 +613,8 @@ const Dashboard = () => {
         // Fetch non-point data
         let fromNP = 0;
         let nonPointData: any[] = [];
-        const startStr = format(start, "yyyy-MM-dd");
-        const endStr = format(end, "yyyy-MM-dd");
+        const startStr = format(start, "yyyy-MM-dd 00:00:00");
+        const endStr = format(end, "yyyy-MM-dd 23:59:59");
         
         while (true) {
           const { data, error } = await (supabase as any)
@@ -1321,8 +1321,8 @@ const Dashboard = () => {
     const dateRange = getDateRange();
     if (!dateRange) return;
 
-    const startStr = format(dateRange.start, "yyyy-MM-dd");
-    const endStr = format(dateRange.end, "yyyy-MM-dd");
+    const startStr = format(dateRange.start, "yyyy-MM-dd 00:00:00");
+    const endStr = format(dateRange.end, "yyyy-MM-dd 23:59:59");
 
     const { data: newCustomers, error } = await supabase
       .from('customers')
@@ -1390,8 +1390,8 @@ const Dashboard = () => {
         return;
       }
 
-      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd");
-      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd");
+      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd 00:00:00");
+      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd 23:59:59");
 
       // Fetch ALL point transactions with pagination
       const pageSize = 1000;
@@ -1533,8 +1533,8 @@ const Dashboard = () => {
         return;
       }
 
-      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd");
-      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd");
+      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd 00:00:00");
+      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd 23:59:59");
 
       // Fetch payment methods configuration
       const { data: paymentMethods, error: pmError } = await supabase
@@ -1643,8 +1643,8 @@ const Dashboard = () => {
         return;
       }
 
-      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd");
-      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd");
+      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd 00:00:00");
+      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd 23:59:59");
 
       // Fetch transactions for specific payment method and brand
       const pageSize = 1000;
