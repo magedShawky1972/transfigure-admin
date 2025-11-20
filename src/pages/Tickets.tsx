@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Download } from "lucide-react";
+import { Plus, Eye, FileText, Download, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import {
@@ -16,6 +16,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -61,6 +71,7 @@ type Ticket = {
   created_at: string;
   assigned_to: string | null;
   is_purchase_ticket: boolean;
+  approved_at: string | null;
   departments: {
     department_name: string;
   };
@@ -81,6 +92,8 @@ const Tickets = () => {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
 
   const formSchema = getFormSchema(language);
 
@@ -261,6 +274,39 @@ const Tickets = () => {
       case "In Progress": return "default";
       case "Closed": return "secondary";
       default: return "default";
+    }
+  };
+
+  const handleDeleteClick = (ticketId: string) => {
+    setTicketToDelete(ticketId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!ticketToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .delete()
+        .eq("id", ticketToDelete);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? "نجح" : "Success",
+        description: language === 'ar' ? "تم حذف التذكرة بنجاح" : "Ticket deleted successfully",
+      });
+
+      setDeleteDialogOpen(false);
+      setTicketToDelete(null);
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -495,12 +541,45 @@ const Tickets = () => {
                     <Eye className="mr-2 h-4 w-4" />
                     {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
                   </Button>
+                  {!ticket.approved_at && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteClick(ticket.id)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'حذف' : 'Delete'}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? 'لا يمكن التراجع عن هذا الإجراء. سيتم حذف التذكرة نهائياً من النظام.'
+                : 'This action cannot be undone. This will permanently delete the ticket from the system.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {language === 'ar' ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
