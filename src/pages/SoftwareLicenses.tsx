@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, AlertCircle, ArrowUpDown } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, AlertCircle, ArrowUpDown, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
@@ -31,6 +31,7 @@ interface SoftwareLicense {
   assigned_department: string | null;
   cost: number;
   status: string;
+  invoice_file_path: string | null;
 }
 
 const SoftwareLicenses = () => {
@@ -180,6 +181,26 @@ const SoftwareLicenses = () => {
       toast({
         title: t("common.error"),
         description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewInvoice = async (invoicePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('software-license-invoices')
+        .createSignedUrl(invoicePath, 3600); // 1 hour expiry
+
+      if (error) throw error;
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: language === "ar" ? "فشل فتح الفاتورة" : "Failed to open invoice",
         variant: "destructive",
       });
     }
@@ -388,6 +409,16 @@ const SoftwareLicenses = () => {
                 </div>
                 
                 <div className="flex gap-2 pt-2">
+                  {license.invoice_file_path && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewInvoice(license.invoice_file_path!)}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {language === "ar" ? "الفاتورة" : "Invoice"}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
