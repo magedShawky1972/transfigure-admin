@@ -1001,27 +1001,24 @@ const SoftwareLicenseSetup = () => {
 
                             // If it's a full URL, parse and open appropriately
                             if (filePathOrUrl.startsWith('http')) {
-                              const urlParts = filePathOrUrl.split('/storage/v1/object/');
-                              if (urlParts.length > 1) {
-                                const pathParts = urlParts[1].split('/');
-                                const isPublic = pathParts[0] === 'public';
-                                const bucketName = pathParts[1];
-                                const filePath = pathParts.slice(2).join('/');
+                              // Extract bucket and file path from URL using regex
+                              const match = filePathOrUrl.match(/\/storage\/v1\/object\/(public|authenticated)\/([^\/]+)\/(.+)$/);
+                              
+                              if (match) {
+                                const [, , bucketName, filePath] = match;
+                                
+                                // Always create signed URL for secure access
+                                const { data, error } = await supabase.storage
+                                  .from(bucketName)
+                                  .createSignedUrl(filePath, 3600);
 
-                                if (isPublic) {
-                                  // For public buckets, open URL directly
-                                  window.open(filePathOrUrl, '_blank');
-                                } else {
-                                  // For private buckets, create signed URL
-                                  const { data, error } = await supabase.storage
-                                    .from(bucketName)
-                                    .createSignedUrl(filePath, 3600);
-
-                                  if (error) throw error;
-                                  if (data?.signedUrl) {
-                                    window.open(data.signedUrl, '_blank');
-                                  }
+                                if (error) throw error;
+                                if (data?.signedUrl) {
+                                  window.open(data.signedUrl, '_blank');
                                 }
+                              } else {
+                                // If URL format doesn't match, try to open directly
+                                window.open(filePathOrUrl, '_blank');
                               }
                             } else {
                               // If it's just a path, assume software-license-invoices bucket
