@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -19,6 +19,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Ticket = {
   id: string;
@@ -66,11 +76,35 @@ const AdminTickets = () => {
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [quickComment, setQuickComment] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    checkAdminStatus();
     fetchTickets();
     fetchDepartmentMembers();
   }, []);
+
+  const checkAdminStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      if (data && !error) {
+        setIsAdmin(true);
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const fetchTickets = async () => {
     try {
@@ -103,6 +137,7 @@ const AdminTickets = () => {
           )
         `)
         .in("department_id", departmentIds)
+        .eq("is_deleted", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -284,6 +319,43 @@ const AdminTickets = () => {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!ticketToDelete) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(language === 'ar' ? "غير مصرح" : "Not authenticated");
+
+      // Soft delete: mark as deleted instead of removing from database
+      const { error } = await supabase
+        .from("tickets")
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id
+        })
+        .eq("id", ticketToDelete);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? "نجح" : "Success",
+        description: language === 'ar' ? "تم حذف التذكرة بنجاح" : "Ticket deleted successfully",
+      });
+
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setTicketToDelete(null);
     }
   };
 
@@ -553,6 +625,19 @@ const AdminTickets = () => {
             <Eye className="mr-2 h-4 w-4" />
             {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
           </Button>
+          {isAdmin && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setTicketToDelete(ticket.id);
+                setDeleteDialogOpen(true);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {language === 'ar' ? 'حذف' : 'Delete'}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -652,6 +737,27 @@ const AdminTickets = () => {
           </TabsContent>
         </Tabs>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? 'سيتم وضع علامة على هذه التذكرة على أنها محذوفة. يمكن للمسؤولين فقط عرض التذاكر المحذوفة.'
+                : 'This ticket will be marked as deleted. Only admins can view deleted tickets.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {language === 'ar' ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
