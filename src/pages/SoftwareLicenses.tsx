@@ -189,14 +189,10 @@ const SoftwareLicenses = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center">
         <h1 className="text-3xl font-bold text-foreground">
           {language === "ar" ? "لوحة البرامج والاشتراكات" : "Software & Subscription Dashboard"}
         </h1>
-        <Button onClick={() => navigate("/software-license-setup")}>
-          <Plus className="h-4 w-4 mr-2" />
-          {language === "ar" ? "إضافة ترخيص" : "Add License"}
-        </Button>
       </div>
 
       {/* Dashboard Stats */}
