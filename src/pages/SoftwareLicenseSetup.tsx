@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
@@ -74,6 +74,11 @@ const SoftwareLicenseSetup = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [renewalCycleFilter, setRenewalCycleFilter] = useState<string>("all");
+  const [sortColumn, setSortColumn] = useState<keyof SoftwareLicense | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicenseId, setEditingLicenseId] = useState<string | null>(null);
 
@@ -101,8 +106,8 @@ const SoftwareLicenseSetup = () => {
   }, []);
 
   useEffect(() => {
-    filterLicenses();
-  }, [licenses, searchQuery]);
+    filterAndSortLicenses();
+  }, [licenses, searchQuery, statusFilter, categoryFilter, renewalCycleFilter, sortColumn, sortDirection]);
 
   const fetchLicenses = async () => {
     setLoading(true);
@@ -125,19 +130,83 @@ const SoftwareLicenseSetup = () => {
     }
   };
 
-  const filterLicenses = () => {
-    if (!searchQuery) {
-      setFilteredLicenses(licenses);
-      return;
+  // Get unique categories from licenses for filter
+  const uniqueCategories = Array.from(new Set(licenses.map(l => l.category).filter(Boolean)));
+
+  const filterAndSortLicenses = () => {
+    let filtered = [...licenses];
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (license) =>
+          license.software_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          license.vendor_provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          license.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
 
-    const filtered = licenses.filter(
-      (license) =>
-        license.software_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        license.vendor_provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        license.category.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((license) => license.status === statusFilter);
+    }
+
+    // Apply category filter
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((license) => license.category === categoryFilter);
+    }
+
+    // Apply renewal cycle filter
+    if (renewalCycleFilter !== "all") {
+      filtered = filtered.filter((license) => license.renewal_cycle === renewalCycleFilter);
+    }
+
+    // Apply sorting
+    if (sortColumn) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
+
+        if (aValue === null && bValue === null) return 0;
+        if (aValue === null) return 1;
+        if (bValue === null) return -1;
+
+        let comparison = 0;
+        if (typeof aValue === "string" && typeof bValue === "string") {
+          comparison = aValue.localeCompare(bValue);
+        } else if (typeof aValue === "number" && typeof bValue === "number") {
+          comparison = aValue - bValue;
+        } else {
+          comparison = String(aValue).localeCompare(String(bValue));
+        }
+
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
     setFilteredLicenses(filtered);
+  };
+
+  const handleSort = (column: keyof SoftwareLicense) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new column with ascending direction
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: keyof SoftwareLicense) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-4 w-4 ml-1 inline" />
+    ) : (
+      <ArrowDown className="h-4 w-4 ml-1 inline" />
+    );
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -383,6 +452,62 @@ const SoftwareLicenseSetup = () => {
         />
       </div>
 
+      {/* Advanced Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>{language === "ar" ? "الحالة" : "Status"}</Label>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={language === "ar" ? "جميع الحالات" : "All Statuses"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+              <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
+              <SelectItem value="expired">{language === "ar" ? "منتهي" : "Expired"}</SelectItem>
+              <SelectItem value="expiring_soon">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{language === "ar" ? "الفئة" : "Category"}</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={language === "ar" ? "جميع الفئات" : "All Categories"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+              {uniqueCategories.length > 0 ? (
+                uniqueCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))
+              ) : (
+                CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{language === "ar" ? "دورة التجديد" : "Renewal Cycle"}</Label>
+          <Select value={renewalCycleFilter} onValueChange={setRenewalCycleFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={language === "ar" ? "جميع الدورات" : "All Cycles"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+              {RENEWAL_CYCLES.map((cycle) => (
+                <SelectItem key={cycle.value} value={cycle.value}>
+                  {language === "ar" ? cycle.labelAr : cycle.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* Data Grid */}
       <Card>
         <CardContent className="p-0">
@@ -390,14 +515,62 @@ const SoftwareLicenseSetup = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === "ar" ? "اسم البرنامج" : "Software Name"}</TableHead>
-                  <TableHead>{language === "ar" ? "المورد" : "Vendor"}</TableHead>
-                  <TableHead>{language === "ar" ? "الفئة" : "Category"}</TableHead>
-                  <TableHead>{language === "ar" ? "تاريخ الشراء" : "Purchase Date"}</TableHead>
-                  <TableHead>{language === "ar" ? "تاريخ الانتهاء" : "Expiry Date"}</TableHead>
-                  <TableHead>{language === "ar" ? "دورة التجديد" : "Renewal Cycle"}</TableHead>
-                  <TableHead>{language === "ar" ? "التكلفة" : "Cost"}</TableHead>
-                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("software_name")}
+                  >
+                    {language === "ar" ? "اسم البرنامج" : "Software Name"}
+                    {getSortIcon("software_name")}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("vendor_provider")}
+                  >
+                    {language === "ar" ? "المورد" : "Vendor"}
+                    {getSortIcon("vendor_provider")}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("category")}
+                  >
+                    {language === "ar" ? "الفئة" : "Category"}
+                    {getSortIcon("category")}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("purchase_date")}
+                  >
+                    {language === "ar" ? "تاريخ الشراء" : "Purchase Date"}
+                    {getSortIcon("purchase_date")}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("expiry_date")}
+                  >
+                    {language === "ar" ? "تاريخ الانتهاء" : "Expiry Date"}
+                    {getSortIcon("expiry_date")}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("renewal_cycle")}
+                  >
+                    {language === "ar" ? "دورة التجديد" : "Renewal Cycle"}
+                    {getSortIcon("renewal_cycle")}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("cost")}
+                  >
+                    {language === "ar" ? "التكلفة" : "Cost"}
+                    {getSortIcon("cost")}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("status")}
+                  >
+                    {language === "ar" ? "الحالة" : "Status"}
+                    {getSortIcon("status")}
+                  </TableHead>
                   <TableHead className="text-center">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
