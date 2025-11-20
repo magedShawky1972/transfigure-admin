@@ -55,7 +55,7 @@ const Index = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-sm text-muted-foreground">Version 1.0.4</p>
+          <p className="text-sm text-muted-foreground">Version 1.0.5</p>
         </CardContent>
       </Card>
     </div>
