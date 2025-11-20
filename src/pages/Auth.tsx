@@ -10,6 +10,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/comp
 import { Shield, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { format } from "date-fns";
 import logo from "@/assets/edara-logo.png";
 
 const Auth = () => {
@@ -585,6 +586,11 @@ const Auth = () => {
               </Button>
             </form>
           )}
+          
+          <div className="text-center mt-6 space-y-2 border-t pt-4">
+            <p className="text-sm text-muted-foreground">{format(new Date(), 'MMMM dd, yyyy')}</p>
+            <p className="text-sm text-muted-foreground">Version 1.0.5</p>
+          </div>
         </CardContent>
       </Card>
     </div>
