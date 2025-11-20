@@ -224,14 +224,26 @@ const Tickets = () => {
         .select("user_id")
         .eq("department_id", values.department_id);
 
-      // Send notifications to all department admins
-      if (admins && ticketData) {
-        for (const admin of admins) {
+      // Get all users with admin role
+      const { data: adminUsers } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "admin");
+
+      // Combine department admins and admin role users (remove duplicates)
+      const allNotificationRecipients = new Set([
+        ...(admins?.map(a => a.user_id) || []),
+        ...(adminUsers?.map(a => a.user_id) || [])
+      ]);
+
+      // Send notifications to all recipients
+      if (allNotificationRecipients.size > 0 && ticketData) {
+        for (const userId of allNotificationRecipients) {
           await supabase.functions.invoke("send-ticket-notification", {
             body: {
               type: "ticket_created",
               ticketId: ticketData.id,
-              recipientUserId: admin.user_id,
+              recipientUserId: userId,
               ticketNumber: ticketData.ticket_number,
               subject: values.subject,
             },
