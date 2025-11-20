@@ -985,9 +985,12 @@ export type Database = {
           approved_by: string | null
           assigned_to: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           department_id: string
           description: string
           id: string
+          is_deleted: boolean
           is_purchase_ticket: boolean
           priority: string
           status: string
@@ -1001,9 +1004,12 @@ export type Database = {
           approved_by?: string | null
           assigned_to?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           department_id: string
           description: string
           id?: string
+          is_deleted?: boolean
           is_purchase_ticket?: boolean
           priority: string
           status?: string
@@ -1017,9 +1023,12 @@ export type Database = {
           approved_by?: string | null
           assigned_to?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           department_id?: string
           description?: string
           id?: string
+          is_deleted?: boolean
           is_purchase_ticket?: boolean
           priority?: string
           status?: string
