@@ -724,6 +724,7 @@ export type Database = {
           cost_sold: number | null
           created_at: string
           created_at_date: string | null
+          created_at_date_int: number | null
           customer_name: string | null
           customer_phone: string | null
           id: string
@@ -752,6 +753,7 @@ export type Database = {
           cost_sold?: number | null
           created_at?: string
           created_at_date?: string | null
+          created_at_date_int?: number | null
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
@@ -780,6 +782,7 @@ export type Database = {
           cost_sold?: number | null
           created_at?: string
           created_at_date?: string | null
+          created_at_date_int?: number | null
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
@@ -1301,6 +1304,7 @@ export type Database = {
         }[]
       }
       exec_sql: { Args: { sql: string }; Returns: undefined }
+      format_date_to_int: { Args: { d: string }; Returns: number }
       generate_ticket_number: { Args: never; Returns: string }
       get_cost_of_sales: {
         Args: { date_from: string; date_to: string }
