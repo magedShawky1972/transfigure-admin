@@ -1869,32 +1869,41 @@ const Dashboard = () => {
             <DialogTitle>{t("dashboard.selectedDateRange")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 p-4">
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-muted-foreground">From Date (yyyymmdd):</span>
-              <span className="text-2xl font-bold">
-                {fromDate ? format(fromDate, "yyyyMMdd") : "Not selected"}
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-muted-foreground">To Date (yyyymmdd):</span>
-              <span className="text-2xl font-bold">
-                {toDate ? format(toDate, "yyyyMMdd") : "Not selected"}
-              </span>
-            </div>
-            {fromDate && toDate && (
-              <div className="flex flex-col gap-2 pt-4 border-t">
-                <span className="text-sm font-medium text-muted-foreground">Integer Format:</span>
-                <div className="flex gap-2 items-center">
-                  <span className="text-lg font-mono bg-muted px-3 py-1 rounded">
-                    {format(fromDate, "yyyyMMdd")}
-                  </span>
-                  <span className="text-muted-foreground">to</span>
-                  <span className="text-lg font-mono bg-muted px-3 py-1 rounded">
-                    {format(toDate, "yyyyMMdd")}
-                  </span>
-                </div>
-              </div>
-            )}
+            {(() => {
+              const dateRange = getDateRange();
+              if (!dateRange) {
+                return <p className="text-muted-foreground">Please select a date range</p>;
+              }
+              
+              return (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">From Date (yyyymmdd):</span>
+                    <span className="text-2xl font-bold">
+                      {format(dateRange.start, "yyyyMMdd")}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">To Date (yyyymmdd):</span>
+                    <span className="text-2xl font-bold">
+                      {format(dateRange.end, "yyyyMMdd")}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2 pt-4 border-t">
+                    <span className="text-sm font-medium text-muted-foreground">Integer Format:</span>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-lg font-mono bg-muted px-3 py-1 rounded">
+                        {format(dateRange.start, "yyyyMMdd")}
+                      </span>
+                      <span className="text-muted-foreground">to</span>
+                      <span className="text-lg font-mono bg-muted px-3 py-1 rounded">
+                        {format(dateRange.end, "yyyyMMdd")}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
