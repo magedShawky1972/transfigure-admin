@@ -80,6 +80,7 @@ const Tickets = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formSchema = getFormSchema(language);
 
@@ -153,6 +154,9 @@ const Tickets = () => {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (isSubmitting) return; // Prevent multiple submissions
+    
+    setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error(language === 'ar' ? "غير مصرح" : "Not authenticated");
@@ -236,6 +240,8 @@ const Tickets = () => {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -395,10 +401,12 @@ const Tickets = () => {
                   )}
                 />
                 <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button type="submit">{language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket'}</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') : (language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket')}
+                  </Button>
                 </div>
               </form>
             </Form>
