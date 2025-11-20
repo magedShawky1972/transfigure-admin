@@ -158,7 +158,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate("/")}
                     className="rounded-full"
                     title={t("navigation.home")}
                   >
