@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -118,6 +118,7 @@ const UserSetup = () => {
   const [dashboardPermissions, setDashboardPermissions] = useState<Record<string, boolean>>({});
   const [reportsPermissionsDialogOpen, setReportsPermissionsDialogOpen] = useState(false);
   const [reportsPermissions, setReportsPermissions] = useState<Record<string, boolean>>({});
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
   
   const [formData, setFormData] = useState({
     user_name: "",
@@ -129,7 +130,26 @@ const UserSetup = () => {
 
   useEffect(() => {
     fetchProfiles();
+    checkCurrentUserAdmin();
   }, []);
+
+  const checkCurrentUserAdmin = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      setIsCurrentUserAdmin(!!roleData);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
+  };
 
   const fetchProfiles = async () => {
     setLoading(true);
@@ -290,6 +310,34 @@ const UserSetup = () => {
         description: "User deleted successfully",
       });
       fetchProfiles();
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (profile: Profile) => {
+    if (!confirm(`Are you sure you want to reset password to default (123456) for ${profile.user_name}?`)) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-user-password", {
+        body: {
+          email: profile.email,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: t("common.success"),
+        description: `Password reset to 123456 for ${profile.user_name}`,
+      });
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -675,6 +723,16 @@ const UserSetup = () => {
                     >
                       <Shield className="h-4 w-4" />
                     </Button>
+                    {isCurrentUserAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResetPassword(profile)}
+                        title="Reset Password to 123456"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
