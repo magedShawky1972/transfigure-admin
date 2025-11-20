@@ -233,6 +233,17 @@ const Dashboard = () => {
     }
   };
 
+  // Helper function to convert date to integer format (yyyyMMdd)
+  const getDateRangeInt = () => {
+    const dateRange = getDateRange();
+    if (!dateRange) return null;
+    
+    const startInt = parseInt(format(dateRange.start, "yyyyMMdd"));
+    const endInt = parseInt(format(dateRange.end, "yyyyMMdd"));
+    
+    return { startInt, endInt };
+  };
+
   const handleApplyFilter = () => {
     fetchMetrics();
     fetchCharts();
@@ -315,11 +326,13 @@ const Dashboard = () => {
       setNewCustomersCount(0);
       
       const dateRange = getDateRange();
-      if (!dateRange) {
+      const dateRangeInt = getDateRangeInt();
+      if (!dateRange || !dateRangeInt) {
         setLoadingStats(false);
         return;
       }
 
+      const { startInt, endInt } = dateRangeInt;
       const startStr = format(dateRange.start, "yyyy-MM-dd 00:00:00");
       const endStr = format(dateRange.end, "yyyy-MM-dd 23:59:59");
       const startDate = format(dateRange.start, "yyyy-MM-dd");
@@ -394,13 +407,13 @@ const Dashboard = () => {
         });
       }
 
-      // Fetch only recent 5 transactions for display
+      // Fetch only recent 5 transactions for display using integer date column
       const { data: recentTxns, error: recentError } = await supabase
         .from('purpletransaction')
         .select('*')
-        .gte('created_at_date', startStr)
-        .lte('created_at_date', endStr)
-        .order('created_at_date', { ascending: false })
+        .gte('created_at_date_int', startInt)
+        .lte('created_at_date_int', endInt)
+        .order('created_at_date_int', { ascending: false })
         .limit(5);
 
       if (!recentError && recentTxns) {
@@ -424,16 +437,16 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const startStr = format(trendStartDate, "yyyy-MM-dd 00:00:00");
-      const endStr = format(trendEndDate, "yyyy-MM-dd 23:59:59");
+      const startInt = parseInt(format(trendStartDate, "yyyyMMdd"));
+      const endInt = parseInt(format(trendEndDate, "yyyyMMdd"));
 
-      // Build base query with optional brand filter
+      // Build base query with optional brand filter using integer date column
       let base = supabase
         .from('purpletransaction')
-        .select('created_at_date, total, payment_method')
-        .gte('created_at_date', startStr)
-        .lte('created_at_date', endStr)
-        .order('created_at_date', { ascending: true });
+        .select('created_at_date_int, total, payment_method')
+        .gte('created_at_date_int', startInt)
+        .lte('created_at_date_int', endInt)
+        .order('created_at_date_int', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
         base = base.eq('brand_name', trendBrandFilter);
@@ -456,14 +469,14 @@ const Dashboard = () => {
       (trendRows || []).forEach((row: any) => {
         // Skip point transactions
         if ((row.payment_method || '').toLowerCase() === 'point') return;
-        const dateKey = String(row.created_at_date).split('T')[0];
+        const dateKey = String(row.created_at_date_int);
         const sales = parseNumber(row.total);
         byDate[dateKey] = (byDate[dateKey] || 0) + sales;
       });
 
       const points: any[] = [];
       for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
-        const key = format(d, 'yyyy-MM-dd');
+        const key = format(d, 'yyyyMMdd');
         const sales = byDate[key] ?? 0;
         points.push({ date: format(d, 'MMM dd'), sales });
       }
@@ -490,15 +503,15 @@ const Dashboard = () => {
       setUserTransactionValueData([]);
       
       const dateRange = getDateRange();
-      if (!dateRange) {
+      const dateRangeInt = getDateRangeInt();
+      if (!dateRange || !dateRangeInt) {
         setLoadingCharts(false);
         return;
       }
 
+      const { startInt, endInt } = dateRangeInt;
       const startDate = format(dateRange.start, 'yyyy-MM-dd');
       const endDate = format(dateRange.end, 'yyyy-MM-dd');
-      const startStr = format(dateRange.start, "yyyy-MM-dd 00:00:00");
-      const endStr = format(dateRange.end, "yyyy-MM-dd 23:59:59");
       
       // Use RPC function which properly handles date ranges
       const { data: summary, error: summaryError } = await supabase
@@ -507,7 +520,7 @@ const Dashboard = () => {
           date_to: endDate
         });
 
-      // Fetch transactions for charts
+      // Fetch transactions for charts using integer date column
       const pageSize = 1000;
       let from = 0;
       let transactions: Transaction[] = [];
@@ -516,9 +529,9 @@ const Dashboard = () => {
         const { data, error } = await (supabase as any)
           .from('purpletransaction')
           .select('*')
-          .order('created_at_date', { ascending: false })
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
+          .order('created_at_date_int', { ascending: false })
+          .gte('created_at_date_int', startInt)
+          .lte('created_at_date_int', endInt)
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
@@ -538,16 +551,16 @@ const Dashboard = () => {
       const trendEndDate = endOfDay(referenceDate);
       const trendStartDate = startOfDay(subDays(referenceDate, daysCount));
 
-      const trendStartStr = format(trendStartDate, "yyyy-MM-dd 00:00:00");
-      const trendEndStr = format(trendEndDate, "yyyy-MM-dd 23:59:59");
+      const trendStartInt = parseInt(format(trendStartDate, "yyyyMMdd"));
+      const trendEndInt = parseInt(format(trendEndDate, "yyyyMMdd"));
 
-      // Build base query with optional brand filter
+      // Build base query with optional brand filter using integer date
       let trendBase = supabase
         .from('purpletransaction')
-        .select('created_at_date, total, payment_method')
-        .gte('created_at_date', trendStartStr)
-        .lte('created_at_date', trendEndStr)
-        .order('created_at_date', { ascending: true });
+        .select('created_at_date_int, total, payment_method')
+        .gte('created_at_date_int', trendStartInt)
+        .lte('created_at_date_int', trendEndInt)
+        .order('created_at_date_int', { ascending: true });
 
       if (trendBrandFilter !== 'all') {
         trendBase = trendBase.eq('brand_name', trendBrandFilter);
@@ -570,14 +583,14 @@ const Dashboard = () => {
       (trendRows || []).forEach((row: any) => {
         // Skip point transactions
         if ((row.payment_method || '').toLowerCase() === 'point') return;
-        const dateKey = String(row.created_at_date).split('T')[0];
+        const dateKey = String(row.created_at_date_int);
         const sales = parseNumber(row.total);
         trendByDate[dateKey] = (trendByDate[dateKey] || 0) + sales;
       });
 
       const trendPoints: any[] = [];
       for (let d = startOfDay(trendStartDate); d <= startOfDay(trendEndDate); d = addDays(d, 1)) {
-        const key = format(d, 'yyyy-MM-dd');
+        const key = format(d, 'yyyyMMdd');
         const sales = trendByDate[key] ?? 0;
         trendPoints.push({ date: format(d, 'MMM dd'), sales });
       }
@@ -614,15 +627,15 @@ const Dashboard = () => {
         // Fetch non-point data
         let fromNP = 0;
         let nonPointData: any[] = [];
-        const startStr = format(start, "yyyy-MM-dd 00:00:00");
-        const endStr = format(end, "yyyy-MM-dd 23:59:59");
+        const startInt = parseInt(format(start, "yyyyMMdd"));
+        const endInt = parseInt(format(end, "yyyyMMdd"));
         
         while (true) {
           const { data, error } = await (supabase as any)
             .from('purpletransaction')
             .select('total, cost_sold, bank_fee, payment_method')
-            .gte('created_at_date', startStr)
-            .lte('created_at_date', endStr)
+            .gte('created_at_date_int', startInt)
+            .lte('created_at_date_int', endInt)
             .range(fromNP, fromNP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
@@ -640,8 +653,8 @@ const Dashboard = () => {
             .from('purpletransaction')
             .select('id, order_number, total')
             .ilike('payment_method', 'point')
-            .gte('created_at_date', startStr)
-            .lte('created_at_date', endStr)
+            .gte('created_at_date_int', startInt)
+            .lte('created_at_date_int', endInt)
             .range(fromP, fromP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
@@ -878,13 +891,13 @@ const Dashboard = () => {
       setAllCustomers([]);
       
       const dateRange = getDateRange();
-      if (!dateRange) {
+      const dateRangeInt = getDateRangeInt();
+      if (!dateRange || !dateRangeInt) {
         setLoadingTables(false);
         return;
       }
 
-      const startStr = format(dateRange.start, "yyyy-MM-dd");
-      const endStr = format(dateRange.end, "yyyy-MM-dd");
+      const { startInt, endInt } = dateRangeInt;
 
       const pageSize = 1000;
       let from = 0;
@@ -894,9 +907,9 @@ const Dashboard = () => {
         const { data, error } = await (supabase as any)
           .from('purpletransaction')
           .select('*')
-          .order('created_at_date', { ascending: false })
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
+          .order('created_at_date_int', { ascending: false })
+          .gte('created_at_date_int', startInt)
+          .lte('created_at_date_int', endInt)
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
@@ -1386,13 +1399,13 @@ const Dashboard = () => {
     try {
       setLoadingPointTransactions(true);
       const dateRange = getDateRange();
-      if (!dateRange) {
+      const dateRangeInt = getDateRangeInt();
+      if (!dateRange || !dateRangeInt) {
         setLoadingPointTransactions(false);
         return;
       }
 
-      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd 00:00:00");
-      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd 23:59:59");
+      const { startInt, endInt } = dateRangeInt;
 
       // Fetch ALL point transactions with pagination
       const pageSize = 1000;
@@ -1404,9 +1417,9 @@ const Dashboard = () => {
           .from('purpletransaction')
           .select('id, order_number, customer_name, customer_phone, created_at_date, total, cost_sold')
           .ilike('payment_method', 'point')
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
-          .order('created_at_date', { ascending: false })
+          .gte('created_at_date_int', startInt)
+          .lte('created_at_date_int', endInt)
+          .order('created_at_date_int', { ascending: false })
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
@@ -1639,13 +1652,13 @@ const Dashboard = () => {
       setLoadingPaymentDetails(true);
       setSelectedPaymentForDetails({ payment_method, payment_brand });
       const dateRange = getDateRange();
-      if (!dateRange) {
+      const dateRangeInt = getDateRangeInt();
+      if (!dateRange || !dateRangeInt) {
         setLoadingPaymentDetails(false);
         return;
       }
 
-      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd 00:00:00");
-      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd 23:59:59");
+      const { startInt, endInt } = dateRangeInt;
 
       // Fetch transactions for specific payment method and brand
       const pageSize = 1000;
@@ -1658,8 +1671,8 @@ const Dashboard = () => {
           .select('order_number, customer_name, customer_phone, brand_name, product_name, qty, total')
           .eq('payment_method', payment_method)
           .eq('payment_brand', payment_brand)
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr)
+          .gte('created_at_date_int', startInt)
+          .lte('created_at_date_int', endInt)
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
