@@ -13,6 +13,8 @@ import Reports from "./pages/Reports";
 import ReportsSetup from "./pages/ReportsSetup";
 import RevenueByBrandType from "./pages/RevenueByBrandType";
 import CostByBrandType from "./pages/CostByBrandType";
+import TicketsReport from "./pages/TicketsReport";
+import SoftwareLicensesReport from "./pages/SoftwareLicensesReport";
 import LoadData from "./pages/LoadData";
 import UploadLog from "./pages/UploadLog";
 import ClearData from "./pages/ClearData";
@@ -56,6 +58,8 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/revenue-by-brand-type" element={<RevenueByBrandType />} />
               <Route path="/reports/cost-by-brand-type" element={<CostByBrandType />} />
+              <Route path="/reports/tickets" element={<TicketsReport />} />
+              <Route path="/reports/software-licenses-report" element={<SoftwareLicensesReport />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/load-data" element={<LoadData />} />
               <Route path="/upload-log" element={<UploadLog />} />

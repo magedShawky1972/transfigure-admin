@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -22,6 +22,20 @@ const Reports = () => {
       description: t("reports.costByBrandType.description"),
       icon: TrendingUp,
       route: "/reports/cost-by-brand-type",
+    },
+    {
+      id: "tickets",
+      name: "Tickets Report",
+      description: "Detailed tickets report with filters for status, priority, department, and date range",
+      icon: TicketCheck,
+      route: "/reports/tickets",
+    },
+    {
+      id: "software-licenses",
+      name: "Software Licenses Report",
+      description: "Comprehensive software licenses report with filters for status, category, renewal cycle, and dates",
+      icon: Key,
+      route: "/reports/software-licenses-report",
     },
   ];
 
