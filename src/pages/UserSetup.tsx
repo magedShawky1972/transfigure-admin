@@ -337,14 +337,18 @@ const UserSetup = () => {
       const { data, error } = await supabase
         .from("user_permissions")
         .select("*")
-        .eq("user_id", profile.user_id);
+        .eq("user_id", profile.user_id)
+        .is("parent_menu", null)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       const permissionsMap: Record<string, boolean> = {};
       MENU_ITEMS.forEach(item => {
-        const permission = data?.find(p => p.menu_item === item.key);
-        permissionsMap[item.key] = permission?.has_access ?? false;
+        // Get the most recent permission entry for each menu item
+        const permissions = data?.filter(p => p.menu_item === item.key);
+        const latestPermission = permissions && permissions.length > 0 ? permissions[0] : null;
+        permissionsMap[item.key] = latestPermission?.has_access ?? false;
       });
       
       setUserPermissions(permissionsMap);
@@ -415,14 +419,17 @@ const UserSetup = () => {
         .from("user_permissions")
         .select("*")
         .eq("user_id", selectedUser.user_id)
-        .eq("parent_menu", "dashboard");
+        .eq("parent_menu", "dashboard")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       const permissionsMap: Record<string, boolean> = {};
       DASHBOARD_COMPONENTS.forEach(component => {
-        const permission = data?.find(p => p.menu_item === component.key);
-        permissionsMap[component.key] = permission?.has_access ?? true;
+        // Get the most recent permission entry for each component
+        const permissions = data?.filter(p => p.menu_item === component.key);
+        const latestPermission = permissions && permissions.length > 0 ? permissions[0] : null;
+        permissionsMap[component.key] = latestPermission?.has_access ?? true;
       });
       
       setDashboardPermissions(permissionsMap);
