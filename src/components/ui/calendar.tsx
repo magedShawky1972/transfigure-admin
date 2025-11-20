@@ -73,7 +73,7 @@ function Calendar({
                 handleChange(value)
               }}
             >
-              <SelectTrigger className="pr-1.5 focus:ring-0 w-fit gap-1 bg-card text-card-foreground border-input hover:bg-accent">
+              <SelectTrigger className="pr-1.5 focus:ring-0 w-fit gap-1 bg-white dark:bg-gray-800 text-foreground border-input hover:bg-gray-50 dark:hover:bg-gray-700">
                 <SelectValue>{selected?.props?.children}</SelectValue>
               </SelectTrigger>
               <SelectContent position="popper" className="pointer-events-auto bg-popover text-popover-foreground border-border z-50">
