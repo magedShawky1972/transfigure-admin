@@ -22,11 +22,11 @@ const Index = () => {
           return;
         }
 
-        // Redirect to dashboard
-        navigate("/dashboard");
+        // Show landing page to all authenticated users
+        setLoading(false);
       } catch (error) {
         console.error("Error checking access:", error);
-        navigate("/dashboard");
+        setLoading(false);
       }
     };
 
