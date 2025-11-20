@@ -188,25 +188,37 @@ const SoftwareLicenses = () => {
 
   const handleViewInvoice = async (filePathOrUrl: string) => {
     try {
-      // If it's already a full URL, just open it directly
-      if (filePathOrUrl.startsWith('http')) {
-        window.open(filePathOrUrl, '_blank');
-      } else {
-        // If it's just a path, create signed URL from software-license-invoices bucket
+      // Extract bucket name and file path from URL
+      const match = filePathOrUrl.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)$/);
+      
+      if (match) {
+        const [, bucketName, filePath] = match;
+        
+        // Download the file
         const { data, error } = await supabase.storage
-          .from('software-license-invoices')
-          .createSignedUrl(filePathOrUrl, 3600);
+          .from(bucketName)
+          .download(filePath);
 
         if (error) throw error;
-        if (data?.signedUrl) {
-          window.open(data.signedUrl, '_blank');
-        }
+
+        // Create a blob URL and trigger download
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filePath.split('/').pop() || 'invoice.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        // Fallback: try to open URL directly
+        window.open(filePathOrUrl, '_blank');
       }
     } catch (error: any) {
-      console.error('Error opening invoice:', error);
+      console.error('Error downloading invoice:', error);
       toast({
         title: t("common.error"),
-        description: language === "ar" ? "فشل فتح الفاتورة" : "Failed to open invoice",
+        description: language === "ar" ? "فشل تحميل الفاتورة" : "Failed to download invoice",
         variant: "destructive",
       });
     }
@@ -422,7 +434,7 @@ const SoftwareLicenses = () => {
                       onClick={() => handleViewInvoice(license.invoice_file_path!)}
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      {language === "ar" ? "الفاتورة" : "Invoice"}
+                      {language === "ar" ? "تحميل الفاتورة" : "Download Invoice"}
                     </Button>
                   )}
                   <Button
