@@ -186,18 +186,45 @@ const SoftwareLicenses = () => {
     }
   };
 
-  const handleViewInvoice = async (invoicePath: string) => {
+  const handleViewInvoice = async (filePathOrUrl: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('software-license-invoices')
-        .createSignedUrl(invoicePath, 3600); // 1 hour expiry
+      // If it's a full URL, parse it to extract bucket and path
+      if (filePathOrUrl.startsWith('http')) {
+        const urlParts = filePathOrUrl.split('/storage/v1/object/');
+        if (urlParts.length > 1) {
+          const pathParts = urlParts[1].split('/');
+          const isPublic = pathParts[0] === 'public';
+          const bucketName = pathParts[1];
+          const filePath = pathParts.slice(2).join('/');
 
-      if (error) throw error;
+          if (isPublic) {
+            // For public buckets, open URL directly
+            window.open(filePathOrUrl, '_blank');
+          } else {
+            // For private buckets, create signed URL
+            const { data, error } = await supabase.storage
+              .from(bucketName)
+              .createSignedUrl(filePath, 3600);
 
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
+            if (error) throw error;
+            if (data?.signedUrl) {
+              window.open(data.signedUrl, '_blank');
+            }
+          }
+        }
+      } else {
+        // If it's just a path, assume software-license-invoices bucket
+        const { data, error } = await supabase.storage
+          .from('software-license-invoices')
+          .createSignedUrl(filePathOrUrl, 3600);
+
+        if (error) throw error;
+        if (data?.signedUrl) {
+          window.open(data.signedUrl, '_blank');
+        }
       }
     } catch (error: any) {
+      console.error('Error opening invoice:', error);
       toast({
         title: t("common.error"),
         description: language === "ar" ? "فشل فتح الفاتورة" : "Failed to open invoice",
