@@ -13,6 +13,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -28,9 +41,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
   "ERP",
@@ -49,6 +63,25 @@ const RENEWAL_CYCLES = [
   { value: "yearly", label: "Yearly", labelAr: "سنوياً" },
   { value: "one-time", label: "One-time", labelAr: "لمرة واحدة" }
 ];
+
+const PAYMENT_METHODS = [
+  { value: "visa", label: "Visa", labelAr: "فيزا" },
+  { value: "master", label: "Master", labelAr: "ماستر" },
+  { value: "safi", label: "Safi", labelAr: "صافي" },
+  { value: "cash", label: "Cash", labelAr: "نقدي" }
+];
+
+interface Department {
+  id: string;
+  department_name: string;
+  department_code: string;
+}
+
+interface User {
+  id: string;
+  user_name: string;
+  email: string;
+}
 
 interface SoftwareLicense {
   id: string;
@@ -81,6 +114,11 @@ const SoftwareLicenseSetup = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicenseId, setEditingLicenseId] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>(PAYMENT_METHODS.map(pm => pm.value));
+  const [openPaymentCombo, setOpenPaymentCombo] = useState(false);
+  const [newPaymentMethod, setNewPaymentMethod] = useState("");
 
   const [formData, setFormData] = useState({
     software_name: "",
@@ -103,6 +141,8 @@ const SoftwareLicenseSetup = () => {
 
   useEffect(() => {
     fetchLicenses();
+    fetchDepartments();
+    fetchUsers();
   }, []);
 
   useEffect(() => {
@@ -127,6 +167,36 @@ const SoftwareLicenseSetup = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, department_name, department_code")
+        .eq("is_active", true)
+        .order("department_name");
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, user_name, email")
+        .eq("is_active", true)
+        .order("user_name");
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error: any) {
+      console.error("Error fetching users:", error);
     }
   };
 
@@ -771,29 +841,129 @@ const SoftwareLicenseSetup = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="payment_method">{language === "ar" ? "طريقة الدفع" : "Payment Method"}</Label>
-                    <Input
-                      id="payment_method"
-                      value={formData.payment_method}
-                      onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                    />
+                    <Popover open={openPaymentCombo} onOpenChange={setOpenPaymentCombo}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openPaymentCombo}
+                          className="w-full justify-between"
+                        >
+                          {formData.payment_method
+                            ? PAYMENT_METHODS.find((pm) => pm.value === formData.payment_method)?.[language === "ar" ? "labelAr" : "label"] || formData.payment_method
+                            : language === "ar" ? "اختر طريقة الدفع" : "Select payment method"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0 bg-background z-50">
+                        <Command>
+                          <CommandInput 
+                            placeholder={language === "ar" ? "ابحث عن طريقة الدفع..." : "Search payment method..."} 
+                            value={newPaymentMethod}
+                            onValueChange={setNewPaymentMethod}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              <Button
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                  if (newPaymentMethod.trim()) {
+                                    setPaymentMethods([...paymentMethods, newPaymentMethod.trim()]);
+                                    setFormData({ ...formData, payment_method: newPaymentMethod.trim() });
+                                    setNewPaymentMethod("");
+                                    setOpenPaymentCombo(false);
+                                  }
+                                }}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                {language === "ar" ? `إضافة "${newPaymentMethod}"` : `Add "${newPaymentMethod}"`}
+                              </Button>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {PAYMENT_METHODS.map((pm) => (
+                                <CommandItem
+                                  key={pm.value}
+                                  value={pm.value}
+                                  onSelect={(currentValue) => {
+                                    setFormData({ ...formData, payment_method: currentValue });
+                                    setOpenPaymentCombo(false);
+                                    setNewPaymentMethod("");
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      formData.payment_method === pm.value ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {language === "ar" ? pm.labelAr : pm.label}
+                                </CommandItem>
+                              ))}
+                              {paymentMethods
+                                .filter(pm => !PAYMENT_METHODS.some(p => p.value === pm))
+                                .map((pm) => (
+                                  <CommandItem
+                                    key={pm}
+                                    value={pm}
+                                    onSelect={(currentValue) => {
+                                      setFormData({ ...formData, payment_method: currentValue });
+                                      setOpenPaymentCombo(false);
+                                      setNewPaymentMethod("");
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        formData.payment_method === pm ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {pm}
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="assigned_department">{language === "ar" ? "القسم المعين" : "Assigned Department"}</Label>
-                    <Input
-                      id="assigned_department"
-                      value={formData.assigned_department}
-                      onChange={(e) => setFormData({ ...formData, assigned_department: e.target.value })}
-                    />
+                    <Select 
+                      value={formData.assigned_department} 
+                      onValueChange={(value) => setFormData({ ...formData, assigned_department: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "ar" ? "اختر القسم" : "Select department"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.department_name}>
+                            {dept.department_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="assigned_to">{language === "ar" ? "معين إلى" : "Assigned To"}</Label>
-                  <Input
-                    id="assigned_to"
-                    value={formData.assigned_to}
-                    onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                  />
+                  <Select 
+                    value={formData.assigned_to} 
+                    onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر المستخدم" : "Select user"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.user_name}>
+                          {user.user_name} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
