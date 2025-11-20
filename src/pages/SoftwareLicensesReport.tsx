@@ -3,15 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Filter, Download } from "lucide-react";
+import { Filter, Download, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 const SoftwareLicensesReport = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const [licenseStatus, setLicenseStatus] = useState<string>("all");
   const [licenseCategory, setLicenseCategory] = useState<string>("all");
@@ -90,11 +92,21 @@ const SoftwareLicensesReport = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Software Licenses Report</h1>
-        <p className="text-muted-foreground">
-          Generate detailed software licenses report with advanced filtering
-        </p>
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/reports")}
+          className="shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Software Licenses Report</h1>
+          <p className="text-muted-foreground">
+            Generate detailed software licenses report with advanced filtering
+          </p>
+        </div>
       </div>
 
       <Card>
