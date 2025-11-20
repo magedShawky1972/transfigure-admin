@@ -9,6 +9,7 @@ import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
+import { format } from "date-fns";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -280,7 +281,10 @@ const LoadData = () => {
         });
       });
 
-      // Create upload log
+      // Create upload log with explicit upload_date in local timezone
+      const now = new Date();
+      const uploadDate = format(now, "yyyy-MM-dd");
+      
       const { data: logData, error: logError } = await supabase
         .from("upload_logs")
         .insert({
@@ -291,6 +295,7 @@ const LoadData = () => {
           sheet_id: selectedSheet,
           excel_dates: Array.from(distinctDates).sort(),
           records_processed: 0,
+          upload_date: uploadDate,
         })
         .select()
         .single();
