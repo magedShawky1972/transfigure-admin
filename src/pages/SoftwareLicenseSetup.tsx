@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -986,9 +986,42 @@ const SoftwareLicenseSetup = () => {
                     {uploading && <span className="text-sm">{language === "ar" ? "جاري الرفع..." : "Uploading..."}</span>}
                   </div>
                   {formData.invoice_file_path && (
-                    <p className="text-sm text-muted-foreground">
-                      {language === "ar" ? "تم رفع الفاتورة" : "Invoice uploaded"}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {language === "ar" ? "تم رفع الفاتورة" : "Invoice uploaded"}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            // Get the file path from the URL
+                            const filePath = formData.invoice_file_path?.split('/').slice(-2).join('/');
+                            if (!filePath) return;
+
+                            const { data, error } = await supabase.storage
+                              .from('software-license-invoices')
+                              .createSignedUrl(filePath, 3600);
+
+                            if (error) throw error;
+
+                            if (data?.signedUrl) {
+                              window.open(data.signedUrl, '_blank');
+                            }
+                          } catch (error: any) {
+                            toast({
+                              title: t("common.error"),
+                              description: language === "ar" ? "فشل فتح الفاتورة" : "Failed to open invoice",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {language === "ar" ? "عرض الفاتورة" : "View Invoice"}
+                      </Button>
+                    </div>
                   )}
                 </div>
 
