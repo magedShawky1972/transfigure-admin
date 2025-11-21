@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Download, Trash2 } from "lucide-react";
+import { Plus, Eye, FileText, Download, Trash2, Mail } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import {
@@ -72,6 +72,7 @@ type Ticket = {
   assigned_to: string | null;
   is_purchase_ticket: boolean;
   approved_at: string | null;
+  department_id: string;
   departments: {
     department_name: string;
   };
@@ -320,6 +321,48 @@ const Tickets = () => {
     }
   };
 
+  const handleResendNotification = async (ticket: Ticket) => {
+    try {
+      // Get all department admins for this ticket's department
+      const { data: adminData, error: adminError } = await supabase
+        .from("department_admins")
+        .select("user_id")
+        .eq("department_id", ticket.department_id);
+
+      if (adminError) throw adminError;
+
+      const adminUserIds = adminData?.map(admin => admin.user_id) || [];
+
+      if (adminUserIds.length === 0) {
+        throw new Error(language === 'ar' ? 'لم يتم العثور على مسؤولين للقسم' : 'No admins found for this department');
+      }
+
+      // Send batch notification to all department admins
+      const { error: notificationError } = await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_created",
+          ticketId: ticket.id,
+          recipientUserIds: adminUserIds,
+          ticketNumber: ticket.ticket_number,
+          subject: ticket.subject,
+        },
+      });
+
+      if (notificationError) throw notificationError;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إرسال الإشعار بنجاح' : 'Notification resent successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -552,14 +595,24 @@ const Tickets = () => {
                     {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
                   </Button>
                   {!ticket.approved_at && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteClick(ticket.id)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      {language === 'ar' ? 'حذف' : 'Delete'}
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResendNotification(ticket)}
+                      >
+                        <Mail className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'إعادة إرسال للموافقة' : 'Resend for Approval'}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(ticket.id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'حذف' : 'Delete'}
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardContent>
