@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2 } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -447,6 +447,48 @@ const AdminTickets = () => {
     }
   };
 
+  const handleResendNotification = async (ticket: Ticket) => {
+    try {
+      // Get all department admins for this ticket's department
+      const { data: adminData, error: adminError } = await supabase
+        .from("department_admins")
+        .select("user_id")
+        .eq("department_id", ticket.department_id);
+
+      if (adminError) throw adminError;
+
+      const adminUserIds = adminData?.map(admin => admin.user_id) || [];
+
+      if (adminUserIds.length === 0) {
+        throw new Error(language === 'ar' ? 'لم يتم العثور على مسؤولين للقسم' : 'No admins found for this department');
+      }
+
+      // Send batch notification to all department admins
+      const { error: notificationError } = await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_created",
+          ticketId: ticket.id,
+          recipientUserIds: adminUserIds,
+          ticketNumber: ticket.ticket_number,
+          subject: ticket.subject,
+        },
+      });
+
+      if (notificationError) throw notificationError;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إرسال الإشعار بنجاح' : 'Notification resent successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
@@ -616,6 +658,15 @@ const AdminTickets = () => {
               </div>
             </CollapsibleContent>
           </Collapsible>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleResendNotification(ticket)}
+          >
+            <Mail className="mr-2 h-4 w-4" />
+            {language === 'ar' ? 'إعادة إرسال الإشعار' : 'Resend Notification'}
+          </Button>
 
           <Button
             variant="outline"
