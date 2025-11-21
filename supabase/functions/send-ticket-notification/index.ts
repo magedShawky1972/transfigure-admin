@@ -90,7 +90,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Prepare notification data
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, "");
+        getNotificationContent(type, ticketNumber, subject, "", ticketId);
 
       // Create all in-app notifications at once
       const notifications = profiles.map(profile => ({
@@ -147,7 +147,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Get notification content
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, profile.user_name);
+        getNotificationContent(type, ticketNumber, subject, profile.user_name, ticketId);
 
       // Create in-app notification first
       const { error: notificationError } = await supabase
@@ -192,12 +192,16 @@ function getNotificationContent(
   type: string,
   ticketNumber: string,
   subject: string,
-  userName: string
+  userName: string,
+  ticketId: string
 ) {
   let emailSubject = "";
   let emailHtml = "";
   let notificationTitle = "";
   let notificationMessage = "";
+  
+  const appUrl = Deno.env.get("VITE_SUPABASE_URL")?.replace(/https:\/\/[^.]+\.supabase\.co/, "https://ysqqnkbgkrjoxrzlejxy.lovableproject.com") || "https://ysqqnkbgkrjoxrzlejxy.lovableproject.com";
+  const ticketLink = `${appUrl}/admin-tickets`;
 
   switch (type) {
     case "ticket_created":
@@ -211,6 +215,9 @@ function getNotificationContent(
           <li><strong>Subject:</strong> ${subject}</li>
         </ul>
         <p>Please review and take appropriate action.</p>
+        <div style="margin: 20px 0;">
+          <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View & Approve Ticket</a>
+        </div>
       `;
       notificationTitle = "New Ticket Created";
       notificationMessage = `Ticket ${ticketNumber}: ${subject}`;
@@ -227,6 +234,9 @@ function getNotificationContent(
           <li><strong>Subject:</strong> ${subject}</li>
         </ul>
         <p>Your ticket is now being processed.</p>
+        <div style="margin: 20px 0;">
+          <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Ticket</a>
+        </div>
       `;
       notificationTitle = "Ticket Approved";
       notificationMessage = `Your ticket ${ticketNumber} has been approved`;
@@ -243,6 +253,9 @@ function getNotificationContent(
           <li><strong>Subject:</strong> ${subject}</li>
         </ul>
         <p>Please review and work on this ticket.</p>
+        <div style="margin: 20px 0;">
+          <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Open Ticket</a>
+        </div>
       `;
       notificationTitle = "Ticket Assigned to You";
       notificationMessage = `Ticket ${ticketNumber} has been assigned to you`;
