@@ -39,7 +39,7 @@ async function sendEmailInBackground(
         port: 465,
         tls: true,
         auth: {
-          username: "info@asuscards.com",
+          username: "edara@asuscards.com",
           password: Deno.env.get("SMTP_PASSWORD") ?? "",
         },
       },
@@ -47,7 +47,7 @@ async function sendEmailInBackground(
 
     console.log("Attempting to send email to:", email);
     await smtpClient.send({
-      from: "Edara Support <info@asuscards.com>",
+      from: "Edara Support <edara@asuscards.com>",
       to: email,
       subject: emailSubject,
       content: "auto",
