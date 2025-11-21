@@ -200,7 +200,7 @@ function getNotificationContent(
   let notificationTitle = "";
   let notificationMessage = "";
   
-  const appUrl = Deno.env.get("VITE_SUPABASE_URL")?.replace(/https:\/\/[^.]+\.supabase\.co/, "https://ysqqnkbgkrjoxrzlejxy.lovableproject.com") || "https://ysqqnkbgkrjoxrzlejxy.lovableproject.com";
+  const appUrl = "https://edaraasus.com";
   const ticketLink = `${appUrl}/admin-tickets`;
 
   switch (type) {
