@@ -131,4 +131,9 @@ All colors MUST be HSL.
   
   /* If something is explicitly text-left, flip it in RTL */
   [dir="rtl"] .text-left { text-align: right; }
+  
+  /* Date input calendar icon visibility in dark mode */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
 }
