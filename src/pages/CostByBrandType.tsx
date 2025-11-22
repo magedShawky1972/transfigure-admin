@@ -4,14 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarIcon, Download, Play, Printer } from "lucide-react";
+import { ArrowLeft, Download, Play, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ReportResult {
@@ -23,8 +21,8 @@ interface ReportResult {
 const CostByBrandType = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [dateFrom, setDateFrom] = useState<Date | undefined>();
-  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [selectedBrandType, setSelectedBrandType] = useState<string>("all");
   const [reportResults, setReportResults] = useState<ReportResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -106,15 +104,12 @@ const CostByBrandType = () => {
       return;
     }
 
-    const formattedDateFrom = format(dateFrom, "yyyy-MM-dd");
-    const formattedDateTo = format(dateTo, "yyyy-MM-dd");
-
     setIsRunning(true);
     try {
       // Use backend function to get complete data without row limits
       const { data, error } = await supabase.rpc('cost_by_brand_type', {
-        date_from: formattedDateFrom,
-        date_to: formattedDateTo,
+        date_from: dateFrom,
+        date_to: dateTo,
         p_brand_type: selectedBrandType === 'all' ? null : selectedBrandType
       });
 
@@ -143,9 +138,6 @@ const CostByBrandType = () => {
       return;
     }
 
-    const formattedDateFrom = format(dateFrom, "yyyy-MM-dd");
-    const formattedDateTo = format(dateTo, "yyyy-MM-dd");
-
     const headers = ["Brand Type", "Total Cost", "Transaction Count"];
     const rows = reportResults.map((row) => [
       row.brand_type_name,
@@ -158,7 +150,7 @@ const CostByBrandType = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `cost-by-brand-type-${formattedDateFrom}-to-${formattedDateTo}.csv`;
+    a.download = `cost-by-brand-type-${dateFrom}-to-${dateTo}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -195,55 +187,19 @@ const CostByBrandType = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>{t("costReport.dateFrom")}</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !dateFrom && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateFrom ? format(dateFrom, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateFrom}
-                    onSelect={setDateFrom}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>{t("costReport.dateTo")}</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !dateTo && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateTo ? format(dateTo, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateTo}
-                    onSelect={setDateTo}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="brandType">{t("costReport.brandType")}</Label>
@@ -306,11 +262,11 @@ const CostByBrandType = () => {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="font-semibold text-muted-foreground print:text-gray-700">{t("costReport.dateFrom")}</p>
-                <p className="font-medium print:text-black">{dateFrom ? format(dateFrom, "PPP") : "-"}</p>
+                <p className="font-medium print:text-black">{dateFrom ? format(new Date(dateFrom), "PPP") : "-"}</p>
               </div>
               <div>
                 <p className="font-semibold text-muted-foreground print:text-gray-700">{t("costReport.dateTo")}</p>
-                <p className="font-medium print:text-black">{dateTo ? format(dateTo, "PPP") : "-"}</p>
+                <p className="font-medium print:text-black">{dateTo ? format(new Date(dateTo), "PPP") : "-"}</p>
               </div>
               <div>
                 <p className="font-semibold text-muted-foreground print:text-gray-700">{t("costReport.brandType")}</p>
