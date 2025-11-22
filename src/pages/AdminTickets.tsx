@@ -43,6 +43,7 @@ type Ticket = {
   approved_at: string | null;
   approved_by: string | null;
   is_purchase_ticket: boolean;
+  next_admin_order: number | null;
   departments: {
     department_name: string;
   };
@@ -236,22 +237,72 @@ const AdminTickets = () => {
       // Get ticket details first
       const { data: ticket } = await supabase
         .from("tickets")
-        .select("user_id, ticket_number, subject")
+        .select("user_id, ticket_number, subject, department_id")
         .eq("id", ticketId)
         .single();
 
-      const { error } = await supabase
-        .from("tickets")
-        .update({
-          approved_at: new Date().toISOString(),
-          approved_by: user.id
-        })
-        .eq("id", ticketId);
+      if (!ticket) throw new Error("Ticket not found");
 
-      if (error) throw error;
+      // Get current admin's order
+      const { data: currentAdmin } = await supabase
+        .from("department_admins")
+        .select("admin_order")
+        .eq("user_id", user.id)
+        .eq("department_id", ticket.department_id)
+        .single();
 
-      // Send notification to ticket creator
-      if (ticket) {
+      const currentOrder = currentAdmin?.admin_order || 1;
+
+      // Check if there are admins at the next order level
+      const { data: nextAdmins } = await supabase
+        .from("department_admins")
+        .select("user_id")
+        .eq("department_id", ticket.department_id)
+        .eq("admin_order", currentOrder + 1);
+
+      const hasNextLevel = nextAdmins && nextAdmins.length > 0;
+
+      if (hasNextLevel) {
+        // There are more admins - update next_admin_order and send notification
+        const { error } = await supabase
+          .from("tickets")
+          .update({
+            next_admin_order: currentOrder + 1,
+            status: "In Progress",
+          })
+          .eq("id", ticketId);
+
+        if (error) throw error;
+
+        // Send notification to next level admins
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_created",
+            ticketId: ticketId,
+            adminOrder: currentOrder + 1,
+            ticketNumber: ticket.ticket_number,
+            subject: ticket.subject,
+          },
+        });
+
+        toast({
+          title: language === 'ar' ? 'تم' : 'Success',
+          description: language === 'ar' ? 'تم تمرير التذكرة للمستوى التالي' : 'Ticket passed to next approval level',
+        });
+      } else {
+        // No more admins - fully approve the ticket
+        const { error } = await supabase
+          .from("tickets")
+          .update({
+            approved_at: new Date().toISOString(),
+            approved_by: user.id,
+            status: "In Progress",
+          })
+          .eq("id", ticketId);
+
+        if (error) throw error;
+
+        // Send notification to ticket creator
         await supabase.functions.invoke("send-ticket-notification", {
           body: {
             type: "ticket_approved",
@@ -261,12 +312,12 @@ const AdminTickets = () => {
             subject: ticket.subject,
           },
         });
-      }
 
-      toast({
-        title: language === 'ar' ? 'تم' : 'Success',
-        description: language === 'ar' ? 'تمت الموافقة على التذكرة' : 'Ticket approved',
-      });
+        toast({
+          title: language === 'ar' ? 'تم' : 'Success',
+          description: language === 'ar' ? 'تمت الموافقة على التذكرة بالكامل' : 'Ticket fully approved',
+        });
+      }
 
       fetchTickets();
     } catch (error: any) {
@@ -449,26 +500,28 @@ const AdminTickets = () => {
 
   const handleResendNotification = async (ticket: Ticket) => {
     try {
-      // Get all department admins for this ticket's department
+      // Get the current approval level from ticket or default to 1
+      const currentOrder = ticket.next_admin_order || 1;
+
+      // Get admins at the current approval level for this department
       const { data: adminData, error: adminError } = await supabase
         .from("department_admins")
         .select("user_id")
-        .eq("department_id", ticket.department_id);
+        .eq("department_id", ticket.department_id)
+        .eq("admin_order", currentOrder);
 
       if (adminError) throw adminError;
 
-      const adminUserIds = adminData?.map(admin => admin.user_id) || [];
-
-      if (adminUserIds.length === 0) {
-        throw new Error(language === 'ar' ? 'لم يتم العثور على مسؤولين للقسم' : 'No admins found for this department');
+      if (!adminData || adminData.length === 0) {
+        throw new Error(language === 'ar' ? `لم يتم العثور على مسؤولين في المستوى ${currentOrder}` : `No admins found at level ${currentOrder}`);
       }
 
-      // Send batch notification to all department admins
+      // Send notification to admins at current approval level
       const { error: notificationError } = await supabase.functions.invoke("send-ticket-notification", {
         body: {
           type: "ticket_created",
           ticketId: ticket.id,
-          recipientUserIds: adminUserIds,
+          adminOrder: currentOrder,
           ticketNumber: ticket.ticket_number,
           subject: ticket.subject,
         },

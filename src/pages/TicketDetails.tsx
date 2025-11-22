@@ -25,6 +25,7 @@ type Ticket = {
   department_id: string;
   user_id: string;
   approved_at: string | null;
+  next_admin_order: number | null;
   departments: {
     department_name: string;
   };
@@ -363,32 +364,81 @@ const TicketDetails = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
-        .from("tickets")
-        .update({
-          approved_at: new Date().toISOString(),
-          approved_by: user.id,
-          status: "In Progress",
-        })
-        .eq("id", ticket.id);
+      // Get current admin's order and check if there are more admins
+      const { data: currentAdmin } = await supabase
+        .from("department_admins")
+        .select("admin_order")
+        .eq("user_id", user.id)
+        .eq("department_id", ticket.department_id)
+        .single();
 
-      if (error) throw error;
+      const currentOrder = currentAdmin?.admin_order || 1;
 
-      // Send notification to ticket creator
-      await supabase.functions.invoke("send-ticket-notification", {
-        body: {
-          type: "ticket_approved",
-          ticketId: ticket.id,
-          recipientUserId: ticket.user_id,
-          ticketNumber: ticket.ticket_number,
-          subject: ticket.subject,
-        },
-      });
+      // Check if there are admins at the next order level
+      const { data: nextAdmins } = await supabase
+        .from("department_admins")
+        .select("user_id")
+        .eq("department_id", ticket.department_id)
+        .eq("admin_order", currentOrder + 1);
 
-      toast({
-        title: language === 'ar' ? 'نجح' : 'Success',
-        description: language === 'ar' ? 'تمت الموافقة على التذكرة' : 'Ticket approved successfully',
-      });
+      const hasNextLevel = nextAdmins && nextAdmins.length > 0;
+
+      if (hasNextLevel) {
+        // There are more admins - update next_admin_order and send notification
+        const { error } = await supabase
+          .from("tickets")
+          .update({
+            next_admin_order: currentOrder + 1,
+            status: "In Progress",
+          })
+          .eq("id", ticket.id);
+
+        if (error) throw error;
+
+        // Send notification to next level admins
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_created",
+            ticketId: ticket.id,
+            adminOrder: currentOrder + 1,
+            ticketNumber: ticket.ticket_number,
+            subject: ticket.subject,
+          },
+        });
+
+        toast({
+          title: language === 'ar' ? 'نجح' : 'Success',
+          description: language === 'ar' ? 'تم تمرير التذكرة للمستوى التالي' : 'Ticket passed to next approval level',
+        });
+      } else {
+        // No more admins - fully approve the ticket
+        const { error } = await supabase
+          .from("tickets")
+          .update({
+            approved_at: new Date().toISOString(),
+            approved_by: user.id,
+            status: "In Progress",
+          })
+          .eq("id", ticket.id);
+
+        if (error) throw error;
+
+        // Send notification to ticket creator
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_approved",
+            ticketId: ticket.id,
+            recipientUserId: ticket.user_id,
+            ticketNumber: ticket.ticket_number,
+            subject: ticket.subject,
+          },
+        });
+
+        toast({
+          title: language === 'ar' ? 'نجح' : 'Success',
+          description: language === 'ar' ? 'تمت الموافقة على التذكرة بالكامل' : 'Ticket fully approved',
+        });
+      }
 
       fetchTicket();
     } catch (error: any) {

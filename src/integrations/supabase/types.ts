@@ -1022,6 +1022,7 @@ export type Database = {
           id: string
           is_deleted: boolean
           is_purchase_ticket: boolean
+          next_admin_order: number | null
           priority: string
           status: string
           subject: string
@@ -1041,6 +1042,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean
+          next_admin_order?: number | null
           priority: string
           status?: string
           subject: string
@@ -1060,6 +1062,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean
+          next_admin_order?: number | null
           priority?: string
           status?: string
           subject?: string
