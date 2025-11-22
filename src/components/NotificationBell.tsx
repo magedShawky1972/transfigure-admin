@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
+import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { formatDistanceToNow, format } from "date-fns";
 import { ar } from "date-fns/locale";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 type Notification = {
   id: string;
@@ -39,6 +40,7 @@ export const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const { permission, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
 
   useEffect(() => {
     fetchNotifications();
@@ -144,9 +146,33 @@ export const NotificationBell = () => {
       </PopoverTrigger>
       <PopoverContent className="w-96" align="end">
         <div className="space-y-3">
-          <h3 className="font-semibold">
-            {language === "ar" ? "الإشعارات" : "Notifications"}
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold">
+              {language === "ar" ? "الإشعارات" : "Notifications"}
+            </h3>
+            {permission === 'granted' && !isSubscribed && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={subscribe}
+                className="text-xs"
+              >
+                <Bell className="h-3 w-3 mr-1" />
+                {language === "ar" ? "تفعيل التنبيهات" : "Enable Push"}
+              </Button>
+            )}
+            {isSubscribed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={unsubscribe}
+                className="text-xs"
+              >
+                <BellOff className="h-3 w-3 mr-1" />
+                {language === "ar" ? "إيقاف التنبيهات" : "Disable Push"}
+              </Button>
+            )}
+          </div>
           <ScrollArea className="h-[400px]">
             {notifications.length === 0 && reminders.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
