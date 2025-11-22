@@ -94,8 +94,8 @@ function Calendar({
         },
       }}
       captionLayout="dropdown-buttons"
-      fromYear={2020}
-      toYear={2030}
+      fromYear={2000}
+      toYear={new Date().getFullYear() + 5}
       {...props}
     />
   )
