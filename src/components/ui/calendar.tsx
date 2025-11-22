@@ -22,16 +22,16 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center h-10",
+        caption: "flex justify-between pt-1 relative items-center",
         caption_label: "text-sm font-medium",
-        caption_dropdowns: "flex justify-center gap-1 flex-grow",
-        nav: "space-x-1 flex items-center absolute inset-0",
+        caption_dropdowns: "flex justify-center gap-1 z-10",
+        nav: "flex items-center justify-between w-full",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
           "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
-        nav_button_previous: "absolute left-1 z-10",
-        nav_button_next: "absolute right-1 z-10",
+        nav_button_previous: "",
+        nav_button_next: "",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
         head_cell:
@@ -73,10 +73,10 @@ function Calendar({
                 handleChange(value)
               }}
             >
-              <SelectTrigger className="pr-1.5 focus:ring-0 w-fit gap-1 bg-background text-foreground border border-input hover:bg-accent z-10">
+              <SelectTrigger className="pr-1.5 pl-2 focus:ring-0 h-8 gap-1 bg-background text-foreground border border-input hover:bg-accent z-20 font-medium">
                 <SelectValue>{selected?.props?.children}</SelectValue>
               </SelectTrigger>
-              <SelectContent position="popper" className="pointer-events-auto bg-popover text-popover-foreground border-border z-[100]">
+              <SelectContent position="popper" className="pointer-events-auto bg-popover text-popover-foreground border border-border z-[100]">
                 <ScrollArea className="h-80">
                   {options.map((option, id: number) => (
                     <SelectItem
