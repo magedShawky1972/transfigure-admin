@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Send, Paperclip, ShoppingCart, Download } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -23,6 +23,8 @@ type Ticket = {
   created_at: string;
   is_purchase_ticket: boolean;
   department_id: string;
+  user_id: string;
+  approved_at: string | null;
   departments: {
     department_name: string;
   };
@@ -56,6 +58,7 @@ type Comment = {
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { language } = useLanguage();
   const { t } = useLanguage();
@@ -68,6 +71,10 @@ const TicketDetails = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [approvingTicket, setApprovingTicket] = useState(false);
+
+  // Get the source page from navigation state
+  const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
 
   useEffect(() => {
     if (id) {
@@ -348,6 +355,53 @@ const TicketDetails = () => {
     }
   };
 
+  const handleApprove = async () => {
+    if (!ticket) return;
+
+    try {
+      setApprovingTicket(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("tickets")
+        .update({
+          approved_at: new Date().toISOString(),
+          approved_by: user.id,
+          status: "In Progress",
+        })
+        .eq("id", ticket.id);
+
+      if (error) throw error;
+
+      // Send notification to ticket creator
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_approved",
+          ticketId: ticket.id,
+          recipientUserId: ticket.user_id,
+          ticketNumber: ticket.ticket_number,
+          subject: ticket.subject,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تمت الموافقة على التذكرة' : 'Ticket approved successfully',
+      });
+
+      fetchTicket();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setApprovingTicket(false);
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
@@ -388,7 +442,7 @@ const TicketDetails = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <Button variant="ghost" onClick={() => navigate("/tickets")}>
+      <Button variant="ghost" onClick={() => navigate(sourceRoute)}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         {t("ticketDetails.backToTickets")}
       </Button>
@@ -448,17 +502,33 @@ const TicketDetails = () => {
             {isAdmin && (
               <>
                 <Separator />
-                <div className="flex items-center justify-between p-4 bg-muted rounded-md">
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">
-                      {language === 'ar' ? 'تذكرة مشتريات' : 'Purchase Ticket'}
-                    </span>
+                <div className="space-y-3">
+                  {!ticket.approved_at && (
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleApprove}
+                        disabled={approvingTicket}
+                        size="default"
+                      >
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        {approvingTicket 
+                          ? (language === 'ar' ? 'جاري الموافقة...' : 'Approving...') 
+                          : (language === 'ar' ? 'موافقة' : 'Approve')}
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-md">
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">
+                        {language === 'ar' ? 'تذكرة مشتريات' : 'Purchase Ticket'}
+                      </span>
+                    </div>
+                    <Switch
+                      checked={ticket.is_purchase_ticket}
+                      onCheckedChange={handleTogglePurchaseTicket}
+                    />
                   </div>
-                  <Switch
-                    checked={ticket.is_purchase_ticket}
-                    onCheckedChange={handleTogglePurchaseTicket}
-                  />
                 </div>
               </>
             )}
