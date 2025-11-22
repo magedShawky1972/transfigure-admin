@@ -201,7 +201,7 @@ function getNotificationContent(
   let notificationMessage = "";
   
   const appUrl = "https://edaraasus.com";
-  const ticketLink = `${appUrl}/admin-tickets`;
+  const ticketLink = `${appUrl}/tickets/${ticketId}`;
 
   switch (type) {
     case "ticket_created":

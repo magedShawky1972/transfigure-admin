@@ -589,7 +589,7 @@ const Tickets = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate(`/tickets/${ticket.id}`)}
+                    onClick={() => navigate(`/tickets/${ticket.id}`, { state: { from: '/tickets' } })}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
