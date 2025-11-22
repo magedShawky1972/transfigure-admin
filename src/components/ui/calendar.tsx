@@ -22,9 +22,10 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex pt-1 relative items-center justify-center",
-        caption_label: "text-sm font-medium mx-auto",
-        caption_dropdowns: "flex gap-1 mx-auto",
+        caption: "flex pt-1 relative items-center justify-center mb-4",
+        caption_label: "hidden",
+        caption_dropdowns: "flex gap-2",
+        vhidden: "hidden",
         nav: "flex gap-1",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -73,7 +74,7 @@ function Calendar({
                 handleChange(value)
               }}
             >
-              <SelectTrigger className="pr-1.5 pl-2 focus:ring-0 h-8 gap-1 bg-background text-foreground border border-input hover:bg-accent z-20 font-medium">
+              <SelectTrigger className="pr-2 pl-3 focus:ring-0 h-9 w-auto gap-2 bg-background text-foreground border border-input hover:bg-accent font-medium">
                 <SelectValue>{selected?.props?.children}</SelectValue>
               </SelectTrigger>
               <SelectContent position="popper" className="pointer-events-auto bg-popover text-popover-foreground border border-border z-[100]">
