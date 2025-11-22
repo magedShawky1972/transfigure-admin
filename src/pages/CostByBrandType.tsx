@@ -77,14 +77,6 @@ const CostByBrandType = () => {
     }
   };
 
-  if (hasAccess === null) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-
-  if (!hasAccess) {
-    return null;
-  }
-
   const { data: brandTypes = [] } = useQuery({
     queryKey: ["brand-types"],
     queryFn: async () => {
@@ -97,7 +89,16 @@ const CostByBrandType = () => {
       if (error) throw error;
       return data;
     },
+    enabled: hasAccess === true,
   });
+
+  if (hasAccess === null) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  if (!hasAccess) {
+    return null;
+  }
 
   const runReport = async () => {
     if (!dateFrom || !dateTo) {
