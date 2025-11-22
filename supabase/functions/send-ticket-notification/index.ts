@@ -69,11 +69,90 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const requestBody = await req.json();
 
-    // Check if this is a batch request
+    // Check if this is a batch request or single request
     const isBatch = 'recipientUserIds' in requestBody;
+    const isSequentialApproval = 'adminOrder' in requestBody;
 
-    if (isBatch) {
-      // Handle batch notifications
+    if (isSequentialApproval) {
+      // Handle sequential approval notification - only notify admins at specific order level
+      const { type, ticketId, adminOrder, ticketNumber, subject }: any = requestBody;
+      
+      console.log("Processing sequential approval notification:", { type, ticketId, adminOrder, ticketNumber });
+
+      // Get ticket's department
+      const { data: ticket, error: ticketError } = await supabase
+        .from("tickets")
+        .select("department_id")
+        .eq("id", ticketId)
+        .single();
+
+      if (ticketError || !ticket) {
+        throw new Error("Failed to fetch ticket department");
+      }
+
+      // Get admins at the specified order level for this department
+      const { data: adminData, error: adminError } = await supabase
+        .from("department_admins")
+        .select("user_id")
+        .eq("department_id", ticket.department_id)
+        .eq("admin_order", adminOrder);
+
+      if (adminError || !adminData || adminData.length === 0) {
+        throw new Error(`No admins found at order level ${adminOrder} for this department`);
+      }
+
+      const recipientUserIds = adminData.map(admin => admin.user_id);
+
+      // Get all recipient profiles at once
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, email, user_name")
+        .in("user_id", recipientUserIds);
+
+      if (profilesError || !profiles) {
+        throw new Error("Failed to fetch recipient profiles");
+      }
+
+      // Prepare notification data
+      const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
+        getNotificationContent(type, ticketNumber, subject, "", ticketId);
+
+      // Create all in-app notifications at once
+      const notifications = profiles.map(profile => ({
+        user_id: profile.user_id,
+        ticket_id: ticketId,
+        title: notificationTitle,
+        message: notificationMessage,
+        type: type,
+      }));
+
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert(notifications);
+
+      if (notificationError) {
+        console.error("Failed to create notifications:", notificationError);
+        throw notificationError;
+      }
+
+      // Send emails in parallel in background (non-blocking)
+      profiles.forEach(profile => {
+        const personalizedHtml = emailHtml.replace(
+          "<p>Hello ,</p>",
+          `<p>Hello ${profile.user_name},</p>`
+        );
+        sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml);
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, notificationsSent: profiles.length }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    } else if (isBatch) {
+      // Handle batch notifications (all admins at once - backward compatibility)
       const { type, ticketId, recipientUserIds, ticketNumber, subject }: BatchNotificationRequest = requestBody;
       
       console.log("Processing batch notification:", { type, ticketId, recipientCount: recipientUserIds.length, ticketNumber });

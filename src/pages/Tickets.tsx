@@ -72,6 +72,7 @@ type Ticket = {
   assigned_to: string | null;
   is_purchase_ticket: boolean;
   approved_at: string | null;
+  next_admin_order: number | null;
   department_id: string;
   departments: {
     department_name: string;
@@ -219,31 +220,20 @@ const Tickets = () => {
         if (attachmentError) throw attachmentError;
       }
 
-      // Get department admins to notify
-      const { data: admins } = await supabase
+      // Get department admins at order level 1 to notify (first approval level)
+      const { data: firstLevelAdmins } = await supabase
         .from("department_admins")
         .select("user_id")
-        .eq("department_id", values.department_id);
+        .eq("department_id", values.department_id)
+        .eq("admin_order", 1);
 
-      // Get all users with admin role
-      const { data: adminUsers } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "admin");
-
-      // Combine department admins and admin role users (remove duplicates)
-      const allNotificationRecipients = Array.from(new Set([
-        ...(admins?.map(a => a.user_id) || []),
-        ...(adminUsers?.map(a => a.user_id) || [])
-      ]));
-
-      // Send batch notification to all recipients (much faster)
-      if (allNotificationRecipients.length > 0 && ticketData) {
+      // Send notification to first level admins only
+      if (firstLevelAdmins && firstLevelAdmins.length > 0 && ticketData) {
         await supabase.functions.invoke("send-ticket-notification", {
           body: {
             type: "ticket_created",
             ticketId: ticketData.id,
-            recipientUserIds: allNotificationRecipients,
+            adminOrder: 1,
             ticketNumber: ticketData.ticket_number,
             subject: values.subject,
           },
