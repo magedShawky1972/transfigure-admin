@@ -15,7 +15,8 @@ import {
   FileText,
   TicketCheck,
   FileBarChart,
-  Key
+  Key,
+  Shield
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -68,6 +69,7 @@ export function AppSidebar() {
     "/table-generator": "tableConfig",
     "/odoo-setup": "odooSetup",
     "/software-license-setup": "softwareLicenseSetup",
+    "/system-config": "systemConfig",
   };
 
   useEffect(() => {
@@ -160,6 +162,7 @@ export function AppSidebar() {
       label: t("sidebar.admin"),
       items: [
         { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
+        { title: language === 'ar' ? 'إعدادات النظام' : 'System Configuration', url: "/system-config", icon: Shield },
         { title: t("menu.apiConfig"), url: "/api-config", icon: Cloud },
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
