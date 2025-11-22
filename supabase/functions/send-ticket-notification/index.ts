@@ -144,6 +144,22 @@ const handler = async (req: Request): Promise<Response> => {
         sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml);
       });
 
+      // Send push notifications to all recipients
+      profiles.forEach(profile => {
+        supabase.functions.invoke("send-push-notification", {
+          body: {
+            userId: profile.user_id,
+            title: notificationTitle,
+            body: notificationMessage,
+            data: {
+              url: `/tickets/${ticketId}`,
+              ticketId: ticketId,
+              tag: `ticket-${ticketId}`,
+            },
+          },
+        }).catch(error => console.error('Failed to send push notification:', error));
+      });
+
       return new Response(
         JSON.stringify({ success: true, notificationsSent: profiles.length }),
         {
@@ -199,6 +215,22 @@ const handler = async (req: Request): Promise<Response> => {
         sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml);
       });
 
+      // Send push notifications to all recipients
+      profiles.forEach(profile => {
+        supabase.functions.invoke("send-push-notification", {
+          body: {
+            userId: profile.user_id,
+            title: notificationTitle,
+            body: notificationMessage,
+            data: {
+              url: `/tickets/${ticketId}`,
+              ticketId: ticketId,
+              tag: `ticket-${ticketId}`,
+            },
+          },
+        }).catch(error => console.error('Failed to send push notification:', error));
+      });
+
       return new Response(
         JSON.stringify({ success: true, notificationsSent: profiles.length }),
         {
@@ -246,6 +278,20 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Send email in background (non-blocking)
       sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml);
+
+      // Send push notification
+      supabase.functions.invoke("send-push-notification", {
+        body: {
+          userId: recipientUserId,
+          title: notificationTitle,
+          body: notificationMessage,
+          data: {
+            url: `/tickets/${ticketId}`,
+            ticketId: ticketId,
+            tag: `ticket-${ticketId}`,
+          },
+        },
+      }).catch(error => console.error('Failed to send push notification:', error));
 
       return new Response(
         JSON.stringify({ success: true }),

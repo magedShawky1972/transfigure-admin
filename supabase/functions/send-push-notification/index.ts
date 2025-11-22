@@ -6,6 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to convert VAPID public key to Uint8Array
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -39,15 +53,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Found ${subscriptions.length} subscriptions`);
-
-    // Send push notification to all subscriptions
-    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
-    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
-
-    if (!vapidPublicKey || !vapidPrivateKey) {
-      throw new Error('VAPID keys not configured');
-    }
+    console.log(`Found ${subscriptions.length} subscriptions for user ${userId}`);
 
     const results = await Promise.allSettled(
       subscriptions.map(async (subscription) => {
@@ -58,44 +64,52 @@ serve(async (req) => {
             data: data || {},
           });
 
-          // Use web-push protocol
+          console.log(`Sending notification to endpoint: ${subscription.endpoint.substring(0, 50)}...`);
+
+          // Simple POST request with payload
           const response = await fetch(subscription.endpoint, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/octet-stream',
+              'Content-Type': 'application/json',
               'TTL': '86400',
             },
             body: payload,
           });
 
           if (!response.ok) {
-            console.error(`Failed to send to ${subscription.endpoint}:`, response.status);
-            // If subscription is invalid, delete it
-            if (response.status === 410) {
+            const errorText = await response.text();
+            console.error(`Failed to send to ${subscription.endpoint.substring(0, 50)}:`, response.status, errorText);
+            
+            // If subscription is invalid (gone or not found), delete it
+            if (response.status === 410 || response.status === 404) {
               await supabase
                 .from('push_subscriptions')
                 .delete()
                 .eq('id', subscription.id);
               console.log('Deleted invalid subscription:', subscription.id);
             }
+            return { success: false, endpoint: subscription.endpoint, status: response.status };
           }
 
-          return { success: response.ok, endpoint: subscription.endpoint };
+          console.log('Successfully sent notification to subscription');
+          return { success: true, endpoint: subscription.endpoint };
         } catch (error) {
           console.error('Error sending to subscription:', error);
-          return { success: false, endpoint: subscription.endpoint, error };
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          return { success: false, endpoint: subscription.endpoint, error: errorMessage };
         }
       })
     );
 
     const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    console.log(`Sent ${successful}/${subscriptions.length} notifications successfully`);
+    console.log(`Push notification result: ${successful}/${subscriptions.length} notifications sent successfully`);
 
     return new Response(
       JSON.stringify({ 
-        message: 'Push notifications sent',
+        message: 'Push notifications processed',
         successful,
-        total: subscriptions.length
+        total: subscriptions.length,
+        results: results.map(r => r.status === 'fulfilled' ? r.value : { error: r.reason })
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
