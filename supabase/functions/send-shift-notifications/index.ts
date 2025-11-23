@@ -126,29 +126,30 @@ const handler = async (req: Request): Promise<Response> => {
       // Create email content
       const emailSubject = `جدول مناوباتك - ${userShifts.length} مناوبة`;
       
-      const shiftsText = userShifts.map(shift => {
+      const shiftsList = userShifts.map(shift => {
         const date = new Date(shift.assignment_date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const shiftName = shift.shift?.shift_name || 'غير محدد';
         const startTime = shift.shift?.shift_start_time || 'غير محدد';
         const endTime = shift.shift?.shift_end_time || 'غير محدد';
         const zone = shift.shift?.shift_type?.zone_name || 'غير محدد';
-        const notes = shift.notes ? `\nملاحظات: ${shift.notes}` : '';
         
-        return `يوم ${date}\n${shiftName} - من الساعة ${startTime} إلى الساعة ${endTime}\nالمنطقة: ${zone}${notes}`;
-      }).join('\n\n');
+        return `<li style="margin-bottom: 15px;">
+          <strong>يوم ${date}</strong><br/>
+          ${shiftName} - من الساعة ${startTime} إلى الساعة ${endTime}<br/>
+          المنطقة: ${zone}
+          ${shift.notes ? `<br/>ملاحظات: ${shift.notes}` : ''}
+        </li>`;
+      }).join('');
 
       const emailHtml = `
-        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #1f2937;">مرحباً ${profile.user_name}،</h2>
-          <p style="color: #4b5563; font-size: 16px;">
-            تم إسناد الورديات لك كالتالي:
-          </p>
-          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <pre style="white-space: pre-wrap; font-family: Arial, sans-serif; font-size: 14px; color: #1f2937; margin: 0;">${shiftsText}</pre>
-          </div>
-          <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
-            يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.
-          </p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2>جدول المناوبات</h2>
+          <p>مرحباً ${profile.user_name}،</p>
+          <p>تم إسناد الورديات لك كالتالي:</p>
+          <ul style="list-style: none; padding: 0;">
+            ${shiftsList}
+          </ul>
+          <p>يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.</p>
         </div>
       `;
 
