@@ -86,6 +86,7 @@ const MENU_ITEMS = [
   { key: "department_management", label: "Department Management" },
   { key: "userSetup", label: "User Setup" },
   { key: "shiftSetup", label: "Shift Setup" },
+  { key: "shiftCalendar", label: "Shift Calendar" },
   { key: "systemConfig", label: "System Configuration" },
   { key: "apiConfig", label: "API Config" },
   { key: "odooSetup", label: "Odoo Setup" },
