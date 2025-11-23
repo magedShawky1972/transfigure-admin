@@ -93,6 +93,7 @@ const ShiftCalendar = () => {
         job_positions: shift.shift_job_positions?.map((sjp: any) => sjp.job_position_id) || []
       })) || [];
 
+      console.log("Fetched shifts with types:", shiftsWithPositions);
       setShifts(shiftsWithPositions);
     } catch (error) {
       console.error("Error fetching shifts:", error);
@@ -343,7 +344,14 @@ const ShiftCalendar = () => {
       return dateAssignments;
     }
     
-    return dateAssignments.filter(a => a.shift.shift_type === selectedShiftType);
+    const filtered = dateAssignments.filter(a => {
+      const shiftType = a.shift.shift_type;
+      console.log("Comparing shift type:", shiftType, "with selected:", selectedShiftType);
+      return shiftType === selectedShiftType;
+    });
+    
+    console.log("Filtered assignments:", filtered.length, "out of", dateAssignments.length);
+    return filtered;
   };
 
   const getFilteredShifts = () => {
