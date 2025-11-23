@@ -10,6 +10,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to encode subject in UTF-8 Base64 MIME format
+function encodeSubject(subject: string): string {
+  return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+}
+
 async function sendEmailInBackground(email: string, emailHtml: string) {
   try {
     const smtpClient = new SMTPClient({
@@ -26,11 +31,11 @@ async function sendEmailInBackground(email: string, emailHtml: string) {
 
     console.log("Attempting to send email to:", email);
 
-    // Subject قصير لتجنب Base64 الطويل
+    // Subject in English
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: "إشعار ورديات",
+      subject: encodeSubject("Shift Schedule Notification"),
       content: "auto",
       html: emailHtml,
     });
@@ -131,10 +136,10 @@ const handler = async (req: Request): Promise<Response> => {
         <body>
           <div style="font-family: Arial, sans-serif;">
             <h2>جدول مناوباتك - ${userShifts.length} مناوبة</h2>
-            <p>مرحباً ${profile.user_name}،</p>
-            <p>تم إسناد الورديات لك كالتالي:</p>
-            <p>${shiftsList}</p>
-            <p>يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.</p>
+            <h3>مرحباً ${profile.user_name}،</h3>
+            <h3>تم إسناد الورديات لك كالتالي:</h3>
+            <h3>${shiftsList}</h3>
+            <h3>يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.</h3>
           </div>
         </body>
         </html>
