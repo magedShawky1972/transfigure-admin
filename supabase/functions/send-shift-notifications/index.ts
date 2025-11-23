@@ -10,6 +10,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to encode Arabic text in email subject using UTF-8 Base64 MIME format
+function encodeSubject(subject: string): string {
+  return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+}
+
 async function sendEmailInBackground(
   email: string,
   userName: string,
@@ -30,10 +35,14 @@ async function sendEmailInBackground(
     });
 
     console.log("Attempting to send email to:", email);
+    
+    // Encode the subject to properly handle Arabic text
+    const encodedSubject = encodeSubject(emailSubject);
+    
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: emailSubject,
+      subject: encodedSubject,
       content: "auto",
       html: emailHtml,
     });
@@ -136,12 +145,20 @@ const handler = async (req: Request): Promise<Response> => {
       }).join('<br/>');
 
       const emailHtml = `
-        <div style="font-family: Arial, sans-serif;">
-          <p>مرحباً ${profile.user_name}،</p>
-          <p>تم إسناد الورديات لك كالتالي:</p>
-          <p>${shiftsList}</p>
-          <p>يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.</p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8" />
+        </head>
+        <body>
+          <div style="font-family: Arial, sans-serif;">
+            <p>مرحباً ${profile.user_name}،</p>
+            <p>تم إسناد الورديات لك كالتالي:</p>
+            <p>${shiftsList}</p>
+            <p>يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.</p>
+          </div>
+        </body>
+        </html>
       `;
 
       // Send email in background
