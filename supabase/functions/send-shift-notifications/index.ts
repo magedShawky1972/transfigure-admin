@@ -125,38 +125,27 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Create email content
       const emailSubject = `جدول مناوباتك - ${userShifts.length} مناوبة`;
-      const shiftsHtml = userShifts.map(shift => `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 12px;">${new Date(shift.assignment_date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
-          <td style="padding: 12px;">${shift.shift?.shift_name || 'N/A'}</td>
-          <td style="padding: 12px;">${shift.shift?.shift_start_time || 'N/A'}</td>
-          <td style="padding: 12px;">${shift.shift?.shift_end_time || 'N/A'}</td>
-          <td style="padding: 12px;">${shift.shift?.shift_type?.zone_name || 'N/A'}</td>
-          <td style="padding: 12px;">${shift.notes || '-'}</td>
-        </tr>
-      `).join('');
+      
+      const shiftsText = userShifts.map(shift => {
+        const date = new Date(shift.assignment_date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const shiftName = shift.shift?.shift_name || 'غير محدد';
+        const startTime = shift.shift?.shift_start_time || 'غير محدد';
+        const endTime = shift.shift?.shift_end_time || 'غير محدد';
+        const zone = shift.shift?.shift_type?.zone_name || 'غير محدد';
+        const notes = shift.notes ? `\nملاحظات: ${shift.notes}` : '';
+        
+        return `يوم ${date}\n${shiftName} - من الساعة ${startTime} إلى الساعة ${endTime}\nالمنطقة: ${zone}${notes}`;
+      }).join('\n\n');
 
       const emailHtml = `
-        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #1f2937;">مرحباً ${profile.user_name}،</h2>
           <p style="color: #4b5563; font-size: 16px;">
-            إليك جدول مناوباتك للفترة من ${new Date(startDate).toLocaleDateString('ar-EG')} إلى ${new Date(endDate).toLocaleDateString('ar-EG')}:
+            تم إسناد الورديات لك كالتالي:
           </p>
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <thead>
-              <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                <th style="padding: 12px; text-align: right;">التاريخ</th>
-                <th style="padding: 12px; text-align: right;">المناوبة</th>
-                <th style="padding: 12px; text-align: right;">وقت البداية</th>
-                <th style="padding: 12px; text-align: right;">وقت النهاية</th>
-                <th style="padding: 12px; text-align: right;">المنطقة</th>
-                <th style="padding: 12px; text-align: right;">ملاحظات</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${shiftsHtml}
-            </tbody>
-          </table>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <pre style="white-space: pre-wrap; font-family: Arial, sans-serif; font-size: 14px; color: #1f2937; margin: 0;">${shiftsText}</pre>
+          </div>
           <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
             يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.
           </p>
