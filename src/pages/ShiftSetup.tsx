@@ -562,7 +562,7 @@ const ShiftSetup = () => {
               ))}
               {shifts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     No shifts found. Add your first shift above.
                   </TableCell>
                 </TableRow>
