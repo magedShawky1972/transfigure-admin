@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, List, Grid3x3, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Calendar, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -622,6 +622,15 @@ const ShiftCalendar = () => {
               </Select>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSendNotifications}
+                disabled={sendingNotifications}
+              >
+                <Send className="h-4 w-4 mr-1" />
+                {sendingNotifications ? "جاري الإرسال..." : "إرسال الإشعارات"}
+              </Button>
               <Button
                 variant={viewType === "day" ? "default" : "outline"}
                 size="sm"
