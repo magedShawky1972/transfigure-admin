@@ -65,7 +65,7 @@ serve(async (req) => {
 
     console.log('User authorized, proceeding with user creation');
 
-    const { email, user_name, mobile_number, is_active, password } = await req.json();
+    const { email, user_name, mobile_number, is_active, password, job_position_id } = await req.json();
 
     // Use provided password or default to "123456"
     const userPassword = password || '123456';
@@ -102,6 +102,7 @@ serve(async (req) => {
         mobile_number: mobile_number || null,
         is_active,
         must_change_password: true, // Force password change on first login
+        job_position_id: job_position_id || null,
       })
       .eq('user_id', newUser.user.id);
 

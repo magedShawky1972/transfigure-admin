@@ -21,7 +21,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Profile {
   id: string;
@@ -31,6 +44,14 @@ interface Profile {
   mobile_number: string | null;
   is_active: boolean;
   is_admin?: boolean;
+  job_position_id?: string | null;
+  job_position_name?: string | null;
+}
+
+interface JobPosition {
+  id: string;
+  position_name: string;
+  is_active: boolean;
 }
 
 interface UserPermission {
@@ -133,12 +154,63 @@ const UserSetup = () => {
     mobile_number: "",
     is_active: true,
     is_admin: false,
+    job_position_id: null as string | null,
   });
+
+  const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const [jobPositionOpen, setJobPositionOpen] = useState(false);
+  const [newJobPosition, setNewJobPosition] = useState("");
 
   useEffect(() => {
     fetchProfiles();
     checkCurrentUserAdmin();
+    fetchJobPositions();
   }, []);
+
+  const fetchJobPositions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("job_positions")
+        .select("*")
+        .eq("is_active", true)
+        .order("position_name");
+
+      if (error) throw error;
+      setJobPositions(data || []);
+    } catch (error: any) {
+      console.error("Error fetching job positions:", error);
+    }
+  };
+
+  const handleAddNewJobPosition = async () => {
+    if (!newJobPosition.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("job_positions")
+        .insert({ position_name: newJobPosition.trim() })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setJobPositions([...jobPositions, data]);
+      setFormData({ ...formData, job_position_id: data.id });
+      setNewJobPosition("");
+      setJobPositionOpen(false);
+
+      toast({
+        title: t("common.success"),
+        description: "Job position added successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const checkCurrentUserAdmin = async () => {
     try {
@@ -161,10 +233,13 @@ const UserSetup = () => {
   const fetchProfiles = async () => {
     setLoading(true);
     try {
-      // Fetch profiles
+      // Fetch profiles with job positions
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("*")
+        .select(`
+          *,
+          job_position:job_positions(position_name)
+        `)
         .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -188,6 +263,7 @@ const UserSetup = () => {
       const profilesWithAdmin = (profilesData || []).map((profile: any) => ({
         ...profile,
         is_admin: adminMap.get(profile.user_id) || false,
+        job_position_name: profile.job_position?.position_name || null,
       }));
       
       setProfiles(profilesWithAdmin);
@@ -215,6 +291,7 @@ const UserSetup = () => {
             email: formData.email,
             mobile_number: formData.mobile_number || null,
             is_active: formData.is_active,
+            job_position_id: formData.job_position_id,
           })
           .eq("id", editingProfile.id);
 
@@ -262,6 +339,7 @@ const UserSetup = () => {
               email: formData.email,
               mobile_number: formData.mobile_number || null,
               is_active: formData.is_active,
+              job_position_id: formData.job_position_id,
             }),
           }
         );
@@ -300,6 +378,7 @@ const UserSetup = () => {
       mobile_number: profile.mobile_number || "",
       is_active: profile.is_active,
       is_admin: profile.is_admin || false,
+      job_position_id: profile.job_position_id || null,
     });
     setDialogOpen(true);
   };
@@ -381,6 +460,7 @@ const UserSetup = () => {
       mobile_number: "",
       is_active: true,
       is_admin: false,
+      job_position_id: null,
     });
     setEditingProfile(null);
   };
@@ -699,6 +779,68 @@ const UserSetup = () => {
                   }
                 />
               </div>
+              
+              <div className="space-y-2">
+                <Label>Job Position</Label>
+                <Popover open={jobPositionOpen} onOpenChange={setJobPositionOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={jobPositionOpen}
+                      className="w-full justify-between"
+                    >
+                      {formData.job_position_id
+                        ? jobPositions.find((pos) => pos.id === formData.job_position_id)?.position_name
+                        : "Select job position..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search or type new position..." 
+                        value={newJobPosition}
+                        onValueChange={setNewJobPosition}
+                      />
+                      <CommandEmpty>
+                        <div className="p-2">
+                          <Button
+                            onClick={handleAddNewJobPosition}
+                            className="w-full"
+                            size="sm"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add "{newJobPosition}"
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {jobPositions.map((position) => (
+                          <CommandItem
+                            key={position.id}
+                            value={position.position_name}
+                            onSelect={() => {
+                              setFormData({ ...formData, job_position_id: position.id });
+                              setJobPositionOpen(false);
+                              setNewJobPosition("");
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.job_position_id === position.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {position.position_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
               <div className="flex items-center space-x-2">
                 <Switch
                   id="is_active"
@@ -798,6 +940,7 @@ const UserSetup = () => {
             <TableRow>
               <TableHead>User Name</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Job Position</TableHead>
               <TableHead>Mobile Number</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -808,6 +951,7 @@ const UserSetup = () => {
               <TableRow key={profile.id}>
                 <TableCell className="font-medium">{profile.user_name}</TableCell>
                 <TableCell>{profile.email}</TableCell>
+                <TableCell>{profile.job_position_name || "-"}</TableCell>
                 <TableCell>{profile.mobile_number || "-"}</TableCell>
                 <TableCell>
                   <Switch
