@@ -85,6 +85,7 @@ const MENU_ITEMS = [
   { key: "paymentMethodSetup", label: "Payment Method Setup" },
   { key: "department_management", label: "Department Management" },
   { key: "userSetup", label: "User Setup" },
+  { key: "shiftSetup", label: "Shift Setup" },
   { key: "systemConfig", label: "System Configuration" },
   { key: "apiConfig", label: "API Config" },
   { key: "odooSetup", label: "Odoo Setup" },
