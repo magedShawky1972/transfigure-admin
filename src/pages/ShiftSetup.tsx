@@ -170,6 +170,18 @@ const ShiftSetup = () => {
 
       let shiftId: string;
 
+      // Update shift type if shift_type_id and shift_type are both provided
+      if (formData.shift_type_id && formData.shift_type) {
+        const { error: typeError } = await supabase
+          .from("shift_types")
+          .update({ type: formData.shift_type })
+          .eq("id", formData.shift_type_id);
+
+        if (typeError) {
+          console.error("Error updating shift type:", typeError);
+        }
+      }
+
       if (editingId) {
         const { error } = await supabase
           .from("shifts")
@@ -303,7 +315,7 @@ const ShiftSetup = () => {
                 <label className="text-sm font-medium">Shift Zone</label>
                 <Popover open={shiftZoneOpen} onOpenChange={setShiftZoneOpen}>
                   <PopoverTrigger asChild>
-                    <Button
+                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={shiftZoneOpen}
@@ -332,7 +344,11 @@ const ShiftSetup = () => {
                               key={type.id}
                               value={type.zone_name}
                               onSelect={() => {
-                                setFormData({ ...formData, shift_type_id: type.id });
+                                setFormData({ 
+                                  ...formData, 
+                                  shift_type_id: type.id,
+                                  shift_type: type.type || ""
+                                });
                                 setShiftZoneOpen(false);
                                 setNewShiftZone("");
                               }}
