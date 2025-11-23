@@ -31,11 +31,11 @@ async function sendEmailInBackground(email: string, emailHtml: string) {
 
     console.log("Attempting to send email to:", email);
 
-    // Subject in English
+    // Subject in English (no encoding needed for English text)
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: encodeSubject("New Shift Assign"),
+      subject: "New Shift Assign",
       content: "auto",
       html: emailHtml,
     });
