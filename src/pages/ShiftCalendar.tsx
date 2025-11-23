@@ -158,6 +158,7 @@ const ShiftCalendar = () => {
             shift_start_time,
             shift_end_time,
             color,
+            shift_types (type),
             shift_job_positions (
               job_position_id
             )
@@ -181,6 +182,7 @@ const ShiftCalendar = () => {
         ...assignment,
         shift: {
           ...assignment.shifts,
+          shift_type: assignment.shifts.shift_types?.type,
           job_positions: assignment.shifts.shift_job_positions?.map((sjp: any) => sjp.job_position_id) || []
         },
         user: userMap.get(assignment.user_id) || {
