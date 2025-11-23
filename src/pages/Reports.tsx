@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report']);
         return;
       }
 
@@ -78,6 +78,13 @@ const Reports = () => {
       description: "Comprehensive software licenses report with filters for status, category, renewal cycle, and dates",
       icon: Key,
       route: "/reports/software-licenses-report",
+    },
+    {
+      id: "shift-report",
+      name: "تقرير المناوبات",
+      description: "تقرير شامل للمناوبات مع فلاتر حسب الوظيفة والتاريخ",
+      icon: Calendar,
+      route: "/reports/shift-report",
     },
   ];
 
