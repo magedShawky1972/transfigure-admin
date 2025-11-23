@@ -9,6 +9,20 @@ import { Calendar, List, Grid3x3, ChevronLeft, ChevronRight, Plus } from "lucide
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 
+const arabicDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
+const formatDateInArabic = (date: Date, formatType: "month" | "monthYear" | "dateRange" | "fullDate") => {
+  const day = date.getDate();
+  const month = arabicMonths[date.getMonth()];
+  const year = date.getFullYear();
+  
+  if (formatType === "month") return month;
+  if (formatType === "monthYear") return `${month} ${year}`;
+  if (formatType === "fullDate") return `${day} ${month} ${year}`;
+  return "";
+};
+
 interface Shift {
   id: string;
   shift_name: string;
@@ -493,12 +507,12 @@ const ShiftCalendar = () => {
       currentDay = addDays(currentDay, 1);
     }
 
-    const minHeightClass = viewType === "month" ? "min-h-32" : viewType === "week" ? "min-h-48" : "min-h-64";
+    const minHeightClass = viewType === "month" ? "min-h-32" : viewType === "week" ? "min-h-72" : "min-h-64";
 
     return (
       <div className="grid grid-cols-7 gap-2">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-          <div key={day} className="text-center font-medium text-sm text-muted-foreground py-2">
+        {arabicDays.map((day, idx) => (
+          <div key={idx} className="text-center font-medium text-sm text-muted-foreground py-2">
             {day}
           </div>
         ))}
@@ -744,9 +758,9 @@ const ShiftCalendar = () => {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-xl font-semibold">
-              {viewType === "month" && format(currentDate, "MMMM yyyy")}
-              {viewType === "week" && `${format(getStartDate(), "MMM d")} - ${format(getEndDate(), "MMM d, yyyy")}`}
-              {viewType === "day" && format(currentDate, "MMMM d, yyyy")}
+              {viewType === "month" && formatDateInArabic(currentDate, "monthYear")}
+              {viewType === "week" && `${formatDateInArabic(getStartDate(), "fullDate")} - ${formatDateInArabic(getEndDate(), "fullDate")}`}
+              {viewType === "day" && formatDateInArabic(currentDate, "fullDate")}
             </h2>
             <Button variant="outline" size="sm" onClick={handleNext}>
               <ChevronRight className="h-4 w-4" />
@@ -849,7 +863,7 @@ const ShiftCalendar = () => {
                   مسند إلى: <span className="font-medium">{selectedAssignment.user.user_name}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  التاريخ: {format(new Date(selectedAssignment.assignment_date), "MMMM d, yyyy")}
+                  التاريخ: {formatDateInArabic(new Date(selectedAssignment.assignment_date), "fullDate")}
                 </div>
               </div>
               
