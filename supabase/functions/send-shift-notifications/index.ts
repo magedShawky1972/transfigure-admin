@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -10,6 +10,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
 async function sendEmailInBackground(
   email: string,
   userName: string,
@@ -17,32 +19,14 @@ async function sendEmailInBackground(
   emailHtml: string
 ) {
   try {
-    const smtpClient = new SMTPClient({
-      connection: {
-        hostname: "smtp.hostinger.com",
-        port: 465,
-        tls: true,
-        auth: {
-          username: "edara@asuscards.com",
-          password: Deno.env.get("SMTP_PASSWORD") ?? "",
-        },
-      },
-    });
-
     console.log("Attempting to send email to:", email);
-    await smtpClient.send({
+    const emailResponse = await resend.emails.send({
       from: "Edara Support <edara@asuscards.com>",
-      to: email,
+      to: [email],
       subject: emailSubject,
-      content: "text/html; charset=utf-8",
       html: emailHtml,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Content-Transfer-Encoding": "quoted-printable",
-      },
     });
-    await smtpClient.close();
-    console.log("Email sent successfully to:", email);
+    console.log("Email sent successfully to:", email, emailResponse);
   } catch (emailError) {
     console.error("Failed to send email to", email, ":", emailError);
   }
