@@ -10,10 +10,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function to encode Arabic text in email subject using UTF-8 Base64 MIME format
-function encodeSubject(subject: string): string {
-  return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
-}
 
 async function sendEmailInBackground(
   email: string,
@@ -36,13 +32,10 @@ async function sendEmailInBackground(
 
     console.log("Attempting to send email to:", email);
     
-    // Encode the subject to properly handle Arabic text
-    const encodedSubject = encodeSubject(emailSubject);
-    
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: encodedSubject,
+      subject: emailSubject,
       content: "auto",
       html: emailHtml,
     });
