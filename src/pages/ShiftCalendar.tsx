@@ -560,23 +560,32 @@ const ShiftCalendar = () => {
                 {getFilteredShifts().map(shift => (
                   <Button
                     key={shift.id}
-                    variant="outline"
-                    className="h-auto py-2 px-4"
+                    variant={selectedQuickShift?.id === shift.id ? "default" : "outline"}
+                    className={cn(
+                      "h-auto py-2 px-4 transition-all duration-200",
+                      selectedQuickShift?.id === shift.id && "ring-2 ring-offset-2 shadow-lg"
+                    )}
                     onClick={() => setSelectedQuickShift(shift)}
                     style={{ 
                       borderColor: shift.color,
                       borderWidth: '2px',
-                      backgroundColor: selectedQuickShift?.id === shift.id ? `${shift.color}20` : 'transparent'
+                      backgroundColor: selectedQuickShift?.id === shift.id ? shift.color : 'transparent',
+                      color: selectedQuickShift?.id === shift.id ? 'white' : 'inherit'
                     }}
                   >
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: shift.color }}
+                        className="w-3 h-3 rounded-full ring-1 ring-white/30"
+                        style={{ 
+                          backgroundColor: selectedQuickShift?.id === shift.id ? 'white' : shift.color 
+                        }}
                       />
                       <div className="flex flex-col items-start">
                         <span className="font-medium text-sm">{shift.shift_name}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className={cn(
+                          "text-xs",
+                          selectedQuickShift?.id === shift.id ? "text-white/80" : "text-muted-foreground"
+                        )}>
                           {shift.shift_start_time} - {shift.shift_end_time}
                         </span>
                       </div>
@@ -598,7 +607,7 @@ const ShiftCalendar = () => {
                   <Button
                     key={user.user_id}
                     variant="outline"
-                    className="h-auto py-3 px-3 justify-start"
+                    className="h-auto py-3 px-3 justify-start transition-all duration-200 hover:scale-105 hover:shadow-md hover:border-primary hover:bg-primary/5 active:scale-95"
                     onClick={() => {
                       if (!quickAssignDate) {
                         toast.error("Please select a date first by clicking on a calendar cell");
