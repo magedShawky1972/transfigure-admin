@@ -330,6 +330,8 @@ const ShiftCalendar = () => {
       currentDay = addDays(currentDay, 1);
     }
 
+    const minHeightClass = viewType === "month" ? "min-h-32" : viewType === "week" ? "min-h-48" : "min-h-64";
+
     return (
       <div className="grid grid-cols-7 gap-2">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
@@ -346,14 +348,15 @@ const ShiftCalendar = () => {
             <div
               key={idx}
               className={cn(
-                "min-h-32 border rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors",
+                minHeightClass,
+                "border rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors overflow-y-auto",
                 !isCurrentMonth && "opacity-40 bg-muted/20",
                 isToday && "border-primary border-2"
               )}
               onClick={(e) => handleAddShift(day, e)}
             >
               <div className={cn(
-                "text-sm font-medium mb-2",
+                "text-sm font-medium mb-2 sticky top-0 bg-background/95 backdrop-blur-sm pb-1",
                 isToday && "text-primary"
               )}>
                 {format(day, "d")}
@@ -362,7 +365,7 @@ const ShiftCalendar = () => {
                 {dayAssignments.map((assignment, i) => (
                   <div
                     key={i}
-                    className="assignment-item text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity"
+                    className="assignment-item text-xs p-1.5 rounded cursor-pointer hover:opacity-80 transition-opacity"
                     style={{ 
                       backgroundColor: assignment.shift.color + '20',
                       borderLeft: `3px solid ${assignment.shift.color}`
