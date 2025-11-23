@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Calendar, List, Grid3x3, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
@@ -14,7 +15,15 @@ interface Shift {
   shift_start_time: string;
   shift_end_time: string;
   color: string;
+  shift_type_id?: string;
+  shift_type?: string;
   job_positions?: string[];
+}
+
+interface ShiftType {
+  id: string;
+  zone_name: string;
+  type: string | null;
 }
 
 interface User {
@@ -39,6 +48,8 @@ const ShiftCalendar = () => {
   const [viewType, setViewType] = useState<ViewType>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
+  const [selectedShiftType, setSelectedShiftType] = useState<string>("all");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,6 +64,7 @@ const ShiftCalendar = () => {
   useEffect(() => {
     fetchShifts();
     fetchUsers();
+    fetchShiftTypes();
   }, []);
 
   useEffect(() => {
@@ -65,6 +77,7 @@ const ShiftCalendar = () => {
         .from("shifts")
         .select(`
           *,
+          shift_types (zone_name, type),
           shift_job_positions (
             job_position_id,
             job_positions (position_name)
@@ -76,6 +89,7 @@ const ShiftCalendar = () => {
 
       const shiftsWithPositions = data?.map(shift => ({
         ...shift,
+        shift_type: shift.shift_types?.type,
         job_positions: shift.shift_job_positions?.map((sjp: any) => sjp.job_position_id) || []
       })) || [];
 
@@ -83,6 +97,22 @@ const ShiftCalendar = () => {
     } catch (error) {
       console.error("Error fetching shifts:", error);
       toast.error("Failed to fetch shifts");
+    }
+  };
+
+  const fetchShiftTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("shift_types")
+        .select("*")
+        .eq("is_active", true)
+        .order("type");
+
+      if (error) throw error;
+      setShiftTypes(data || []);
+    } catch (error) {
+      console.error("Error fetching shift types:", error);
+      toast.error("Failed to fetch shift types");
     }
   };
 
@@ -307,7 +337,20 @@ const ShiftCalendar = () => {
   };
 
   const getAssignmentsForDate = (date: Date) => {
-    return assignments.filter(a => isSameDay(new Date(a.assignment_date), date));
+    const dateAssignments = assignments.filter(a => isSameDay(new Date(a.assignment_date), date));
+    
+    if (selectedShiftType === "all") {
+      return dateAssignments;
+    }
+    
+    return dateAssignments.filter(a => a.shift.shift_type === selectedShiftType);
+  };
+
+  const getFilteredShifts = () => {
+    if (selectedShiftType === "all") {
+      return shifts;
+    }
+    return shifts.filter(s => s.shift_type === selectedShiftType);
   };
 
   const getFilteredUsers = () => {
@@ -393,11 +436,26 @@ const ShiftCalendar = () => {
     <div className="container mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-6 w-6" />
-              Shift Calendar
-            </CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-6 w-6" />
+                Shift Calendar
+              </CardTitle>
+              <Select value={selectedShiftType} onValueChange={setSelectedShiftType}>
+                <SelectTrigger className="w-[180px] bg-background">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  <SelectItem value="all">All Types</SelectItem>
+                  {Array.from(new Set(shiftTypes.map(st => st.type).filter(Boolean))).map(type => (
+                    <SelectItem key={type} value={type!}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant={viewType === "day" ? "default" : "outline"}
@@ -452,7 +510,7 @@ const ShiftCalendar = () => {
             <DialogTitle>Select Shift</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {shifts.map(shift => (
+            {getFilteredShifts().map(shift => (
               <Button
                 key={shift.id}
                 variant="outline"
