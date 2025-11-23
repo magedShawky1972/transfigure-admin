@@ -14,7 +14,6 @@ async function sendEmailInBackground(
   email: string,
   userName: string,
   emailSubject: string,
-  emailText: string,
   emailHtml: string
 ) {
   try {
@@ -35,7 +34,7 @@ async function sendEmailInBackground(
       from: "Edara Support <edara@asuscards.com>",
       to: email,
       subject: emailSubject,
-      content: emailText,
+      content: "auto",
       html: emailHtml,
     });
     await smtpClient.close();
@@ -124,7 +123,7 @@ const handler = async (req: Request): Promise<Response> => {
         new Date(a.assignment_date).getTime() - new Date(b.assignment_date).getTime()
       );
 
-      // Create email content - simple plain text format
+      // Create email content - exactly like ticket notifications
       const emailSubject = `جدول مناوباتك - ${userShifts.length} مناوبة`;
       
       const shiftsList = userShifts.map(shift => {
@@ -133,26 +132,20 @@ const handler = async (req: Request): Promise<Response> => {
         const startTime = shift.shift?.shift_start_time || 'غير محدد';
         const endTime = shift.shift?.shift_end_time || 'غير محدد';
         
-        return `يوم ${date}\n${shiftName} - من الساعة ${startTime} إلى الساعة ${endTime}`;
-      }).join('\n\n');
+        return `يوم ${date} - ${shiftName} من الساعة ${startTime} إلى الساعة ${endTime}`;
+      }).join('<br/>');
 
-      const emailText = `مرحباً ${profile.user_name}،
-
-تم إسناد الورديات لك كالتالي:
-
-${shiftsList}
-
-يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.`;
-
-      const emailHtml = `<div style="font-family: Arial, sans-serif;">
-        <p>مرحباً ${profile.user_name}،</p>
-        <p>تم إسناد الورديات لك كالتالي:</p>
-        <pre style="font-family: Arial, sans-serif; white-space: pre-wrap;">${shiftsList}</pre>
-        <p>يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.</p>
-      </div>`;
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif;">
+          <p>مرحباً ${profile.user_name}،</p>
+          <p>تم إسناد الورديات لك كالتالي:</p>
+          <p>${shiftsList}</p>
+          <p>يرجى مراجعة جدول المناوبات والتأكد من توفرك في المواعيد المحددة.</p>
+        </div>
+      `;
 
       // Send email in background
-      sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailText, emailHtml);
+      sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml);
 
       // Create in-app notification
       const notificationMessage = `تم تعيين ${userShifts.length} مناوبة لك من ${new Date(startDate).toLocaleDateString('ar-EG')} إلى ${new Date(endDate).toLocaleDateString('ar-EG')}`;
