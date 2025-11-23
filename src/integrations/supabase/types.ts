@@ -385,6 +385,30 @@ export type Database = {
         }
         Relationships: []
       }
+      job_positions: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          position_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          position_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          position_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -675,6 +699,7 @@ export type Database = {
           email: string
           id: string
           is_active: boolean
+          job_position_id: string | null
           mobile_number: string | null
           must_change_password: boolean
           transaction_column_order: Json | null
@@ -689,6 +714,7 @@ export type Database = {
           email: string
           id?: string
           is_active?: boolean
+          job_position_id?: string | null
           mobile_number?: string | null
           must_change_password?: boolean
           transaction_column_order?: Json | null
@@ -703,6 +729,7 @@ export type Database = {
           email?: string
           id?: string
           is_active?: boolean
+          job_position_id?: string | null
           mobile_number?: string | null
           must_change_password?: boolean
           transaction_column_order?: Json | null
@@ -712,7 +739,15 @@ export type Database = {
           user_id?: string
           user_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_job_position_id_fkey"
+            columns: ["job_position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purpletransaction: {
         Row: {
