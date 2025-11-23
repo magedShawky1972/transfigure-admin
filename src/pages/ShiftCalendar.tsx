@@ -321,13 +321,13 @@ const ShiftCalendar = () => {
 
       if (error) throw error;
 
-      toast.success("Assignment deleted successfully");
+      toast.success("تم حذف الإسناد بنجاح");
       setEditDialogOpen(false);
       setSelectedAssignment(null);
       fetchAssignments();
     } catch (error) {
       console.error("Error deleting assignment:", error);
-      toast.error("Failed to delete assignment");
+      toast.error("فشل في حذف الإسناد");
     } finally {
       setLoading(false);
     }
@@ -356,7 +356,7 @@ const ShiftCalendar = () => {
 
       if (error) throw error;
 
-      toast.success("Shift reassigned successfully");
+      toast.success("تم إعادة إسناد الوردية بنجاح");
       setUserDialogOpen(false);
       setSelectedShift(null);
       setSelectedDate(null);
@@ -364,7 +364,7 @@ const ShiftCalendar = () => {
       fetchAssignments();
     } catch (error) {
       console.error("Error reassigning shift:", error);
-      toast.error("Failed to reassign shift");
+      toast.error("فشل في إعادة إسناد الوردية");
     } finally {
       setLoading(false);
     }
@@ -397,14 +397,14 @@ const ShiftCalendar = () => {
 
       if (error) throw error;
 
-      toast.success("Shift assigned successfully");
+      toast.success("تم إسناد الوردية بنجاح");
       setUserDialogOpen(false);
       setSelectedShift(null);
       setSelectedDate(null);
       fetchAssignments();
     } catch (error) {
       console.error("Error assigning shift:", error);
-      toast.error("Failed to assign shift");
+      toast.error("فشل في إسناد الوردية");
     } finally {
       setLoading(false);
     }
@@ -430,14 +430,14 @@ const ShiftCalendar = () => {
 
       if (error) throw error;
 
-      toast.success(`Successfully assigned ${selectedDates.length} shifts to ${selectedQuickUser.user_name}`);
+      toast.success(`تم إسناد ${selectedDates.length} وردية بنجاح إلى ${selectedQuickUser.user_name}`);
       setSelectedDates([]);
       setSelectedQuickShift(null);
       setSelectedQuickUser(null);
       fetchAssignments();
     } catch (error) {
       console.error("Error creating bulk assignments:", error);
-      toast.error("Failed to create assignments");
+      toast.error("فشل في إنشاء الإسنادات");
     } finally {
       setLoading(false);
     }
@@ -566,14 +566,14 @@ const ShiftCalendar = () => {
             <div className="flex items-center gap-4">
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-6 w-6" />
-                Shift Calendar
+                تقويم الورديات
               </CardTitle>
               <Select value={selectedShiftType} onValueChange={setSelectedShiftType}>
                 <SelectTrigger className="w-[180px] bg-background">
-                  <SelectValue placeholder="Filter by type" />
+                  <SelectValue placeholder="تصفية حسب النوع" />
                 </SelectTrigger>
                 <SelectContent className="bg-background">
-                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="all">جميع الأنواع</SelectItem>
                   {Array.from(new Set(shiftTypes.map(st => st.type).filter(Boolean))).map(type => (
                     <SelectItem key={type} value={type!}>
                       {type}
@@ -589,7 +589,7 @@ const ShiftCalendar = () => {
                 onClick={() => setViewType("day")}
               >
                 <List className="h-4 w-4 mr-1" />
-                Day
+                يوم
               </Button>
               <Button
                 variant={viewType === "week" ? "default" : "outline"}
@@ -597,7 +597,7 @@ const ShiftCalendar = () => {
                 onClick={() => setViewType("week")}
               >
                 <Grid3x3 className="h-4 w-4 mr-1" />
-                Week
+                أسبوع
               </Button>
               <Button
                 variant={viewType === "month" ? "default" : "outline"}
@@ -605,7 +605,7 @@ const ShiftCalendar = () => {
                 onClick={() => setViewType("month")}
               >
                 <Calendar className="h-4 w-4 mr-1" />
-                Month
+                شهر
               </Button>
             </div>
           </div>
@@ -615,7 +615,7 @@ const ShiftCalendar = () => {
           {getFilteredShifts().length > 0 && (
             <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
               <div className="text-sm font-medium mb-3 text-muted-foreground">
-                Available Shifts:
+                الورديات المتاحة:
               </div>
               <div className="flex flex-wrap gap-2">
                 {getFilteredShifts().map(shift => (
@@ -662,7 +662,7 @@ const ShiftCalendar = () => {
             <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-medium text-muted-foreground">
-                  Available Users for {selectedQuickShift.shift_name}:
+                  المستخدمون المتاحون لـ {selectedQuickShift.shift_name}:
                 </div>
                 {selectedQuickUser && (
                   <Button
@@ -670,7 +670,7 @@ const ShiftCalendar = () => {
                     size="sm"
                     onClick={() => setSelectedQuickUser(null)}
                   >
-                    Clear User
+                    مسح المستخدم
                   </Button>
                 )}
               </div>
@@ -709,12 +709,12 @@ const ShiftCalendar = () => {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex flex-col gap-1">
                   <div className="text-sm font-semibold">
-                    Assigning: {selectedQuickShift.shift_name} to {selectedQuickUser.user_name}
+                    إسناد: {selectedQuickShift.shift_name} إلى {selectedQuickUser.user_name}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {selectedDates.length > 0 
-                      ? `${selectedDates.length} date(s) selected - Click on calendar dates to add/remove` 
-                      : "Click on calendar dates to select them"}
+                      ? `تم تحديد ${selectedDates.length} تاريخ - انقر على تواريخ التقويم للإضافة/الإزالة` 
+                      : "انقر على تواريخ التقويم لتحديدها"}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -723,7 +723,7 @@ const ShiftCalendar = () => {
                     size="sm"
                     onClick={handleClearSelection}
                   >
-                    Clear All
+                    مسح الكل
                   </Button>
                   <Button
                     variant="default"
@@ -732,7 +732,7 @@ const ShiftCalendar = () => {
                     disabled={loading || selectedDates.length === 0}
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Assign {selectedDates.length > 0 && `(${selectedDates.length})`}
+                    إسناد {selectedDates.length > 0 && `(${selectedDates.length})`}
                   </Button>
                 </div>
               </div>
@@ -761,7 +761,7 @@ const ShiftCalendar = () => {
       <Dialog open={shiftDialogOpen} onOpenChange={setShiftDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Select Shift</DialogTitle>
+            <DialogTitle>اختر الوردية</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {getFilteredShifts().map(shift => (
@@ -791,10 +791,10 @@ const ShiftCalendar = () => {
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedAssignment ? "Reassign Employee" : "Select Employee"}</DialogTitle>
+            <DialogTitle>{selectedAssignment ? "إعادة إسناد الموظف" : "اختر الموظف"}</DialogTitle>
             {selectedShift && (
               <p className="text-sm text-muted-foreground">
-                {selectedAssignment ? "Reassigning" : "Assigning"}: {selectedShift.shift_name} ({selectedShift.shift_start_time} - {selectedShift.shift_end_time})
+                {selectedAssignment ? "إعادة الإسناد" : "الإسناد"}: {selectedShift.shift_name} ({selectedShift.shift_start_time} - {selectedShift.shift_end_time})
               </p>
             )}
           </DialogHeader>
@@ -819,7 +819,7 @@ const ShiftCalendar = () => {
             ))}
             {getFilteredUsers().length === 0 && (
               <p className="text-center text-muted-foreground py-8">
-                No employees found for this shift's job positions
+                لم يتم العثور على موظفين لمناصب هذه الوردية
               </p>
             )}
           </div>
@@ -830,7 +830,7 @@ const ShiftCalendar = () => {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Shift Assignment</DialogTitle>
+            <DialogTitle>تعديل إسناد الوردية</DialogTitle>
           </DialogHeader>
           {selectedAssignment && (
             <div className="space-y-4">
@@ -846,10 +846,10 @@ const ShiftCalendar = () => {
                   {selectedAssignment.shift.shift_start_time} - {selectedAssignment.shift.shift_end_time}
                 </div>
                 <div className="text-sm">
-                  Assigned to: <span className="font-medium">{selectedAssignment.user.user_name}</span>
+                  مسند إلى: <span className="font-medium">{selectedAssignment.user.user_name}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Date: {format(new Date(selectedAssignment.assignment_date), "MMMM d, yyyy")}
+                  التاريخ: {format(new Date(selectedAssignment.assignment_date), "MMMM d, yyyy")}
                 </div>
               </div>
               
@@ -860,7 +860,7 @@ const ShiftCalendar = () => {
                   onClick={handleReassign}
                   disabled={loading}
                 >
-                  Reassign
+                  إعادة الإسناد
                 </Button>
                 <Button
                   variant="destructive"
@@ -868,7 +868,7 @@ const ShiftCalendar = () => {
                   onClick={handleDeleteAssignment}
                   disabled={loading}
                 >
-                  Delete
+                  حذف
                 </Button>
               </div>
             </div>

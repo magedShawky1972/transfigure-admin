@@ -89,7 +89,7 @@ const ShiftSetup = () => {
       setShifts(shiftsWithJobPositions);
     } catch (error) {
       console.error("Error fetching shifts:", error);
-      toast.error("Failed to fetch shifts");
+      toast.error("فشل في جلب الورديات");
     }
   };
 
@@ -105,7 +105,7 @@ const ShiftSetup = () => {
       setShiftTypes(data || []);
     } catch (error) {
       console.error("Error fetching shift types:", error);
-      toast.error("Failed to fetch shift zones");
+      toast.error("فشل في جلب مناطق الورديات");
     }
   };
 
@@ -121,7 +121,7 @@ const ShiftSetup = () => {
       setJobPositions(data || []);
     } catch (error) {
       console.error("Error fetching job positions:", error);
-      toast.error("Failed to fetch job positions");
+      toast.error("فشل في جلب المناصب الوظيفية");
     }
   };
 
@@ -144,17 +144,17 @@ const ShiftSetup = () => {
       setFormData({ ...formData, shift_type_id: data.id });
       setNewShiftZone("");
       setShiftZoneOpen(false);
-      toast.success("Shift zone added successfully");
+      toast.success("تمت إضافة منطقة الوردية بنجاح");
     } catch (error) {
       console.error("Error adding shift zone:", error);
-      toast.error("Failed to add shift zone");
+      toast.error("فشل في إضافة منطقة الوردية");
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.shift_name || !formData.shift_start_time || !formData.shift_end_time) {
-      toast.error("Please fill in all required fields");
+      toast.error("يرجى ملء جميع الحقول المطلوبة");
       return;
     }
 
@@ -190,7 +190,7 @@ const ShiftSetup = () => {
 
         if (error) throw error;
         shiftId = editingId;
-        toast.success("Shift updated successfully");
+        toast.success("تم تحديث الوردية بنجاح");
       } else {
         const { data, error } = await supabase
           .from("shifts")
@@ -200,7 +200,7 @@ const ShiftSetup = () => {
 
         if (error) throw error;
         shiftId = data.id;
-        toast.success("Shift added successfully");
+        toast.success("تمت إضافة الوردية بنجاح");
       }
 
       // Update job positions
@@ -226,7 +226,7 @@ const ShiftSetup = () => {
       fetchShifts();
     } catch (error) {
       console.error("Error saving shift:", error);
-      toast.error("Failed to save shift");
+      toast.error("فشل في حفظ الوردية");
     } finally {
       setLoading(false);
     }
@@ -252,7 +252,7 @@ const ShiftSetup = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this shift?")) return;
+    if (!confirm("هل أنت متأكد من حذف هذه الوردية؟")) return;
 
     try {
       const { error } = await supabase
@@ -262,11 +262,11 @@ const ShiftSetup = () => {
 
       if (error) throw error;
 
-      toast.success("Shift deleted successfully");
+      toast.success("تم حذف الوردية بنجاح");
       fetchShifts();
     } catch (error) {
       console.error("Error deleting shift:", error);
-      toast.error("Failed to delete shift");
+      toast.error("فشل في حذف الوردية");
     }
   };
 
@@ -296,15 +296,15 @@ const ShiftSetup = () => {
     <div className="container mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{editingId ? "Edit Shift" : "Add New Shift"}</CardTitle>
+          <CardTitle>{editingId ? "تعديل الوردية" : "إضافة وردية جديدة"}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Shift Name *</label>
+                <label className="text-sm font-medium">اسم الوردية *</label>
                 <Input
-                  placeholder="Enter shift name"
+                  placeholder="أدخل اسم الوردية"
                   value={formData.shift_name}
                   onChange={(e) => setFormData({ ...formData, shift_name: e.target.value })}
                   required
@@ -312,7 +312,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Shift Zone</label>
+                <label className="text-sm font-medium">منطقة الوردية</label>
                 <Popover open={shiftZoneOpen} onOpenChange={setShiftZoneOpen}>
                   <PopoverTrigger asChild>
                      <Button
@@ -323,14 +323,14 @@ const ShiftSetup = () => {
                     >
                       {formData.shift_type_id
                         ? shiftTypes.find((type) => type.id === formData.shift_type_id)?.zone_name
-                        : "Select shift zone..."}
+                        : "اختر منطقة الوردية..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
                     <Command shouldFilter={false}>
                       <CommandInput 
-                        placeholder="Search or type new shift zone..." 
+                        placeholder="ابحث أو اكتب منطقة جديدة..." 
                         value={newShiftZone}
                         onValueChange={setNewShiftZone}
                       />
@@ -370,12 +370,12 @@ const ShiftSetup = () => {
                             className="bg-primary/10"
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Add "{newShiftZone}"
+                            إضافة "{newShiftZone}"
                           </CommandItem>
                         )}
                       </CommandGroup>
                       {shiftTypes.length === 0 && !newShiftZone && (
-                        <CommandEmpty>No shift zones found.</CommandEmpty>
+                        <CommandEmpty>لم يتم العثور على مناطق ورديات.</CommandEmpty>
                       )}
                     </Command>
                   </PopoverContent>
@@ -383,7 +383,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Shift Type</label>
+                <label className="text-sm font-medium">نوع الوردية</label>
                 <Popover open={shiftTypeOpen} onOpenChange={setShiftTypeOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -392,7 +392,7 @@ const ShiftSetup = () => {
                       aria-expanded={shiftTypeOpen}
                       className="w-full justify-between"
                     >
-                      {formData.shift_type || "Select shift type..."}
+                      {formData.shift_type || "اختر نوع الوردية..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -434,7 +434,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Start Time *</label>
+                <label className="text-sm font-medium">وقت البداية *</label>
                 <Input
                   type="time"
                   value={formData.shift_start_time}
@@ -444,7 +444,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">End Time *</label>
+                <label className="text-sm font-medium">وقت النهاية *</label>
                 <Input
                   type="time"
                   value={formData.shift_end_time}
@@ -454,7 +454,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Shift Color *</label>
+                <label className="text-sm font-medium">لون الوردية *</label>
                 <div className="flex gap-2 items-center">
                   <Input
                     type="color"
@@ -475,7 +475,7 @@ const ShiftSetup = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Job Positions</label>
+              <label className="text-sm font-medium">المناصب الوظيفية</label>
               <div className="border rounded-md p-4 grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto">
                 {jobPositions.map((position) => (
                   <div key={position.id} className="flex items-center space-x-2">
@@ -497,11 +497,11 @@ const ShiftSetup = () => {
 
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : editingId ? "Update Shift" : "Add Shift"}
+                {loading ? "جاري الحفظ..." : editingId ? "تحديث الوردية" : "إضافة وردية"}
               </Button>
               {editingId && (
                 <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
+                  إلغاء
                 </Button>
               )}
             </div>
@@ -511,20 +511,20 @@ const ShiftSetup = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Shifts List</CardTitle>
+          <CardTitle>قائمة الورديات</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Color</TableHead>
-                <TableHead>Shift Name</TableHead>
-                <TableHead>Zone</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Start Time</TableHead>
-                <TableHead>End Time</TableHead>
-                <TableHead>Job Positions</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>اللون</TableHead>
+                <TableHead>اسم الوردية</TableHead>
+                <TableHead>المنطقة</TableHead>
+                <TableHead>النوع</TableHead>
+                <TableHead>وقت البداية</TableHead>
+                <TableHead>وقت النهاية</TableHead>
+                <TableHead>المناصب الوظيفية</TableHead>
+                <TableHead>الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -552,7 +552,7 @@ const ShiftSetup = () => {
                           </span>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">No positions assigned</span>
+                        <span className="text-muted-foreground text-xs">لا يوجد مناصب مسندة</span>
                       )}
                     </div>
                   </TableCell>
@@ -579,7 +579,7 @@ const ShiftSetup = () => {
               {shifts.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    No shifts found. Add your first shift above.
+                    لم يتم العثور على ورديات. أضف أول وردية أعلاه.
                   </TableCell>
                 </TableRow>
               )}
