@@ -893,6 +893,107 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_job_positions: {
+        Row: {
+          created_at: string
+          id: string
+          job_position_id: string
+          shift_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_position_id: string
+          shift_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_position_id?: string
+          shift_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_job_positions_job_position_id_fkey"
+            columns: ["job_position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_job_positions_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          type_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          type_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          type_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shifts: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          shift_end_time: string
+          shift_name: string
+          shift_start_time: string
+          shift_type_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          shift_end_time: string
+          shift_name: string
+          shift_start_time: string
+          shift_type_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          shift_end_time?: string
+          shift_name?: string
+          shift_start_time?: string
+          shift_type_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_shift_type_id_fkey"
+            columns: ["shift_type_id"]
+            isOneToOne: false
+            referencedRelation: "shift_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       software_licenses: {
         Row: {
           assigned_department: string | null
