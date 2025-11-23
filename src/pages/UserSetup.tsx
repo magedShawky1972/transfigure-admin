@@ -797,45 +797,51 @@ const UserSetup = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
-                    <Command>
+                    <Command shouldFilter={false}>
                       <CommandInput 
                         placeholder="Search or type new position..." 
                         value={newJobPosition}
                         onValueChange={setNewJobPosition}
                       />
-                      <CommandEmpty>
-                        <div className="p-2">
-                          <Button
-                            onClick={handleAddNewJobPosition}
-                            className="w-full"
-                            size="sm"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add "{newJobPosition}"
-                          </Button>
-                        </div>
-                      </CommandEmpty>
                       <CommandGroup>
-                        {jobPositions.map((position) => (
+                        {jobPositions
+                          .filter((position) => 
+                            position.position_name.toLowerCase().includes(newJobPosition.toLowerCase())
+                          )
+                          .map((position) => (
+                            <CommandItem
+                              key={position.id}
+                              value={position.position_name}
+                              onSelect={() => {
+                                setFormData({ ...formData, job_position_id: position.id });
+                                setJobPositionOpen(false);
+                                setNewJobPosition("");
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.job_position_id === position.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {position.position_name}
+                            </CommandItem>
+                          ))}
+                        {newJobPosition && 
+                          !jobPositions.some((pos) => pos.position_name.toLowerCase() === newJobPosition.toLowerCase()) && (
                           <CommandItem
-                            key={position.id}
-                            value={position.position_name}
-                            onSelect={() => {
-                              setFormData({ ...formData, job_position_id: position.id });
-                              setJobPositionOpen(false);
-                              setNewJobPosition("");
-                            }}
+                            value={newJobPosition}
+                            onSelect={handleAddNewJobPosition}
+                            className="bg-primary/10"
                           >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                formData.job_position_id === position.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {position.position_name}
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add "{newJobPosition}"
                           </CommandItem>
-                        ))}
+                        )}
                       </CommandGroup>
+                      {jobPositions.length === 0 && !newJobPosition && (
+                        <CommandEmpty>No job positions found.</CommandEmpty>
+                      )}
                     </Command>
                   </PopoverContent>
                 </Popover>
