@@ -31,6 +31,7 @@ interface Shift {
   shift_type_id: string | null;
   shift_type_name?: string;
   is_active: boolean;
+  color: string;
   job_positions?: string[];
 }
 
@@ -48,6 +49,7 @@ const ShiftSetup = () => {
     shift_start_time: "",
     shift_end_time: "",
     shift_type_id: "",
+    color: "#3b82f6",
     selected_job_positions: [] as string[],
   });
 
@@ -155,6 +157,7 @@ const ShiftSetup = () => {
         shift_start_time: formData.shift_start_time,
         shift_end_time: formData.shift_end_time,
         shift_type_id: formData.shift_type_id || null,
+        color: formData.color,
       };
 
       let shiftId: string;
@@ -222,6 +225,7 @@ const ShiftSetup = () => {
       shift_start_time: shift.shift_start_time,
       shift_end_time: shift.shift_end_time,
       shift_type_id: shift.shift_type_id || "",
+      color: shift.color,
       selected_job_positions: jobPositionLinks?.map(link => link.job_position_id) || [],
     });
   };
@@ -251,6 +255,7 @@ const ShiftSetup = () => {
       shift_start_time: "",
       shift_end_time: "",
       shift_type_id: "",
+      color: "#3b82f6",
       selected_job_positions: [],
     });
     setEditingId(null);
@@ -370,6 +375,26 @@ const ShiftSetup = () => {
                   required
                 />
               </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Shift Color *</label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="color"
+                    value={formData.color}
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                    className="w-20 h-10 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={formData.color}
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                    placeholder="#3b82f6"
+                    className="flex-1"
+                    pattern="^#[0-9A-Fa-f]{6}$"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -415,6 +440,7 @@ const ShiftSetup = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Color</TableHead>
                 <TableHead>Shift Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Start Time</TableHead>
@@ -426,6 +452,14 @@ const ShiftSetup = () => {
             <TableBody>
               {shifts.map((shift) => (
                 <TableRow key={shift.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-6 h-6 rounded border-2 border-border"
+                        style={{ backgroundColor: shift.color }}
+                      />
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium">{shift.shift_name}</TableCell>
                   <TableCell>{shift.shift_type_name || "-"}</TableCell>
                   <TableCell>{shift.shift_start_time}</TableCell>
@@ -465,7 +499,7 @@ const ShiftSetup = () => {
               ))}
               {shifts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     No shifts found. Add your first shift above.
                   </TableCell>
                 </TableRow>

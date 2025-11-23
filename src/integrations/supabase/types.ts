@@ -955,6 +955,7 @@ export type Database = {
       }
       shifts: {
         Row: {
+          color: string
           created_at: string
           id: string
           is_active: boolean
@@ -965,6 +966,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          color?: string
           created_at?: string
           id?: string
           is_active?: boolean
@@ -975,6 +977,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          color?: string
           created_at?: string
           id?: string
           is_active?: boolean
