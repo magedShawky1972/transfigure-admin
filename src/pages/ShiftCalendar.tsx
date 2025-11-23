@@ -61,6 +61,8 @@ const ShiftCalendar = () => {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [quickAssignDate, setQuickAssignDate] = useState<Date | null>(null);
+  const [selectedQuickShift, setSelectedQuickShift] = useState<Shift | null>(null);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
 
   useEffect(() => {
     fetchShifts();
@@ -71,6 +73,14 @@ const ShiftCalendar = () => {
   useEffect(() => {
     fetchAssignments();
   }, [currentDate, viewType]);
+
+  useEffect(() => {
+    if (selectedQuickShift) {
+      fetchAvailableUsers();
+    } else {
+      setAvailableUsers([]);
+    }
+  }, [selectedQuickShift]);
 
   const fetchShifts = async () => {
     try {
@@ -141,6 +151,42 @@ const ShiftCalendar = () => {
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Failed to fetch users");
+    }
+  };
+
+  const fetchAvailableUsers = async () => {
+    if (!selectedQuickShift) return;
+
+    try {
+      const jobPositionIds = selectedQuickShift.job_positions || [];
+      
+      if (jobPositionIds.length === 0) {
+        setAvailableUsers([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(`
+          user_id,
+          user_name,
+          job_position_id,
+          job_positions (position_name)
+        `)
+        .in("job_position_id", jobPositionIds)
+        .eq("is_active", true);
+
+      if (error) throw error;
+
+      const usersWithPositions = data?.map(user => ({
+        ...user,
+        job_position_name: user.job_positions?.position_name
+      })) || [];
+
+      setAvailableUsers(usersWithPositions);
+    } catch (error) {
+      console.error("Error fetching available users:", error);
+      toast.error("Failed to fetch available users");
     }
   };
 
@@ -516,9 +562,11 @@ const ShiftCalendar = () => {
                     key={shift.id}
                     variant="outline"
                     className="h-auto py-2 px-4"
+                    onClick={() => setSelectedQuickShift(shift)}
                     style={{ 
                       borderColor: shift.color,
-                      borderWidth: '2px'
+                      borderWidth: '2px',
+                      backgroundColor: selectedQuickShift?.id === shift.id ? `${shift.color}20` : 'transparent'
                     }}
                   >
                     <div className="flex items-center gap-2">
@@ -531,6 +579,39 @@ const ShiftCalendar = () => {
                         <span className="text-xs text-muted-foreground">
                           {shift.shift_start_time} - {shift.shift_end_time}
                         </span>
+                      </div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Available Users Sidebar - Show when a shift is selected */}
+          {selectedQuickShift && availableUsers.length > 0 && (
+            <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
+              <div className="text-sm font-medium mb-3 text-muted-foreground">
+                Available Users for {selectedQuickShift.shift_name}:
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {availableUsers.map(user => (
+                  <Button
+                    key={user.user_id}
+                    variant="outline"
+                    className="h-auto py-3 px-3 justify-start"
+                    onClick={() => {
+                      if (!quickAssignDate) {
+                        toast.error("Please select a date first by clicking on a calendar cell");
+                        return;
+                      }
+                      setSelectedShift(selectedQuickShift);
+                      handleUserSelect(user.user_id);
+                    }}
+                  >
+                    <div className="flex flex-col items-start gap-1 w-full">
+                      <div className="font-medium text-sm truncate w-full">{user.user_name}</div>
+                      <div className="text-xs text-muted-foreground truncate w-full">
+                        {user.job_position_name}
                       </div>
                     </div>
                   </Button>
