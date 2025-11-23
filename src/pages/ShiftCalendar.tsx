@@ -62,6 +62,8 @@ const ShiftCalendar = () => {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [quickAssignDate, setQuickAssignDate] = useState<Date | null>(null);
   const [selectedQuickShift, setSelectedQuickShift] = useState<Shift | null>(null);
+  const [selectedQuickUser, setSelectedQuickUser] = useState<User | null>(null);
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
 
   useEffect(() => {
@@ -275,9 +277,23 @@ const ShiftCalendar = () => {
     if ((e.target as HTMLElement).closest('.assignment-item')) {
       return;
     }
-    setQuickAssignDate(date);
-    setSelectedDate(date);
-    setShiftDialogOpen(true);
+    
+    // If shift and user are selected, toggle date for bulk assignment
+    if (selectedQuickShift && selectedQuickUser) {
+      setSelectedDates(prev => {
+        const dateExists = prev.some(d => isSameDay(d, date));
+        if (dateExists) {
+          return prev.filter(d => !isSameDay(d, date));
+        } else {
+          return [...prev, date];
+        }
+      });
+    } else {
+      // Original behavior - open shift selection dialog
+      setQuickAssignDate(date);
+      setSelectedDate(date);
+      setShiftDialogOpen(true);
+    }
   };
 
   const handleQuickShiftSelect = (shift: Shift) => {
@@ -394,6 +410,45 @@ const ShiftCalendar = () => {
     }
   };
 
+  const handleBulkAssignment = async () => {
+    if (!selectedQuickShift || !selectedQuickUser || selectedDates.length === 0) {
+      toast.error("Please select shift, user, and at least one date");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const assignments = selectedDates.map(date => ({
+        shift_id: selectedQuickShift.id,
+        user_id: selectedQuickUser.user_id,
+        assignment_date: format(date, "yyyy-MM-dd"),
+      }));
+
+      const { error } = await supabase
+        .from("shift_assignments")
+        .insert(assignments);
+
+      if (error) throw error;
+
+      toast.success(`Successfully assigned ${selectedDates.length} shifts to ${selectedQuickUser.user_name}`);
+      setSelectedDates([]);
+      setSelectedQuickShift(null);
+      setSelectedQuickUser(null);
+      fetchAssignments();
+    } catch (error) {
+      console.error("Error creating bulk assignments:", error);
+      toast.error("Failed to create assignments");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedQuickShift(null);
+    setSelectedQuickUser(null);
+    setSelectedDates([]);
+  };
+
   const getAssignmentsForDate = (date: Date) => {
     const dateAssignments = assignments.filter(a => isSameDay(new Date(a.assignment_date), date));
     
@@ -452,6 +507,8 @@ const ShiftCalendar = () => {
           const isCurrentMonth = viewType === "month" ? isSameMonth(day, currentDate) : true;
           const isToday = isSameDay(day, new Date());
 
+          const isSelected = selectedDates.some(d => isSameDay(d, day));
+
           return (
             <div
               key={idx}
@@ -459,8 +516,12 @@ const ShiftCalendar = () => {
                 minHeightClass,
                 "border rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors overflow-y-auto",
                 !isCurrentMonth && "opacity-40 bg-muted/20",
-                isToday && "border-primary border-2"
+                isToday && "border-primary border-2",
+                isSelected && selectedQuickShift && "ring-4 ring-primary ring-offset-1 shadow-lg"
               )}
+              style={isSelected && selectedQuickShift ? {
+                backgroundColor: `${selectedQuickShift.color}15`,
+              } : {}}
               onClick={(e) => handleAddShift(day, e)}
             >
               <div className={cn(
@@ -599,32 +660,81 @@ const ShiftCalendar = () => {
           {/* Available Users Sidebar - Show when a shift is selected */}
           {selectedQuickShift && availableUsers.length > 0 && (
             <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
-              <div className="text-sm font-medium mb-3 text-muted-foreground">
-                Available Users for {selectedQuickShift.shift_name}:
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Available Users for {selectedQuickShift.shift_name}:
+                </div>
+                {selectedQuickUser && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedQuickUser(null)}
+                  >
+                    Clear User
+                  </Button>
+                )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {availableUsers.map(user => (
                   <Button
                     key={user.user_id}
-                    variant="outline"
-                    className="h-auto py-3 px-3 justify-start transition-all duration-200 hover:scale-105 hover:shadow-md hover:border-primary hover:bg-primary/5 active:scale-95"
-                    onClick={() => {
-                      if (!quickAssignDate) {
-                        toast.error("Please select a date first by clicking on a calendar cell");
-                        return;
-                      }
-                      setSelectedShift(selectedQuickShift);
-                      handleUserSelect(user.user_id);
-                    }}
+                    variant={selectedQuickUser?.user_id === user.user_id ? "default" : "outline"}
+                    className={cn(
+                      "h-auto py-3 px-3 justify-start transition-all duration-200",
+                      selectedQuickUser?.user_id === user.user_id 
+                        ? "ring-2 ring-offset-2 shadow-lg" 
+                        : "hover:scale-105 hover:shadow-md hover:border-primary hover:bg-primary/5 active:scale-95"
+                    )}
+                    onClick={() => setSelectedQuickUser(user)}
                   >
                     <div className="flex flex-col items-start gap-1 w-full">
                       <div className="font-medium text-sm truncate w-full">{user.user_name}</div>
-                      <div className="text-xs text-muted-foreground truncate w-full">
+                      <div className="text-xs truncate w-full"
+                        style={{
+                          color: selectedQuickUser?.user_id === user.user_id ? 'rgba(255,255,255,0.8)' : undefined
+                        }}
+                      >
                         {user.job_position_name}
                       </div>
                     </div>
                   </Button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Assignment Actions - Show when user is selected */}
+          {selectedQuickShift && selectedQuickUser && (
+            <div className="mb-4 p-4 bg-primary/10 rounded-lg border-2 border-primary/50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col gap-1">
+                  <div className="text-sm font-semibold">
+                    Assigning: {selectedQuickShift.shift_name} to {selectedQuickUser.user_name}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {selectedDates.length > 0 
+                      ? `${selectedDates.length} date(s) selected - Click on calendar dates to add/remove` 
+                      : "Click on calendar dates to select them"}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearSelection}
+                  >
+                    Clear All
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleBulkAssignment}
+                    disabled={loading || selectedDates.length === 0}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Assign {selectedDates.length > 0 && `(${selectedDates.length})`}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
