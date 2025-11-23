@@ -35,7 +35,7 @@ async function sendEmailInBackground(email: string, emailHtml: string) {
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: encodeSubject("Shift Schedule Notification"),
+      subject: encodeSubject("New Shift Assign"),
       content: "auto",
       html: emailHtml,
     });
