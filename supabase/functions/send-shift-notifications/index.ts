@@ -34,8 +34,12 @@ async function sendEmailInBackground(
       from: "Edara Support <edara@asuscards.com>",
       to: email,
       subject: emailSubject,
-      content: "auto",
+      content: "text/html; charset=utf-8",
       html: emailHtml,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Transfer-Encoding": "quoted-printable",
+      },
     });
     await smtpClient.close();
     console.log("Email sent successfully to:", email);
