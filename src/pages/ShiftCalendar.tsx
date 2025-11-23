@@ -60,6 +60,7 @@ const ShiftCalendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [quickAssignDate, setQuickAssignDate] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchShifts();
@@ -228,8 +229,16 @@ const ShiftCalendar = () => {
     if ((e.target as HTMLElement).closest('.assignment-item')) {
       return;
     }
+    setQuickAssignDate(date);
     setSelectedDate(date);
     setShiftDialogOpen(true);
+  };
+
+  const handleQuickShiftSelect = (shift: Shift) => {
+    if (!quickAssignDate) return;
+    setSelectedDate(quickAssignDate);
+    setSelectedShift(shift);
+    setUserDialogOpen(true);
   };
 
   const handleEditAssignment = (assignment: Assignment, e: React.MouseEvent) => {
@@ -495,6 +504,42 @@ const ShiftCalendar = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Quick Shift Selection Buttons */}
+          {quickAssignDate && getFilteredShifts().length > 0 && (
+            <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
+              <div className="text-sm font-medium mb-3 text-muted-foreground">
+                Select shift for {format(quickAssignDate, "MMMM d, yyyy")}:
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {getFilteredShifts().map(shift => (
+                  <Button
+                    key={shift.id}
+                    variant="outline"
+                    className="h-auto py-2 px-4"
+                    onClick={() => handleQuickShiftSelect(shift)}
+                    style={{ 
+                      borderColor: shift.color,
+                      borderWidth: '2px'
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: shift.color }}
+                      />
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium text-sm">{shift.shift_name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {shift.shift_start_time} - {shift.shift_end_time}
+                        </span>
+                      </div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-6">
             <Button variant="outline" size="sm" onClick={handlePrevious}>
               <ChevronLeft className="h-4 w-4" />
