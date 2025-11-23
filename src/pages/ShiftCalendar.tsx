@@ -79,6 +79,7 @@ const ShiftCalendar = () => {
   const [selectedQuickUser, setSelectedQuickUser] = useState<User | null>(null);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [sendingNotifications, setSendingNotifications] = useState(false);
 
   useEffect(() => {
     fetchShifts();
@@ -461,6 +462,30 @@ const ShiftCalendar = () => {
     setSelectedQuickShift(null);
     setSelectedQuickUser(null);
     setSelectedDates([]);
+  };
+
+  const handleSendNotifications = async () => {
+    setSendingNotifications(true);
+    try {
+      const startOfMonthDate = startOfMonth(currentDate);
+      const endOfMonthDate = endOfMonth(currentDate);
+
+      const { data, error } = await supabase.functions.invoke("send-shift-notifications", {
+        body: {
+          startDate: format(startOfMonthDate, "yyyy-MM-dd"),
+          endDate: format(endOfMonthDate, "yyyy-MM-dd"),
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success(data.message || "تم إرسال الإشعارات بنجاح");
+    } catch (error) {
+      console.error("Error sending notifications:", error);
+      toast.error("فشل في إرسال الإشعارات");
+    } finally {
+      setSendingNotifications(false);
+    }
   };
 
   const getAssignmentsForDate = (date: Date) => {
