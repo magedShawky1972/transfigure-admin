@@ -41,6 +41,7 @@ import TicketDashboard from "./pages/TicketDashboard";
 import SoftwareLicenses from "./pages/SoftwareLicenses";
 import SoftwareLicenseSetup from "./pages/SoftwareLicenseSetup";
 import SystemConfig from "./pages/SystemConfig";
+import ShiftSetup from "./pages/ShiftSetup";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="/software-licenses" element={<SoftwareLicenses />} />
               <Route path="/software-license-setup" element={<SoftwareLicenseSetup />} />
               <Route path="/system-config" element={<SystemConfig />} />
+              <Route path="/shift-setup" element={<ShiftSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
