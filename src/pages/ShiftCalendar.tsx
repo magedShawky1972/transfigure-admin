@@ -45,8 +45,10 @@ const ShiftCalendar = () => {
   
   const [shiftDialogOpen, setShiftDialogOpen] = useState(false);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
 
   useEffect(() => {
     fetchShifts();
@@ -182,9 +184,80 @@ const ShiftCalendar = () => {
     else setCurrentDate(addDays(currentDate, 1));
   };
 
-  const handleAddShift = (date: Date) => {
+  const handleAddShift = (date: Date, e: React.MouseEvent) => {
+    // Check if click was on the date cell itself, not an assignment
+    if ((e.target as HTMLElement).closest('.assignment-item')) {
+      return;
+    }
     setSelectedDate(date);
     setShiftDialogOpen(true);
+  };
+
+  const handleEditAssignment = (assignment: Assignment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedAssignment(assignment);
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteAssignment = async () => {
+    if (!selectedAssignment) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("shift_assignments")
+        .delete()
+        .eq("id", selectedAssignment.id);
+
+      if (error) throw error;
+
+      toast.success("Assignment deleted successfully");
+      setEditDialogOpen(false);
+      setSelectedAssignment(null);
+      fetchAssignments();
+    } catch (error) {
+      console.error("Error deleting assignment:", error);
+      toast.error("Failed to delete assignment");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReassign = () => {
+    if (!selectedAssignment) return;
+    setSelectedDate(new Date(selectedAssignment.assignment_date));
+    setSelectedShift(selectedAssignment.shift);
+    setEditDialogOpen(false);
+    setUserDialogOpen(true);
+  };
+
+  const handleUserReassign = async (userId: string) => {
+    if (!selectedAssignment) {
+      handleUserSelect(userId);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("shift_assignments")
+        .update({ user_id: userId })
+        .eq("id", selectedAssignment.id);
+
+      if (error) throw error;
+
+      toast.success("Shift reassigned successfully");
+      setUserDialogOpen(false);
+      setSelectedShift(null);
+      setSelectedDate(null);
+      setSelectedAssignment(null);
+      fetchAssignments();
+    } catch (error) {
+      console.error("Error reassigning shift:", error);
+      toast.error("Failed to reassign shift");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleShiftSelect = (shift: Shift) => {
@@ -194,6 +267,12 @@ const ShiftCalendar = () => {
   };
 
   const handleUserSelect = async (userId: string) => {
+    // If reassigning, use different handler
+    if (selectedAssignment) {
+      handleUserReassign(userId);
+      return;
+    }
+
     if (!selectedDate || !selectedShift) return;
 
     setLoading(true);
@@ -261,32 +340,38 @@ const ShiftCalendar = () => {
             <div
               key={idx}
               className={cn(
-                "min-h-24 border rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors",
+                "min-h-32 border rounded-lg p-2 cursor-pointer hover:bg-accent/50 transition-colors",
                 !isCurrentMonth && "opacity-40 bg-muted/20",
                 isToday && "border-primary border-2"
               )}
-              onClick={() => handleAddShift(day)}
+              onClick={(e) => handleAddShift(day, e)}
             >
               <div className={cn(
-                "text-sm font-medium mb-1",
+                "text-sm font-medium mb-2",
                 isToday && "text-primary"
               )}>
                 {format(day, "d")}
               </div>
-              <div className="flex flex-wrap gap-1">
-                {dayAssignments.slice(0, 3).map((assignment, i) => (
+              <div className="space-y-1">
+                {dayAssignments.map((assignment, i) => (
                   <div
                     key={i}
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: assignment.shift.color }}
-                    title={`${assignment.shift.shift_name} - ${assignment.user.user_name}`}
-                  />
+                    className="assignment-item text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ 
+                      backgroundColor: assignment.shift.color + '20',
+                      borderLeft: `3px solid ${assignment.shift.color}`
+                    }}
+                    onClick={(e) => handleEditAssignment(assignment, e)}
+                    title="Click to edit or reassign"
+                  >
+                    <div className="font-medium truncate" style={{ color: assignment.shift.color }}>
+                      {assignment.shift.shift_name}
+                    </div>
+                    <div className="text-foreground/70 truncate">
+                      {assignment.user.user_name}
+                    </div>
+                  </div>
                 ))}
-                {dayAssignments.length > 3 && (
-                  <span className="text-xs text-muted-foreground">
-                    +{dayAssignments.length - 3}
-                  </span>
-                )}
               </div>
             </div>
           );
@@ -385,10 +470,10 @@ const ShiftCalendar = () => {
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Select Employee</DialogTitle>
+            <DialogTitle>{selectedAssignment ? "Reassign Employee" : "Select Employee"}</DialogTitle>
             {selectedShift && (
               <p className="text-sm text-muted-foreground">
-                Assigning: {selectedShift.shift_name} ({selectedShift.shift_start_time} - {selectedShift.shift_end_time})
+                {selectedAssignment ? "Reassigning" : "Assigning"}: {selectedShift.shift_name} ({selectedShift.shift_start_time} - {selectedShift.shift_end_time})
               </p>
             )}
           </DialogHeader>
@@ -417,6 +502,56 @@ const ShiftCalendar = () => {
               </p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Assignment Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Shift Assignment</DialogTitle>
+          </DialogHeader>
+          {selectedAssignment && (
+            <div className="space-y-4">
+              <div className="p-4 border rounded-lg space-y-2">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-4 h-4 rounded"
+                    style={{ backgroundColor: selectedAssignment.shift.color }}
+                  />
+                  <span className="font-medium">{selectedAssignment.shift.shift_name}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {selectedAssignment.shift.shift_start_time} - {selectedAssignment.shift.shift_end_time}
+                </div>
+                <div className="text-sm">
+                  Assigned to: <span className="font-medium">{selectedAssignment.user.user_name}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Date: {format(new Date(selectedAssignment.assignment_date), "MMMM d, yyyy")}
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleReassign}
+                  disabled={loading}
+                >
+                  Reassign
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleDeleteAssignment}
+                  disabled={loading}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
