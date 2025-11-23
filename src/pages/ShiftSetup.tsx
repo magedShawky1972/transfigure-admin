@@ -385,31 +385,31 @@ const ShiftSetup = () => {
                       <CommandGroup>
                         <CommandItem
                           onSelect={() => {
-                            setFormData({ ...formData, shift_type: "Sales" });
+                            setFormData({ ...formData, shift_type: "مبيعات" });
                             setShiftTypeOpen(false);
                           }}
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              formData.shift_type === "Sales" ? "opacity-100" : "opacity-0"
+                              formData.shift_type === "مبيعات" ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          Sales
+                          مبيعات
                         </CommandItem>
                         <CommandItem
                           onSelect={() => {
-                            setFormData({ ...formData, shift_type: "Support" });
+                            setFormData({ ...formData, shift_type: "دعم" });
                             setShiftTypeOpen(false);
                           }}
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              formData.shift_type === "Support" ? "opacity-100" : "opacity-0"
+                              formData.shift_type === "دعم" ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          Support
+                          دعم
                         </CommandItem>
                       </CommandGroup>
                     </Command>
