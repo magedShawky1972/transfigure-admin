@@ -10,7 +10,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function sendEmailInBackground(email: string, userName: string, emailSubject: string, emailHtml: string) {
+async function sendEmailInBackground(email: string, emailHtml: string) {
   try {
     const smtpClient = new SMTPClient({
       connection: {
@@ -26,10 +26,11 @@ async function sendEmailInBackground(email: string, userName: string, emailSubje
 
     console.log("Attempting to send email to:", email);
 
+    // Subject قصير لتجنب Base64 الطويل
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: emailSubject, // << No encoding — UTF-8 direct
+      subject: "إشعار ورديات",
       content: "auto",
       html: emailHtml,
     });
@@ -50,8 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { startDate, endDate } = await req.json();
 
-    console.log("Processing shift notifications for date range:", { startDate, endDate });
-
+    // جلب الورديات
     const { data: assignments, error: assignmentsError } = await supabase
       .from("shift_assignments")
       .select(
@@ -74,37 +74,29 @@ const handler = async (req: Request): Promise<Response> => {
       .gte("assignment_date", startDate)
       .lte("assignment_date", endDate);
 
-    if (assignmentsError) {
-      throw new Error("Failed to fetch shift assignments");
-    }
-
+    if (assignmentsError) throw new Error("Failed to fetch shift assignments");
     if (!assignments || assignments.length === 0) {
       return new Response(
         JSON.stringify({ success: true, message: "No shift assignments found for the specified date range" }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        },
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
 
+    // تجميع حسب المستخدم
     const userAssignments = new Map<string, any[]>();
     assignments.forEach((assignment) => {
-      if (!userAssignments.has(assignment.user_id)) {
-        userAssignments.set(assignment.user_id, []);
-      }
+      if (!userAssignments.has(assignment.user_id)) userAssignments.set(assignment.user_id, []);
       userAssignments.get(assignment.user_id)!.push(assignment);
     });
 
+    // جلب بيانات المستخدمين
     const userIds = Array.from(userAssignments.keys());
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id, email, user_name")
       .in("user_id", userIds);
 
-    if (profilesError || !profiles) {
-      throw new Error("Failed to fetch user profiles");
-    }
+    if (profilesError || !profiles) throw new Error("Failed to fetch user profiles");
 
     let successCount = 0;
 
@@ -114,8 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       userShifts.sort((a, b) => new Date(a.assignment_date).getTime() - new Date(b.assignment_date).getTime());
 
-      const emailSubject = `جدول مناوباتك - ${userShifts.length} مناوبة`;
-
+      // عنوان كامل داخل HTML
       const shiftsList = userShifts
         .map((shift) => {
           const date = new Date(shift.assignment_date).toLocaleDateString("ar-EG", {
@@ -127,7 +118,6 @@ const handler = async (req: Request): Promise<Response> => {
           const shiftName = shift.shift?.shift_name || "غير محدد";
           const startTime = shift.shift?.shift_start_time || "غير محدد";
           const endTime = shift.shift?.shift_end_time || "غير محدد";
-
           return `يوم ${date} - ${shiftName} من الساعة ${startTime} إلى الساعة ${endTime}`;
         })
         .join("<br/>");
@@ -140,9 +130,7 @@ const handler = async (req: Request): Promise<Response> => {
         </head>
         <body>
           <div style="font-family: Arial, sans-serif;">
-            
-            <h2 style="color:#333; margin-bottom:16px;">${emailSubject}</h2>
-
+            <h2>جدول مناوباتك - ${userShifts.length} مناوبة</h2>
             <p>مرحباً ${profile.user_name}،</p>
             <p>تم إسناد الورديات لك كالتالي:</p>
             <p>${shiftsList}</p>
@@ -152,11 +140,9 @@ const handler = async (req: Request): Promise<Response> => {
         </html>
       `;
 
-      sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml);
+      sendEmailInBackground(profile.email, emailHtml);
 
-      const notificationMessage = `تم تعيين ${userShifts.length} مناوبة لك من ${new Date(startDate).toLocaleDateString(
-        "ar-EG",
-      )} إلى ${new Date(endDate).toLocaleDateString("ar-EG")}`;
+      const notificationMessage = `تم تعيين ${userShifts.length} مناوبة لك من ${new Date(startDate).toLocaleDateString("ar-EG")} إلى ${new Date(endDate).toLocaleDateString("ar-EG")}`;
 
       await supabase.from("notifications").insert({
         user_id: profile.user_id,
@@ -171,13 +157,10 @@ const handler = async (req: Request): Promise<Response> => {
             userId: profile.user_id,
             title: "جدول المناوبات",
             body: notificationMessage,
-            data: {
-              url: "/shift-calendar",
-              tag: "shift-schedule",
-            },
+            data: { url: "/shift-calendar", tag: "shift-schedule" },
           },
         })
-        .catch((err) => console.error("Failed to send push notification:", err));
+        .catch((error) => console.error("Failed to send push notification:", error));
 
       successCount++;
     }
@@ -189,10 +172,7 @@ const handler = async (req: Request): Promise<Response> => {
         notificationsSent: successCount,
         totalAssignments: assignments.length,
       }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      },
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     );
   } catch (error: any) {
     console.error("Error in send-shift-notifications:", error);
