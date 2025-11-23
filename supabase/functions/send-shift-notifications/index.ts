@@ -10,13 +10,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function to encode and fold email subject for proper display in Gmail/Outlook
-function encodeAndFoldSubject(text: string): string {
-  const encoded = btoa(unescape(encodeURIComponent(text)));
-  const mime = `=?UTF-8?B?${encoded}?=`;
-  // Fold lines longer than 60 characters with CRLF and leading space
-  const folded = mime.match(/.{1,60}/g);
-  return folded ? folded.join("\r\n ") : mime;
+// Helper function to encode Arabic text in email subject using UTF-8 Base64 MIME format
+function encodeSubject(subject: string): string {
+  return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
 }
 
 async function sendEmailInBackground(
@@ -40,13 +36,13 @@ async function sendEmailInBackground(
 
     console.log("Attempting to send email to:", email);
     
-    // Encode and fold the subject for proper Gmail/Outlook display
-    const subject = encodeAndFoldSubject(emailSubject);
+    // Encode the subject to properly handle Arabic text
+    const encodedSubject = encodeSubject(emailSubject);
     
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: subject,
+      subject: encodedSubject,
       content: "auto",
       html: emailHtml,
     });
