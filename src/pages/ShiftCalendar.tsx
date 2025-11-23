@@ -504,11 +504,11 @@ const ShiftCalendar = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Quick Shift Selection Buttons */}
-          {quickAssignDate && getFilteredShifts().length > 0 && (
+          {/* Quick Shift Selection Buttons - Always visible based on type filter */}
+          {getFilteredShifts().length > 0 && (
             <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
               <div className="text-sm font-medium mb-3 text-muted-foreground">
-                Select shift for {format(quickAssignDate, "MMMM d, yyyy")}:
+                Available Shifts:
               </div>
               <div className="flex flex-wrap gap-2">
                 {getFilteredShifts().map(shift => (
@@ -516,7 +516,6 @@ const ShiftCalendar = () => {
                     key={shift.id}
                     variant="outline"
                     className="h-auto py-2 px-4"
-                    onClick={() => handleQuickShiftSelect(shift)}
                     style={{ 
                       borderColor: shift.color,
                       borderWidth: '2px'
