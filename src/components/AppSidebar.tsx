@@ -76,6 +76,28 @@ export function AppSidebar() {
 
   useEffect(() => {
     fetchUserPermissions();
+
+    // Set up real-time subscription for permission changes
+    const channel = supabase
+      .channel('user-permissions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_permissions',
+        },
+        (payload) => {
+          console.log('Permission change detected:', payload);
+          // Refetch permissions when any change occurs
+          fetchUserPermissions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchUserPermissions = async () => {
