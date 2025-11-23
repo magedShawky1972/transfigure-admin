@@ -975,22 +975,25 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
-          type_name: string
+          type: string | null
           updated_at: string
+          zone_name: string
         }
         Insert: {
           created_at?: string
           id?: string
           is_active?: boolean
-          type_name: string
+          type?: string | null
           updated_at?: string
+          zone_name: string
         }
         Update: {
           created_at?: string
           id?: string
           is_active?: boolean
-          type_name?: string
+          type?: string | null
           updated_at?: string
+          zone_name?: string
         }
         Relationships: []
       }

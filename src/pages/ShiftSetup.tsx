@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 
 interface ShiftType {
   id: string;
-  type_name: string;
+  zone_name: string;
+  type: string | null;
   is_active: boolean;
 }
 
@@ -29,7 +30,8 @@ interface Shift {
   shift_start_time: string;
   shift_end_time: string;
   shift_type_id: string | null;
-  shift_type_name?: string;
+  shift_zone_name?: string;
+  shift_type?: string;
   is_active: boolean;
   color: string;
   job_positions?: string[];
@@ -41,14 +43,16 @@ const ShiftSetup = () => {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [shiftZoneOpen, setShiftZoneOpen] = useState(false);
   const [shiftTypeOpen, setShiftTypeOpen] = useState(false);
-  const [newShiftType, setNewShiftType] = useState("");
+  const [newShiftZone, setNewShiftZone] = useState("");
   
   const [formData, setFormData] = useState({
     shift_name: "",
     shift_start_time: "",
     shift_end_time: "",
     shift_type_id: "",
+    shift_type: "",
     color: "#3b82f6",
     selected_job_positions: [] as string[],
   });
@@ -65,7 +69,7 @@ const ShiftSetup = () => {
         .from("shifts")
         .select(`
           *,
-          shift_types!shifts_shift_type_id_fkey (type_name),
+          shift_types!shifts_shift_type_id_fkey (zone_name, type),
           shift_job_positions (
             job_position_id,
             job_positions (position_name)
@@ -77,7 +81,8 @@ const ShiftSetup = () => {
 
       const shiftsWithJobPositions = data?.map(shift => ({
         ...shift,
-        shift_type_name: shift.shift_types?.type_name,
+        shift_zone_name: shift.shift_types?.zone_name,
+        shift_type: shift.shift_types?.type,
         job_positions: shift.shift_job_positions?.map((sjp: any) => sjp.job_positions.position_name) || []
       })) || [];
 
@@ -94,13 +99,13 @@ const ShiftSetup = () => {
         .from("shift_types")
         .select("*")
         .eq("is_active", true)
-        .order("type_name");
+        .order("zone_name");
 
       if (error) throw error;
       setShiftTypes(data || []);
     } catch (error) {
       console.error("Error fetching shift types:", error);
-      toast.error("Failed to fetch shift types");
+      toast.error("Failed to fetch shift zones");
     }
   };
 
@@ -120,13 +125,16 @@ const ShiftSetup = () => {
     }
   };
 
-  const handleAddNewShiftType = async () => {
-    if (!newShiftType.trim()) return;
+  const handleAddNewShiftZone = async () => {
+    if (!newShiftZone.trim()) return;
 
     try {
       const { data, error } = await supabase
         .from("shift_types")
-        .insert([{ type_name: newShiftType.trim() }])
+        .insert([{ 
+          zone_name: newShiftZone.trim(),
+          type: formData.shift_type || null
+        }])
         .select()
         .single();
 
@@ -134,12 +142,12 @@ const ShiftSetup = () => {
 
       setShiftTypes([...shiftTypes, data]);
       setFormData({ ...formData, shift_type_id: data.id });
-      setNewShiftType("");
-      setShiftTypeOpen(false);
-      toast.success("Shift type added successfully");
+      setNewShiftZone("");
+      setShiftZoneOpen(false);
+      toast.success("Shift zone added successfully");
     } catch (error) {
-      console.error("Error adding shift type:", error);
-      toast.error("Failed to add shift type");
+      console.error("Error adding shift zone:", error);
+      toast.error("Failed to add shift zone");
     }
   };
 
@@ -225,6 +233,7 @@ const ShiftSetup = () => {
       shift_start_time: shift.shift_start_time,
       shift_end_time: shift.shift_end_time,
       shift_type_id: shift.shift_type_id || "",
+      shift_type: shift.shift_type || "",
       color: shift.color,
       selected_job_positions: jobPositionLinks?.map(link => link.job_position_id) || [],
     });
@@ -255,6 +264,7 @@ const ShiftSetup = () => {
       shift_start_time: "",
       shift_end_time: "",
       shift_type_id: "",
+      shift_type: "",
       color: "#3b82f6",
       selected_job_positions: [],
     });
@@ -290,6 +300,73 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
+                <label className="text-sm font-medium">Shift Zone</label>
+                <Popover open={shiftZoneOpen} onOpenChange={setShiftZoneOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={shiftZoneOpen}
+                      className="w-full justify-between"
+                    >
+                      {formData.shift_type_id
+                        ? shiftTypes.find((type) => type.id === formData.shift_type_id)?.zone_name
+                        : "Select shift zone..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command shouldFilter={false}>
+                      <CommandInput 
+                        placeholder="Search or type new shift zone..." 
+                        value={newShiftZone}
+                        onValueChange={setNewShiftZone}
+                      />
+                      <CommandGroup>
+                        {shiftTypes
+                          .filter((type) => 
+                            type.zone_name.toLowerCase().includes(newShiftZone.toLowerCase())
+                          )
+                          .map((type) => (
+                            <CommandItem
+                              key={type.id}
+                              value={type.zone_name}
+                              onSelect={() => {
+                                setFormData({ ...formData, shift_type_id: type.id });
+                                setShiftZoneOpen(false);
+                                setNewShiftZone("");
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.shift_type_id === type.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {type.zone_name}
+                            </CommandItem>
+                          ))}
+                        {newShiftZone && 
+                          !shiftTypes.some((type) => type.zone_name.toLowerCase() === newShiftZone.toLowerCase()) && (
+                          <CommandItem
+                            value={newShiftZone}
+                            onSelect={handleAddNewShiftZone}
+                            className="bg-primary/10"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add "{newShiftZone}"
+                          </CommandItem>
+                        )}
+                      </CommandGroup>
+                      {shiftTypes.length === 0 && !newShiftZone && (
+                        <CommandEmpty>No shift zones found.</CommandEmpty>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Shift Type</label>
                 <Popover open={shiftTypeOpen} onOpenChange={setShiftTypeOpen}>
                   <PopoverTrigger asChild>
@@ -299,58 +376,42 @@ const ShiftSetup = () => {
                       aria-expanded={shiftTypeOpen}
                       className="w-full justify-between"
                     >
-                      {formData.shift_type_id
-                        ? shiftTypes.find((type) => type.id === formData.shift_type_id)?.type_name
-                        : "Select shift type..."}
+                      {formData.shift_type || "Select shift type..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
-                    <Command shouldFilter={false}>
-                      <CommandInput 
-                        placeholder="Search or type new shift type..." 
-                        value={newShiftType}
-                        onValueChange={setNewShiftType}
-                      />
+                    <Command>
                       <CommandGroup>
-                        {shiftTypes
-                          .filter((type) => 
-                            type.type_name.toLowerCase().includes(newShiftType.toLowerCase())
-                          )
-                          .map((type) => (
-                            <CommandItem
-                              key={type.id}
-                              value={type.type_name}
-                              onSelect={() => {
-                                setFormData({ ...formData, shift_type_id: type.id });
-                                setShiftTypeOpen(false);
-                                setNewShiftType("");
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.shift_type_id === type.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {type.type_name}
-                            </CommandItem>
-                          ))}
-                        {newShiftType && 
-                          !shiftTypes.some((type) => type.type_name.toLowerCase() === newShiftType.toLowerCase()) && (
-                          <CommandItem
-                            value={newShiftType}
-                            onSelect={handleAddNewShiftType}
-                            className="bg-primary/10"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add "{newShiftType}"
-                          </CommandItem>
-                        )}
+                        <CommandItem
+                          onSelect={() => {
+                            setFormData({ ...formData, shift_type: "Sales" });
+                            setShiftTypeOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              formData.shift_type === "Sales" ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          Sales
+                        </CommandItem>
+                        <CommandItem
+                          onSelect={() => {
+                            setFormData({ ...formData, shift_type: "Support" });
+                            setShiftTypeOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              formData.shift_type === "Support" ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          Support
+                        </CommandItem>
                       </CommandGroup>
-                      {shiftTypes.length === 0 && !newShiftType && (
-                        <CommandEmpty>No shift types found.</CommandEmpty>
-                      )}
                     </Command>
                   </PopoverContent>
                 </Popover>
@@ -442,6 +503,7 @@ const ShiftSetup = () => {
               <TableRow>
                 <TableHead>Color</TableHead>
                 <TableHead>Shift Name</TableHead>
+                <TableHead>Zone</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Start Time</TableHead>
                 <TableHead>End Time</TableHead>
@@ -461,7 +523,8 @@ const ShiftSetup = () => {
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{shift.shift_name}</TableCell>
-                  <TableCell>{shift.shift_type_name || "-"}</TableCell>
+                  <TableCell>{shift.shift_zone_name || "-"}</TableCell>
+                  <TableCell>{shift.shift_type || "-"}</TableCell>
                   <TableCell>{shift.shift_start_time}</TableCell>
                   <TableCell>{shift.shift_end_time}</TableCell>
                   <TableCell>
