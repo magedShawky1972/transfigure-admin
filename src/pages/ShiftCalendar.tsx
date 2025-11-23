@@ -126,7 +126,10 @@ const ShiftCalendar = () => {
             shift_name,
             shift_start_time,
             shift_end_time,
-            color
+            color,
+            shift_job_positions (
+              job_position_id
+            )
           )
         `)
         .gte("assignment_date", format(startDate, "yyyy-MM-dd"))
@@ -145,7 +148,10 @@ const ShiftCalendar = () => {
 
       const assignmentsWithDetails = data?.map(assignment => ({
         ...assignment,
-        shift: assignment.shifts,
+        shift: {
+          ...assignment.shifts,
+          job_positions: assignment.shifts.shift_job_positions?.map((sjp: any) => sjp.job_position_id) || []
+        },
         user: userMap.get(assignment.user_id) || {
           user_id: assignment.user_id,
           user_name: "Unknown",
