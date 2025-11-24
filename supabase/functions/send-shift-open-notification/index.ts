@@ -29,13 +29,10 @@ async function sendEmailInBackground(email: string, emailHtml: string, subject: 
 
     console.log("Attempting to send email to:", email);
 
-    // Encode subject as Base64 UTF-8 for proper Arabic display
-    const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
-
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: encodedSubject,
+      subject: "إشعار ورديات",
       content: "text/html; charset=utf-8",
       html: emailHtml,
     });
@@ -254,7 +251,7 @@ const handler = async (req: Request): Promise<Response> => {
         </html>
       `;
 
-      sendEmailInBackground(admin.email, emailHtml, "تم فتح وردية جديدة");
+      sendEmailInBackground(admin.email, emailHtml, "إشعار ورديات");
       emailsSent++;
     }
 
