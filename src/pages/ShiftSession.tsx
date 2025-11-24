@@ -6,8 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Upload } from "lucide-react";
+import { Upload, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Brand {
   id: string;
@@ -42,6 +50,8 @@ const ShiftSession = () => {
   const [currentWeekday, setCurrentWeekday] = useState("");
   const [currentTime, setCurrentTime] = useState("");
   const [hasActiveAssignment, setHasActiveAssignment] = useState(false);
+  const [showRollbackDialog, setShowRollbackDialog] = useState(false);
+  const [rollbackPassword, setRollbackPassword] = useState("");
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -340,6 +350,55 @@ const ShiftSession = () => {
     }
   };
 
+  const handleRollbackShift = async () => {
+    if (rollbackPassword !== "123@123qw") {
+      toast({
+        title: t("error"),
+        description: "كلمة المرور غير صحيحة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (!shiftSession) return;
+
+      // Delete brand balances
+      const { error: balanceError } = await supabase
+        .from("shift_brand_balances")
+        .delete()
+        .eq("shift_session_id", shiftSession.id);
+
+      if (balanceError) throw balanceError;
+
+      // Delete shift session
+      const { error: sessionError } = await supabase
+        .from("shift_sessions")
+        .delete()
+        .eq("id", shiftSession.id);
+
+      if (sessionError) throw sessionError;
+
+      toast({
+        title: t("success"),
+        description: "تم إلغاء الوردية بنجاح",
+      });
+
+      // Reset state
+      setShiftSession(null);
+      setBalances({});
+      setShowRollbackDialog(false);
+      setRollbackPassword("");
+    } catch (error: any) {
+      console.error("Error rolling back shift:", error);
+      toast({
+        title: t("error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -445,13 +504,60 @@ const ShiftSession = () => {
                 ))}
               </div>
 
-              <Button onClick={handleCloseShift} className="w-full" variant="destructive">
-                {t("closeShift")}
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={handleCloseShift} className="flex-1" variant="destructive">
+                  {t("closeShift")}
+                </Button>
+                <Button 
+                  onClick={() => setShowRollbackDialog(true)} 
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  إلغاء الوردية
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showRollbackDialog} onOpenChange={setShowRollbackDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إلغاء الوردية</DialogTitle>
+            <DialogDescription>
+              يرجى إدخال كلمة المرور للتأكيد على إلغاء الوردية. سيتم حذف جميع البيانات المسجلة.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rollback-password">كلمة المرور</Label>
+              <Input
+                id="rollback-password"
+                type="password"
+                value={rollbackPassword}
+                onChange={(e) => setRollbackPassword(e.target.value)}
+                placeholder="أدخل كلمة المرور"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRollbackDialog(false);
+                setRollbackPassword("");
+              }}
+            >
+              إلغاء
+            </Button>
+            <Button variant="destructive" onClick={handleRollbackShift}>
+              تأكيد الإلغاء
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
