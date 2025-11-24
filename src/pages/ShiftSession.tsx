@@ -168,7 +168,7 @@ const ShiftSession = () => {
       const today = new Date().toISOString().split('T')[0];
       const { data: assignment } = await supabase
         .from("shift_assignments")
-        .select("id")
+        .select("id, shift_id, shifts(shift_name)")
         .eq("user_id", user.id)
         .eq("assignment_date", today)
         .single();
@@ -193,6 +193,19 @@ const ShiftSession = () => {
         .single();
 
       if (error) throw error;
+
+      // Send notifications to shift admins
+      try {
+        await supabase.functions.invoke("send-shift-open-notification", {
+          body: {
+            shiftId: assignment.shift_id,
+            userId: user.id,
+            shiftSessionId: newSession.id,
+          },
+        });
+      } catch (notifError) {
+        console.error("Error sending notifications:", notifError);
+      }
 
       setShiftSession(newSession);
       toast({
