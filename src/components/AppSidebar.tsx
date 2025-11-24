@@ -46,6 +46,7 @@ export function AppSidebar() {
     "/": "dashboard",
     "/dashboard": "dashboard",
     "/ticket-dashboard": "ticket_dashboard",
+    "/shift-dashboard": "shift_dashboard",
     "/reports": "reports",
     "/transactions": "transactions",
     "/tickets": "tickets",
@@ -154,6 +155,7 @@ export function AppSidebar() {
       items: [
         { title: t("menu.dashboard"), url: "/dashboard", icon: LayoutDashboard },
         { title: language === 'ar' ? "لوحة التذاكر" : "Ticket Dashboard", url: "/ticket-dashboard", icon: TicketCheck },
+        { title: language === 'ar' ? "لوحة الورديات" : "Shift Dashboard", url: "/shift-dashboard", icon: Clock },
         { title: language === 'ar' ? "البرامج والاشتراكات" : "Software & Subscription", url: "/software-licenses", icon: Key },
         { title: t("menu.reports"), url: "/reports", icon: FileBarChart },
         { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
