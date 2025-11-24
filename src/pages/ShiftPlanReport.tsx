@@ -131,7 +131,8 @@ const ShiftPlanReport = () => {
         `)
         .gte("assignment_date", dateFrom)
         .lte("assignment_date", dateTo)
-        .order("assignment_date", { ascending: true });
+        .order("assignment_date", { ascending: true })
+        .order("user_id", { ascending: true });
 
       if (selectedUsers.length > 0) {
         query = query.in("user_id", selectedUsers);
@@ -140,8 +141,18 @@ const ShiftPlanReport = () => {
       const { data: assignmentsData, error: assignmentsError } = await query;
       if (assignmentsError) throw assignmentsError;
 
+      console.log("Fetched assignments:", assignmentsData?.length || 0, assignmentsData);
+
       // Fetch user profiles
       const userIds = [...new Set(assignmentsData?.map(a => a.user_id) || [])];
+      
+      if (userIds.length === 0) {
+        setReportResults([]);
+        toast.info(language === "ar" ? "لا توجد مناوبات في الفترة المحددة" : "No shifts found in the specified period");
+        setIsRunning(false);
+        return;
+      }
+
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -156,6 +167,8 @@ const ShiftPlanReport = () => {
         .in("user_id", userIds);
 
       if (profilesError) throw profilesError;
+      
+      console.log("Fetched profiles:", profilesData?.length || 0, profilesData);
 
       // Combine the data
       const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
@@ -185,9 +198,11 @@ const ShiftPlanReport = () => {
         );
       }
 
+      console.log("Final combined data:", combinedData.length, combinedData);
+
       setReportResults(combinedData);
       setDateRun(new Date().toLocaleString(language === "ar" ? "ar-EG" : "en-US"));
-      toast.success(language === "ar" ? "تم إنشاء التقرير بنجاح" : "Report generated successfully");
+      toast.success(language === "ar" ? `تم إنشاء التقرير بنجاح (${combinedData.length} مناوبة)` : `Report generated successfully (${combinedData.length} shifts)`);
     } catch (error: any) {
       console.error("Error running report:", error);
       toast.error(error.message || (language === "ar" ? "فشل في تشغيل التقرير" : "Failed to run report"));
