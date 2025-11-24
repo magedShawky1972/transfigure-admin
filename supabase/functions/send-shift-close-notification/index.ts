@@ -200,13 +200,10 @@ serve(async (req) => {
             },
           });
 
-          // Encode subject as Base64 UTF-8 for proper Arabic display
-          const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent('إغلاق وردية - Shift Closed')))}?=`;
-
           await client.send({
             from: smtpUsername,
             to: admin.email,
-            subject: encodedSubject,
+            subject: "إشعار ورديات",
             content: 'text/html; charset=utf-8',
             html: emailBody,
           });
