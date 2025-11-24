@@ -786,6 +786,21 @@ const SoftwareLicenseSetup = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">{language === "ar" ? "الحالة" : "Status"}</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
+                      <SelectItem value="expired">{language === "ar" ? "منتهي" : "Expired"}</SelectItem>
+                      <SelectItem value="expiring_soon">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</SelectItem>
+                      <SelectItem value="cancelled">{language === "ar" ? "ملغي" : "Cancelled"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
 
@@ -843,21 +858,6 @@ const SoftwareLicenseSetup = () => {
                       required
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status">{language === "ar" ? "الحالة" : "Status"}</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
-                      <SelectItem value="expired">{language === "ar" ? "منتهي" : "Expired"}</SelectItem>
-                      <SelectItem value="expiring_soon">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</SelectItem>
-                      <SelectItem value="cancelled">{language === "ar" ? "ملغي" : "Cancelled"}</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
