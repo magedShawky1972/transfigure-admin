@@ -33,7 +33,7 @@ async function sendEmailInBackground(email: string, emailHtml: string, subject: 
       from: "Edara Support <edara@asuscards.com>",
       to: email,
       subject: subject,
-      content: "auto",
+      content: "text/html; charset=utf-8",
       html: emailHtml,
     });
 
