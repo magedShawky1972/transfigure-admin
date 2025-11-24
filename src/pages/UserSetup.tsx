@@ -62,11 +62,12 @@ interface UserPermission {
   parent_menu: string | null;
 }
 
-const MENU_ITEMS = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "ticket_dashboard", label: "Ticket Dashboard" },
-  { key: "softwareLicenses", label: "Software Licenses" },
-  { key: "reports", label: "Reports" },
+  const MENU_ITEMS = [
+    { key: "dashboard", label: "Dashboard" },
+    { key: "ticket_dashboard", label: "Ticket Dashboard" },
+    { key: "shift_dashboard", label: "Shift Dashboard" },
+    { key: "softwareLicenses", label: "Software Licenses" },
+    { key: "reports", label: "Reports" },
   { key: "transactions", label: "Transactions" },
   { key: "pivotTable", label: "Pivot Table" },
   { key: "loadData", label: "Load Data" },
