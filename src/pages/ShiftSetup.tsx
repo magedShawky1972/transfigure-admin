@@ -35,12 +35,21 @@ interface Shift {
   is_active: boolean;
   color: string;
   job_positions?: string[];
+  admins?: Array<{ user_id: string; admin_order: number; user_name: string }>;
+}
+
+interface Profile {
+  id: string;
+  user_id: string;
+  user_name: string;
+  email: string;
 }
 
 const ShiftSetup = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [shiftZoneOpen, setShiftZoneOpen] = useState(false);
@@ -55,12 +64,14 @@ const ShiftSetup = () => {
     shift_type: "",
     color: "#3b82f6",
     selected_job_positions: [] as string[],
+    selected_admins: [] as string[],
   });
 
   useEffect(() => {
     fetchShifts();
     fetchShiftTypes();
     fetchJobPositions();
+    fetchProfiles();
   }, []);
 
   const fetchShifts = async () => {
@@ -73,17 +84,38 @@ const ShiftSetup = () => {
           shift_job_positions (
             job_position_id,
             job_positions (position_name)
+          ),
+          shift_admins (
+            user_id,
+            admin_order
           )
         `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
+      // Fetch profile names for admins
+      const userIds = data?.flatMap(shift => 
+        shift.shift_admins?.map((admin: any) => admin.user_id) || []
+      ) || [];
+      
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, user_name")
+        .in("user_id", userIds);
+
+      const profileMap = new Map(profilesData?.map(p => [p.user_id, p.user_name]) || []);
+
       const shiftsWithJobPositions = data?.map(shift => ({
         ...shift,
         shift_zone_name: shift.shift_types?.zone_name,
         shift_type: shift.shift_types?.type,
-        job_positions: shift.shift_job_positions?.map((sjp: any) => sjp.job_positions.position_name) || []
+        job_positions: shift.shift_job_positions?.map((sjp: any) => sjp.job_positions.position_name) || [],
+        admins: shift.shift_admins?.map((admin: any) => ({
+          user_id: admin.user_id,
+          admin_order: admin.admin_order,
+          user_name: profileMap.get(admin.user_id) || 'Unknown'
+        })) || []
       })) || [];
 
       setShifts(shiftsWithJobPositions);
@@ -122,6 +154,22 @@ const ShiftSetup = () => {
     } catch (error) {
       console.error("Error fetching job positions:", error);
       toast.error("فشل في جلب المناصب الوظيفية");
+    }
+  };
+
+  const fetchProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, user_id, user_name, email")
+        .eq("is_active", true)
+        .order("user_name");
+
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (error) {
+      console.error("Error fetching profiles:", error);
+      toast.error("فشل في جلب المستخدمين");
     }
   };
 
@@ -222,6 +270,26 @@ const ShiftSetup = () => {
         if (error) throw error;
       }
 
+      // Update shift admins
+      await supabase
+        .from("shift_admins")
+        .delete()
+        .eq("shift_id", shiftId);
+
+      if (formData.selected_admins.length > 0) {
+        const adminLinks = formData.selected_admins.map((userId, index) => ({
+          shift_id: shiftId,
+          user_id: userId,
+          admin_order: index + 1,
+        }));
+
+        const { error } = await supabase
+          .from("shift_admins")
+          .insert(adminLinks);
+
+        if (error) throw error;
+      }
+
       resetForm();
       fetchShifts();
     } catch (error) {
@@ -240,6 +308,12 @@ const ShiftSetup = () => {
       .select("job_position_id")
       .eq("shift_id", shift.id);
 
+    const { data: adminLinks } = await supabase
+      .from("shift_admins")
+      .select("user_id, admin_order")
+      .eq("shift_id", shift.id)
+      .order("admin_order");
+
     setFormData({
       shift_name: shift.shift_name,
       shift_start_time: shift.shift_start_time,
@@ -248,6 +322,7 @@ const ShiftSetup = () => {
       shift_type: shift.shift_type || "",
       color: shift.color,
       selected_job_positions: jobPositionLinks?.map(link => link.job_position_id) || [],
+      selected_admins: adminLinks?.map(link => link.user_id) || [],
     });
   };
 
@@ -279,6 +354,7 @@ const ShiftSetup = () => {
       shift_type: "",
       color: "#3b82f6",
       selected_job_positions: [],
+      selected_admins: [],
     });
     setEditingId(null);
   };
@@ -289,6 +365,15 @@ const ShiftSetup = () => {
       selected_job_positions: prev.selected_job_positions.includes(positionId)
         ? prev.selected_job_positions.filter(id => id !== positionId)
         : [...prev.selected_job_positions, positionId]
+    }));
+  };
+
+  const toggleAdmin = (userId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selected_admins: prev.selected_admins.includes(userId)
+        ? prev.selected_admins.filter(id => id !== userId)
+        : [...prev.selected_admins, userId]
     }));
   };
 
@@ -495,6 +580,27 @@ const ShiftSetup = () => {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium">مشرفي الوردية</label>
+              <div className="border rounded-md p-4 grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto">
+                {profiles.map((profile) => (
+                  <div key={profile.user_id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`admin-${profile.user_id}`}
+                      checked={formData.selected_admins.includes(profile.user_id)}
+                      onCheckedChange={() => toggleAdmin(profile.user_id)}
+                    />
+                    <label
+                      htmlFor={`admin-${profile.user_id}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {profile.user_name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
                 {loading ? "جاري الحفظ..." : editingId ? "تحديث الوردية" : "إضافة وردية"}
@@ -524,6 +630,7 @@ const ShiftSetup = () => {
                 <TableHead>وقت البداية</TableHead>
                 <TableHead>وقت النهاية</TableHead>
                 <TableHead>المناصب الوظيفية</TableHead>
+                <TableHead>مشرفي الوردية</TableHead>
                 <TableHead>الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -553,6 +660,19 @@ const ShiftSetup = () => {
                         ))
                       ) : (
                         <span className="text-muted-foreground text-xs">لا يوجد مناصب مسندة</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {shift.admins && shift.admins.length > 0 ? (
+                        shift.admins.map((admin, idx) => (
+                          <span key={idx} className="text-xs bg-accent/50 px-2 py-1 rounded">
+                            {admin.user_name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-xs">لا يوجد مشرفين</span>
                       )}
                     </div>
                   </TableCell>
