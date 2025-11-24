@@ -66,25 +66,22 @@ const ShiftReport = () => {
   const fetchAssignments = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      // Fetch shift assignments with shifts
+      const { data: assignmentsData, error: assignmentsError } = await supabase
         .from("shift_assignments")
         .select(`
           id,
           assignment_date,
           notes,
-          user:profiles!shift_assignments_user_id_fkey (
-            user_name,
-            email,
-            job_position:job_positions (
-              position_name
-            )
-          ),
-          shift:shifts (
+          user_id,
+          shift_id,
+          shifts (
             shift_name,
             shift_start_time,
             shift_end_time,
             color,
-            shift_type:shift_types (
+            shift_type_id,
+            shift_types (
               zone_name,
               type
             )
@@ -94,20 +91,55 @@ const ShiftReport = () => {
         .lte("assignment_date", endDate)
         .order("assignment_date", { ascending: true });
 
-      const { data, error } = await query;
+      if (assignmentsError) throw assignmentsError;
 
-      if (error) throw error;
+      // Fetch user profiles
+      const userIds = [...new Set(assignmentsData?.map(a => a.user_id) || [])];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select(`
+          user_id,
+          user_name,
+          email,
+          job_position_id,
+          job_positions (
+            position_name
+          )
+        `)
+        .in("user_id", userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combine the data
+      const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
+      
+      let combinedData = assignmentsData?.map(assignment => ({
+        id: assignment.id,
+        assignment_date: assignment.assignment_date,
+        notes: assignment.notes,
+        user: profilesMap.get(assignment.user_id) ? {
+          user_name: profilesMap.get(assignment.user_id)?.user_name || "",
+          email: profilesMap.get(assignment.user_id)?.email || "",
+          job_position: profilesMap.get(assignment.user_id)?.job_positions
+        } : null,
+        shift: {
+          shift_name: assignment.shifts?.shift_name || "",
+          shift_start_time: assignment.shifts?.shift_start_time || "",
+          shift_end_time: assignment.shifts?.shift_end_time || "",
+          color: assignment.shifts?.color || "",
+          shift_type: assignment.shifts?.shift_types
+        }
+      })) || [];
 
       // Filter by job position if selected
-      let filteredData = data || [];
       if (selectedJobPosition !== "all") {
-        filteredData = filteredData.filter(
+        combinedData = combinedData.filter(
           (assignment: any) => 
             assignment.user?.job_position?.position_name === selectedJobPosition
         );
       }
 
-      setAssignments(filteredData as any);
+      setAssignments(combinedData as any);
     } catch (error) {
       console.error("Error fetching assignments:", error);
       toast.error(language === "ar" ? "فشل في تحميل التقرير" : "Failed to load report");
