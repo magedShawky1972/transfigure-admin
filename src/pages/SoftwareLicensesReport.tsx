@@ -184,6 +184,7 @@ const SoftwareLicensesReport = () => {
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="expired">Expired</SelectItem>
                   <SelectItem value="expiring_soon">Expiring Soon</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -299,6 +300,7 @@ const SoftwareLicensesReport = () => {
                         <span className={`px-2 py-1 rounded text-xs ${
                           license.status === "active" ? "bg-green-500/20 text-green-700" :
                           license.status === "expired" ? "bg-red-500/20 text-red-700" :
+                          license.status === "cancelled" ? "bg-gray-500/20 text-gray-700" :
                           "bg-yellow-500/20 text-yellow-700"
                         }`}>
                           {license.status}

@@ -137,6 +137,7 @@ const SoftwareLicenseSetup = () => {
     assigned_department: "",
     invoice_file_path: "",
     notes: "",
+    status: "active",
   });
 
   useEffect(() => {
@@ -341,6 +342,7 @@ const SoftwareLicenseSetup = () => {
         assigned_department: formData.assigned_department || null,
         invoice_file_path: formData.invoice_file_path || null,
         notes: formData.notes || null,
+        status: formData.status,
         updated_by: user.id,
       };
 
@@ -411,6 +413,7 @@ const SoftwareLicenseSetup = () => {
           assigned_department: data.assigned_department || "",
           invoice_file_path: data.invoice_file_path || "",
           notes: data.notes || "",
+          status: data.status || "active",
         });
         setEditingLicenseId(licenseId);
         setIsDialogOpen(true);
@@ -476,6 +479,7 @@ const SoftwareLicenseSetup = () => {
       assigned_department: "",
       invoice_file_path: "",
       notes: "",
+      status: "active",
     });
   };
 
@@ -484,12 +488,14 @@ const SoftwareLicenseSetup = () => {
       active: "bg-green-500",
       expired: "bg-red-500",
       expiring_soon: "bg-orange-500",
+      cancelled: "bg-gray-500",
     };
 
     const statusLabels: Record<string, { en: string; ar: string }> = {
       active: { en: "Active", ar: "نشط" },
       expired: { en: "Expired", ar: "منتهي" },
       expiring_soon: { en: "Expiring Soon", ar: "ينتهي قريباً" },
+      cancelled: { en: "Cancelled", ar: "ملغي" },
     };
 
     return (
@@ -535,6 +541,7 @@ const SoftwareLicenseSetup = () => {
               <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
               <SelectItem value="expired">{language === "ar" ? "منتهي" : "Expired"}</SelectItem>
               <SelectItem value="expiring_soon">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</SelectItem>
+              <SelectItem value="cancelled">{language === "ar" ? "ملغي" : "Cancelled"}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -836,6 +843,21 @@ const SoftwareLicenseSetup = () => {
                       required
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">{language === "ar" ? "الحالة" : "Status"}</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
+                      <SelectItem value="expired">{language === "ar" ? "منتهي" : "Expired"}</SelectItem>
+                      <SelectItem value="expiring_soon">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</SelectItem>
+                      <SelectItem value="cancelled">{language === "ar" ? "ملغي" : "Cancelled"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
