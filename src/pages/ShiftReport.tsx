@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FileDown, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ShiftAssignment {
   id: string;
@@ -34,6 +35,7 @@ interface ShiftAssignment {
 }
 
 const ShiftReport = () => {
+  const { language } = useLanguage();
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -57,7 +59,7 @@ const ShiftReport = () => {
       setJobPositions(data || []);
     } catch (error) {
       console.error("Error fetching job positions:", error);
-      toast.error("فشل في تحميل الوظائف");
+      toast.error(language === "ar" ? "فشل في تحميل الوظائف" : "Failed to load job positions");
     }
   };
 
@@ -108,14 +110,16 @@ const ShiftReport = () => {
       setAssignments(filteredData as any);
     } catch (error) {
       console.error("Error fetching assignments:", error);
-      toast.error("فشل في تحميل التقرير");
+      toast.error(language === "ar" ? "فشل في تحميل التقرير" : "Failed to load report");
     } finally {
       setLoading(false);
     }
   };
 
   const exportToCSV = () => {
-    const headers = ["التاريخ", "اسم الموظف", "البريد الإلكتروني", "الوظيفة", "المناوبة", "وقت البداية", "وقت النهاية", "المنطقة", "النوع", "ملاحظات"];
+    const headers = language === "ar" 
+      ? ["التاريخ", "اسم الموظف", "البريد الإلكتروني", "الوظيفة", "المناوبة", "وقت البداية", "وقت النهاية", "المنطقة", "النوع", "ملاحظات"]
+      : ["Date", "Employee Name", "Email", "Job Position", "Shift", "Start Time", "End Time", "Zone", "Type", "Notes"];
     
     const rows = assignments.map(assignment => [
       format(new Date(assignment.assignment_date), "yyyy-MM-dd"),
@@ -145,26 +149,32 @@ const ShiftReport = () => {
     link.click();
     document.body.removeChild(link);
 
-    toast.success("تم تصدير التقرير بنجاح");
+    toast.success(language === "ar" ? "تم تصدير التقرير بنجاح" : "Report exported successfully");
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">تقرير المناوبات</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          {language === "ar" ? "تقرير المناوبات" : "Shift Report"}
+        </h1>
         <p className="text-muted-foreground">
-          عرض وتصدير تقرير المناوبات مع الفلاتر
+          {language === "ar" 
+            ? "عرض وتصدير تقرير المناوبات مع الفلاتر" 
+            : "View and export shift report with filters"}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>الفلاتر</CardTitle>
+          <CardTitle>{language === "ar" ? "الفلاتر" : "Filters"}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startDate">من تاريخ</Label>
+              <Label htmlFor="startDate">
+                {language === "ar" ? "من تاريخ" : "From Date"}
+              </Label>
               <Input
                 id="startDate"
                 type="date"
@@ -173,7 +183,9 @@ const ShiftReport = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endDate">إلى تاريخ</Label>
+              <Label htmlFor="endDate">
+                {language === "ar" ? "إلى تاريخ" : "To Date"}
+              </Label>
               <Input
                 id="endDate"
                 type="date"
@@ -182,13 +194,17 @@ const ShiftReport = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="jobPosition">الوظيفة</Label>
+              <Label htmlFor="jobPosition">
+                {language === "ar" ? "الوظيفة" : "Job Position"}
+              </Label>
               <Select value={selectedJobPosition} onValueChange={setSelectedJobPosition}>
                 <SelectTrigger>
-                  <SelectValue placeholder="اختر الوظيفة" />
+                  <SelectValue placeholder={language === "ar" ? "اختر الوظيفة" : "Select job position"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">جميع الوظائف</SelectItem>
+                  <SelectItem value="all">
+                    {language === "ar" ? "جميع الوظائف" : "All Positions"}
+                  </SelectItem>
                   {jobPositions.map((position) => (
                     <SelectItem key={position.id} value={position.position_name}>
                       {position.position_name}
@@ -201,7 +217,9 @@ const ShiftReport = () => {
               <Label>&nbsp;</Label>
               <Button onClick={fetchAssignments} className="w-full" disabled={loading}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {loading ? "جاري التحميل..." : "عرض التقرير"}
+                {loading 
+                  ? (language === "ar" ? "جاري التحميل..." : "Loading...") 
+                  : (language === "ar" ? "عرض التقرير" : "Show Report")}
               </Button>
             </div>
           </div>
@@ -212,10 +230,14 @@ const ShiftReport = () => {
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <CardTitle>نتائج التقرير ({assignments.length} مناوبة)</CardTitle>
+              <CardTitle>
+                {language === "ar" 
+                  ? `نتائج التقرير (${assignments.length} مناوبة)` 
+                  : `Report Results (${assignments.length} shift${assignments.length > 1 ? 's' : ''})`}
+              </CardTitle>
               <Button onClick={exportToCSV} variant="outline">
                 <FileDown className="mr-2 h-4 w-4" />
-                تصدير إلى CSV
+                {language === "ar" ? "تصدير إلى CSV" : "Export to CSV"}
               </Button>
             </div>
           </CardHeader>
@@ -224,15 +246,15 @@ const ShiftReport = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>التاريخ</TableHead>
-                    <TableHead>اسم الموظف</TableHead>
-                    <TableHead>الوظيفة</TableHead>
-                    <TableHead>المناوبة</TableHead>
-                    <TableHead>وقت البداية</TableHead>
-                    <TableHead>وقت النهاية</TableHead>
-                    <TableHead>المنطقة</TableHead>
-                    <TableHead>النوع</TableHead>
-                    <TableHead>ملاحظات</TableHead>
+                    <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead>{language === "ar" ? "اسم الموظف" : "Employee Name"}</TableHead>
+                    <TableHead>{language === "ar" ? "الوظيفة" : "Job Position"}</TableHead>
+                    <TableHead>{language === "ar" ? "المناوبة" : "Shift"}</TableHead>
+                    <TableHead>{language === "ar" ? "وقت البداية" : "Start Time"}</TableHead>
+                    <TableHead>{language === "ar" ? "وقت النهاية" : "End Time"}</TableHead>
+                    <TableHead>{language === "ar" ? "المنطقة" : "Zone"}</TableHead>
+                    <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                    <TableHead>{language === "ar" ? "ملاحظات" : "Notes"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -269,7 +291,9 @@ const ShiftReport = () => {
       {!loading && assignments.length === 0 && startDate && endDate && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            لا توجد مناوبات في الفترة المحددة
+            {language === "ar" 
+              ? "لا توجد مناوبات في الفترة المحددة" 
+              : "No shifts found in the specified period"}
           </CardContent>
         </Card>
       )}
