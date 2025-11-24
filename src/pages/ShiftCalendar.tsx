@@ -329,6 +329,20 @@ const ShiftCalendar = () => {
 
     setLoading(true);
     try {
+      // Check if there are any shift sessions associated with this assignment
+      const { data: sessions, error: sessionsError } = await supabase
+        .from("shift_sessions")
+        .select("id")
+        .eq("shift_assignment_id", selectedAssignment.id);
+
+      if (sessionsError) throw sessionsError;
+
+      if (sessions && sessions.length > 0) {
+        toast.error("لا يمكن حذف هذا الإسناد لأنه مرتبط بجلسات ورديات مفتوحة أو مغلقة. يجب حذف الجلسات أولاً.");
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("shift_assignments")
         .delete()
@@ -340,9 +354,15 @@ const ShiftCalendar = () => {
       setEditDialogOpen(false);
       setSelectedAssignment(null);
       fetchAssignments();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting assignment:", error);
-      toast.error("فشل في حذف الإسناد");
+      
+      // Check if it's a foreign key constraint error
+      if (error.code === "23503") {
+        toast.error("لا يمكن حذف هذا الإسناد لأنه مرتبط بجلسات ورديات. يجب حذف الجلسات أولاً.");
+      } else {
+        toast.error("فشل في حذف الإسناد");
+      }
     } finally {
       setLoading(false);
     }
