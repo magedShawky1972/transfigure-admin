@@ -224,7 +224,7 @@ const SoftwareLicenses = () => {
     }
   };
 
-  const categories = Array.from(new Set(licenses.map((l) => l.category)));
+  const categories = Array.from(new Set(licenses.map((l) => l.category).filter(cat => cat && cat.trim() !== '')));
 
   return (
     <div className="container mx-auto p-6 space-y-6">
