@@ -75,6 +75,7 @@ const MENU_ITEMS = [
   { key: "tickets", label: "My Tickets" },
   { key: "admin_tickets", label: "Department Tickets" },
   { key: "softwareLicenseSetup", label: "License Entry" },
+  { key: "shiftSession", label: "Shift Session" },
   { key: "reportsSetup", label: "Reports Setup" },
   { key: "customerSetup", label: "Customer Setup" },
   { key: "customerProfile", label: "Customer Profile" },
