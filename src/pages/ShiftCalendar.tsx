@@ -337,12 +337,26 @@ const ShiftCalendar = () => {
 
       if (sessionsError) throw sessionsError;
 
+      // Delete all associated shift sessions first (including closed ones)
       if (sessions && sessions.length > 0) {
-        toast.error("لا يمكن حذف هذا الإسناد لأنه مرتبط بجلسات ورديات مفتوحة أو مغلقة. يجب حذف الجلسات أولاً.");
-        setLoading(false);
-        return;
+        // First delete brand balances for all sessions
+        for (const session of sessions) {
+          await supabase
+            .from("shift_brand_balances")
+            .delete()
+            .eq("shift_session_id", session.id);
+        }
+
+        // Then delete the sessions
+        const { error: deleteSessionsError } = await supabase
+          .from("shift_sessions")
+          .delete()
+          .eq("shift_assignment_id", selectedAssignment.id);
+
+        if (deleteSessionsError) throw deleteSessionsError;
       }
 
+      // Now delete the assignment
       const { error } = await supabase
         .from("shift_assignments")
         .delete()
@@ -350,7 +364,7 @@ const ShiftCalendar = () => {
 
       if (error) throw error;
 
-      toast.success("تم حذف الإسناد بنجاح");
+      toast.success("تم حذف الإسناد وجميع الجلسات المرتبطة بنجاح");
       setEditDialogOpen(false);
       setSelectedAssignment(null);
       fetchAssignments();
