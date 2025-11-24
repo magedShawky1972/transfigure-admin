@@ -44,6 +44,7 @@ import SystemConfig from "./pages/SystemConfig";
 import ShiftSetup from "./pages/ShiftSetup";
 import ShiftCalendar from "./pages/ShiftCalendar";
 import ShiftReport from "./pages/ShiftReport";
+import ShiftSession from "./pages/ShiftSession";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -95,6 +96,7 @@ const App = () => (
               <Route path="/system-config" element={<SystemConfig />} />
               <Route path="/shift-setup" element={<ShiftSetup />} />
               <Route path="/shift-calendar" element={<ShiftCalendar />} />
+              <Route path="/shift-session" element={<ShiftSession />} />
               <Route path="/reports/shift-report" element={<ShiftReport />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
