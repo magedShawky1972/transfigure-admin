@@ -793,7 +793,7 @@ const SoftwareLicenseSetup = () => {
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[100] bg-popover">
                       <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
                       <SelectItem value="expired">{language === "ar" ? "منتهي" : "Expired"}</SelectItem>
                       <SelectItem value="expiring_soon">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</SelectItem>
