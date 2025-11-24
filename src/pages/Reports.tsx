@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan']);
         return;
       }
 
@@ -87,6 +87,15 @@ const Reports = () => {
         : "Comprehensive shift report with filters by job position and date",
       icon: Calendar,
       route: "/reports/shift-report",
+    },
+    {
+      id: "shift-plan",
+      name: language === "ar" ? "تقرير خطة المناوبات" : "Shift Plan Report",
+      description: language === "ar" 
+        ? "تقرير خطة المناوبات مع فلاتر متعددة وتصدير إلى Excel" 
+        : "Shift plan report with multi-filters and Excel export",
+      icon: Calendar,
+      route: "/reports/shift-plan",
     },
   ];
 
