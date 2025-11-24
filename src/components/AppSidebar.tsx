@@ -73,6 +73,7 @@ export function AppSidebar() {
     "/system-config": "systemConfig",
     "/shift-setup": "shiftSetup",
     "/shift-calendar": "shiftCalendar",
+    "/shift-session": "shiftSession",
   };
 
   useEffect(() => {
@@ -167,6 +168,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "تذاكري" : "My Tickets", url: "/tickets", icon: FileText },
         { title: language === 'ar' ? "تذاكر القسم" : "Department Tickets", url: "/admin-tickets", icon: Users },
         { title: language === 'ar' ? "إدخال الترخيص" : "License Entry", url: "/software-license-setup", icon: Key },
+        { title: language === 'ar' ? "جلسة الوردية" : "Shift Session", url: "/shift-session", icon: Clock },
       ]
     },
     {

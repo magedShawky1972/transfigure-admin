@@ -934,6 +934,51 @@ export type Database = {
           },
         ]
       }
+      shift_brand_balances: {
+        Row: {
+          brand_id: string
+          closing_balance: number
+          created_at: string
+          id: string
+          receipt_image_path: string | null
+          shift_session_id: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          closing_balance?: number
+          created_at?: string
+          id?: string
+          receipt_image_path?: string | null
+          shift_session_id: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          closing_balance?: number
+          created_at?: string
+          id?: string
+          receipt_image_path?: string | null
+          shift_session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_brand_balances_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_brand_balances_shift_session_id_fkey"
+            columns: ["shift_session_id"]
+            isOneToOne: false
+            referencedRelation: "shift_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_job_positions: {
         Row: {
           created_at: string
@@ -966,6 +1011,47 @@ export type Database = {
             columns: ["shift_id"]
             isOneToOne: false
             referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_sessions: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          opened_at: string
+          shift_assignment_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          shift_assignment_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          shift_assignment_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_sessions_shift_assignment_id_fkey"
+            columns: ["shift_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "shift_assignments"
             referencedColumns: ["id"]
           },
         ]
