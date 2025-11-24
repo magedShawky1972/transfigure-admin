@@ -37,7 +37,9 @@ const ShiftSession = () => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [balances, setBalances] = useState<Record<string, BrandBalance>>({});
   const [userName, setUserName] = useState("");
-  const [currentDate, setCurrentDate] = useState("");
+  const [currentDateHijri, setCurrentDateHijri] = useState("");
+  const [currentDateGregorian, setCurrentDateGregorian] = useState("");
+  const [currentWeekday, setCurrentWeekday] = useState("");
   const [currentTime, setCurrentTime] = useState("");
   const [hasActiveAssignment, setHasActiveAssignment] = useState(false);
 
@@ -50,8 +52,10 @@ const ShiftSession = () => {
 
   const updateDateTime = () => {
     const now = new Date();
-    setCurrentDate(now.toLocaleDateString('ar-SA'));
-    setCurrentTime(now.toLocaleTimeString('ar-SA'));
+    setCurrentDateHijri(now.toLocaleDateString('ar-SA-u-ca-islamic'));
+    setCurrentDateGregorian(now.toLocaleDateString('en-GB'));
+    setCurrentWeekday(now.toLocaleDateString('ar-SA', { weekday: 'long' }));
+    setCurrentTime(now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }));
   };
 
   const checkShiftAssignmentAndLoadData = async () => {
@@ -326,14 +330,22 @@ const ShiftSession = () => {
           <CardTitle className="text-2xl">{t("shiftSession")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <Label>{t("userName")}</Label>
               <Input value={userName} disabled />
             </div>
             <div>
-              <Label>{t("date")}</Label>
-              <Input value={currentDate} disabled />
+              <Label>{t("weekday")}</Label>
+              <Input value={currentWeekday} disabled />
+            </div>
+            <div>
+              <Label>{t("hijriDate")}</Label>
+              <Input value={currentDateHijri} disabled />
+            </div>
+            <div>
+              <Label>{t("gregorianDate")}</Label>
+              <Input value={currentDateGregorian} disabled />
             </div>
             <div>
               <Label>{t("time")}</Label>
