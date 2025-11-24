@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Play, Printer } from "lucide-react";
+import { ArrowLeft, Download, Play, Printer, Table2, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from "xlsx";
+import { cn } from "@/lib/utils";
 
 interface ShiftAssignment {
   id: string;
@@ -39,6 +40,7 @@ const ShiftPlanReport = () => {
   const [reportResults, setReportResults] = useState<ShiftAssignment[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [dateRun, setDateRun] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
 
   const { data: jobPositions = [] } = useQuery({
     queryKey: ["job-positions"],
@@ -246,6 +248,91 @@ const ShiftPlanReport = () => {
     window.print();
   };
 
+  const arabicDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+  const getCalendarDates = () => {
+    if (!dateFrom || !dateTo) return [];
+    
+    const start = startOfWeek(new Date(dateFrom));
+    const end = endOfWeek(new Date(dateTo));
+    const dates: Date[] = [];
+    let currentDate = start;
+    
+    while (currentDate <= end) {
+      dates.push(currentDate);
+      currentDate = addDays(currentDate, 1);
+    }
+    
+    return dates;
+  };
+
+  const getAssignmentsForDate = (date: Date) => {
+    return reportResults.filter(a => isSameDay(new Date(a.assignment_date), date));
+  };
+
+  const renderCalendarView = () => {
+    const dates = getCalendarDates();
+    const weeks: Date[][] = [];
+    
+    for (let i = 0; i < dates.length; i += 7) {
+      weeks.push(dates.slice(i, i + 7));
+    }
+
+    return (
+      <div className="space-y-4">
+        {weeks.map((week, weekIdx) => (
+          <div key={weekIdx} className="grid grid-cols-7 gap-2">
+            {week.map((date, dayIdx) => {
+              const assignments = getAssignmentsForDate(date);
+              const isInRange = date >= new Date(dateFrom) && date <= new Date(dateTo);
+              
+              return (
+                <div
+                  key={dayIdx}
+                  className={cn(
+                    "border rounded-lg p-3 min-h-[200px] print:min-h-[180px]",
+                    !isInRange && "bg-muted/30 opacity-60"
+                  )}
+                >
+                  <div className="font-semibold mb-2 text-center pb-2 border-b print:text-black">
+                    <div className="text-xs text-muted-foreground print:text-gray-600">
+                      {language === "ar" ? arabicDays[date.getDay()] : format(date, "EEE")}
+                    </div>
+                    <div className="text-lg print:text-base">
+                      {format(date, "d")}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 mt-2">
+                    {assignments.map((assignment) => (
+                      <div
+                        key={assignment.id}
+                        className="text-xs p-2 rounded print:p-1.5"
+                        style={{ 
+                          backgroundColor: assignment.shift_color + '20',
+                          borderLeft: `3px solid ${assignment.shift_color}`
+                        }}
+                      >
+                        <div className="font-semibold truncate print:text-black" title={assignment.user_name}>
+                          {assignment.user_name}
+                        </div>
+                        <div className="text-[10px] truncate text-muted-foreground print:text-gray-700" title={assignment.shift_name}>
+                          {assignment.shift_name}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground print:text-gray-600">
+                          {assignment.shift_start_time} - {assignment.shift_end_time}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 print:hidden">
@@ -359,7 +446,7 @@ const ShiftPlanReport = () => {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button onClick={runReport} disabled={isRunning}>
               <Play className="mr-2 h-4 w-4" />
               {isRunning 
@@ -368,6 +455,24 @@ const ShiftPlanReport = () => {
             </Button>
             {reportResults.length > 0 && (
               <>
+                <div className="flex gap-2 border-r pr-2">
+                  <Button
+                    variant={viewMode === "table" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("table")}
+                  >
+                    <Table2 className="mr-2 h-4 w-4" />
+                    {language === "ar" ? "جدول" : "Table"}
+                  </Button>
+                  <Button
+                    variant={viewMode === "calendar" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("calendar")}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    {language === "ar" ? "تقويم" : "Calendar"}
+                  </Button>
+                </div>
                 <Button variant="outline" onClick={exportToExcel}>
                   <Download className="mr-2 h-4 w-4" />
                   {language === "ar" ? "تصدير إلى Excel" : "Export to Excel"}
@@ -452,10 +557,13 @@ const ShiftPlanReport = () => {
             </div>
           </div>
 
-          {/* Report Data Table */}
+          {/* Report Data */}
           <div className="mb-6">
-            <table className="w-full border-collapse text-sm">
-              <thead>
+            {viewMode === "calendar" ? (
+              renderCalendarView()
+            ) : (
+              <table className="w-full border-collapse text-sm">
+                <thead>
                 <tr className="border-b-2 border-border print:border-black">
                   <th className="text-left py-3 px-2 font-semibold print:text-black">
                     {language === "ar" ? "التاريخ" : "Date"}
@@ -506,6 +614,7 @@ const ShiftPlanReport = () => {
                 ))}
               </tbody>
             </table>
+            )}
           </div>
 
           {/* Report Footer */}
