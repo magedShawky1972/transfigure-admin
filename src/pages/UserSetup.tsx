@@ -126,6 +126,8 @@ const REPORTS = [
   { key: "cost-by-brand-type", label: "Cost by Brand Type" },
   { key: "tickets", label: "Tickets Report" },
   { key: "software-licenses", label: "Software Licenses Report" },
+  { key: "shift-report", label: "Shift Report" },
+  { key: "shift-plan", label: "Shift Plan Report" },
 ];
 
 const UserSetup = () => {
