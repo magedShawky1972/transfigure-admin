@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [allowedReports, setAllowedReports] = useState<string[]>([]);
 
   useEffect(() => {
@@ -81,8 +81,10 @@ const Reports = () => {
     },
     {
       id: "shift-report",
-      name: "تقرير المناوبات",
-      description: "تقرير شامل للمناوبات مع فلاتر حسب الوظيفة والتاريخ",
+      name: language === "ar" ? "تقرير المناوبات" : "Shift Report",
+      description: language === "ar" 
+        ? "تقرير شامل للمناوبات مع فلاتر حسب الوظيفة والتاريخ" 
+        : "Comprehensive shift report with filters by job position and date",
       icon: Calendar,
       route: "/reports/shift-report",
     },
