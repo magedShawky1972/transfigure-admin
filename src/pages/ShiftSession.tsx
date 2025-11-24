@@ -298,6 +298,30 @@ const ShiftSession = () => {
 
       if (sessionError) throw sessionError;
 
+      // Send notifications to shift admins
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const today = new Date().toISOString().split('T')[0];
+        const { data: assignment } = await supabase
+          .from("shift_assignments")
+          .select("shift_id")
+          .eq("user_id", user?.id)
+          .eq("assignment_date", today)
+          .single();
+
+        if (assignment) {
+          await supabase.functions.invoke("send-shift-close-notification", {
+            body: {
+              shiftId: assignment.shift_id,
+              userId: user?.id,
+              shiftSessionId: shiftSession.id,
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error("Error sending close notifications:", notifError);
+      }
+
       toast({
         title: t("success"),
         description: t("shiftClosedSuccessfully"),
