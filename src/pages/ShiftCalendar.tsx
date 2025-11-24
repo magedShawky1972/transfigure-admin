@@ -339,21 +339,24 @@ const ShiftCalendar = () => {
 
       // Delete all associated shift sessions first (including closed ones)
       if (sessions && sessions.length > 0) {
-        // First delete brand balances for all sessions
+        // Delete each session individually to ensure proper cascade
         for (const session of sessions) {
-          await supabase
+          // First delete brand balances for this session
+          const { error: balanceError } = await supabase
             .from("shift_brand_balances")
             .delete()
             .eq("shift_session_id", session.id);
+          
+          if (balanceError) throw balanceError;
+
+          // Then delete the session itself
+          const { error: sessionError } = await supabase
+            .from("shift_sessions")
+            .delete()
+            .eq("id", session.id);
+
+          if (sessionError) throw sessionError;
         }
-
-        // Then delete the sessions
-        const { error: deleteSessionsError } = await supabase
-          .from("shift_sessions")
-          .delete()
-          .eq("shift_assignment_id", selectedAssignment.id);
-
-        if (deleteSessionsError) throw deleteSessionsError;
       }
 
       // Now delete the assignment
