@@ -380,7 +380,17 @@ const ShiftSetup = () => {
   };
 
   const getLocalizedPositionName = (positionName: string) => {
-    // Check if position name contains both English and Arabic (separated by space)
+    // Try to translate using the position name as key
+    const normalizedName = positionName.toLowerCase().trim();
+    const translationKey = `jobPosition.${normalizedName}`;
+    const translation = t(translationKey);
+    
+    // If translation exists and is different from the key, use it
+    if (translation !== translationKey) {
+      return translation;
+    }
+    
+    // Fallback: Check if position name contains both English and Arabic (separated by space)
     const parts = positionName.trim().split(/\s+/);
     
     if (parts.length === 1) {
