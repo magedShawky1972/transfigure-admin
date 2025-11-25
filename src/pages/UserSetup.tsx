@@ -130,6 +130,7 @@ const REPORTS = [
   { key: "software-licenses", label: "Software Licenses Report" },
   { key: "shift-report", label: "Shift Report" },
   { key: "shift-plan", label: "Shift Plan Report" },
+  { key: "api-documentation", label: "API Documentation" },
 ];
 
 const UserSetup = () => {

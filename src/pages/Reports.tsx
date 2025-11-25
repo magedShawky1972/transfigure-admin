@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'api-documentation']);
         return;
       }
 
@@ -96,6 +96,15 @@ const Reports = () => {
         : "Shift plan report with multi-filters and Excel export",
       icon: Calendar,
       route: "/reports/shift-plan",
+    },
+    {
+      id: "api-documentation",
+      name: language === "ar" ? "توثيق API" : "API Documentation",
+      description: language === "ar" 
+        ? "دليل شامل لواجهات API للتكامل مع التجارة الإلكترونية" 
+        : "Comprehensive API guide for E-Commerce integration",
+      icon: BookOpen,
+      route: "/api-documentation",
     },
   ];
 
