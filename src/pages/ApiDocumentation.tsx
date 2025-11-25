@@ -14,7 +14,7 @@ const API_ENDPOINTS = [
   {
     id: "salesheader",
     name: "Sales Order Header",
-    endpoint: "/api/salesheader",
+    endpoint: "https://edaraasus.com/functions/v1/api-salesheader",
     method: "POST",
     description: "Create sales order headers with customer and transaction details",
     fields: [
@@ -38,7 +38,7 @@ const API_ENDPOINTS = [
   {
     id: "salesline",
     name: "Sales Order Line",
-    endpoint: "/api/salesline",
+    endpoint: "https://edaraasus.com/functions/v1/api-salesline",
     method: "POST",
     description: "Create sales order line items with product details",
     fields: [
@@ -59,7 +59,7 @@ const API_ENDPOINTS = [
   {
     id: "payment",
     name: "Payment",
-    endpoint: "/api/payment",
+    endpoint: "https://edaraasus.com/functions/v1/api-payment",
     method: "POST",
     description: "Record payment transactions with payment method details",
     fields: [
@@ -77,7 +77,7 @@ const API_ENDPOINTS = [
   {
     id: "customer",
     name: "Customers",
-    endpoint: "/api/customer",
+    endpoint: "https://edaraasus.com/functions/v1/api-customer",
     method: "POST",
     description: "Manage customer master data including contact and status information",
     fields: [
@@ -95,7 +95,7 @@ const API_ENDPOINTS = [
   {
     id: "supplier",
     name: "Suppliers",
-    endpoint: "/api/supplier",
+    endpoint: "https://edaraasus.com/functions/v1/api-supplier",
     method: "POST",
     description: "Manage supplier master data including contact information",
     fields: [
@@ -109,7 +109,7 @@ const API_ENDPOINTS = [
   {
     id: "supplierproduct",
     name: "Supplier Products",
-    endpoint: "/api/supplierproduct",
+    endpoint: "https://edaraasus.com/functions/v1/api-supplierproduct",
     method: "POST",
     description: "Manage supplier product pricing with date ranges",
     fields: [
@@ -123,7 +123,7 @@ const API_ENDPOINTS = [
   {
     id: "brand",
     name: "Brand (Product Category)",
-    endpoint: "/api/brand",
+    endpoint: "https://edaraasus.com/functions/v1/api-brand",
     method: "POST",
     description: "Manage product brand and category information",
     fields: [
@@ -136,7 +136,7 @@ const API_ENDPOINTS = [
   {
     id: "product",
     name: "Product",
-    endpoint: "/api/product",
+    endpoint: "https://edaraasus.com/functions/v1/api-product",
     method: "POST",
     description: "Manage product master data including inventory and pricing",
     fields: [
@@ -578,6 +578,12 @@ Content-Type: application/json
 
       <style>{`
         @media print {
+          @page {
+            margin: 20mm 15mm 20mm 15mm;
+            @bottom-center {
+              content: counter(page);
+            }
+          }
           body * {
             visibility: hidden;
           }
