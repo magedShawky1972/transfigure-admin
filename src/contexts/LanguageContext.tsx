@@ -728,6 +728,11 @@ const translations = {
     "jobPosition.technician": "Technician",
     "jobPosition.employee": "Employee",
     
+    // Shift Zone Translations
+    "shiftZone.morning": "Morning",
+    "shiftZone.night": "Night",
+    "shiftZone.fajr": "Fajr",
+    
     // Common
     "common.success": "Success",
     "common.error": "Error",
@@ -1456,6 +1461,11 @@ const translations = {
     "jobPosition.supervisor": "مشرف",
     "jobPosition.technician": "فني",
     "jobPosition.employee": "موظف",
+    
+    // Shift Zone Translations
+    "shiftZone.morning": "صباحي",
+    "shiftZone.night": "ليلي",
+    "shiftZone.fajr": "فجر",
     
     // Common
     "common.success": "نجح",

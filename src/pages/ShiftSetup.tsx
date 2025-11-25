@@ -414,6 +414,19 @@ const ShiftSetup = () => {
     return positionName;
   };
 
+  const getLocalizedZoneName = (zoneName: string) => {
+    const normalizedName = zoneName.toLowerCase().trim();
+    const translationKey = `shiftZone.${normalizedName}`;
+    const translation = t(translationKey);
+    
+    // If translation exists and is different from the key, use it
+    if (translation !== translationKey) {
+      return translation;
+    }
+    
+    return zoneName;
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card>
@@ -444,7 +457,7 @@ const ShiftSetup = () => {
                       className="w-full justify-between"
                     >
                       {formData.shift_type_id
-                        ? shiftTypes.find((type) => type.id === formData.shift_type_id)?.zone_name
+                        ? getLocalizedZoneName(shiftTypes.find((type) => type.id === formData.shift_type_id)?.zone_name || "")
                         : t("shiftSetup.selectShiftZone")}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -481,7 +494,7 @@ const ShiftSetup = () => {
                                   formData.shift_type_id === type.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {type.zone_name}
+                              {getLocalizedZoneName(type.zone_name)}
                             </CommandItem>
                           ))}
                         {newShiftZone && 
@@ -687,7 +700,7 @@ const ShiftSetup = () => {
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{shift.shift_name}</TableCell>
-                  <TableCell>{shift.shift_zone_name || "-"}</TableCell>
+                  <TableCell>{shift.shift_zone_name ? getLocalizedZoneName(shift.shift_zone_name) : "-"}</TableCell>
                   <TableCell>
                     {shift.shift_type ? 
                       (shift.shift_type === "sales" ? t("shiftSetup.sales") : 
