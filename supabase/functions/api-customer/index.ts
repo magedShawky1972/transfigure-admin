@@ -37,6 +37,35 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
+    // Fetch required fields from configuration
+    const { data: fieldConfigs, error: configError } = await supabase
+      .from('api_field_configs')
+      .select('field_name, is_required')
+      .eq('api_endpoint', '/api/customer')
+      .eq('is_required', true);
+
+    if (configError) {
+      console.error('Error fetching field configs:', configError);
+      return new Response(JSON.stringify({ error: 'Configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate required fields based on configuration
+    const requiredFields = fieldConfigs.map((config: any) => config.field_name);
+    const missingFields = requiredFields.filter((field: string) => !body[field]);
+    
+    if (missingFields.length > 0) {
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields', 
+        missing: missingFields 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Upsert customer (update if exists, insert if not)
     const { data, error } = await supabase
       .from('customers')
