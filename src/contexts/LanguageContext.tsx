@@ -706,17 +706,6 @@ const translations = {
     "shiftSetup.errorDeleteShift": "Failed to delete shift",
     "shiftSetup.noZonesFound": "No shift zones found.",
     
-    // Common Job Position Names
-    "jobPosition.manager": "Manager",
-    "jobPosition.supervisor": "Supervisor",
-    "jobPosition.employee": "Employee",
-    "jobPosition.cashier": "Cashier",
-    "jobPosition.sales": "Sales",
-    "jobPosition.support": "Support",
-    "jobPosition.technician": "Technician",
-    "jobPosition.accountant": "Accountant",
-    "jobPosition.administrator": "Administrator",
-    
     // Common
     "common.success": "Success",
     "common.error": "Error",
@@ -1423,17 +1412,6 @@ const translations = {
     "shiftSetup.errorSaveShift": "فشل في حفظ الوردية",
     "shiftSetup.errorDeleteShift": "فشل في حذف الوردية",
     "shiftSetup.noZonesFound": "لم يتم العثور على مناطق ورديات.",
-    
-    // Common Job Position Names
-    "jobPosition.manager": "مدير",
-    "jobPosition.supervisor": "مشرف",
-    "jobPosition.employee": "موظف",
-    "jobPosition.cashier": "كاشير",
-    "jobPosition.sales": "مبيعات",
-    "jobPosition.support": "دعم",
-    "jobPosition.technician": "فني",
-    "jobPosition.accountant": "محاسب",
-    "jobPosition.administrator": "مسؤول",
     
     // Common
     "common.success": "نجح",

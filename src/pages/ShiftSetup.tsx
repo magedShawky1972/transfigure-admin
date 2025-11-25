@@ -379,16 +379,6 @@ const ShiftSetup = () => {
     }));
   };
 
-  const translateJobPosition = (positionName: string) => {
-    // Try to find a translation key for common position names
-    const normalizedName = positionName.toLowerCase();
-    const translationKey = `jobPosition.${normalizedName}`;
-    const translation = t(translationKey);
-    
-    // If translation exists and is different from the key, use it; otherwise use original
-    return translation !== translationKey ? translation : positionName;
-  };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card>
@@ -589,7 +579,7 @@ const ShiftSetup = () => {
                       htmlFor={position.id}
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                     >
-                      {translateJobPosition(position.position_name)}
+                      {position.position_name}
                     </label>
                   </div>
                 ))}
@@ -677,7 +667,7 @@ const ShiftSetup = () => {
                       {shift.job_positions && shift.job_positions.length > 0 ? (
                         shift.job_positions.map((pos, idx) => (
                           <span key={idx} className="text-xs bg-primary/10 px-2 py-1 rounded">
-                            {translateJobPosition(pos)}
+                            {pos}
                           </span>
                         ))
                       ) : (
