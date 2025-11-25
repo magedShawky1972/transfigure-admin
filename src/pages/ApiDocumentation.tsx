@@ -526,7 +526,7 @@ Content-Type: application/json
 
 {
   ${api.fields
-    .slice(0, 3)
+    .filter((field: any) => field.required)
     .map((field: any) => `"${field.name}": ${field.type === 'Text' ? '"value"' : field.type === 'Int' || field.type === 'BigInt' ? '123' : field.type === 'Decimal' ? '99.99' : field.type === 'Bit' ? 'true' : '"2024-01-01"'}`)
     .join(',\n  ')}
 }`}</pre>
