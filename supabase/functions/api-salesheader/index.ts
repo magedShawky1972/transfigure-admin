@@ -37,6 +37,20 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
+    // Validate required fields
+    const requiredFields = ['Order_Number', 'Customer_Phone', 'Order_date', 'Company'];
+    const missingFields = requiredFields.filter(field => !body[field]);
+    
+    if (missingFields.length > 0) {
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields', 
+        missing: missingFields 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Insert sales order header
     const { data, error } = await supabase
       .from('sales_order_header')

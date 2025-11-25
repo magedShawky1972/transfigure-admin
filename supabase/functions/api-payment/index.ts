@@ -37,6 +37,20 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
+    // Validate required fields
+    const requiredFields = ['Order_number', 'Payment_method', 'Payment_brand'];
+    const missingFields = requiredFields.filter(field => !body[field]);
+    
+    if (missingFields.length > 0) {
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields', 
+        missing: missingFields 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Insert payment transaction
     const { data, error } = await supabase
       .from('payment_transactions')
