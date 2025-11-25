@@ -3,7 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Printer } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const API_ENDPOINTS = [
   {
@@ -157,6 +160,9 @@ const API_ENDPOINTS = [
 
 const ApiDocumentation = () => {
   const [selectedApis, setSelectedApis] = useState<string[]>(API_ENDPOINTS.map(api => api.id));
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const { toast } = useToast();
 
   const handleApiToggle = (apiId: string) => {
     setSelectedApis(prev =>
@@ -164,8 +170,27 @@ const ApiDocumentation = () => {
     );
   };
 
+  const handlePrintClick = () => {
+    setShowApiKeyDialog(true);
+  };
+
   const handlePrint = () => {
-    window.print();
+    if (!apiKey.trim()) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter an API key before printing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setShowApiKeyDialog(false);
+    
+    // Small delay to allow dialog to close before printing
+    setTimeout(() => {
+      window.print();
+      setApiKey("");
+    }, 100);
   };
 
   const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id));
@@ -179,11 +204,49 @@ const ApiDocumentation = () => {
             Complete API reference for E-Commerce integration
           </p>
         </div>
-        <Button onClick={handlePrint} className="gap-2">
+        <Button onClick={handlePrintClick} className="gap-2">
           <Printer className="h-4 w-4" />
           Print Documentation
         </Button>
       </div>
+
+      {/* API Key Dialog */}
+      <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter API Key</DialogTitle>
+            <DialogDescription>
+              Please enter your API key to print the documentation
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="api-key">API Key</Label>
+              <Input
+                id="api-key"
+                type="text"
+                placeholder="Enter your API key..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handlePrint();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApiKeyDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handlePrint}>
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="print:hidden">
         <CardHeader>
