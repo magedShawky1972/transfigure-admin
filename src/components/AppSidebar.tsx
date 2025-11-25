@@ -71,7 +71,6 @@ export function AppSidebar() {
     "/odoo-setup": "odooSetup",
     "/software-license-setup": "softwareLicenseSetup",
     "/system-config": "systemConfig",
-    "/api-config": "api_config",
     "/api-documentation": "api_documentation",
     "/shift-setup": "shiftSetup",
     "/shift-calendar": "shiftCalendar",
@@ -198,7 +197,6 @@ export function AppSidebar() {
       items: [
         { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
         { title: language === 'ar' ? 'إعدادات النظام' : 'System Configuration', url: "/system-config", icon: Shield },
-        { title: language === 'ar' ? 'إعدادات API' : 'API Configuration', url: "/api-config", icon: Key },
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },

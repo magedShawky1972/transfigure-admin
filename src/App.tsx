@@ -7,7 +7,6 @@ import Layout from "./components/Layout";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import Dashboard from "./pages/Dashboard";
 import ExcelSheets from "./pages/ExcelSheets";
-import ApiConfig from "./pages/ApiConfig";
 import ApiDocumentation from "./pages/ApiDocumentation";
 import TableGenerator from "./pages/TableGenerator";
 import Reports from "./pages/Reports";
@@ -74,7 +73,6 @@ const App = () => (
               <Route path="/upload-log" element={<UploadLog />} />
               <Route path="/clear-data" element={<ClearData />} />
               <Route path="/reports-setup" element={<ReportsSetup />} />
-              <Route path="/api-config" element={<ApiConfig />} />
               <Route path="/api-documentation" element={<ApiDocumentation />} />
               <Route path="/excel-sheets" element={<ExcelSheets />} />
               <Route path="/table-generator" element={<TableGenerator />} />
