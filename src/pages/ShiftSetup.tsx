@@ -10,6 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ShiftType {
   id: string;
@@ -46,6 +47,7 @@ interface Profile {
 }
 
 const ShiftSetup = () => {
+  const { t } = useLanguage();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
@@ -121,7 +123,7 @@ const ShiftSetup = () => {
       setShifts(shiftsWithJobPositions);
     } catch (error) {
       console.error("Error fetching shifts:", error);
-      toast.error("فشل في جلب الورديات");
+      toast.error(t("shiftSetup.errorFetchShifts"));
     }
   };
 
@@ -137,7 +139,7 @@ const ShiftSetup = () => {
       setShiftTypes(data || []);
     } catch (error) {
       console.error("Error fetching shift types:", error);
-      toast.error("فشل في جلب مناطق الورديات");
+      toast.error(t("shiftSetup.errorFetchZones"));
     }
   };
 
@@ -153,7 +155,7 @@ const ShiftSetup = () => {
       setJobPositions(data || []);
     } catch (error) {
       console.error("Error fetching job positions:", error);
-      toast.error("فشل في جلب المناصب الوظيفية");
+      toast.error(t("shiftSetup.errorFetchPositions"));
     }
   };
 
@@ -169,7 +171,7 @@ const ShiftSetup = () => {
       setProfiles(data || []);
     } catch (error) {
       console.error("Error fetching profiles:", error);
-      toast.error("فشل في جلب المستخدمين");
+      toast.error(t("shiftSetup.errorFetchUsers"));
     }
   };
 
@@ -192,17 +194,17 @@ const ShiftSetup = () => {
       setFormData({ ...formData, shift_type_id: data.id });
       setNewShiftZone("");
       setShiftZoneOpen(false);
-      toast.success("تمت إضافة منطقة الوردية بنجاح");
+      toast.success(t("shiftSetup.zoneAddedSuccess"));
     } catch (error) {
       console.error("Error adding shift zone:", error);
-      toast.error("فشل في إضافة منطقة الوردية");
+      toast.error(t("shiftSetup.errorAddZone"));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.shift_name || !formData.shift_start_time || !formData.shift_end_time) {
-      toast.error("يرجى ملء جميع الحقول المطلوبة");
+      toast.error(t("shiftSetup.fillAllFields"));
       return;
     }
 
@@ -238,7 +240,7 @@ const ShiftSetup = () => {
 
         if (error) throw error;
         shiftId = editingId;
-        toast.success("تم تحديث الوردية بنجاح");
+        toast.success(t("shiftSetup.updatedSuccess"));
       } else {
         const { data, error } = await supabase
           .from("shifts")
@@ -248,7 +250,7 @@ const ShiftSetup = () => {
 
         if (error) throw error;
         shiftId = data.id;
-        toast.success("تمت إضافة الوردية بنجاح");
+        toast.success(t("shiftSetup.addedSuccess"));
       }
 
       // Update job positions
@@ -294,7 +296,7 @@ const ShiftSetup = () => {
       fetchShifts();
     } catch (error) {
       console.error("Error saving shift:", error);
-      toast.error("فشل في حفظ الوردية");
+      toast.error(t("shiftSetup.errorSaveShift"));
     } finally {
       setLoading(false);
     }
@@ -327,7 +329,7 @@ const ShiftSetup = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذه الوردية؟")) return;
+    if (!confirm(t("shiftSetup.deleteConfirm"))) return;
 
     try {
       const { error } = await supabase
@@ -337,11 +339,11 @@ const ShiftSetup = () => {
 
       if (error) throw error;
 
-      toast.success("تم حذف الوردية بنجاح");
+      toast.success(t("shiftSetup.deletedSuccess"));
       fetchShifts();
     } catch (error) {
       console.error("Error deleting shift:", error);
-      toast.error("فشل في حذف الوردية");
+      toast.error(t("shiftSetup.errorDeleteShift"));
     }
   };
 
@@ -381,15 +383,15 @@ const ShiftSetup = () => {
     <div className="container mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{editingId ? "تعديل الوردية" : "إضافة وردية جديدة"}</CardTitle>
+          <CardTitle>{editingId ? t("shiftSetup.editTitle") : t("shiftSetup.addTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">اسم الوردية *</label>
+                <label className="text-sm font-medium">{t("shiftSetup.shiftName")} *</label>
                 <Input
-                  placeholder="أدخل اسم الوردية"
+                  placeholder={t("shiftSetup.shiftNamePlaceholder")}
                   value={formData.shift_name}
                   onChange={(e) => setFormData({ ...formData, shift_name: e.target.value })}
                   required
@@ -397,7 +399,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">منطقة الوردية</label>
+                <label className="text-sm font-medium">{t("shiftSetup.shiftZone")}</label>
                 <Popover open={shiftZoneOpen} onOpenChange={setShiftZoneOpen}>
                   <PopoverTrigger asChild>
                      <Button
@@ -408,14 +410,14 @@ const ShiftSetup = () => {
                     >
                       {formData.shift_type_id
                         ? shiftTypes.find((type) => type.id === formData.shift_type_id)?.zone_name
-                        : "اختر منطقة الوردية..."}
+                        : t("shiftSetup.selectShiftZone")}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
                     <Command shouldFilter={false}>
                       <CommandInput 
-                        placeholder="ابحث أو اكتب منطقة جديدة..." 
+                        placeholder={t("shiftSetup.searchOrAddNew")}
                         value={newShiftZone}
                         onValueChange={setNewShiftZone}
                       />
@@ -455,12 +457,12 @@ const ShiftSetup = () => {
                             className="bg-primary/10"
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            إضافة "{newShiftZone}"
+                            {t("shiftSetup.addNewZone")} "{newShiftZone}"
                           </CommandItem>
                         )}
                       </CommandGroup>
                       {shiftTypes.length === 0 && !newShiftZone && (
-                        <CommandEmpty>لم يتم العثور على مناطق ورديات.</CommandEmpty>
+                        <CommandEmpty>{t("shiftSetup.noZonesFound")}</CommandEmpty>
                       )}
                     </Command>
                   </PopoverContent>
@@ -468,7 +470,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">نوع الوردية</label>
+                <label className="text-sm font-medium">{t("shiftSetup.shiftType")}</label>
                 <Popover open={shiftTypeOpen} onOpenChange={setShiftTypeOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -477,7 +479,11 @@ const ShiftSetup = () => {
                       aria-expanded={shiftTypeOpen}
                       className="w-full justify-between"
                     >
-                      {formData.shift_type || "اختر نوع الوردية..."}
+                      {formData.shift_type ? 
+                        (formData.shift_type === "sales" ? t("shiftSetup.sales") : 
+                         formData.shift_type === "support" ? t("shiftSetup.support") : 
+                         formData.shift_type) 
+                        : t("shiftSetup.selectShiftType")}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -486,31 +492,31 @@ const ShiftSetup = () => {
                       <CommandGroup>
                         <CommandItem
                           onSelect={() => {
-                            setFormData({ ...formData, shift_type: "مبيعات" });
+                            setFormData({ ...formData, shift_type: "sales" });
                             setShiftTypeOpen(false);
                           }}
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              formData.shift_type === "مبيعات" ? "opacity-100" : "opacity-0"
+                              formData.shift_type === "sales" ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          مبيعات
+                          {t("shiftSetup.sales")}
                         </CommandItem>
                         <CommandItem
                           onSelect={() => {
-                            setFormData({ ...formData, shift_type: "دعم" });
+                            setFormData({ ...formData, shift_type: "support" });
                             setShiftTypeOpen(false);
                           }}
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              formData.shift_type === "دعم" ? "opacity-100" : "opacity-0"
+                              formData.shift_type === "support" ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          دعم
+                          {t("shiftSetup.support")}
                         </CommandItem>
                       </CommandGroup>
                     </Command>
@@ -519,7 +525,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">وقت البداية *</label>
+                <label className="text-sm font-medium">{t("shiftSetup.startTime")} *</label>
                 <Input
                   type="time"
                   value={formData.shift_start_time}
@@ -529,7 +535,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">وقت النهاية *</label>
+                <label className="text-sm font-medium">{t("shiftSetup.endTime")} *</label>
                 <Input
                   type="time"
                   value={formData.shift_end_time}
@@ -539,7 +545,7 @@ const ShiftSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">لون الوردية *</label>
+                <label className="text-sm font-medium">{t("shiftSetup.color")} *</label>
                 <div className="flex gap-2 items-center">
                   <Input
                     type="color"
@@ -560,7 +566,7 @@ const ShiftSetup = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">المناصب الوظيفية</label>
+              <label className="text-sm font-medium">{t("shiftSetup.jobPositions")}</label>
               <div className="border rounded-md p-4 grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto">
                 {jobPositions.map((position) => (
                   <div key={position.id} className="flex items-center space-x-2">
@@ -581,7 +587,7 @@ const ShiftSetup = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">مشرفي الوردية</label>
+              <label className="text-sm font-medium">{t("shiftSetup.shiftAdmins")}</label>
               <div className="border rounded-md p-4 grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto">
                 {profiles.map((profile) => (
                   <div key={profile.user_id} className="flex items-center space-x-2">
@@ -603,11 +609,11 @@ const ShiftSetup = () => {
 
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
-                {loading ? "جاري الحفظ..." : editingId ? "تحديث الوردية" : "إضافة وردية"}
+                {loading ? t("shiftSetup.saving") : editingId ? t("shiftSetup.updateShift") : t("shiftSetup.addShift")}
               </Button>
               {editingId && (
                 <Button type="button" variant="outline" onClick={resetForm}>
-                  إلغاء
+                  {t("shiftSetup.cancel")}
                 </Button>
               )}
             </div>
@@ -617,21 +623,21 @@ const ShiftSetup = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>قائمة الورديات</CardTitle>
+          <CardTitle>{t("shiftSetup.shiftsList")}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>اللون</TableHead>
-                <TableHead>اسم الوردية</TableHead>
-                <TableHead>المنطقة</TableHead>
-                <TableHead>النوع</TableHead>
-                <TableHead>وقت البداية</TableHead>
-                <TableHead>وقت النهاية</TableHead>
-                <TableHead>المناصب الوظيفية</TableHead>
-                <TableHead>مشرفي الوردية</TableHead>
-                <TableHead>الإجراءات</TableHead>
+                <TableHead>{t("shiftSetup.color")}</TableHead>
+                <TableHead>{t("shiftSetup.shiftName")}</TableHead>
+                <TableHead>{t("shiftSetup.zone")}</TableHead>
+                <TableHead>{t("shiftSetup.type")}</TableHead>
+                <TableHead>{t("shiftSetup.startTime")}</TableHead>
+                <TableHead>{t("shiftSetup.endTime")}</TableHead>
+                <TableHead>{t("shiftSetup.jobPositions")}</TableHead>
+                <TableHead>{t("shiftSetup.shiftAdmins")}</TableHead>
+                <TableHead>{t("shiftSetup.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -647,7 +653,13 @@ const ShiftSetup = () => {
                   </TableCell>
                   <TableCell className="font-medium">{shift.shift_name}</TableCell>
                   <TableCell>{shift.shift_zone_name || "-"}</TableCell>
-                  <TableCell>{shift.shift_type || "-"}</TableCell>
+                  <TableCell>
+                    {shift.shift_type ? 
+                      (shift.shift_type === "sales" ? t("shiftSetup.sales") : 
+                       shift.shift_type === "support" ? t("shiftSetup.support") : 
+                       shift.shift_type) 
+                      : "-"}
+                  </TableCell>
                   <TableCell>{shift.shift_start_time}</TableCell>
                   <TableCell>{shift.shift_end_time}</TableCell>
                   <TableCell>
@@ -657,9 +669,9 @@ const ShiftSetup = () => {
                           <span key={idx} className="text-xs bg-primary/10 px-2 py-1 rounded">
                             {pos}
                           </span>
-                        ))
+                          ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">لا يوجد مناصب مسندة</span>
+                        <span className="text-muted-foreground text-xs">{t("shiftSetup.noPositionsAssigned")}</span>
                       )}
                     </div>
                   </TableCell>
@@ -672,7 +684,7 @@ const ShiftSetup = () => {
                           </span>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">لا يوجد مشرفين</span>
+                        <span className="text-muted-foreground text-xs">{t("shiftSetup.noAdminsAssigned")}</span>
                       )}
                     </div>
                   </TableCell>
@@ -698,8 +710,8 @@ const ShiftSetup = () => {
               ))}
               {shifts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    لم يتم العثور على ورديات. أضف أول وردية أعلاه.
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    {t("shiftSetup.noShiftsFound")}
                   </TableCell>
                 </TableRow>
               )}
