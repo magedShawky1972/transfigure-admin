@@ -527,7 +527,16 @@ Content-Type: application/json
 {
   ${api.fields
     .filter((field: any) => field.required)
-    .map((field: any) => `"${field.name}": ${field.type === 'Text' ? '"value"' : field.type === 'Int' || field.type === 'BigInt' ? '123' : field.type === 'Decimal' ? '99.99' : field.type === 'Bit' ? 'true' : '"2024-01-01"'}`)
+    .map((field: any) => {
+      let value;
+      if (field.type === 'Text') value = '"value"';
+      else if (field.type === 'Int' || field.type === 'BigInt') value = '123';
+      else if (field.type === 'Decimal') value = '99.99';
+      else if (field.type === 'Bit') value = 'true';
+      else if (field.type === 'Datetime') value = '"2024-01-01 12:00:00"';
+      else value = '"2024-01-01"';
+      return `"${field.name}": ${value}`;
+    })
     .join(',\n  ')}
 }`}</pre>
               </div>
