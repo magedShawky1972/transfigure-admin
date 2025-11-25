@@ -196,7 +196,7 @@ const ApiDocumentation = () => {
   const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id));
 
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-3xl font-bold mb-2">API Documentation</h1>
@@ -208,6 +208,40 @@ const ApiDocumentation = () => {
           <Printer className="h-4 w-4" />
           Print Documentation
         </Button>
+      </div>
+
+      {/* Cover Page - Only visible when printing */}
+      <div className="hidden print:flex print:flex-col print:items-center print:justify-center print:min-h-screen print:page-break-after">
+        <h1 className="text-5xl font-bold text-gray-900 mb-8 text-center">
+          API Integration for Odoo
+        </h1>
+        <h2 className="text-3xl font-semibold text-gray-800 mb-6 text-center">
+          Asus Cards
+        </h2>
+        <p className="text-xl text-gray-700">
+          {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })}
+        </p>
+      </div>
+
+      {/* Table of Contents - Only visible when printing */}
+      <div className="hidden print:block print:min-h-screen print:page-break-after print:pt-20">
+        <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">Table of Contents</h2>
+        <div className="space-y-4 max-w-3xl mx-auto">
+          <div className="flex items-center justify-between border-b border-gray-300 pb-2">
+            <span className="text-lg text-gray-900 font-medium">Authentication</span>
+            <span className="text-gray-600">1</span>
+          </div>
+          {filteredApis.map((api, index) => (
+            <div key={api.id} className="flex items-center justify-between border-b border-gray-300 pb-2">
+              <span className="text-lg text-gray-900 font-medium">{api.name}</span>
+              <span className="text-gray-600">{index + 2}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between border-b border-gray-300 pb-2">
+            <span className="text-lg text-gray-900 font-medium">Error Handling</span>
+            <span className="text-gray-600">{filteredApis.length + 2}</span>
+          </div>
+        </div>
       </div>
 
       {/* API Key Dialog */}
@@ -248,7 +282,7 @@ const ApiDocumentation = () => {
         </DialogContent>
       </Dialog>
 
-      <Card className="print:hidden">
+      <Card className="print:hidden print:border-0">
         <CardHeader>
           <CardTitle>Filter APIs</CardTitle>
           <CardDescription>Select APIs to include in documentation</CardDescription>
@@ -272,7 +306,7 @@ const ApiDocumentation = () => {
       </Card>
 
       {/* Authentication Section */}
-      <Card>
+      <Card className="print:shadow-none print:border-0 print:page-break-after">
         <CardHeader>
           <CardTitle className="text-gray-900 dark:text-foreground">Authentication</CardTitle>
         </CardHeader>
@@ -293,7 +327,7 @@ const ApiDocumentation = () => {
 
       {/* API Endpoints */}
       {filteredApis.map((api, index) => (
-        <Card key={api.id} className="break-inside-avoid">
+        <Card key={api.id} className="break-inside-avoid print:shadow-none print:border-0 print:page-break-after">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-gray-900 dark:text-foreground">{api.name}</CardTitle>
@@ -376,7 +410,7 @@ Content-Type: application/json
       ))}
 
       {/* Error Handling */}
-      <Card className="break-inside-avoid">
+      <Card className="break-inside-avoid print:shadow-none print:border-0">
         <CardHeader>
           <CardTitle className="text-gray-900 dark:text-foreground">Error Handling</CardTitle>
         </CardHeader>
@@ -417,9 +451,13 @@ Content-Type: application/json
             position: absolute;
             left: 0;
             top: 0;
+            width: 100%;
           }
           .print\\:hidden {
             display: none !important;
+          }
+          .print\\:page-break-after {
+            page-break-after: always;
           }
           /* Force dark text colors for printing */
           * {
@@ -430,6 +468,13 @@ Content-Type: application/json
           }
           pre, code {
             color: #000 !important;
+          }
+          /* Remove card styling for print */
+          .print\\:shadow-none {
+            box-shadow: none !important;
+          }
+          .print\\:border-0 {
+            border: none !important;
           }
         }
       `}</style>
