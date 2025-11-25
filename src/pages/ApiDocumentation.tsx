@@ -283,7 +283,10 @@ const ApiDocumentation = () => {
   };
 
   const getApiFields = (endpoint: string) => {
-    return apiConfigs.filter(config => config.api_endpoint === endpoint);
+    // Extract the API name from the full URL (e.g., "salesheader" from "https://edaraasus.com/api/v1/salesheader")
+    const apiName = endpoint.split('/').pop() || '';
+    // Match against database records which have format "/api/salesheader"
+    return apiConfigs.filter(config => config.api_endpoint === `/api/${apiName}`);
   };
 
   const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id)).map(api => ({
