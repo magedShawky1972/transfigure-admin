@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_field_configs: {
+        Row: {
+          api_endpoint: string
+          created_at: string | null
+          field_name: string
+          field_note: string | null
+          field_order: number
+          field_type: string
+          id: string
+          is_required: boolean
+          updated_at: string | null
+        }
+        Insert: {
+          api_endpoint: string
+          created_at?: string | null
+          field_name: string
+          field_note?: string | null
+          field_order?: number
+          field_type: string
+          id?: string
+          is_required?: boolean
+          updated_at?: string | null
+        }
+        Update: {
+          api_endpoint?: string
+          created_at?: string | null
+          field_name?: string
+          field_note?: string | null
+          field_order?: number
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       api_keys: {
         Row: {
           allow_brand: boolean

@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Printer } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Printer, Edit, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const API_ENDPOINTS = [
   {
@@ -158,16 +160,103 @@ const API_ENDPOINTS = [
   },
 ];
 
+interface ApiFieldConfig {
+  id: string;
+  api_endpoint: string;
+  field_name: string;
+  field_type: string;
+  is_required: boolean;
+  field_note: string | null;
+  field_order: number;
+}
+
 const ApiDocumentation = () => {
   const [selectedApis, setSelectedApis] = useState<string[]>(API_ENDPOINTS.map(api => api.id));
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [apiConfigs, setApiConfigs] = useState<ApiFieldConfig[]>([]);
+  const [editedConfigs, setEditedConfigs] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchApiConfigs = async () => {
+      const { data, error } = await supabase
+        .from('api_field_configs')
+        .select('*')
+        .order('api_endpoint')
+        .order('field_order');
+
+      if (error) {
+        console.error('Error fetching API configs:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load API configurations",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setApiConfigs(data || []);
+    };
+
+    fetchApiConfigs();
+  }, [toast]);
 
   const handleApiToggle = (apiId: string) => {
     setSelectedApis(prev =>
       prev.includes(apiId) ? prev.filter(id => id !== apiId) : [...prev, apiId]
     );
+  };
+
+  const handleRequiredToggle = (configId: string, currentValue: boolean) => {
+    setEditedConfigs(prev => ({
+      ...prev,
+      [configId]: !currentValue
+    }));
+  };
+
+  const handleSaveConfigs = async () => {
+    try {
+      const updates = Object.entries(editedConfigs).map(([id, isRequired]) => ({
+        id,
+        is_required: isRequired
+      }));
+
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('api_field_configs')
+          .update({ is_required: update.is_required })
+          .eq('id', update.id);
+
+        if (error) throw error;
+      }
+
+      // Refresh the configs
+      const { data, error } = await supabase
+        .from('api_field_configs')
+        .select('*')
+        .order('api_endpoint')
+        .order('field_order');
+
+      if (error) throw error;
+
+      setApiConfigs(data || []);
+      setEditedConfigs({});
+      setIsEditMode(false);
+
+      toast({
+        title: "Success",
+        description: "API configurations updated successfully",
+      });
+    } catch (error) {
+      console.error('Error saving configs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save API configurations",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePrintClick = () => {
@@ -193,7 +282,20 @@ const ApiDocumentation = () => {
     }, 100);
   };
 
-  const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id));
+  const getApiFields = (endpoint: string) => {
+    return apiConfigs.filter(config => config.api_endpoint === endpoint);
+  };
+
+  const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id)).map(api => ({
+    ...api,
+    fields: getApiFields(api.endpoint).map(config => ({
+      name: config.field_name,
+      type: config.field_type,
+      required: editedConfigs[config.id] !== undefined ? editedConfigs[config.id] : config.is_required,
+      note: config.field_note || '',
+      configId: config.id
+    }))
+  }));
 
   return (
     <div className="print:space-y-0">
@@ -204,10 +306,33 @@ const ApiDocumentation = () => {
             Complete API reference for E-Commerce integration
           </p>
         </div>
-        <Button onClick={handlePrintClick} className="gap-2">
-          <Printer className="h-4 w-4" />
-          Print Documentation
-        </Button>
+        <div className="flex gap-2">
+          {isEditMode ? (
+            <>
+              <Button onClick={() => {
+                setIsEditMode(false);
+                setEditedConfigs({});
+              }} variant="outline">
+                Cancel
+              </Button>
+              <Button onClick={handleSaveConfigs} className="gap-2">
+                <Save className="h-4 w-4" />
+                Save Changes
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => setIsEditMode(true)} variant="outline" className="gap-2">
+                <Edit className="h-4 w-4" />
+                Edit
+              </Button>
+              <Button onClick={handlePrintClick} className="gap-2">
+                <Printer className="h-4 w-4" />
+                Print Documentation
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Cover Page - Only visible when printing */}
@@ -358,15 +483,27 @@ const ApiDocumentation = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {api.fields.map((field, idx) => (
+                    {api.fields.map((field: any, idx: number) => (
                       <tr key={idx} className="border-b">
                         <td className="p-2 font-mono text-xs text-gray-900 dark:text-foreground">{field.name}</td>
                         <td className="p-2 text-gray-900 dark:text-foreground">{field.type}</td>
                         <td className="p-2">
-                          {field.required ? (
-                            <span className="text-red-600 dark:text-destructive font-medium">Yes</span>
+                          {isEditMode ? (
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={field.required}
+                                onCheckedChange={() => handleRequiredToggle(field.configId, field.required)}
+                              />
+                              <span className="text-xs text-gray-600 dark:text-foreground/70">
+                                {field.required ? 'Yes' : 'No'}
+                              </span>
+                            </div>
                           ) : (
-                            <span className="text-gray-600 dark:text-foreground/70">No</span>
+                            field.required ? (
+                              <span className="text-red-600 dark:text-destructive font-medium">Yes</span>
+                            ) : (
+                              <span className="text-gray-600 dark:text-foreground/70">No</span>
+                            )
                           )}
                         </td>
                         <td className="p-2 text-gray-600 dark:text-foreground/70 break-words max-w-xs">{field.note}</td>
