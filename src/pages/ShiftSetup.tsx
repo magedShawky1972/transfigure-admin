@@ -47,7 +47,7 @@ interface Profile {
 }
 
 const ShiftSetup = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
@@ -379,6 +379,31 @@ const ShiftSetup = () => {
     }));
   };
 
+  const getLocalizedPositionName = (positionName: string) => {
+    // Check if position name contains both English and Arabic (separated by space)
+    const parts = positionName.trim().split(/\s+/);
+    
+    if (parts.length === 1) {
+      // Single word - return as is
+      return positionName;
+    }
+    
+    // Check if any part contains Arabic characters
+    const hasArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
+    
+    const arabicParts = parts.filter(part => hasArabic(part));
+    const englishParts = parts.filter(part => !hasArabic(part));
+    
+    if (language === "ar" && arabicParts.length > 0) {
+      return arabicParts.join(" ");
+    } else if (language === "en" && englishParts.length > 0) {
+      return englishParts.join(" ");
+    }
+    
+    // Fallback to original name
+    return positionName;
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card>
@@ -579,7 +604,7 @@ const ShiftSetup = () => {
                       htmlFor={position.id}
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                     >
-                      {position.position_name}
+                      {getLocalizedPositionName(position.position_name)}
                     </label>
                   </div>
                 ))}
@@ -667,7 +692,7 @@ const ShiftSetup = () => {
                       {shift.job_positions && shift.job_positions.length > 0 ? (
                         shift.job_positions.map((pos, idx) => (
                           <span key={idx} className="text-xs bg-primary/10 px-2 py-1 rounded">
-                            {pos}
+                            {getLocalizedPositionName(pos)}
                           </span>
                         ))
                       ) : (
