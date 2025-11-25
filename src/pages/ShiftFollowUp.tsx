@@ -48,6 +48,7 @@ interface ShiftAssignment {
     opened_at: string;
     closed_at: string | null;
   }>;
+  shift_job_positions?: string[];
 }
 
 interface User {
@@ -130,8 +131,26 @@ export default function ShiftFollowUp() {
 
       if (profileError) throw profileError;
 
+      // Fetch shift job positions for all shifts
+      const shiftIds = assignmentData?.map((a: any) => a.shift_id) || [];
+      const { data: shiftJobData, error: shiftJobError } = await supabase
+        .from("shift_job_positions")
+        .select("shift_id, job_position_id")
+        .in("shift_id", shiftIds);
+
+      if (shiftJobError) throw shiftJobError;
+
       // Map profiles to assignments
       const profileMap = new Map(profileData?.map((p: any) => [p.user_id, p]));
+      
+      // Map shift job positions by shift_id
+      const shiftJobMap = new Map<string, string[]>();
+      shiftJobData?.forEach((sj: any) => {
+        if (!shiftJobMap.has(sj.shift_id)) {
+          shiftJobMap.set(sj.shift_id, []);
+        }
+        shiftJobMap.get(sj.shift_id)?.push(sj.job_position_id);
+      });
       
       const enrichedData = assignmentData?.map((assignment: any) => ({
         ...assignment,
@@ -139,6 +158,7 @@ export default function ShiftFollowUp() {
           user_name: "Unknown",
           job_position_id: null,
         },
+        shift_job_positions: shiftJobMap.get(assignment.shift_id) || [],
       }));
 
       setAssignments(enrichedData || []);
@@ -282,11 +302,18 @@ export default function ShiftFollowUp() {
                               <SelectValue placeholder={t("Select User")} />
                             </SelectTrigger>
                             <SelectContent>
-                              {users.map((user) => (
-                                <SelectItem key={user.id} value={user.user_id}>
-                                  {user.user_name}
-                                </SelectItem>
-                              ))}
+                              {users
+                                .filter((user) => 
+                                  assignment.shift_job_positions && 
+                                  assignment.shift_job_positions.length > 0 
+                                    ? assignment.shift_job_positions.includes(user.job_position_id || '')
+                                    : true
+                                )
+                                .map((user) => (
+                                  <SelectItem key={user.id} value={user.user_id}>
+                                    {user.user_name}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         ) : (
