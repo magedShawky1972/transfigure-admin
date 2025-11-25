@@ -274,17 +274,17 @@ const ApiDocumentation = () => {
       {/* Authentication Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-foreground">Authentication</CardTitle>
+          <CardTitle className="text-gray-900 dark:text-foreground">Authentication</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <p className="font-medium mb-2 text-foreground">Header Authentication</p>
-            <div className="bg-muted p-4 rounded-lg font-mono text-sm text-foreground">
+            <p className="font-medium mb-2 text-gray-900 dark:text-foreground">Header Authentication</p>
+            <div className="bg-muted p-4 rounded-lg font-mono text-sm text-gray-900 dark:text-foreground">
               <p>Authorization: &lt;API_KEY&gt;</p>
               <p>Content-Type: application/json</p>
             </div>
           </div>
-          <p className="text-sm text-foreground/80">
+          <p className="text-sm text-gray-700 dark:text-foreground/80">
             All API requests must include your API key in the Authorization header.
             Contact your administrator to obtain an API key.
           </p>
@@ -296,46 +296,46 @@ const ApiDocumentation = () => {
         <Card key={api.id} className="break-inside-avoid">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-foreground">{api.name}</CardTitle>
-              <span className="text-xs font-mono bg-primary/10 px-2 py-1 rounded text-foreground">
+              <CardTitle className="text-gray-900 dark:text-foreground">{api.name}</CardTitle>
+              <span className="text-xs font-mono bg-primary/10 px-2 py-1 rounded text-gray-900 dark:text-foreground">
                 {api.method}
               </span>
             </div>
-            <CardDescription className="text-foreground/80">{api.description}</CardDescription>
+            <CardDescription className="text-gray-700 dark:text-foreground/80">{api.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium mb-2 text-foreground">Endpoint</p>
-              <div className="bg-muted p-3 rounded-lg font-mono text-sm text-foreground">
+              <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Endpoint</p>
+              <div className="bg-muted p-3 rounded-lg font-mono text-sm text-gray-900 dark:text-foreground">
                 {api.endpoint}
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-medium mb-2 text-foreground">Request Fields</p>
+              <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Request Fields</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 text-foreground">Field Name</th>
-                      <th className="text-left p-2 text-foreground">Type</th>
-                      <th className="text-left p-2 text-foreground">Required</th>
-                      <th className="text-left p-2 text-foreground">Note</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Field Name</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Type</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Required</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Note</th>
                     </tr>
                   </thead>
                   <tbody>
                     {api.fields.map((field, idx) => (
                       <tr key={idx} className="border-b">
-                        <td className="p-2 font-mono text-xs text-foreground">{field.name}</td>
-                        <td className="p-2 text-foreground">{field.type}</td>
+                        <td className="p-2 font-mono text-xs text-gray-900 dark:text-foreground">{field.name}</td>
+                        <td className="p-2 text-gray-900 dark:text-foreground">{field.type}</td>
                         <td className="p-2">
                           {field.required ? (
-                            <span className="text-destructive font-medium">Yes</span>
+                            <span className="text-red-600 dark:text-destructive font-medium">Yes</span>
                           ) : (
-                            <span className="text-foreground/70">No</span>
+                            <span className="text-gray-600 dark:text-foreground/70">No</span>
                           )}
                         </td>
-                        <td className="p-2 text-foreground/70">{field.note}</td>
+                        <td className="p-2 text-gray-600 dark:text-foreground/70">{field.note}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -344,8 +344,8 @@ const ApiDocumentation = () => {
             </div>
 
             <div>
-              <p className="text-sm font-medium mb-2 text-foreground">Example Request</p>
-              <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-foreground">
+              <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Request</p>
+              <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
                 <pre>{`POST ${api.endpoint}
 Authorization: your_api_key_here
 Content-Type: application/json
@@ -360,8 +360,8 @@ Content-Type: application/json
             </div>
 
             <div>
-              <p className="text-sm font-medium mb-2 text-foreground">Example Response</p>
-              <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-foreground">
+              <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Response</p>
+              <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
                 <pre>{`{
   "success": true,
   "data": {
@@ -378,27 +378,27 @@ Content-Type: application/json
       {/* Error Handling */}
       <Card className="break-inside-avoid">
         <CardHeader>
-          <CardTitle className="text-foreground">Error Handling</CardTitle>
+          <CardTitle className="text-gray-900 dark:text-foreground">Error Handling</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <p className="font-medium mb-2 text-foreground">Common Error Codes</p>
+            <p className="font-medium mb-2 text-gray-900 dark:text-foreground">Common Error Codes</p>
             <div className="space-y-2 text-sm">
               <div className="flex items-start gap-2">
-                <span className="font-mono bg-destructive/10 text-destructive px-2 py-1 rounded font-medium">401</span>
-                <span className="text-foreground">Missing or invalid API key</span>
+                <span className="font-mono bg-destructive/10 text-red-600 dark:text-destructive px-2 py-1 rounded font-medium">401</span>
+                <span className="text-gray-900 dark:text-foreground">Missing or invalid API key</span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="font-mono bg-destructive/10 text-destructive px-2 py-1 rounded font-medium">403</span>
-                <span className="text-foreground">Permission denied for this endpoint</span>
+                <span className="font-mono bg-destructive/10 text-red-600 dark:text-destructive px-2 py-1 rounded font-medium">403</span>
+                <span className="text-gray-900 dark:text-foreground">Permission denied for this endpoint</span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="font-mono bg-destructive/10 text-destructive px-2 py-1 rounded font-medium">400</span>
-                <span className="text-foreground">Invalid request data or validation error</span>
+                <span className="font-mono bg-destructive/10 text-red-600 dark:text-destructive px-2 py-1 rounded font-medium">400</span>
+                <span className="text-gray-900 dark:text-foreground">Invalid request data or validation error</span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="font-mono bg-destructive/10 text-destructive px-2 py-1 rounded font-medium">500</span>
-                <span className="text-foreground">Internal server error</span>
+                <span className="font-mono bg-destructive/10 text-red-600 dark:text-destructive px-2 py-1 rounded font-medium">500</span>
+                <span className="text-gray-900 dark:text-foreground">Internal server error</span>
               </div>
             </div>
           </div>
@@ -420,6 +420,16 @@ Content-Type: application/json
           }
           .print\\:hidden {
             display: none !important;
+          }
+          /* Force dark text colors for printing */
+          * {
+            color: #000 !important;
+          }
+          .bg-muted {
+            background-color: #f5f5f5 !important;
+          }
+          pre, code {
+            color: #000 !important;
           }
         }
       `}</style>
