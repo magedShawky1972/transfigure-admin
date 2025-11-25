@@ -1,0 +1,73 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing API key' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Verify API key and permissions
+    const { data: apiKey, error: keyError } = await supabase
+      .from('api_keys')
+      .select('*')
+      .eq('api_key', authHeader)
+      .eq('is_active', true)
+      .single();
+
+    if (keyError || !apiKey || !apiKey.allow_supplier_product) {
+      return new Response(JSON.stringify({ error: 'Invalid API key or permission denied' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await req.json();
+
+    // Insert supplier product
+    const { data, error } = await supabase
+      .from('supplier_products')
+      .upsert({
+        supplier_code: body.Supplier_code,
+        sku: body.SKU,
+        date_from: body.Date_From,
+        date_to: body.Date_To,
+        price: body.Price,
+      }, {
+        onConflict: 'supplier_code,sku,date_from'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error upserting supplier product:', error);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true, data }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in api-supplierproduct:', error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});

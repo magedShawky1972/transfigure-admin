@@ -17,3 +17,27 @@ verify_jwt = false
 
 [functions.send-push-notification]
 verify_jwt = false
+
+[functions.api-salesheader]
+verify_jwt = false
+
+[functions.api-salesline]
+verify_jwt = false
+
+[functions.api-payment]
+verify_jwt = false
+
+[functions.api-customer]
+verify_jwt = false
+
+[functions.api-supplier]
+verify_jwt = false
+
+[functions.api-supplierproduct]
+verify_jwt = false
+
+[functions.api-brand]
+verify_jwt = false
+
+[functions.api-product]
+verify_jwt = false

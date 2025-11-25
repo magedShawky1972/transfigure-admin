@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          allow_brand: boolean
+          allow_customer: boolean
+          allow_payment: boolean
+          allow_product: boolean
+          allow_sales_header: boolean
+          allow_sales_line: boolean
+          allow_supplier: boolean
+          allow_supplier_product: boolean
+          api_key: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          allow_brand?: boolean
+          allow_customer?: boolean
+          allow_payment?: boolean
+          allow_product?: boolean
+          allow_sales_header?: boolean
+          allow_sales_line?: boolean
+          allow_supplier?: boolean
+          allow_supplier_product?: boolean
+          api_key: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          allow_brand?: boolean
+          allow_customer?: boolean
+          allow_payment?: boolean
+          allow_product?: boolean
+          allow_sales_header?: boolean
+          allow_sales_line?: boolean
+          allow_supplier?: boolean
+          allow_supplier_product?: boolean
+          api_key?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       brand_type: {
         Row: {
           created_at: string
@@ -555,6 +609,51 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_transactions: {
+        Row: {
+          bank_transaction_id: string | null
+          created_at: string
+          id: string
+          order_number: string
+          payment_amount: number | null
+          payment_brand: string | null
+          payment_card_number: string | null
+          payment_location: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          redemption_ip: string | null
+          updated_at: string
+        }
+        Insert: {
+          bank_transaction_id?: string | null
+          created_at?: string
+          id?: string
+          order_number: string
+          payment_amount?: number | null
+          payment_brand?: string | null
+          payment_card_number?: string | null
+          payment_location?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          redemption_ip?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bank_transaction_id?: string | null
+          created_at?: string
+          id?: string
+          order_number?: string
+          payment_amount?: number | null
+          payment_brand?: string | null
+          payment_card_number?: string | null
+          payment_location?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          redemption_ip?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           abc_analysis: string | null
@@ -890,6 +989,123 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+        }
+        Relationships: []
+      }
+      sales_order_header: {
+        Row: {
+          company: string | null
+          created_at: string
+          customer_ip: string | null
+          customer_phone: string
+          device_fingerprint: string | null
+          id: string
+          media: string | null
+          order_date: string
+          order_number: string
+          payment_term: string | null
+          profit_center: string | null
+          register_user_id: string | null
+          sales_person: string | null
+          status: number | null
+          status_description: string | null
+          transaction_location: string | null
+          transaction_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          customer_ip?: string | null
+          customer_phone: string
+          device_fingerprint?: string | null
+          id?: string
+          media?: string | null
+          order_date: string
+          order_number: string
+          payment_term?: string | null
+          profit_center?: string | null
+          register_user_id?: string | null
+          sales_person?: string | null
+          status?: number | null
+          status_description?: string | null
+          transaction_location?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          customer_ip?: string | null
+          customer_phone?: string
+          device_fingerprint?: string | null
+          id?: string
+          media?: string | null
+          order_date?: string
+          order_number?: string
+          payment_term?: string | null
+          profit_center?: string | null
+          register_user_id?: string | null
+          sales_person?: string | null
+          status?: number | null
+          status_description?: string | null
+          transaction_location?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_order_line: {
+        Row: {
+          coins_number: number | null
+          cost_price: number | null
+          created_at: string
+          id: string
+          line_number: number
+          line_status: number
+          order_number: string
+          point: number | null
+          product_id: number | null
+          product_sku: string | null
+          quantity: number | null
+          total: number | null
+          total_cost: number | null
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          coins_number?: number | null
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          line_number: number
+          line_status?: number
+          order_number: string
+          point?: number | null
+          product_id?: number | null
+          product_sku?: string | null
+          quantity?: number | null
+          total?: number | null
+          total_cost?: number | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          coins_number?: number | null
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          line_number?: number
+          line_status?: number
+          order_number?: string
+          point?: number | null
+          product_id?: number | null
+          product_sku?: string | null
+          quantity?: number | null
+          total?: number | null
+          total_cost?: number | null
+          unit_price?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1231,6 +1447,72 @@ export type Database = {
           vendor_portal_url?: string | null
           vendor_provider?: string
           version?: string | null
+        }
+        Relationships: []
+      }
+      supplier_products: {
+        Row: {
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          id: string
+          price: number | null
+          sku: string
+          supplier_code: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          id?: string
+          price?: number | null
+          sku: string
+          supplier_code: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          id?: string
+          price?: number | null
+          sku?: string
+          supplier_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          created_at: string
+          id: string
+          status: string
+          supplier_code: string
+          supplier_email: string | null
+          supplier_name: string
+          supplier_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: string
+          supplier_code: string
+          supplier_email?: string | null
+          supplier_name: string
+          supplier_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string
+          supplier_code?: string
+          supplier_email?: string | null
+          supplier_name?: string
+          supplier_phone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
