@@ -24,7 +24,7 @@ const API_ENDPOINTS = [
       { name: "Transaction_Type", type: "Text", required: false, note: "automatic/Manual" },
       { name: "Media", type: "Text", required: false, note: "Snap Chat/Google/Direct/LinkedIn" },
       { name: "Profit_Center", type: "Text", required: false, note: "WebApp/Salla/MobApp" },
-      { name: "Company", type: "Text", required: false, note: "Asus/Purple/Ish7an" },
+      { name: "Company", type: "Text", required: true, note: "Asus/Purple/Ish7an" },
       { name: "Status", type: "Int", required: false, note: "" },
       { name: "Status_Description", type: "Text", required: false, note: "" },
       { name: "Customer_IP", type: "Text", required: false, note: "" },
@@ -62,8 +62,8 @@ const API_ENDPOINTS = [
     description: "Record payment transactions with payment method details",
     fields: [
       { name: "Order_number", type: "Text", required: true, note: "Primary Key" },
-      { name: "Payment_method", type: "Text", required: false, note: "hyperpay/ecom_payment/salla" },
-      { name: "Payment_brand", type: "Text", required: false, note: "APPLEPAY-MADA/MASTER/VISA/KNET/MADA/MASTER/STC_PAY/URPAY/VISA" },
+      { name: "Payment_method", type: "Text", required: true, note: "hyperpay/ecom_payment/salla" },
+      { name: "Payment_brand", type: "Text", required: true, note: "APPLEPAY-MADA/MASTER/VISA/KNET/MADA/MASTER/STC_PAY/URPAY/VISA" },
       { name: "Payment_Amount", type: "Decimal", required: false, note: "" },
       { name: "Payment_reference", type: "Text", required: false, note: "" },
       { name: "Payment_Card_Number", type: "Text", required: false, note: "Last 4 digits" },
@@ -351,10 +351,10 @@ const ApiDocumentation = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Field Name</th>
-                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Type</th>
-                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Required</th>
-                      <th className="text-left p-2 text-gray-900 dark:text-foreground">Note</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground w-1/4">Field Name</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground w-1/6">Type</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground w-1/6">Required</th>
+                      <th className="text-left p-2 text-gray-900 dark:text-foreground w-5/12">Note</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -369,7 +369,7 @@ const ApiDocumentation = () => {
                             <span className="text-gray-600 dark:text-foreground/70">No</span>
                           )}
                         </td>
-                        <td className="p-2 text-gray-600 dark:text-foreground/70">{field.note}</td>
+                        <td className="p-2 text-gray-600 dark:text-foreground/70 break-words max-w-xs">{field.note}</td>
                       </tr>
                     ))}
                   </tbody>
