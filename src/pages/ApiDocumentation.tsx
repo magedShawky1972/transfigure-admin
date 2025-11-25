@@ -196,8 +196,8 @@ const ApiDocumentation = () => {
   const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id));
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between print:hidden">
+    <div className="print:space-y-0">
+      <div className="flex items-center justify-between print:hidden mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">API Documentation</h1>
           <p className="text-muted-foreground">
@@ -211,7 +211,7 @@ const ApiDocumentation = () => {
       </div>
 
       {/* Cover Page - Only visible when printing */}
-      <div className="hidden print:flex print:flex-col print:items-center print:justify-center print:min-h-screen print:page-break-after">
+      <div className="hidden print:flex print:flex-col print:items-center print:justify-center print:h-screen print:page-break-after">
         <h1 className="text-5xl font-bold text-gray-900 mb-8 text-center">
           API Integration for Odoo
         </h1>
@@ -224,7 +224,7 @@ const ApiDocumentation = () => {
       </div>
 
       {/* Table of Contents - Only visible when printing */}
-      <div className="hidden print:block print:min-h-screen print:page-break-after print:pt-20">
+      <div className="hidden print:block print:h-screen print:page-break-after print:pt-20">
         <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">Table of Contents</h2>
         <div className="space-y-4 max-w-3xl mx-auto">
           <div className="flex items-center justify-between border-b border-gray-300 pb-2">
@@ -314,7 +314,7 @@ const ApiDocumentation = () => {
           <div>
             <p className="font-medium mb-2 text-gray-900 dark:text-foreground">Header Authentication</p>
             <div className="bg-muted p-4 rounded-lg font-mono text-sm text-gray-900 dark:text-foreground">
-              <p>Authorization: &lt;API_KEY&gt;</p>
+              <p>Authorization: {apiKey || '<API_KEY>'}</p>
               <p>Content-Type: application/json</p>
             </div>
           </div>
@@ -381,7 +381,7 @@ const ApiDocumentation = () => {
               <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Request</p>
               <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
                 <pre>{`POST ${api.endpoint}
-Authorization: your_api_key_here
+Authorization: ${apiKey || 'your_api_key_here'}
 Content-Type: application/json
 
 {
@@ -444,20 +444,25 @@ Content-Type: application/json
           body * {
             visibility: hidden;
           }
-          .space-y-6, .space-y-6 * {
+          .print\\:space-y-0, .print\\:space-y-0 * {
             visibility: visible;
           }
-          .space-y-6 {
+          .print\\:space-y-0 {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .print\\:hidden {
             display: none !important;
           }
           .print\\:page-break-after {
             page-break-after: always;
+          }
+          .print\\:h-screen {
+            height: 100vh !important;
           }
           /* Force dark text colors for printing */
           * {
