@@ -439,7 +439,7 @@ const ApiDocumentation = () => {
           <div>
             <p className="font-medium mb-2 text-gray-900 dark:text-foreground">Header Authentication</p>
             <div className="bg-muted p-4 rounded-lg font-mono text-sm text-gray-900 dark:text-foreground">
-              <p>Authorization: {apiKey || '<API_KEY>'}</p>
+              <p>Authorization: &lt;{apiKey || 'API_KEY'}&gt;</p>
               <p>Content-Type: application/json</p>
             </div>
           </div>
@@ -518,13 +518,13 @@ const ApiDocumentation = () => {
               <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Request</p>
               <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
                 <pre>{`POST ${api.endpoint}
-Authorization: ${apiKey || 'your_api_key_here'}
+Authorization: <${apiKey || 'your_api_key_here'}>
 Content-Type: application/json
 
 {
   ${api.fields
     .slice(0, 3)
-    .map(field => `"${field.name}": ${field.type === 'Text' ? '"value"' : field.type === 'Int' || field.type === 'BigInt' ? '123' : field.type === 'Decimal' ? '99.99' : field.type === 'Bit' ? 'true' : '"2024-01-01"'}`)
+    .map((field: any) => `"${field.name}": ${field.type === 'Text' ? '"value"' : field.type === 'Int' || field.type === 'BigInt' ? '123' : field.type === 'Decimal' ? '99.99' : field.type === 'Bit' ? 'true' : '"2024-01-01"'}`)
     .join(',\n  ')}
 }`}</pre>
               </div>
