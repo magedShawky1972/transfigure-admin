@@ -110,6 +110,21 @@ const Tawasoul = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Normalize phone number by removing country code and leading zeros
+  const normalizePhone = (phone: string): string => {
+    // Remove whatsapp: prefix, +, and spaces
+    let normalized = phone.replace(/^whatsapp:/i, '').replace(/\+/g, '').replace(/\s/g, '');
+    // Remove Egypt country code (20) if present at start
+    if (normalized.startsWith('20') && normalized.length > 10) {
+      normalized = normalized.substring(2);
+    }
+    // Remove leading zero if present
+    if (normalized.startsWith('0')) {
+      normalized = normalized.substring(1);
+    }
+    return normalized;
+  };
+
   const fetchRegisteredCustomers = async () => {
     try {
       const { data, error } = await supabase
@@ -118,7 +133,8 @@ const Tawasoul = () => {
       
       if (error) throw error;
       
-      const phones = new Set(data?.map(c => c.customer_phone) || []);
+      // Store normalized phone numbers for matching
+      const phones = new Set(data?.map(c => normalizePhone(c.customer_phone)) || []);
       setRegisteredPhones(phones);
     } catch (error) {
       console.error("Error fetching registered customers:", error);
@@ -142,7 +158,7 @@ const Tawasoul = () => {
   };
 
   const isCustomerRegistered = (phone: string) => {
-    return registeredPhones.has(phone);
+    return registeredPhones.has(normalizePhone(phone));
   };
 
   const openTransactionsDialog = (phone: string, name: string | null, e?: React.MouseEvent) => {

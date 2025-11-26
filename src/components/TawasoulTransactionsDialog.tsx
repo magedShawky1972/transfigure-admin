@@ -58,6 +58,27 @@ export const TawasoulTransactionsDialog = ({
     }
   }, [open, customerPhone, dayFilter]);
 
+  // Normalize phone to get possible formats for querying
+  const getPhoneVariants = (phone: string): string[] => {
+    // Remove whatsapp: prefix, +, and spaces
+    let clean = phone.replace(/^whatsapp:/i, '').replace(/\+/g, '').replace(/\s/g, '');
+    const variants: string[] = [phone, clean];
+    
+    // Remove Egypt country code (20) if present at start
+    if (clean.startsWith('20') && clean.length > 10) {
+      const withoutCountry = clean.substring(2);
+      variants.push(withoutCountry);
+      variants.push('0' + withoutCountry); // Add leading zero version
+    }
+    
+    // If starts with 0, also add version without leading zero
+    if (clean.startsWith('0')) {
+      variants.push(clean.substring(1));
+    }
+    
+    return [...new Set(variants)]; // Remove duplicates
+  };
+
   const fetchTransactions = async () => {
     if (!customerPhone) return;
     
@@ -69,10 +90,13 @@ export const TawasoulTransactionsDialog = ({
       fromDate.setDate(fromDate.getDate() - dayFilter);
       fromDate.setHours(0, 0, 0, 0);
 
+      // Get all possible phone formats
+      const phoneVariants = getPhoneVariants(customerPhone);
+
       const { data, error } = await supabase
         .from("purpletransaction")
         .select("id, order_number, created_at_date, brand_name, product_name, qty, total, payment_method, order_status")
-        .eq("customer_phone", customerPhone)
+        .in("customer_phone", phoneVariants)
         .gte("created_at_date", fromDate.toISOString())
         .lte("created_at_date", toDate.toISOString())
         .order("created_at_date", { ascending: false });
