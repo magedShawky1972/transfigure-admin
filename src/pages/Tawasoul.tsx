@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Send, MessageCircle, User, Check, CheckCheck, Clock } from "lucide-react";
+import { Search, Send, MessageCircle, User, Check, CheckCheck, Clock, Paperclip, X, FileIcon, ImageIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 
@@ -26,6 +26,14 @@ interface Message {
   message_text: string;
   message_status: string | null;
   created_at: string;
+  media_url?: string | null;
+  media_type?: string | null;
+}
+
+interface AttachmentPreview {
+  file: File;
+  previewUrl: string;
+  type: string;
 }
 
 const Tawasoul = () => {
@@ -37,7 +45,10 @@ const Tawasoul = () => {
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [attachment, setAttachment] = useState<AttachmentPreview | null>(null);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchConversations();
@@ -134,18 +145,94 @@ const Tawasoul = () => {
     fetchMessages(conversation.id);
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
+    // Check file size (max 16MB for Twilio)
+    if (file.size > 16 * 1024 * 1024) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "حجم الملف كبير جداً (الحد الأقصى 16 ميجابايت)" : "File is too large (max 16MB)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const type = file.type.startsWith('image/') ? 'image' : 'file';
+    const previewUrl = type === 'image' ? URL.createObjectURL(file) : '';
+    
+    setAttachment({ file, previewUrl, type });
+  };
+
+  const removeAttachment = () => {
+    if (attachment?.previewUrl) {
+      URL.revokeObjectURL(attachment.previewUrl);
+    }
+    setAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadAttachment = async (file: File): Promise<string | null> => {
     try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `attachments/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('whatsapp-attachments')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('whatsapp-attachments')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading attachment:", error);
+      return null;
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if ((!newMessage.trim() && !attachment) || !selectedConversation) return;
+
+    setUploading(true);
+    
+    try {
+      let mediaUrl: string | null = null;
+      let mediaType: string | null = null;
+
+      // Upload attachment if exists
+      if (attachment) {
+        mediaUrl = await uploadAttachment(attachment.file);
+        mediaType = attachment.type;
+        
+        if (!mediaUrl) {
+          toast({
+            title: language === "ar" ? "خطأ" : "Error",
+            description: language === "ar" ? "فشل في رفع المرفق" : "Failed to upload attachment",
+            variant: "destructive",
+          });
+          setUploading(false);
+          return;
+        }
+      }
+
       // First insert the message to get its ID
       const { data: insertedMessage, error } = await supabase
         .from("whatsapp_messages")
         .insert({
           conversation_id: selectedConversation.id,
           sender_type: "agent",
-          message_text: newMessage.trim(),
+          message_text: newMessage.trim() || (attachment ? (language === "ar" ? "مرفق" : "Attachment") : ""),
           message_status: "sending",
+          media_url: mediaUrl,
+          media_type: mediaType,
         })
         .select()
         .single();
@@ -160,6 +247,7 @@ const Tawasoul = () => {
 
       const messageText = newMessage.trim();
       setNewMessage("");
+      removeAttachment();
 
       // Send via Twilio API using edge function
       const { data: sendResult, error: sendError } = await supabase.functions.invoke(
@@ -167,9 +255,11 @@ const Tawasoul = () => {
         {
           body: {
             to: selectedConversation.customer_phone,
-            message: messageText,
+            message: messageText || undefined,
             conversationId: selectedConversation.id,
             messageId: insertedMessage?.id,
+            mediaUrl: mediaUrl || undefined,
+            mediaType: mediaType || undefined,
           },
         }
       );
@@ -189,6 +279,8 @@ const Tawasoul = () => {
         description: language === "ar" ? "فشل في إرسال الرسالة" : "Failed to send message",
         variant: "destructive",
       });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -234,6 +326,33 @@ const Tawasoul = () => {
       default:
         return <Check className="h-3 w-3 inline-block ml-1" />;
     }
+  };
+
+  // Render attachment in message
+  const MessageAttachment = ({ mediaUrl, mediaType }: { mediaUrl: string; mediaType: string | null }) => {
+    if (mediaType === 'image') {
+      return (
+        <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block mt-2">
+          <img 
+            src={mediaUrl} 
+            alt="Attachment" 
+            className="max-w-[200px] max-h-[200px] rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+          />
+        </a>
+      );
+    }
+    
+    return (
+      <a 
+        href={mediaUrl} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 mt-2 p-2 bg-black/10 rounded-lg hover:bg-black/20 transition-colors"
+      >
+        <FileIcon className="h-5 w-5" />
+        <span className="text-sm underline">{language === "ar" ? "عرض المرفق" : "View attachment"}</span>
+      </a>
+    );
   };
 
   return (
@@ -344,7 +463,12 @@ const Tawasoul = () => {
                             : "bg-muted"
                         }`}
                       >
-                        <p className="break-words">{message.message_text}</p>
+                        {message.media_url && (
+                          <MessageAttachment mediaUrl={message.media_url} mediaType={message.media_type || null} />
+                        )}
+                        {message.message_text && message.message_text !== (language === "ar" ? "مرفق" : "Attachment") && (
+                          <p className="break-words">{message.message_text}</p>
+                        )}
                         <div className={`flex items-center justify-end gap-1 mt-1 ${
                           message.sender_type === "agent"
                             ? "text-primary-foreground/70"
@@ -364,17 +488,70 @@ const Tawasoul = () => {
                 </div>
               </ScrollArea>
 
+              {/* Attachment Preview */}
+              {attachment && (
+                <div className="px-4 py-2 border-t bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    {attachment.type === 'image' ? (
+                      <img 
+                        src={attachment.previewUrl} 
+                        alt="Preview" 
+                        className="h-16 w-16 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 bg-muted rounded-lg flex items-center justify-center">
+                        <FileIcon className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{attachment.file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(attachment.file.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={removeAttachment}
+                      className="shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Message Input */}
               <div className="p-4 border-t">
                 <div className={`flex gap-2 ${language === "ar" ? "flex-row-reverse" : ""}`}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
                   <Input
                     placeholder={language === "ar" ? "اكتب رسالة..." : "Type a message..."}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                    onKeyPress={(e) => e.key === "Enter" && !uploading && handleSendMessage()}
                     className="flex-1"
+                    disabled={uploading}
                   />
-                  <Button onClick={handleSendMessage} size="icon">
+                  <Button 
+                    onClick={handleSendMessage} 
+                    size="icon"
+                    disabled={uploading || (!newMessage.trim() && !attachment)}
+                  >
                     <Send className={`h-4 w-4 ${language === "ar" ? "rotate-180" : ""}`} />
                   </Button>
                 </div>
