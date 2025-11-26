@@ -647,16 +647,70 @@ const SystemConfig = () => {
           <h2 className="text-2xl font-bold">WhatsApp Configuration</h2>
         </div>
 
-        <Card>
+        <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
-            <CardTitle>Twilio WhatsApp Sandbox Configuration</CardTitle>
+            <CardTitle>Twilio Webhook URLs</CardTitle>
             <CardDescription>
-              Configure your Twilio WhatsApp sandbox settings for client communication
+              Copy these URLs to your Twilio WhatsApp Sandbox Configuration
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="whatsapp_mobile">Mobile Number</Label>
+              <Label>When a message comes in (POST)</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-sm bg-muted px-3 py-2 rounded font-mono break-all" dir="ltr">
+                  https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/twilio-webhook
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText("https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/twilio-webhook");
+                    toast({ title: "Copied", description: "POST webhook URL copied to clipboard" });
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Method: POST - Use this URL in Twilio's "When a message comes in" field
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Status Callback URL (GET)</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-sm bg-muted px-3 py-2 rounded font-mono break-all" dir="ltr">
+                  https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/twilio-webhook
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText("https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/twilio-webhook");
+                    toast({ title: "Copied", description: "GET callback URL copied to clipboard" });
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Method: GET - Use this URL in Twilio's "Status callback URL" field
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Twilio WhatsApp Sandbox Settings</CardTitle>
+            <CardDescription>
+              Store your Twilio WhatsApp sandbox settings for reference
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp_mobile">Sandbox Mobile Number</Label>
               <Input
                 id="whatsapp_mobile"
                 placeholder="e.g., +14155238886"
@@ -668,15 +722,15 @@ const SystemConfig = () => {
                 dir="ltr"
               />
               <p className="text-xs text-muted-foreground">
-                Your Twilio WhatsApp sandbox number
+                Your Twilio WhatsApp sandbox number (e.g., +14155238886)
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="webhook_url">When a message comes in (POST)</Label>
+              <Label htmlFor="webhook_url">Webhook URL (Reference)</Label>
               <Input
                 id="webhook_url"
-                placeholder="e.g., https://timberwolf-mastiff-9776.twil.io/demo-reply"
+                placeholder="Webhook URL configured in Twilio"
                 value={whatsappConfig.webhook_url}
                 onChange={(e) =>
                   setWhatsappConfig({ ...whatsappConfig, webhook_url: e.target.value })
@@ -684,15 +738,15 @@ const SystemConfig = () => {
                 dir="ltr"
               />
               <p className="text-xs text-muted-foreground">
-                Webhook URL for incoming messages (POST method)
+                Store the webhook URL for reference
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="status_callback_url">Status Callback URL (GET)</Label>
+              <Label htmlFor="status_callback_url">Status Callback URL (Reference)</Label>
               <Input
                 id="status_callback_url"
-                placeholder="e.g., https://your-domain.com/status"
+                placeholder="Status callback URL configured in Twilio"
                 value={whatsappConfig.status_callback_url}
                 onChange={(e) =>
                   setWhatsappConfig({ ...whatsappConfig, status_callback_url: e.target.value })
@@ -700,7 +754,7 @@ const SystemConfig = () => {
                 dir="ltr"
               />
               <p className="text-xs text-muted-foreground">
-                Status callback URL for message delivery status (GET method)
+                Store the status callback URL for reference
               </p>
             </div>
 
