@@ -48,6 +48,7 @@ import ShiftPlanReport from "./pages/ShiftPlanReport";
 import ShiftSession from "./pages/ShiftSession";
 import ShiftFollowUp from "./pages/ShiftFollowUp";
 import ShiftDashboard from "./pages/ShiftDashboard";
+import Tawasoul from "./pages/Tawasoul";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -104,6 +105,7 @@ const App = () => (
               <Route path="/shift-dashboard" element={<ShiftDashboard />} />
               <Route path="/reports/shift-report" element={<ShiftReport />} />
               <Route path="/reports/shift-plan" element={<ShiftPlanReport />} />
+              <Route path="/tawasoul" element={<Tawasoul />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
