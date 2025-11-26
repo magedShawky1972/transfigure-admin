@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Send, MessageCircle, User, Check, CheckCheck, Clock, Paperclip, X, FileIcon, ImageIcon } from "lucide-react";
+import { Search, Send, MessageCircle, User, Check, CheckCheck, Clock, Paperclip, X, FileIcon, ImageIcon, BadgeCheck, Receipt } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
+import { TawasoulTransactionsDialog } from "@/components/TawasoulTransactionsDialog";
 
 interface Conversation {
   id: string;
@@ -17,6 +18,7 @@ interface Conversation {
   customer_name: string | null;
   last_message_at: string;
   unread_count: number;
+  isRegistered?: boolean;
 }
 
 interface Message {
@@ -47,11 +49,16 @@ const Tawasoul = () => {
   const [loading, setLoading] = useState(true);
   const [attachment, setAttachment] = useState<AttachmentPreview | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [registeredPhones, setRegisteredPhones] = useState<Set<string>>(new Set());
+  const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
+  const [transactionsCustomerPhone, setTransactionsCustomerPhone] = useState("");
+  const [transactionsCustomerName, setTransactionsCustomerName] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchConversations();
+    fetchRegisteredCustomers();
     
     // Real-time subscription for new messages
     const messagesChannel = supabase
@@ -103,6 +110,21 @@ const Tawasoul = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const fetchRegisteredCustomers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("customer_phone");
+      
+      if (error) throw error;
+      
+      const phones = new Set(data?.map(c => c.customer_phone) || []);
+      setRegisteredPhones(phones);
+    } catch (error) {
+      console.error("Error fetching registered customers:", error);
+    }
+  };
+
   const fetchConversations = async () => {
     try {
       const { data, error } = await supabase
@@ -117,6 +139,17 @@ const Tawasoul = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const isCustomerRegistered = (phone: string) => {
+    return registeredPhones.has(phone);
+  };
+
+  const openTransactionsDialog = (phone: string, name: string | null, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setTransactionsCustomerPhone(phone);
+    setTransactionsCustomerName(name);
+    setTransactionsDialogOpen(true);
   };
 
   const fetchMessages = async (conversationId: string) => {
@@ -402,15 +435,31 @@ const Tawasoul = () => {
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 relative">
                         <User className="h-5 w-5 text-primary" />
+                        {isCustomerRegistered(conversation.customer_phone) && (
+                          <BadgeCheck className="h-4 w-4 text-green-500 absolute -bottom-1 -right-1 bg-background rounded-full" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium truncate">
-                            {conversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="font-medium truncate">
+                              {conversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
+                            </span>
+                            {isCustomerRegistered(conversation.customer_phone) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 shrink-0"
+                                onClick={(e) => openTransactionsDialog(conversation.customer_phone, conversation.customer_name, e)}
+                                title={language === "ar" ? "عرض المعاملات" : "View Transactions"}
+                              >
+                                <Receipt className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                              </Button>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">
                             {formatDate(conversation.last_message_at)}
                           </span>
                         </div>
@@ -434,14 +483,34 @@ const Tawasoul = () => {
             <>
               {/* Chat Header */}
               <div className="p-4 border-b flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center relative">
                   <User className="h-5 w-5 text-primary" />
+                  {isCustomerRegistered(selectedConversation.customer_phone) && (
+                    <BadgeCheck className="h-4 w-4 text-green-500 absolute -bottom-1 -right-1 bg-background rounded-full" />
+                  )}
                 </div>
-                <div>
-                  <h3 className="font-semibold">
-                    {selectedConversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
-                  </h3>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">
+                      {selectedConversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
+                    </h3>
+                    {isCustomerRegistered(selectedConversation.customer_phone) && (
+                      <Badge variant="outline" className="text-xs text-green-600 border-green-500">
+                        {language === "ar" ? "عميل مسجل" : "Registered"}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
+                {isCustomerRegistered(selectedConversation.customer_phone) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openTransactionsDialog(selectedConversation.customer_phone, selectedConversation.customer_name)}
+                  >
+                    <Receipt className="h-4 w-4 mr-1" />
+                    {language === "ar" ? "المعاملات" : "Transactions"}
+                  </Button>
+                )}
               </div>
 
               {/* Messages */}
@@ -571,6 +640,14 @@ const Tawasoul = () => {
           )}
         </Card>
       </div>
+
+      {/* Transactions Dialog */}
+      <TawasoulTransactionsDialog
+        open={transactionsDialogOpen}
+        onOpenChange={setTransactionsDialogOpen}
+        customerPhone={transactionsCustomerPhone}
+        customerName={transactionsCustomerName}
+      />
     </div>
   );
 };
