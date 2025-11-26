@@ -58,8 +58,13 @@ const Tawasoul = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchConversations();
-    fetchRegisteredCustomers();
+    // Fetch registered customers first, then conversations
+    // This ensures the registered phones are available when conversations render
+    const init = async () => {
+      await fetchRegisteredCustomers();
+      fetchConversations();
+    };
+    init();
     
     // Real-time subscription for new messages
     const messagesChannel = supabase
