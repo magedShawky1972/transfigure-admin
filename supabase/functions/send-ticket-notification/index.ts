@@ -22,11 +22,19 @@ interface BatchNotificationRequest {
   recipientUserIds: string[];
 }
 
+interface EmailAttachment {
+  filename: string;
+  content: Uint8Array;
+  contentType: string;
+  encoding: "binary";
+}
+
 async function sendEmailInBackground(
   email: string,
   userName: string,
   emailSubject: string,
-  emailHtml: string
+  emailHtml: string,
+  attachments: EmailAttachment[] = []
 ) {
   try {
     const smtpClient = new SMTPClient({
@@ -41,19 +49,69 @@ async function sendEmailInBackground(
       },
     });
 
-    console.log("Attempting to send email to:", email);
+    console.log("Attempting to send email to:", email, "with", attachments.length, "attachments");
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
       subject: emailSubject,
       content: "auto",
       html: emailHtml,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
     await smtpClient.close();
     console.log("Email sent successfully to:", email);
   } catch (emailError) {
     console.error("Failed to send email to", email, ":", emailError);
   }
+}
+
+async function fetchTicketAttachments(supabase: any, ticketId: string): Promise<EmailAttachment[]> {
+  const attachments: EmailAttachment[] = [];
+  
+  try {
+    // Get attachment records from database
+    const { data: attachmentRecords, error } = await supabase
+      .from("ticket_attachments")
+      .select("file_name, file_path, mime_type")
+      .eq("ticket_id", ticketId);
+
+    if (error || !attachmentRecords || attachmentRecords.length === 0) {
+      console.log("No attachments found for ticket:", ticketId);
+      return attachments;
+    }
+
+    console.log("Found", attachmentRecords.length, "attachments for ticket:", ticketId);
+
+    // Download each file from storage
+    for (const record of attachmentRecords) {
+      try {
+        const { data: fileData, error: downloadError } = await supabase
+          .storage
+          .from("ticket-attachments")
+          .download(record.file_path);
+
+        if (downloadError || !fileData) {
+          console.error("Failed to download attachment:", record.file_name, downloadError);
+          continue;
+        }
+
+        const arrayBuffer = await fileData.arrayBuffer();
+        attachments.push({
+          filename: record.file_name,
+          content: new Uint8Array(arrayBuffer),
+          contentType: record.mime_type || "application/octet-stream",
+          encoding: "binary",
+        });
+        console.log("Successfully loaded attachment:", record.file_name);
+      } catch (fileError) {
+        console.error("Error processing attachment:", record.file_name, fileError);
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching ticket attachments:", err);
+  }
+
+  return attachments;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -155,13 +213,16 @@ const handler = async (req: Request): Promise<Response> => {
         throw notificationError;
       }
 
+      // Fetch ticket attachments for email
+      const emailAttachments = await fetchTicketAttachments(supabase, ticketId);
+
       // Send emails in parallel in background (non-blocking)
       profiles.forEach(profile => {
         const personalizedHtml = emailHtml.replace(
           `<p>مرحباً ,</p>`,
           `<p>مرحباً ${profile.user_name},</p>`
         );
-        sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml);
+        sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml, emailAttachments);
       });
 
       // Send push notifications to all recipients
@@ -260,6 +321,9 @@ const handler = async (req: Request): Promise<Response> => {
         throw notificationError;
       }
 
+      // Fetch ticket attachments for email
+      const emailAttachments = await fetchTicketAttachments(supabase, ticketId);
+
       // Send emails in parallel in background (non-blocking)
       profiles.forEach(profile => {
         const personalizedHtml = emailHtml.replace(
@@ -267,7 +331,7 @@ const handler = async (req: Request): Promise<Response> => {
           `<p>مرحباً ${profile.user_name},</p>`
         );
         // Fire and forget - emails sent in background
-        sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml);
+        sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml, emailAttachments);
       });
 
       // Send push notifications to all recipients
@@ -366,8 +430,11 @@ const handler = async (req: Request): Promise<Response> => {
         throw notificationError;
       }
 
+      // Fetch ticket attachments for email
+      const emailAttachments = await fetchTicketAttachments(supabase, ticketId);
+
       // Send email in background (non-blocking)
-      sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml);
+      sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml, emailAttachments);
 
       // Send push notification
       supabase.functions.invoke("send-push-notification", {
