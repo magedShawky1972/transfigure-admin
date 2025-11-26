@@ -82,7 +82,7 @@ const Tawasoul = () => {
           table: 'whatsapp_messages',
         },
         (payload) => {
-          console.log('Message change:', payload);
+          // Message received
           if (selectedConversation) {
             fetchMessages(selectedConversation.id);
           }
@@ -167,8 +167,6 @@ const Tawasoul = () => {
         allCustomerCorePhones.add(core);
       });
       
-      console.log('Total customers fetched:', allCustomers.length, 'Unique core phones:', allCustomerCorePhones.size);
-      console.log('Looking for:', conversationPhones.map(p => extractCorePhone(p)));
       
       registeredPhonesRef.current = allCustomerCorePhones;
       setRegisteredPhones(allCustomerCorePhones);
@@ -195,10 +193,7 @@ const Tawasoul = () => {
 
   const isCustomerRegistered = (phone: string) => {
     const corePhone = extractCorePhone(phone);
-    // Use ref for immediate access (state updates are async)
-    const isRegistered = registeredPhonesRef.current.has(corePhone) || registeredPhones.has(corePhone);
-    console.log('Checking registration for:', phone, '-> core:', corePhone, '-> registered:', isRegistered, '-> ref size:', registeredPhonesRef.current.size);
-    return isRegistered;
+    return registeredPhonesRef.current.has(corePhone) || registeredPhones.has(corePhone);
   };
 
   const openTransactionsDialog = (phone: string, name: string | null, e?: React.MouseEvent) => {
