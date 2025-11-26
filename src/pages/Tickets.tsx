@@ -267,13 +267,36 @@ const Tickets = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+const getStatusColor = (status: string) => {
     switch (status) {
       case "Open": return "default";
       case "In Progress": return "default";
       case "Closed": return "secondary";
+      case "Rejected": return "destructive";
       default: return "default";
     }
+  };
+
+  const getApprovalBadge = (ticket: any) => {
+    if (ticket.status === "Rejected") {
+      return (
+        <Badge variant="destructive">
+          {language === 'ar' ? 'مرفوض' : 'Rejected'}
+        </Badge>
+      );
+    }
+    if (ticket.approved_at) {
+      return (
+        <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+          {language === 'ar' ? 'تمت الموافقة' : 'Approved'}
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline">
+        {language === 'ar' ? 'في انتظار الموافقة' : 'Pending Approval'}
+      </Badge>
+    );
   };
 
   const handleDeleteClick = (ticketId: string) => {
@@ -533,12 +556,14 @@ const Tickets = () => {
                          ticket.priority === 'High' ? 'عالي' : 'عاجل') 
                         : ticket.priority}
                     </Badge>
-                    <Badge variant={getStatusColor(ticket.status)}>
+<Badge variant={getStatusColor(ticket.status)}>
                       {language === 'ar' ? 
                         (ticket.status === 'Open' ? 'مفتوح' : 
-                         ticket.status === 'In Progress' ? 'قيد المعالجة' : 'مغلق') 
+                         ticket.status === 'In Progress' ? 'قيد المعالجة' : 
+                         ticket.status === 'Rejected' ? 'مرفوض' : 'مغلق') 
                         : ticket.status}
                     </Badge>
+                    {getApprovalBadge(ticket)}
                   </div>
                 </div>
               </CardHeader>
