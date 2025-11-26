@@ -58,10 +58,15 @@ const Tawasoul = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Fetch registered customers first, then conversations
-    // This ensures the registered phones are available when conversations render
+    // Fetch conversations first, then check which phones are registered
     const init = async () => {
-      await fetchRegisteredCustomers();
+      const { data: convData } = await supabase
+        .from("whatsapp_conversations")
+        .select("customer_phone")
+        .order("last_message_at", { ascending: false });
+      
+      const phones = convData?.map(c => c.customer_phone) || [];
+      await fetchRegisteredCustomers(phones);
       fetchConversations();
     };
     init();
@@ -124,22 +129,49 @@ const Tawasoul = () => {
     return digits.slice(-10);
   };
 
-  const fetchRegisteredCustomers = async () => {
+  const fetchRegisteredCustomers = async (conversationPhones: string[]) => {
     try {
-      // Fetch all customer phones - use range to bypass default 1000 limit
-      const { data, error } = await supabase
-        .from("customers")
-        .select("customer_phone")
-        .range(0, 49999); // Get up to 50000 customers
+      if (!conversationPhones.length) {
+        registeredPhonesRef.current = new Set();
+        setRegisteredPhones(new Set());
+        return;
+      }
       
-      if (error) throw error;
+      // Fetch ALL customers using pagination
+      const allCustomers: string[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
       
-      // Store core phone numbers (last 10 digits) for matching
-      const phones = new Set(data?.map(c => extractCorePhone(c.customer_phone)) || []);
-      console.log('Registered phones count:', phones.size);
-      // Update both ref and state - ref for immediate access, state for re-render
-      registeredPhonesRef.current = phones;
-      setRegisteredPhones(phones);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("customer_phone")
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allCustomers.push(...data.map(c => c.customer_phone));
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      // Build set of ALL customer core phones
+      const allCustomerCorePhones = new Set<string>();
+      allCustomers.forEach(phone => {
+        const core = extractCorePhone(phone);
+        allCustomerCorePhones.add(core);
+      });
+      
+      console.log('Total customers fetched:', allCustomers.length, 'Unique core phones:', allCustomerCorePhones.size);
+      console.log('Looking for:', conversationPhones.map(p => extractCorePhone(p)));
+      
+      registeredPhonesRef.current = allCustomerCorePhones;
+      setRegisteredPhones(allCustomerCorePhones);
     } catch (error) {
       console.error("Error fetching registered customers:", error);
     }
