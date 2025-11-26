@@ -13,6 +13,30 @@ interface ShiftOpenRequest {
   shiftSessionId: string;
 }
 
+// Format time from HH:MM to AM/PM format in Arabic
+function formatTimeToAMPM(timeStr: string | null): string {
+  if (!timeStr) return '';
+  const [hourStr, minuteStr] = timeStr.split(':');
+  let hour = parseInt(hourStr, 10);
+  const minute = minuteStr || '00';
+  const period = hour >= 12 ? 'م' : 'ص';
+  if (hour === 0) hour = 12;
+  else if (hour > 12) hour = hour - 12;
+  return `${hour}:${minute} ${period}`;
+}
+
+// Get time in specific timezone
+function getTimeInTimezone(date: Date, offsetHours: number): string {
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const tzTime = new Date(utc + (offsetHours * 3600000));
+  let hours = tzTime.getHours();
+  const minutes = tzTime.getMinutes().toString().padStart(2, '0');
+  const period = hours >= 12 ? 'م' : 'ص';
+  if (hours === 0) hours = 12;
+  else if (hours > 12) hours = hours - 12;
+  return `${hours}:${minutes} ${period}`;
+}
+
 async function sendEmailInBackground(email: string, emailHtml: string, subject: string) {
   try {
     const smtpClient = new SMTPClient({
@@ -107,7 +131,14 @@ const handler = async (req: Request): Promise<Response> => {
     const year = now.getFullYear();
     const gregorianDate = `${year}/${month}/${day} م`;
     const weekday = now.toLocaleDateString('ar-SA', { weekday: 'long' });
-    const time = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    
+    // Get open time in KSA (UTC+3) and Egypt (UTC+2)
+    const ksaTime = getTimeInTimezone(now, 3);
+    const egyptTime = getTimeInTimezone(now, 2);
+    
+    // Format shift start and end times in AM/PM
+    const shiftStartTimeFormatted = formatTimeToAMPM(shift?.shift_start_time);
+    const shiftEndTimeFormatted = formatTimeToAMPM(shift?.shift_end_time);
     
     // Determine shift period (صباحى or مسائى) based on shift start time
     const getShiftPeriod = (startTime: string | null) => {
@@ -244,12 +275,24 @@ const handler = async (req: Request): Promise<Response> => {
                   <span class="info-value">${gregorianDate}</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-label">وقت الفتح:</span>
-                  <span class="info-value">${time}</span>
+                  <span class="info-label">بداية الوردية:</span>
+                  <span class="info-value">${shiftStartTimeFormatted}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">نهاية الوردية:</span>
+                  <span class="info-value">${shiftEndTimeFormatted}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">موعد الوردية:</span>
                   <span class="info-value">${shiftPeriod}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">وقت الفتح (توقيت السعودية):</span>
+                  <span class="info-value">${ksaTime}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">وقت الفتح (توقيت مصر):</span>
+                  <span class="info-value">${egyptTime}</span>
                 </div>
               </div>
               
