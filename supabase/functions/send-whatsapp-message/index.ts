@@ -19,16 +19,16 @@ Deno.serve(async (req) => {
   const twilioWhatsAppFrom = Deno.env.get("TWILIO_WHATSAPP_FROM")!;
 
   try {
-    const { to, message, conversationId, messageId } = await req.json();
+    const { to, message, conversationId, messageId, mediaUrl, mediaType } = await req.json();
 
-    if (!to || !message) {
+    if (!to || (!message && !mediaUrl)) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: to, message" }),
+        JSON.stringify({ error: "Missing required fields: to and (message or mediaUrl)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Sending WhatsApp message:", { to, message: message.substring(0, 50) });
+    console.log("Sending WhatsApp message:", { to, message: message?.substring(0, 50), hasMedia: !!mediaUrl });
 
     // Format phone number for WhatsApp
     const formattedTo = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
@@ -42,7 +42,16 @@ Deno.serve(async (req) => {
     const formData = new URLSearchParams();
     formData.append("To", formattedTo);
     formData.append("From", formattedFrom);
-    formData.append("Body", message);
+    
+    // Add message body if provided
+    if (message) {
+      formData.append("Body", message);
+    }
+    
+    // Add media URL if provided (for attachments)
+    if (mediaUrl) {
+      formData.append("MediaUrl", mediaUrl);
+    }
 
     const twilioResponse = await fetch(twilioUrl, {
       method: "POST",
@@ -74,14 +83,21 @@ Deno.serve(async (req) => {
 
     console.log("Twilio response:", twilioResult);
 
-    // Update message with Twilio SID and status
+    // Update message with Twilio SID, status, and media info
     if (messageId) {
+      const updateData: Record<string, unknown> = { 
+        twilio_sid: twilioResult.sid,
+        message_status: twilioResult.status || "sent"
+      };
+      
+      if (mediaUrl) {
+        updateData.media_url = mediaUrl;
+        updateData.media_type = mediaType || 'file';
+      }
+      
       await supabase
         .from("whatsapp_messages")
-        .update({ 
-          twilio_sid: twilioResult.sid,
-          message_status: twilioResult.status || "sent"
-        })
+        .update(updateData)
         .eq("id", messageId);
     }
 
