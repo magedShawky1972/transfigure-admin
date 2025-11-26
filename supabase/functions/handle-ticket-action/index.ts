@@ -149,20 +149,22 @@ const handler = async (req: Request): Promise<Response> => {
       return htmlResponse("خطأ", "لم يتم العثور على التذكرة.", false);
     }
 
-    // Check if already processed
-    if (ticket.status === "Approved" || ticket.status === "Rejected") {
-      const statusArabic = ticket.status === "Approved" ? "تمت الموافقة عليها" : "مرفوضة";
-      return htmlResponse("تنبيه", `هذه التذكرة ${statusArabic} بالفعل.`, false);
+// Check if already processed
+    if (ticket.approved_at) {
+      return htmlResponse("تنبيه", "تمت الموافقة على هذه التذكرة بالفعل.", false);
+    }
+    
+    if (ticket.status === "Rejected") {
+      return htmlResponse("تنبيه", "هذه التذكرة مرفوضة بالفعل.", false);
     }
 
     const ticketType = ticket.is_purchase_ticket ? "طلب الشراء" : "تذكرة الدعم";
 
     if (action === "approve") {
-      // Update ticket status to Approved
+      // Update ticket - set approved_at timestamp (not status)
       const { error: updateError } = await supabase
         .from("tickets")
         .update({
-          status: "Approved",
           approved_at: new Date().toISOString(),
         })
         .eq("id", ticketId);
