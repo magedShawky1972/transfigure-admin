@@ -138,14 +138,17 @@ const Tawasoul = () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
     try {
-      const { error } = await supabase
+      // First insert the message to get its ID
+      const { data: insertedMessage, error } = await supabase
         .from("whatsapp_messages")
         .insert({
           conversation_id: selectedConversation.id,
           sender_type: "agent",
           message_text: newMessage.trim(),
           message_status: "sending",
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
@@ -155,9 +158,32 @@ const Tawasoul = () => {
         .update({ last_message_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
 
+      const messageText = newMessage.trim();
       setNewMessage("");
-      
-      // TODO: Send via Twilio API
+
+      // Send via Twilio API using edge function
+      const { data: sendResult, error: sendError } = await supabase.functions.invoke(
+        "send-whatsapp-message",
+        {
+          body: {
+            to: selectedConversation.customer_phone,
+            message: messageText,
+            conversationId: selectedConversation.id,
+            messageId: insertedMessage?.id,
+          },
+        }
+      );
+
+      if (sendError) {
+        console.error("Twilio send error:", sendError);
+        toast({
+          title: language === "ar" ? "تحذير" : "Warning",
+          description: language === "ar" ? "تم حفظ الرسالة لكن فشل الإرسال عبر WhatsApp" : "Message saved but failed to send via WhatsApp",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: language === "ar" ? "تم الإرسال" : "Sent",
         description: language === "ar" ? "تم إرسال الرسالة بنجاح" : "Message sent successfully",
