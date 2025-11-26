@@ -48,6 +48,7 @@ import ShiftPlanReport from "./pages/ShiftPlanReport";
 import ShiftSession from "./pages/ShiftSession";
 import ShiftFollowUp from "./pages/ShiftFollowUp";
 import ShiftDashboard from "./pages/ShiftDashboard";
+import MyShiftsCalendar from "./pages/MyShiftsCalendar";
 import Tawasoul from "./pages/Tawasoul";
 import Index from "./pages/Index";
 
@@ -103,6 +104,7 @@ const App = () => (
               <Route path="/shift-session" element={<ShiftSession />} />
               <Route path="/shift-follow-up" element={<ShiftFollowUp />} />
               <Route path="/shift-dashboard" element={<ShiftDashboard />} />
+              <Route path="/my-shifts" element={<MyShiftsCalendar />} />
               <Route path="/reports/shift-report" element={<ShiftReport />} />
               <Route path="/reports/shift-plan" element={<ShiftPlanReport />} />
               <Route path="/tawasoul" element={<Tawasoul />} />

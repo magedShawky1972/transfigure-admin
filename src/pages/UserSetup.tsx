@@ -78,6 +78,7 @@ interface UserPermission {
   { key: "admin_tickets", label: "Department Tickets" },
   { key: "softwareLicenseSetup", label: "License Entry" },
   { key: "shiftSession", label: "Shift Session" },
+  { key: "myShifts", label: "My Shifts Calendar" },
   { key: "shiftFollowUp", label: "Shift Follow-Up" },
   { key: "tawasoul", label: "Tawasoul (تواصل)" },
   { key: "reportsSetup", label: "Reports Setup" },
