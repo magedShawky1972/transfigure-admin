@@ -17,7 +17,8 @@ import {
   FileBarChart,
   Key,
   Shield,
-  Clock
+  Clock,
+  MessageCircle
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -76,6 +77,7 @@ export function AppSidebar() {
     "/shift-calendar": "shiftCalendar",
     "/shift-session": "shiftSession",
     "/shift-follow-up": "shiftFollowUp",
+    "/tawasoul": "tawasoul",
   };
 
   useEffect(() => {
@@ -174,6 +176,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "إدخال الترخيص" : "License Entry", url: "/software-license-setup", icon: Key },
         { title: language === 'ar' ? "جلسة الوردية" : "Shift Session", url: "/shift-session", icon: Clock },
         { title: language === 'ar' ? "متابعة الورديات" : "Shift Follow-Up", url: "/shift-follow-up", icon: BarChart3 },
+        { title: language === 'ar' ? "تواصل" : "Tawasoul", url: "/tawasoul", icon: MessageCircle },
       ]
     },
     {

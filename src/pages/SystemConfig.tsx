@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy } from "lucide-react";
+import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ConfigItem {
@@ -34,6 +34,14 @@ interface ApiKey {
   created_at: string;
 }
 
+interface WhatsAppConfig {
+  id?: string;
+  mobile_number: string;
+  webhook_url: string;
+  status_callback_url: string;
+  is_active: boolean;
+}
+
 const SystemConfig = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -51,10 +59,18 @@ const SystemConfig = () => {
     allow_brand: false,
     allow_product: false,
   });
+  const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
+    mobile_number: "",
+    webhook_url: "",
+    status_callback_url: "",
+    is_active: true,
+  });
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
     loadApiKeys();
+    loadWhatsappConfig();
   }, []);
 
   const checkAdminAccess = async () => {
@@ -104,6 +120,84 @@ const SystemConfig = () => {
     }
 
     setApiKeys(data || []);
+  };
+
+  const loadWhatsappConfig = async () => {
+    const { data, error } = await supabase
+      .from("whatsapp_config")
+      .select("*")
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading WhatsApp config:", error);
+      return;
+    }
+
+    if (data) {
+      setWhatsappConfig({
+        id: data.id,
+        mobile_number: data.mobile_number || "",
+        webhook_url: data.webhook_url || "",
+        status_callback_url: data.status_callback_url || "",
+        is_active: data.is_active,
+      });
+    }
+  };
+
+  const handleSaveWhatsappConfig = async () => {
+    if (!whatsappConfig.mobile_number.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a mobile number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingWhatsapp(true);
+    try {
+      if (whatsappConfig.id) {
+        // Update existing
+        const { error } = await supabase
+          .from("whatsapp_config")
+          .update({
+            mobile_number: whatsappConfig.mobile_number,
+            webhook_url: whatsappConfig.webhook_url,
+            status_callback_url: whatsappConfig.status_callback_url,
+          })
+          .eq("id", whatsappConfig.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { error } = await supabase
+          .from("whatsapp_config")
+          .insert({
+            mobile_number: whatsappConfig.mobile_number,
+            webhook_url: whatsappConfig.webhook_url,
+            status_callback_url: whatsappConfig.status_callback_url,
+            is_active: true,
+          });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: "WhatsApp configuration saved successfully",
+      });
+      loadWhatsappConfig();
+    } catch (error) {
+      console.error("Error saving WhatsApp config:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save WhatsApp configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingWhatsapp(false);
+    }
   };
 
   const generateApiKey = () => {
@@ -542,6 +636,78 @@ const SystemConfig = () => {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* WhatsApp Configuration Section */}
+      <div className="space-y-6 mt-8">
+        <div className="flex items-center gap-3">
+          <MessageCircle className="h-6 w-6 text-primary" />
+          <h2 className="text-2xl font-bold">WhatsApp Configuration</h2>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Twilio WhatsApp Sandbox Configuration</CardTitle>
+            <CardDescription>
+              Configure your Twilio WhatsApp sandbox settings for client communication
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp_mobile">Mobile Number</Label>
+              <Input
+                id="whatsapp_mobile"
+                placeholder="e.g., +14155238886"
+                value={whatsappConfig.mobile_number}
+                onChange={(e) =>
+                  setWhatsappConfig({ ...whatsappConfig, mobile_number: e.target.value })
+                }
+                className="max-w-md"
+                dir="ltr"
+              />
+              <p className="text-xs text-muted-foreground">
+                Your Twilio WhatsApp sandbox number
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="webhook_url">When a message comes in (POST)</Label>
+              <Input
+                id="webhook_url"
+                placeholder="e.g., https://timberwolf-mastiff-9776.twil.io/demo-reply"
+                value={whatsappConfig.webhook_url}
+                onChange={(e) =>
+                  setWhatsappConfig({ ...whatsappConfig, webhook_url: e.target.value })
+                }
+                dir="ltr"
+              />
+              <p className="text-xs text-muted-foreground">
+                Webhook URL for incoming messages (POST method)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status_callback_url">Status Callback URL (GET)</Label>
+              <Input
+                id="status_callback_url"
+                placeholder="e.g., https://your-domain.com/status"
+                value={whatsappConfig.status_callback_url}
+                onChange={(e) =>
+                  setWhatsappConfig({ ...whatsappConfig, status_callback_url: e.target.value })
+                }
+                dir="ltr"
+              />
+              <p className="text-xs text-muted-foreground">
+                Status callback URL for message delivery status (GET method)
+              </p>
+            </div>
+
+            <Button onClick={handleSaveWhatsappConfig} disabled={savingWhatsapp} className="gap-2">
+              <Save className="h-4 w-4" />
+              {savingWhatsapp ? "Saving..." : "Save Configuration"}
+            </Button>
           </CardContent>
         </Card>
       </div>
