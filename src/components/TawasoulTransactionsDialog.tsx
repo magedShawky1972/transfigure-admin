@@ -64,11 +64,14 @@ export const TawasoulTransactionsDialog = ({
     let clean = phone.replace(/^whatsapp:/i, '').replace(/\+/g, '').replace(/\s/g, '');
     const variants: string[] = [phone, clean];
     
-    // Remove Egypt country code (20) if present at start
-    if (clean.startsWith('20') && clean.length > 10) {
-      const withoutCountry = clean.substring(2);
+    // Remove Egypt country code (2) - format is +2 followed by local number
+    if (clean.startsWith('2') && clean.length > 10) {
+      const withoutCountry = clean.substring(1); // Remove just the '2'
       variants.push(withoutCountry);
-      variants.push('0' + withoutCountry); // Add leading zero version
+      // If it doesn't start with 0, add version with leading zero
+      if (!withoutCountry.startsWith('0')) {
+        variants.push('0' + withoutCountry);
+      }
     }
     
     // If starts with 0, also add version without leading zero

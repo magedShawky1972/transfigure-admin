@@ -114,11 +114,11 @@ const Tawasoul = () => {
   const normalizePhone = (phone: string): string => {
     // Remove whatsapp: prefix, +, and spaces
     let normalized = phone.replace(/^whatsapp:/i, '').replace(/\+/g, '').replace(/\s/g, '');
-    // Remove Egypt country code (20) if present at start
-    if (normalized.startsWith('20') && normalized.length > 10) {
-      normalized = normalized.substring(2);
+    // Remove Egypt country code (2) - format is +2 followed by local number starting with 0
+    if (normalized.startsWith('2') && normalized.length > 10) {
+      normalized = normalized.substring(1);
     }
-    // Remove leading zero if present
+    // Remove leading zero if present for final comparison
     if (normalized.startsWith('0')) {
       normalized = normalized.substring(1);
     }
