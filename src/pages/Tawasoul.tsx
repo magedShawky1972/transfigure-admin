@@ -126,15 +126,17 @@ const Tawasoul = () => {
 
   const fetchRegisteredCustomers = async () => {
     try {
+      // Fetch all customer phones - use range to bypass default 1000 limit
       const { data, error } = await supabase
         .from("customers")
-        .select("customer_phone");
+        .select("customer_phone")
+        .range(0, 49999); // Get up to 50000 customers
       
       if (error) throw error;
       
       // Store core phone numbers (last 10 digits) for matching
       const phones = new Set(data?.map(c => extractCorePhone(c.customer_phone)) || []);
-      console.log('Registered phones (core):', Array.from(phones).slice(0, 10));
+      console.log('Registered phones count:', phones.size);
       // Update both ref and state - ref for immediate access, state for re-render
       registeredPhonesRef.current = phones;
       setRegisteredPhones(phones);
