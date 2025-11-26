@@ -14,18 +14,12 @@ interface NotificationRequest {
   type: "ticket_created" | "ticket_approved" | "ticket_assigned";
   ticketId: string;
   recipientUserId: string;
-  ticketNumber: string;
-  subject: string;
-  isPurchaseTicket?: boolean;
 }
 
 interface BatchNotificationRequest {
   type: "ticket_created" | "ticket_approved" | "ticket_assigned";
   ticketId: string;
   recipientUserIds: string[];
-  ticketNumber: string;
-  subject: string;
-  isPurchaseTicket?: boolean;
 }
 
 async function sendEmailInBackground(
@@ -77,20 +71,34 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (isSequentialApproval) {
       // Handle sequential approval notification - only notify admins at specific order level
-      const { type, ticketId, adminOrder, ticketNumber, subject, isPurchaseTicket }: any = requestBody;
+      const { type, ticketId, adminOrder }: any = requestBody;
       
-      console.log("Processing sequential approval notification:", { type, ticketId, adminOrder, ticketNumber });
+      console.log("Processing sequential approval notification:", { type, ticketId, adminOrder });
 
-      // Get ticket's department
+      // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
-        .select("department_id")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id")
         .eq("id", ticketId)
         .single();
 
       if (ticketError || !ticket) {
-        throw new Error("Failed to fetch ticket department");
+        throw new Error("Failed to fetch ticket details");
       }
+
+      // Get department name
+      const { data: department } = await supabase
+        .from("departments")
+        .select("department_name")
+        .eq("id", ticket.department_id)
+        .single();
+
+      // Get creator profile
+      const { data: creatorProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", ticket.user_id)
+        .single();
 
       // Get admins at the specified order level for this department
       const { data: adminData, error: adminError } = await supabase
@@ -115,9 +123,19 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Failed to fetch recipient profiles");
       }
 
+      const ticketDetails: TicketDetails = {
+        ticketNumber: ticket.ticket_number,
+        subject: ticket.subject,
+        description: ticket.description,
+        departmentName: department?.department_name || "",
+        createdBy: creatorProfile?.user_name || "",
+        createdAt: ticket.created_at,
+        isPurchaseTicket: ticket.is_purchase_ticket
+      };
+
       // Prepare notification data
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, "", ticketId, isPurchaseTicket);
+        getNotificationContent(type, ticketDetails, "", ticketId);
 
       // Create all in-app notifications at once
       const notifications = profiles.map(profile => ({
@@ -140,8 +158,8 @@ const handler = async (req: Request): Promise<Response> => {
       // Send emails in parallel in background (non-blocking)
       profiles.forEach(profile => {
         const personalizedHtml = emailHtml.replace(
-          "<p>Hello ,</p>",
-          `<p>Hello ${profile.user_name},</p>`
+          `<p>مرحباً ,</p>`,
+          `<p>مرحباً ${profile.user_name},</p>`
         );
         sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml);
       });
@@ -171,9 +189,34 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } else if (isBatch) {
       // Handle batch notifications (all admins at once - backward compatibility)
-      const { type, ticketId, recipientUserIds, ticketNumber, subject, isPurchaseTicket }: BatchNotificationRequest = requestBody;
+      const { type, ticketId, recipientUserIds }: BatchNotificationRequest = requestBody;
       
-      console.log("Processing batch notification:", { type, ticketId, recipientCount: recipientUserIds.length, ticketNumber });
+      console.log("Processing batch notification:", { type, ticketId, recipientCount: recipientUserIds.length });
+
+      // Get ticket's full details including department and creator
+      const { data: ticket, error: ticketError } = await supabase
+        .from("tickets")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id")
+        .eq("id", ticketId)
+        .single();
+
+      if (ticketError || !ticket) {
+        throw new Error("Failed to fetch ticket details");
+      }
+
+      // Get department name
+      const { data: department } = await supabase
+        .from("departments")
+        .select("department_name")
+        .eq("id", ticket.department_id)
+        .single();
+
+      // Get creator profile
+      const { data: creatorProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", ticket.user_id)
+        .single();
 
       // Get all recipient profiles at once
       const { data: profiles, error: profilesError } = await supabase
@@ -185,9 +228,19 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Failed to fetch recipient profiles");
       }
 
+      const ticketDetails: TicketDetails = {
+        ticketNumber: ticket.ticket_number,
+        subject: ticket.subject,
+        description: ticket.description,
+        departmentName: department?.department_name || "",
+        createdBy: creatorProfile?.user_name || "",
+        createdAt: ticket.created_at,
+        isPurchaseTicket: ticket.is_purchase_ticket
+      };
+
       // Prepare notification data
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, "", ticketId, isPurchaseTicket);
+        getNotificationContent(type, ticketDetails, "", ticketId);
 
       // Create all in-app notifications at once
       const notifications = profiles.map(profile => ({
@@ -210,8 +263,8 @@ const handler = async (req: Request): Promise<Response> => {
       // Send emails in parallel in background (non-blocking)
       profiles.forEach(profile => {
         const personalizedHtml = emailHtml.replace(
-          "<p>Hello ,</p>",
-          `<p>Hello ${profile.user_name},</p>`
+          `<p>مرحباً ,</p>`,
+          `<p>مرحباً ${profile.user_name},</p>`
         );
         // Fire and forget - emails sent in background
         sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml);
@@ -242,9 +295,34 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } else {
       // Handle single notification (backward compatibility)
-      const { type, ticketId, recipientUserId, ticketNumber, subject, isPurchaseTicket }: NotificationRequest = requestBody;
+      const { type, ticketId, recipientUserId }: NotificationRequest = requestBody;
 
-      console.log("Processing single notification:", { type, ticketId, recipientUserId, ticketNumber });
+      console.log("Processing single notification:", { type, ticketId, recipientUserId });
+
+      // Get ticket's full details including department and creator
+      const { data: ticket, error: ticketError } = await supabase
+        .from("tickets")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id")
+        .eq("id", ticketId)
+        .single();
+
+      if (ticketError || !ticket) {
+        throw new Error("Failed to fetch ticket details");
+      }
+
+      // Get department name
+      const { data: department } = await supabase
+        .from("departments")
+        .select("department_name")
+        .eq("id", ticket.department_id)
+        .single();
+
+      // Get creator profile
+      const { data: creatorProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", ticket.user_id)
+        .single();
 
       // Get recipient profile
       const { data: profile, error: profileError } = await supabase
@@ -258,9 +336,19 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Recipient not found");
       }
 
+      const ticketDetails: TicketDetails = {
+        ticketNumber: ticket.ticket_number,
+        subject: ticket.subject,
+        description: ticket.description,
+        departmentName: department?.department_name || "",
+        createdBy: creatorProfile?.user_name || "",
+        createdAt: ticket.created_at,
+        isPurchaseTicket: ticket.is_purchase_ticket
+      };
+
       // Get notification content
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, profile.user_name, ticketId, isPurchaseTicket);
+        getNotificationContent(type, ticketDetails, profile.user_name, ticketId);
 
       // Create in-app notification first
       const { error: notificationError } = await supabase
@@ -315,13 +403,21 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
+interface TicketDetails {
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  departmentName: string;
+  createdBy: string;
+  createdAt: string;
+  isPurchaseTicket: boolean;
+}
+
 function getNotificationContent(
   type: string,
-  ticketNumber: string,
-  subject: string,
+  ticketDetails: TicketDetails,
   userName: string,
-  ticketId: string,
-  isPurchaseTicket?: boolean
+  ticketId: string
 ) {
   let emailSubject = "";
   let emailHtml = "";
@@ -332,64 +428,91 @@ function getNotificationContent(
   const ticketLink = `${appUrl}/tickets/${ticketId}`;
   
   // Determine email subject based on purchase ticket status
-  const ticketTypeSubject = isPurchaseTicket ? "طلب شراء" : "تذكرة دعم";
+  const ticketTypeSubject = ticketDetails.isPurchaseTicket ? "طلب شراء" : "تذكرة دعم";
+  
+  // Format creation date in Arabic
+  const creationDate = new Date(ticketDetails.createdAt).toLocaleDateString('ar-EG', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
   switch (type) {
     case "ticket_created":
       emailSubject = ticketTypeSubject;
       emailHtml = `
-        <h2>New Ticket Created</h2>
-        <p>Hello ${userName},</p>
-        <p>A new ticket has been created in your department:</p>
-        <ul>
-          <li><strong>Ticket Number:</strong> ${ticketNumber}</li>
-          <li><strong>Subject:</strong> ${subject}</li>
-        </ul>
-        <p>Please review and take appropriate action.</p>
-        <div style="margin: 20px 0;">
-          <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View & Approve Ticket</a>
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+          <h2>${ticketTypeSubject} جديدة</h2>
+          <p>مرحباً ${userName},</p>
+          <p>تم إنشاء ${ticketTypeSubject} جديدة في قسمك:</p>
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>رقم التذكرة:</strong> ${ticketDetails.ticketNumber}</li>
+            <li style="margin: 10px 0;"><strong>الموضوع:</strong> ${ticketDetails.subject}</li>
+            <li style="margin: 10px 0;"><strong>الوصف:</strong> ${ticketDetails.description}</li>
+            <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
+            <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
+            <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+          </ul>
+          <p>يرجى المراجعة واتخاذ الإجراء المناسب.</p>
+          <div style="margin: 20px 0;">
+            <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">عرض والموافقة على التذكرة</a>
+          </div>
         </div>
       `;
       notificationTitle = ticketTypeSubject;
-      notificationMessage = `${ticketNumber}: ${subject}`;
+      notificationMessage = `${ticketDetails.ticketNumber} - ${ticketDetails.subject} - ${ticketDetails.departmentName} - ${ticketDetails.createdBy}`;
       break;
 
     case "ticket_approved":
       emailSubject = ticketTypeSubject;
       emailHtml = `
-        <h2>Ticket Approved</h2>
-        <p>Hello ${userName},</p>
-        <p>Your ticket has been approved:</p>
-        <ul>
-          <li><strong>Ticket Number:</strong> ${ticketNumber}</li>
-          <li><strong>Subject:</strong> ${subject}</li>
-        </ul>
-        <p>Your ticket is now being processed.</p>
-        <div style="margin: 20px 0;">
-          <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Ticket</a>
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+          <h2>تمت الموافقة على ${ticketTypeSubject}</h2>
+          <p>مرحباً ${userName},</p>
+          <p>تمت الموافقة على ${ticketTypeSubject} الخاصة بك:</p>
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>رقم التذكرة:</strong> ${ticketDetails.ticketNumber}</li>
+            <li style="margin: 10px 0;"><strong>الموضوع:</strong> ${ticketDetails.subject}</li>
+            <li style="margin: 10px 0;"><strong>الوصف:</strong> ${ticketDetails.description}</li>
+            <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
+            <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
+            <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+          </ul>
+          <p>جاري معالجة التذكرة الآن.</p>
+          <div style="margin: 20px 0;">
+            <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">عرض التذكرة</a>
+          </div>
         </div>
       `;
       notificationTitle = ticketTypeSubject;
-      notificationMessage = `تمت الموافقة على ${ticketNumber}`;
+      notificationMessage = `تمت الموافقة على ${ticketDetails.ticketNumber} - ${ticketDetails.subject}`;
       break;
 
     case "ticket_assigned":
       emailSubject = ticketTypeSubject;
       emailHtml = `
-        <h2>Ticket Assigned</h2>
-        <p>Hello ${userName},</p>
-        <p>A ticket has been assigned to you:</p>
-        <ul>
-          <li><strong>Ticket Number:</strong> ${ticketNumber}</li>
-          <li><strong>Subject:</strong> ${subject}</li>
-        </ul>
-        <p>Please review and work on this ticket.</p>
-        <div style="margin: 20px 0;">
-          <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Open Ticket</a>
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+          <h2>تم تعيين ${ticketTypeSubject} لك</h2>
+          <p>مرحباً ${userName},</p>
+          <p>تم تعيين ${ticketTypeSubject} لك:</p>
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>رقم التذكرة:</strong> ${ticketDetails.ticketNumber}</li>
+            <li style="margin: 10px 0;"><strong>الموضوع:</strong> ${ticketDetails.subject}</li>
+            <li style="margin: 10px 0;"><strong>الوصف:</strong> ${ticketDetails.description}</li>
+            <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
+            <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
+            <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+          </ul>
+          <p>يرجى المراجعة والعمل على هذه التذكرة.</p>
+          <div style="margin: 20px 0;">
+            <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">فتح التذكرة</a>
+          </div>
         </div>
       `;
       notificationTitle = ticketTypeSubject;
-      notificationMessage = `تم تعيين ${ticketNumber} لك`;
+      notificationMessage = `تم تعيين ${ticketDetails.ticketNumber} لك - ${ticketDetails.subject}`;
       break;
   }
 
