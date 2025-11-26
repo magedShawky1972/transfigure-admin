@@ -110,19 +110,12 @@ const Tawasoul = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Normalize phone number by removing country code and leading zeros
-  const normalizePhone = (phone: string): string => {
-    // Remove whatsapp: prefix, +, and spaces
-    let normalized = phone.replace(/^whatsapp:/i, '').replace(/\+/g, '').replace(/\s/g, '');
-    // Remove Egypt country code (2) - format is +2 followed by local number starting with 0
-    if (normalized.startsWith('2') && normalized.length > 10) {
-      normalized = normalized.substring(1);
-    }
-    // Remove leading zero if present for final comparison
-    if (normalized.startsWith('0')) {
-      normalized = normalized.substring(1);
-    }
-    return normalized;
+  // Extract core phone digits (last 9-10 digits) for matching
+  const extractCorePhone = (phone: string): string => {
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '');
+    // Return the last 10 digits (or less if shorter)
+    return digits.slice(-10);
   };
 
   const fetchRegisteredCustomers = async () => {
@@ -133,8 +126,9 @@ const Tawasoul = () => {
       
       if (error) throw error;
       
-      // Store normalized phone numbers for matching
-      const phones = new Set(data?.map(c => normalizePhone(c.customer_phone)) || []);
+      // Store core phone numbers (last 10 digits) for matching
+      const phones = new Set(data?.map(c => extractCorePhone(c.customer_phone)) || []);
+      console.log('Registered phones (core):', Array.from(phones).slice(0, 10));
       setRegisteredPhones(phones);
     } catch (error) {
       console.error("Error fetching registered customers:", error);
@@ -158,7 +152,9 @@ const Tawasoul = () => {
   };
 
   const isCustomerRegistered = (phone: string) => {
-    return registeredPhones.has(normalizePhone(phone));
+    const corePhone = extractCorePhone(phone);
+    console.log('Checking registration for:', phone, '-> core:', corePhone, '-> registered:', registeredPhones.has(corePhone));
+    return registeredPhones.has(corePhone);
   };
 
   const openTransactionsDialog = (phone: string, name: string | null, e?: React.MouseEvent) => {
