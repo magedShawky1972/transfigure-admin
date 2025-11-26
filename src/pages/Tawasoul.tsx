@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Send, MessageCircle, User, Phone } from "lucide-react";
+import { Search, Send, MessageCircle, User, Check, CheckCheck, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 
@@ -181,13 +181,7 @@ const Tawasoul = () => {
           description: language === "ar" ? "تم حفظ الرسالة لكن فشل الإرسال عبر WhatsApp" : "Message saved but failed to send via WhatsApp",
           variant: "destructive",
         });
-        return;
       }
-
-      toast({
-        title: language === "ar" ? "تم الإرسال" : "Sent",
-        description: language === "ar" ? "تم إرسال الرسالة بنجاح" : "Message sent successfully",
-      });
     } catch (error) {
       console.error("Error sending message:", error);
       toast({
@@ -221,6 +215,25 @@ const Tawasoul = () => {
       return language === "ar" ? "أمس" : "Yesterday";
     }
     return format(date, "dd/MM/yyyy");
+  };
+
+  // Message status icon component
+  const MessageStatusIcon = ({ status }: { status: string | null }) => {
+    switch (status) {
+      case "sending":
+        return <Clock className="h-3 w-3 inline-block ml-1" />;
+      case "sent":
+      case "queued":
+        return <Check className="h-3 w-3 inline-block ml-1" />;
+      case "delivered":
+        return <CheckCheck className="h-3 w-3 inline-block ml-1" />;
+      case "read":
+        return <CheckCheck className="h-3 w-3 inline-block ml-1 text-blue-400" />;
+      case "failed":
+        return <span className="text-xs text-red-400 ml-1">!</span>;
+      default:
+        return <Check className="h-3 w-3 inline-block ml-1" />;
+    }
   };
 
   return (
@@ -276,16 +289,10 @@ const Tawasoul = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className="font-medium truncate">
-                            {conversation.customer_name || conversation.customer_phone}
+                            {conversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {formatDate(conversation.last_message_at)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground truncate" dir="ltr">
-                            {conversation.customer_phone}
                           </span>
                         </div>
                         {conversation.unread_count > 0 && (
@@ -313,11 +320,8 @@ const Tawasoul = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold">
-                    {selectedConversation.customer_name || selectedConversation.customer_phone}
+                    {selectedConversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
                   </h3>
-                  <p className="text-sm text-muted-foreground" dir="ltr">
-                    {selectedConversation.customer_phone}
-                  </p>
                 </div>
               </div>
 
@@ -341,13 +345,18 @@ const Tawasoul = () => {
                         }`}
                       >
                         <p className="break-words">{message.message_text}</p>
-                        <span className={`text-xs mt-1 block ${
+                        <div className={`flex items-center justify-end gap-1 mt-1 ${
                           message.sender_type === "agent"
                             ? "text-primary-foreground/70"
                             : "text-muted-foreground"
                         }`}>
-                          {formatTime(message.created_at)}
-                        </span>
+                          <span className="text-xs">
+                            {formatTime(message.created_at)}
+                          </span>
+                          {message.sender_type === "agent" && (
+                            <MessageStatusIcon status={message.message_status} />
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
