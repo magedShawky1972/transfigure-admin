@@ -50,6 +50,7 @@ const Tawasoul = () => {
   const [attachment, setAttachment] = useState<AttachmentPreview | null>(null);
   const [uploading, setUploading] = useState(false);
   const [registeredPhones, setRegisteredPhones] = useState<Set<string>>(new Set());
+  const registeredPhonesRef = useRef<Set<string>>(new Set());
   const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
   const [transactionsCustomerPhone, setTransactionsCustomerPhone] = useState("");
   const [transactionsCustomerName, setTransactionsCustomerName] = useState<string | null>(null);
@@ -129,6 +130,8 @@ const Tawasoul = () => {
       // Store core phone numbers (last 10 digits) for matching
       const phones = new Set(data?.map(c => extractCorePhone(c.customer_phone)) || []);
       console.log('Registered phones (core):', Array.from(phones).slice(0, 10));
+      // Update both ref and state - ref for immediate access, state for re-render
+      registeredPhonesRef.current = phones;
       setRegisteredPhones(phones);
     } catch (error) {
       console.error("Error fetching registered customers:", error);
@@ -153,8 +156,10 @@ const Tawasoul = () => {
 
   const isCustomerRegistered = (phone: string) => {
     const corePhone = extractCorePhone(phone);
-    console.log('Checking registration for:', phone, '-> core:', corePhone, '-> registered:', registeredPhones.has(corePhone));
-    return registeredPhones.has(corePhone);
+    // Use ref for immediate access (state updates are async)
+    const isRegistered = registeredPhonesRef.current.has(corePhone) || registeredPhones.has(corePhone);
+    console.log('Checking registration for:', phone, '-> core:', corePhone, '-> registered:', isRegistered, '-> ref size:', registeredPhonesRef.current.size);
+    return isRegistered;
   };
 
   const openTransactionsDialog = (phone: string, name: string | null, e?: React.MouseEvent) => {
