@@ -79,6 +79,7 @@ interface UserPermission {
   { key: "softwareLicenseSetup", label: "License Entry" },
   { key: "shiftSession", label: "Shift Session" },
   { key: "shiftFollowUp", label: "Shift Follow-Up" },
+  { key: "tawasoul", label: "Tawasoul (تواصل)" },
   { key: "reportsSetup", label: "Reports Setup" },
   { key: "customerSetup", label: "Customer Setup" },
   { key: "customerProfile", label: "Customer Profile" },
