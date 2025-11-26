@@ -448,9 +448,9 @@ const Tawasoul = () => {
         </h1>
       </div>
 
-      <div className={`flex gap-4 h-full ${language === "ar" ? "flex-row-reverse" : "flex-row"}`}>
+      <div className="flex gap-4 h-full" style={{ direction: language === "ar" ? "rtl" : "ltr" }}>
         {/* Conversations List - Right side for Arabic, Left for English */}
-        <Card className="w-80 flex flex-col">
+        <Card className="w-80 flex flex-col" style={{ direction: "ltr" }}>
           <div className="p-3 border-b">
             <div className="relative">
               <Search className={`absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground ${language === "ar" ? "right-3" : "left-3"}`} />
@@ -529,7 +529,7 @@ const Tawasoul = () => {
         </Card>
 
         {/* Chat Area - Left side for Arabic, Right for English */}
-        <Card className="flex-1 flex flex-col">
+        <Card className="flex-1 flex flex-col" style={{ direction: "ltr" }}>
           {selectedConversation ? (
             <>
               {/* Chat Header */}
