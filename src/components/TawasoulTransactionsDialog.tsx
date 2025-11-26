@@ -58,25 +58,19 @@ export const TawasoulTransactionsDialog = ({
     }
   }, [open, customerPhone, dayFilter]);
 
-  // Normalize phone to get possible formats for querying
+  // Extract core phone and get possible formats for querying
   const getPhoneVariants = (phone: string): string[] => {
-    // Remove whatsapp: prefix, +, and spaces
-    let clean = phone.replace(/^whatsapp:/i, '').replace(/\+/g, '').replace(/\s/g, '');
-    const variants: string[] = [phone, clean];
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '');
+    const variants: string[] = [phone, digits];
     
-    // Remove Egypt country code (2) - format is +2 followed by local number
-    if (clean.startsWith('2') && clean.length > 10) {
-      const withoutCountry = clean.substring(1); // Remove just the '2'
-      variants.push(withoutCountry);
-      // If it doesn't start with 0, add version with leading zero
-      if (!withoutCountry.startsWith('0')) {
-        variants.push('0' + withoutCountry);
-      }
+    // Get last 10, 9 digits for matching
+    if (digits.length >= 10) {
+      variants.push(digits.slice(-10));
+      variants.push('0' + digits.slice(-9)); // Local format with leading 0
     }
-    
-    // If starts with 0, also add version without leading zero
-    if (clean.startsWith('0')) {
-      variants.push(clean.substring(1));
+    if (digits.length >= 9) {
+      variants.push(digits.slice(-9));
     }
     
     return [...new Set(variants)]; // Remove duplicates
