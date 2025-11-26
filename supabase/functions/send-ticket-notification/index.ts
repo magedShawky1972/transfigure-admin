@@ -16,6 +16,7 @@ interface NotificationRequest {
   recipientUserId: string;
   ticketNumber: string;
   subject: string;
+  isPurchaseTicket?: boolean;
 }
 
 interface BatchNotificationRequest {
@@ -24,6 +25,7 @@ interface BatchNotificationRequest {
   recipientUserIds: string[];
   ticketNumber: string;
   subject: string;
+  isPurchaseTicket?: boolean;
 }
 
 async function sendEmailInBackground(
@@ -75,7 +77,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (isSequentialApproval) {
       // Handle sequential approval notification - only notify admins at specific order level
-      const { type, ticketId, adminOrder, ticketNumber, subject }: any = requestBody;
+      const { type, ticketId, adminOrder, ticketNumber, subject, isPurchaseTicket }: any = requestBody;
       
       console.log("Processing sequential approval notification:", { type, ticketId, adminOrder, ticketNumber });
 
@@ -115,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Prepare notification data
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, "", ticketId);
+        getNotificationContent(type, ticketNumber, subject, "", ticketId, isPurchaseTicket);
 
       // Create all in-app notifications at once
       const notifications = profiles.map(profile => ({
@@ -169,7 +171,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } else if (isBatch) {
       // Handle batch notifications (all admins at once - backward compatibility)
-      const { type, ticketId, recipientUserIds, ticketNumber, subject }: BatchNotificationRequest = requestBody;
+      const { type, ticketId, recipientUserIds, ticketNumber, subject, isPurchaseTicket }: BatchNotificationRequest = requestBody;
       
       console.log("Processing batch notification:", { type, ticketId, recipientCount: recipientUserIds.length, ticketNumber });
 
@@ -185,7 +187,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Prepare notification data
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, "", ticketId);
+        getNotificationContent(type, ticketNumber, subject, "", ticketId, isPurchaseTicket);
 
       // Create all in-app notifications at once
       const notifications = profiles.map(profile => ({
@@ -240,7 +242,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } else {
       // Handle single notification (backward compatibility)
-      const { type, ticketId, recipientUserId, ticketNumber, subject }: NotificationRequest = requestBody;
+      const { type, ticketId, recipientUserId, ticketNumber, subject, isPurchaseTicket }: NotificationRequest = requestBody;
 
       console.log("Processing single notification:", { type, ticketId, recipientUserId, ticketNumber });
 
@@ -258,7 +260,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Get notification content
       const { emailSubject, emailHtml, notificationTitle, notificationMessage } = 
-        getNotificationContent(type, ticketNumber, subject, profile.user_name, ticketId);
+        getNotificationContent(type, ticketNumber, subject, profile.user_name, ticketId, isPurchaseTicket);
 
       // Create in-app notification first
       const { error: notificationError } = await supabase
@@ -318,7 +320,8 @@ function getNotificationContent(
   ticketNumber: string,
   subject: string,
   userName: string,
-  ticketId: string
+  ticketId: string,
+  isPurchaseTicket?: boolean
 ) {
   let emailSubject = "";
   let emailHtml = "";
@@ -327,10 +330,13 @@ function getNotificationContent(
   
   const appUrl = "https://edaraasus.com";
   const ticketLink = `${appUrl}/tickets/${ticketId}`;
+  
+  // Determine email subject based on purchase ticket status
+  const ticketTypeSubject = isPurchaseTicket ? "طلب شراء" : "تذكرة دعم";
 
   switch (type) {
     case "ticket_created":
-      emailSubject = `New Ticket Created: ${ticketNumber}`;
+      emailSubject = ticketTypeSubject;
       emailHtml = `
         <h2>New Ticket Created</h2>
         <p>Hello ${userName},</p>
@@ -349,7 +355,7 @@ function getNotificationContent(
       break;
 
     case "ticket_approved":
-      emailSubject = `Ticket Approved: ${ticketNumber}`;
+      emailSubject = ticketTypeSubject;
       emailHtml = `
         <h2>Ticket Approved</h2>
         <p>Hello ${userName},</p>
@@ -368,7 +374,7 @@ function getNotificationContent(
       break;
 
     case "ticket_assigned":
-      emailSubject = `Ticket Assigned to You: ${ticketNumber}`;
+      emailSubject = ticketTypeSubject;
       emailHtml = `
         <h2>Ticket Assigned</h2>
         <p>Hello ${userName},</p>

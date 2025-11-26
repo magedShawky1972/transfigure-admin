@@ -236,6 +236,7 @@ const Tickets = () => {
             adminOrder: 1,
             ticketNumber: ticketData.ticket_number,
             subject: values.subject,
+            isPurchaseTicket: values.is_purchase_ticket,
           },
         });
       }
@@ -335,6 +336,7 @@ const Tickets = () => {
           recipientUserIds: adminUserIds,
           ticketNumber: ticket.ticket_number,
           subject: ticket.subject,
+          isPurchaseTicket: ticket.is_purchase_ticket,
         },
       });
 
