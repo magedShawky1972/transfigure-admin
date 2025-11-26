@@ -100,10 +100,22 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const now = new Date();
-    const hijriDate = now.toLocaleDateString('ar-SA-u-ca-islamic');
-    const gregorianDate = now.toLocaleDateString('ar-SA');
+    const hijriDate = now.toLocaleDateString('ar-SA-u-ca-islamic', { year: 'numeric', month: 'numeric', day: 'numeric' });
+    // Format Gregorian date properly (YYYY/MM/DD format in Arabic)
+    const day = now.getDate();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    const gregorianDate = `${year}/${month}/${day} م`;
     const weekday = now.toLocaleDateString('ar-SA', { weekday: 'long' });
     const time = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    
+    // Determine shift period (صباحى or مسائى) based on shift start time
+    const getShiftPeriod = (startTime: string | null) => {
+      if (!startTime) return '';
+      const hour = parseInt(startTime.split(':')[0], 10);
+      return hour < 12 ? 'صباحى' : 'مسائى';
+    };
+    const shiftPeriod = getShiftPeriod(shift?.shift_start_time);
 
     // Create notifications for each admin
     const notifications = adminProfiles.map((admin) => ({
@@ -237,7 +249,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </div>
                 <div class="info-row">
                   <span class="info-label">موعد الوردية:</span>
-                  <span class="info-value">${shift?.shift_start_time} - ${shift?.shift_end_time}</span>
+                  <span class="info-value">${shiftPeriod}</span>
                 </div>
               </div>
               
