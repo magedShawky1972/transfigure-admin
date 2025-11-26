@@ -401,9 +401,6 @@ const TicketDetails = () => {
             type: "ticket_created",
             ticketId: ticket.id,
             adminOrder: currentOrder + 1,
-            ticketNumber: ticket.ticket_number,
-            subject: ticket.subject,
-            isPurchaseTicket: ticket.is_purchase_ticket,
           },
         });
 
@@ -430,9 +427,6 @@ const TicketDetails = () => {
             type: "ticket_approved",
             ticketId: ticket.id,
             recipientUserId: ticket.user_id,
-            ticketNumber: ticket.ticket_number,
-            subject: ticket.subject,
-            isPurchaseTicket: ticket.is_purchase_ticket,
           },
         });
 
