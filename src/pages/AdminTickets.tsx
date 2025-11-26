@@ -237,7 +237,7 @@ const AdminTickets = () => {
       // Get ticket details first
       const { data: ticket } = await supabase
         .from("tickets")
-        .select("user_id, ticket_number, subject, department_id")
+        .select("user_id, ticket_number, subject, department_id, is_purchase_ticket")
         .eq("id", ticketId)
         .single();
 
@@ -282,6 +282,7 @@ const AdminTickets = () => {
             adminOrder: currentOrder + 1,
             ticketNumber: ticket.ticket_number,
             subject: ticket.subject,
+            isPurchaseTicket: ticket.is_purchase_ticket,
           },
         });
 
@@ -310,6 +311,7 @@ const AdminTickets = () => {
             recipientUserId: ticket.user_id,
             ticketNumber: ticket.ticket_number,
             subject: ticket.subject,
+            isPurchaseTicket: ticket.is_purchase_ticket,
           },
         });
 
@@ -334,7 +336,7 @@ const AdminTickets = () => {
       // Get ticket details first
       const { data: ticket } = await supabase
         .from("tickets")
-        .select("ticket_number, subject")
+        .select("ticket_number, subject, is_purchase_ticket")
         .eq("id", ticketId)
         .single();
 
@@ -354,6 +356,7 @@ const AdminTickets = () => {
             recipientUserId: userId,
             ticketNumber: ticket.ticket_number,
             subject: ticket.subject,
+            isPurchaseTicket: ticket.is_purchase_ticket,
           },
         });
       }
@@ -524,6 +527,7 @@ const AdminTickets = () => {
           adminOrder: currentOrder,
           ticketNumber: ticket.ticket_number,
           subject: ticket.subject,
+          isPurchaseTicket: ticket.is_purchase_ticket,
         },
       });
 

@@ -403,6 +403,7 @@ const TicketDetails = () => {
             adminOrder: currentOrder + 1,
             ticketNumber: ticket.ticket_number,
             subject: ticket.subject,
+            isPurchaseTicket: ticket.is_purchase_ticket,
           },
         });
 
@@ -431,6 +432,7 @@ const TicketDetails = () => {
             recipientUserId: ticket.user_id,
             ticketNumber: ticket.ticket_number,
             subject: ticket.subject,
+            isPurchaseTicket: ticket.is_purchase_ticket,
           },
         });
 
