@@ -114,7 +114,7 @@ const Dashboard = () => {
   
   // Brand Sales Grid
   const [brandSalesGrid, setBrandSalesGrid] = useState<any[]>([]);
-  const [brandSalesSortColumn, setBrandSalesSortColumn] = useState<'brandName' | 'transactionCount' | 'totalSales'>('totalSales');
+  const [brandSalesSortColumn, setBrandSalesSortColumn] = useState<'brandName' | 'transactionCount' | 'totalSales' | 'totalCost' | 'totalProfit' | 'profitPercentage'>('totalSales');
   const [brandSalesSortDirection, setBrandSalesSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Payment Charges Dialog
@@ -1013,16 +1013,31 @@ const Dashboard = () => {
             acc[brand] = { 
               brandName: brand, 
               transactionCount: 0, 
-              totalSales: 0 
+              totalSales: 0,
+              totalCost: 0,
+              totalProfit: 0,
+              profitPercentage: 0
             };
           }
           acc[brand].transactionCount += 1;
           // Only add to sales if not a point transaction
           if (!isPoint) {
-            acc[brand].totalSales += parseNumber(t.total);
+            const total = parseNumber(t.total);
+            const cost = parseNumber(t.cost_sold);
+            const profit = parseNumber(t.profit);
+            acc[brand].totalSales += total;
+            acc[brand].totalCost += cost;
+            acc[brand].totalProfit += profit;
           }
           return acc;
         }, {});
+        
+        // Calculate profit percentage for each brand
+        Object.values(brandSalesData).forEach((brand: any) => {
+          brand.profitPercentage = brand.totalSales > 0 
+            ? (brand.totalProfit / brand.totalSales) * 100 
+            : 0;
+        });
         
         const sortedBrandSales = Object.values(brandSalesData)
           .sort((a: any, b: any) => b.totalSales - a.totalSales);
@@ -1532,7 +1547,7 @@ const Dashboard = () => {
     setPointTransactionsList(sorted);
   };
 
-  const handleBrandSalesSort = (column: 'brandName' | 'transactionCount' | 'totalSales') => {
+  const handleBrandSalesSort = (column: 'brandName' | 'transactionCount' | 'totalSales' | 'totalCost' | 'totalProfit' | 'profitPercentage') => {
     const newDirection = brandSalesSortColumn === column && brandSalesSortDirection === 'asc' ? 'desc' : 'asc';
     setBrandSalesSortColumn(column);
     setBrandSalesSortDirection(newDirection);
@@ -2002,38 +2017,71 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           {/* Sorting Controls */}
-          <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+          <div className="flex flex-wrap gap-1 mb-3 pb-3 border-b">
             <Button
               variant={brandSalesSortColumn === 'brandName' ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleBrandSalesSort('brandName')}
-              className="gap-2"
+              className="gap-1 text-xs px-2 h-7"
             >
-              {language === 'ar' ? 'اسم العلامة' : 'Brand Name'}
+              {language === 'ar' ? 'العلامة' : 'Brand'}
               {brandSalesSortColumn === 'brandName' && (
-                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
               )}
             </Button>
             <Button
               variant={brandSalesSortColumn === 'totalSales' ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleBrandSalesSort('totalSales')}
-              className="gap-2"
+              className="gap-1 text-xs px-2 h-7"
             >
-              {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
+              {language === 'ar' ? 'المبيعات' : 'Sales'}
               {brandSalesSortColumn === 'totalSales' && (
-                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              variant={brandSalesSortColumn === 'totalCost' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleBrandSalesSort('totalCost')}
+              className="gap-1 text-xs px-2 h-7"
+            >
+              {language === 'ar' ? 'التكلفة' : 'Cost'}
+              {brandSalesSortColumn === 'totalCost' && (
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              variant={brandSalesSortColumn === 'totalProfit' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleBrandSalesSort('totalProfit')}
+              className="gap-1 text-xs px-2 h-7"
+            >
+              {language === 'ar' ? 'الربح' : 'Profit'}
+              {brandSalesSortColumn === 'totalProfit' && (
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              variant={brandSalesSortColumn === 'profitPercentage' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleBrandSalesSort('profitPercentage')}
+              className="gap-1 text-xs px-2 h-7"
+            >
+              {language === 'ar' ? 'النسبة%' : 'Profit%'}
+              {brandSalesSortColumn === 'profitPercentage' && (
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
               )}
             </Button>
             <Button
               variant={brandSalesSortColumn === 'transactionCount' ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleBrandSalesSort('transactionCount')}
-              className="gap-2"
+              className="gap-1 text-xs px-2 h-7"
             >
-              {language === 'ar' ? 'عدد المعاملات' : 'Transaction Count'}
+              {language === 'ar' ? 'المعاملات' : 'Trans'}
               {brandSalesSortColumn === 'transactionCount' && (
-                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                brandSalesSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
               )}
             </Button>
           </div>
@@ -2059,32 +2107,59 @@ const Dashboard = () => {
                   })
                   .map((brand, index) => (
                   <Card key={brand.brandName} className="border hover:border-primary transition-colors">
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary shrink-0">
+                    <CardContent className="py-2 px-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0" style={{ flex: '0 0 180px' }}>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
                             #{index + 1}
                           </span>
-                          <h3 className="font-semibold text-base" title={brand.brandName}>
-                            {brand.brandName.length > 30 ? brand.brandName.substring(0, 30) + '...' : brand.brandName}
+                          <h3 className="font-semibold text-xs truncate" title={brand.brandName}>
+                            {brand.brandName}
                           </h3>
                         </div>
                         
-                        <div className="flex items-center gap-6 shrink-0">
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">
-                              {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right min-w-[70px]">
+                            <div className="text-[9px] text-muted-foreground leading-tight">
+                              {language === 'ar' ? 'المبيعات' : 'Sales'}
                             </div>
-                            <div className="font-bold text-primary">
+                            <div className="font-bold text-primary text-xs">
                               {formatCurrency(brand.totalSales)}
                             </div>
                           </div>
                           
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">
-                              {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
+                          <div className="text-right min-w-[70px]">
+                            <div className="text-[9px] text-muted-foreground leading-tight">
+                              {language === 'ar' ? 'التكلفة' : 'Cost'}
                             </div>
-                            <div className="font-semibold">
+                            <div className="font-semibold text-xs">
+                              {formatCurrency(brand.totalCost)}
+                            </div>
+                          </div>
+                          
+                          <div className="text-right min-w-[70px]">
+                            <div className="text-[9px] text-muted-foreground leading-tight">
+                              {language === 'ar' ? 'الربح' : 'Profit'}
+                            </div>
+                            <div className="font-semibold text-xs text-green-600">
+                              {formatCurrency(brand.totalProfit)}
+                            </div>
+                          </div>
+                          
+                          <div className="text-right min-w-[45px]">
+                            <div className="text-[9px] text-muted-foreground leading-tight">
+                              {language === 'ar' ? 'النسبة' : '%'}
+                            </div>
+                            <div className={`font-semibold text-xs ${brand.profitPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {brand.profitPercentage.toFixed(1)}%
+                            </div>
+                          </div>
+                          
+                          <div className="text-right min-w-[40px]">
+                            <div className="text-[9px] text-muted-foreground leading-tight">
+                              {language === 'ar' ? 'عدد' : 'Cnt'}
+                            </div>
+                            <div className="font-semibold text-xs">
                               {brand.transactionCount.toLocaleString()}
                             </div>
                           </div>
@@ -2096,29 +2171,60 @@ const Dashboard = () => {
                 
                 {/* Total Row */}
                 <Card className="border-2 border-primary bg-primary/5">
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <h3 className="font-bold text-lg">
-                          {language === 'ar' ? 'المجموع الكلي' : 'Total'}
+                  <CardContent className="py-2 px-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0" style={{ flex: '0 0 180px' }}>
+                        <h3 className="font-bold text-sm">
+                          {language === 'ar' ? 'المجموع' : 'Total'}
                         </h3>
                       </div>
                       
-                      <div className="flex items-center gap-6 shrink-0">
-                        <div className="text-right">
-                          <div className="text-xs text-muted-foreground font-semibold">
-                            {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right min-w-[70px]">
+                          <div className="text-[9px] text-muted-foreground font-semibold leading-tight">
+                            {language === 'ar' ? 'المبيعات' : 'Sales'}
                           </div>
-                          <div className="font-bold text-primary text-lg">
+                          <div className="font-bold text-primary text-xs">
                             {formatCurrency(brandSalesGrid.reduce((sum, brand) => sum + brand.totalSales, 0))}
                           </div>
                         </div>
                         
-                        <div className="text-right">
-                          <div className="text-xs text-muted-foreground font-semibold">
-                            {language === 'ar' ? 'عدد المعاملات' : 'Transactions'}
+                        <div className="text-right min-w-[70px]">
+                          <div className="text-[9px] text-muted-foreground font-semibold leading-tight">
+                            {language === 'ar' ? 'التكلفة' : 'Cost'}
                           </div>
-                          <div className="font-bold text-lg">
+                          <div className="font-bold text-xs">
+                            {formatCurrency(brandSalesGrid.reduce((sum, brand) => sum + brand.totalCost, 0))}
+                          </div>
+                        </div>
+                        
+                        <div className="text-right min-w-[70px]">
+                          <div className="text-[9px] text-muted-foreground font-semibold leading-tight">
+                            {language === 'ar' ? 'الربح' : 'Profit'}
+                          </div>
+                          <div className="font-bold text-xs text-green-600">
+                            {formatCurrency(brandSalesGrid.reduce((sum, brand) => sum + brand.totalProfit, 0))}
+                          </div>
+                        </div>
+                        
+                        <div className="text-right min-w-[45px]">
+                          <div className="text-[9px] text-muted-foreground font-semibold leading-tight">
+                            {language === 'ar' ? 'النسبة' : '%'}
+                          </div>
+                          <div className="font-bold text-xs text-green-600">
+                            {(() => {
+                              const totalSales = brandSalesGrid.reduce((sum, brand) => sum + brand.totalSales, 0);
+                              const totalProfit = brandSalesGrid.reduce((sum, brand) => sum + brand.totalProfit, 0);
+                              return totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : '0.0';
+                            })()}%
+                          </div>
+                        </div>
+                        
+                        <div className="text-right min-w-[40px]">
+                          <div className="text-[9px] text-muted-foreground font-semibold leading-tight">
+                            {language === 'ar' ? 'عدد' : 'Cnt'}
+                          </div>
+                          <div className="font-bold text-xs">
                             {brandSalesGrid.reduce((sum, brand) => sum + brand.transactionCount, 0).toLocaleString()}
                           </div>
                         </div>
