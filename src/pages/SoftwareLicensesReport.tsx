@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { format } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
 const SoftwareLicensesReport = () => {
@@ -20,6 +21,7 @@ const SoftwareLicensesReport = () => {
   const [licenseRenewalCycle, setLicenseRenewalCycle] = useState<string>("all");
   const [licenseDateFrom, setLicenseDateFrom] = useState<string>("");
   const [licenseDateTo, setLicenseDateTo] = useState<string>("");
+  const [thisMonthExpiry, setThisMonthExpiry] = useState(false);
   const [licensesData, setLicensesData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -91,6 +93,14 @@ const SoftwareLicensesReport = () => {
       if (licenseRenewalCycle !== "all") query = query.eq("renewal_cycle", licenseRenewalCycle);
       if (licenseDateFrom) query = query.gte("purchase_date", licenseDateFrom);
       if (licenseDateTo) query = query.lte("purchase_date", licenseDateTo);
+      
+      // Filter by this month expiry
+      if (thisMonthExpiry) {
+        const now = new Date();
+        const monthStart = format(startOfMonth(now), "yyyy-MM-dd");
+        const monthEnd = format(endOfMonth(now), "yyyy-MM-dd");
+        query = query.gte("expiry_date", monthStart).lte("expiry_date", monthEnd);
+      }
 
       const { data, error } = await query;
 
@@ -238,6 +248,17 @@ const SoftwareLicensesReport = () => {
                 value={licenseDateTo}
                 onChange={(e) => setLicenseDateTo(e.target.value)}
               />
+            </div>
+
+            <div className="flex items-center space-x-2 md:col-span-3">
+              <Checkbox
+                id="thisMonthExpiry"
+                checked={thisMonthExpiry}
+                onCheckedChange={(checked) => setThisMonthExpiry(checked === true)}
+              />
+              <Label htmlFor="thisMonthExpiry" className="cursor-pointer">
+                تنتهي هذا الشهر / Expires This Month
+              </Label>
             </div>
           </div>
 
