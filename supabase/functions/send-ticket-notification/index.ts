@@ -350,8 +350,8 @@ function getNotificationContent(
           <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View & Approve Ticket</a>
         </div>
       `;
-      notificationTitle = "New Ticket Created";
-      notificationMessage = `Ticket ${ticketNumber}: ${subject}`;
+      notificationTitle = ticketTypeSubject;
+      notificationMessage = `${ticketNumber}: ${subject}`;
       break;
 
     case "ticket_approved":
@@ -369,8 +369,8 @@ function getNotificationContent(
           <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Ticket</a>
         </div>
       `;
-      notificationTitle = "Ticket Approved";
-      notificationMessage = `Your ticket ${ticketNumber} has been approved`;
+      notificationTitle = ticketTypeSubject;
+      notificationMessage = `تمت الموافقة على ${ticketNumber}`;
       break;
 
     case "ticket_assigned":
@@ -388,8 +388,8 @@ function getNotificationContent(
           <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Open Ticket</a>
         </div>
       `;
-      notificationTitle = "Ticket Assigned to You";
-      notificationMessage = `Ticket ${ticketNumber} has been assigned to you`;
+      notificationTitle = ticketTypeSubject;
+      notificationMessage = `تم تعيين ${ticketNumber} لك`;
       break;
   }
 
