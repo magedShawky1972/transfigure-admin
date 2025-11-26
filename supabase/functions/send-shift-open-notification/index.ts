@@ -25,6 +25,24 @@ function formatTimeToAMPM(timeStr: string | null): string {
   return `${hour}:${minute} ${period}`;
 }
 
+// Convert KSA time (UTC+3) to Egypt time (UTC+2) - subtract 1 hour
+function convertKSAtoEgypt(timeStr: string | null): string {
+  if (!timeStr) return '';
+  const [hourStr, minuteStr] = timeStr.split(':');
+  let hour = parseInt(hourStr, 10);
+  const minute = minuteStr || '00';
+  
+  // Subtract 1 hour for Egypt time
+  hour = hour - 1;
+  if (hour < 0) hour = 23;
+  
+  const period = hour >= 12 ? 'م' : 'ص';
+  let displayHour = hour;
+  if (displayHour === 0) displayHour = 12;
+  else if (displayHour > 12) displayHour = displayHour - 12;
+  return `${displayHour}:${minute} ${period}`;
+}
+
 // Get time in specific timezone
 function getTimeInTimezone(date: Date, offsetHours: number): string {
   const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
@@ -136,9 +154,11 @@ const handler = async (req: Request): Promise<Response> => {
     const ksaTime = getTimeInTimezone(now, 3);
     const egyptTime = getTimeInTimezone(now, 2);
     
-    // Format shift start and end times in AM/PM
-    const shiftStartTimeFormatted = formatTimeToAMPM(shift?.shift_start_time);
-    const shiftEndTimeFormatted = formatTimeToAMPM(shift?.shift_end_time);
+    // Format shift start and end times in AM/PM for KSA (original) and Egypt
+    const shiftStartKSA = formatTimeToAMPM(shift?.shift_start_time);
+    const shiftEndKSA = formatTimeToAMPM(shift?.shift_end_time);
+    const shiftStartEgypt = convertKSAtoEgypt(shift?.shift_start_time);
+    const shiftEndEgypt = convertKSAtoEgypt(shift?.shift_end_time);
     
     // Determine shift period (صباحى or مسائى) based on shift start time
     const getShiftPeriod = (startTime: string | null) => {
@@ -275,12 +295,20 @@ const handler = async (req: Request): Promise<Response> => {
                   <span class="info-value">${gregorianDate}</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-label">بداية الوردية:</span>
-                  <span class="info-value">${shiftStartTimeFormatted}</span>
+                  <span class="info-label">بداية الوردية (توقيت السعودية):</span>
+                  <span class="info-value">${shiftStartKSA}</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-label">نهاية الوردية:</span>
-                  <span class="info-value">${shiftEndTimeFormatted}</span>
+                  <span class="info-label">بداية الوردية (توقيت مصر):</span>
+                  <span class="info-value">${shiftStartEgypt}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">نهاية الوردية (توقيت السعودية):</span>
+                  <span class="info-value">${shiftEndKSA}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">نهاية الوردية (توقيت مصر):</span>
+                  <span class="info-value">${shiftEndEgypt}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">موعد الوردية:</span>
