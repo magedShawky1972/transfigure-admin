@@ -8,6 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -87,6 +88,7 @@ const Dashboard = () => {
   const [loadingInactiveCustomers, setLoadingInactiveCustomers] = useState(false);
   const [showDateInfo, setShowDateInfo] = useState(false);
   const [inactivePeriod, setInactivePeriod] = useState<string>("10");
+  const [includePointCost, setIncludePointCost] = useState<boolean>(true);
   const [trendDays, setTrendDays] = useState<string>("10");
   const [trendBrandFilter, setTrendBrandFilter] = useState<string>("all");
   const [inactiveCustomersPage, setInactiveCustomersPage] = useState(1);
@@ -1748,7 +1750,7 @@ const Dashboard = () => {
     {
       key: "total_profit",
       title: t("dashboard.totalProfit"),
-      value: formatCurrency(metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges),
+      value: formatCurrency(metrics.totalSales - metrics.costOfSales - (includePointCost ? metrics.pointsCostSold : 0) - metrics.ePaymentCharges),
       icon: TrendingUp,
       gradient: "from-blue-500 to-cyan-500",
     },
@@ -1790,11 +1792,11 @@ const Dashboard = () => {
     { label: t("dashboard.discountCoupons"), value: metrics.couponSales, percentage: (metrics.couponSales / metrics.totalSales) * 100 },
     { label: t("dashboard.salesPlusCoupon"), value: metrics.totalSales + metrics.couponSales, percentage: ((metrics.totalSales + metrics.couponSales) / metrics.totalSales) * 100 },
     { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100 },
-    { label: t("dashboard.pointsCost"), value: metrics.pointsCostSold, percentage: (metrics.pointsCostSold / metrics.totalSales) * 100 },
+    { label: t("dashboard.pointsCost"), value: includePointCost ? metrics.pointsCostSold : 0, percentage: includePointCost ? (metrics.pointsCostSold / metrics.totalSales) * 100 : 0 },
     { label: t("dashboard.shipping"), value: 0, percentage: 0 },
     { label: t("dashboard.taxes"), value: 0, percentage: 0 },
     { label: t("dashboard.ePaymentCharges"), value: metrics.ePaymentCharges, percentage: (metrics.ePaymentCharges / metrics.totalSales) * 100, onClick: handlePaymentChargesClick },
-    { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - metrics.pointsCostSold - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
+    { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - (includePointCost ? metrics.pointsCostSold : 0) - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - (includePointCost ? metrics.pointsCostSold : 0) - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
   ];
 
   return (
@@ -1807,6 +1809,19 @@ const Dashboard = () => {
       {/* Date Filter */}
       <Card>
         <CardContent className="pt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Checkbox 
+              id="includePointCost" 
+              checked={includePointCost}
+              onCheckedChange={(checked) => setIncludePointCost(checked as boolean)}
+            />
+            <label 
+              htmlFor="includePointCost" 
+              className="text-sm font-medium cursor-pointer select-none"
+            >
+              {language === 'ar' ? 'تضمين تكلفة النقاط في حساب الربح' : 'Include Point Cost in Profit Calculation'}
+            </label>
+          </div>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="flex-1 min-w-[200px]">
               <label className="text-sm font-medium mb-2 block">{t("dashboard.dateRange")}</label>
