@@ -491,11 +491,31 @@ function getNotificationContent(
   let notificationTitle = "";
   let notificationMessage = "";
   
-  const appUrl = "https://edaraasus.com";
+const appUrl = "https://edaraasus.com";
   const ticketLink = `${appUrl}/tickets/${ticketId}`;
   
   // Determine email subject based on purchase ticket status
   const ticketTypeSubject = ticketDetails.isPurchaseTicket ? "طلب شراء" : "تذكرة دعم";
+  
+  // Generate action tokens for email buttons
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!.substring(0, 32);
+  
+  function generateToken(tid: string, action: string): string {
+    const data = `${tid}-${action}-${secret}`;
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      const char = data.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+  }
+  
+  const approveToken = generateToken(ticketId, "approve");
+  const rejectToken = generateToken(ticketId, "reject");
+  const approveLink = `${supabaseUrl}/functions/v1/handle-ticket-action?ticketId=${ticketId}&action=approve&token=${approveToken}`;
+  const rejectLink = `${supabaseUrl}/functions/v1/handle-ticket-action?ticketId=${ticketId}&action=reject&token=${rejectToken}`;
   
   // Format creation date in Arabic
   const creationDate = new Date(ticketDetails.createdAt).toLocaleDateString('ar-EG', {
@@ -506,7 +526,7 @@ function getNotificationContent(
     minute: '2-digit'
   });
 
-  switch (type) {
+switch (type) {
     case "ticket_created":
       emailSubject = ticketTypeSubject;
       emailHtml = `
@@ -523,8 +543,12 @@ function getNotificationContent(
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
           </ul>
           <p>يرجى المراجعة واتخاذ الإجراء المناسب.</p>
-          <div style="margin: 20px 0;">
-            <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">عرض والموافقة على التذكرة</a>
+          <div style="margin: 20px 0; display: flex; gap: 10px; justify-content: flex-start;">
+            <a href="${approveLink}" style="background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">موافقة</a>
+            <a href="${rejectLink}" style="background-color: #EF4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">رفض</a>
+          </div>
+          <div style="margin: 10px 0;">
+            <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">عرض التذكرة</a>
           </div>
         </div>
       `;
