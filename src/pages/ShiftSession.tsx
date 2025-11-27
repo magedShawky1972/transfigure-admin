@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, RotateCcw } from "lucide-react";
+import { Upload, RotateCcw, Loader2, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Dialog,
@@ -52,6 +52,7 @@ const ShiftSession = () => {
   const [hasActiveAssignment, setHasActiveAssignment] = useState(false);
   const [showRollbackDialog, setShowRollbackDialog] = useState(false);
   const [rollbackPassword, setRollbackPassword] = useState("");
+  const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -272,6 +273,9 @@ const ShiftSession = () => {
         title: t("success"),
         description: t("imageUploadedSuccessfully"),
       });
+
+      // Automatically extract number using AI
+      await extractNumberFromImage(brandId, file);
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
@@ -279,6 +283,59 @@ const ShiftSession = () => {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const extractNumberFromImage = async (brandId: string, file: File) => {
+    setExtractingBrands((prev) => ({ ...prev, [brandId]: true }));
+    
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Image = await base64Promise;
+
+      const { data, error } = await supabase.functions.invoke("extract-shift-closing-number", {
+        body: { imageUrl: base64Image, brandId },
+      });
+
+      if (error) throw error;
+
+      if (data?.extractedNumber !== null && data?.extractedNumber !== undefined) {
+        setBalances((prev) => ({
+          ...prev,
+          [brandId]: {
+            ...prev[brandId],
+            brand_id: brandId,
+            closing_balance: data.extractedNumber,
+            receipt_image_path: prev[brandId]?.receipt_image_path || null,
+          },
+        }));
+
+        toast({
+          title: t("success"),
+          description: `تم استخراج الرقم: ${data.extractedNumber}`,
+        });
+      } else {
+        toast({
+          title: t("warning") || "تنبيه",
+          description: "لم يتم العثور على الرقم. يرجى إدخاله يدوياً.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error extracting number:", error);
+      toast({
+        title: t("warning") || "تنبيه",
+        description: "فشل في قراءة الرقم. يرجى إدخاله يدوياً.",
+        variant: "destructive",
+      });
+    } finally {
+      setExtractingBrands((prev) => ({ ...prev, [brandId]: false }));
     }
   };
 
@@ -470,12 +527,26 @@ const ShiftSession = () => {
                     <CardContent className="space-y-3">
                       <div>
                         <Label>{t("closingBalance")}</Label>
-                        <Input
-                          type="number"
-                          value={balances[brand.id]?.closing_balance || ""}
-                          onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
-                          placeholder="0.00"
-                        />
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            value={balances[brand.id]?.closing_balance || ""}
+                            onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
+                            placeholder="0.00"
+                            disabled={extractingBrands[brand.id]}
+                          />
+                          {extractingBrands[brand.id] && (
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            </div>
+                          )}
+                        </div>
+                        {extractingBrands[brand.id] && (
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Sparkles className="h-3 w-3" />
+                            جاري قراءة الرقم...
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label>{t("receiptImage")}</Label>
@@ -489,12 +560,17 @@ const ShiftSession = () => {
                             }}
                             className="hidden"
                             id={`file-${brand.id}`}
+                            disabled={extractingBrands[brand.id]}
                           />
                           <Label
                             htmlFor={`file-${brand.id}`}
-                            className="flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent"
+                            className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent ${extractingBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
                           >
-                            <Upload className="h-4 w-4" />
+                            {extractingBrands[brand.id] ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4" />
+                            )}
                             {balances[brand.id]?.receipt_image_path ? t("changeImage") : t("uploadImage")}
                           </Label>
                         </div>
