@@ -27,6 +27,7 @@ interface TrainingData {
   brand_id: string;
   image_path: string;
   notes: string | null;
+  expected_number: number | null;
 }
 
 const ClosingTraining = () => {
@@ -60,6 +61,8 @@ const ClosingTraining = () => {
     notesUpdated: language === "ar" ? "تم تحديث الملاحظات" : "Notes updated",
     addNotes: language === "ar" ? "إضافة ملاحظات" : "Add Notes",
     editNotes: language === "ar" ? "تعديل الملاحظات" : "Edit Notes",
+    expectedNumber: language === "ar" ? "الرقم المتوقع (المربع الأصفر)" : "Expected Number (Yellow Square)",
+    numberPlaceholder: language === "ar" ? "أدخل الرقم من الصورة" : "Enter number from image",
   };
 
   useEffect(() => {
