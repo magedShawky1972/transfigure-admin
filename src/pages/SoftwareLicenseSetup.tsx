@@ -71,6 +71,14 @@ const PAYMENT_METHODS = [
   { value: "cash", label: "Cash", labelAr: "نقدي" }
 ];
 
+interface Currency {
+  id: string;
+  currency_code: string;
+  currency_name: string;
+  currency_name_ar: string | null;
+  is_base: boolean;
+}
+
 interface Department {
   id: string;
   department_name: string;
@@ -116,6 +124,7 @@ const SoftwareLicenseSetup = () => {
   const [editingLicenseId, setEditingLicenseId] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>(PAYMENT_METHODS.map(pm => pm.value));
   const [openPaymentCombo, setOpenPaymentCombo] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
@@ -138,12 +147,14 @@ const SoftwareLicenseSetup = () => {
     invoice_file_path: "",
     notes: "",
     status: "active",
+    currency_id: "",
   });
 
   useEffect(() => {
     fetchLicenses();
     fetchDepartments();
     fetchUsers();
+    fetchCurrencies();
   }, []);
 
   useEffect(() => {
@@ -198,6 +209,27 @@ const SoftwareLicenseSetup = () => {
       setUsers(data || []);
     } catch (error: any) {
       console.error("Error fetching users:", error);
+    }
+  };
+
+  const fetchCurrencies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("currencies")
+        .select("id, currency_code, currency_name, currency_name_ar, is_base")
+        .eq("is_active", true)
+        .order("is_base", { ascending: false });
+
+      if (error) throw error;
+      setCurrencies(data || []);
+      
+      // Set default currency to base currency if available
+      const baseCurrency = data?.find(c => c.is_base);
+      if (baseCurrency && !formData.currency_id) {
+        setFormData(prev => ({ ...prev, currency_id: baseCurrency.id }));
+      }
+    } catch (error: any) {
+      console.error("Error fetching currencies:", error);
     }
   };
 
@@ -343,6 +375,7 @@ const SoftwareLicenseSetup = () => {
         invoice_file_path: formData.invoice_file_path || null,
         notes: formData.notes || null,
         status: formData.status,
+        currency_id: formData.currency_id || null,
         updated_by: user.id,
       };
 
@@ -414,6 +447,7 @@ const SoftwareLicenseSetup = () => {
           invoice_file_path: data.invoice_file_path || "",
           notes: data.notes || "",
           status: data.status || "active",
+          currency_id: data.currency_id || "",
         });
         setEditingLicenseId(licenseId);
         setIsDialogOpen(true);
@@ -480,6 +514,7 @@ const SoftwareLicenseSetup = () => {
       invoice_file_path: "",
       notes: "",
       status: "active",
+      currency_id: currencies.find(c => c.is_base)?.id || "",
     });
   };
 
@@ -847,6 +882,25 @@ const SoftwareLicenseSetup = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currency_id">{language === "ar" ? "العملة" : "Currency"} *</Label>
+                    <Select value={formData.currency_id} onValueChange={(value) => setFormData({ ...formData, currency_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select currency"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((currency) => (
+                          <SelectItem key={currency.id} value={currency.id}>
+                            {currency.currency_code} - {language === "ar" ? (currency.currency_name_ar || currency.currency_name) : currency.currency_name}
+                            {currency.is_base && ` (${language === "ar" ? "أساسية" : "Base"})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="cost">{language === "ar" ? "التكلفة" : "Cost"} *</Label>
                     <Input

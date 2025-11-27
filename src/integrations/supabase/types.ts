@@ -1531,6 +1531,7 @@ export type Database = {
           cost: number
           created_at: string
           created_by: string | null
+          currency_id: string | null
           expiry_date: string | null
           id: string
           invoice_file_path: string | null
@@ -1555,6 +1556,7 @@ export type Database = {
           cost?: number
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
           expiry_date?: string | null
           id?: string
           invoice_file_path?: string | null
@@ -1579,6 +1581,7 @@ export type Database = {
           cost?: number
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
           expiry_date?: string | null
           id?: string
           invoice_file_path?: string | null
@@ -1596,7 +1599,15 @@ export type Database = {
           vendor_provider?: string
           version?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "software_licenses_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_products: {
         Row: {

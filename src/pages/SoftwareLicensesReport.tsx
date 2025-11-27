@@ -25,9 +25,13 @@ const SoftwareLicensesReport = () => {
   const [licensesData, setLicensesData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const [currencies, setCurrencies] = useState<any[]>([]);
+  const [currencyRates, setCurrencyRates] = useState<any[]>([]);
+  const [baseCurrency, setBaseCurrency] = useState<any>(null);
 
   useEffect(() => {
     checkAccess();
+    fetchCurrencies();
   }, []);
 
   const checkAccess = async () => {
@@ -70,6 +74,43 @@ const SoftwareLicensesReport = () => {
       console.error('Error checking access:', error);
       navigate('/reports');
     }
+  };
+
+  const fetchCurrencies = async () => {
+    try {
+      const { data: currenciesData } = await supabase
+        .from("currencies")
+        .select("id, currency_code, currency_name, is_base")
+        .eq("is_active", true);
+
+      setCurrencies(currenciesData || []);
+      setBaseCurrency(currenciesData?.find(c => c.is_base) || null);
+
+      const { data: ratesData } = await supabase
+        .from("currency_rates")
+        .select("currency_id, rate_to_base")
+        .order("effective_date", { ascending: false });
+
+      const latestRates: any[] = [];
+      const seen = new Set<string>();
+      for (const rate of ratesData || []) {
+        if (!seen.has(rate.currency_id)) {
+          latestRates.push(rate);
+          seen.add(rate.currency_id);
+        }
+      }
+      setCurrencyRates(latestRates);
+    } catch (error) {
+      console.error("Error fetching currencies:", error);
+    }
+  };
+
+  const convertToBaseCurrency = (cost: number, currencyId: string | null): number => {
+    if (!currencyId || !baseCurrency) return cost;
+    if (currencyId === baseCurrency.id) return cost;
+    const rate = currencyRates.find((r: any) => r.currency_id === currencyId);
+    if (rate && rate.rate_to_base > 0) return cost / rate.rate_to_base;
+    return cost;
   };
 
   if (hasAccess === null) {
@@ -132,19 +173,25 @@ const SoftwareLicensesReport = () => {
       return;
     }
 
-    const headers = ["Software", "Category", "Vendor", "Status", "Renewal Cycle", "Cost", "Purchase Date", "Expiry Date"];
+    const headers = ["Software", "Category", "Vendor", "Status", "Renewal Cycle", "Cost", "Currency", "Cost (Base)", "Purchase Date", "Expiry Date"];
     const csv = [
       headers.join(","),
-      ...licensesData.map(license => [
-        `"${license.software_name}"`,
-        license.category,
-        `"${license.vendor_provider}"`,
-        license.status,
-        license.renewal_cycle,
-        license.cost,
-        format(new Date(license.purchase_date), "yyyy-MM-dd"),
-        license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "N/A"
-      ].join(","))
+      ...licensesData.map(license => {
+        const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
+        const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
+        return [
+          `"${license.software_name}"`,
+          license.category,
+          `"${license.vendor_provider}"`,
+          license.status,
+          license.renewal_cycle,
+          license.cost,
+          currencyCode,
+          baseCost.toFixed(2),
+          format(new Date(license.purchase_date), "yyyy-MM-dd"),
+          license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "N/A"
+        ].join(",");
+      })
     ].join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -307,34 +354,40 @@ const SoftwareLicensesReport = () => {
                     <TableHead>Status</TableHead>
                     <TableHead>Renewal Cycle</TableHead>
                     <TableHead>Cost</TableHead>
+                    <TableHead>Cost ({baseCurrency?.currency_code || 'Base'})</TableHead>
                     <TableHead>Purchase Date</TableHead>
                     <TableHead>Expiry Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {licensesData.map((license) => (
-                    <TableRow key={license.id}>
-                      <TableCell className="font-medium">{license.software_name}</TableCell>
-                      <TableCell>{license.category}</TableCell>
-                      <TableCell>{license.vendor_provider}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          license.status === "active" ? "bg-green-500/20 text-green-700" :
-                          license.status === "expired" ? "bg-red-500/20 text-red-700" :
-                          license.status === "cancelled" ? "bg-gray-500/20 text-gray-700" :
-                          "bg-yellow-500/20 text-yellow-700"
-                        }`}>
-                          {license.status}
-                        </span>
-                      </TableCell>
-                      <TableCell>{license.renewal_cycle}</TableCell>
-                      <TableCell>${license.cost.toLocaleString()}</TableCell>
-                      <TableCell>{format(new Date(license.purchase_date), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>
-                        {license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {licensesData.map((license) => {
+                    const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
+                    const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
+                    return (
+                      <TableRow key={license.id}>
+                        <TableCell className="font-medium">{license.software_name}</TableCell>
+                        <TableCell>{license.category}</TableCell>
+                        <TableCell>{license.vendor_provider}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            license.status === "active" ? "bg-green-500/20 text-green-700" :
+                            license.status === "expired" ? "bg-red-500/20 text-red-700" :
+                            license.status === "cancelled" ? "bg-gray-500/20 text-gray-700" :
+                            "bg-yellow-500/20 text-yellow-700"
+                          }`}>
+                            {license.status}
+                          </span>
+                        </TableCell>
+                        <TableCell>{license.renewal_cycle}</TableCell>
+                        <TableCell>{license.cost.toLocaleString()} {currencyCode}</TableCell>
+                        <TableCell>{baseCost.toFixed(2)} {baseCurrency?.currency_code}</TableCell>
+                        <TableCell>{format(new Date(license.purchase_date), "MMM dd, yyyy")}</TableCell>
+                        <TableCell>
+                          {license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
