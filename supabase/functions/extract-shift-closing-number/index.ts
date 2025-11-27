@@ -45,7 +45,6 @@ serve(async (req) => {
       .eq("brand_id", brandId)
       .single();
 
-    let trainingContext = "";
     let trainingImageUrl = "";
 
     if (trainingData && !trainingError) {
@@ -59,52 +58,44 @@ serve(async (req) => {
           trainingImageUrl = signedUrlData.signedUrl;
         }
       }
-
-      trainingContext = `
-TRAINING DATA FOR THIS BRAND (${brandName || "unknown"}):
-- The expected closing number location was marked with a yellow square in the training image
-- The expected number from training is: ${trainingData.expected_number || "unknown"}
-- Notes: ${trainingData.notes || "none"}
-
-IMPORTANT: Use the training image to understand WHERE the closing balance number is typically located in this brand's interface. 
-The training image has a yellow square highlighting the exact location. Find the same location in the new image and extract the number from there.
-`;
     }
 
     console.log("Extracting closing number for brand:", brandId, brandName);
     console.log("Has training data:", !!trainingData);
+    console.log("Training image URL:", trainingImageUrl ? "available" : "not available");
 
     // Build messages array for extraction and validation
     const messages: any[] = [
       {
         role: "system",
-        content: `You are a number extraction assistant specialized in reading closing balance numbers from point-of-sale or financial system screenshots.
+        content: `You are an expert image validator and number extractor for point-of-sale closing balance screenshots.
 
-Your task is to:
-1. FIRST - Validate if the uploaded image matches the expected brand interface (${brandName || "the specified brand"})
-2. SECOND - If valid, extract the closing balance number from the image
+CRITICAL TASK: You MUST validate if the NEW image matches the SAME application/brand as the TRAINING image.
 
-${trainingContext}
+BRAND VALIDATION RULES (VERY STRICT):
+1. Compare the APPLICATION NAME visible in both images - they MUST match exactly
+2. Compare the UI LAYOUT - header, buttons, colors, structure must be similar
+3. Compare the COLOR SCHEME - background colors, accent colors
+4. Look for BRAND LOGOS or IDENTIFIABLE ELEMENTS
+5. If the app name is different (e.g., "Hawa" vs "Soul Free" vs "Sila Chat" vs "Binmo"), mark as INVALID
+6. If the UI layout is significantly different, mark as INVALID
+7. Arabic app names to watch: بينمو، سول فري، سيلا شات، صدى لايف، هوى شات، هيلا شات، يوهو
 
-Rules for brand validation:
-- Compare the new image with the training image to verify they show the SAME brand/application interface
-- Look for brand identifiers like logos, app names, or distinctive UI elements
-- If the image shows a DIFFERENT brand's interface (different app name, different UI layout), mark it as INVALID
+IMPORTANT: Different voice chat apps (Hawa Chat, Soul Free, Sila Chat, Binmo, Yoho, etc.) have DIFFERENT UIs. Do NOT confuse them!
 
-Rules for number extraction:
-- Look for the closing balance / total / remaining balance number in the image
-- If training data is provided, use the training image to learn WHERE the number is located, then find the same location in the new image
-- Extract ONLY the numeric value (digits only, no currency symbols or text)
-- If you find a decimal number, include the decimal point
+NUMBER EXTRACTION RULES:
+- Only extract the number if brand is VALID
+- Look for the closing balance / total / coins number in the highlighted area
+- Extract ONLY numeric digits (no currency symbols)
 
-Response format (JSON):
+Response format (JSON only, no markdown):
 {
-  "isValidBrand": true/false,
+  "isValidBrand": true or false,
   "extractedNumber": "number or NOT_FOUND",
-  "brandMismatchReason": "explanation if invalid, empty if valid"
+  "brandMismatchReason": "explain why invalid (e.g., 'Image shows Hawa Chat app but expected Soul Free')"
 }
 
-IMPORTANT: Return ONLY valid JSON, no other text.`
+Return ONLY the JSON object, no other text or markdown formatting.`
       }
     ];
 
@@ -114,7 +105,7 @@ IMPORTANT: Return ONLY valid JSON, no other text.`
     if (trainingImageUrl) {
       userContent.push({
         type: "text",
-        text: `Here is the training image for brand "${brandName}" showing WHERE the closing number is located (marked with yellow square):`
+        text: `TRAINING IMAGE for brand "${brandName}" - This is the REFERENCE image showing the correct app interface:`
       });
       userContent.push({
         type: "image_url",
@@ -122,12 +113,12 @@ IMPORTANT: Return ONLY valid JSON, no other text.`
       });
       userContent.push({
         type: "text",
-        text: `Now validate if this NEW image is for the SAME brand "${brandName}" and extract the number from the SAME LOCATION:`
+        text: `NEW IMAGE to validate - Check if this is the SAME application as the training image above. Brand should be: "${brandName}"`
       });
     } else {
       userContent.push({
         type: "text",
-        text: `Find and extract the closing balance number from this image for brand "${brandName}":`
+        text: `Extract the closing balance number from this image for brand "${brandName}". No training image available for validation.`
       });
     }
 
@@ -191,12 +182,13 @@ IMPORTANT: Return ONLY valid JSON, no other text.`
       } else if (cleanedText.startsWith("```")) {
         cleanedText = cleanedText.replace(/^```\s*/, "").replace(/\s*```$/, "");
       }
+      cleanedText = cleanedText.trim();
 
       const jsonResponse = JSON.parse(cleanedText);
-      isValidBrand = jsonResponse.isValidBrand !== false;
+      isValidBrand = jsonResponse.isValidBrand === true; // strict check
       brandMismatchReason = jsonResponse.brandMismatchReason || "";
 
-      if (jsonResponse.extractedNumber && jsonResponse.extractedNumber !== "NOT_FOUND") {
+      if (isValidBrand && jsonResponse.extractedNumber && jsonResponse.extractedNumber !== "NOT_FOUND") {
         const cleanedNumber = String(jsonResponse.extractedNumber).replace(/[^\d.-]/g, "");
         const parsed = parseFloat(cleanedNumber);
         if (!isNaN(parsed)) {
@@ -204,15 +196,11 @@ IMPORTANT: Return ONLY valid JSON, no other text.`
         }
       }
     } catch (parseError) {
-      console.log("Failed to parse JSON, falling back to text extraction");
-      // Fallback: try to extract number from the text directly
-      if (extractedText && extractedText !== "NOT_FOUND") {
-        const cleanedText = extractedText.replace(/[^\d.-]/g, "");
-        const parsed = parseFloat(cleanedText);
-        if (!isNaN(parsed)) {
-          extractedNumber = parsed;
-        }
-      }
+      console.error("Failed to parse JSON response:", parseError);
+      console.log("Raw response:", extractedText);
+      // If we can't parse, treat as invalid to be safe
+      isValidBrand = false;
+      brandMismatchReason = "Failed to validate image";
     }
 
     console.log("Parsed result - isValidBrand:", isValidBrand, "extractedNumber:", extractedNumber, "mismatchReason:", brandMismatchReason);
@@ -220,7 +208,7 @@ IMPORTANT: Return ONLY valid JSON, no other text.`
     return new Response(
       JSON.stringify({ 
         success: true, 
-        extractedNumber,
+        extractedNumber: isValidBrand ? extractedNumber : null,
         isValidBrand,
         brandMismatchReason,
         rawText: extractedText,
