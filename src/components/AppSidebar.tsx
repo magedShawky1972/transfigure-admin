@@ -84,7 +84,6 @@ export function AppSidebar() {
     "/my-shifts": "myShifts",
     "/tawasoul": "tawasoul",
     "/closing-training": "closingTraining",
-    "/ludo-training": "ludoTraining",
     "/currency-setup": "currencySetup",
   };
 
@@ -211,7 +210,6 @@ export function AppSidebar() {
         { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
         { title: language === 'ar' ? 'إعدادات النظام' : 'System Configuration', url: "/system-config", icon: Shield },
         { title: language === 'ar' ? 'تدريب الإغلاق' : 'Closing Training', url: "/closing-training", icon: GraduationCap },
-        { title: language === 'ar' ? 'تدريب يلا لودو' : 'Ludo Training', url: "/ludo-training", icon: Gamepad2 },
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
