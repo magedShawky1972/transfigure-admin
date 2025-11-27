@@ -82,7 +82,12 @@ VALIDATION RULES:
 
 DATA TO EXTRACT:
 1. amount - The recharge/top-up amount (numeric value only, no currency symbols)
-2. playerId - The player's ID number (usually a numeric string like "12345678" or similar format)
+2. playerId - CRITICAL: Look carefully for the player's ID anywhere in the image:
+   - Often starts with "yap_" followed by numbers (e.g., "yap_123456789")
+   - May appear as a long numeric string (e.g., "251107201303479624659")
+   - Could be labeled as "معرف اللاعب" or "Player ID" or "ID"
+   - Check ALL text in the image including small text, headers, and footers
+   - The ID may be partially visible or in a corner of the screenshot
 3. transactionDate - Date and time of the transaction (format: YYYY-MM-DD HH:MM:SS if visible, or current date if not visible)
 4. detectedSku - CRITICAL: Determine which product SKU based on the Arabic product name shown:
    - "LUDOF001" = When product name shows "فارس" (Faris/Fans) - this is the Fans package
@@ -92,7 +97,7 @@ DATA TO EXTRACT:
    - If you see "اللواء" → return "LUDOL001"
 
 IMPORTANT:
-- Player ID is often shown near username or account info
+- Player ID is the MOST important field to extract - search the entire image carefully
 - Amount may be shown in diamonds, coins, or currency
 - Date/time might be in the transaction details or receipt timestamp
 - If any field is not clearly visible, set it to null
