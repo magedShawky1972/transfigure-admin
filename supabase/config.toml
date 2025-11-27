@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.extract-shift-closing-number]
 verify_jwt = false
+
+[functions.extract-ludo-transaction]
+verify_jwt = false

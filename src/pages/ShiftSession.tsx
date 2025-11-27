@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import LudoTransactionsSection from "@/components/LudoTransactionsSection";
 
 interface Brand {
   id: string;
@@ -28,6 +29,7 @@ interface ShiftSession {
   id: string;
   opened_at: string;
   status: string;
+  user_id: string;
 }
 
 interface BrandBalance {
@@ -833,6 +835,12 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                   </Card>
                 ))}
               </div>
+
+              {/* Ludo Manual Transactions Section */}
+              <LudoTransactionsSection 
+                shiftSessionId={shiftSession.id} 
+                userId={shiftSession.user_id} 
+              />
 
               <div className="flex gap-2">
                 <Button onClick={handleCloseShift} className="flex-1" variant="destructive">
