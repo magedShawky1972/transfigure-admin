@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, RotateCcw, Loader2, Sparkles } from "lucide-react";
+import { Upload, RotateCcw, Loader2, Sparkles, Trash2, Image as ImageIcon, Eye } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Dialog,
@@ -52,7 +52,8 @@ const ShiftSession = () => {
   const [hasActiveAssignment, setHasActiveAssignment] = useState(false);
   const [showRollbackDialog, setShowRollbackDialog] = useState(false);
   const [rollbackPassword, setRollbackPassword] = useState("");
-  const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>>({});
+const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>>({});
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -284,6 +285,46 @@ const ShiftSession = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeleteImage = async (brandId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !shiftSession) return;
+
+      const existingPath = balances[brandId]?.receipt_image_path;
+      if (existingPath) {
+        await supabase.storage.from("shift-receipts").remove([existingPath]);
+      }
+
+      setBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: prev[brandId]?.closing_balance || 0,
+          receipt_image_path: null,
+        },
+      }));
+
+      toast({
+        title: t("success"),
+        description: t("imageDeletedSuccessfully") || "تم حذف الصورة بنجاح",
+      });
+    } catch (error: any) {
+      console.error("Error deleting image:", error);
+      toast({
+        title: t("error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getImageUrl = (imagePath: string | null) => {
+    if (!imagePath) return null;
+    const { data } = supabase.storage.from("shift-receipts").getPublicUrl(imagePath);
+    return data.publicUrl;
   };
 
   const extractNumberFromImage = async (brandId: string, file: File) => {
@@ -548,8 +589,40 @@ const ShiftSession = () => {
                           </p>
                         )}
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label>{t("receiptImage")}</Label>
+                        
+                        {/* Image Preview */}
+                        {balances[brand.id]?.receipt_image_path && (
+                          <div className="relative rounded-lg overflow-hidden border bg-muted">
+                            <img
+                              src={getImageUrl(balances[brand.id]?.receipt_image_path)}
+                              alt={brand.brand_name}
+                              className="w-full h-32 object-cover cursor-pointer"
+                              onClick={() => setSelectedImage(getImageUrl(balances[brand.id]?.receipt_image_path))}
+                            />
+                            <div className="absolute top-2 right-2 flex gap-1">
+                              <Button
+                                size="icon"
+                                variant="secondary"
+                                className="h-7 w-7 bg-background/80 hover:bg-background"
+                                onClick={() => setSelectedImage(getImageUrl(balances[brand.id]?.receipt_image_path))}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="destructive"
+                                className="h-7 w-7"
+                                onClick={() => handleDeleteImage(brand.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Upload Button */}
                         <div className="flex items-center gap-2">
                           <Input
                             type="file"
@@ -564,7 +637,7 @@ const ShiftSession = () => {
                           />
                           <Label
                             htmlFor={`file-${brand.id}`}
-                            className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent ${extractingBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
+                            className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent w-full justify-center ${extractingBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
                           >
                             {extractingBrands[brand.id] ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -632,6 +705,22 @@ const ShiftSession = () => {
               تأكيد الإلغاء
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t("receiptImage")}</DialogTitle>
+          </DialogHeader>
+          {selectedImage && (
+            <img
+              src={selectedImage}
+              alt="Receipt"
+              className="w-full max-h-[70vh] object-contain rounded-lg"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
