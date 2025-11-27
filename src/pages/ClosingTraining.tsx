@@ -480,10 +480,24 @@ const ClosingTraining = () => {
       if (error) throw error;
 
       if (data?.isValidApp) {
+        // Fetch product price from database based on detected SKU
+        let amount: number | null = null;
+        const skuToLookup = data.detectedSku || productSku;
+        
+        const { data: productData } = await supabase
+          .from("products")
+          .select("product_price")
+          .eq("sku", skuToLookup)
+          .maybeSingle();
+        
+        if (productData?.product_price) {
+          amount = parseFloat(productData.product_price);
+        }
+
         setLudoExtractedData((prev) => ({
           ...prev,
           [productSku]: {
-            amount: data.amount,
+            amount,
             playerId: data.playerId,
             transactionDate: data.transactionDate,
             detectedSku: data.detectedSku,
