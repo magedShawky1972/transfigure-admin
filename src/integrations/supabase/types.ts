@@ -276,6 +276,77 @@ export type Database = {
         }
         Relationships: []
       }
+      currencies: {
+        Row: {
+          created_at: string
+          currency_code: string
+          currency_name: string
+          currency_name_ar: string | null
+          id: string
+          is_active: boolean
+          is_base: boolean
+          symbol: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency_code: string
+          currency_name: string
+          currency_name_ar?: string | null
+          id?: string
+          is_active?: boolean
+          is_base?: boolean
+          symbol?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency_code?: string
+          currency_name?: string
+          currency_name_ar?: string | null
+          id?: string
+          is_active?: boolean
+          is_base?: boolean
+          symbol?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      currency_rates: {
+        Row: {
+          created_at: string
+          currency_id: string
+          effective_date: string
+          id: string
+          rate_to_base: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency_id: string
+          effective_date?: string
+          id?: string
+          rate_to_base?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency_id?: string
+          effective_date?: string
+          id?: string
+          rate_to_base?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "currency_rates_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           block_reason: string | null
