@@ -47,15 +47,15 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
-  "ERP",
-  "Dev Tools",
-  "Cloud Services",
-  "Security",
-  "Productivity",
-  "Design",
-  "Communication",
-  "Analytics",
-  "Other"
+  { value: "ERP", label: "ERP", labelAr: "نظام تخطيط موارد المؤسسة" },
+  { value: "Dev Tools", label: "Dev Tools", labelAr: "أدوات التطوير" },
+  { value: "Cloud Services", label: "Cloud Services", labelAr: "الخدمات السحابية" },
+  { value: "Security", label: "Security", labelAr: "الأمان" },
+  { value: "Productivity", label: "Productivity", labelAr: "الإنتاجية" },
+  { value: "Design", label: "Design", labelAr: "التصميم" },
+  { value: "Communication", label: "Communication", labelAr: "التواصل" },
+  { value: "Analytics", label: "Analytics", labelAr: "التحليلات" },
+  { value: "Other", label: "Other", labelAr: "أخرى" }
 ];
 
 const RENEWAL_CYCLES = [
@@ -636,12 +636,19 @@ const SoftwareLicenseSetup = () => {
             <SelectContent>
               <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
               {uniqueCategories.length > 0 ? (
-                uniqueCategories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))
+                uniqueCategories.map((cat) => {
+                  const catObj = CATEGORIES.find(c => c.value === cat);
+                  return (
+                    <SelectItem key={cat} value={cat}>
+                      {catObj ? (language === "ar" ? catObj.labelAr : catObj.label) : cat}
+                    </SelectItem>
+                  );
+                })
               ) : (
                 CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {language === "ar" ? cat.labelAr : cat.label}
+                  </SelectItem>
                 ))
               )}
             </SelectContent>
@@ -753,7 +760,9 @@ const SoftwareLicenseSetup = () => {
                     <TableRow key={license.id}>
                       <TableCell className="font-medium">{license.software_name}</TableCell>
                       <TableCell>{license.vendor_provider}</TableCell>
-                      <TableCell>{license.category}</TableCell>
+                      <TableCell>
+                        {CATEGORIES.find(c => c.value === license.category)?.[language === "ar" ? "labelAr" : "label"] || license.category}
+                      </TableCell>
                       <TableCell>{format(new Date(license.purchase_date), "yyyy-MM-dd")}</TableCell>
                       <TableCell>
                         {license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "-"}
@@ -870,7 +879,9 @@ const SoftwareLicenseSetup = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {language === "ar" ? cat.labelAr : cat.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
