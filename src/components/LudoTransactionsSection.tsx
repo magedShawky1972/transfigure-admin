@@ -69,31 +69,53 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [uploadProgress, setUploadProgress] = useState({ total: 0, current: 0, success: 0 });
 
-  const TEMP_STORAGE_KEY = `ludo_temp_transactions_${shiftSessionId}`;
+  // Load temp transactions from database on mount
+  const loadTempTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("temp_ludo_transactions")
+        .select("*")
+        .eq("shift_session_id", shiftSessionId)
+        .order("created_at", { ascending: true });
 
-  // Load temp transactions from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(TEMP_STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        console.log(`[Ludo] Loaded ${parsed.length} temp transactions from storage`);
-        setTempTransactions(parsed);
-      } catch (e) {
-        console.error("[Ludo] Failed to parse saved transactions:", e);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const tempTxs: TempTransaction[] = await Promise.all(
+          data.map(async (row) => {
+            let imageUrl = "";
+            if (row.image_path) {
+              const { data: signedData } = await supabase.storage
+                .from("ludo-receipts")
+                .createSignedUrl(row.image_path, 3600);
+              imageUrl = signedData?.signedUrl || "";
+            }
+            const product = products.find(p => p.sku === row.product_sku);
+            return {
+              id: row.id,
+              product_sku: row.product_sku,
+              product_name: product?.product_name || row.product_sku,
+              player_id: row.player_id || "",
+              amount: Number(row.amount),
+              transaction_date: row.transaction_date,
+              image_path: row.image_path || "",
+              imageUrl,
+            };
+          })
+        );
+        console.log(`[Ludo] Loaded ${tempTxs.length} temp transactions from database`);
+        setTempTransactions(tempTxs);
       }
+    } catch (error) {
+      console.error("[Ludo] Failed to load temp transactions:", error);
     }
-  }, [shiftSessionId]);
+  };
 
-  // Save temp transactions to localStorage whenever they change
   useEffect(() => {
-    if (tempTransactions.length > 0) {
-      localStorage.setItem(TEMP_STORAGE_KEY, JSON.stringify(tempTransactions));
-      console.log(`[Ludo] Saved ${tempTransactions.length} temp transactions to storage`);
-    } else {
-      localStorage.removeItem(TEMP_STORAGE_KEY);
+    if (products.length > 0) {
+      loadTempTransactions();
     }
-  }, [tempTransactions, TEMP_STORAGE_KEY]);
+  }, [shiftSessionId, products]);
 
   const translations = {
     title: language === "ar" ? "معاملات يلا لودو اليدوية" : "Yalla Ludo Manual Transactions",
@@ -240,25 +262,41 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         const product = products.find(p => p.sku === detectedSku);
         const amount = product?.product_price ? parseFloat(product.product_price) : (data.amount || 0);
 
+        const transactionDate = data.transactionDate || new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+        // Insert into temp_ludo_transactions table
+        const { data: insertedRow, error: insertError } = await supabase
+          .from("temp_ludo_transactions")
+          .insert({
+            shift_session_id: shiftSessionId,
+            user_id: userId,
+            product_sku: detectedSku,
+            amount: amount,
+            player_id: null,
+            transaction_date: transactionDate,
+            image_path: fileName,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error(`[Ludo Upload] DB insert error:`, insertError);
+          throw insertError;
+        }
+
         const tempTx: TempTransaction = {
-          id: `temp-${uniqueId}`,
+          id: insertedRow.id,
           product_sku: detectedSku,
           product_name: product?.product_name || detectedSku,
-          player_id: "", // User will enter manually
+          player_id: "",
           amount: amount,
-          transaction_date: data.transactionDate || new Date().toISOString().replace('T', ' ').slice(0, 19),
+          transaction_date: transactionDate,
           image_path: fileName,
           imageUrl: base64Image,
         };
 
-        console.log(`[Ludo Upload] Adding temp transaction:`, tempTx.id);
-        // Add to state immediately after each successful extraction
-        setTempTransactions(prev => {
-          console.log(`[Ludo Upload] Previous temp transactions count: ${prev.length}`);
-          const newList = [...prev, tempTx];
-          console.log(`[Ludo Upload] New temp transactions count: ${newList.length}`);
-          return newList;
-        });
+        console.log(`[Ludo Upload] Added temp transaction to DB:`, tempTx.id);
+        setTempTransactions(prev => [...prev, tempTx]);
 
         successCount++;
         setUploadProgress(prev => ({ ...prev, success: successCount }));
@@ -290,13 +328,21 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
     setUploadProgress({ total: 0, current: 0, success: 0 });
   };
 
-  const updateTempPlayerID = (tempId: string, playerId: string) => {
+  const updateTempPlayerID = async (tempId: string, playerId: string) => {
+    // Update in database
+    await supabase
+      .from("temp_ludo_transactions")
+      .update({ player_id: playerId })
+      .eq("id", tempId);
+    
     setTempTransactions(prev => 
       prev.map(tx => tx.id === tempId ? { ...tx, player_id: playerId } : tx)
     );
   };
 
   const deleteTempTransaction = async (tempTx: TempTransaction) => {
+    // Delete from database
+    await supabase.from("temp_ludo_transactions").delete().eq("id", tempTx.id);
     // Delete uploaded image
     await supabase.storage.from("ludo-receipts").remove([tempTx.image_path]);
     setTempTransactions(prev => prev.filter(tx => tx.id !== tempTx.id));
@@ -384,6 +430,12 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
           setTransactions(prev => [newTx, ...prev]);
         }
       }
+
+      // Clear temp transactions from database
+      await supabase
+        .from("temp_ludo_transactions")
+        .delete()
+        .eq("shift_session_id", shiftSessionId);
 
       setTempTransactions([]);
       toast({ title: translations.allConfirmed });

@@ -1755,6 +1755,53 @@ export type Database = {
         }
         Relationships: []
       }
+      temp_ludo_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          image_path: string | null
+          player_id: string | null
+          product_sku: string
+          shift_session_id: string
+          transaction_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          player_id?: string | null
+          product_sku: string
+          shift_session_id: string
+          transaction_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          player_id?: string | null
+          product_sku?: string
+          shift_session_id?: string
+          transaction_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temp_ludo_transactions_shift_session_id_fkey"
+            columns: ["shift_session_id"]
+            isOneToOne: false
+            referencedRelation: "shift_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_attachments: {
         Row: {
           created_at: string
