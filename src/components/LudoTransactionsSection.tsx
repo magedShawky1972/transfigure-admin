@@ -5,9 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Trash2, Loader2, Sparkles, Gamepad2, Plus, Eye } from "lucide-react";
+import { Upload, Trash2, Loader2, Sparkles, Gamepad2, Eye, Check, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 interface LudoTransaction {
   id: string;
@@ -31,6 +31,17 @@ interface LudoTransaction {
   amount: number;
   transaction_date: string;
   image_path: string | null;
+}
+
+interface TempTransaction {
+  id: string;
+  product_sku: string;
+  product_name: string;
+  player_id: string;
+  amount: number;
+  transaction_date: string;
+  image_path: string;
+  imageUrl: string;
 }
 
 interface LudoProduct {
@@ -46,34 +57,24 @@ interface LudoTransactionsSectionProps {
 }
 
 const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSectionProps) => {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const { toast } = useToast();
   const [products, setProducts] = useState<LudoProduct[]>([]);
   const [transactions, setTransactions] = useState<LudoTransaction[]>([]);
+  const [tempTransactions, setTempTransactions] = useState<TempTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
-  // Form state for new transaction
-  const [newTransaction, setNewTransaction] = useState({
-    playerId: "",
-    amount: "",
-    transactionDate: new Date().toISOString().slice(0, 16),
-    imageFile: null as File | null,
-    imagePath: null as string | null,
-  });
-
   const translations = {
     title: language === "ar" ? "معاملات يلا لودو اليدوية" : "Yalla Ludo Manual Transactions",
-    selectProduct: language === "ar" ? "اختر المنتج" : "Select Product",
     playerId: language === "ar" ? "رقم اللاعب" : "Player ID",
     amount: language === "ar" ? "المبلغ" : "Amount",
     transactionDate: language === "ar" ? "التاريخ والوقت" : "Date & Time",
-    uploadReceipt: language === "ar" ? "رفع صورة الشحن" : "Upload Receipt",
-    addTransaction: language === "ar" ? "إضافة معاملة" : "Add Transaction",
+    uploadReceipts: language === "ar" ? "رفع صور الشحن" : "Upload Receipts",
+    confirmAll: language === "ar" ? "تأكيد جميع المعاملات" : "Confirm All Transactions",
     orderNumber: language === "ar" ? "رقم الطلب" : "Order Number",
     product: language === "ar" ? "المنتج" : "Product",
     actions: language === "ar" ? "الإجراءات" : "Actions",
@@ -87,6 +88,11 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
     summary: language === "ar" ? "ملخص المعاملات" : "Transactions Summary",
     totalTransactions: language === "ar" ? "عدد المعاملات" : "Total Transactions",
     totalAmount: language === "ar" ? "إجمالي المبلغ" : "Total Amount",
+    pendingConfirmation: language === "ar" ? "في انتظار التأكيد" : "Pending Confirmation",
+    confirmed: language === "ar" ? "المعاملات المؤكدة" : "Confirmed Transactions",
+    missingPlayerId: language === "ar" ? "يرجى إدخال رقم اللاعب لجميع المعاملات" : "Please enter player ID for all transactions",
+    allConfirmed: language === "ar" ? "تم تأكيد جميع المعاملات بنجاح" : "All transactions confirmed successfully",
+    noPending: language === "ar" ? "لا توجد معاملات معلقة" : "No pending transactions",
   };
 
   useEffect(() => {
@@ -99,7 +105,6 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
 
   const fetchData = async () => {
     try {
-      // Fetch Ludo products - using or filter to handle potential whitespace in SKUs
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select("sku, product_name, product_price, product_cost")
@@ -110,12 +115,9 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         console.error("Error fetching products:", productsError);
       }
       
-      // Filter out any products with null/empty SKUs
       const validProducts = (productsData || []).filter(p => p.sku && p.sku.trim() !== "");
-      console.log("Fetched Ludo products:", validProducts);
       setProducts(validProducts);
 
-      // Fetch existing transactions for this shift
       const { data: transactionsData } = await supabase
         .from("ludo_transactions")
         .select("*")
@@ -145,113 +147,105 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
     setImageUrls(urls);
   };
 
-  const handleImageUpload = async (file: File) => {
+  const handleMultiImageUpload = async (files: FileList) => {
     setExtracting(true);
-    try {
-      // Upload image first
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/${shiftSessionId}/ludo-${Date.now()}.${fileExt}`;
+    const newTempTransactions: TempTransaction[] = [];
 
-      const { error: uploadError } = await supabase.storage
-        .from("ludo-receipts")
-        .upload(fileName, file);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        // Upload image first
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${shiftSessionId}/ludo-${Date.now()}-${i}.${fileExt}`;
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from("ludo-receipts")
+          .upload(fileName, file);
 
-      setNewTransaction(prev => ({
-        ...prev,
-        imageFile: file,
-        imagePath: fileName,
-      }));
+        if (uploadError) throw uploadError;
 
-      // Convert file to base64 for AI extraction
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const base64Image = await base64Promise;
+        // Convert file to base64 for AI extraction
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(file);
+        const base64Image = await base64Promise;
 
-      // Call AI to extract data (no product SKU needed - AI will detect it)
-      const { data, error } = await supabase.functions.invoke("extract-ludo-transaction", {
-        body: { imageUrl: base64Image },
-      });
+        // Call AI to extract data (no player ID extraction)
+        const { data, error } = await supabase.functions.invoke("extract-ludo-transaction", {
+          body: { imageUrl: base64Image },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data?.isValidApp === false) {
+        if (data?.isValidApp === false) {
+          toast({
+            title: translations.invalidImage,
+            description: data.invalidReason || "",
+            variant: "destructive",
+          });
+          await supabase.storage.from("ludo-receipts").remove([fileName]);
+          continue;
+        }
+
+        // Get product info based on detected SKU
+        const detectedSku = data.detectedSku || "LUDOF001";
+        const product = products.find(p => p.sku === detectedSku);
+        const amount = product?.product_price ? parseFloat(product.product_price) : (data.amount || 0);
+
+        const tempTx: TempTransaction = {
+          id: `temp-${Date.now()}-${i}`,
+          product_sku: detectedSku,
+          product_name: product?.product_name || detectedSku,
+          player_id: "", // User will enter manually
+          amount: amount,
+          transaction_date: data.transactionDate || new Date().toISOString().replace('T', ' ').slice(0, 19),
+          image_path: fileName,
+          imageUrl: base64Image,
+        };
+
+        newTempTransactions.push(tempTx);
+
         toast({
-          title: translations.invalidImage,
-          description: data.invalidReason || "",
+          title: translations.extractSuccess,
+          description: `${language === "ar" ? "المنتج" : "Product"}: ${product?.product_name || detectedSku}`,
+        });
+
+      } catch (error: any) {
+        console.error("Error extracting data:", error);
+        toast({
+          title: translations.extractError,
+          description: error.message,
           variant: "destructive",
         });
-        // Delete uploaded image
-        await supabase.storage.from("ludo-receipts").remove([fileName]);
-        setNewTransaction(prev => ({ ...prev, imageFile: null, imagePath: null }));
-        return;
       }
-
-      // Auto-select product based on detected SKU
-      if (data.detectedSku && products.find(p => p.sku === data.detectedSku)) {
-        setSelectedProduct(data.detectedSku);
-        
-        // Get product price as amount
-        const detectedProduct = products.find(p => p.sku === data.detectedSku);
-        if (detectedProduct?.product_price) {
-          setNewTransaction(prev => ({
-            ...prev,
-            playerId: data.playerId || prev.playerId,
-            amount: detectedProduct.product_price,
-            transactionDate: data.transactionDate ? 
-              new Date(data.transactionDate).toISOString().slice(0, 16) : 
-              prev.transactionDate,
-          }));
-        } else {
-          setNewTransaction(prev => ({
-            ...prev,
-            playerId: data.playerId || prev.playerId,
-            amount: data.amount?.toString() || prev.amount,
-            transactionDate: data.transactionDate ? 
-              new Date(data.transactionDate).toISOString().slice(0, 16) : 
-              prev.transactionDate,
-          }));
-        }
-      } else {
-        // Update form with extracted data without auto-selecting product
-        setNewTransaction(prev => ({
-          ...prev,
-          playerId: data.playerId || prev.playerId,
-          amount: data.amount?.toString() || prev.amount,
-          transactionDate: data.transactionDate ? 
-            new Date(data.transactionDate).toISOString().slice(0, 16) : 
-            prev.transactionDate,
-        }));
-      }
-
-      const productName = data.detectedSku === "LUDOF001" ? "فارس" : data.detectedSku === "LUDOL001" ? "لواء" : "";
-      toast({
-        title: translations.extractSuccess,
-        description: `${productName ? (language === "ar" ? "المنتج" : "Product") + ": " + productName + ", " : ""}${language === "ar" ? "رقم اللاعب" : "Player ID"}: ${data.playerId || "-"}, ${language === "ar" ? "المبلغ" : "Amount"}: ${data.amount || "-"}`,
-      });
-
-    } catch (error: any) {
-      console.error("Error extracting data:", error);
-      toast({
-        title: translations.extractError,
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setExtracting(false);
     }
+
+    setTempTransactions(prev => [...prev, ...newTempTransactions]);
+    setExtracting(false);
   };
 
-  const handleAddTransaction = async () => {
-    if (!selectedProduct || !newTransaction.playerId || !newTransaction.amount) {
+  const updateTempPlayerID = (tempId: string, playerId: string) => {
+    setTempTransactions(prev => 
+      prev.map(tx => tx.id === tempId ? { ...tx, player_id: playerId } : tx)
+    );
+  };
+
+  const deleteTempTransaction = async (tempTx: TempTransaction) => {
+    // Delete uploaded image
+    await supabase.storage.from("ludo-receipts").remove([tempTx.image_path]);
+    setTempTransactions(prev => prev.filter(tx => tx.id !== tempTx.id));
+  };
+
+  const canConfirm = tempTransactions.length > 0 && tempTransactions.every(tx => tx.player_id.trim() !== "");
+
+  const handleConfirmAll = async () => {
+    if (!canConfirm) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
-        description: language === "ar" ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields",
+        description: translations.missingPlayerId,
         variant: "destructive",
       });
       return;
@@ -259,32 +253,6 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
 
     setSaving(true);
     try {
-      // Generate order number
-      const { data: orderNumData } = await supabase.rpc("generate_ludo_order_number");
-      const orderNumber = orderNumData || `LUDO-${Date.now()}`;
-
-      // Insert transaction
-      const { data: newTx, error: insertError } = await supabase
-        .from("ludo_transactions")
-        .insert({
-          shift_session_id: shiftSessionId,
-          product_sku: selectedProduct,
-          order_number: orderNumber,
-          player_id: newTransaction.playerId,
-          amount: parseFloat(newTransaction.amount),
-          transaction_date: new Date(newTransaction.transactionDate).toISOString().replace('T', ' ').slice(0, 19),
-          image_path: newTransaction.imagePath,
-          user_id: userId,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      // Get product info
-      const product = products.find(p => p.sku === selectedProduct);
-
-      // Insert into purpletransaction
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase
         .from("profiles")
@@ -292,51 +260,73 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         .eq("user_id", user?.id)
         .single();
 
-      const ptRecord = {
-        order_number: orderNumber,
-        customer_phone: newTransaction.playerId,
-        customer_name: `Ludo Player ${newTransaction.playerId}`,
-        brand_name: "يلا لودو",
-        brand_code: "G01002",
-        product_name: product?.product_name || null,
-        product_id: selectedProduct,
-        qty: 1,
-        unit_price: parseFloat(newTransaction.amount),
-        total: parseFloat(newTransaction.amount),
-        cost_price: product?.product_cost ? parseFloat(product.product_cost) : 0,
-        cost_sold: product?.product_cost ? parseFloat(product.product_cost) : 0,
-        profit: parseFloat(newTransaction.amount) - (product?.product_cost ? parseFloat(product.product_cost) : 0),
-        payment_method: "cash",
-        payment_brand: "cash",
-        user_name: profile?.user_name || "System",
-        trans_type: "manual",
-        created_at_date: new Date(newTransaction.transactionDate).toISOString().split('T')[0],
-        order_status: "completed",
-      };
+      for (const tempTx of tempTransactions) {
+        // Generate order number
+        const { data: orderNumData } = await supabase.rpc("generate_ludo_order_number");
+        const orderNumber = orderNumData || `LUDO-${Date.now()}`;
 
-      const { error: ptError } = await supabase
-        .from("purpletransaction")
-        .insert(ptRecord as any);
+        // Insert transaction
+        const { data: newTx, error: insertError } = await supabase
+          .from("ludo_transactions")
+          .insert({
+            shift_session_id: shiftSessionId,
+            product_sku: tempTx.product_sku,
+            order_number: orderNumber,
+            player_id: tempTx.player_id,
+            amount: tempTx.amount,
+            transaction_date: tempTx.transaction_date,
+            image_path: tempTx.image_path,
+            user_id: userId,
+          })
+          .select()
+          .single();
 
-      if (ptError) {
-        console.error("Error inserting to purpletransaction:", ptError);
+        if (insertError) throw insertError;
+
+        // Get product info
+        const product = products.find(p => p.sku === tempTx.product_sku);
+
+        // Insert into purpletransaction
+        const ptRecord = {
+          order_number: orderNumber,
+          customer_phone: tempTx.player_id,
+          customer_name: `Ludo Player ${tempTx.player_id}`,
+          brand_name: "يلا لودو",
+          brand_code: "G01002",
+          product_name: product?.product_name || null,
+          product_id: tempTx.product_sku,
+          qty: 1,
+          unit_price: tempTx.amount,
+          total: tempTx.amount,
+          cost_price: product?.product_cost ? parseFloat(product.product_cost) : 0,
+          cost_sold: product?.product_cost ? parseFloat(product.product_cost) : 0,
+          profit: tempTx.amount - (product?.product_cost ? parseFloat(product.product_cost) : 0),
+          payment_method: "cash",
+          payment_brand: "cash",
+          user_name: profile?.user_name || "System",
+          trans_type: "manual",
+          created_at_date: tempTx.transaction_date.split(' ')[0],
+          order_status: "completed",
+        };
+
+        const { error: ptError } = await supabase
+          .from("purpletransaction")
+          .insert(ptRecord as any);
+
+        if (ptError) {
+          console.error("Error inserting to purpletransaction:", ptError);
+        }
+
+        if (newTx) {
+          setTransactions(prev => [newTx, ...prev]);
+        }
       }
 
-      setTransactions(prev => [newTx, ...prev]);
-      
-      // Reset form
-      setNewTransaction({
-        playerId: "",
-        amount: "",
-        transactionDate: new Date().toISOString().slice(0, 16),
-        imageFile: null,
-        imagePath: null,
-      });
-
-      toast({ title: translations.transactionAdded });
+      setTempTransactions([]);
+      toast({ title: translations.allConfirmed });
 
     } catch (error: any) {
-      console.error("Error adding transaction:", error);
+      console.error("Error confirming transactions:", error);
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
@@ -349,7 +339,6 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
 
   const handleDeleteTransaction = async (tx: LudoTransaction) => {
     try {
-      // Delete from ludo_transactions
       const { error: deleteError } = await supabase
         .from("ludo_transactions")
         .delete()
@@ -357,12 +346,10 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
 
       if (deleteError) throw deleteError;
 
-      // Delete image if exists
       if (tx.image_path) {
         await supabase.storage.from("ludo-receipts").remove([tx.image_path]);
       }
 
-      // Delete from purpletransaction
       await supabase
         .from("purpletransaction")
         .delete()
@@ -381,7 +368,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
     }
   };
 
-  // Calculate summary
+  // Calculate summary for confirmed transactions
   const summary = transactions.reduce((acc, tx) => {
     const productSku = tx.product_sku;
     if (!acc[productSku]) {
@@ -411,111 +398,129 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6 pt-4">
-        {/* Add Transaction Form */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
-          <div className="space-y-2">
-            <Label>{translations.selectProduct} *</Label>
-            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-              <SelectTrigger>
-                <SelectValue placeholder={translations.selectProduct} />
-              </SelectTrigger>
-              <SelectContent>
-                {products.length === 0 ? (
-                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                    {language === "ar" ? "لا توجد منتجات" : "No products found"}
-                  </div>
-                ) : (
-                  products.map((product) => (
-                    <SelectItem key={product.sku} value={product.sku!}>
-                      {product.product_name} ({product.product_price} SAR)
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{translations.playerId} *</Label>
+        {/* Multi-Upload Section */}
+        <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+          <div className="flex items-center gap-4">
             <Input
-              value={newTransaction.playerId}
-              onChange={(e) => setNewTransaction(prev => ({ ...prev, playerId: e.target.value }))}
-              placeholder="12345678"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) handleMultiImageUpload(files);
+                e.target.value = "";
+              }}
+              className="hidden"
+              id="ludo-multi-upload"
               disabled={extracting}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{translations.amount} *</Label>
-            <Input
-              type="number"
-              value={newTransaction.amount}
-              onChange={(e) => setNewTransaction(prev => ({ ...prev, amount: e.target.value }))}
-              placeholder="0.00"
-              disabled={extracting}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{translations.transactionDate}</Label>
-            <Input
-              type="datetime-local"
-              value={newTransaction.transactionDate}
-              onChange={(e) => setNewTransaction(prev => ({ ...prev, transactionDate: e.target.value }))}
-              disabled={extracting}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{translations.uploadReceipt}</Label>
-            <div className="flex gap-2">
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
-                }}
-                className="hidden"
-                id="ludo-receipt-upload"
-                disabled={extracting}
-              />
-              <Label
-                htmlFor="ludo-receipt-upload"
-                className={`flex items-center gap-2 cursor-pointer border rounded-md px-3 py-2 w-full justify-center ${
-                  extracting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
-                }`}
-              >
-                {extracting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <Sparkles className="h-4 w-4 text-orange-500" />
-                  </>
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                {newTransaction.imagePath ? "✓" : ""}
-              </Label>
-            </div>
-            {extracting && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Sparkles className="h-3 w-3 text-orange-500" />
-                {translations.extracting}
-              </p>
-            )}
+            <Label
+              htmlFor="ludo-multi-upload"
+              className={`flex items-center gap-2 cursor-pointer border-2 border-dashed border-orange-300 rounded-lg px-6 py-4 w-full justify-center bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-100 dark:hover:bg-orange-950/40 transition-colors ${
+                extracting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {extracting ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Sparkles className="h-5 w-5 text-orange-500" />
+                  <span>{translations.extracting}</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-5 w-5 text-orange-500" />
+                  <span className="font-medium">{translations.uploadReceipts}</span>
+                  <span className="text-muted-foreground">({language === "ar" ? "يمكنك اختيار عدة صور" : "Select multiple images"})</span>
+                </>
+              )}
+            </Label>
           </div>
         </div>
 
-        <Button
-          onClick={handleAddTransaction}
-          disabled={saving || !selectedProduct || !newTransaction.playerId || !newTransaction.amount}
-          className="bg-orange-500 hover:bg-orange-600"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-          {translations.addTransaction}
-        </Button>
+        {/* Pending Transactions */}
+        {tempTransactions.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-yellow-500" />
+                {translations.pendingConfirmation} ({tempTransactions.length})
+              </h3>
+              <Button
+                onClick={handleConfirmAll}
+                disabled={saving || !canConfirm}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
+                {translations.confirmAll}
+              </Button>
+            </div>
 
-        {/* Transactions Summary */}
+            {!canConfirm && tempTransactions.length > 0 && (
+              <p className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                {translations.missingPlayerId}
+              </p>
+            )}
+
+            <div className="rounded-md border border-yellow-200 dark:border-yellow-900">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-yellow-50 dark:bg-yellow-950/20">
+                    <TableHead className="w-16">{language === "ar" ? "الصورة" : "Image"}</TableHead>
+                    <TableHead>{translations.product}</TableHead>
+                    <TableHead>{translations.playerId} *</TableHead>
+                    <TableHead>{translations.amount}</TableHead>
+                    <TableHead>{translations.actions}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tempTransactions.map((tx) => (
+                    <TableRow key={tx.id} className={!tx.player_id ? "bg-red-50/50 dark:bg-red-950/20" : ""}>
+                      <TableCell>
+                        <img
+                          src={tx.imageUrl}
+                          alt="Receipt"
+                          className="w-12 h-12 object-cover rounded cursor-pointer hover:opacity-80"
+                          onClick={() => setSelectedImage(tx.imageUrl)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950/30">
+                          {tx.product_name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={tx.player_id}
+                          onChange={(e) => updateTempPlayerID(tx.id, e.target.value)}
+                          placeholder={language === "ar" ? "أدخل رقم اللاعب" : "Enter player ID"}
+                          className={`w-40 ${!tx.player_id ? "border-red-300 dark:border-red-700" : ""}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono">{tx.amount.toFixed(2)} SAR</TableCell>
+                      <TableCell>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => deleteTempTransaction(tx)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmed Transactions Summary */}
         {Object.keys(summary).length > 0 && (
           <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
             <h4 className="font-semibold mb-2">{translations.summary}</h4>
@@ -538,58 +543,64 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
           </div>
         )}
 
-        {/* Transactions Table */}
+        {/* Confirmed Transactions Table */}
         {transactions.length > 0 ? (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{translations.orderNumber}</TableHead>
-                  <TableHead>{translations.product}</TableHead>
-                  <TableHead>{translations.playerId}</TableHead>
-                  <TableHead>{translations.amount}</TableHead>
-                  <TableHead>{translations.transactionDate}</TableHead>
-                  <TableHead>{translations.actions}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((tx) => {
-                  const product = products.find(p => p.sku === tx.product_sku);
-                  return (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-mono text-sm">{tx.order_number}</TableCell>
-                      <TableCell>{product?.product_name || tx.product_sku}</TableCell>
-                      <TableCell>{tx.player_id}</TableCell>
-                      <TableCell>{tx.amount.toFixed(2)} SAR</TableCell>
-                      <TableCell>{new Date(tx.transaction_date).toLocaleString("ar-SA")}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {imageUrls[tx.id] && (
+          <div className="space-y-2">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Check className="h-5 w-5 text-green-500" />
+              {translations.confirmed} ({transactions.length})
+            </h3>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{translations.orderNumber}</TableHead>
+                    <TableHead>{translations.product}</TableHead>
+                    <TableHead>{translations.playerId}</TableHead>
+                    <TableHead>{translations.amount}</TableHead>
+                    <TableHead>{translations.transactionDate}</TableHead>
+                    <TableHead>{translations.actions}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx) => {
+                    const product = products.find(p => p.sku === tx.product_sku);
+                    return (
+                      <TableRow key={tx.id}>
+                        <TableCell className="font-mono text-sm">{tx.order_number}</TableCell>
+                        <TableCell>{product?.product_name || tx.product_sku}</TableCell>
+                        <TableCell>{tx.player_id}</TableCell>
+                        <TableCell>{tx.amount.toFixed(2)} SAR</TableCell>
+                        <TableCell>{new Date(tx.transaction_date).toLocaleString("ar-SA")}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {imageUrls[tx.id] && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setSelectedImage(imageUrls[tx.id])}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => setSelectedImage(imageUrls[tx.id])}
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteTransaction(tx)}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteTransaction(tx)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        ) : (
+        ) : tempTransactions.length === 0 && (
           <p className="text-center text-muted-foreground py-4">{translations.noTransactions}</p>
         )}
       </CardContent>
