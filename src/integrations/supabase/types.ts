@@ -611,6 +611,86 @@ export type Database = {
         }
         Relationships: []
       }
+      ludo_training: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          image_path: string
+          notes: string | null
+          product_sku: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_path: string
+          notes?: string | null
+          product_sku: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_path?: string
+          notes?: string | null
+          product_sku?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ludo_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          image_path: string | null
+          order_number: string
+          player_id: string
+          product_sku: string
+          shift_session_id: string
+          transaction_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          order_number: string
+          player_id: string
+          product_sku: string
+          shift_session_id: string
+          transaction_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          order_number?: string
+          player_id?: string
+          product_sku?: string
+          shift_session_id?: string
+          transaction_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ludo_transactions_shift_session_id_fkey"
+            columns: ["shift_session_id"]
+            isOneToOne: false
+            referencedRelation: "shift_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -2193,6 +2273,7 @@ export type Database = {
       }
       exec_sql: { Args: { sql: string }; Returns: undefined }
       format_date_to_int: { Args: { d: string }; Returns: number }
+      generate_ludo_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
       get_cost_of_sales: {
         Args: { date_from: string; date_to: string }
