@@ -84,17 +84,19 @@ DATA TO EXTRACT:
 1. amount - The recharge/top-up amount (numeric value only, no currency symbols)
 2. playerId - The player's ID number (usually a numeric string like "12345678" or similar format)
 3. transactionDate - Date and time of the transaction (format: YYYY-MM-DD HH:MM:SS if visible, or current date if not visible)
-4. detectedSku - Determine which product SKU this is based on the package/product shown:
-   - "LUDOF001" = Yalla Ludo Fans package (smaller/basic recharge package)
-   - "LUDOL001" = Yalla Ludo Lite package (larger/premium recharge package)
-   Look at the package name, amount range, or any product identifiers to determine which SKU
+4. detectedSku - CRITICAL: Determine which product SKU based on the Arabic product name shown:
+   - "LUDOF001" = When product name shows "فارس" (Faris/Fans) - this is the Fans package
+   - "LUDOL001" = When product name shows "اللواء" (Al-Liwa'/Brigade) - this is the Lite package
+   Look for the Arabic text "العنصر:" (Element/Item) label followed by the product name.
+   - If you see "فارس" → return "LUDOF001"
+   - If you see "اللواء" → return "LUDOL001"
 
 IMPORTANT:
 - Player ID is often shown near username or account info
 - Amount may be shown in diamonds, coins, or currency
 - Date/time might be in the transaction details or receipt timestamp
 - If any field is not clearly visible, set it to null
-- For SKU detection, analyze the product/package type shown in the screenshot
+- For SKU detection, focus on reading the Arabic product name text carefully
 
 Response format (JSON only, no markdown):
 {
