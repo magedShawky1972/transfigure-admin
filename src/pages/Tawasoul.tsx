@@ -440,38 +440,38 @@ const Tawasoul = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 h-[calc(100vh-120px)]">
-      <div className="flex items-center gap-3 mb-4">
-        <MessageCircle className="h-8 w-8 text-primary" />
-        <h1 className="text-2xl font-bold">
+    <div className="container mx-auto p-2 sm:p-4 h-[calc(100vh-120px)]">
+      <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+        <MessageCircle className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold">
           {language === "ar" ? "تواصل" : "Tawasoul"}
         </h1>
       </div>
 
-      <div className="flex gap-4 h-full" style={{ direction: language === "ar" ? "rtl" : "ltr" }}>
-        {/* Conversations List - Right side for Arabic, Left for English */}
-        <Card className="w-80 flex flex-col" style={{ direction: "ltr" }}>
-          <div className="p-3 border-b">
+      <div className="flex gap-2 sm:gap-4 h-full" style={{ direction: language === "ar" ? "rtl" : "ltr" }}>
+        {/* Conversations List - Hidden on mobile when conversation is selected */}
+        <Card className={`${selectedConversation ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col`} style={{ direction: "ltr" }}>
+          <div className="p-2 sm:p-3 border-b">
             <div className="relative">
               <Search className={`absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground ${language === "ar" ? "right-3" : "left-3"}`} />
               <Input
                 placeholder={language === "ar" ? "بحث..." : "Search..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={language === "ar" ? "pr-9" : "pl-9"}
+                className={`h-9 text-sm ${language === "ar" ? "pr-9" : "pl-9"}`}
               />
             </div>
           </div>
 
           <ScrollArea className="flex-1">
             {loading ? (
-              <div className="p-4 text-center text-muted-foreground">
+              <div className="p-4 text-center text-muted-foreground text-sm">
                 {language === "ar" ? "جاري التحميل..." : "Loading..."}
               </div>
             ) : filteredConversations.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground">
-                <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>{language === "ar" ? "لا توجد محادثات" : "No conversations"}</p>
+                <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">{language === "ar" ? "لا توجد محادثات" : "No conversations"}</p>
               </div>
             ) : (
               <div className="divide-y">
@@ -479,34 +479,34 @@ const Tawasoul = () => {
                   <div
                     key={conversation.id}
                     onClick={() => handleSelectConversation(conversation)}
-                    className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+                    className={`p-2 sm:p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
                       selectedConversation?.id === conversation.id
                         ? "bg-primary/10"
                         : ""
                     }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 relative">
-                        <User className="h-5 w-5 text-primary" />
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 relative">
+                        <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                         {isCustomerRegistered(conversation.customer_phone) && (
-                          <BadgeCheck className="h-4 w-4 text-green-500 absolute -bottom-1 -right-1 bg-background rounded-full" />
+                          <BadgeCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500 absolute -bottom-1 -right-1 bg-background rounded-full" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <div className="flex items-center gap-1 min-w-0">
-                            <span className="font-medium truncate">
+                            <span className="font-medium truncate text-sm">
                               {conversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
                             </span>
                             {isCustomerRegistered(conversation.customer_phone) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 shrink-0"
+                                className="h-5 w-5 sm:h-6 sm:w-6 shrink-0"
                                 onClick={(e) => openTransactionsDialog(conversation.customer_phone, conversation.customer_name, e)}
                                 title={language === "ar" ? "عرض المعاملات" : "View Transactions"}
                               >
-                                <Receipt className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                                <Receipt className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground hover:text-primary" />
                               </Button>
                             )}
                           </div>
@@ -528,26 +528,35 @@ const Tawasoul = () => {
           </ScrollArea>
         </Card>
 
-        {/* Chat Area - Left side for Arabic, Right for English */}
-        <Card className="flex-1 flex flex-col" style={{ direction: "ltr" }}>
+        {/* Chat Area - Full width on mobile when conversation is selected */}
+        <Card className={`${selectedConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col`} style={{ direction: "ltr" }}>
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <div className="p-4 border-b flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center relative">
-                  <User className="h-5 w-5 text-primary" />
+              <div className="p-2 sm:p-4 border-b flex items-center gap-2 sm:gap-3">
+                {/* Back button on mobile */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden h-8 w-8"
+                  onClick={() => setSelectedConversation(null)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </Button>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/20 flex items-center justify-center relative">
+                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   {isCustomerRegistered(selectedConversation.customer_phone) && (
-                    <BadgeCheck className="h-4 w-4 text-green-500 absolute -bottom-1 -right-1 bg-background rounded-full" />
+                    <BadgeCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500 absolute -bottom-1 -right-1 bg-background rounded-full" />
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                    <h3 className="font-semibold text-sm sm:text-base truncate">
                       {selectedConversation.customer_name || (language === "ar" ? "عميل" : "Customer")}
                     </h3>
                     {isCustomerRegistered(selectedConversation.customer_phone) && (
-                      <Badge variant="outline" className="text-xs text-green-600 border-green-500">
-                        {language === "ar" ? "عميل مسجل" : "Registered"}
+                      <Badge variant="outline" className="text-xs text-green-600 border-green-500 hidden sm:inline-flex">
+                        {language === "ar" ? "مسجل" : "Reg"}
                       </Badge>
                     )}
                   </div>
@@ -556,10 +565,11 @@ const Tawasoul = () => {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 text-xs sm:text-sm px-2 sm:px-3"
                     onClick={() => openTransactionsDialog(selectedConversation.customer_phone, selectedConversation.customer_name)}
                   >
-                    <Receipt className="h-4 w-4 mr-1" />
-                    {language === "ar" ? "المعاملات" : "Transactions"}
+                    <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">{language === "ar" ? "المعاملات" : "Txns"}</span>
                   </Button>
                 )}
               </div>

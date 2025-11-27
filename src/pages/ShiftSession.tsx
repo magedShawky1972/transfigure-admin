@@ -680,10 +680,10 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
 
   if (!hasActiveAssignment) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <Card>
           <CardContent className="pt-6">
-            <p className="text-center text-lg">{t("noShiftAssignmentMessage")}</p>
+            <p className="text-center text-base sm:text-lg">{t("noShiftAssignmentMessage")}</p>
           </CardContent>
         </Card>
       </div>
@@ -691,32 +691,32 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">{t("shiftSession")}</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-xl sm:text-2xl">{t("shiftSession")}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <Label>{t("userName")}</Label>
-              <Input value={userName} disabled />
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+            <div className="col-span-2 sm:col-span-1">
+              <Label className="text-xs sm:text-sm">{t("userName")}</Label>
+              <Input value={userName} disabled className="h-8 sm:h-9 text-sm" />
             </div>
             <div>
-              <Label>{t("weekday")}</Label>
-              <Input value={currentWeekday} disabled />
+              <Label className="text-xs sm:text-sm">{t("weekday")}</Label>
+              <Input value={currentWeekday} disabled className="h-8 sm:h-9 text-sm" />
             </div>
             <div>
-              <Label>{t("hijriDate")}</Label>
-              <Input value={currentDateHijri} disabled />
+              <Label className="text-xs sm:text-sm">{t("hijriDate")}</Label>
+              <Input value={currentDateHijri} disabled className="h-8 sm:h-9 text-sm" />
             </div>
             <div>
-              <Label>{t("gregorianDate")}</Label>
-              <Input value={currentDateGregorian} disabled />
+              <Label className="text-xs sm:text-sm">{t("gregorianDate")}</Label>
+              <Input value={currentDateGregorian} disabled className="h-8 sm:h-9 text-sm" />
             </div>
             <div>
-              <Label>{t("time")}</Label>
-              <Input value={currentTime} disabled />
+              <Label className="text-xs sm:text-sm">{t("time")}</Label>
+              <Input value={currentTime} disabled className="h-8 sm:h-9 text-sm" />
             </div>
           </div>
 
@@ -730,24 +730,24 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                 <p className="font-semibold">{t("shiftOpenedAt")}: {new Date(shiftSession.opened_at).toLocaleString('ar-SA')}</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {brands.map((brand) => (
                   <Card 
                     key={brand.id}
                     className={brandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
                   >
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center justify-between">
-                        <span>{brand.short_name || brand.brand_name}</span>
+                    <CardHeader className="p-3 sm:p-4">
+                      <CardTitle className="text-base sm:text-lg flex items-center justify-between">
+                        <span className="truncate">{brand.short_name || brand.brand_name}</span>
                         {brandErrors[brand.id] && (
-                          <span className="text-xs font-normal text-destructive">⚠️ خطأ</span>
+                          <span className="text-xs font-normal text-destructive">⚠️</span>
                         )}
                       </CardTitle>
                       {brandErrors[brand.id] && (
                         <p className="text-xs text-destructive">{brandErrors[brand.id]}</p>
                       )}
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="p-3 sm:p-4 space-y-3">
                       <div>
                         <Label>{t("closingBalance")}</Label>
                         <div className="relative">
@@ -842,17 +842,17 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                 userId={shiftSession.user_id} 
               />
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button onClick={handleCloseShift} className="flex-1" variant="destructive">
                   {t("closeShift")}
                 </Button>
                 <Button 
                   onClick={() => setShowRollbackDialog(true)} 
                   variant="outline"
-                  className="flex items-center gap-2"
+                  className="flex items-center justify-center gap-2"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  إلغاء الوردية
+                  <span>إلغاء الوردية</span>
                 </Button>
               </div>
             </div>

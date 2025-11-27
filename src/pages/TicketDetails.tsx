@@ -487,58 +487,58 @@ const TicketDetails = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <Button variant="ghost" onClick={() => navigate(sourceRoute)}>
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <Button variant="ghost" onClick={() => navigate(sourceRoute)} className="h-8 sm:h-9 text-sm">
         <ArrowLeft className="mr-2 h-4 w-4" />
         {t("ticketDetails.backToTickets")}
       </Button>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6">
           <div className="space-y-3">
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
               <div>
-                <CardTitle className="text-2xl">{ticket.subject}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-2">
+                <CardTitle className="text-lg sm:text-2xl">{ticket.subject}</CardTitle>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                   {t("ticketDetails.ticketNumber")}{ticket.ticket_number}
                 </p>
               </div>
-            <div className="flex gap-2">
-              <Badge variant={getPriorityColor(ticket.priority)}>
-                {ticket.priority}
-              </Badge>
-              <Badge variant={getStatusColor(ticket.status)}>
-                {ticket.status}
-              </Badge>
-              {ticket.is_purchase_ticket && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <ShoppingCart className="h-3 w-3" />
-                  {language === 'ar' ? 'مشتريات' : 'Purchase'}
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                <Badge variant={getPriorityColor(ticket.priority)} className="text-xs">
+                  {ticket.priority}
                 </Badge>
-              )}
+                <Badge variant={getStatusColor(ticket.status)} className="text-xs">
+                  {ticket.status}
+                </Badge>
+                {ticket.is_purchase_ticket && (
+                  <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+                    <ShoppingCart className="h-3 w-3" />
+                    {language === 'ar' ? 'مشتريات' : 'Purchase'}
+                  </Badge>
+                )}
+              </div>
             </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center">
                 <span className="text-muted-foreground">{t("ticketDetails.department")}</span>
-                <span className="ml-2 font-medium">{ticket.departments.department_name}</span>
+                <span className="sm:ml-2 font-medium">{ticket.departments.department_name}</span>
               </div>
-              <div>
+              <div className="flex flex-col sm:flex-row sm:items-center">
                 <span className="text-muted-foreground">{t("ticketDetails.created")}</span>
-                <span className="ml-2">{format(new Date(ticket.created_at), "PPp")}</span>
+                <span className="sm:ml-2">{format(new Date(ticket.created_at), "PPp")}</span>
               </div>
-              <div>
+              <div className="flex flex-col sm:flex-row sm:items-center">
                 <span className="text-muted-foreground">{t("ticketDetails.createdBy")}</span>
-                <span className="ml-2">{ticket.profiles.user_name}</span>
+                <span className="sm:ml-2">{ticket.profiles.user_name}</span>
               </div>
-              <div>
+              <div className="flex flex-col sm:flex-row sm:items-center">
                 <span className="text-muted-foreground">{t("ticketDetails.email")}</span>
-                <span className="ml-2">{ticket.profiles.email}</span>
+                <span className="sm:ml-2 truncate">{ticket.profiles.email}</span>
               </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold mb-2">{t("ticketDetails.description")}</h3>
@@ -587,17 +587,18 @@ const TicketDetails = () => {
               </h3>
               
               {/* Allow both ticket creator and admins to upload files */}
-              <div className="mb-4 p-4 border rounded-md space-y-3">
-                <div className="flex items-center gap-2">
+              <div className="mb-4 p-3 sm:p-4 border rounded-md space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <Input
                     type="file"
                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                    className="flex-1"
+                    className="flex-1 text-sm"
                   />
                   <Button
                     onClick={handleFileUpload}
                     disabled={!selectedFile || uploading}
                     size="sm"
+                    className="w-full sm:w-auto"
                   >
                     <Paperclip className="h-4 w-4 mr-2" />
                     {uploading ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') : (language === 'ar' ? 'رفع' : 'Upload')}

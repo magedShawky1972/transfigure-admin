@@ -556,35 +556,37 @@ const AdminTickets = () => {
 
   const TicketCard = ({ ticket }: { ticket: Ticket }) => (
     <Card className="hover:shadow-md transition-shadow">
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div className="space-y-1 flex-1">
-            <CardTitle className="text-lg">{ticket.subject}</CardTitle>
-            <div className="flex flex-wrap gap-2 items-center text-sm text-muted-foreground">
+      <CardHeader className="p-4 sm:p-6">
+        <div className="flex flex-col gap-3">
+          <div className="space-y-2 flex-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+              <CardTitle className="text-base sm:text-lg">{ticket.subject}</CardTitle>
+              <Badge variant={getPriorityColor(ticket.priority)} className="text-xs w-fit">
+                {ticket.priority}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-1 sm:gap-2 items-center text-xs sm:text-sm text-muted-foreground">
               <span className="font-medium">{ticket.ticket_number}</span>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span>{ticket.departments.department_name}</span>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span>{ticket.profiles.user_name}</span>
-              <span>•</span>
-              <span>{format(new Date(ticket.created_at), "PPp")}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="w-full sm:w-auto">{format(new Date(ticket.created_at), "PPp")}</span>
             </div>
             <div className="flex items-center gap-2 mt-2">
               {ticket.is_purchase_ticket && (
-                <Badge variant="secondary" className="flex items-center gap-1">
+                <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                   <ShoppingCart className="h-3 w-3" />
                   {language === 'ar' ? 'مشتريات' : 'Purchase'}
                 </Badge>
               )}
             </div>
           </div>
-          <Badge variant={getPriorityColor(ticket.priority)}>
-            {ticket.priority}
-          </Badge>
         </div>
       </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+      <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+        <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
           {ticket.description}
         </p>
         
@@ -600,7 +602,7 @@ const AdminTickets = () => {
             value={ticket.status}
             onValueChange={(value) => handleStatusChange(ticket.id, value)}
           >
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs sm:text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -610,9 +612,9 @@ const AdminTickets = () => {
             </SelectContent>
           </Select>
           
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md border">
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">
+          <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-muted rounded-md border text-xs sm:text-sm">
+            <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+            <span className="hidden sm:inline">
               {language === 'ar' ? 'مشتريات' : 'Purchase'}
             </span>
             <Switch
@@ -625,6 +627,7 @@ const AdminTickets = () => {
             <Button
               size="sm"
               variant="default"
+              className="h-8 text-xs sm:text-sm"
               onClick={() => handleApprove(ticket.id)}
             >
               {language === 'ar' ? 'موافقة' : 'Approve'}
@@ -632,7 +635,7 @@ const AdminTickets = () => {
           )}
           
           {ticket.approved_at && (
-            <Badge variant="secondary">
+            <Badge variant="secondary" className="text-xs">
               {language === 'ar' ? 'تمت الموافقة' : 'Approved'}
             </Badge>
           )}
@@ -641,8 +644,8 @@ const AdminTickets = () => {
             value={ticket.assigned_to || ""}
             onValueChange={(value) => handleAssign(ticket.id, value)}
           >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder={language === 'ar' ? 'تعيين إلى' : 'Assign to'} />
+            <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs sm:text-sm">
+              <SelectValue placeholder={language === 'ar' ? 'تعيين' : 'Assign'} />
             </SelectTrigger>
             <SelectContent>
               {departmentMembers[ticket.department_id]?.map((member) => (
@@ -656,14 +659,16 @@ const AdminTickets = () => {
           <Collapsible
             open={expandedTicket === ticket.id}
             onOpenChange={(open) => setExpandedTicket(open ? ticket.id : null)}
+            className="w-full sm:w-auto"
           >
             <CollapsibleTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
+                className="h-8 text-xs sm:text-sm w-full sm:w-auto"
               >
-                <MessageSquare className="mr-2 h-4 w-4" />
-                {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
+                <MessageSquare className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                {language === 'ar' ? 'تعليق' : 'Comment'}
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3">
@@ -672,20 +677,22 @@ const AdminTickets = () => {
                   placeholder={language === 'ar' ? 'اكتب تعليقك هنا...' : 'Write your comment here...'}
                   value={quickComment[ticket.id] || ""}
                   onChange={(e) => setQuickComment({ ...quickComment, [ticket.id]: e.target.value })}
-                  className="min-h-[80px] bg-background"
+                  className="min-h-[80px] bg-background text-sm"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={() => handleQuickComment(ticket.id)}
                     disabled={submittingComment === ticket.id || !quickComment[ticket.id]?.trim()}
                     size="sm"
+                    className="h-8 text-xs sm:text-sm flex-1 sm:flex-none"
                   >
-                    <Send className="mr-2 h-4 w-4" />
-                    {submittingComment === ticket.id ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : (language === 'ar' ? 'إرسال' : 'Send')}
+                    <Send className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    {submittingComment === ticket.id ? (language === 'ar' ? 'إرسال...' : 'Sending...') : (language === 'ar' ? 'إرسال' : 'Send')}
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 text-xs sm:text-sm flex-1 sm:flex-none"
                     onClick={() => setExpandedTicket(null)}
                   >
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
@@ -698,31 +705,34 @@ const AdminTickets = () => {
           <Button
             variant="outline"
             size="sm"
+            className="h-8 text-xs sm:text-sm"
             onClick={() => handleResendNotification(ticket)}
           >
-            <Mail className="mr-2 h-4 w-4" />
-            {language === 'ar' ? 'إعادة إرسال الإشعار' : 'Resend Notification'}
+            <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إرسال' : 'Resend'}</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
+            className="h-8 text-xs sm:text-sm"
             onClick={() => navigate(`/tickets/${ticket.id}`, { state: { from: '/admin-tickets' } })}
           >
-            <Eye className="mr-2 h-4 w-4" />
-            {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+            <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'عرض' : 'View'}</span>
           </Button>
           {isAdmin && (
             <Button
               variant="destructive"
               size="sm"
+              className="h-8 text-xs sm:text-sm"
               onClick={() => {
                 setTicketToDelete(ticket.id);
                 setDeleteDialogOpen(true);
               }}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {language === 'ar' ? 'حذف' : 'Delete'}
+              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'حذف' : 'Delete'}</span>
             </Button>
           )}
         </div>
@@ -731,23 +741,23 @@ const AdminTickets = () => {
   );
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-2xl sm:text-3xl font-bold">
           {language === 'ar' ? 'تذاكر الأقسام' : 'Department Tickets'}
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">
           {language === 'ar' ? 'إدارة التذاكر لأقسامك' : 'Manage tickets for your departments'}
         </p>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-2 sm:gap-4">
         <Select value={filterPriority} onValueChange={setFilterPriority}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الأولوية' : 'Filter by priority'} />
+          <SelectTrigger className="w-full sm:w-[180px] h-9 text-sm">
+            <SelectValue placeholder={language === 'ar' ? 'الأولوية' : 'Priority'} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{language === 'ar' ? 'كل الأولويات' : 'All Priorities'}</SelectItem>
+            <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
             <SelectItem value="Urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
             <SelectItem value="High">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
             <SelectItem value="Medium">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
@@ -768,17 +778,17 @@ const AdminTickets = () => {
         </Card>
       ) : (
         <Tabs defaultValue="open" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="open">
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="open" className="text-xs sm:text-sm px-2 sm:px-3">
               {language === 'ar' ? `مفتوح (${openTickets.length})` : `Open (${openTickets.length})`}
             </TabsTrigger>
-            <TabsTrigger value="in-progress">
-              {language === 'ar' ? `قيد المعالجة (${inProgressTickets.length})` : `In Progress (${inProgressTickets.length})`}
+            <TabsTrigger value="in-progress" className="text-xs sm:text-sm px-2 sm:px-3">
+              {language === 'ar' ? `معالجة (${inProgressTickets.length})` : `Progress (${inProgressTickets.length})`}
             </TabsTrigger>
-            <TabsTrigger value="closed">
+            <TabsTrigger value="closed" className="text-xs sm:text-sm px-2 sm:px-3">
               {language === 'ar' ? `مغلق (${closedTickets.length})` : `Closed (${closedTickets.length})`}
             </TabsTrigger>
-            <TabsTrigger value="all">
+            <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">
               {language === 'ar' ? `الكل (${filteredTickets.length})` : `All (${filteredTickets.length})`}
             </TabsTrigger>
           </TabsList>
