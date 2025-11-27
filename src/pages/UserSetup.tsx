@@ -94,6 +94,7 @@ interface UserPermission {
   { key: "shiftSetup", label: "Shift Setup" },
   { key: "shiftCalendar", label: "Shift Calendar" },
   { key: "systemConfig", label: "System Configuration" },
+  { key: "closingTraining", label: "Closing Training" },
   { key: "odooSetup", label: "Odoo Setup" },
   { key: "excelSetup", label: "Excel Setup" },
   { key: "tableConfig", label: "Table Config" },
