@@ -71,11 +71,11 @@ const LudoTraining = () => {
 
   const fetchData = async () => {
     try {
-      // Fetch Ludo products (LUDOF001, LUDOL001)
+      // Fetch Ludo products (LUDOF001, LUDOL001) - using or filter to handle potential whitespace in SKUs
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select("sku, product_name, product_price")
-        .in("sku", ["LUDOF001", "LUDOL001"])
+        .or("sku.ilike.LUDOF001%,sku.ilike.LUDOL001%")
         .eq("status", "active")
         .order("sku");
 
