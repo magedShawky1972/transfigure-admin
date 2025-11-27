@@ -173,9 +173,9 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
       reader.readAsDataURL(file);
       const base64Image = await base64Promise;
 
-      // Call AI to extract data
+      // Call AI to extract data (no product SKU needed - AI will detect it)
       const { data, error } = await supabase.functions.invoke("extract-ludo-transaction", {
-        body: { imageUrl: base64Image, productSku: selectedProduct },
+        body: { imageUrl: base64Image },
       });
 
       if (error) throw error;
@@ -192,19 +192,47 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         return;
       }
 
-      // Update form with extracted data
-      setNewTransaction(prev => ({
-        ...prev,
-        playerId: data.playerId || prev.playerId,
-        amount: data.amount?.toString() || prev.amount,
-        transactionDate: data.transactionDate ? 
-          new Date(data.transactionDate).toISOString().slice(0, 16) : 
-          prev.transactionDate,
-      }));
+      // Auto-select product based on detected SKU
+      if (data.detectedSku && products.find(p => p.sku === data.detectedSku)) {
+        setSelectedProduct(data.detectedSku);
+        
+        // Get product price as amount
+        const detectedProduct = products.find(p => p.sku === data.detectedSku);
+        if (detectedProduct?.product_price) {
+          setNewTransaction(prev => ({
+            ...prev,
+            playerId: data.playerId || prev.playerId,
+            amount: detectedProduct.product_price,
+            transactionDate: data.transactionDate ? 
+              new Date(data.transactionDate).toISOString().slice(0, 16) : 
+              prev.transactionDate,
+          }));
+        } else {
+          setNewTransaction(prev => ({
+            ...prev,
+            playerId: data.playerId || prev.playerId,
+            amount: data.amount?.toString() || prev.amount,
+            transactionDate: data.transactionDate ? 
+              new Date(data.transactionDate).toISOString().slice(0, 16) : 
+              prev.transactionDate,
+          }));
+        }
+      } else {
+        // Update form with extracted data without auto-selecting product
+        setNewTransaction(prev => ({
+          ...prev,
+          playerId: data.playerId || prev.playerId,
+          amount: data.amount?.toString() || prev.amount,
+          transactionDate: data.transactionDate ? 
+            new Date(data.transactionDate).toISOString().slice(0, 16) : 
+            prev.transactionDate,
+        }));
+      }
 
+      const productName = data.detectedSku === "LUDOF001" ? "فارس" : data.detectedSku === "LUDOL001" ? "لواء" : "";
       toast({
         title: translations.extractSuccess,
-        description: `${language === "ar" ? "رقم اللاعب" : "Player ID"}: ${data.playerId}, ${language === "ar" ? "المبلغ" : "Amount"}: ${data.amount}`,
+        description: `${productName ? (language === "ar" ? "المنتج" : "Product") + ": " + productName + ", " : ""}${language === "ar" ? "رقم اللاعب" : "Player ID"}: ${data.playerId || "-"}, ${language === "ar" ? "المبلغ" : "Amount"}: ${data.amount || "-"}`,
       });
 
     } catch (error: any) {
@@ -446,16 +474,16 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
                 accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file && selectedProduct) handleImageUpload(file);
+                  if (file) handleImageUpload(file);
                 }}
                 className="hidden"
                 id="ludo-receipt-upload"
-                disabled={extracting || !selectedProduct}
+                disabled={extracting}
               />
               <Label
                 htmlFor="ludo-receipt-upload"
                 className={`flex items-center gap-2 cursor-pointer border rounded-md px-3 py-2 w-full justify-center ${
-                  extracting || !selectedProduct ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
+                  extracting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
                 }`}
               >
                 {extracting ? (
