@@ -110,6 +110,7 @@ interface SoftwareLicense {
   status: string;
   assigned_to: string | null;
   assigned_department: string | null;
+  currency_id: string | null;
 }
 
 const SoftwareLicenseSetup = () => {
@@ -721,7 +722,10 @@ const SoftwareLicenseSetup = () => {
                     {language === "ar" ? "التكلفة" : "Cost"}
                     {getSortIcon("cost")}
                   </TableHead>
-                  <TableHead 
+                  <TableHead>
+                    {language === "ar" ? "العملة" : "Currency"}
+                  </TableHead>
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("status")}
                   >
@@ -734,13 +738,13 @@ const SoftwareLicenseSetup = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : filteredLicenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center">
                       {language === "ar" ? "لا توجد تراخيص" : "No licenses found"}
                     </TableCell>
                   </TableRow>
@@ -757,7 +761,12 @@ const SoftwareLicenseSetup = () => {
                       <TableCell>
                         {RENEWAL_CYCLES.find(rc => rc.value === license.renewal_cycle)?.[language === "ar" ? "labelAr" : "label"]}
                       </TableCell>
-                      <TableCell>${license.cost.toFixed(2)}</TableCell>
+                      <TableCell>
+                        {currencies.find(c => c.id === license.currency_id)?.currency_code || ''}{license.cost.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        {currencies.find(c => c.id === license.currency_id)?.currency_code || '-'}
+                      </TableCell>
                       <TableCell>{getStatusBadge(license.status)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
