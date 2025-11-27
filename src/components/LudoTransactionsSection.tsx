@@ -67,6 +67,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
   const [extracting, setExtracting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [uploadProgress, setUploadProgress] = useState({ total: 0, current: 0, success: 0 });
 
   const translations = {
     title: language === "ar" ? "معاملات يلا لودو اليدوية" : "Yalla Ludo Manual Transactions",
@@ -148,21 +149,33 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
   };
 
   const handleMultiImageUpload = async (files: FileList) => {
+    console.log(`[Ludo Upload] Starting upload of ${files.length} files`);
     setExtracting(true);
+    setUploadProgress({ total: files.length, current: 0, success: 0 });
+
+    let successCount = 0;
 
     // Process all files and add each one to state immediately after extraction
     const processFile = async (file: File, index: number) => {
+      console.log(`[Ludo Upload] Processing file ${index + 1}/${files.length}: ${file.name}`);
+      setUploadProgress(prev => ({ ...prev, current: index + 1 }));
+      
       try {
         // Upload image first with unique timestamp per file
         const fileExt = file.name.split('.').pop();
         const uniqueId = `${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
         const fileName = `${userId}/${shiftSessionId}/ludo-${uniqueId}.${fileExt}`;
 
+        console.log(`[Ludo Upload] Uploading to storage: ${fileName}`);
         const { error: uploadError } = await supabase.storage
           .from("ludo-receipts")
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error(`[Ludo Upload] Storage upload error:`, uploadError);
+          throw uploadError;
+        }
+        console.log(`[Ludo Upload] Storage upload successful`);
 
         // Convert file to base64 for AI extraction
         const reader = new FileReader();
@@ -174,13 +187,19 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         const base64Image = await base64Promise;
 
         // Call AI to extract data (no player ID extraction)
+        console.log(`[Ludo Upload] Calling AI extraction...`);
         const { data, error } = await supabase.functions.invoke("extract-ludo-transaction", {
           body: { imageUrl: base64Image },
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error(`[Ludo Upload] AI extraction error:`, error);
+          throw error;
+        }
+        console.log(`[Ludo Upload] AI extraction result:`, data);
 
         if (data?.isValidApp === false) {
+          console.log(`[Ludo Upload] Invalid app image, removing from storage`);
           toast({
             title: translations.invalidImage,
             description: data.invalidReason || "",
@@ -206,8 +225,17 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
           imageUrl: base64Image,
         };
 
+        console.log(`[Ludo Upload] Adding temp transaction:`, tempTx.id);
         // Add to state immediately after each successful extraction
-        setTempTransactions(prev => [...prev, tempTx]);
+        setTempTransactions(prev => {
+          console.log(`[Ludo Upload] Previous temp transactions count: ${prev.length}`);
+          const newList = [...prev, tempTx];
+          console.log(`[Ludo Upload] New temp transactions count: ${newList.length}`);
+          return newList;
+        });
+
+        successCount++;
+        setUploadProgress(prev => ({ ...prev, success: successCount }));
 
         toast({
           title: translations.extractSuccess,
@@ -216,7 +244,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
 
         return tempTx;
       } catch (error: any) {
-        console.error("Error extracting data:", error);
+        console.error("[Ludo Upload] Error extracting data:", error);
         toast({
           title: translations.extractError,
           description: error.message,
@@ -231,7 +259,9 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
       await processFile(files[i], i);
     }
 
+    console.log(`[Ludo Upload] Completed. Success: ${successCount}/${files.length}`);
     setExtracting(false);
+    setUploadProgress({ total: 0, current: 0, success: 0 });
   };
 
   const updateTempPlayerID = (tempId: string, playerId: string) => {
@@ -432,6 +462,11 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <Sparkles className="h-5 w-5 text-orange-500" />
                   <span>{translations.extracting}</span>
+                  {uploadProgress.total > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {uploadProgress.current}/{uploadProgress.total} - {language === "ar" ? "نجح" : "Success"}: {uploadProgress.success}
+                    </Badge>
+                  )}
                 </>
               ) : (
                 <>
@@ -441,6 +476,16 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
                 </>
               )}
             </Label>
+          </div>
+          
+          {/* Status Summary */}
+          <div className="flex items-center gap-4 text-sm">
+            <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950/20">
+              {language === "ar" ? "معلقة" : "Pending"}: {tempTransactions.length}
+            </Badge>
+            <Badge variant="outline" className="bg-green-50 dark:bg-green-950/20">
+              {language === "ar" ? "مؤكدة" : "Confirmed"}: {transactions.length}
+            </Badge>
           </div>
         </div>
 
