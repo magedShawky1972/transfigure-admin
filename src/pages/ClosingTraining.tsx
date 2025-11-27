@@ -942,8 +942,8 @@ const ClosingTraining = () => {
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">{translations.ludoAmount}</Label>
-                              <Input
-                                value={extractedData?.amount !== null ? extractedData.amount.toString() : ""}
+                            <Input
+                                value={extractedData?.amount != null ? extractedData.amount.toString() : ""}
                                 readOnly
                                 className="bg-muted/50 font-mono text-sm"
                                 placeholder="0"
