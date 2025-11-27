@@ -373,22 +373,22 @@ const getStatusColor = (status: string) => {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{language === 'ar' ? 'تذاكري' : 'My Tickets'}</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">{language === 'ar' ? 'تذاكري' : 'My Tickets'}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             {language === 'ar' ? 'إنشاء وتتبع تذاكر الدعم الخاصة بك' : 'Create and track your support tickets'}
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               {language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket'}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{language === 'ar' ? 'إنشاء تذكرة جديدة' : 'Create New Ticket'}</DialogTitle>
             </DialogHeader>
@@ -508,11 +508,11 @@ const getStatusColor = (status: string) => {
                     </FormItem>
                   )}
                 />
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
+                <div className="flex flex-col sm:flex-row justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting} className="w-full sm:w-auto">
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                     {isSubmitting ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') : (language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket')}
                   </Button>
                 </div>
@@ -536,27 +536,27 @@ const getStatusColor = (status: string) => {
         <div className="grid gap-4">
           {tickets.map((ticket) => (
             <Card key={ticket.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">{ticket.subject}</CardTitle>
-                    <div className="flex gap-2 items-center text-sm text-muted-foreground">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col gap-3">
+                  <div className="space-y-2">
+                    <CardTitle className="text-base sm:text-lg leading-tight">{ticket.subject}</CardTitle>
+                    <div className="flex flex-wrap gap-1 sm:gap-2 items-center text-xs sm:text-sm text-muted-foreground">
                       <span className="font-medium">{ticket.ticket_number}</span>
-                      <span>•</span>
+                      <span className="hidden sm:inline">•</span>
                       <span>{ticket.departments.department_name}</span>
-                      <span>•</span>
-                      <span>{format(new Date(ticket.created_at), "PPp")}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="w-full sm:w-auto">{format(new Date(ticket.created_at), "PPp")}</span>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant={getPriorityColor(ticket.priority)}>
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                    <Badge variant={getPriorityColor(ticket.priority)} className="text-xs">
                       {language === 'ar' ? 
                         (ticket.priority === 'Low' ? 'منخفض' : 
                          ticket.priority === 'Medium' ? 'متوسط' : 
                          ticket.priority === 'High' ? 'عالي' : 'عاجل') 
                         : ticket.priority}
                     </Badge>
-<Badge variant={getStatusColor(ticket.status)}>
+                    <Badge variant={getStatusColor(ticket.status)} className="text-xs">
                       {language === 'ar' ? 
                         (ticket.status === 'Open' ? 'مفتوح' : 
                          ticket.status === 'In Progress' ? 'قيد المعالجة' : 
@@ -567,13 +567,13 @@ const getStatusColor = (status: string) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
                   {ticket.description}
                 </p>
-                <div className="flex items-center gap-4 mb-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
                   {ticket.is_purchase_ticket && (
-                    <Badge variant="outline" className="bg-primary/10">
+                    <Badge variant="outline" className="bg-primary/10 text-xs">
                       {language === 'ar' ? 'طلب شراء' : 'Purchase Request'}
                     </Badge>
                   )}
@@ -581,6 +581,7 @@ const getStatusColor = (status: string) => {
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-8 text-xs sm:text-sm px-2 sm:px-3"
                       onClick={async () => {
                         const attachment = ticket.ticket_attachments[0];
                         const { data } = await supabase.storage
@@ -591,37 +592,43 @@ const getStatusColor = (status: string) => {
                         }
                       }}
                     >
-                      <FileText className="mr-2 h-4 w-4" />
-                      {ticket.ticket_attachments[0].file_name || (language === 'ar' ? 'مرفق' : 'Attachment')}
+                      <FileText className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="truncate max-w-[120px] sm:max-w-none">
+                        {ticket.ticket_attachments[0].file_name || (language === 'ar' ? 'مرفق' : 'Attachment')}
+                      </span>
                     </Button>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 text-xs sm:text-sm flex-1 sm:flex-none"
                     onClick={() => navigate(`/tickets/${ticket.id}`, { state: { from: '/tickets' } })}
                   >
-                    <Eye className="mr-2 h-4 w-4" />
-                    {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+                    <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    {language === 'ar' ? 'عرض' : 'View'}
                   </Button>
                   {!ticket.approved_at && (
                     <>
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-8 text-xs sm:text-sm flex-1 sm:flex-none"
                         onClick={() => handleResendNotification(ticket)}
                       >
-                        <Mail className="mr-2 h-4 w-4" />
-                        {language === 'ar' ? 'إعادة إرسال للموافقة' : 'Resend for Approval'}
+                        <Mail className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">{language === 'ar' ? 'إعادة إرسال' : 'Resend'}</span>
+                        <span className="sm:hidden">{language === 'ar' ? 'إرسال' : 'Send'}</span>
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
+                        className="h-8 text-xs sm:text-sm"
                         onClick={() => handleDeleteClick(ticket.id)}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        {language === 'ar' ? 'حذف' : 'Delete'}
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'حذف' : 'Delete'}</span>
                       </Button>
                     </>
                   )}
