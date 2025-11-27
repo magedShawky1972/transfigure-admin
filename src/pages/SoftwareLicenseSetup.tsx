@@ -79,6 +79,11 @@ interface Currency {
   is_base: boolean;
 }
 
+interface CurrencyRate {
+  currency_id: string;
+  rate_to_base: number;
+}
+
 interface Department {
   id: string;
   department_name: string;
@@ -125,6 +130,7 @@ const SoftwareLicenseSetup = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>(PAYMENT_METHODS.map(pm => pm.value));
   const [openPaymentCombo, setOpenPaymentCombo] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
@@ -155,6 +161,7 @@ const SoftwareLicenseSetup = () => {
     fetchDepartments();
     fetchUsers();
     fetchCurrencies();
+    fetchCurrencyRates();
   }, []);
 
   useEffect(() => {
@@ -231,6 +238,44 @@ const SoftwareLicenseSetup = () => {
     } catch (error: any) {
       console.error("Error fetching currencies:", error);
     }
+  };
+
+  const fetchCurrencyRates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("currency_rates")
+        .select("currency_id, rate_to_base")
+        .order("effective_date", { ascending: false });
+
+      if (error) throw error;
+
+      // Get latest rate for each currency
+      const latestRates: CurrencyRate[] = [];
+      const seen = new Set<string>();
+      for (const rate of data || []) {
+        if (!seen.has(rate.currency_id)) {
+          latestRates.push(rate);
+          seen.add(rate.currency_id);
+        }
+      }
+      setCurrencyRates(latestRates);
+    } catch (error: any) {
+      console.error("Error fetching currency rates:", error);
+    }
+  };
+
+  const getBaseCurrency = () => currencies.find(c => c.is_base);
+
+  const convertToBaseCurrency = (cost: number, currencyId: string | null): number => {
+    const baseCurrency = getBaseCurrency();
+    if (!currencyId || !baseCurrency) return cost;
+    if (currencyId === baseCurrency.id) return cost;
+
+    const rate = currencyRates.find(r => r.currency_id === currencyId);
+    if (rate && rate.rate_to_base > 0) {
+      return cost / rate.rate_to_base;
+    }
+    return cost;
   };
 
   // Get unique categories from licenses for filter
@@ -911,6 +956,24 @@ const SoftwareLicenseSetup = () => {
                       onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
                       required
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{language === "ar" ? "المبلغ بالعملة الأساسية" : "Base Currency Amount"}</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={
+                          formData.cost && formData.currency_id
+                            ? convertToBaseCurrency(parseFloat(formData.cost) || 0, formData.currency_id).toFixed(2)
+                            : ""
+                        }
+                        readOnly
+                        disabled
+                        className="bg-muted"
+                      />
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {getBaseCurrency()?.currency_code || ""}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
