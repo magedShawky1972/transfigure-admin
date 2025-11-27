@@ -68,6 +68,7 @@ const ClosingTraining = () => {
     amount: number | null;
     playerId: string | null;
     transactionDate: string | null;
+    detectedSku: string | null;
     isValidApp: boolean;
   }>>({});
 
@@ -112,6 +113,7 @@ const ClosingTraining = () => {
     ludoAmount: language === "ar" ? "المبلغ" : "Amount",
     ludoPlayerId: language === "ar" ? "رقم اللاعب" : "Player ID",
     ludoDate: language === "ar" ? "التاريخ" : "Date",
+    ludoSku: language === "ar" ? "رمز المنتج" : "Product SKU",
     ludoExtractingData: language === "ar" ? "جاري استخراج البيانات..." : "Extracting data...",
     ludoExtractionSuccess: language === "ar" ? "تم استخراج البيانات بنجاح" : "Data extracted successfully",
     ludoExtractionFailed: language === "ar" ? "فشل استخراج البيانات" : "Failed to extract data",
@@ -484,6 +486,7 @@ const ClosingTraining = () => {
             amount: data.amount,
             playerId: data.playerId,
             transactionDate: data.transactionDate,
+            detectedSku: data.detectedSku,
             isValidApp: true,
           },
         }));
@@ -495,6 +498,7 @@ const ClosingTraining = () => {
             amount: null,
             playerId: null,
             transactionDate: null,
+            detectedSku: null,
             isValidApp: false,
           },
         }));
@@ -930,19 +934,30 @@ const ClosingTraining = () => {
                     ) : (
                       <>
                         <div className="grid grid-cols-1 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">{translations.ludoPlayerId}</Label>
-                            <Input
-                              value={extractedData?.playerId || ""}
-                              readOnly
-                              className="bg-muted/50 font-mono text-sm"
-                              placeholder={language === "ar" ? "سيظهر هنا بعد الرفع" : "Will appear after upload"}
-                            />
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{translations.ludoPlayerId}</Label>
+                              <Input
+                                value={extractedData?.playerId || ""}
+                                readOnly
+                                className="bg-muted/50 font-mono text-sm"
+                                placeholder={language === "ar" ? "سيظهر هنا بعد الرفع" : "Will appear after upload"}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{translations.ludoSku}</Label>
+                              <Input
+                                value={extractedData?.detectedSku || ""}
+                                readOnly
+                                className="bg-muted/50 font-mono text-sm"
+                                placeholder={language === "ar" ? "رمز المنتج" : "SKU"}
+                              />
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">{translations.ludoAmount}</Label>
-                            <Input
+                              <Input
                                 value={extractedData?.amount != null ? extractedData.amount.toString() : ""}
                                 readOnly
                                 className="bg-muted/50 font-mono text-sm"

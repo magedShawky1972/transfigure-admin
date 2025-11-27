@@ -84,12 +84,17 @@ DATA TO EXTRACT:
 1. amount - The recharge/top-up amount (numeric value only, no currency symbols)
 2. playerId - The player's ID number (usually a numeric string like "12345678" or similar format)
 3. transactionDate - Date and time of the transaction (format: YYYY-MM-DD HH:MM:SS if visible, or current date if not visible)
+4. detectedSku - Determine which product SKU this is based on the package/product shown:
+   - "LUDOF001" = Yalla Ludo Fans package (smaller/basic recharge package)
+   - "LUDOL001" = Yalla Ludo Lite package (larger/premium recharge package)
+   Look at the package name, amount range, or any product identifiers to determine which SKU
 
 IMPORTANT:
 - Player ID is often shown near username or account info
 - Amount may be shown in diamonds, coins, or currency
 - Date/time might be in the transaction details or receipt timestamp
 - If any field is not clearly visible, set it to null
+- For SKU detection, analyze the product/package type shown in the screenshot
 
 Response format (JSON only, no markdown):
 {
@@ -97,6 +102,7 @@ Response format (JSON only, no markdown):
   "amount": number or null,
   "playerId": "string" or null,
   "transactionDate": "YYYY-MM-DD HH:MM:SS" or null,
+  "detectedSku": "LUDOF001" or "LUDOL001" or null,
   "invalidReason": "explain why invalid if isValidApp is false"
 }
 
@@ -179,6 +185,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
     let amount: number | null = null;
     let playerId: string | null = null;
     let transactionDate: string | null = null;
+    let detectedSku: string | null = null;
     let invalidReason = "";
 
     try {
@@ -214,6 +221,10 @@ Return ONLY the JSON object, no other text or markdown formatting.`
           // Default to current date/time if not visible
           transactionDate = new Date().toISOString().replace('T', ' ').substring(0, 19);
         }
+        
+        if (jsonResponse.detectedSku) {
+          detectedSku = String(jsonResponse.detectedSku).trim();
+        }
       }
     } catch (parseError) {
       console.error("Failed to parse JSON response:", parseError);
@@ -222,7 +233,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
       invalidReason = "Failed to parse AI response";
     }
 
-    console.log("Parsed result - isValidApp:", isValidApp, "amount:", amount, "playerId:", playerId, "transactionDate:", transactionDate);
+    console.log("Parsed result - isValidApp:", isValidApp, "amount:", amount, "playerId:", playerId, "transactionDate:", transactionDate, "detectedSku:", detectedSku);
 
     return new Response(
       JSON.stringify({ 
@@ -231,6 +242,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
         amount: isValidApp ? amount : null,
         playerId: isValidApp ? playerId : null,
         transactionDate: isValidApp ? transactionDate : null,
+        detectedSku: isValidApp ? detectedSku : null,
         invalidReason,
         rawText: extractedText,
         hasTrainingData: !!trainingData
