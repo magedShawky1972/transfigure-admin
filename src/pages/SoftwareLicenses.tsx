@@ -393,6 +393,30 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
     }
   };
 
+  const handleStatusChange = async (licenseId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("software_licenses")
+        .update({ status: newStatus })
+        .eq("id", licenseId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === "ar" ? "تم التحديث" : "Updated",
+        description: language === "ar" ? "تم تغيير الحالة بنجاح" : "Status changed successfully",
+      });
+      
+      fetchLicenses();
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleViewInvoice = async (filePathOrUrl: string) => {
     try {
       // Extract bucket name and file path from URL
@@ -584,13 +608,34 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLicenses.map((license) => (
             <Card key={license.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
+               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg mb-2">{license.software_name}</CardTitle>
                     <p className="text-sm text-muted-foreground">{license.vendor_provider}</p>
                   </div>
-                  {getStatusBadge(license.status)}
+                  <Select
+                    value={license.status}
+                    onValueChange={(value) => handleStatusChange(license.id, value)}
+                  >
+                    <SelectTrigger className="w-[140px] h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">
+                        {language === "ar" ? "نشط" : "Active"}
+                      </SelectItem>
+                      <SelectItem value="expired">
+                        {language === "ar" ? "منتهي" : "Expired"}
+                      </SelectItem>
+                      <SelectItem value="expiring_soon">
+                        {language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}
+                      </SelectItem>
+                      <SelectItem value="canceled">
+                        {language === "ar" ? "ملغي" : "Canceled"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
