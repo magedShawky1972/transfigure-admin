@@ -368,6 +368,9 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
     if (status === "expiring_soon") {
       return <Badge className="bg-orange-500">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</Badge>;
     }
+    if (status === "canceled") {
+      return <Badge variant="destructive" className="bg-gray-500">{language === "ar" ? "ملغي" : "Canceled"}</Badge>;
+    }
     return <Badge className="bg-green-500">{language === "ar" ? "نشط" : "Active"}</Badge>;
   };
 
