@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.handle-ticket-action]
 verify_jwt = false
+
+[functions.extract-closing-number]
+verify_jwt = false
+
+[functions.extract-shift-closing-number]
+verify_jwt = false
