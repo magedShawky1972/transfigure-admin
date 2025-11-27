@@ -11,11 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, AlertCircle, ArrowUpDown, FileText } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, AlertCircle, ArrowUpDown, FileText, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface SoftwareLicense {
   id: string;
@@ -47,6 +56,11 @@ interface CurrencyRate {
   rate_to_base: number;
 }
 
+interface Department {
+  id: string;
+  department_name: string;
+}
+
 const SoftwareLicenses = () => {
   const { t, language } = useLanguage();
   const { toast } = useToast();
@@ -73,9 +87,21 @@ const SoftwareLicenses = () => {
     annualCost: 0,
   });
 
+  // Renewal dialog state
+  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
+  const [renewStep, setRenewStep] = useState<1 | 2>(1);
+  const [selectedLicense, setSelectedLicense] = useState<SoftwareLicense | null>(null);
+  const [renewMonths, setRenewMonths] = useState(1);
+  const [renewAmount, setRenewAmount] = useState(0);
+  const [renewNotes, setRenewNotes] = useState("");
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     fetchLicenses();
     fetchCurrencies();
+    fetchDepartments();
   }, []);
 
   useEffect(() => {
@@ -141,6 +167,123 @@ const SoftwareLicenses = () => {
       setCurrencyRates(latestRates);
     } catch (error: any) {
       console.error("Error fetching currencies:", error);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, department_name")
+        .eq("is_active", true)
+        .order("department_name");
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+    }
+  };
+
+  const openRenewDialog = (license: SoftwareLicense) => {
+    setSelectedLicense(license);
+    setRenewStep(1);
+    setRenewMonths(1);
+    const monthlyCost = license.renewal_cycle === "monthly" ? license.cost : license.cost / 12;
+    setRenewAmount(monthlyCost);
+    setRenewNotes("");
+    setSelectedDepartment("");
+    setRenewDialogOpen(true);
+  };
+
+  const calculateRenewalAmount = (months: number) => {
+    if (!selectedLicense) return 0;
+    const monthlyCost = selectedLicense.renewal_cycle === "monthly" 
+      ? selectedLicense.cost 
+      : selectedLicense.cost / 12;
+    return monthlyCost * months;
+  };
+
+  const handleMonthsChange = (months: number) => {
+    setRenewMonths(months);
+    setRenewAmount(calculateRenewalAmount(months));
+  };
+
+  const handleRenewSubmit = async () => {
+    if (!selectedLicense || !selectedDepartment) return;
+    
+    setIsSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(language === "ar" ? "غير مصرح" : "Not authenticated");
+
+      const currencyCode = currencies.find(c => c.id === selectedLicense.currency_id)?.currency_code || "";
+      
+      const subject = language === "ar"
+        ? `طلب تجديد ${selectedLicense.software_name}`
+        : `Renewal Request for ${selectedLicense.software_name}`;
+      
+      const description = language === "ar"
+        ? `طلب تجديد الاشتراك/الترخيص:
+
+البرنامج: ${selectedLicense.software_name}
+المورد: ${selectedLicense.vendor_provider}
+عدد الأشهر: ${renewMonths}
+المبلغ المطلوب: ${renewAmount.toFixed(2)} ${currencyCode}
+
+${renewNotes ? `ملاحظات إضافية:\n${renewNotes}` : ""}`
+        : `Subscription/License renewal request:
+
+Software: ${selectedLicense.software_name}
+Vendor: ${selectedLicense.vendor_provider}
+Months: ${renewMonths}
+Amount Required: ${renewAmount.toFixed(2)} ${currencyCode}
+
+${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
+
+      // Create purchase ticket
+      const { data: ticketData, error } = await supabase
+        .from("tickets")
+        .insert({
+          user_id: user.id,
+          department_id: selectedDepartment,
+          subject,
+          description,
+          priority: "Medium",
+          is_purchase_ticket: true,
+          ticket_number: "",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send notification to first level admins
+      if (ticketData) {
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_created",
+            ticketId: ticketData.id,
+            adminOrder: 1,
+          },
+        });
+      }
+
+      toast({
+        title: language === "ar" ? "نجح" : "Success",
+        description: language === "ar" ? "تم إنشاء طلب التجديد بنجاح" : "Renewal request created successfully",
+      });
+
+      setRenewDialogOpen(false);
+      setSelectedLicense(null);
+    } catch (error: any) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -524,12 +667,135 @@ const SoftwareLicenses = () => {
                     <Pencil className="h-4 w-4 mr-2" />
                     {language === "ar" ? "تعديل" : "Edit"}
                   </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => openRenewDialog(license)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {language === "ar" ? "طلب تجديد" : "Request Renew"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Renewal Request Dialog */}
+      <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === "ar" ? "طلب تجديد الاشتراك" : "Subscription Renewal Request"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {renewStep === 1 && selectedLicense && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{selectedLicense.software_name}</p>
+                <p className="text-sm text-muted-foreground">{selectedLicense.vendor_provider}</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "عدد الأشهر" : "Number of Months"}</Label>
+                <Select value={String(renewMonths)} onValueChange={(v) => handleMonthsChange(Number(v))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 6, 12].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} {language === "ar" ? (m === 1 ? "شهر" : "أشهر") : (m === 1 ? "month" : "months")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "المبلغ المطلوب" : "Amount Required"}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={renewAmount}
+                    onChange={(e) => setRenewAmount(Number(e.target.value))}
+                    className="flex-1"
+                  />
+                  <span className="flex items-center text-sm text-muted-foreground">
+                    {currencies.find(c => c.id === selectedLicense.currency_id)?.currency_code || ""}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === "ar" 
+                    ? "يمكنك تعديل المبلغ إذا تغير السعر من المورد"
+                    : "You can modify the amount if the vendor changed the price"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "ملاحظات إضافية (اختياري)" : "Additional Notes (Optional)"}</Label>
+                <Textarea
+                  value={renewNotes}
+                  onChange={(e) => setRenewNotes(e.target.value)}
+                  placeholder={language === "ar" ? "أي ملاحظات إضافية..." : "Any additional notes..."}
+                  rows={3}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>
+                  {language === "ar" ? "إلغاء" : "Cancel"}
+                </Button>
+                <Button onClick={() => setRenewStep(2)}>
+                  {language === "ar" ? "التالي" : "Next"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {renewStep === 2 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "اختر القسم" : "Select Department"}</Label>
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر القسم" : "Select department"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.department_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
+                <p><strong>{language === "ar" ? "البرنامج:" : "Software:"}</strong> {selectedLicense?.software_name}</p>
+                <p><strong>{language === "ar" ? "الأشهر:" : "Months:"}</strong> {renewMonths}</p>
+                <p><strong>{language === "ar" ? "المبلغ:" : "Amount:"}</strong> {renewAmount.toFixed(2)} {currencies.find(c => c.id === selectedLicense?.currency_id)?.currency_code || ""}</p>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRenewStep(1)}>
+                  {language === "ar" ? "السابق" : "Back"}
+                </Button>
+                <Button 
+                  onClick={handleRenewSubmit} 
+                  disabled={!selectedDepartment || isSubmitting}
+                >
+                  {isSubmitting 
+                    ? (language === "ar" ? "جاري الإرسال..." : "Submitting...") 
+                    : (language === "ar" ? "إرسال الطلب" : "Submit Request")}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
