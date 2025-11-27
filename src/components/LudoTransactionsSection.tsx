@@ -99,11 +99,11 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
 
   const fetchData = async () => {
     try {
-      // Fetch Ludo products
+      // Fetch Ludo products - using or filter to handle potential whitespace in SKUs
       const { data: productsData } = await supabase
         .from("products")
         .select("sku, product_name, product_price, product_cost")
-        .in("sku", ["LUDOF001", "LUDOL001"])
+        .or("sku.ilike.LUDOF001%,sku.ilike.LUDOL001%")
         .eq("status", "active");
 
       setProducts(productsData || []);
