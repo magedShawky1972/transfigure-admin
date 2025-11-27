@@ -20,7 +20,8 @@ import {
   Clock,
   MessageCircle,
   Calendar,
-  GraduationCap
+  GraduationCap,
+  DollarSign
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -82,6 +83,7 @@ export function AppSidebar() {
     "/my-shifts": "myShifts",
     "/tawasoul": "tawasoul",
     "/closing-training": "closingTraining",
+    "/currency-setup": "currencySetup",
   };
 
   useEffect(() => {
@@ -198,6 +200,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
         { title: language === 'ar' ? 'إعداد الورديات' : 'Shift Setup', url: "/shift-setup", icon: Clock },
         { title: language === 'ar' ? 'تقويم الورديات' : 'Shift Calendar', url: "/shift-calendar", icon: BarChart3 },
+        { title: language === 'ar' ? 'إعداد العملات' : 'Currency Setup', url: "/currency-setup", icon: DollarSign },
       ]
     },
     {
