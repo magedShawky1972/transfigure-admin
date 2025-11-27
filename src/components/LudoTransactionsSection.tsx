@@ -69,6 +69,32 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [uploadProgress, setUploadProgress] = useState({ total: 0, current: 0, success: 0 });
 
+  const TEMP_STORAGE_KEY = `ludo_temp_transactions_${shiftSessionId}`;
+
+  // Load temp transactions from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(TEMP_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        console.log(`[Ludo] Loaded ${parsed.length} temp transactions from storage`);
+        setTempTransactions(parsed);
+      } catch (e) {
+        console.error("[Ludo] Failed to parse saved transactions:", e);
+      }
+    }
+  }, [shiftSessionId]);
+
+  // Save temp transactions to localStorage whenever they change
+  useEffect(() => {
+    if (tempTransactions.length > 0) {
+      localStorage.setItem(TEMP_STORAGE_KEY, JSON.stringify(tempTransactions));
+      console.log(`[Ludo] Saved ${tempTransactions.length} temp transactions to storage`);
+    } else {
+      localStorage.removeItem(TEMP_STORAGE_KEY);
+    }
+  }, [tempTransactions, TEMP_STORAGE_KEY]);
+
   const translations = {
     title: language === "ar" ? "معاملات يلا لودو اليدوية" : "Yalla Ludo Manual Transactions",
     playerId: language === "ar" ? "رقم اللاعب" : "Player ID",
