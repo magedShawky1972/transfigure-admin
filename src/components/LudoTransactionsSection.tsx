@@ -148,7 +148,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
     setImageUrls(urls);
   };
 
-  const handleMultiImageUpload = async (files: FileList) => {
+  const handleMultiImageUpload = async (files: File[]) => {
     console.log(`[Ludo Upload] Starting upload of ${files.length} files`);
     setExtracting(true);
     setUploadProgress({ total: files.length, current: 0, success: 0 });
@@ -444,8 +444,14 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
               multiple
               onChange={(e) => {
                 const files = e.target.files;
-                if (files && files.length > 0) handleMultiImageUpload(files);
-                e.target.value = "";
+                if (files && files.length > 0) {
+                  // Convert FileList to Array BEFORE clearing input
+                  // FileList is a live reference that becomes empty when input is cleared
+                  const filesArray = Array.from(files);
+                  console.log(`[Ludo Upload] Selected ${filesArray.length} files`);
+                  e.target.value = ""; // Clear input first
+                  handleMultiImageUpload(filesArray);
+                }
               }}
               className="hidden"
               id="ludo-multi-upload"
