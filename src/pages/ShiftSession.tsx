@@ -554,6 +554,28 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     try {
       if (!shiftSession) return;
 
+      // Check if all required brands have uploaded images (exclude Yalla Ludo)
+      const missingBrands = brands.filter((brand) => {
+        // Skip Yalla Ludo brands - they are not mandatory
+        const brandNameLower = brand.brand_name.toLowerCase();
+        if (brandNameLower.includes("yalla ludo") || brandNameLower.includes("يلا لودو") || brandNameLower.includes("ludo")) {
+          return false;
+        }
+        // Check if this brand has an uploaded image
+        const balance = balances[brand.id];
+        return !balance?.receipt_image_path;
+      });
+
+      if (missingBrands.length > 0) {
+        const missingNames = missingBrands.map((b) => b.brand_name).join("، ");
+        toast({
+          title: t("error") || "خطأ",
+          description: `يجب رفع صور الإغلاق لجميع العلامات التجارية التالية: ${missingNames}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Save all balances
       const balanceRecords = Object.values(balances).map((balance) => ({
         shift_session_id: shiftSession.id,
