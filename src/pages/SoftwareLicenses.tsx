@@ -113,10 +113,12 @@ const SoftwareLicenses = () => {
     calculateStats();
   }, [licenses, currencies, currencyRates, baseCurrency]);
 
-  const fetchLicenses = async () => {
+  const fetchLicenses = async (skipAutoUpdate = false) => {
     setLoading(true);
     try {
-      await supabase.rpc("update_software_license_status");
+      if (!skipAutoUpdate) {
+        await supabase.rpc("update_software_license_status");
+      }
 
       const { data, error } = await supabase
         .from("software_licenses")
@@ -409,7 +411,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
       });
       
       setEditingStatusId(null);
-      fetchLicenses();
+      fetchLicenses(true); // Skip auto-update to preserve manual status change
     } catch (error: any) {
       toast({
         title: t("common.error"),
