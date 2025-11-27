@@ -39,6 +39,7 @@ const ClosingTraining = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [notesValue, setNotesValue] = useState("");
+  const [expectedNumbers, setExpectedNumbers] = useState<Record<string, string>>({});
 
   const translations = {
     title: language === "ar" ? "تدريب الإغلاق" : "Closing Training",
@@ -63,6 +64,8 @@ const ClosingTraining = () => {
     editNotes: language === "ar" ? "تعديل الملاحظات" : "Edit Notes",
     expectedNumber: language === "ar" ? "الرقم المتوقع (المربع الأصفر)" : "Expected Number (Yellow Square)",
     numberPlaceholder: language === "ar" ? "أدخل الرقم من الصورة" : "Enter number from image",
+    numberSaved: language === "ar" ? "تم حفظ الرقم المتوقع" : "Expected number saved",
+    saveNumber: language === "ar" ? "حفظ الرقم" : "Save Number",
   };
 
   useEffect(() => {
@@ -90,10 +93,21 @@ const ClosingTraining = () => {
       if (trainingError) throw trainingError;
 
       const trainingMap: Record<string, TrainingData> = {};
+      const numbersMap: Record<string, string> = {};
       trainingDataResult?.forEach((item) => {
-        trainingMap[item.brand_id] = item as TrainingData;
+        trainingMap[item.brand_id] = {
+          id: item.id,
+          brand_id: item.brand_id,
+          image_path: item.image_path,
+          notes: item.notes,
+          expected_number: item.expected_number,
+        };
+        if (item.expected_number !== null) {
+          numbersMap[item.brand_id] = item.expected_number.toString();
+        }
       });
       setTrainingData(trainingMap);
+      setExpectedNumbers(numbersMap);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في تحميل البيانات" : "Error loading data");
@@ -138,6 +152,7 @@ const ClosingTraining = () => {
             brand_id: brandId,
             image_path: urlData.publicUrl,
             notes: existingData?.notes || null,
+            expected_number: existingData?.expected_number || null,
           },
           { onConflict: "brand_id" }
         )
@@ -148,7 +163,13 @@ const ClosingTraining = () => {
 
       setTrainingData((prev) => ({
         ...prev,
-        [brandId]: upsertData as TrainingData,
+        [brandId]: {
+          id: upsertData.id,
+          brand_id: upsertData.brand_id,
+          image_path: upsertData.image_path,
+          notes: upsertData.notes,
+          expected_number: upsertData.expected_number,
+        },
       }));
 
       toast.success(translations.uploadSuccess);
@@ -180,6 +201,12 @@ const ClosingTraining = () => {
       if (error) throw error;
 
       setTrainingData((prev) => {
+        const newData = { ...prev };
+        delete newData[brandId];
+        return newData;
+      });
+
+      setExpectedNumbers((prev) => {
         const newData = { ...prev };
         delete newData[brandId];
         return newData;
@@ -217,6 +244,32 @@ const ClosingTraining = () => {
     } catch (error) {
       console.error("Error saving notes:", error);
       toast.error(language === "ar" ? "خطأ في حفظ الملاحظات" : "Error saving notes");
+    }
+  };
+
+  const handleSaveExpectedNumber = async (brandId: string) => {
+    try {
+      const existingData = trainingData[brandId];
+      const numberValue = expectedNumbers[brandId] ? parseFloat(expectedNumbers[brandId]) : null;
+      
+      if (existingData) {
+        const { error } = await supabase
+          .from("brand_closing_training")
+          .update({ expected_number: numberValue })
+          .eq("brand_id", brandId);
+
+        if (error) throw error;
+
+        setTrainingData((prev) => ({
+          ...prev,
+          [brandId]: { ...prev[brandId], expected_number: numberValue },
+        }));
+
+        toast.success(translations.numberSaved);
+      }
+    } catch (error) {
+      console.error("Error saving expected number:", error);
+      toast.error(language === "ar" ? "خطأ في حفظ الرقم" : "Error saving number");
     }
   };
 
@@ -319,6 +372,36 @@ const ClosingTraining = () => {
                     </Button>
                   )}
                 </div>
+
+                {/* Expected Number Input */}
+                {data?.image_path && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">{translations.expectedNumber}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder={translations.numberPlaceholder}
+                        value={expectedNumbers[brand.id] || ""}
+                        onChange={(e) => setExpectedNumbers((prev) => ({
+                          ...prev,
+                          [brand.id]: e.target.value,
+                        }))}
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveExpectedNumber(brand.id)}
+                      >
+                        <Save className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {data.expected_number !== null && (
+                      <p className="text-xs text-muted-foreground">
+                        {language === "ar" ? "الرقم المحفوظ:" : "Saved:"} {data.expected_number}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Notes Section */}
                 {data?.image_path && (

@@ -109,6 +109,7 @@ export type Database = {
           brand_id: string
           created_at: string
           created_by: string | null
+          expected_number: number | null
           id: string
           image_path: string
           notes: string | null
@@ -118,6 +119,7 @@ export type Database = {
           brand_id: string
           created_at?: string
           created_by?: string | null
+          expected_number?: number | null
           id?: string
           image_path: string
           notes?: string | null
@@ -127,6 +129,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           created_by?: string | null
+          expected_number?: number | null
           id?: string
           image_path?: string
           notes?: string | null
