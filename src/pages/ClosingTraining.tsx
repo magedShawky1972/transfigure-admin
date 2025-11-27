@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Trash2, Image as ImageIcon, Save, X, Loader2, Sparkles } from "lucide-react";
+import { Upload, Trash2, Image as ImageIcon, Save, X, Loader2, Sparkles, BrainCircuit, BrainCog } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +72,8 @@ const ClosingTraining = () => {
     extractNumber: language === "ar" ? "قراءة الرقم بالذكاء الاصطناعي" : "Read Number with AI",
     numberExtracted: language === "ar" ? "تم قراءة الرقم تلقائياً" : "Number automatically extracted",
     extractionFailed: language === "ar" ? "فشل في قراءة الرقم - يرجى إدخاله يدوياً" : "Failed to read number - please enter manually",
+    aiTrained: language === "ar" ? "تم التدريب" : "AI Trained",
+    aiNotTrained: language === "ar" ? "لم يتم التدريب" : "Not Trained",
   };
 
   useEffect(() => {
@@ -346,18 +349,36 @@ const ClosingTraining = () => {
           const data = trainingData[brand.id];
           const isUploading = uploading === brand.id;
           const isExtracting = extracting === brand.id;
+          const isAiTrained = data?.image_path && data?.expected_number !== null;
 
           return (
             <Card key={brand.id} className="overflow-hidden">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span>{brand.brand_name}</span>
-                  {brand.brand_code && (
-                    <span className="text-sm text-muted-foreground font-normal">
-                      {brand.brand_code}
-                    </span>
-                  )}
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <span>{brand.brand_name}</span>
+                    {brand.brand_code && (
+                      <span className="text-sm text-muted-foreground font-normal">
+                        {brand.brand_code}
+                      </span>
+                    )}
+                  </CardTitle>
+                  <Badge 
+                    variant={isAiTrained ? "default" : "secondary"}
+                    className={`flex items-center gap-1 text-xs ${
+                      isAiTrained 
+                        ? "bg-green-500/20 text-green-600 border-green-500/30 hover:bg-green-500/30" 
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {isAiTrained ? (
+                      <BrainCircuit className="h-3 w-3" />
+                    ) : (
+                      <BrainCog className="h-3 w-3" />
+                    )}
+                    {isAiTrained ? translations.aiTrained : translations.aiNotTrained}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Image Preview */}
