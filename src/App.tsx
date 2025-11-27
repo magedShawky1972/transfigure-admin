@@ -51,7 +51,6 @@ import ShiftDashboard from "./pages/ShiftDashboard";
 import MyShiftsCalendar from "./pages/MyShiftsCalendar";
 import Tawasoul from "./pages/Tawasoul";
 import ClosingTraining from "./pages/ClosingTraining";
-import LudoTraining from "./pages/LudoTraining";
 import CurrencySetup from "./pages/CurrencySetup";
 import Index from "./pages/Index";
 
@@ -112,7 +111,6 @@ const App = () => (
               <Route path="/reports/shift-plan" element={<ShiftPlanReport />} />
               <Route path="/tawasoul" element={<Tawasoul />} />
               <Route path="/closing-training" element={<ClosingTraining />} />
-              <Route path="/ludo-training" element={<LudoTraining />} />
               <Route path="/currency-setup" element={<CurrencySetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
