@@ -21,12 +21,7 @@ serve(async (req) => {
       );
     }
 
-    if (!productSku) {
-      return new Response(
-        JSON.stringify({ error: "productSku is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // productSku is now optional - AI will detect the product from the image
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -38,33 +33,35 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch training data for this product
-    const { data: trainingData, error: trainingError } = await supabase
-      .from("ludo_training")
-      .select("image_path, notes")
-      .eq("product_sku", productSku)
-      .single();
-
     let trainingImageUrl = "";
 
-    if (trainingData && !trainingError) {
-      if (trainingData.image_path) {
-        if (trainingData.image_path.startsWith('http')) {
-          trainingImageUrl = trainingData.image_path;
-        } else {
-          const { data: signedUrlData } = await supabase.storage
-            .from("ludo-receipts")
-            .createSignedUrl(trainingData.image_path, 3600);
-          
-          if (signedUrlData?.signedUrl) {
-            trainingImageUrl = signedUrlData.signedUrl;
+    // Only fetch training data if productSku is provided
+    if (productSku) {
+      const { data: trainingData, error: trainingError } = await supabase
+        .from("ludo_training")
+        .select("image_path, notes")
+        .eq("product_sku", productSku)
+        .single();
+
+      if (trainingData && !trainingError) {
+        if (trainingData.image_path) {
+          if (trainingData.image_path.startsWith('http')) {
+            trainingImageUrl = trainingData.image_path;
+          } else {
+            const { data: signedUrlData } = await supabase.storage
+              .from("ludo-receipts")
+              .createSignedUrl(trainingData.image_path, 3600);
+            
+            if (signedUrlData?.signedUrl) {
+              trainingImageUrl = signedUrlData.signedUrl;
+            }
           }
         }
       }
+      console.log("Has training data:", !!trainingData);
     }
 
-    console.log("Extracting Ludo transaction for product:", productSku);
-    console.log("Has training data:", !!trainingData);
+    console.log("Extracting Ludo transaction, productSku:", productSku || "auto-detect");
     console.log("Training image URL:", trainingImageUrl ? "available" : "not available");
 
     // Build messages array for extraction and validation
@@ -120,7 +117,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
     // Add user message with both training image (if available) and the new image
     const userContent: any[] = [];
     
-    if (trainingImageUrl) {
+    if (trainingImageUrl && productSku) {
       userContent.push({
         type: "text",
         text: `TRAINING IMAGE for Yalla Ludo recharge (${productSku}) - This is the REFERENCE image showing the expected format:`
@@ -131,12 +128,12 @@ Return ONLY the JSON object, no other text or markdown formatting.`
       });
       userContent.push({
         type: "text",
-        text: `NEW IMAGE to analyze - Extract the amount, player ID, and transaction date:`
+        text: `NEW IMAGE to analyze - Extract the amount, player ID, transaction date, and detect which product (فارس or اللواء):`
       });
     } else {
       userContent.push({
         type: "text",
-        text: `Extract Yalla Ludo recharge transaction details (amount, player ID, date) from this image:`
+        text: `Extract Yalla Ludo recharge transaction details (amount, player ID, date) and detect the product type (فارس=LUDOF001 or اللواء=LUDOL001) from this image:`
       });
     }
 
@@ -252,7 +249,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
         detectedSku: isValidApp ? detectedSku : null,
         invalidReason,
         rawText: extractedText,
-        hasTrainingData: !!trainingData
+        hasTrainingData: !!trainingImageUrl
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
