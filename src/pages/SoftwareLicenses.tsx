@@ -61,6 +61,10 @@ interface Department {
   department_name: string;
 }
 
+const formatNumber = (num: number): string => {
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 const SoftwareLicenses = () => {
   const { t, language } = useLanguage();
   const { toast } = useToast();
@@ -232,7 +236,7 @@ const SoftwareLicenses = () => {
 البرنامج: ${selectedLicense.software_name}
 المورد: ${selectedLicense.vendor_provider}
 عدد الأشهر: ${renewMonths}
-المبلغ المطلوب: ${renewAmount.toFixed(2)} ${currencyCode}
+المبلغ المطلوب: ${formatNumber(renewAmount)} ${currencyCode}
 
 ${renewNotes ? `ملاحظات إضافية:\n${renewNotes}` : ""}`
         : `Subscription/License renewal request:
@@ -240,7 +244,7 @@ ${renewNotes ? `ملاحظات إضافية:\n${renewNotes}` : ""}`
 Software: ${selectedLicense.software_name}
 Vendor: ${selectedLicense.vendor_provider}
 Months: ${renewMonths}
-Amount Required: ${renewAmount.toFixed(2)} ${currencyCode}
+Amount Required: ${formatNumber(renewAmount)} ${currencyCode}
 
 ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
 
@@ -522,7 +526,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.monthlyCost.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{formatNumber(stats.monthlyCost)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -533,7 +537,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.annualCost.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{formatNumber(stats.annualCost)}</div>
           </CardContent>
         </Card>
       </div>
@@ -698,13 +702,13 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-muted-foreground">{language === "ar" ? "التكلفة:" : "Cost:"}</span>
                     <span className="text-lg font-bold">
-                      {Number(license.cost).toFixed(2)} {currencies.find(c => c.id === license.currency_id)?.currency_code || ''}
+                      {formatNumber(Number(license.cost))} {currencies.find(c => c.id === license.currency_id)?.currency_code || ''}
                     </span>
                   </div>
                   {license.currency_id && baseCurrency && license.currency_id !== baseCurrency.id && (
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>{language === "ar" ? "بالعملة الأساسية:" : "In base currency:"}</span>
-                      <span>{convertToBaseCurrency(Number(license.cost), license.currency_id).toFixed(2)} {baseCurrency.currency_code}</span>
+                      <span>{formatNumber(convertToBaseCurrency(Number(license.cost), license.currency_id))} {baseCurrency.currency_code}</span>
                     </div>
                   )}
                 </div>
@@ -837,7 +841,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
               <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
                 <p><strong>{language === "ar" ? "البرنامج:" : "Software:"}</strong> {selectedLicense?.software_name}</p>
                 <p><strong>{language === "ar" ? "الأشهر:" : "Months:"}</strong> {renewMonths}</p>
-                <p><strong>{language === "ar" ? "المبلغ:" : "Amount:"}</strong> {renewAmount.toFixed(2)} {currencies.find(c => c.id === selectedLicense?.currency_id)?.currency_code || ""}</p>
+                <p><strong>{language === "ar" ? "المبلغ:" : "Amount:"}</strong> {formatNumber(renewAmount)} {currencies.find(c => c.id === selectedLicense?.currency_id)?.currency_code || ""}</p>
               </div>
 
               <DialogFooter>
