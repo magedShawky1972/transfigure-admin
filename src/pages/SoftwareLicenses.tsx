@@ -97,6 +97,7 @@ const SoftwareLicenses = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLicenses();
@@ -407,6 +408,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
         description: language === "ar" ? "تم تغيير الحالة بنجاح" : "Status changed successfully",
       });
       
+      setEditingStatusId(null);
       fetchLicenses();
     } catch (error: any) {
       toast({
@@ -608,34 +610,44 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLicenses.map((license) => (
             <Card key={license.id} className="hover:shadow-lg transition-shadow">
-               <CardHeader>
+              <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg mb-2">{license.software_name}</CardTitle>
                     <p className="text-sm text-muted-foreground">{license.vendor_provider}</p>
                   </div>
-                  <Select
-                    value={license.status}
-                    onValueChange={(value) => handleStatusChange(license.id, value)}
-                  >
-                    <SelectTrigger className="w-[140px] h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">
-                        {language === "ar" ? "نشط" : "Active"}
-                      </SelectItem>
-                      <SelectItem value="expired">
-                        {language === "ar" ? "منتهي" : "Expired"}
-                      </SelectItem>
-                      <SelectItem value="expiring_soon">
-                        {language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}
-                      </SelectItem>
-                      <SelectItem value="canceled">
-                        {language === "ar" ? "ملغي" : "Canceled"}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {editingStatusId === license.id ? (
+                    <Select
+                      value={license.status}
+                      onValueChange={(value) => handleStatusChange(license.id, value)}
+                      onOpenChange={(open) => {
+                        if (!open) setEditingStatusId(null);
+                      }}
+                      defaultOpen
+                    >
+                      <SelectTrigger className="w-[140px] h-8 bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="active">
+                          {language === "ar" ? "نشط" : "Active"}
+                        </SelectItem>
+                        <SelectItem value="expired">
+                          {language === "ar" ? "منتهي" : "Expired"}
+                        </SelectItem>
+                        <SelectItem value="expiring_soon">
+                          {language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}
+                        </SelectItem>
+                        <SelectItem value="canceled">
+                          {language === "ar" ? "ملغي" : "Canceled"}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div onClick={() => setEditingStatusId(license.id)} className="cursor-pointer">
+                      {getStatusBadge(license.status)}
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
