@@ -403,6 +403,79 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     loadImageUrls();
   }, [balances]);
 
+  const printShiftCloseReport = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const balanceRows = brands.map(brand => {
+      const balance = balances[brand.id];
+      return `
+        <tr>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: right;">${brand.short_name || brand.brand_name}</td>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center;">${balance?.closing_balance?.toFixed(2) || '0.00'}</td>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center;">${balance?.receipt_image_path ? '✓' : '✗'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>تقرير إغلاق الوردية</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: rtl; }
+          h1 { color: #dc2626; text-align: center; border-bottom: 2px solid #dc2626; padding-bottom: 10px; }
+          .info-section { margin: 20px 0; padding: 15px; background-color: #f0f9ff; border-right: 4px solid #0284c7; }
+          .info-section p { margin: 5px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background-color: #059669; color: white; padding: 12px; border: 1px solid #059669; }
+          td { padding: 12px; border: 1px solid #e5e7eb; }
+          @media print {
+            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>تقرير إغلاق الوردية</h1>
+        
+        <div class="info-section">
+          <p><strong>الموظف:</strong> ${userName}</p>
+          <p><strong>اليوم:</strong> ${currentWeekday}</p>
+          <p><strong>التاريخ الهجري:</strong> ${currentDateHijri}</p>
+          <p><strong>التاريخ الميلادي:</strong> ${currentDateGregorian}</p>
+          <p><strong>وقت الإغلاق:</strong> ${currentTime}</p>
+        </div>
+
+        <h3 style="color: #059669;">أرصدة العلامات التجارية عند الإغلاق</h3>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: right;">العلامة التجارية</th>
+              <th style="text-align: center;">الرصيد النهائي</th>
+              <th style="text-align: center;">صورة الإيصال</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${balanceRows}
+          </tbody>
+        </table>
+
+        <div style="margin-top: 30px; text-align: center; color: #6b7280; font-size: 12px;">
+          <p>تم إنشاء هذا التقرير تلقائياً من نظام إدارة الورديات</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
   const extractNumberFromImage = async (brandId: string, file: File, imagePath: string, brandName: string) => {
     setExtractingBrands((prev) => ({ ...prev, [brandId]: true }));
     
@@ -524,6 +597,9 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       } catch (notifError) {
         console.error("Error sending close notifications:", notifError);
       }
+
+      // Auto print shift close report
+      printShiftCloseReport();
 
       toast({
         title: t("success"),

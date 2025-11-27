@@ -203,7 +203,7 @@ serve(async (req) => {
           await client.send({
             from: smtpUsername,
             to: admin.email,
-            subject: "إشعار ورديات",
+            subject: "أقفال المناوبة",
             content: 'text/html; charset=utf-8',
             html: emailBody,
           });
