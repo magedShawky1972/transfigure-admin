@@ -54,6 +54,7 @@ const ShiftSession = () => {
   const [rollbackPassword, setRollbackPassword] = useState("");
 const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [brandErrors, setBrandErrors] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -315,6 +316,9 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         description: t("imageUploadedSuccessfully"),
       });
 
+      // Clear any previous error for this brand
+      setBrandErrors((prev) => ({ ...prev, [brandId]: null }));
+
       // Automatically extract number using AI
       await extractNumberFromImage(brandId, file, fileName);
     } catch (error: any) {
@@ -349,8 +353,9 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         },
       }));
 
-      // Clear the image URL
+      // Clear the image URL and error
       setImageUrls((prev) => ({ ...prev, [brandId]: null }));
+      setBrandErrors((prev) => ({ ...prev, [brandId]: null }));
 
       // Save to database immediately
       await saveBalanceToDb(brandId, currentBalance, null);
@@ -432,17 +437,21 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
           description: `تم استخراج الرقم: ${data.extractedNumber}`,
         });
       } else {
+        // Set error for wrong image
+        setBrandErrors((prev) => ({ ...prev, [brandId]: "صورة غير صحيحة - لم يتم العثور على الرقم" }));
         toast({
-          title: t("warning") || "تنبيه",
-          description: "لم يتم العثور على الرقم. يرجى إدخاله يدوياً.",
+          title: t("error") || "خطأ",
+          description: "صورة غير صحيحة للعلامة التجارية. يرجى رفع الصورة الصحيحة.",
           variant: "destructive",
         });
       }
     } catch (error: any) {
       console.error("Error extracting number:", error);
+      // Set error for extraction failure
+      setBrandErrors((prev) => ({ ...prev, [brandId]: "فشل في قراءة الصورة - يرجى المحاولة مرة أخرى" }));
       toast({
-        title: t("warning") || "تنبيه",
-        description: "فشل في قراءة الرقم. يرجى إدخاله يدوياً.",
+        title: t("error") || "خطأ",
+        description: "فشل في قراءة الصورة. يرجى رفع صورة أخرى.",
         variant: "destructive",
       });
     } finally {
@@ -629,11 +638,20 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {brands.map((brand) => (
-                  <Card key={brand.id}>
+                  <Card 
+                    key={brand.id}
+                    className={brandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
+                  >
                     <CardHeader>
-                      <CardTitle className="text-lg">
-                        {brand.short_name || brand.brand_name}
+                      <CardTitle className="text-lg flex items-center justify-between">
+                        <span>{brand.short_name || brand.brand_name}</span>
+                        {brandErrors[brand.id] && (
+                          <span className="text-xs font-normal text-destructive">⚠️ خطأ</span>
+                        )}
                       </CardTitle>
+                      {brandErrors[brand.id] && (
+                        <p className="text-xs text-destructive">{brandErrors[brand.id]}</p>
+                      )}
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div>
