@@ -32,6 +32,19 @@ interface SoftwareLicense {
   cost: number;
   status: string;
   invoice_file_path: string | null;
+  currency_id: string | null;
+}
+
+interface Currency {
+  id: string;
+  currency_code: string;
+  currency_name: string;
+  is_base: boolean;
+}
+
+interface CurrencyRate {
+  currency_id: string;
+  rate_to_base: number;
 }
 
 const SoftwareLicenses = () => {
@@ -46,6 +59,9 @@ const SoftwareLicenses = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("expiry_date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
+  const [baseCurrency, setBaseCurrency] = useState<Currency | null>(null);
 
   // Dashboard stats
   const [stats, setStats] = useState({
@@ -59,6 +75,7 @@ const SoftwareLicenses = () => {
 
   useEffect(() => {
     fetchLicenses();
+    fetchCurrencies();
   }, []);
 
   useEffect(() => {
@@ -67,7 +84,7 @@ const SoftwareLicenses = () => {
 
   useEffect(() => {
     calculateStats();
-  }, [licenses]);
+  }, [licenses, currencies, currencyRates, baseCurrency]);
 
   const fetchLicenses = async () => {
     setLoading(true);
@@ -90,6 +107,52 @@ const SoftwareLicenses = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCurrencies = async () => {
+    try {
+      const { data: currenciesData, error: currenciesError } = await supabase
+        .from("currencies")
+        .select("id, currency_code, currency_name, is_base")
+        .eq("is_active", true);
+
+      if (currenciesError) throw currenciesError;
+      setCurrencies(currenciesData || []);
+
+      const base = currenciesData?.find(c => c.is_base);
+      setBaseCurrency(base || null);
+
+      const { data: ratesData, error: ratesError } = await supabase
+        .from("currency_rates")
+        .select("currency_id, rate_to_base")
+        .order("effective_date", { ascending: false });
+
+      if (ratesError) throw ratesError;
+
+      // Get latest rate for each currency
+      const latestRates: CurrencyRate[] = [];
+      const seen = new Set<string>();
+      for (const rate of ratesData || []) {
+        if (!seen.has(rate.currency_id)) {
+          latestRates.push(rate);
+          seen.add(rate.currency_id);
+        }
+      }
+      setCurrencyRates(latestRates);
+    } catch (error: any) {
+      console.error("Error fetching currencies:", error);
+    }
+  };
+
+  const convertToBaseCurrency = (cost: number, currencyId: string | null): number => {
+    if (!currencyId || !baseCurrency) return cost;
+    if (currencyId === baseCurrency.id) return cost;
+
+    const rate = currencyRates.find(r => r.currency_id === currencyId);
+    if (rate && rate.rate_to_base > 0) {
+      return cost / rate.rate_to_base;
+    }
+    return cost;
   };
 
   const filterAndSortLicenses = () => {
@@ -140,11 +203,12 @@ const SoftwareLicenses = () => {
 
     const monthlyCost = licenses
       .filter((l) => l.renewal_cycle === "monthly")
-      .reduce((sum, l) => sum + Number(l.cost), 0);
+      .reduce((sum, l) => sum + convertToBaseCurrency(Number(l.cost), l.currency_id), 0);
 
     const annualCost = licenses.reduce((sum, l) => {
-      if (l.renewal_cycle === "monthly") return sum + Number(l.cost) * 12;
-      if (l.renewal_cycle === "yearly") return sum + Number(l.cost);
+      const baseCost = convertToBaseCurrency(Number(l.cost), l.currency_id);
+      if (l.renewal_cycle === "monthly") return sum + baseCost * 12;
+      if (l.renewal_cycle === "yearly") return sum + baseCost;
       return sum;
     }, 0);
 
@@ -280,20 +344,22 @@ const SoftwareLicenses = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {language === "ar" ? "التكلفة الشهرية" : "Monthly Cost"}
+              {baseCurrency && <span className="text-xs ml-1">({baseCurrency.currency_code})</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.monthlyCost.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{stats.monthlyCost.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {language === "ar" ? "التكلفة السنوية" : "Annual Cost"}
+              {baseCurrency && <span className="text-xs ml-1">({baseCurrency.currency_code})</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.annualCost.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{stats.annualCost.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
@@ -422,8 +488,16 @@ const SoftwareLicenses = () => {
                   )}
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-muted-foreground">{language === "ar" ? "التكلفة:" : "Cost:"}</span>
-                    <span className="text-lg font-bold">${Number(license.cost).toFixed(2)}</span>
+                    <span className="text-lg font-bold">
+                      {Number(license.cost).toFixed(2)} {currencies.find(c => c.id === license.currency_id)?.currency_code || ''}
+                    </span>
                   </div>
+                  {license.currency_id && baseCurrency && license.currency_id !== baseCurrency.id && (
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                      <span>{language === "ar" ? "بالعملة الأساسية:" : "In base currency:"}</span>
+                      <span>{convertToBaseCurrency(Number(license.cost), license.currency_id).toFixed(2)} {baseCurrency.currency_code}</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex gap-2 pt-2">
