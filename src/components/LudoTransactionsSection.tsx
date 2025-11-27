@@ -100,13 +100,20 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
   const fetchData = async () => {
     try {
       // Fetch Ludo products - using or filter to handle potential whitespace in SKUs
-      const { data: productsData } = await supabase
+      const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select("sku, product_name, product_price, product_cost")
         .or("sku.ilike.LUDOF001%,sku.ilike.LUDOL001%")
         .eq("status", "active");
 
-      setProducts(productsData || []);
+      if (productsError) {
+        console.error("Error fetching products:", productsError);
+      }
+      
+      // Filter out any products with null/empty SKUs
+      const validProducts = (productsData || []).filter(p => p.sku && p.sku.trim() !== "");
+      console.log("Fetched Ludo products:", validProducts);
+      setProducts(validProducts);
 
       // Fetch existing transactions for this shift
       const { data: transactionsData } = await supabase
@@ -385,11 +392,17 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
                 <SelectValue placeholder={translations.selectProduct} />
               </SelectTrigger>
               <SelectContent>
-                {products.map((product) => (
-                  <SelectItem key={product.sku} value={product.sku}>
-                    {product.product_name} ({product.product_price} SAR)
-                  </SelectItem>
-                ))}
+                {products.length === 0 ? (
+                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    {language === "ar" ? "لا توجد منتجات" : "No products found"}
+                  </div>
+                ) : (
+                  products.map((product) => (
+                    <SelectItem key={product.sku} value={product.sku!}>
+                      {product.product_name} ({product.product_price} SAR)
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
