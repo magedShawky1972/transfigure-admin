@@ -50,12 +50,17 @@ serve(async (req) => {
     if (trainingData && !trainingError) {
       // Get the training image URL
       if (trainingData.image_path) {
-        const { data: signedUrlData } = await supabase.storage
-          .from("closing-training")
-          .createSignedUrl(trainingData.image_path, 3600);
-        
-        if (signedUrlData?.signedUrl) {
-          trainingImageUrl = signedUrlData.signedUrl;
+        // Check if it's already a full URL (public bucket) or just a path
+        if (trainingData.image_path.startsWith('http')) {
+          trainingImageUrl = trainingData.image_path;
+        } else {
+          const { data: signedUrlData } = await supabase.storage
+            .from("closing-training")
+            .createSignedUrl(trainingData.image_path, 3600);
+          
+          if (signedUrlData?.signedUrl) {
+            trainingImageUrl = signedUrlData.signedUrl;
+          }
         }
       }
     }
