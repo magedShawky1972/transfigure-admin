@@ -149,14 +149,14 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
 
   const handleMultiImageUpload = async (files: FileList) => {
     setExtracting(true);
-    const newTempTransactions: TempTransaction[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    // Process all files and add each one to state immediately after extraction
+    const processFile = async (file: File, index: number) => {
       try {
-        // Upload image first
+        // Upload image first with unique timestamp per file
         const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}/${shiftSessionId}/ludo-${Date.now()}-${i}.${fileExt}`;
+        const uniqueId = `${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
+        const fileName = `${userId}/${shiftSessionId}/ludo-${uniqueId}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from("ludo-receipts")
@@ -187,7 +187,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
             variant: "destructive",
           });
           await supabase.storage.from("ludo-receipts").remove([fileName]);
-          continue;
+          return null;
         }
 
         // Get product info based on detected SKU
@@ -196,7 +196,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         const amount = product?.product_price ? parseFloat(product.product_price) : (data.amount || 0);
 
         const tempTx: TempTransaction = {
-          id: `temp-${Date.now()}-${i}`,
+          id: `temp-${uniqueId}`,
           product_sku: detectedSku,
           product_name: product?.product_name || detectedSku,
           player_id: "", // User will enter manually
@@ -206,13 +206,15 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
           imageUrl: base64Image,
         };
 
-        newTempTransactions.push(tempTx);
+        // Add to state immediately after each successful extraction
+        setTempTransactions(prev => [...prev, tempTx]);
 
         toast({
           title: translations.extractSuccess,
           description: `${language === "ar" ? "المنتج" : "Product"}: ${product?.product_name || detectedSku}`,
         });
 
+        return tempTx;
       } catch (error: any) {
         console.error("Error extracting data:", error);
         toast({
@@ -220,10 +222,15 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
           description: error.message,
           variant: "destructive",
         });
+        return null;
       }
+    };
+
+    // Process files sequentially to avoid race conditions
+    for (let i = 0; i < files.length; i++) {
+      await processFile(files[i], i);
     }
 
-    setTempTransactions(prev => [...prev, ...newTempTransactions]);
     setExtracting(false);
   };
 
