@@ -303,6 +303,10 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         },
       }));
 
+      // Get signed URL immediately for display
+      const signedUrl = await getImageUrl(fileName);
+      setImageUrls((prev) => ({ ...prev, [brandId]: signedUrl }));
+
       // Save to database immediately
       await saveBalanceToDb(brandId, newBalance, fileName);
 
@@ -345,6 +349,9 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         },
       }));
 
+      // Clear the image URL
+      setImageUrls((prev) => ({ ...prev, [brandId]: null }));
+
       // Save to database immediately
       await saveBalanceToDb(brandId, currentBalance, null);
 
@@ -362,11 +369,30 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     }
   };
 
-  const getImageUrl = (imagePath: string | null) => {
+  const getImageUrl = async (imagePath: string | null): Promise<string | null> => {
     if (!imagePath) return null;
-    const { data } = supabase.storage.from("shift-receipts").getPublicUrl(imagePath);
-    return data.publicUrl;
+    const { data, error } = await supabase.storage.from("shift-receipts").createSignedUrl(imagePath, 3600);
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
   };
+
+  // State to store signed URLs for images
+  const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
+
+  // Load signed URLs when balances change
+  useEffect(() => {
+    const loadImageUrls = async () => {
+      const urls: Record<string, string | null> = {};
+      for (const brandId of Object.keys(balances)) {
+        const imagePath = balances[brandId]?.receipt_image_path;
+        if (imagePath) {
+          urls[brandId] = await getImageUrl(imagePath);
+        }
+      }
+      setImageUrls(urls);
+    };
+    loadImageUrls();
+  }, [balances]);
 
   const extractNumberFromImage = async (brandId: string, file: File, imagePath: string) => {
     setExtractingBrands((prev) => ({ ...prev, [brandId]: true }));
@@ -638,20 +664,20 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                         <Label>{t("receiptImage")}</Label>
                         
                         {/* Image Preview */}
-                        {balances[brand.id]?.receipt_image_path && (
+                        {balances[brand.id]?.receipt_image_path && imageUrls[brand.id] && (
                           <div className="relative rounded-lg overflow-hidden border bg-muted">
                             <img
-                              src={getImageUrl(balances[brand.id]?.receipt_image_path)}
+                              src={imageUrls[brand.id] || ""}
                               alt={brand.brand_name}
                               className="w-full h-32 object-cover cursor-pointer"
-                              onClick={() => setSelectedImage(getImageUrl(balances[brand.id]?.receipt_image_path))}
+                              onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
                             />
                             <div className="absolute top-2 right-2 flex gap-1">
                               <Button
                                 size="icon"
                                 variant="secondary"
                                 className="h-7 w-7 bg-background/80 hover:bg-background"
-                                onClick={() => setSelectedImage(getImageUrl(balances[brand.id]?.receipt_image_path))}
+                                onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
                               >
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
