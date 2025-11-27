@@ -234,16 +234,47 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     }
   };
 
+  // Helper function to save balance to database
+  const saveBalanceToDb = async (brandId: string, closingBalance: number, receiptImagePath: string | null) => {
+    if (!shiftSession) return;
+    
+    try {
+      const { error } = await supabase
+        .from("shift_brand_balances")
+        .upsert({
+          shift_session_id: shiftSession.id,
+          brand_id: brandId,
+          closing_balance: closingBalance,
+          receipt_image_path: receiptImagePath,
+        }, { onConflict: "shift_session_id,brand_id" });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving balance to database:", error);
+    }
+  };
+
   const handleBalanceChange = (brandId: string, value: string) => {
+    const newBalance = parseFloat(value) || 0;
+    const receiptPath = balances[brandId]?.receipt_image_path || null;
+    
     setBalances((prev) => ({
       ...prev,
       [brandId]: {
         ...prev[brandId],
         brand_id: brandId,
-        closing_balance: parseFloat(value) || 0,
-        receipt_image_path: prev[brandId]?.receipt_image_path || null,
+        closing_balance: newBalance,
+        receipt_image_path: receiptPath,
       },
     }));
+  };
+
+  // Save balance when input loses focus
+  const handleBalanceBlur = async (brandId: string) => {
+    const balance = balances[brandId];
+    if (balance) {
+      await saveBalanceToDb(brandId, balance.closing_balance, balance.receipt_image_path);
+    }
   };
 
   const handleImageUpload = async (brandId: string, file: File) => {
@@ -260,15 +291,20 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
 
       if (uploadError) throw uploadError;
 
+      const newBalance = balances[brandId]?.closing_balance || 0;
+      
       setBalances((prev) => ({
         ...prev,
         [brandId]: {
           ...prev[brandId],
           brand_id: brandId,
-          closing_balance: prev[brandId]?.closing_balance || 0,
+          closing_balance: newBalance,
           receipt_image_path: fileName,
         },
       }));
+
+      // Save to database immediately
+      await saveBalanceToDb(brandId, newBalance, fileName);
 
       toast({
         title: t("success"),
@@ -276,7 +312,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       });
 
       // Automatically extract number using AI
-      await extractNumberFromImage(brandId, file);
+      await extractNumberFromImage(brandId, file, fileName);
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
@@ -297,15 +333,20 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         await supabase.storage.from("shift-receipts").remove([existingPath]);
       }
 
+      const currentBalance = balances[brandId]?.closing_balance || 0;
+
       setBalances((prev) => ({
         ...prev,
         [brandId]: {
           ...prev[brandId],
           brand_id: brandId,
-          closing_balance: prev[brandId]?.closing_balance || 0,
+          closing_balance: currentBalance,
           receipt_image_path: null,
         },
       }));
+
+      // Save to database immediately
+      await saveBalanceToDb(brandId, currentBalance, null);
 
       toast({
         title: t("success"),
@@ -327,7 +368,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     return data.publicUrl;
   };
 
-  const extractNumberFromImage = async (brandId: string, file: File) => {
+  const extractNumberFromImage = async (brandId: string, file: File, imagePath: string) => {
     setExtractingBrands((prev) => ({ ...prev, [brandId]: true }));
     
     try {
@@ -353,9 +394,12 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
             ...prev[brandId],
             brand_id: brandId,
             closing_balance: data.extractedNumber,
-            receipt_image_path: prev[brandId]?.receipt_image_path || null,
+            receipt_image_path: imagePath,
           },
         }));
+
+        // Save extracted number to database immediately
+        await saveBalanceToDb(brandId, data.extractedNumber, imagePath);
 
         toast({
           title: t("success"),
@@ -573,6 +617,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                             type="number"
                             value={balances[brand.id]?.closing_balance || ""}
                             onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
+                            onBlur={() => handleBalanceBlur(brand.id)}
                             placeholder="0.00"
                             disabled={extractingBrands[brand.id]}
                           />
