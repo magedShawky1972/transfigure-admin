@@ -647,7 +647,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
                   )}
                 </div>
                 
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2">
                   {license.invoice_file_path && (
                     <Button
                       variant="outline"
@@ -661,7 +661,6 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
                     onClick={() => navigate(`/software-license-setup?id=${license.id}`)}
                   >
                     <Pencil className="h-4 w-4 mr-2" />
