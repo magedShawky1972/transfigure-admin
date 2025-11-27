@@ -478,6 +478,10 @@ const SoftwareLicenses = () => {
                     <span className="text-muted-foreground">{language === "ar" ? "التجديد:" : "Renewal:"}</span>
                     <span className="capitalize">{license.renewal_cycle}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{language === "ar" ? "العملة:" : "Currency:"}</span>
+                    <span className="font-medium">{currencies.find(c => c.id === license.currency_id)?.currency_code || (language === "ar" ? "غير محدد" : "Not set")}</span>
+                  </div>
                   {(license.assigned_to || license.assigned_department) && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{language === "ar" ? "مخصص لـ:" : "Assigned:"}</span>
