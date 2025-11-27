@@ -319,8 +319,12 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       // Clear any previous error for this brand
       setBrandErrors((prev) => ({ ...prev, [brandId]: null }));
 
+      // Get brand name for AI validation
+      const brand = brands.find(b => b.id === brandId);
+      const brandName = brand?.short_name || brand?.brand_name || "unknown";
+
       // Automatically extract number using AI
-      await extractNumberFromImage(brandId, file, fileName);
+      await extractNumberFromImage(brandId, file, fileName, brandName);
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
@@ -399,7 +403,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     loadImageUrls();
   }, [balances]);
 
-  const extractNumberFromImage = async (brandId: string, file: File, imagePath: string) => {
+  const extractNumberFromImage = async (brandId: string, file: File, imagePath: string, brandName: string) => {
     setExtractingBrands((prev) => ({ ...prev, [brandId]: true }));
     
     try {
@@ -413,10 +417,22 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       const base64Image = await base64Promise;
 
       const { data, error } = await supabase.functions.invoke("extract-shift-closing-number", {
-        body: { imageUrl: base64Image, brandId },
+        body: { imageUrl: base64Image, brandId, brandName },
       });
 
       if (error) throw error;
+
+      // Check if image is for wrong brand
+      if (data?.isValidBrand === false) {
+        const errorMsg = data.brandMismatchReason || "صورة لعلامة تجارية مختلفة";
+        setBrandErrors((prev) => ({ ...prev, [brandId]: `صورة خاطئة: ${errorMsg}` }));
+        toast({
+          title: t("error") || "خطأ",
+          description: `الصورة المرفوعة ليست لـ ${brandName}. يرجى رفع الصورة الصحيحة.`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (data?.extractedNumber !== null && data?.extractedNumber !== undefined) {
         setBalances((prev) => ({
@@ -437,11 +453,11 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
           description: `تم استخراج الرقم: ${data.extractedNumber}`,
         });
       } else {
-        // Set error for wrong image
-        setBrandErrors((prev) => ({ ...prev, [brandId]: "صورة غير صحيحة - لم يتم العثور على الرقم" }));
+        // Set error for not found number
+        setBrandErrors((prev) => ({ ...prev, [brandId]: "لم يتم العثور على الرقم في الصورة" }));
         toast({
           title: t("error") || "خطأ",
-          description: "صورة غير صحيحة للعلامة التجارية. يرجى رفع الصورة الصحيحة.",
+          description: "لم يتم العثور على رقم الإغلاق. يرجى التأكد من الصورة أو إدخال الرقم يدوياً.",
           variant: "destructive",
         });
       }

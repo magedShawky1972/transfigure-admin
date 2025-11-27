@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl, brandId } = await req.json();
+    const { imageUrl, brandId, brandName } = await req.json();
     
     if (!imageUrl) {
       return new Response(
@@ -61,7 +61,7 @@ serve(async (req) => {
       }
 
       trainingContext = `
-TRAINING DATA FOR THIS BRAND:
+TRAINING DATA FOR THIS BRAND (${brandName || "unknown"}):
 - The expected closing number location was marked with a yellow square in the training image
 - The expected number from training is: ${trainingData.expected_number || "unknown"}
 - Notes: ${trainingData.notes || "none"}
@@ -71,26 +71,40 @@ The training image has a yellow square highlighting the exact location. Find the
 `;
     }
 
-    console.log("Extracting closing number for brand:", brandId);
+    console.log("Extracting closing number for brand:", brandId, brandName);
     console.log("Has training data:", !!trainingData);
 
-    // Build messages array
+    // Build messages array for extraction and validation
     const messages: any[] = [
       {
         role: "system",
         content: `You are a number extraction assistant specialized in reading closing balance numbers from point-of-sale or financial system screenshots.
 
-Your task is to find and extract the closing balance number from the image.
+Your task is to:
+1. FIRST - Validate if the uploaded image matches the expected brand interface (${brandName || "the specified brand"})
+2. SECOND - If valid, extract the closing balance number from the image
 
 ${trainingContext}
 
-Rules:
+Rules for brand validation:
+- Compare the new image with the training image to verify they show the SAME brand/application interface
+- Look for brand identifiers like logos, app names, or distinctive UI elements
+- If the image shows a DIFFERENT brand's interface (different app name, different UI layout), mark it as INVALID
+
+Rules for number extraction:
 - Look for the closing balance / total / remaining balance number in the image
 - If training data is provided, use the training image to learn WHERE the number is located, then find the same location in the new image
 - Extract ONLY the numeric value (digits only, no currency symbols or text)
 - If you find a decimal number, include the decimal point
-- If you cannot find the number, return "NOT_FOUND"
-- Do not include any explanation, just the number or NOT_FOUND`
+
+Response format (JSON):
+{
+  "isValidBrand": true/false,
+  "extractedNumber": "number or NOT_FOUND",
+  "brandMismatchReason": "explanation if invalid, empty if valid"
+}
+
+IMPORTANT: Return ONLY valid JSON, no other text.`
       }
     ];
 
@@ -100,7 +114,7 @@ Rules:
     if (trainingImageUrl) {
       userContent.push({
         type: "text",
-        text: "Here is the training image showing WHERE the closing number is located (marked with yellow square):"
+        text: `Here is the training image for brand "${brandName}" showing WHERE the closing number is located (marked with yellow square):`
       });
       userContent.push({
         type: "image_url",
@@ -108,12 +122,12 @@ Rules:
       });
       userContent.push({
         type: "text",
-        text: "Now, find the number in the SAME LOCATION in this new image and extract it:"
+        text: `Now validate if this NEW image is for the SAME brand "${brandName}" and extract the number from the SAME LOCATION:`
       });
     } else {
       userContent.push({
         type: "text",
-        text: "Find and extract the closing balance number from this image:"
+        text: `Find and extract the closing balance number from this image for brand "${brandName}":`
       });
     }
 
@@ -162,23 +176,53 @@ Rules:
     const data = await response.json();
     const extractedText = data.choices?.[0]?.message?.content?.trim() || "";
     
-    console.log("Extracted text:", extractedText);
+    console.log("AI Response:", extractedText);
 
-    // Try to parse the number
+    // Try to parse the JSON response
+    let isValidBrand = true;
     let extractedNumber: number | null = null;
-    if (extractedText && extractedText !== "NOT_FOUND") {
-      // Remove any non-numeric characters except decimal point and minus
-      const cleanedText = extractedText.replace(/[^\d.-]/g, "");
-      const parsed = parseFloat(cleanedText);
-      if (!isNaN(parsed)) {
-        extractedNumber = parsed;
+    let brandMismatchReason = "";
+
+    try {
+      // Clean up the response - remove markdown code blocks if present
+      let cleanedText = extractedText;
+      if (cleanedText.startsWith("```json")) {
+        cleanedText = cleanedText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      } else if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.replace(/^```\s*/, "").replace(/\s*```$/, "");
+      }
+
+      const jsonResponse = JSON.parse(cleanedText);
+      isValidBrand = jsonResponse.isValidBrand !== false;
+      brandMismatchReason = jsonResponse.brandMismatchReason || "";
+
+      if (jsonResponse.extractedNumber && jsonResponse.extractedNumber !== "NOT_FOUND") {
+        const cleanedNumber = String(jsonResponse.extractedNumber).replace(/[^\d.-]/g, "");
+        const parsed = parseFloat(cleanedNumber);
+        if (!isNaN(parsed)) {
+          extractedNumber = parsed;
+        }
+      }
+    } catch (parseError) {
+      console.log("Failed to parse JSON, falling back to text extraction");
+      // Fallback: try to extract number from the text directly
+      if (extractedText && extractedText !== "NOT_FOUND") {
+        const cleanedText = extractedText.replace(/[^\d.-]/g, "");
+        const parsed = parseFloat(cleanedText);
+        if (!isNaN(parsed)) {
+          extractedNumber = parsed;
+        }
       }
     }
+
+    console.log("Parsed result - isValidBrand:", isValidBrand, "extractedNumber:", extractedNumber, "mismatchReason:", brandMismatchReason);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         extractedNumber,
+        isValidBrand,
+        brandMismatchReason,
         rawText: extractedText,
         hasTrainingData: !!trainingData
       }),
