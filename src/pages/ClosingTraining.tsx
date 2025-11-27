@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Trash2, Image as ImageIcon, Save, X, Loader2 } from "lucide-react";
+import { Upload, Trash2, Image as ImageIcon, Save, X, Loader2, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -40,12 +40,13 @@ const ClosingTraining = () => {
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [notesValue, setNotesValue] = useState("");
   const [expectedNumbers, setExpectedNumbers] = useState<Record<string, string>>({});
+  const [extracting, setExtracting] = useState<string | null>(null);
 
   const translations = {
     title: language === "ar" ? "تدريب الإغلاق" : "Closing Training",
     subtitle: language === "ar" 
-      ? "رفع صور الإغلاق لكل ماركة من الفئة A مع تحديد الرقم المطلوب" 
-      : "Upload closing screenshots for each A-class brand with the required number highlighted",
+      ? "رفع صور الإغلاق لكل ماركة من الفئة A - سيتم قراءة الرقم تلقائياً من المربع الأصفر" 
+      : "Upload closing screenshots for each A-class brand - number will be automatically read from yellow square",
     brandName: language === "ar" ? "اسم الماركة" : "Brand Name",
     brandCode: language === "ar" ? "كود الماركة" : "Brand Code",
     uploadImage: language === "ar" ? "رفع صورة" : "Upload Image",
@@ -66,6 +67,10 @@ const ClosingTraining = () => {
     numberPlaceholder: language === "ar" ? "أدخل الرقم من الصورة" : "Enter number from image",
     numberSaved: language === "ar" ? "تم حفظ الرقم المتوقع" : "Expected number saved",
     saveNumber: language === "ar" ? "حفظ الرقم" : "Save Number",
+    extracting: language === "ar" ? "جاري قراءة الرقم..." : "Reading number...",
+    extractNumber: language === "ar" ? "قراءة الرقم بالذكاء الاصطناعي" : "Read Number with AI",
+    numberExtracted: language === "ar" ? "تم قراءة الرقم تلقائياً" : "Number automatically extracted",
+    extractionFailed: language === "ar" ? "فشل في قراءة الرقم - يرجى إدخاله يدوياً" : "Failed to read number - please enter manually",
   };
 
   useEffect(() => {
@@ -173,11 +178,53 @@ const ClosingTraining = () => {
       }));
 
       toast.success(translations.uploadSuccess);
+      
+      // Auto-extract number from the uploaded image
+      extractNumberFromImage(brandId, urlData.publicUrl);
     } catch (error) {
       console.error("Error uploading image:", error);
       toast.error(translations.uploadError);
     } finally {
       setUploading(null);
+    }
+  };
+
+  const extractNumberFromImage = async (brandId: string, imageUrl: string) => {
+    setExtracting(brandId);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-closing-number", {
+        body: { imageUrl },
+      });
+
+      if (error) throw error;
+
+      if (data?.extractedNumber !== null && data?.extractedNumber !== undefined) {
+        const numberStr = data.extractedNumber.toString();
+        setExpectedNumbers((prev) => ({
+          ...prev,
+          [brandId]: numberStr,
+        }));
+        
+        // Auto-save the extracted number
+        await supabase
+          .from("brand_closing_training")
+          .update({ expected_number: data.extractedNumber })
+          .eq("brand_id", brandId);
+        
+        setTrainingData((prev) => ({
+          ...prev,
+          [brandId]: { ...prev[brandId], expected_number: data.extractedNumber },
+        }));
+        
+        toast.success(translations.numberExtracted);
+      } else {
+        toast.info(translations.extractionFailed);
+      }
+    } catch (error) {
+      console.error("Error extracting number:", error);
+      toast.error(translations.extractionFailed);
+    } finally {
+      setExtracting(null);
     }
   };
 
@@ -298,6 +345,7 @@ const ClosingTraining = () => {
         {brands.map((brand) => {
           const data = trainingData[brand.id];
           const isUploading = uploading === brand.id;
+          const isExtracting = extracting === brand.id;
 
           return (
             <Card key={brand.id} className="overflow-hidden">
@@ -387,12 +435,35 @@ const ClosingTraining = () => {
                           [brand.id]: e.target.value,
                         }))}
                         className="flex-1"
+                        disabled={isExtracting}
                       />
                       <Button
                         size="sm"
                         onClick={() => handleSaveExpectedNumber(brand.id)}
+                        disabled={isExtracting}
                       >
                         <Save className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => extractNumberFromImage(brand.id, data.image_path)}
+                        disabled={isExtracting}
+                        className="flex-1"
+                      >
+                        {isExtracting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                            {translations.extracting}
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-1" />
+                            {translations.extractNumber}
+                          </>
+                        )}
                       </Button>
                     </div>
                     {data.expected_number !== null && (
