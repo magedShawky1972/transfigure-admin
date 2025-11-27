@@ -63,6 +63,13 @@ const ClosingTraining = () => {
   const [ludoUploading, setLudoUploading] = useState<string | null>(null);
   const [ludoEditingNotes, setLudoEditingNotes] = useState<string | null>(null);
   const [ludoNotesValue, setLudoNotesValue] = useState("");
+  const [ludoExtracting, setLudoExtracting] = useState<string | null>(null);
+  const [ludoExtractedData, setLudoExtractedData] = useState<Record<string, {
+    amount: number | null;
+    playerId: string | null;
+    transactionDate: string | null;
+    isValidApp: boolean;
+  }>>({});
 
   const translations = {
     title: language === "ar" ? "تدريب الإغلاق" : "Closing Training",
@@ -102,6 +109,13 @@ const ClosingTraining = () => {
       : "Upload charging screenshots to train the system to extract transaction data automatically",
     brandsSection: language === "ar" ? "تدريب إغلاق الماركات" : "Brand Closing Training",
     ludoSection: language === "ar" ? "تدريب يلا لودو" : "Yalla Ludo Training",
+    ludoAmount: language === "ar" ? "المبلغ" : "Amount",
+    ludoPlayerId: language === "ar" ? "رقم اللاعب" : "Player ID",
+    ludoDate: language === "ar" ? "التاريخ" : "Date",
+    ludoExtractingData: language === "ar" ? "جاري استخراج البيانات..." : "Extracting data...",
+    ludoExtractionSuccess: language === "ar" ? "تم استخراج البيانات بنجاح" : "Data extracted successfully",
+    ludoExtractionFailed: language === "ar" ? "فشل استخراج البيانات" : "Failed to extract data",
+    ludoInvalidImage: language === "ar" ? "الصورة ليست من تطبيق يلا لودو" : "Image is not from Yalla Ludo app",
   };
 
   useEffect(() => {
@@ -443,11 +457,54 @@ const ClosingTraining = () => {
       }));
 
       toast.success(translations.uploadSuccess);
+      
+      // Auto-extract data from uploaded image
+      extractLudoData(productSku, imageUrl);
     } catch (error) {
       console.error("Error uploading image:", error);
       toast.error(translations.uploadError);
     } finally {
       setLudoUploading(null);
+    }
+  };
+
+  const extractLudoData = async (productSku: string, imageUrl: string) => {
+    setLudoExtracting(productSku);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-ludo-transaction", {
+        body: { imageUrl, productSku },
+      });
+
+      if (error) throw error;
+
+      if (data?.isValidApp) {
+        setLudoExtractedData((prev) => ({
+          ...prev,
+          [productSku]: {
+            amount: data.amount,
+            playerId: data.playerId,
+            transactionDate: data.transactionDate,
+            isValidApp: true,
+          },
+        }));
+        toast.success(translations.ludoExtractionSuccess);
+      } else {
+        setLudoExtractedData((prev) => ({
+          ...prev,
+          [productSku]: {
+            amount: null,
+            playerId: null,
+            transactionDate: null,
+            isValidApp: false,
+          },
+        }));
+        toast.error(data?.invalidReason || translations.ludoInvalidImage);
+      }
+    } catch (error) {
+      console.error("Error extracting Ludo data:", error);
+      toast.error(translations.ludoExtractionFailed);
+    } finally {
+      setLudoExtracting(null);
     }
   };
 
@@ -765,8 +822,10 @@ const ClosingTraining = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {ludoProducts.map((product) => {
           const data = ludoTrainingData[product.sku];
+          const extractedData = ludoExtractedData[product.sku];
           const isUploading = ludoUploading === product.sku;
-          const isAiTrained = !!data?.image_path;
+          const isExtractingData = ludoExtracting === product.sku;
+          const isAiTrained = !!data?.image_path && extractedData?.isValidApp;
 
           return (
             <Card key={product.sku} className="overflow-hidden border-2 border-orange-200 dark:border-orange-900">
@@ -859,6 +918,67 @@ const ClosingTraining = () => {
                     </Button>
                   )}
                 </div>
+
+                {/* Extracted Data Section */}
+                {data?.image_path && (
+                  <div className="space-y-3 pt-3 border-t border-orange-200 dark:border-orange-900/50">
+                    {isExtractingData ? (
+                      <div className="flex items-center justify-center gap-2 py-4 text-orange-600">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span className="text-sm font-medium">{translations.ludoExtractingData}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">{translations.ludoPlayerId}</Label>
+                            <Input
+                              value={extractedData?.playerId || ""}
+                              readOnly
+                              className="bg-muted/50 font-mono text-sm"
+                              placeholder={language === "ar" ? "سيظهر هنا بعد الرفع" : "Will appear after upload"}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{translations.ludoAmount}</Label>
+                              <Input
+                                value={extractedData?.amount !== null ? extractedData.amount.toString() : ""}
+                                readOnly
+                                className="bg-muted/50 font-mono text-sm"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{translations.ludoDate}</Label>
+                              <Input
+                                value={extractedData?.transactionDate || ""}
+                                readOnly
+                                className="bg-muted/50 font-mono text-xs"
+                                placeholder="YYYY-MM-DD"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Re-extract button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-orange-300 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                          onClick={() => {
+                            if (data?.image_path) {
+                              extractLudoData(product.sku, data.image_path);
+                            }
+                          }}
+                        >
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          {language === "ar" ? "إعادة استخراج البيانات" : "Re-extract Data"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Notes Section */}
                 {data?.image_path && (
