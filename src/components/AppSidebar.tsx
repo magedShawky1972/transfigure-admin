@@ -19,7 +19,8 @@ import {
   Shield,
   Clock,
   MessageCircle,
-  Calendar
+  Calendar,
+  GraduationCap
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -80,6 +81,7 @@ export function AppSidebar() {
     "/shift-follow-up": "shiftFollowUp",
     "/my-shifts": "myShifts",
     "/tawasoul": "tawasoul",
+    "/closing-training": "closingTraining",
   };
 
   useEffect(() => {
@@ -203,6 +205,7 @@ export function AppSidebar() {
       items: [
         { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
         { title: language === 'ar' ? 'إعدادات النظام' : 'System Configuration', url: "/system-config", icon: Shield },
+        { title: language === 'ar' ? 'تدريب الإغلاق' : 'Closing Training', url: "/closing-training", icon: GraduationCap },
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
