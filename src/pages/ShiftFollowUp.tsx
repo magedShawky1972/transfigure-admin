@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import ShiftClosingDetailsDialog from "@/components/ShiftClosingDetailsDialog";
 
 interface ShiftAssignment {
   id: string;
@@ -68,6 +69,8 @@ export default function ShiftFollowUp() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<ShiftAssignment | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -327,33 +330,50 @@ export default function ShiftFollowUp() {
                         {assignment.notes || "-"}
                       </TableCell>
                       <TableCell>
-                        {editingId === assignment.id ? (
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveEdit(assignment.id)}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={handleCancelEdit}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              handleEditClick(assignment.id, assignment.user_id)
-                            }
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <div className="flex gap-2">
+                          {editingId === assignment.id ? (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveEdit(assignment.id)}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleCancelEdit}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  handleEditClick(assignment.id, assignment.user_id)
+                                }
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              {assignment.shift_sessions?.some(s => s.status === "closed") && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedAssignment(assignment);
+                                    setDetailsDialogOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 ml-1" />
+                                  {t("Details")}
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -363,6 +383,15 @@ export default function ShiftFollowUp() {
           )}
         </CardContent>
       </Card>
+
+      {/* Closing Details Dialog */}
+      <ShiftClosingDetailsDialog
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        shiftSessionId={selectedAssignment?.shift_sessions?.find(s => s.status === "closed")?.id || null}
+        userName={selectedAssignment?.profiles.user_name || ""}
+        shiftName={selectedAssignment?.shifts.shift_name || ""}
+      />
     </div>
   );
 }
