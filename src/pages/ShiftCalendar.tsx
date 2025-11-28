@@ -1040,12 +1040,12 @@ const ShiftCalendar = () => {
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">من:</span>
-                  <Popover>
+                  <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-[200px] justify-start text-left font-normal",
+                          "w-[180px] justify-start text-left font-normal",
                           !notificationStartDate && "text-muted-foreground"
                         )}
                       >
@@ -1053,13 +1053,18 @@ const ShiftCalendar = () => {
                         {notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : "اختر التاريخ"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-background z-[9999]" align="start" sideOffset={4}>
+                    <PopoverContent 
+                      className="w-auto p-0 bg-background border shadow-lg" 
+                      align="start" 
+                      side="bottom"
+                      sideOffset={4}
+                    >
                       <Calendar
                         mode="single"
                         selected={notificationStartDate}
                         onSelect={setNotificationStartDate}
                         initialFocus
-                        className="pointer-events-auto"
+                        className="p-3 pointer-events-auto"
                       />
                     </PopoverContent>
                   </Popover>
@@ -1067,12 +1072,12 @@ const ShiftCalendar = () => {
                 
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">إلى:</span>
-                  <Popover>
+                  <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-[200px] justify-start text-left font-normal",
+                          "w-[180px] justify-start text-left font-normal",
                           !notificationEndDate && "text-muted-foreground"
                         )}
                       >
@@ -1080,13 +1085,18 @@ const ShiftCalendar = () => {
                         {notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : "اختر التاريخ"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-background z-[9999]" align="start" sideOffset={4}>
+                    <PopoverContent 
+                      className="w-auto p-0 bg-background border shadow-lg" 
+                      align="start" 
+                      side="bottom"
+                      sideOffset={4}
+                    >
                       <Calendar
                         mode="single"
                         selected={notificationEndDate}
                         onSelect={setNotificationEndDate}
                         initialFocus
-                        className="pointer-events-auto"
+                        className="p-3 pointer-events-auto"
                       />
                     </PopoverContent>
                   </Popover>
