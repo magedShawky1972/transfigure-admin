@@ -67,6 +67,19 @@ type DepartmentMember = {
   };
 };
 
+type DepartmentAdminInfo = {
+  department_id: string;
+  admin_order: number;
+  is_purchase_admin: boolean;
+};
+
+type AllDepartmentAdmin = {
+  department_id: string;
+  user_id: string;
+  admin_order: number;
+  is_purchase_admin: boolean;
+};
+
 const AdminTickets = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -84,12 +97,82 @@ const AdminTickets = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [selectedTicketForLog, setSelectedTicketForLog] = useState<{ id: string; number: string } | null>(null);
+  const [currentUserAdminInfo, setCurrentUserAdminInfo] = useState<DepartmentAdminInfo[]>([]);
+  const [allDepartmentAdmins, setAllDepartmentAdmins] = useState<AllDepartmentAdmin[]>([]);
 
   useEffect(() => {
     checkAdminStatus();
     fetchTickets();
     fetchDepartmentMembers();
+    fetchCurrentUserAdminInfo();
   }, []);
+
+  // Check if current user can approve a specific ticket
+  const canUserApprove = (ticket: Ticket): boolean => {
+    if (ticket.approved_at) return false; // Already fully approved
+    
+    const userAdminForDept = currentUserAdminInfo.find(a => a.department_id === ticket.department_id);
+    if (!userAdminForDept) return false;
+    
+    const deptAdmins = allDepartmentAdmins.filter(a => a.department_id === ticket.department_id);
+    const nextOrder = ticket.next_admin_order || 1;
+    
+    // For non-purchase tickets: only regular admins are in the approval chain
+    if (!ticket.is_purchase_ticket) {
+      // User must be a regular admin with matching order
+      return !userAdminForDept.is_purchase_admin && userAdminForDept.admin_order === nextOrder;
+    }
+    
+    // For purchase tickets: determine if we're in regular phase or purchase phase
+    // Check if there are any regular admins at the next_admin_order
+    const regularAdminsAtOrder = deptAdmins.filter(a => !a.is_purchase_admin && a.admin_order === nextOrder);
+    
+    if (regularAdminsAtOrder.length > 0) {
+      // We're in regular admin phase
+      return !userAdminForDept.is_purchase_admin && userAdminForDept.admin_order === nextOrder;
+    } else {
+      // We're in purchase admin phase (or transitioning to it)
+      // Check if there are purchase admins at next_admin_order
+      const purchaseAdminsAtOrder = deptAdmins.filter(a => a.is_purchase_admin && a.admin_order === nextOrder);
+      if (purchaseAdminsAtOrder.length > 0) {
+        return userAdminForDept.is_purchase_admin && userAdminForDept.admin_order === nextOrder;
+      }
+    }
+    
+    return false;
+  };
+
+  const fetchCurrentUserAdminInfo = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get current user's admin info for all departments
+      const { data: userAdminData, error: userAdminError } = await supabase
+        .from("department_admins")
+        .select("department_id, admin_order, is_purchase_admin")
+        .eq("user_id", user.id);
+
+      if (userAdminError) throw userAdminError;
+      setCurrentUserAdminInfo(userAdminData || []);
+
+      // Get all department IDs where user is admin
+      const departmentIds = userAdminData?.map(d => d.department_id) || [];
+      
+      if (departmentIds.length > 0) {
+        // Get all admins for these departments
+        const { data: allAdmins, error: allAdminsError } = await supabase
+          .from("department_admins")
+          .select("department_id, user_id, admin_order, is_purchase_admin")
+          .in("department_id", departmentIds);
+
+        if (allAdminsError) throw allAdminsError;
+        setAllDepartmentAdmins(allAdmins || []);
+      }
+    } catch (error: any) {
+      console.error("Error fetching admin info:", error);
+    }
+  };
 
   const checkAdminStatus = async () => {
     try {
@@ -719,7 +802,7 @@ const AdminTickets = () => {
             />
           </div>
           
-          {!ticket.approved_at && (
+          {canUserApprove(ticket) && (
             <Button
               size="sm"
               variant="default"
@@ -733,6 +816,12 @@ const AdminTickets = () => {
           {ticket.approved_at && (
             <Badge variant="secondary" className="text-xs">
               {language === 'ar' ? 'تمت الموافقة' : 'Approved'}
+            </Badge>
+          )}
+          
+          {!ticket.approved_at && !canUserApprove(ticket) && (
+            <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
+              {language === 'ar' ? 'بانتظار موافقة أخرى' : 'Awaiting other approval'}
             </Badge>
           )}
           
@@ -755,12 +844,6 @@ const AdminTickets = () => {
               ))}
             </SelectContent>
           </Select>
-          
-          {!ticket.approved_at && (
-            <span className="text-xs text-amber-600 dark:text-amber-400">
-              {language === 'ar' ? 'بانتظار الموافقة' : 'Pending approval'}
-            </span>
-          )}
           
           <Collapsible
             open={expandedTicket === ticket.id}
