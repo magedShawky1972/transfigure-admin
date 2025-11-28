@@ -283,7 +283,7 @@ const ClosingTraining = () => {
     }
   };
 
-  const extractNumberFromImage = async (brandId: string, imageId: string, imageUrl: string) => {
+  const extractNumberFromImage = async (brandId: string, imageId: string, imageUrl: string, retryCount = 0) => {
     setExtracting(imageId);
     try {
       const brand = brands.find(b => b.id === brandId);
@@ -291,7 +291,8 @@ const ClosingTraining = () => {
         body: { 
           imageUrl,
           brandId,
-          brandName: brand?.brand_name 
+          brandName: brand?.brand_name,
+          retryCount
         },
       });
 
@@ -314,14 +315,28 @@ const ClosingTraining = () => {
         }));
         
         toast.success(translations.numberExtracted);
+      } else if (data?.canRetry && retryCount < 2) {
+        // Auto-retry if extraction failed
+        console.log(`Retrying extraction for ${brandId}, attempt ${retryCount + 1}`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1);
       } else {
         toast.info(translations.extractionFailed);
       }
     } catch (error) {
       console.error("Error extracting number:", error);
-      toast.error(translations.extractionFailed);
+      // Auto-retry on error if we haven't retried too many times
+      if (retryCount < 2) {
+        console.log(`Retrying extraction after error for ${brandId}, attempt ${retryCount + 1}`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1);
+      } else {
+        toast.error(translations.extractionFailed);
+      }
     } finally {
-      setExtracting(null);
+      if (retryCount >= 2 || extracting === imageId) {
+        setExtracting(null);
+      }
     }
   };
 
