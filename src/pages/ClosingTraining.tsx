@@ -285,6 +285,8 @@ const ClosingTraining = () => {
 
   const extractNumberFromImage = async (brandId: string, imageId: string, imageUrl: string, retryCount = 0) => {
     setExtracting(imageId);
+    let shouldClearExtracting = true;
+    
     try {
       const brand = brands.find(b => b.id === brandId);
       const { data, error } = await supabase.functions.invoke("extract-closing-number", {
@@ -316,9 +318,10 @@ const ClosingTraining = () => {
         
         toast.success(translations.numberExtracted);
       } else if (data?.canRetry && retryCount < 2) {
-        // Auto-retry if extraction failed
+        // Auto-retry if extraction failed - don't clear extracting since we're recursing
+        shouldClearExtracting = false;
         console.log(`Retrying extraction for ${brandId}, attempt ${retryCount + 1}`);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
         await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1);
       } else {
         toast.info(translations.extractionFailed);
@@ -327,6 +330,7 @@ const ClosingTraining = () => {
       console.error("Error extracting number:", error);
       // Auto-retry on error if we haven't retried too many times
       if (retryCount < 2) {
+        shouldClearExtracting = false;
         console.log(`Retrying extraction after error for ${brandId}, attempt ${retryCount + 1}`);
         await new Promise(resolve => setTimeout(resolve, 1500));
         await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1);
@@ -334,7 +338,7 @@ const ClosingTraining = () => {
         toast.error(translations.extractionFailed);
       }
     } finally {
-      if (retryCount >= 2 || extracting === imageId) {
+      if (shouldClearExtracting) {
         setExtracting(null);
       }
     }
