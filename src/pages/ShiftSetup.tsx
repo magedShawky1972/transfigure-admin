@@ -35,6 +35,7 @@ interface Shift {
   shift_type?: string;
   is_active: boolean;
   color: string;
+  shift_order: number;
   job_positions?: string[];
   admins?: Array<{ user_id: string; admin_order: number; user_name: string }>;
 }
@@ -65,6 +66,7 @@ const ShiftSetup = () => {
     shift_type_id: "",
     shift_type: "",
     color: "#3b82f6",
+    shift_order: 0,
     selected_job_positions: [] as string[],
     selected_admins: [] as string[],
   });
@@ -92,7 +94,7 @@ const ShiftSetup = () => {
             admin_order
           )
         `)
-        .order("created_at", { ascending: false });
+        .order("shift_order", { ascending: true });
 
       if (error) throw error;
 
@@ -216,6 +218,7 @@ const ShiftSetup = () => {
         shift_end_time: formData.shift_end_time,
         shift_type_id: formData.shift_type_id || null,
         color: formData.color,
+        shift_order: formData.shift_order,
       };
 
       let shiftId: string;
@@ -323,6 +326,7 @@ const ShiftSetup = () => {
       shift_type_id: shift.shift_type_id || "",
       shift_type: shift.shift_type || "",
       color: shift.color,
+      shift_order: shift.shift_order || 0,
       selected_job_positions: jobPositionLinks?.map(link => link.job_position_id) || [],
       selected_admins: adminLinks?.map(link => link.user_id) || [],
     });
@@ -355,6 +359,7 @@ const ShiftSetup = () => {
       shift_type_id: "",
       shift_type: "",
       color: "#3b82f6",
+      shift_order: 0,
       selected_job_positions: [],
       selected_admins: [],
     });
@@ -435,7 +440,18 @@ const ShiftSetup = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("shiftSetup.shiftOrder")}</label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={formData.shift_order}
+                  onChange={(e) => setFormData({ ...formData, shift_order: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t("shiftSetup.shiftName")} *</label>
                 <Input
@@ -677,6 +693,7 @@ const ShiftSetup = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>{t("shiftSetup.shiftOrder")}</TableHead>
                 <TableHead>{t("shiftSetup.color")}</TableHead>
                 <TableHead>{t("shiftSetup.shiftName")}</TableHead>
                 <TableHead>{t("shiftSetup.zone")}</TableHead>
@@ -691,6 +708,7 @@ const ShiftSetup = () => {
             <TableBody>
               {shifts.map((shift) => (
                 <TableRow key={shift.id}>
+                  <TableCell className="font-medium">{shift.shift_order}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div 
@@ -758,7 +776,7 @@ const ShiftSetup = () => {
               ))}
               {shifts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground">
                     {t("shiftSetup.noShiftsFound")}
                   </TableCell>
                 </TableRow>
