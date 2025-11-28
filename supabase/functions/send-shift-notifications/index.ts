@@ -54,10 +54,10 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { startDate, endDate } = await req.json();
+    const { startDate, endDate, userIds: selectedUserIds } = await req.json();
 
     // جلب الورديات
-    const { data: assignments, error: assignmentsError } = await supabase
+    let query = supabase
       .from("shift_assignments")
       .select(
         `
@@ -79,10 +79,17 @@ const handler = async (req: Request): Promise<Response> => {
       .gte("assignment_date", startDate)
       .lte("assignment_date", endDate);
 
+    // Filter by selected users if provided
+    if (selectedUserIds && selectedUserIds.length > 0) {
+      query = query.in("user_id", selectedUserIds);
+    }
+
+    const { data: assignments, error: assignmentsError } = await query;
+
     if (assignmentsError) throw new Error("Failed to fetch shift assignments");
     if (!assignments || assignments.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No shift assignments found for the specified date range" }),
+        JSON.stringify({ success: true, message: "No shift assignments found for the specified date range and users" }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }

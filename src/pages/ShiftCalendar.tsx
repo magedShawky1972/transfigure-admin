@@ -2,12 +2,17 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send } from "lucide-react";
+import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const arabicDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
@@ -80,6 +85,14 @@ const ShiftCalendar = () => {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [sendingNotifications, setSendingNotifications] = useState(false);
+  
+  // Send notifications dialog state
+  const [sendNotificationDialogOpen, setSendNotificationDialogOpen] = useState(false);
+  const [notificationStartDate, setNotificationStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
+  const [notificationEndDate, setNotificationEndDate] = useState<Date | undefined>(endOfMonth(new Date()));
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [selectAllUsers, setSelectAllUsers] = useState(false);
+  const [shiftRelatedUsers, setShiftRelatedUsers] = useState<User[]>([]);
 
   useEffect(() => {
     fetchShifts();
@@ -501,22 +514,72 @@ const ShiftCalendar = () => {
     setSelectedDates([]);
   };
 
+  const openSendNotificationDialog = () => {
+    // Reset states
+    setNotificationStartDate(startOfMonth(currentDate));
+    setNotificationEndDate(endOfMonth(currentDate));
+    setSelectedUserIds([]);
+    setSelectAllUsers(false);
+    
+    // Collect all job position IDs from shifts
+    const allJobPositionIds = new Set<string>();
+    shifts.forEach(shift => {
+      shift.job_positions?.forEach(posId => {
+        if (posId) allJobPositionIds.add(posId);
+      });
+    });
+    
+    // Filter users who have job positions related to shifts
+    const relatedUsers = users.filter(user => 
+      user.job_position_id && allJobPositionIds.has(user.job_position_id)
+    );
+    setShiftRelatedUsers(relatedUsers);
+    
+    setSendNotificationDialogOpen(true);
+  };
+
+  const handleToggleUser = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleToggleAllUsers = (checked: boolean) => {
+    setSelectAllUsers(checked);
+    if (checked) {
+      setSelectedUserIds(shiftRelatedUsers.map(u => u.user_id));
+    } else {
+      setSelectedUserIds([]);
+    }
+  };
+
   const handleSendNotifications = async () => {
+    if (!notificationStartDate || !notificationEndDate) {
+      toast.error("يرجى تحديد نطاق التاريخ");
+      return;
+    }
+    
+    if (selectedUserIds.length === 0) {
+      toast.error("يرجى اختيار مستخدم واحد على الأقل");
+      return;
+    }
+
     setSendingNotifications(true);
     try {
-      const startOfMonthDate = startOfMonth(currentDate);
-      const endOfMonthDate = endOfMonth(currentDate);
-
       const { data, error } = await supabase.functions.invoke("send-shift-notifications", {
         body: {
-          startDate: format(startOfMonthDate, "yyyy-MM-dd"),
-          endDate: format(endOfMonthDate, "yyyy-MM-dd"),
+          startDate: format(notificationStartDate, "yyyy-MM-dd"),
+          endDate: format(notificationEndDate, "yyyy-MM-dd"),
+          userIds: selectedUserIds,
         },
       });
 
       if (error) throw error;
 
       toast.success(data.message || "تم إرسال الإشعارات بنجاح");
+      setSendNotificationDialogOpen(false);
     } catch (error) {
       console.error("Error sending notifications:", error);
       toast.error("فشل في إرسال الإشعارات");
@@ -662,11 +725,10 @@ const ShiftCalendar = () => {
               <Button
                 variant="default"
                 size="sm"
-                onClick={handleSendNotifications}
-                disabled={sendingNotifications}
+                onClick={openSendNotificationDialog}
               >
                 <Send className="h-4 w-4 mr-1" />
-                {sendingNotifications ? "جاري الإرسال..." : "إرسال الإشعارات"}
+                إرسال الإشعارات
               </Button>
               <Button
                 variant={viewType === "day" ? "default" : "outline"}
@@ -958,6 +1020,171 @@ const ShiftCalendar = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Notifications Dialog */}
+      <Dialog open={sendNotificationDialogOpen} onOpenChange={setSendNotificationDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              إرسال إشعارات الورديات
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Date Range Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">نطاق التاريخ</Label>
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">من:</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[200px] justify-start text-left font-normal",
+                          !notificationStartDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : "اختر التاريخ"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-background" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={notificationStartDate}
+                        onSelect={setNotificationStartDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">إلى:</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[200px] justify-start text-left font-normal",
+                          !notificationEndDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : "اختر التاريخ"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-background" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={notificationEndDate}
+                        onSelect={setNotificationEndDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </div>
+
+            {/* User Selection */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  اختر المستخدمين
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="selectAll"
+                    checked={selectAllUsers}
+                    onCheckedChange={(checked) => handleToggleAllUsers(checked as boolean)}
+                  />
+                  <label htmlFor="selectAll" className="text-sm cursor-pointer">
+                    تحديد الكل ({shiftRelatedUsers.length})
+                  </label>
+                </div>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                المستخدمون الذين لديهم مناصب مرتبطة بالورديات
+              </p>
+              
+              <ScrollArea className="h-[250px] border rounded-lg p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {shiftRelatedUsers.map(user => (
+                    <div
+                      key={user.user_id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                        selectedUserIds.includes(user.user_id)
+                          ? "bg-primary/10 border-primary"
+                          : "hover:bg-muted/50"
+                      )}
+                      onClick={() => handleToggleUser(user.user_id)}
+                    >
+                      <Checkbox
+                        checked={selectedUserIds.includes(user.user_id)}
+                        onCheckedChange={() => handleToggleUser(user.user_id)}
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm">{user.user_name}</span>
+                        {user.job_position_name && (
+                          <span className="text-xs text-muted-foreground">
+                            {user.job_position_name}
+                          </span>
+                        )}
+                      </div>
+                      {selectedUserIds.includes(user.user_id) && (
+                        <Check className="h-4 w-4 text-primary ml-auto" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {shiftRelatedUsers.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    لا يوجد مستخدمون مرتبطون بمناصب الورديات
+                  </div>
+                )}
+              </ScrollArea>
+              
+              {selectedUserIds.length > 0 && (
+                <p className="text-sm text-primary">
+                  تم تحديد {selectedUserIds.length} مستخدم
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setSendNotificationDialogOpen(false)}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleSendNotifications}
+              disabled={sendingNotifications || selectedUserIds.length === 0}
+            >
+              {sendingNotifications ? (
+                <>جاري الإرسال...</>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  إرسال الإشعارات
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
