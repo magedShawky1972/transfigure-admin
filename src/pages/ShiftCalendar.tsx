@@ -8,9 +8,6 @@ import { toast } from "sonner";
 import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import { DayPicker } from "react-day-picker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -705,7 +702,7 @@ const ShiftCalendar = () => {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
               <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-6 w-6" />
+                <CalendarIcon className="h-6 w-6" />
                 تقويم الورديات
               </CardTitle>
               <Select value={selectedShiftType} onValueChange={setSelectedShiftType}>
@@ -752,7 +749,7 @@ const ShiftCalendar = () => {
                 size="sm"
                 onClick={() => setViewType("month")}
               >
-                <Calendar className="h-4 w-4 mr-1" />
+                <CalendarIcon className="h-4 w-4 mr-1" />
                 شهر
               </Button>
             </div>
