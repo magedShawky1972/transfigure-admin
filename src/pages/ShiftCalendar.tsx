@@ -1053,7 +1053,7 @@ const ShiftCalendar = () => {
                         {notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : "اختر التاريخ"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-background" align="start">
+                    <PopoverContent className="w-auto p-0 bg-background z-[9999]" align="start" sideOffset={4}>
                       <Calendar
                         mode="single"
                         selected={notificationStartDate}
@@ -1080,7 +1080,7 @@ const ShiftCalendar = () => {
                         {notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : "اختر التاريخ"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-background" align="start">
+                    <PopoverContent className="w-auto p-0 bg-background z-[9999]" align="start" sideOffset={4}>
                       <Calendar
                         mode="single"
                         selected={notificationEndDate}
