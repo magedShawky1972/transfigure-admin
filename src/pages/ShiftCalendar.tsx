@@ -1035,90 +1035,28 @@ const ShiftCalendar = () => {
           </DialogHeader>
           
           <div className="space-y-6 py-4">
-            {/* Date Range Selection - Inline Calendars */}
+            {/* Date Range Selection - Simple Inputs */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">نطاق التاريخ</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">من: {notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : "-"}</span>
-                  </div>
-                  <div className="border rounded-lg p-2 bg-background">
-                    <DayPicker
-                      mode="single"
-                      selected={notificationStartDate}
-                      onSelect={setNotificationStartDate}
-                      showOutsideDays
-                      className="p-1"
-                      classNames={{
-                        months: "flex flex-col",
-                        month: "space-y-2",
-                        caption: "flex justify-center pt-1 relative items-center mb-2",
-                        caption_label: "text-sm font-medium",
-                        nav: "space-x-1 flex items-center",
-                        nav_button: cn(buttonVariants({ variant: "outline" }), "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100"),
-                        nav_button_previous: "absolute left-1",
-                        nav_button_next: "absolute right-1",
-                        table: "w-full border-collapse",
-                        head_row: "flex",
-                        head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.7rem]",
-                        row: "flex w-full mt-1",
-                        cell: "h-8 w-8 text-center text-sm p-0 relative",
-                        day: cn(buttonVariants({ variant: "ghost" }), "h-8 w-8 p-0 font-normal text-xs aria-selected:opacity-100"),
-                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                        day_today: "bg-accent text-accent-foreground",
-                        day_outside: "text-muted-foreground opacity-50",
-                        day_disabled: "text-muted-foreground opacity-50",
-                        day_hidden: "invisible",
-                      }}
-                      components={{
-                        IconLeft: () => <ChevronLeft className="h-3 w-3" />,
-                        IconRight: () => <ChevronRight className="h-3 w-3" />,
-                      }}
-                    />
-                  </div>
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">من:</span>
+                  <input
+                    type="date"
+                    value={notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : ""}
+                    onChange={(e) => setNotificationStartDate(e.target.value ? new Date(e.target.value) : undefined)}
+                    className="flex h-10 w-[180px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
                 </div>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">إلى: {notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : "-"}</span>
-                  </div>
-                  <div className="border rounded-lg p-2 bg-background">
-                    <DayPicker
-                      mode="single"
-                      selected={notificationEndDate}
-                      onSelect={setNotificationEndDate}
-                      showOutsideDays
-                      className="p-1"
-                      classNames={{
-                        months: "flex flex-col",
-                        month: "space-y-2",
-                        caption: "flex justify-center pt-1 relative items-center mb-2",
-                        caption_label: "text-sm font-medium",
-                        nav: "space-x-1 flex items-center",
-                        nav_button: cn(buttonVariants({ variant: "outline" }), "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100"),
-                        nav_button_previous: "absolute left-1",
-                        nav_button_next: "absolute right-1",
-                        table: "w-full border-collapse",
-                        head_row: "flex",
-                        head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.7rem]",
-                        row: "flex w-full mt-1",
-                        cell: "h-8 w-8 text-center text-sm p-0 relative",
-                        day: cn(buttonVariants({ variant: "ghost" }), "h-8 w-8 p-0 font-normal text-xs aria-selected:opacity-100"),
-                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                        day_today: "bg-accent text-accent-foreground",
-                        day_outside: "text-muted-foreground opacity-50",
-                        day_disabled: "text-muted-foreground opacity-50",
-                        day_hidden: "invisible",
-                      }}
-                      components={{
-                        IconLeft: () => <ChevronLeft className="h-3 w-3" />,
-                        IconRight: () => <ChevronRight className="h-3 w-3" />,
-                      }}
-                    />
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">إلى:</span>
+                  <input
+                    type="date"
+                    value={notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : ""}
+                    onChange={(e) => setNotificationEndDate(e.target.value ? new Date(e.target.value) : undefined)}
+                    className="flex h-10 w-[180px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
                 </div>
               </div>
             </div>
