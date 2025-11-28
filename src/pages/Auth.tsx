@@ -639,7 +639,7 @@ const Auth = () => {
           
           <div className="text-center mt-6 space-y-2 border-t pt-4">
             <p className="text-sm text-muted-foreground">{format(new Date(), 'MMMM dd, yyyy')}</p>
-            <p className="text-sm text-muted-foreground">Version 1.1.2</p>
+            <p className="text-sm text-muted-foreground">Version 1.1.4</p>
           </div>
         </CardContent>
       </Card>
