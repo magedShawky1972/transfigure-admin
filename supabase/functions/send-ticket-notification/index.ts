@@ -29,6 +29,33 @@ interface EmailAttachment {
   encoding: "binary";
 }
 
+// Helper function to log ticket activities
+async function logTicketActivity(
+  supabase: any,
+  ticketId: string,
+  activityType: string,
+  userId: string | null,
+  userName: string | null,
+  recipientId: string | null,
+  recipientName: string | null,
+  description: string | null
+) {
+  try {
+    await supabase.from("ticket_activity_logs").insert({
+      ticket_id: ticketId,
+      activity_type: activityType,
+      user_id: userId,
+      user_name: userName,
+      recipient_id: recipientId,
+      recipient_name: recipientName,
+      description: description,
+    });
+    console.log(`Activity logged: ${activityType} for ticket ${ticketId}`);
+  } catch (error) {
+    console.error("Failed to log activity:", error);
+  }
+}
+
 async function sendEmailInBackground(
   email: string,
   userName: string,
@@ -223,7 +250,31 @@ const handler = async (req: Request): Promise<Response> => {
           `<p>مرحباً ${profile.user_name},</p>`
         );
         sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml, emailAttachments);
+        
+        // Log email sent activity
+        logTicketActivity(
+          supabase,
+          ticketId,
+          "email_sent",
+          null,
+          null,
+          profile.user_id,
+          profile.user_name,
+          `تم إرسال بريد إلكتروني إلى ${profile.user_name} (المستوى ${adminOrder})`
+        );
       });
+
+      // Log notification activity for sequential approval
+      logTicketActivity(
+        supabase,
+        ticketId,
+        type === "ticket_created" ? "notification_sent" : type,
+        null,
+        creatorProfile?.user_name || null,
+        null,
+        profiles.map(p => p.user_name).join(", "),
+        `تم إرسال إشعار للمسؤولين في المستوى ${adminOrder}`
+      );
 
       // Send push notifications to all recipients
       profiles.forEach(profile => {
@@ -332,7 +383,31 @@ const handler = async (req: Request): Promise<Response> => {
         );
         // Fire and forget - emails sent in background
         sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml, emailAttachments);
+        
+        // Log email sent activity
+        logTicketActivity(
+          supabase,
+          ticketId,
+          "email_sent",
+          null,
+          null,
+          profile.user_id,
+          profile.user_name,
+          `تم إرسال بريد إلكتروني إلى ${profile.user_name}`
+        );
       });
+
+      // Log notification activity
+      logTicketActivity(
+        supabase,
+        ticketId,
+        type === "ticket_created" ? "notification_sent" : type,
+        null,
+        creatorProfile?.user_name || null,
+        null,
+        profiles.map(p => p.user_name).join(", "),
+        `تم إرسال إشعار بخصوص التذكرة`
+      );
 
       // Send push notifications to all recipients
       profiles.forEach(profile => {
@@ -435,6 +510,43 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Send email in background (non-blocking)
       sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml, emailAttachments);
+
+      // Log the activity
+      let activityType = type;
+      let activityDescription = "";
+      
+      if (type === "ticket_approved") {
+        activityType = "ticket_approved";
+        activityDescription = `تمت الموافقة على التذكرة وتم إرسال إشعار إلى ${profile.user_name}`;
+      } else if (type === "ticket_assigned") {
+        activityType = "ticket_assigned";
+        activityDescription = `تم تعيين التذكرة إلى ${profile.user_name}`;
+      } else {
+        activityDescription = `تم إرسال إشعار إلى ${profile.user_name}`;
+      }
+
+      await logTicketActivity(
+        supabase,
+        ticketId,
+        activityType,
+        null,
+        creatorProfile?.user_name || null,
+        recipientUserId,
+        profile.user_name,
+        activityDescription
+      );
+
+      // Log email sent activity
+      await logTicketActivity(
+        supabase,
+        ticketId,
+        "email_sent",
+        null,
+        null,
+        recipientUserId,
+        profile.user_name,
+        `تم إرسال بريد إلكتروني إلى ${profile.user_name}`
+      );
 
       // Send push notification
       supabase.functions.invoke("send-push-notification", {

@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History } from "lucide-react";
+import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
+import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -80,6 +82,8 @@ const AdminTickets = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
+  const [selectedTicketForLog, setSelectedTicketForLog] = useState<{ id: string; number: string } | null>(null);
 
   useEffect(() => {
     checkAdminStatus();
@@ -325,7 +329,19 @@ const AdminTickets = () => {
     }
   };
 
-  const handleAssign = async (ticketId: string, userId: string) => {
+  const handleAssign = async (ticketId: string, userId: string, ticket: Ticket) => {
+    // Check if ticket is approved before allowing assignment
+    if (!ticket.approved_at) {
+      toast({
+        title: language === 'ar' ? 'غير مسموح' : 'Not Allowed',
+        description: language === 'ar' 
+          ? 'يجب إكمال جميع خطوات الموافقة قبل التعيين' 
+          : 'All approval steps must be completed before assignment',
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("tickets")
@@ -356,6 +372,11 @@ const AdminTickets = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleOpenActivityLog = (ticket: Ticket) => {
+    setSelectedTicketForLog({ id: ticket.id, number: ticket.ticket_number });
+    setActivityLogOpen(true);
   };
 
   const handleDelete = async () => {
@@ -642,9 +663,13 @@ const AdminTickets = () => {
           
           <Select
             value={ticket.assigned_to || ""}
-            onValueChange={(value) => handleAssign(ticket.id, value)}
+            onValueChange={(value) => handleAssign(ticket.id, value, ticket)}
+            disabled={!ticket.approved_at}
           >
-            <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs sm:text-sm">
+            <SelectTrigger className={cn(
+              "w-full sm:w-[150px] h-8 text-xs sm:text-sm",
+              !ticket.approved_at && "opacity-50 cursor-not-allowed"
+            )}>
               <SelectValue placeholder={language === 'ar' ? 'تعيين' : 'Assign'} />
             </SelectTrigger>
             <SelectContent>
@@ -655,6 +680,12 @@ const AdminTickets = () => {
               ))}
             </SelectContent>
           </Select>
+          
+          {!ticket.approved_at && (
+            <span className="text-xs text-amber-600 dark:text-amber-400">
+              {language === 'ar' ? 'بانتظار الموافقة' : 'Pending approval'}
+            </span>
+          )}
           
           <Collapsible
             open={expandedTicket === ticket.id}
@@ -710,6 +741,16 @@ const AdminTickets = () => {
           >
             <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إرسال' : 'Resend'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs sm:text-sm"
+            onClick={() => handleOpenActivityLog(ticket)}
+          >
+            <History className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'سجل' : 'Log'}</span>
           </Button>
 
           <Button
@@ -855,6 +896,15 @@ const AdminTickets = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedTicketForLog && (
+        <TicketActivityLogDialog
+          open={activityLogOpen}
+          onOpenChange={setActivityLogOpen}
+          ticketId={selectedTicketForLog.id}
+          ticketNumber={selectedTicketForLog.number}
+        />
+      )}
     </div>
   );
 };

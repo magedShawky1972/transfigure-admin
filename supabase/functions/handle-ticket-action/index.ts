@@ -9,6 +9,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to log ticket activities
+async function logTicketActivity(
+  supabase: any,
+  ticketId: string,
+  activityType: string,
+  userId: string | null,
+  userName: string | null,
+  recipientId: string | null,
+  recipientName: string | null,
+  description: string | null
+) {
+  try {
+    await supabase.from("ticket_activity_logs").insert({
+      ticket_id: ticketId,
+      activity_type: activityType,
+      user_id: userId,
+      user_name: userName,
+      recipient_id: recipientId,
+      recipient_name: recipientName,
+      description: description,
+    });
+    console.log(`Activity logged: ${activityType} for ticket ${ticketId}`);
+  } catch (error) {
+    console.error("Failed to log activity:", error);
+  }
+}
+
 // Simple token generation for verification
 function generateToken(ticketId: string, action: string): string {
   const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!.substring(0, 32);
@@ -174,6 +201,18 @@ const handler = async (req: Request): Promise<Response> => {
         return htmlResponse("خطأ", "فشل في الموافقة على التذكرة. يرجى المحاولة مرة أخرى.", false);
       }
 
+      // Log the approval activity
+      await logTicketActivity(
+        supabase,
+        ticketId,
+        "approved_by_email",
+        null,
+        null,
+        null,
+        null,
+        `تمت الموافقة على التذكرة عبر البريد الإلكتروني`
+      );
+
       // Notify the ticket creator
       await supabase.functions.invoke("send-ticket-notification", {
         body: {
@@ -198,6 +237,18 @@ const handler = async (req: Request): Promise<Response> => {
         console.error("Failed to reject ticket:", updateError);
         return htmlResponse("خطأ", "فشل في رفض التذكرة. يرجى المحاولة مرة أخرى.", false);
       }
+
+      // Log the rejection activity
+      await logTicketActivity(
+        supabase,
+        ticketId,
+        "rejected_by_email",
+        null,
+        null,
+        null,
+        null,
+        `تم رفض التذكرة عبر البريد الإلكتروني`
+      );
 
       // Get department name
       const { data: department } = await supabase
