@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl } = await req.json();
+    const { imageUrl, brandId, brandName, retryCount = 0 } = await req.json();
     
     if (!imageUrl) {
       return new Response(
@@ -25,7 +25,33 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Extracting number from image:", imageUrl);
+    console.log("Extracting number from image:", imageUrl, "Brand:", brandName, "Retry:", retryCount);
+
+    const systemPrompt = `You are an expert at reading numbers from voice chat app screenshots. Your task is to find and extract the main balance/coins number displayed in the screenshot.
+
+IMPORTANT: These are screenshots from Arabic voice chat apps like:
+- بينمو (Binmo)
+- سول فري (Soul Free) 
+- سيلا شات (Sila Chat)
+- صدى لايف (Sada Live)
+- هوى شات (Hawa Chat)
+- هيلا شات (Hila Chat)
+- يوهو (Yoho)
+
+What to look for:
+1. The MAIN BALANCE or COINS number - this is usually the largest/most prominent number on the screen
+2. It's typically displayed near the top of the screen or in a prominent position
+3. The number represents the user's coin/diamond/points balance
+4. It may have commas as thousand separators (e.g., 13,489,032)
+5. It might be near icons showing coins, diamonds, or currency symbols
+
+Rules:
+- Extract ONLY the main balance number (the largest prominent number showing total coins/balance)
+- Return ONLY the numeric value (digits only)
+- Include commas if present in the original number (e.g., "13,489,032")
+- If multiple numbers exist, choose the one that represents the MAIN BALANCE (usually the largest/most prominent)
+- If you cannot find a clear balance number, return "NOT_FOUND"
+- Do not include any explanation, just the number or NOT_FOUND`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -38,22 +64,16 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a number extraction assistant. Your task is to find and extract the number that is highlighted with a yellow square/box in the image. 
-            
-Rules:
-- Look for any yellow highlighted area, yellow box, or yellow square in the image
-- Extract ONLY the number that is inside or near the yellow highlight
-- Return ONLY the numeric value (digits only, no text)
-- If you find a decimal number, include the decimal point
-- If you cannot find a yellow highlighted number, return "NOT_FOUND"
-- Do not include any explanation, just the number or NOT_FOUND`
+            content: systemPrompt
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Find and extract the number that is highlighted with a yellow square/box in this image. Return only the number."
+                text: brandName 
+                  ? `This is a screenshot from "${brandName}" voice chat app. Find and extract the main balance/coins number displayed on the screen. Return only the number.`
+                  : "Find and extract the main balance/coins number displayed on this voice chat app screenshot. Return only the number."
               },
               {
                 type: "image_url",
@@ -103,11 +123,16 @@ Rules:
       }
     }
 
+    // If extraction failed and we haven't retried too many times, indicate retry is possible
+    const canRetry = extractedNumber === null && retryCount < 2;
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         extractedNumber,
-        rawText: extractedText 
+        rawText: extractedText,
+        canRetry,
+        retryCount
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
