@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +9,7 @@ import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plu
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
+import { DayPicker } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1034,72 +1035,90 @@ const ShiftCalendar = () => {
           </DialogHeader>
           
           <div className="space-y-6 py-4">
-            {/* Date Range Selection */}
+            {/* Date Range Selection - Inline Calendars */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">نطاق التاريخ</Label>
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">من:</span>
-                  <Popover modal={true}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-[180px] justify-start text-left font-normal",
-                          !notificationStartDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : "اختر التاريخ"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-auto p-0 bg-background border shadow-lg" 
-                      align="start" 
-                      side="bottom"
-                      sideOffset={4}
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={notificationStartDate}
-                        onSelect={setNotificationStartDate}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">من: {notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : "-"}</span>
+                  </div>
+                  <div className="border rounded-lg p-2 bg-background">
+                    <DayPicker
+                      mode="single"
+                      selected={notificationStartDate}
+                      onSelect={setNotificationStartDate}
+                      showOutsideDays
+                      className="p-1"
+                      classNames={{
+                        months: "flex flex-col",
+                        month: "space-y-2",
+                        caption: "flex justify-center pt-1 relative items-center mb-2",
+                        caption_label: "text-sm font-medium",
+                        nav: "space-x-1 flex items-center",
+                        nav_button: cn(buttonVariants({ variant: "outline" }), "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100"),
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse",
+                        head_row: "flex",
+                        head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.7rem]",
+                        row: "flex w-full mt-1",
+                        cell: "h-8 w-8 text-center text-sm p-0 relative",
+                        day: cn(buttonVariants({ variant: "ghost" }), "h-8 w-8 p-0 font-normal text-xs aria-selected:opacity-100"),
+                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                        day_today: "bg-accent text-accent-foreground",
+                        day_outside: "text-muted-foreground opacity-50",
+                        day_disabled: "text-muted-foreground opacity-50",
+                        day_hidden: "invisible",
+                      }}
+                      components={{
+                        IconLeft: () => <ChevronLeft className="h-3 w-3" />,
+                        IconRight: () => <ChevronRight className="h-3 w-3" />,
+                      }}
+                    />
+                  </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">إلى:</span>
-                  <Popover modal={true}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-[180px] justify-start text-left font-normal",
-                          !notificationEndDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : "اختر التاريخ"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-auto p-0 bg-background border shadow-lg" 
-                      align="start" 
-                      side="bottom"
-                      sideOffset={4}
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={notificationEndDate}
-                        onSelect={setNotificationEndDate}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">إلى: {notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : "-"}</span>
+                  </div>
+                  <div className="border rounded-lg p-2 bg-background">
+                    <DayPicker
+                      mode="single"
+                      selected={notificationEndDate}
+                      onSelect={setNotificationEndDate}
+                      showOutsideDays
+                      className="p-1"
+                      classNames={{
+                        months: "flex flex-col",
+                        month: "space-y-2",
+                        caption: "flex justify-center pt-1 relative items-center mb-2",
+                        caption_label: "text-sm font-medium",
+                        nav: "space-x-1 flex items-center",
+                        nav_button: cn(buttonVariants({ variant: "outline" }), "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100"),
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse",
+                        head_row: "flex",
+                        head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.7rem]",
+                        row: "flex w-full mt-1",
+                        cell: "h-8 w-8 text-center text-sm p-0 relative",
+                        day: cn(buttonVariants({ variant: "ghost" }), "h-8 w-8 p-0 font-normal text-xs aria-selected:opacity-100"),
+                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                        day_today: "bg-accent text-accent-foreground",
+                        day_outside: "text-muted-foreground opacity-50",
+                        day_disabled: "text-muted-foreground opacity-50",
+                        day_hidden: "invisible",
+                      }}
+                      components={{
+                        IconLeft: () => <ChevronLeft className="h-3 w-3" />,
+                        IconRight: () => <ChevronRight className="h-3 w-3" />,
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
