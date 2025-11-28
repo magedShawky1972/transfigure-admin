@@ -1808,6 +1808,50 @@ export type Database = {
           },
         ]
       }
+      ticket_activity_logs: {
+        Row: {
+          activity_type: string
+          created_at: string
+          description: string | null
+          id: string
+          recipient_id: string | null
+          recipient_name: string | null
+          ticket_id: string
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          recipient_id?: string | null
+          recipient_name?: string | null
+          ticket_id: string
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          recipient_id?: string | null
+          recipient_name?: string | null
+          ticket_id?: string
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_activity_logs_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_attachments: {
         Row: {
           created_at: string
