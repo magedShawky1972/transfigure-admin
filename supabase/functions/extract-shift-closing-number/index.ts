@@ -38,36 +38,46 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch training data for this brand
-    const { data: trainingData, error: trainingError } = await supabase
+    // Fetch ALL training images for this brand (multiple images for different devices/modes)
+    const { data: trainingImages, error: trainingError } = await supabase
       .from("brand_closing_training")
-      .select("image_path, expected_number, notes")
+      .select("image_path, expected_number, notes, device_type, display_mode")
       .eq("brand_id", brandId)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(5); // Limit to 5 most recent training images
 
-    let trainingImageUrl = "";
+    const trainingImageUrls: Array<{url: string; device_type: string; display_mode: string}> = [];
 
-    if (trainingData && !trainingError) {
-      // Get the training image URL
-      if (trainingData.image_path) {
-        // Check if it's already a full URL (public bucket) or just a path
-        if (trainingData.image_path.startsWith('http')) {
-          trainingImageUrl = trainingData.image_path;
-        } else {
-          const { data: signedUrlData } = await supabase.storage
-            .from("closing-training")
-            .createSignedUrl(trainingData.image_path, 3600);
+    if (trainingImages && !trainingError && trainingImages.length > 0) {
+      for (const training of trainingImages) {
+        if (training.image_path) {
+          let imageUrl = "";
+          // Check if it's already a full URL (public bucket) or just a path
+          if (training.image_path.startsWith('http')) {
+            imageUrl = training.image_path;
+          } else {
+            const { data: signedUrlData } = await supabase.storage
+              .from("closing-training")
+              .createSignedUrl(training.image_path, 3600);
+            
+            if (signedUrlData?.signedUrl) {
+              imageUrl = signedUrlData.signedUrl;
+            }
+          }
           
-          if (signedUrlData?.signedUrl) {
-            trainingImageUrl = signedUrlData.signedUrl;
+          if (imageUrl) {
+            trainingImageUrls.push({
+              url: imageUrl,
+              device_type: training.device_type || 'unknown',
+              display_mode: training.display_mode || 'unknown'
+            });
           }
         }
       }
     }
 
     console.log("Extracting closing number for brand:", brandId, brandName);
-    console.log("Has training data:", !!trainingData);
-    console.log("Training image URL:", trainingImageUrl ? "available" : "not available");
+    console.log("Training images count:", trainingImageUrls.length);
 
     // Build messages array for extraction and validation
     const messages: any[] = [
@@ -75,23 +85,31 @@ serve(async (req) => {
         role: "system",
         content: `You are an expert image validator and number extractor for point-of-sale closing balance screenshots.
 
-CRITICAL TASK: You MUST validate if the NEW image matches the SAME application/brand as the TRAINING image.
+CRITICAL TASK: You MUST validate if the NEW image matches the SAME application/brand as the TRAINING images.
 
-BRAND VALIDATION RULES (VERY STRICT):
-1. Compare the APPLICATION NAME visible in both images - they MUST match exactly
-2. Compare the UI LAYOUT - header, buttons, colors, structure must be similar
-3. Compare the COLOR SCHEME - background colors, accent colors
-4. Look for BRAND LOGOS or IDENTIFIABLE ELEMENTS
+IMPORTANT: Training images may come from different devices (mobile, tablet, iPad, desktop) and display modes (light/dark). 
+The UI may look slightly different due to:
+- Different screen sizes and aspect ratios
+- Light mode vs Dark mode (colors inverted)
+- Different device types showing different layouts
+- But the CORE application name and functionality should match
+
+BRAND VALIDATION RULES (FLEXIBLE BUT ACCURATE):
+1. Compare the APPLICATION NAME visible in images - they MUST match exactly
+2. The UI LAYOUT may vary by device/mode but core elements should be similar
+3. COLOR SCHEME may be inverted (light vs dark mode) - this is OK
+4. Look for BRAND LOGOS or IDENTIFIABLE ELEMENTS that should appear in all versions
 5. If the app name is different (e.g., "Hawa" vs "Soul Free" vs "Sila Chat" vs "Binmo"), mark as INVALID
-6. If the UI layout is significantly different, mark as INVALID
-7. Arabic app names to watch: بينمو، سول فري، سيلا شات، صدى لايف، هوى شات، هيلا شات، يوهو
+6. Arabic app names to watch: بينمو، سول فري، سيلا شات، صدى لايف، هوى شات، هيلا شات، يوهو
 
 IMPORTANT: Different voice chat apps (Hawa Chat, Soul Free, Sila Chat, Binmo, Yoho, etc.) have DIFFERENT UIs. Do NOT confuse them!
+But the SAME app on different devices/modes should be recognized as valid.
 
 NUMBER EXTRACTION RULES:
 - Only extract the number if brand is VALID
-- Look for the closing balance / total / coins number in the highlighted area
+- Look for the closing balance / total / coins number
 - Extract ONLY numeric digits (no currency symbols)
+- The number location should be similar across training images
 
 Response format (JSON only, no markdown):
 {
@@ -104,26 +122,36 @@ Return ONLY the JSON object, no other text or markdown formatting.`
       }
     ];
 
-    // Add user message with both training image (if available) and the new image
+    // Add user message with training images (if available) and the new image
     const userContent: any[] = [];
     
-    if (trainingImageUrl) {
+    if (trainingImageUrls.length > 0) {
       userContent.push({
         type: "text",
-        text: `TRAINING IMAGE for brand "${brandName}" - This is the REFERENCE image showing the correct app interface:`
+        text: `TRAINING IMAGES for brand "${brandName}" - These are REFERENCE images showing the correct app interface from different devices and display modes:`
       });
-      userContent.push({
-        type: "image_url",
-        image_url: { url: trainingImageUrl }
-      });
+      
+      // Add training images with context
+      for (let i = 0; i < trainingImageUrls.length; i++) {
+        const training = trainingImageUrls[i];
+        userContent.push({
+          type: "text",
+          text: `Training image ${i + 1} (Device: ${training.device_type}, Mode: ${training.display_mode}):`
+        });
+        userContent.push({
+          type: "image_url",
+          image_url: { url: training.url }
+        });
+      }
+      
       userContent.push({
         type: "text",
-        text: `NEW IMAGE to validate - Check if this is the SAME application as the training image above. Brand should be: "${brandName}"`
+        text: `NEW IMAGE to validate - Check if this is the SAME application as the training images above (may be from different device/mode). Brand should be: "${brandName}"`
       });
     } else {
       userContent.push({
         type: "text",
-        text: `Extract the closing balance number from this image for brand "${brandName}". No training image available for validation.`
+        text: `Extract the closing balance number from this image for brand "${brandName}". No training images available for validation.`
       });
     }
 
@@ -217,7 +245,8 @@ Return ONLY the JSON object, no other text or markdown formatting.`
         isValidBrand,
         brandMismatchReason,
         rawText: extractedText,
-        hasTrainingData: !!trainingData
+        hasTrainingData: trainingImageUrls.length > 0,
+        trainingImagesCount: trainingImageUrls.length
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

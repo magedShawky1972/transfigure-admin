@@ -109,6 +109,8 @@ export type Database = {
           brand_id: string
           created_at: string
           created_by: string | null
+          device_type: string | null
+          display_mode: string | null
           expected_number: number | null
           id: string
           image_path: string
@@ -119,6 +121,8 @@ export type Database = {
           brand_id: string
           created_at?: string
           created_by?: string | null
+          device_type?: string | null
+          display_mode?: string | null
           expected_number?: number | null
           id?: string
           image_path: string
@@ -129,6 +133,8 @@ export type Database = {
           brand_id?: string
           created_at?: string
           created_by?: string | null
+          device_type?: string | null
+          display_mode?: string | null
           expected_number?: number | null
           id?: string
           image_path?: string
@@ -139,7 +145,7 @@ export type Database = {
           {
             foreignKeyName: "brand_closing_training_brand_id_fkey"
             columns: ["brand_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
