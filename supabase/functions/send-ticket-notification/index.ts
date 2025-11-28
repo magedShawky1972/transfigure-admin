@@ -156,9 +156,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (isSequentialApproval) {
       // Handle sequential approval notification - only notify admins at specific order level
-      const { type, ticketId, adminOrder }: any = requestBody;
+      const { type, ticketId, adminOrder, isPurchasePhase }: any = requestBody;
       
-      console.log("Processing sequential approval notification:", { type, ticketId, adminOrder });
+      console.log("Processing sequential approval notification:", { type, ticketId, adminOrder, isPurchasePhase });
 
       // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
@@ -186,14 +186,22 @@ const handler = async (req: Request): Promise<Response> => {
         .single();
 
       // Get admins at the specified order level for this department
-      const { data: adminData, error: adminError } = await supabase
+      // Filter by is_purchase_admin based on the current phase
+      let adminQuery = supabase
         .from("department_admins")
         .select("user_id")
         .eq("department_id", ticket.department_id)
         .eq("admin_order", adminOrder);
+      
+      // If isPurchasePhase is provided, filter by it
+      if (typeof isPurchasePhase === 'boolean') {
+        adminQuery = adminQuery.eq("is_purchase_admin", isPurchasePhase);
+      }
+
+      const { data: adminData, error: adminError } = await adminQuery;
 
       if (adminError || !adminData || adminData.length === 0) {
-        throw new Error(`No admins found at order level ${adminOrder} for this department`);
+        throw new Error(`No admins found at order level ${adminOrder} (purchase phase: ${isPurchasePhase}) for this department`);
       }
 
       const recipientUserIds = adminData.map(admin => admin.user_id);

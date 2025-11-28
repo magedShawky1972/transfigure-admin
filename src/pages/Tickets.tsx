@@ -221,19 +221,22 @@ const Tickets = () => {
       }
 
       // Get department admins at order level 1 to notify (first approval level)
+      // For initial notification, target regular admins (not purchase admins) at order 1
       const { data: firstLevelAdmins } = await supabase
         .from("department_admins")
         .select("user_id")
         .eq("department_id", values.department_id)
-        .eq("admin_order", 1);
+        .eq("admin_order", 1)
+        .eq("is_purchase_admin", false);
 
-      // Send notification to first level admins only
+      // Send notification to first level regular admins only
       if (firstLevelAdmins && firstLevelAdmins.length > 0 && ticketData) {
         await supabase.functions.invoke("send-ticket-notification", {
           body: {
             type: "ticket_created",
             ticketId: ticketData.id,
             adminOrder: 1,
+            isPurchasePhase: false,
           },
         });
       }

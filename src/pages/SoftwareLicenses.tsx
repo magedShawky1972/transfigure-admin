@@ -265,13 +265,14 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
 
       if (error) throw error;
 
-      // Send notification to first level admins
+      // Send notification to first level regular admins (not purchase admins)
       if (ticketData) {
         await supabase.functions.invoke("send-ticket-notification", {
           body: {
             type: "ticket_created",
             ticketId: ticketData.id,
             adminOrder: 1,
+            isPurchasePhase: false,
           },
         });
       }
