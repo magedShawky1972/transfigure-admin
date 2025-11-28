@@ -62,6 +62,15 @@ const ClosingTraining = () => {
   const [selectedDeviceType, setSelectedDeviceType] = useState<Record<string, string>>({});
   const [selectedDisplayMode, setSelectedDisplayMode] = useState<Record<string, string>>({});
   
+  // Verification dialog state
+  const [verifyingImage, setVerifyingImage] = useState<{
+    brandId: string;
+    imageId: string;
+    imagePath: string;
+    extractedNumber: number | null;
+    brandName: string;
+  } | null>(null);
+  
   // Ludo state
   const [ludoProducts, setLudoProducts] = useState<LudoProduct[]>([]);
   const [ludoTrainingData, setLudoTrainingData] = useState<Record<string, LudoTrainingData>>({});
@@ -120,6 +129,14 @@ const ClosingTraining = () => {
     darkMode: language === "ar" ? "ليلي" : "Dark",
     selectDeviceType: language === "ar" ? "اختر نوع الجهاز" : "Select device type",
     selectDisplayMode: language === "ar" ? "اختر الوضع" : "Select display mode",
+    // Verification dialog translations
+    verifyReading: language === "ar" ? "تحقق من القراءة" : "Verify Reading",
+    extractedNumber: language === "ar" ? "الرقم المقروء" : "Extracted Number",
+    readAgain: language === "ar" ? "قراءة مرة أخرى" : "Read Again",
+    correct: language === "ar" ? "صحيح" : "Correct",
+    incorrect: language === "ar" ? "خطأ" : "Incorrect",
+    noNumberExtracted: language === "ar" ? "لم يتم قراءة رقم" : "No number extracted",
+    markedCorrect: language === "ar" ? "تم تأكيد صحة القراءة" : "Reading marked as correct",
     // Ludo translations
     ludoTitle: language === "ar" ? "تدريب AI - يلا لودو" : "AI Training - Yalla Ludo",
     ludoSubtitle: language === "ar" 
@@ -283,7 +300,7 @@ const ClosingTraining = () => {
     }
   };
 
-  const extractNumberFromImage = async (brandId: string, imageId: string, imageUrl: string, retryCount = 0) => {
+  const extractNumberFromImage = async (brandId: string, imageId: string, imageUrl: string, retryCount = 0, showVerifyDialog = true) => {
     setExtracting(imageId);
     let shouldClearExtracting = true;
     
@@ -300,31 +317,55 @@ const ClosingTraining = () => {
 
       if (error) throw error;
 
-      if (data?.extractedNumber !== null && data?.extractedNumber !== undefined) {
+      const extractedNum = data?.extractedNumber;
+      
+      if (extractedNum !== null && extractedNum !== undefined) {
         // Auto-save the extracted number
         await supabase
           .from("brand_closing_training")
-          .update({ expected_number: data.extractedNumber })
+          .update({ expected_number: extractedNum })
           .eq("id", imageId);
         
         setTrainingImages((prev) => ({
           ...prev,
           [brandId]: prev[brandId]?.map(img => 
             img.id === imageId 
-              ? { ...img, expected_number: data.extractedNumber }
+              ? { ...img, expected_number: extractedNum }
               : img
           ) || [],
         }));
         
-        toast.success(translations.numberExtracted);
+        // Show verification dialog
+        if (showVerifyDialog) {
+          setVerifyingImage({
+            brandId,
+            imageId,
+            imagePath: imageUrl,
+            extractedNumber: extractedNum,
+            brandName: brand?.brand_name || ''
+          });
+        } else {
+          toast.success(translations.numberExtracted);
+        }
       } else if (data?.canRetry && retryCount < 2) {
         // Auto-retry if extraction failed - don't clear extracting since we're recursing
         shouldClearExtracting = false;
         console.log(`Retrying extraction for ${brandId}, attempt ${retryCount + 1}`);
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1);
+        await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1, showVerifyDialog);
       } else {
-        toast.info(translations.extractionFailed);
+        // Show dialog even on failure so user can retry
+        if (showVerifyDialog) {
+          setVerifyingImage({
+            brandId,
+            imageId,
+            imagePath: imageUrl,
+            extractedNumber: null,
+            brandName: brand?.brand_name || ''
+          });
+        } else {
+          toast.info(translations.extractionFailed);
+        }
       }
     } catch (error) {
       console.error("Error extracting number:", error);
@@ -333,15 +374,44 @@ const ClosingTraining = () => {
         shouldClearExtracting = false;
         console.log(`Retrying extraction after error for ${brandId}, attempt ${retryCount + 1}`);
         await new Promise(resolve => setTimeout(resolve, 1500));
-        await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1);
+        await extractNumberFromImage(brandId, imageId, imageUrl, retryCount + 1, showVerifyDialog);
       } else {
-        toast.error(translations.extractionFailed);
+        const brand = brands.find(b => b.id === brandId);
+        if (showVerifyDialog) {
+          setVerifyingImage({
+            brandId,
+            imageId,
+            imagePath: imageUrl,
+            extractedNumber: null,
+            brandName: brand?.brand_name || ''
+          });
+        } else {
+          toast.error(translations.extractionFailed);
+        }
       }
     } finally {
       if (shouldClearExtracting) {
         setExtracting(null);
       }
     }
+  };
+
+  const handleReadAgain = () => {
+    if (verifyingImage) {
+      setVerifyingImage(null);
+      extractNumberFromImage(
+        verifyingImage.brandId, 
+        verifyingImage.imageId, 
+        verifyingImage.imagePath, 
+        0, 
+        true
+      );
+    }
+  };
+
+  const handleMarkCorrect = () => {
+    toast.success(translations.markedCorrect);
+    setVerifyingImage(null);
   };
 
   const handleDeleteImage = async (brandId: string, imageId: string, imagePath: string) => {
@@ -1019,6 +1089,70 @@ const ClosingTraining = () => {
               alt="Preview"
               className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Verification Dialog */}
+      <Dialog open={!!verifyingImage} onOpenChange={() => setVerifyingImage(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{translations.verifyReading}</DialogTitle>
+            {verifyingImage && (
+              <p className="text-muted-foreground">{verifyingImage.brandName}</p>
+            )}
+          </DialogHeader>
+          {verifyingImage && (
+            <div className="space-y-4">
+              {/* Large Image Preview */}
+              <div className="relative rounded-lg overflow-hidden border-2 border-border">
+                <img
+                  src={verifyingImage.imagePath}
+                  alt="Verification"
+                  className="w-full h-auto max-h-[50vh] object-contain bg-muted"
+                />
+              </div>
+              
+              {/* Extracted Number Display */}
+              <div className="bg-muted/50 rounded-lg p-6 text-center border">
+                <p className="text-sm text-muted-foreground mb-2">{translations.extractedNumber}</p>
+                {verifyingImage.extractedNumber !== null ? (
+                  <p className="text-4xl font-bold text-primary">
+                    {verifyingImage.extractedNumber.toLocaleString()}
+                  </p>
+                ) : (
+                  <p className="text-xl text-destructive font-medium">
+                    {translations.noNumberExtracted}
+                  </p>
+                )}
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-center pt-2">
+                <Button
+                  variant="outline"
+                  onClick={handleReadAgain}
+                  disabled={extracting !== null}
+                  className="min-w-32"
+                >
+                  {extracting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
+                  {translations.readAgain}
+                </Button>
+                {verifyingImage.extractedNumber !== null && (
+                  <Button
+                    variant="default"
+                    onClick={handleMarkCorrect}
+                    className="min-w-32 bg-green-600 hover:bg-green-700"
+                  >
+                    {translations.correct}
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
