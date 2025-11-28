@@ -1573,6 +1573,7 @@ export type Database = {
           is_active: boolean
           shift_end_time: string
           shift_name: string
+          shift_order: number
           shift_start_time: string
           shift_type_id: string | null
           updated_at: string
@@ -1584,6 +1585,7 @@ export type Database = {
           is_active?: boolean
           shift_end_time: string
           shift_name: string
+          shift_order?: number
           shift_start_time: string
           shift_type_id?: string | null
           updated_at?: string
@@ -1595,6 +1597,7 @@ export type Database = {
           is_active?: boolean
           shift_end_time?: string
           shift_name?: string
+          shift_order?: number
           shift_start_time?: string
           shift_type_id?: string | null
           updated_at?: string
