@@ -18,6 +18,13 @@ interface BrandBalance {
   closing_balance: number;
 }
 
+interface LudoSummary {
+  product_sku: string;
+  product_name: string;
+  count: number;
+  total: number;
+}
+
 interface ShiftSession {
   id: string;
   status: string;
@@ -29,6 +36,7 @@ interface ShiftSession {
   assignment_date: string;
   zone_name: string | null;
   brand_balances: BrandBalance[];
+  ludo_summary: LudoSummary[];
 }
 
 const ShiftReport = () => {
@@ -127,6 +135,31 @@ const ShiftReport = () => {
         balancesMap.set(b.shift_session_id, sessionBalances);
       });
 
+      // Get Ludo transactions for all sessions
+      const { data: ludoData } = await supabase
+        .from("ludo_transactions")
+        .select("shift_session_id, product_sku, amount")
+        .in("shift_session_id", sessionIds);
+
+      // Group and summarize Ludo transactions by session
+      const ludoMap = new Map<string, LudoSummary[]>();
+      ludoData?.forEach(tx => {
+        const sessionLudo = ludoMap.get(tx.shift_session_id) || [];
+        const existing = sessionLudo.find(l => l.product_sku === tx.product_sku);
+        if (existing) {
+          existing.count += 1;
+          existing.total += tx.amount;
+        } else {
+          sessionLudo.push({
+            product_sku: tx.product_sku,
+            product_name: tx.product_sku === "LUDOF001" ? "فارس" : tx.product_sku === "LUDOL001" ? "اللواء" : tx.product_sku,
+            count: 1,
+            total: tx.amount
+          });
+        }
+        ludoMap.set(tx.shift_session_id, sessionLudo);
+      });
+
       // Combine data
       let combinedData: ShiftSession[] = sessionsData?.map(session => ({
         id: session.id,
@@ -138,7 +171,8 @@ const ShiftReport = () => {
         shift_color: (session.shift_assignments as any)?.shifts?.color || "#3b82f6",
         assignment_date: (session.shift_assignments as any)?.assignment_date || "",
         zone_name: (session.shift_assignments as any)?.shifts?.shift_types?.zone_name || null,
-        brand_balances: balancesMap.get(session.id) || []
+        brand_balances: balancesMap.get(session.id) || [],
+        ludo_summary: ludoMap.get(session.id) || []
       })) || [];
 
       // Apply filters
@@ -160,8 +194,8 @@ const ShiftReport = () => {
 
   const exportToCSV = () => {
     const headers = language === "ar" 
-      ? ["التاريخ", "اسم الموظف", "المناوبة", "المنطقة", "الحالة", "وقت الفتح", "وقت الإغلاق", "أرصدة الإغلاق"]
-      : ["Date", "Employee", "Shift", "Zone", "Status", "Opened At", "Closed At", "Closing Balances"];
+      ? ["التاريخ", "اسم الموظف", "المناوبة", "المنطقة", "الحالة", "وقت الفتح", "وقت الإغلاق", "أرصدة الإغلاق", "يلا لودو"]
+      : ["Date", "Employee", "Shift", "Zone", "Status", "Opened At", "Closed At", "Closing Balances", "Yalla Ludo"];
     
     const rows = sessions.map(session => [
       session.assignment_date,
@@ -171,7 +205,8 @@ const ShiftReport = () => {
       session.status,
       format(new Date(session.opened_at), "yyyy-MM-dd HH:mm:ss"),
       session.closed_at ? format(new Date(session.closed_at), "yyyy-MM-dd HH:mm:ss") : "",
-      session.brand_balances.map(b => `${b.brand_name}: ${b.closing_balance}`).join(" | ")
+      session.brand_balances.map(b => `${b.brand_name}: ${b.closing_balance}`).join(" | "),
+      session.ludo_summary.map(l => `${l.product_name}: ${l.total} (${l.count})`).join(" | ")
     ]);
 
     const csvContent = [
@@ -350,6 +385,7 @@ const ShiftReport = () => {
                     <TableHead className="whitespace-nowrap">{language === "ar" ? "وقت الفتح الفعلي" : "Actual Open Time"}</TableHead>
                     <TableHead className="whitespace-nowrap">{language === "ar" ? "وقت الإغلاق الفعلي" : "Actual Close Time"}</TableHead>
                     <TableHead className="whitespace-nowrap">{language === "ar" ? "أرصدة الإغلاق" : "Closing Balances"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "يلا لودو" : "Yalla Ludo"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -379,6 +415,20 @@ const ShiftReport = () => {
                               <div key={idx} className="text-xs whitespace-nowrap text-black dark:text-white">
                                 <span className="font-semibold">{balance.brand_name}:</span>{" "}
                                 <span className="font-medium">{balance.closing_balance.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-black dark:text-white">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {session.ludo_summary.length > 0 ? (
+                          <div className="space-y-1">
+                            {session.ludo_summary.map((ludo, idx) => (
+                              <div key={idx} className="text-xs whitespace-nowrap text-purple-600 dark:text-purple-400">
+                                <span className="font-semibold">{ludo.product_name}:</span>{" "}
+                                <span className="font-medium">{ludo.total.toLocaleString()} ({ludo.count})</span>
                               </div>
                             ))}
                           </div>
