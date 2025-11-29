@@ -355,35 +355,35 @@ const ShiftReport = () => {
                 <TableBody>
                   {sessions.map((session) => (
                     <TableRow key={session.id}>
-                      <TableCell className="whitespace-nowrap text-foreground">
+                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">
                         {session.assignment_date}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-foreground">{session.user_name}</TableCell>
+                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{session.user_name}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-3 rounded-full flex-shrink-0" 
                             style={{ backgroundColor: session.shift_color }}
                           />
-                          <span className="whitespace-nowrap text-foreground">{session.shift_name}</span>
+                          <span className="whitespace-nowrap text-black dark:text-white font-medium">{session.shift_name}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-foreground">{session.zone_name || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{session.zone_name || "-"}</TableCell>
                       <TableCell>{getStatusBadge(session.status)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-foreground">{formatDateTime(session.opened_at)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-foreground">{formatDateTime(session.closed_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{formatDateTime(session.opened_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{formatDateTime(session.closed_at)}</TableCell>
                       <TableCell>
                         {session.brand_balances.length > 0 ? (
                           <div className="space-y-1">
                             {session.brand_balances.map((balance, idx) => (
-                              <div key={idx} className="text-xs whitespace-nowrap text-foreground">
-                                <span className="font-medium">{balance.brand_name}:</span>{" "}
-                                <span>{balance.closing_balance.toLocaleString()}</span>
+                              <div key={idx} className="text-xs whitespace-nowrap text-black dark:text-white">
+                                <span className="font-semibold">{balance.brand_name}:</span>{" "}
+                                <span className="font-medium">{balance.closing_balance.toLocaleString()}</span>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <span className="text-foreground/60">-</span>
+                          <span className="text-black dark:text-white">-</span>
                         )}
                       </TableCell>
                     </TableRow>
