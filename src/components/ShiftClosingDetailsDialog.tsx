@@ -180,7 +180,7 @@ export default function ShiftClosingDetailsDialog({
                           <img
                             src={balance.imageUrl}
                             alt={balance.brand_name}
-                            className="w-full h-48 object-cover rounded-lg border"
+                            className="w-full h-48 object-contain rounded-lg border bg-white"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                             <span className="text-white text-sm">{text.clickToEnlarge}</span>
