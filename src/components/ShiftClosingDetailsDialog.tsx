@@ -86,7 +86,7 @@ export default function ShiftClosingDetailsDialog({
 
           if (balance.receipt_image_path) {
             const { data: signedUrlData } = await supabase.storage
-              .from("shift-closing-images")
+              .from("shift-receipts")
               .createSignedUrl(balance.receipt_image_path, 3600);
 
             imageUrl = signedUrlData?.signedUrl || null;
