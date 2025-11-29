@@ -654,23 +654,46 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     }
 
     try {
-      if (!shiftSession) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      // Delete brand balances
-      const { error: balanceError } = await supabase
-        .from("shift_brand_balances")
-        .delete()
-        .eq("shift_session_id", shiftSession.id);
+      // Get today's assignment
+      const today = new Date().toISOString().split('T')[0];
+      const { data: assignment } = await supabase
+        .from("shift_assignments")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("assignment_date", today)
+        .single();
 
-      if (balanceError) throw balanceError;
+      if (!assignment) return;
 
-      // Delete shift session
-      const { error: sessionError } = await supabase
+      // Get all open sessions for this assignment
+      const { data: openSessions } = await supabase
         .from("shift_sessions")
-        .delete()
-        .eq("id", shiftSession.id);
+        .select("id")
+        .eq("shift_assignment_id", assignment.id)
+        .eq("status", "open");
 
-      if (sessionError) throw sessionError;
+      if (openSessions && openSessions.length > 0) {
+        const sessionIds = openSessions.map(s => s.id);
+
+        // Delete brand balances for all open sessions
+        const { error: balanceError } = await supabase
+          .from("shift_brand_balances")
+          .delete()
+          .in("shift_session_id", sessionIds);
+
+        if (balanceError) throw balanceError;
+
+        // Delete all open shift sessions
+        const { error: sessionError } = await supabase
+          .from("shift_sessions")
+          .delete()
+          .in("id", sessionIds);
+
+        if (sessionError) throw sessionError;
+      }
 
       toast({
         title: t("success"),
@@ -680,6 +703,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       // Reset state
       setShiftSession(null);
       setBalances({});
+      setImageUrls({});
       setShowRollbackDialog(false);
       setRollbackPassword("");
     } catch (error: any) {
