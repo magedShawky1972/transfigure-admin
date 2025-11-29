@@ -595,6 +595,25 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         return;
       }
 
+      // Check for unconfirmed Ludo temp transactions
+      const { data: unconfirmedLudo, error: ludoCheckError } = await supabase
+        .from("temp_ludo_transactions")
+        .select("id")
+        .eq("shift_session_id", shiftSession.id);
+
+      if (ludoCheckError) {
+        console.error("Error checking temp ludo transactions:", ludoCheckError);
+      }
+
+      if (unconfirmedLudo && unconfirmedLudo.length > 0) {
+        toast({
+          title: t("error") || "خطأ",
+          description: `يوجد ${unconfirmedLudo.length} معاملات لودو غير مؤكدة. يرجى تأكيد المعاملات أو حذفها قبل إغلاق الوردية.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Save all balances
       const balanceRecords = Object.values(balances).map((balance) => ({
         shift_session_id: shiftSession.id,
