@@ -183,7 +183,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       const today = new Date().toISOString().split('T')[0];
       const { data: assignment } = await supabase
         .from("shift_assignments")
-        .select("id, shift_id, shifts(shift_name)")
+        .select("id, shift_id, shifts(shift_name, shift_end_time)")
         .eq("user_id", user.id)
         .eq("assignment_date", today)
         .single();
@@ -195,6 +195,24 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
           variant: "destructive",
         });
         return;
+      }
+
+      // Check if current time is after shift end time
+      const shiftData = assignment.shifts as { shift_name: string; shift_end_time: string } | null;
+      if (shiftData?.shift_end_time) {
+        const now = new Date();
+        const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
+        const shiftEndTime = new Date();
+        shiftEndTime.setHours(endHours, endMinutes, 0, 0);
+        
+        if (now > shiftEndTime) {
+          toast({
+            title: t("error"),
+            description: t("shiftTimeEnded") || "انتهى وقت الوردية - لا يمكن فتح الوردية بعد انتهاء وقتها",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       // Check if there's already an open session for this assignment (prevent duplicates)
