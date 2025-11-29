@@ -408,6 +408,14 @@ const ShiftReport = () => {
       {/* Print styles */}
       <style>{`
         @media print {
+          @page {
+            margin: 5mm;
+            size: landscape;
+          }
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           body * {
             visibility: hidden;
           }
@@ -419,6 +427,8 @@ const ShiftReport = () => {
             left: 0;
             top: 0;
             width: 100%;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .print\\:hidden {
             display: none !important;
@@ -430,17 +440,26 @@ const ShiftReport = () => {
             padding-bottom: 0.5rem !important;
           }
           table {
-            font-size: 10px;
+            font-size: 8px;
+            width: 100%;
+            table-layout: auto;
           }
           th, td {
-            padding: 4px 8px !important;
+            padding: 2px 4px !important;
             color: #000000 !important;
+            white-space: nowrap;
           }
           table * {
             color: #000000 !important;
           }
           h1, h2, h3, h4, h5, h6, p, span, div {
             color: #000000 !important;
+          }
+          .rounded-md {
+            border-radius: 0 !important;
+          }
+          .border {
+            border: none !important;
           }
         }
       `}</style>
