@@ -434,6 +434,13 @@ const ShiftReport = () => {
           }
           th, td {
             padding: 4px 8px !important;
+            color: #000000 !important;
+          }
+          table * {
+            color: #000000 !important;
+          }
+          h1, h2, h3, h4, h5, h6, p, span, div {
+            color: #000000 !important;
           }
         }
       `}</style>
