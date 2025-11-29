@@ -197,6 +197,25 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         return;
       }
 
+      // Check if there's already an open session for this assignment (prevent duplicates)
+      const { data: existingOpenSession } = await supabase
+        .from("shift_sessions")
+        .select("id")
+        .eq("shift_assignment_id", assignment.id)
+        .eq("status", "open")
+        .maybeSingle();
+
+      if (existingOpenSession) {
+        toast({
+          title: t("error"),
+          description: t("shiftAlreadyOpen") || "الوردية مفتوحة بالفعل",
+          variant: "destructive",
+        });
+        // Reload to show the existing session
+        await checkShiftAssignmentAndLoadData();
+        return;
+      }
+
       const { data: newSession, error } = await supabase
         .from("shift_sessions")
         .insert({
