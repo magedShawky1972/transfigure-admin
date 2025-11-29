@@ -222,7 +222,7 @@ const ShiftReport = () => {
         <h1 className="text-3xl font-bold mb-2">
           {language === "ar" ? "تقرير الورديات" : "Shift Sessions Report"}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-foreground/70">
           {language === "ar" 
             ? "عرض وتصدير تقرير جلسات الورديات الفعلية مع الأرصدة" 
             : "View and export actual shift sessions report with balances"}
@@ -331,7 +331,7 @@ const ShiftReport = () => {
                 </Button>
               </div>
             </div>
-            <div className="hidden print:block text-sm text-muted-foreground mt-2">
+            <div className="hidden print:block text-sm text-foreground/80 mt-2">
               {language === "ar" 
                 ? `الفترة: من ${startDate} إلى ${endDate}` 
                 : `Period: ${startDate} to ${endDate}`}
@@ -355,35 +355,35 @@ const ShiftReport = () => {
                 <TableBody>
                   {sessions.map((session) => (
                     <TableRow key={session.id}>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap text-foreground">
                         {session.assignment_date}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{session.user_name}</TableCell>
+                      <TableCell className="whitespace-nowrap text-foreground">{session.user_name}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-3 rounded-full flex-shrink-0" 
                             style={{ backgroundColor: session.shift_color }}
                           />
-                          <span className="whitespace-nowrap">{session.shift_name}</span>
+                          <span className="whitespace-nowrap text-foreground">{session.shift_name}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{session.zone_name || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-foreground">{session.zone_name || "-"}</TableCell>
                       <TableCell>{getStatusBadge(session.status)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDateTime(session.opened_at)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDateTime(session.closed_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-foreground">{formatDateTime(session.opened_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-foreground">{formatDateTime(session.closed_at)}</TableCell>
                       <TableCell>
                         {session.brand_balances.length > 0 ? (
                           <div className="space-y-1">
                             {session.brand_balances.map((balance, idx) => (
-                              <div key={idx} className="text-xs whitespace-nowrap">
+                              <div key={idx} className="text-xs whitespace-nowrap text-foreground">
                                 <span className="font-medium">{balance.brand_name}:</span>{" "}
                                 <span>{balance.closing_balance.toLocaleString()}</span>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="text-foreground/60">-</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -397,7 +397,7 @@ const ShiftReport = () => {
 
       {!loading && sessions.length === 0 && (
         <Card className="print:hidden">
-          <CardContent className="py-8 text-center text-muted-foreground">
+          <CardContent className="py-8 text-center text-foreground/70">
             {language === "ar" 
               ? "لا توجد جلسات ورديات في الفترة المحددة - اضغط على عرض التقرير" 
               : "No shift sessions found - click Show Report"}
