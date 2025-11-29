@@ -7,141 +7,151 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FileDown, Calendar as CalendarIcon } from "lucide-react";
+import { FileDown, Calendar as CalendarIcon, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Badge } from "@/components/ui/badge";
 
-interface ShiftAssignment {
+interface BrandBalance {
+  brand_id: string;
+  brand_name: string;
+  closing_balance: number;
+}
+
+interface ShiftSession {
   id: string;
+  status: string;
+  opened_at: string;
+  closed_at: string | null;
+  user_name: string;
+  shift_name: string;
+  shift_color: string;
   assignment_date: string;
-  notes: string | null;
-  user: {
-    user_name: string;
-    email: string;
-    job_position?: {
-      position_name: string;
-    };
-  };
-  shift: {
-    shift_name: string;
-    shift_start_time: string;
-    shift_end_time: string;
-    color: string;
-    shift_type?: {
-      zone_name: string;
-      type: string | null;
-    };
-  };
+  zone_name: string | null;
+  brand_balances: BrandBalance[];
 }
 
 const ShiftReport = () => {
   const { language } = useLanguage();
-  const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
+  const [sessions, setSessions] = useState<ShiftSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [selectedJobPosition, setSelectedJobPosition] = useState<string>("all");
-  const [jobPositions, setJobPositions] = useState<any[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedUser, setSelectedUser] = useState<string>("all");
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchJobPositions();
+    fetchUsers();
   }, []);
 
-  const fetchJobPositions = async () => {
+  const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from("job_positions")
-        .select("*")
+        .from("profiles")
+        .select("user_id, user_name")
         .eq("is_active", true)
-        .order("position_name");
+        .order("user_name");
 
       if (error) throw error;
-      setJobPositions(data || []);
+      setUsers(data || []);
     } catch (error) {
-      console.error("Error fetching job positions:", error);
-      toast.error(language === "ar" ? "فشل في تحميل الوظائف" : "Failed to load job positions");
+      console.error("Error fetching users:", error);
     }
   };
 
-  const fetchAssignments = async () => {
+  const fetchSessions = async () => {
     setLoading(true);
     try {
-      // Fetch shift assignments with shifts
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from("shift_assignments")
+      // Fetch shift sessions with assignments
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from("shift_sessions")
         .select(`
           id,
-          assignment_date,
-          notes,
+          status,
+          opened_at,
+          closed_at,
           user_id,
-          shift_id,
-          shifts (
-            shift_name,
-            shift_start_time,
-            shift_end_time,
-            color,
-            shift_type_id,
-            shift_types (
-              zone_name,
-              type
+          shift_assignment_id,
+          shift_assignments (
+            assignment_date,
+            shift_id,
+            shifts (
+              shift_name,
+              color,
+              shift_type_id,
+              shift_types (
+                zone_name
+              )
             )
           )
         `)
-        .gte("assignment_date", startDate)
-        .lte("assignment_date", endDate)
-        .order("assignment_date", { ascending: true });
+        .gte("opened_at", `${startDate}T00:00:00`)
+        .lte("opened_at", `${endDate}T23:59:59`)
+        .order("opened_at", { ascending: false });
 
-      if (assignmentsError) throw assignmentsError;
+      if (sessionsError) throw sessionsError;
 
-      // Fetch user profiles
-      const userIds = [...new Set(assignmentsData?.map(a => a.user_id) || [])];
-      const { data: profilesData, error: profilesError } = await supabase
+      // Get user profiles
+      const userIds = [...new Set(sessionsData?.map(s => s.user_id) || [])];
+      const { data: profilesData } = await supabase
         .from("profiles")
-        .select(`
-          user_id,
-          user_name,
-          email,
-          job_position_id,
-          job_positions (
-            position_name
-          )
-        `)
+        .select("user_id, user_name")
         .in("user_id", userIds);
 
-      if (profilesError) throw profilesError;
+      const profilesMap = new Map(profilesData?.map(p => [p.user_id, p.user_name]) || []);
 
-      // Combine the data
-      const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
-      
-      let combinedData = assignmentsData?.map(assignment => ({
-        id: assignment.id,
-        assignment_date: assignment.assignment_date,
-        notes: assignment.notes,
-        user: profilesMap.get(assignment.user_id) ? {
-          user_name: profilesMap.get(assignment.user_id)?.user_name || "",
-          email: profilesMap.get(assignment.user_id)?.email || "",
-          job_position: profilesMap.get(assignment.user_id)?.job_positions
-        } : null,
-        shift: {
-          shift_name: assignment.shifts?.shift_name || "",
-          shift_start_time: assignment.shifts?.shift_start_time || "",
-          shift_end_time: assignment.shifts?.shift_end_time || "",
-          color: assignment.shifts?.color || "",
-          shift_type: assignment.shifts?.shift_types
-        }
+      // Get brand balances for all sessions
+      const sessionIds = sessionsData?.map(s => s.id) || [];
+      const { data: balancesData } = await supabase
+        .from("shift_brand_balances")
+        .select(`
+          shift_session_id,
+          brand_id,
+          closing_balance,
+          brands (
+            brand_name
+          )
+        `)
+        .in("shift_session_id", sessionIds);
+
+      // Group balances by session
+      const balancesMap = new Map<string, BrandBalance[]>();
+      balancesData?.forEach(b => {
+        const sessionBalances = balancesMap.get(b.shift_session_id) || [];
+        sessionBalances.push({
+          brand_id: b.brand_id,
+          brand_name: (b.brands as any)?.brand_name || "Unknown",
+          closing_balance: b.closing_balance
+        });
+        balancesMap.set(b.shift_session_id, sessionBalances);
+      });
+
+      // Combine data
+      let combinedData: ShiftSession[] = sessionsData?.map(session => ({
+        id: session.id,
+        status: session.status,
+        opened_at: session.opened_at,
+        closed_at: session.closed_at,
+        user_name: profilesMap.get(session.user_id) || "Unknown",
+        shift_name: (session.shift_assignments as any)?.shifts?.shift_name || "",
+        shift_color: (session.shift_assignments as any)?.shifts?.color || "#3b82f6",
+        assignment_date: (session.shift_assignments as any)?.assignment_date || "",
+        zone_name: (session.shift_assignments as any)?.shifts?.shift_types?.zone_name || null,
+        brand_balances: balancesMap.get(session.id) || []
       })) || [];
 
-      // Filter by job position if selected
-      if (selectedJobPosition !== "all") {
-        combinedData = combinedData.filter(
-          (assignment: any) => 
-            assignment.user?.job_position?.position_name === selectedJobPosition
-        );
+      // Apply filters
+      if (selectedStatus !== "all") {
+        combinedData = combinedData.filter(s => s.status === selectedStatus);
+      }
+      if (selectedUser !== "all") {
+        combinedData = combinedData.filter(s => s.user_name === selectedUser);
       }
 
-      setAssignments(combinedData as any);
+      setSessions(combinedData);
     } catch (error) {
-      console.error("Error fetching assignments:", error);
+      console.error("Error fetching sessions:", error);
       toast.error(language === "ar" ? "فشل في تحميل التقرير" : "Failed to load report");
     } finally {
       setLoading(false);
@@ -150,20 +160,18 @@ const ShiftReport = () => {
 
   const exportToCSV = () => {
     const headers = language === "ar" 
-      ? ["التاريخ", "اسم الموظف", "البريد الإلكتروني", "الوظيفة", "المناوبة", "وقت البداية", "وقت النهاية", "المنطقة", "النوع", "ملاحظات"]
-      : ["Date", "Employee Name", "Email", "Job Position", "Shift", "Start Time", "End Time", "Zone", "Type", "Notes"];
+      ? ["التاريخ", "اسم الموظف", "المناوبة", "المنطقة", "الحالة", "وقت الفتح", "وقت الإغلاق", "أرصدة الإغلاق"]
+      : ["Date", "Employee", "Shift", "Zone", "Status", "Opened At", "Closed At", "Closing Balances"];
     
-    const rows = assignments.map(assignment => [
-      format(new Date(assignment.assignment_date), "yyyy-MM-dd"),
-      assignment.user?.user_name || "",
-      assignment.user?.email || "",
-      assignment.user?.job_position?.position_name || "",
-      assignment.shift?.shift_name || "",
-      assignment.shift?.shift_start_time || "",
-      assignment.shift?.shift_end_time || "",
-      assignment.shift?.shift_type?.zone_name || "",
-      assignment.shift?.shift_type?.type || "",
-      assignment.notes || ""
+    const rows = sessions.map(session => [
+      session.assignment_date,
+      session.user_name,
+      session.shift_name,
+      session.zone_name || "",
+      session.status,
+      format(new Date(session.opened_at), "yyyy-MM-dd HH:mm:ss"),
+      session.closed_at ? format(new Date(session.closed_at), "yyyy-MM-dd HH:mm:ss") : "",
+      session.brand_balances.map(b => `${b.brand_name}: ${b.closing_balance}`).join(" | ")
     ]);
 
     const csvContent = [
@@ -175,7 +183,7 @@ const ShiftReport = () => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `shift_report_${startDate}_${endDate}.csv`);
+    link.setAttribute("download", `shift_sessions_report_${startDate}_${endDate}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -184,25 +192,49 @@ const ShiftReport = () => {
     toast.success(language === "ar" ? "تم تصدير التقرير بنجاح" : "Report exported successfully");
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+      open: { 
+        label: language === "ar" ? "مفتوح" : "Open", 
+        variant: "default" 
+      },
+      closed: { 
+        label: language === "ar" ? "مغلق" : "Closed", 
+        variant: "secondary" 
+      }
+    };
+    const config = statusConfig[status] || { label: status, variant: "outline" };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  const formatDateTime = (dateTime: string | null) => {
+    if (!dateTime) return "-";
+    return format(new Date(dateTime), "yyyy-MM-dd HH:mm:ss");
+  };
+
   return (
     <div className="space-y-6">
-      <div>
+      <div className="print:hidden">
         <h1 className="text-3xl font-bold mb-2">
-          {language === "ar" ? "تقرير المناوبات" : "Shift Report"}
+          {language === "ar" ? "تقرير الورديات" : "Shift Sessions Report"}
         </h1>
         <p className="text-muted-foreground">
           {language === "ar" 
-            ? "عرض وتصدير تقرير المناوبات مع الفلاتر" 
-            : "View and export shift report with filters"}
+            ? "عرض وتصدير تقرير جلسات الورديات الفعلية مع الأرصدة" 
+            : "View and export actual shift sessions report with balances"}
         </p>
       </div>
 
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle>{language === "ar" ? "الفلاتر" : "Filters"}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">
                 {language === "ar" ? "من تاريخ" : "From Date"}
@@ -226,20 +258,41 @@ const ShiftReport = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="jobPosition">
-                {language === "ar" ? "الوظيفة" : "Job Position"}
+              <Label htmlFor="status">
+                {language === "ar" ? "الحالة" : "Status"}
               </Label>
-              <Select value={selectedJobPosition} onValueChange={setSelectedJobPosition}>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر الوظيفة" : "Select job position"} />
+                  <SelectValue placeholder={language === "ar" ? "اختر الحالة" : "Select status"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
-                    {language === "ar" ? "جميع الوظائف" : "All Positions"}
+                    {language === "ar" ? "جميع الحالات" : "All Statuses"}
                   </SelectItem>
-                  {jobPositions.map((position) => (
-                    <SelectItem key={position.id} value={position.position_name}>
-                      {position.position_name}
+                  <SelectItem value="open">
+                    {language === "ar" ? "مفتوح" : "Open"}
+                  </SelectItem>
+                  <SelectItem value="closed">
+                    {language === "ar" ? "مغلق" : "Closed"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="user">
+                {language === "ar" ? "الموظف" : "Employee"}
+              </Label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === "ar" ? "اختر الموظف" : "Select employee"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {language === "ar" ? "جميع الموظفين" : "All Employees"}
+                  </SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.user_id} value={user.user_name}>
+                      {user.user_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -247,7 +300,7 @@ const ShiftReport = () => {
             </div>
             <div className="space-y-2">
               <Label>&nbsp;</Label>
-              <Button onClick={fetchAssignments} className="w-full" disabled={loading}>
+              <Button onClick={fetchSessions} className="w-full" disabled={loading}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {loading 
                   ? (language === "ar" ? "جاري التحميل..." : "Loading...") 
@@ -258,59 +311,81 @@ const ShiftReport = () => {
         </CardContent>
       </Card>
 
-      {assignments.length > 0 && (
+      {sessions.length > 0 && (
         <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
+          <CardHeader className="print:pb-2">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <CardTitle>
                 {language === "ar" 
-                  ? `نتائج التقرير (${assignments.length} مناوبة)` 
-                  : `Report Results (${assignments.length} shift${assignments.length > 1 ? 's' : ''})`}
+                  ? `نتائج التقرير (${sessions.length} جلسة)` 
+                  : `Report Results (${sessions.length} session${sessions.length > 1 ? 's' : ''})`}
               </CardTitle>
-              <Button onClick={exportToCSV} variant="outline">
-                <FileDown className="mr-2 h-4 w-4" />
-                {language === "ar" ? "تصدير إلى CSV" : "Export to CSV"}
-              </Button>
+              <div className="flex gap-2 print:hidden">
+                <Button onClick={handlePrint} variant="outline">
+                  <Printer className="mr-2 h-4 w-4" />
+                  {language === "ar" ? "طباعة" : "Print"}
+                </Button>
+                <Button onClick={exportToCSV} variant="outline">
+                  <FileDown className="mr-2 h-4 w-4" />
+                  {language === "ar" ? "تصدير إلى CSV" : "Export to CSV"}
+                </Button>
+              </div>
+            </div>
+            <div className="hidden print:block text-sm text-muted-foreground mt-2">
+              {language === "ar" 
+                ? `الفترة: من ${startDate} إلى ${endDate}` 
+                : `Period: ${startDate} to ${endDate}`}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
-                    <TableHead>{language === "ar" ? "اسم الموظف" : "Employee Name"}</TableHead>
-                    <TableHead>{language === "ar" ? "الوظيفة" : "Job Position"}</TableHead>
-                    <TableHead>{language === "ar" ? "المناوبة" : "Shift"}</TableHead>
-                    <TableHead>{language === "ar" ? "وقت البداية" : "Start Time"}</TableHead>
-                    <TableHead>{language === "ar" ? "وقت النهاية" : "End Time"}</TableHead>
-                    <TableHead>{language === "ar" ? "المنطقة" : "Zone"}</TableHead>
-                    <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
-                    <TableHead>{language === "ar" ? "ملاحظات" : "Notes"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "الموظف" : "Employee"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "المناوبة" : "Shift"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "المنطقة" : "Zone"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "وقت الفتح الفعلي" : "Actual Open Time"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "وقت الإغلاق الفعلي" : "Actual Close Time"}</TableHead>
+                    <TableHead className="whitespace-nowrap">{language === "ar" ? "أرصدة الإغلاق" : "Closing Balances"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assignments.map((assignment) => (
-                    <TableRow key={assignment.id}>
-                      <TableCell>
-                        {format(new Date(assignment.assignment_date), "yyyy-MM-dd")}
+                  {sessions.map((session) => (
+                    <TableRow key={session.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {session.assignment_date}
                       </TableCell>
-                      <TableCell>{assignment.user?.user_name || "N/A"}</TableCell>
-                      <TableCell>{assignment.user?.job_position?.position_name || "N/A"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{session.user_name}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: assignment.shift?.color }}
+                            className="w-3 h-3 rounded-full flex-shrink-0" 
+                            style={{ backgroundColor: session.shift_color }}
                           />
-                          {assignment.shift?.shift_name || "N/A"}
+                          <span className="whitespace-nowrap">{session.shift_name}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{assignment.shift?.shift_start_time || "N/A"}</TableCell>
-                      <TableCell>{assignment.shift?.shift_end_time || "N/A"}</TableCell>
-                      <TableCell>{assignment.shift?.shift_type?.zone_name || "N/A"}</TableCell>
-                      <TableCell>{assignment.shift?.shift_type?.type || "N/A"}</TableCell>
-                      <TableCell>{assignment.notes || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{session.zone_name || "-"}</TableCell>
+                      <TableCell>{getStatusBadge(session.status)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateTime(session.opened_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateTime(session.closed_at)}</TableCell>
+                      <TableCell>
+                        {session.brand_balances.length > 0 ? (
+                          <div className="space-y-1">
+                            {session.brand_balances.map((balance, idx) => (
+                              <div key={idx} className="text-xs whitespace-nowrap">
+                                <span className="font-medium">{balance.brand_name}:</span>{" "}
+                                <span>{balance.closing_balance.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -320,15 +395,48 @@ const ShiftReport = () => {
         </Card>
       )}
 
-      {!loading && assignments.length === 0 && startDate && endDate && (
-        <Card>
+      {!loading && sessions.length === 0 && (
+        <Card className="print:hidden">
           <CardContent className="py-8 text-center text-muted-foreground">
             {language === "ar" 
-              ? "لا توجد مناوبات في الفترة المحددة" 
-              : "No shifts found in the specified period"}
+              ? "لا توجد جلسات ورديات في الفترة المحددة - اضغط على عرض التقرير" 
+              : "No shift sessions found - click Show Report"}
           </CardContent>
         </Card>
       )}
+
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .space-y-6, .space-y-6 * {
+            visibility: visible;
+          }
+          .space-y-6 {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
+          .print\\:block {
+            display: block !important;
+          }
+          .print\\:pb-2 {
+            padding-bottom: 0.5rem !important;
+          }
+          table {
+            font-size: 10px;
+          }
+          th, td {
+            padding: 4px 8px !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
