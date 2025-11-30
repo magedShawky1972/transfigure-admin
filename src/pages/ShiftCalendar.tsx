@@ -122,7 +122,8 @@ const ShiftCalendar = () => {
             job_positions (position_name)
           )
         `)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("shift_order");
 
       if (error) throw error;
 
