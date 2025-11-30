@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import ShiftClosingDetailsDialog from "@/components/ShiftClosingDetailsDialog";
 
 interface ShiftAssignment {
@@ -71,6 +81,9 @@ export default function ShiftFollowUp() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<ShiftAssignment | null>(null);
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [assignmentToReopen, setAssignmentToReopen] = useState<ShiftAssignment | null>(null);
+  const [reopening, setReopening] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -204,6 +217,104 @@ export default function ShiftFollowUp() {
     } catch (error: any) {
       console.error("Error updating assignment:", error);
       toast.error(t("Failed to update shift assignment"));
+    }
+  };
+
+  const handleReopenShift = async () => {
+    if (!assignmentToReopen) return;
+    
+    const closedSession = assignmentToReopen.shift_sessions?.find(s => s.status === "closed");
+    if (!closedSession) return;
+
+    setReopening(true);
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Get admin profile
+      const { data: adminProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // 1. Move ludo_transactions back to temp_ludo_transactions
+      const { data: ludoTransactions } = await supabase
+        .from("ludo_transactions")
+        .select("*")
+        .eq("shift_session_id", closedSession.id);
+
+      if (ludoTransactions && ludoTransactions.length > 0) {
+        // Insert into temp table (without order_number)
+        const tempData = ludoTransactions.map(tx => ({
+          shift_session_id: tx.shift_session_id,
+          product_sku: tx.product_sku,
+          amount: tx.amount,
+          player_id: tx.player_id,
+          transaction_date: tx.transaction_date,
+          user_id: tx.user_id,
+          image_path: tx.image_path,
+        }));
+
+        const { error: tempInsertError } = await supabase
+          .from("temp_ludo_transactions")
+          .insert(tempData);
+
+        if (tempInsertError) throw tempInsertError;
+
+        // Delete from ludo_transactions
+        const { error: ludoDeleteError } = await supabase
+          .from("ludo_transactions")
+          .delete()
+          .eq("shift_session_id", closedSession.id);
+
+        if (ludoDeleteError) throw ludoDeleteError;
+      }
+
+      // 2. Delete shift_brand_balances for this session
+      const { error: brandBalanceError } = await supabase
+        .from("shift_brand_balances")
+        .delete()
+        .eq("shift_session_id", closedSession.id);
+
+      if (brandBalanceError) throw brandBalanceError;
+
+      // 3. Update shift_session status to open and clear closed_at
+      const { error: sessionError } = await supabase
+        .from("shift_sessions")
+        .update({ 
+          status: "open", 
+          closed_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", closedSession.id);
+
+      if (sessionError) throw sessionError;
+
+      // 4. Log the reopen action
+      const { error: logError } = await supabase
+        .from("shift_reopen_logs")
+        .insert({
+          shift_session_id: closedSession.id,
+          shift_assignment_id: assignmentToReopen.id,
+          admin_user_id: user.id,
+          admin_user_name: adminProfile?.user_name || "Unknown",
+          shift_name: assignmentToReopen.shifts.shift_name,
+          shift_date: assignmentToReopen.assignment_date,
+        });
+
+      if (logError) throw logError;
+
+      toast.success(t("Shift reopened successfully"));
+      fetchAssignments();
+    } catch (error: any) {
+      console.error("Error reopening shift:", error);
+      toast.error(t("Failed to reopen shift"));
+    } finally {
+      setReopening(false);
+      setReopenDialogOpen(false);
+      setAssignmentToReopen(null);
     }
   };
 
@@ -359,17 +470,31 @@ export default function ShiftFollowUp() {
                                 <Edit2 className="h-4 w-4" />
                               </Button>
                               {assignment.shift_sessions?.some(s => s.status === "closed") && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedAssignment(assignment);
-                                    setDetailsDialogOpen(true);
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4 ml-1" />
-                                  {t("Details")}
-                                </Button>
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedAssignment(assignment);
+                                      setDetailsDialogOpen(true);
+                                    }}
+                                  >
+                                    <Eye className="h-4 w-4 ml-1" />
+                                    {t("Details")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                                    onClick={() => {
+                                      setAssignmentToReopen(assignment);
+                                      setReopenDialogOpen(true);
+                                    }}
+                                  >
+                                    <RotateCcw className="h-4 w-4 ml-1" />
+                                    {t("Reopen")}
+                                  </Button>
+                                </>
                               )}
                             </>
                           )}
@@ -392,6 +517,38 @@ export default function ShiftFollowUp() {
         userName={selectedAssignment?.profiles.user_name || ""}
         shiftName={selectedAssignment?.shifts.shift_name || ""}
       />
+
+      {/* Reopen Confirmation Dialog */}
+      <AlertDialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("Reopen Shift")}</AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
+              {t("Are you sure you want to reopen this shift? This will:")}
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>{t("Move Ludo transactions back to temporary state")}</li>
+                <li>{t("Delete all brand closing balances")}</li>
+                <li>{t("Change shift status from closed to open")}</li>
+              </ul>
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p><strong>{t("Shift")}:</strong> {assignmentToReopen?.shifts.shift_name}</p>
+                <p><strong>{t("Date")}:</strong> {assignmentToReopen?.assignment_date}</p>
+                <p><strong>{t("Employee")}:</strong> {assignmentToReopen?.profiles.user_name}</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={reopening}>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReopenShift}
+              disabled={reopening}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {reopening ? t("Reopening...") : t("Confirm Reopen")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
