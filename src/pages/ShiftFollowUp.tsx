@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,9 @@ export default function ShiftFollowUp() {
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [assignmentToReopen, setAssignmentToReopen] = useState<ShiftAssignment | null>(null);
   const [reopening, setReopening] = useState(false);
+  const [hardCloseDialogOpen, setHardCloseDialogOpen] = useState(false);
+  const [assignmentToHardClose, setAssignmentToHardClose] = useState<ShiftAssignment | null>(null);
+  const [hardClosing, setHardClosing] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -318,6 +321,38 @@ export default function ShiftFollowUp() {
     }
   };
 
+  const handleHardCloseShift = async () => {
+    if (!assignmentToHardClose) return;
+    
+    const openSession = assignmentToHardClose.shift_sessions?.find(s => s.status === "open");
+    if (!openSession) return;
+
+    setHardClosing(true);
+    try {
+      // Update shift_session status to closed
+      const { error: sessionError } = await supabase
+        .from("shift_sessions")
+        .update({ 
+          status: "closed", 
+          closed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", openSession.id);
+
+      if (sessionError) throw sessionError;
+
+      toast.success(t("Shift closed successfully"));
+      fetchAssignments();
+    } catch (error: any) {
+      console.error("Error hard closing shift:", error);
+      toast.error(t("Failed to close shift"));
+    } finally {
+      setHardClosing(false);
+      setHardCloseDialogOpen(false);
+      setAssignmentToHardClose(null);
+    }
+  };
+
   const getStatusBadge = (sessions: ShiftAssignment["shift_sessions"]) => {
     if (!sessions || sessions.length === 0) {
       return <Badge variant="secondary">{t("Not Started")}</Badge>;
@@ -469,6 +504,20 @@ export default function ShiftFollowUp() {
                               >
                                 <Edit2 className="h-4 w-4" />
                               </Button>
+                              {assignment.shift_sessions?.some(s => s.status === "open") && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 border-red-300 hover:bg-red-50"
+                                  onClick={() => {
+                                    setAssignmentToHardClose(assignment);
+                                    setHardCloseDialogOpen(true);
+                                  }}
+                                >
+                                  <XCircle className="h-4 w-4 ml-1" />
+                                  {t("Hard Close")}
+                                </Button>
+                              )}
                               {assignment.shift_sessions?.some(s => s.status === "closed") && (
                                 <>
                                   <Button
@@ -545,6 +594,33 @@ export default function ShiftFollowUp() {
               className="bg-orange-600 hover:bg-orange-700"
             >
               {reopening ? t("Reopening...") : t("Confirm Reopen")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Hard Close Confirmation Dialog */}
+      <AlertDialog open={hardCloseDialogOpen} onOpenChange={setHardCloseDialogOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("Hard Close Shift")}</AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
+              {t("Are you sure you want to force close this shift? This will close the shift without entering closing balances.")}
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p><strong>{t("Shift")}:</strong> {assignmentToHardClose?.shifts.shift_name}</p>
+                <p><strong>{t("Date")}:</strong> {assignmentToHardClose?.assignment_date}</p>
+                <p><strong>{t("Employee")}:</strong> {assignmentToHardClose?.profiles.user_name}</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={hardClosing}>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleHardCloseShift}
+              disabled={hardClosing}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {hardClosing ? t("Closing...") : t("Confirm Close")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
