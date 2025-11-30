@@ -7,11 +7,25 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Ticket = {
   id: string;
@@ -76,6 +90,12 @@ const TicketDetails = () => {
   const [isTicketOwner, setIsTicketOwner] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
   const [approvingTicket, setApprovingTicket] = useState(false);
+  
+  // Extra approval states
+  const [extraApprovalDialogOpen, setExtraApprovalDialogOpen] = useState(false);
+  const [availableAdmins, setAvailableAdmins] = useState<{ user_id: string; user_name: string }[]>([]);
+  const [selectedAdminId, setSelectedAdminId] = useState<string>("");
+  const [sendingExtraApproval, setSendingExtraApproval] = useState(false);
 
   // Get the source page from navigation state
   const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
@@ -562,6 +582,123 @@ const TicketDetails = () => {
     }
   };
 
+  const fetchAvailableAdmins = async () => {
+    if (!ticket) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch all department admins for this department
+      const { data: adminsData, error } = await supabase
+        .from("department_admins")
+        .select("user_id")
+        .eq("department_id", ticket.department_id);
+
+      if (error) throw error;
+
+      const adminUserIds = adminsData?.map(a => a.user_id) || [];
+      
+      // Filter out current user
+      const otherAdminIds = adminUserIds.filter(id => id !== user.id);
+
+      if (otherAdminIds.length > 0) {
+        // Fetch profiles for these admins
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, user_name")
+          .in("user_id", otherAdminIds);
+
+        setAvailableAdmins(profilesData || []);
+      } else {
+        setAvailableAdmins([]);
+      }
+    } catch (error) {
+      console.error("Error fetching admins:", error);
+    }
+  };
+
+  const handleOpenExtraApprovalDialog = async () => {
+    await fetchAvailableAdmins();
+    setSelectedAdminId("");
+    setExtraApprovalDialogOpen(true);
+  };
+
+  const handleSendExtraApproval = async () => {
+    if (!ticket || !selectedAdminId) return;
+
+    try {
+      setSendingExtraApproval(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get current user's profile
+      const { data: senderProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Get recipient's profile
+      const { data: recipientProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", selectedAdminId)
+        .single();
+
+      // Create notification for the selected admin
+      await supabase.from("notifications").insert({
+        user_id: selectedAdminId,
+        type: "extra_approval_request",
+        title: language === 'ar' ? 'طلب موافقة إضافية' : 'Extra Approval Request',
+        message: language === 'ar' 
+          ? `طلب ${senderProfile?.user_name || 'مستخدم'} موافقتك على التذكرة ${ticket.ticket_number}`
+          : `${senderProfile?.user_name || 'User'} requested your approval on ticket ${ticket.ticket_number}`,
+        ticket_id: ticket.id,
+      });
+
+      // Log the activity
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "extra_approval_sent",
+        user_id: user.id,
+        user_name: senderProfile?.user_name,
+        recipient_id: selectedAdminId,
+        recipient_name: recipientProfile?.user_name,
+        description: language === 'ar'
+          ? `تم إرسال طلب موافقة إضافية إلى ${recipientProfile?.user_name}`
+          : `Extra approval request sent to ${recipientProfile?.user_name}`,
+      });
+
+      // Send email notification
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "extra_approval_request",
+          ticketId: ticket.id,
+          recipientUserId: selectedAdminId,
+          senderName: senderProfile?.user_name,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم إرسال طلب الموافقة إلى ${recipientProfile?.user_name}`
+          : `Approval request sent to ${recipientProfile?.user_name}`,
+      });
+
+      setExtraApprovalDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingExtraApproval(false);
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
@@ -692,6 +829,18 @@ const TicketDetails = () => {
                       </Button>
                     </div>
                   )}
+                  
+                  {/* Send for Extra Approval button */}
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={handleOpenExtraApprovalDialog}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'إرسال لموافقة إضافية' : 'Send for Extra Approval'}
+                    </Button>
+                  </div>
+
                   <div className="flex items-center justify-between p-4 bg-muted rounded-md">
                     <div className="flex items-center gap-2">
                       <ShoppingCart className="h-5 w-5 text-muted-foreground" />
@@ -817,6 +966,57 @@ const TicketDetails = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Extra Approval Dialog */}
+      <Dialog open={extraApprovalDialogOpen} onOpenChange={setExtraApprovalDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'إرسال لموافقة إضافية' : 'Send for Extra Approval'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'اختر المسؤول' : 'Select Admin'}
+              </label>
+              <Select value={selectedAdminId} onValueChange={setSelectedAdminId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر مسؤولاً...' : 'Select an admin...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableAdmins.map((admin) => (
+                    <SelectItem key={admin.user_id} value={admin.user_id}>
+                      {admin.user_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {availableAdmins.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {language === 'ar' ? 'لا يوجد مسؤولين آخرين متاحين' : 'No other admins available'}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setExtraApprovalDialogOpen(false)}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleSendExtraApproval}
+              disabled={!selectedAdminId || sendingExtraApproval}
+            >
+              {sendingExtraApproval 
+                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') 
+                : (language === 'ar' ? 'إرسال' : 'Send')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
