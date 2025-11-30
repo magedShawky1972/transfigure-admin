@@ -72,6 +72,7 @@ const TicketDetails = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
   const [approvingTicket, setApprovingTicket] = useState(false);
 
   // Get the source page from navigation state
@@ -147,12 +148,59 @@ const TicketDetails = () => {
       // Check if user is admin for this ticket's department
       const { data } = await supabase
         .from("department_admins")
-        .select("id")
+        .select("id, admin_order, is_purchase_admin")
         .eq("user_id", user.id)
         .eq("department_id", ticket.department_id)
         .maybeSingle();
 
       setIsAdmin(!!data);
+
+      // Check if current admin can approve (is at the correct approval level)
+      if (data && !ticket.approved_at) {
+        const adminOrder = data.admin_order;
+        const isPurchaseAdmin = data.is_purchase_admin;
+        const ticketNextOrder = ticket.next_admin_order || 1;
+
+        // Determine if this admin is in the current approval phase
+        // For regular admins: check if no purchase phase started yet or admin_order matches next_admin_order
+        // For purchase admins: check if we're in purchase phase and order matches
+        
+        if (ticket.is_purchase_ticket) {
+          // For purchase tickets, check if we're in purchase phase or regular phase
+          // Regular phase: next_admin_order matches regular admin's order
+          // Purchase phase: need to check if all regular admins approved
+          
+          // Get max order of regular admins
+          const { data: maxRegularOrder } = await supabase
+            .from("department_admins")
+            .select("admin_order")
+            .eq("department_id", ticket.department_id)
+            .eq("is_purchase_admin", false)
+            .order("admin_order", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const maxRegularAdminOrder = maxRegularOrder?.admin_order || 0;
+
+          if (!isPurchaseAdmin) {
+            // Regular admin can approve if their order matches next_admin_order
+            setCanApprove(adminOrder === ticketNextOrder);
+          } else {
+            // Purchase admin can only approve after all regular admins approved
+            // which means next_admin_order > max regular admin order
+            setCanApprove(ticketNextOrder > maxRegularAdminOrder && adminOrder === ticketNextOrder);
+          }
+        } else {
+          // Non-purchase tickets only go through regular admins
+          if (!isPurchaseAdmin) {
+            setCanApprove(adminOrder === ticketNextOrder);
+          } else {
+            setCanApprove(false);
+          }
+        }
+      } else {
+        setCanApprove(false);
+      }
     } catch (error) {
       console.error("Error checking admin status:", error);
     }
@@ -609,7 +657,7 @@ const TicketDetails = () => {
               <>
                 <Separator />
                 <div className="space-y-3">
-                  {!ticket.approved_at && (
+                {canApprove && (
                     <div className="flex justify-end">
                       <Button
                         onClick={handleApprove}
