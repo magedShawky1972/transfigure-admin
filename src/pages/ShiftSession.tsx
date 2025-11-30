@@ -183,7 +183,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       const today = new Date().toISOString().split('T')[0];
       const { data: assignment } = await supabase
         .from("shift_assignments")
-        .select("id, shift_id, shifts(shift_name, shift_end_time)")
+        .select("id, shift_id, shifts(shift_name, shift_start_time, shift_end_time)")
         .eq("user_id", user.id)
         .eq("assignment_date", today)
         .single();
@@ -198,14 +198,47 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       }
 
       // Check if current time is after shift end time
-      const shiftData = assignment.shifts as { shift_name: string; shift_end_time: string } | null;
+      const shiftData = assignment.shifts as { shift_name: string; shift_end_time: string; shift_start_time?: string } | null;
       if (shiftData?.shift_end_time) {
         const now = new Date();
-        const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
-        const shiftEndTime = new Date();
-        shiftEndTime.setHours(endHours, endMinutes, 0, 0);
+        const currentHours = now.getHours();
+        const currentMinutes = now.getMinutes();
+        const currentTimeInMinutes = currentHours * 60 + currentMinutes;
         
-        if (now > shiftEndTime) {
+        const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
+        const endTimeInMinutes = endHours * 60 + endMinutes;
+        
+        const [startHours, startMinutes] = (shiftData.shift_start_time || "00:00:00").split(':').map(Number);
+        const startTimeInMinutes = startHours * 60 + startMinutes;
+        
+        // Check if this is an overnight shift (end time < start time, e.g., 17:00 - 00:59)
+        const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
+        
+        let isShiftEnded = false;
+        
+        if (isOvernightShift) {
+          // For overnight shifts (e.g., 17:00 - 00:59):
+          // Since this is TODAY's assignment, the shift runs from today's start time to tomorrow's end time
+          // The shift has "ended" only if we're past midnight but before the early morning cutoff
+          // e.g., at 02:00 AM today, yesterday's shift (assigned yesterday) has ended
+          // But at 10:00 AM today, today's shift just hasn't started yet - don't block as "ended"
+          // 
+          // For today's assignment: only block if current time is AFTER end time AND in early morning (0:00-05:00)
+          // This covers the case where someone tries to open yesterday's already-closed shift
+          if (currentTimeInMinutes > endTimeInMinutes && currentTimeInMinutes < 300) { // 300 = 5:00 AM
+            isShiftEnded = true;
+          }
+          // If current time is >= start time OR <= end time, the shift is active/openable
+          // If current time is between end time and start time (daytime for overnight shifts), 
+          // user just needs to wait - don't block as "ended"
+        } else {
+          // For regular shifts, simply check if current time is past end time
+          if (currentTimeInMinutes > endTimeInMinutes) {
+            isShiftEnded = true;
+          }
+        }
+        
+        if (isShiftEnded) {
           toast({
             title: t("error"),
             description: t("shiftTimeEnded") || "انتهى وقت الوردية - لا يمكن فتح الوردية بعد انتهاء وقتها",
