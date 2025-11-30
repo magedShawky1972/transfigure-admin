@@ -348,13 +348,13 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
     setTempTransactions(prev => prev.filter(tx => tx.id !== tempTx.id));
   };
 
-  const canConfirm = tempTransactions.length > 0 && tempTransactions.every(tx => tx.player_id.trim() !== "");
+  const canConfirm = tempTransactions.length > 0;
 
   const handleConfirmAll = async () => {
     if (!canConfirm) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
-        description: translations.missingPlayerId,
+        description: translations.noPending,
         variant: "destructive",
       });
       return;
@@ -396,10 +396,11 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         const product = products.find(p => p.sku === tempTx.product_sku);
 
         // Insert into purpletransaction
+        const playerIdValue = tempTx.player_id?.trim() || "";
         const ptRecord = {
           order_number: orderNumber,
-          customer_phone: tempTx.player_id,
-          customer_name: `Ludo Player ${tempTx.player_id}`,
+          customer_phone: playerIdValue || null,
+          customer_name: playerIdValue ? `Ludo Player ${playerIdValue}` : "Ludo Player",
           brand_name: "يلا لودو",
           brand_code: "G01002",
           product_name: product?.product_name || null,
