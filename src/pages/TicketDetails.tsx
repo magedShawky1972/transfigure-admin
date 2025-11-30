@@ -72,6 +72,8 @@ const TicketDetails = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isDepartmentAdmin, setIsDepartmentAdmin] = useState(false);
+  const [isTicketOwner, setIsTicketOwner] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
   const [approvingTicket, setApprovingTicket] = useState(false);
 
@@ -145,6 +147,9 @@ const TicketDetails = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !ticket) return;
 
+      // Check if user is the ticket owner
+      setIsTicketOwner(user.id === ticket.user_id);
+
       // Check if user is admin for this ticket's department
       const { data } = await supabase
         .from("department_admins")
@@ -154,6 +159,7 @@ const TicketDetails = () => {
         .maybeSingle();
 
       setIsAdmin(!!data);
+      setIsDepartmentAdmin(!!data);
 
       // Check if current admin can approve (is at the correct approval level)
       if (data && !ticket.approved_at) {
@@ -594,6 +600,9 @@ const TicketDetails = () => {
     );
   }
 
+  // Check if user can view ticket details (owner or department admin)
+  const canViewDetails = isDepartmentAdmin || isTicketOwner;
+
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       <Button variant="ghost" onClick={() => navigate(sourceRoute)} className="h-8 sm:h-9 text-sm">
@@ -606,7 +615,11 @@ const TicketDetails = () => {
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
               <div>
-                <CardTitle className="text-lg sm:text-2xl">{ticket.subject}</CardTitle>
+                <CardTitle className="text-lg sm:text-2xl">
+                  {canViewDetails 
+                    ? ticket.subject 
+                    : (language === 'ar' ? '--- محتوى مخفي ---' : '--- Hidden Content ---')}
+                </CardTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                   {t("ticketDetails.ticketNumber")}{ticket.ticket_number}
                 </p>
@@ -650,7 +663,15 @@ const TicketDetails = () => {
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold mb-2">{t("ticketDetails.description")}</h3>
-              <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
+              {canViewDetails ? (
+                <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
+              ) : (
+                <p className="text-muted-foreground italic">
+                  {language === 'ar' 
+                    ? 'لا يمكنك عرض تفاصيل هذه التذكرة لأنك لست مسؤولاً عن هذا القسم' 
+                    : 'You cannot view this ticket\'s details as you are not an admin for this department'}
+                </p>
+              )}
             </div>
 
             {isAdmin && (
