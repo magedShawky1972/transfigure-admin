@@ -157,7 +157,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select("sku, product_name, product_price, product_cost")
-        .or("sku.ilike.LUDOF001%,sku.ilike.LUDOL001%")
+        .or("sku.ilike.YA019%,sku.ilike.YA018%")
         .eq("status", "active");
 
       if (productsError) {
@@ -258,7 +258,7 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         }
 
         // Get product info based on detected SKU
-        const detectedSku = data.detectedSku || "LUDOF001";
+        const detectedSku = data.detectedSku || "YA019";
         const product = products.find(p => p.sku === detectedSku);
         const amount = product?.product_price ? parseFloat(product.product_price) : (data.amount || 0);
 
@@ -392,41 +392,6 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
           .single();
 
         if (insertError) throw insertError;
-
-        // Get product info
-        const product = products.find(p => p.sku === tempTx.product_sku);
-
-        // Insert into purpletransaction
-        const playerIdValue = tempTx.player_id?.trim() || "";
-        const ptRecord = {
-          order_number: orderNumber,
-          customer_phone: playerIdValue || null,
-          customer_name: playerIdValue ? `Ludo Player ${playerIdValue}` : "Ludo Player",
-          brand_name: "يلا لودو",
-          brand_code: "G01002",
-          product_name: product?.product_name || null,
-          product_id: tempTx.product_sku,
-          qty: 1,
-          unit_price: tempTx.amount,
-          total: tempTx.amount,
-          cost_price: product?.product_cost ? parseFloat(product.product_cost) : 0,
-          cost_sold: product?.product_cost ? parseFloat(product.product_cost) : 0,
-          profit: tempTx.amount - (product?.product_cost ? parseFloat(product.product_cost) : 0),
-          payment_method: "cash",
-          payment_brand: "cash",
-          user_name: profile?.user_name || "System",
-          trans_type: "manual",
-          created_at_date: tempTx.transaction_date.split(' ')[0],
-          order_status: "completed",
-        };
-
-        const { error: ptError } = await supabase
-          .from("purpletransaction")
-          .insert(ptRecord as any);
-
-        if (ptError) {
-          console.error("Error inserting to purpletransaction:", ptError);
-        }
 
         if (newTx) {
           setTransactions(prev => [newTx, ...prev]);

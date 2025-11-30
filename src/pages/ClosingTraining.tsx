@@ -201,7 +201,7 @@ const ClosingTraining = () => {
       const { data: ludoProductsData, error: ludoProductsError } = await supabase
         .from("products")
         .select("sku, product_name, product_price")
-        .or("sku.ilike.LUDOF001%,sku.ilike.LUDOL001%")
+        .or("sku.ilike.YA019%,sku.ilike.YA018%")
         .eq("status", "active")
         .order("sku");
 

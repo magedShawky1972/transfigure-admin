@@ -87,11 +87,11 @@ DATA TO EXTRACT:
    - The ID may be partially visible or in a corner of the screenshot
 3. transactionDate - Date and time of the transaction (format: YYYY-MM-DD HH:MM:SS if visible, or current date if not visible)
 4. detectedSku - CRITICAL: Determine which product SKU based on the Arabic product name shown:
-   - "LUDOF001" = When product name shows "فارس" (Faris/Fans) - this is the Fans package
-   - "LUDOL001" = When product name shows "اللواء" (Al-Liwa'/Brigade) - this is the Lite package
+   - "YA019" = When product name shows "فارس" (Faris/Fans) - this is the Fans package
+   - "YA018" = When product name shows "اللواء" (Al-Liwa'/Brigade) - this is the Lite package
    Look for the Arabic text "العنصر:" (Element/Item) label followed by the product name.
-   - If you see "فارس" → return "LUDOF001"
-   - If you see "اللواء" → return "LUDOL001"
+   - If you see "فارس" → return "YA019"
+   - If you see "اللواء" → return "YA018"
 
 IMPORTANT:
 - Player ID is the MOST important field to extract - search the entire image carefully
@@ -106,7 +106,7 @@ Response format (JSON only, no markdown):
   "amount": number or null,
   "playerId": "string" or null,
   "transactionDate": "YYYY-MM-DD HH:MM:SS" or null,
-  "detectedSku": "LUDOF001" or "LUDOL001" or null,
+  "detectedSku": "YA019" or "YA018" or null,
   "invalidReason": "explain why invalid if isValidApp is false"
 }
 
@@ -128,12 +128,12 @@ Return ONLY the JSON object, no other text or markdown formatting.`
       });
       userContent.push({
         type: "text",
-        text: `NEW IMAGE to analyze - Extract the amount, player ID, transaction date, and detect which product (فارس or اللواء):`
+        text: `NEW IMAGE to analyze - Extract the amount, player ID, transaction date, and detect which product (فارس=YA019 or اللواء=YA018):`
       });
     } else {
       userContent.push({
         type: "text",
-        text: `Extract Yalla Ludo recharge transaction details (amount, player ID, date) and detect the product type (فارس=LUDOF001 or اللواء=LUDOL001) from this image:`
+        text: `Extract Yalla Ludo recharge transaction details (amount, player ID, date) and detect the product type (فارس=YA019 or اللواء=YA018) from this image:`
       });
     }
 
