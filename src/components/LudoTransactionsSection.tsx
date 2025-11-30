@@ -375,13 +375,14 @@ const LudoTransactionsSection = ({ shiftSessionId, userId }: LudoTransactionsSec
         const orderNumber = orderNumData || `LUDO-${Date.now()}`;
 
         // Insert transaction
+        const playerIdForTx = tempTx.player_id?.trim() || null;
         const { data: newTx, error: insertError } = await supabase
           .from("ludo_transactions")
           .insert({
             shift_session_id: shiftSessionId,
             product_sku: tempTx.product_sku,
             order_number: orderNumber,
-            player_id: tempTx.player_id,
+            player_id: playerIdForTx,
             amount: tempTx.amount,
             transaction_date: tempTx.transaction_date,
             image_path: tempTx.image_path,

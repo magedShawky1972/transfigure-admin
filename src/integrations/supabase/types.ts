@@ -654,7 +654,7 @@ export type Database = {
           id: string
           image_path: string | null
           order_number: string
-          player_id: string
+          player_id: string | null
           product_sku: string
           shift_session_id: string
           transaction_date: string
@@ -667,7 +667,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           order_number: string
-          player_id: string
+          player_id?: string | null
           product_sku: string
           shift_session_id: string
           transaction_date: string
@@ -680,7 +680,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           order_number?: string
-          player_id?: string
+          player_id?: string | null
           product_sku?: string
           shift_session_id?: string
           transaction_date?: string
