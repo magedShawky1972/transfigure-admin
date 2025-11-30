@@ -48,6 +48,7 @@ interface ShiftAssignment {
     shift_start_time: string;
     shift_end_time: string;
     color: string;
+    shift_order: number;
   };
   profiles: {
     user_name: string;
@@ -128,7 +129,8 @@ export default function ShiftFollowUp() {
             shift_name,
             shift_start_time,
             shift_end_time,
-            color
+            color,
+            shift_order
           ),
           shift_sessions (
             id,
@@ -180,7 +182,12 @@ export default function ShiftFollowUp() {
         shift_job_positions: shiftJobMap.get(assignment.shift_id) || [],
       }));
 
-      setAssignments(enrichedData || []);
+      // Sort by shift_order
+      const sortedData = enrichedData?.sort((a: any, b: any) => 
+        (a.shifts?.shift_order || 0) - (b.shifts?.shift_order || 0)
+      );
+
+      setAssignments(sortedData || []);
     } catch (error: any) {
       console.error("Error fetching assignments:", error);
       toast.error(t("Failed to load shift assignments"));
