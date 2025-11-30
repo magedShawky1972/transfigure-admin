@@ -153,6 +153,7 @@ const UserSetup = () => {
   const [reportsPermissionsDialogOpen, setReportsPermissionsDialogOpen] = useState(false);
   const [reportsPermissions, setReportsPermissions] = useState<Record<string, boolean>>({});
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
+  const [canViewPasswords, setCanViewPasswords] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     searchTerm: "",
@@ -237,6 +238,10 @@ const UserSetup = () => {
         .maybeSingle();
 
       setIsCurrentUserAdmin(!!roleData);
+      
+      // Only ماجد شوقي can view passwords
+      const MAGED_USER_ID = "4e38e7e3-6e16-4fea-97ea-24e588a76695";
+      setCanViewPasswords(user.id === MAGED_USER_ID);
     } catch (error) {
       console.error("Error checking admin status:", error);
     }
@@ -958,6 +963,7 @@ const UserSetup = () => {
             <TableRow>
               <TableHead>User Name</TableHead>
               <TableHead>Email</TableHead>
+              {canViewPasswords && <TableHead>Password</TableHead>}
               <TableHead>Job Position</TableHead>
               <TableHead>Mobile Number</TableHead>
               <TableHead>Status</TableHead>
@@ -969,6 +975,7 @@ const UserSetup = () => {
               <TableRow key={profile.id}>
                 <TableCell className="font-medium">{profile.user_name}</TableCell>
                 <TableCell>{profile.email}</TableCell>
+                {canViewPasswords && <TableCell className="font-mono text-muted-foreground">123456</TableCell>}
                 <TableCell>{profile.job_position_name || "-"}</TableCell>
                 <TableCell>{profile.mobile_number || "-"}</TableCell>
                 <TableCell>
