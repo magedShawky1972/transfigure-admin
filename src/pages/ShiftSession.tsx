@@ -200,10 +200,12 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       // Check if current time is after shift end time
       const shiftData = assignment.shifts as { shift_name: string; shift_end_time: string; shift_start_time?: string } | null;
       if (shiftData?.shift_end_time) {
+        // Get current time in KSA (UTC+3) since all shifts are configured in KSA time
         const now = new Date();
-        const currentHours = now.getHours();
-        const currentMinutes = now.getMinutes();
-        const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+        const ksaOffset = 3 * 60; // KSA is UTC+3
+        const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+        const ksaMinutes = utcMinutes + ksaOffset;
+        const currentTimeInMinutes = ((ksaMinutes % 1440) + 1440) % 1440; // Handle day wrap (1440 = 24*60)
         
         const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
         const endTimeInMinutes = endHours * 60 + endMinutes;
