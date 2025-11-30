@@ -329,6 +329,17 @@ export default function ShiftFollowUp() {
 
     setHardClosing(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Get admin profile
+      const { data: adminProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
       // Update shift_session status to closed
       const { error: sessionError } = await supabase
         .from("shift_sessions")
@@ -340,6 +351,20 @@ export default function ShiftFollowUp() {
         .eq("id", openSession.id);
 
       if (sessionError) throw sessionError;
+
+      // Log the hard close action
+      const { error: logError } = await supabase
+        .from("shift_hard_close_logs")
+        .insert({
+          shift_session_id: openSession.id,
+          shift_assignment_id: assignmentToHardClose.id,
+          admin_user_id: user.id,
+          admin_user_name: adminProfile?.user_name || "Unknown",
+          shift_name: assignmentToHardClose.shifts.shift_name,
+          shift_date: assignmentToHardClose.assignment_date,
+        });
+
+      if (logError) throw logError;
 
       toast.success(t("Shift closed successfully"));
       fetchAssignments();

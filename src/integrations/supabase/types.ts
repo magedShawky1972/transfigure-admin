@@ -1461,6 +1461,57 @@ export type Database = {
           },
         ]
       }
+      shift_hard_close_logs: {
+        Row: {
+          admin_user_id: string
+          admin_user_name: string
+          closed_at: string
+          created_at: string
+          id: string
+          shift_assignment_id: string
+          shift_date: string
+          shift_name: string
+          shift_session_id: string
+        }
+        Insert: {
+          admin_user_id: string
+          admin_user_name: string
+          closed_at?: string
+          created_at?: string
+          id?: string
+          shift_assignment_id: string
+          shift_date: string
+          shift_name: string
+          shift_session_id: string
+        }
+        Update: {
+          admin_user_id?: string
+          admin_user_name?: string
+          closed_at?: string
+          created_at?: string
+          id?: string
+          shift_assignment_id?: string
+          shift_date?: string
+          shift_name?: string
+          shift_session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_hard_close_logs_shift_assignment_id_fkey"
+            columns: ["shift_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "shift_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_hard_close_logs_shift_session_id_fkey"
+            columns: ["shift_session_id"]
+            isOneToOne: false
+            referencedRelation: "shift_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_job_positions: {
         Row: {
           created_at: string
