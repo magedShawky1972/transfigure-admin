@@ -164,10 +164,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get ticket details
+    // Get ticket details including next_admin_order
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
-      .select("id, ticket_number, subject, description, status, user_id, department_id, is_purchase_ticket, approved_at")
+      .select("id, ticket_number, subject, description, status, user_id, department_id, is_purchase_ticket, approved_at, next_admin_order")
       .eq("id", ticketId)
       .single();
 
@@ -176,7 +176,7 @@ const handler = async (req: Request): Promise<Response> => {
       return htmlResponse("خطأ", "لم يتم العثور على التذكرة.", false);
     }
 
-// Check if already processed
+    // Check if already processed
     if (ticket.approved_at) {
       return htmlResponse("تنبيه", "تمت الموافقة على هذه التذكرة بالفعل.", false);
     }
@@ -186,20 +186,79 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const ticketType = ticket.is_purchase_ticket ? "طلب الشراء" : "تذكرة الدعم";
+    const currentAdminOrder = ticket.next_admin_order || 1;
 
     if (action === "approve") {
-      // Update ticket - set approved_at timestamp (not status)
-      const { error: updateError } = await supabase
-        .from("tickets")
-        .update({
-          approved_at: new Date().toISOString(),
-        })
-        .eq("id", ticketId);
+      // Get admins at current order level to determine if this is a purchase phase
+      const { data: currentLevelAdmins } = await supabase
+        .from("department_admins")
+        .select("user_id, admin_order, is_purchase_admin")
+        .eq("department_id", ticket.department_id)
+        .eq("admin_order", currentAdminOrder);
 
-      if (updateError) {
-        console.error("Failed to approve ticket:", updateError);
-        return htmlResponse("خطأ", "فشل في الموافقة على التذكرة. يرجى المحاولة مرة أخرى.", false);
+      // Determine if current level is purchase admin phase
+      const currentIsPurchasePhase = currentLevelAdmins?.some(a => a.is_purchase_admin) || false;
+
+      let nextAdmins: any[] = [];
+      let nextAdminOrder = currentAdminOrder;
+      let nextIsPurchasePhase = currentIsPurchasePhase;
+
+      if (currentIsPurchasePhase) {
+        // Current approval is from a purchase admin - check for next purchase admin
+        const { data: nextPurchaseAdmins } = await supabase
+          .from("department_admins")
+          .select("user_id, admin_order")
+          .eq("department_id", ticket.department_id)
+          .eq("is_purchase_admin", true)
+          .gt("admin_order", currentAdminOrder)
+          .order("admin_order", { ascending: true })
+          .limit(10);
+
+        if (nextPurchaseAdmins && nextPurchaseAdmins.length > 0) {
+          // Find next order level among purchase admins
+          const nextOrderLevel = nextPurchaseAdmins[0].admin_order;
+          nextAdmins = nextPurchaseAdmins.filter(a => a.admin_order === nextOrderLevel);
+          nextAdminOrder = nextOrderLevel;
+          nextIsPurchasePhase = true;
+        }
+      } else {
+        // Current approval is from a regular admin - check for next regular admin first
+        const { data: nextRegularAdmins } = await supabase
+          .from("department_admins")
+          .select("user_id, admin_order")
+          .eq("department_id", ticket.department_id)
+          .eq("is_purchase_admin", false)
+          .gt("admin_order", currentAdminOrder)
+          .order("admin_order", { ascending: true })
+          .limit(10);
+
+        if (nextRegularAdmins && nextRegularAdmins.length > 0) {
+          // Find next order level among regular admins
+          const nextOrderLevel = nextRegularAdmins[0].admin_order;
+          nextAdmins = nextRegularAdmins.filter(a => a.admin_order === nextOrderLevel);
+          nextAdminOrder = nextOrderLevel;
+          nextIsPurchasePhase = false;
+        } else if (ticket.is_purchase_ticket) {
+          // No more regular admins but this is a purchase ticket - move to purchase admins
+          const { data: purchaseAdmins } = await supabase
+            .from("department_admins")
+            .select("user_id, admin_order")
+            .eq("department_id", ticket.department_id)
+            .eq("is_purchase_admin", true)
+            .order("admin_order", { ascending: true })
+            .limit(10);
+
+          if (purchaseAdmins && purchaseAdmins.length > 0) {
+            // Find first order level among purchase admins
+            const firstOrderLevel = purchaseAdmins[0].admin_order;
+            nextAdmins = purchaseAdmins.filter(a => a.admin_order === firstOrderLevel);
+            nextAdminOrder = firstOrderLevel;
+            nextIsPurchasePhase = true;
+          }
+        }
       }
+
+      const hasNextLevel = nextAdmins.length > 0;
 
       // Log the approval activity
       await logTicketActivity(
@@ -210,19 +269,65 @@ const handler = async (req: Request): Promise<Response> => {
         null,
         null,
         null,
-        `تمت الموافقة على التذكرة عبر البريد الإلكتروني`
+        `تمت الموافقة على التذكرة عبر البريد الإلكتروني (المستوى ${currentAdminOrder})`
       );
 
-      // Notify the ticket creator
-      await supabase.functions.invoke("send-ticket-notification", {
-        body: {
-          type: "ticket_approved",
-          ticketId: ticketId,
-          recipientUserId: ticket.user_id,
-        },
-      });
+      if (hasNextLevel) {
+        // There are more admins - update next_admin_order and send notification to next level
+        const { error: updateError } = await supabase
+          .from("tickets")
+          .update({
+            next_admin_order: nextAdminOrder,
+            status: "In Progress",
+          })
+          .eq("id", ticketId);
 
-      return htmlResponse("تمت الموافقة", `تمت الموافقة على ${ticketType} رقم ${ticket.ticket_number} بنجاح.`, true);
+        if (updateError) {
+          console.error("Failed to update ticket:", updateError);
+          return htmlResponse("خطأ", "فشل في تحديث التذكرة. يرجى المحاولة مرة أخرى.", false);
+        }
+
+        // Send notification to next level admins
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_created",
+            ticketId: ticketId,
+            adminOrder: nextAdminOrder,
+            isPurchasePhase: nextIsPurchasePhase,
+          },
+        });
+
+        return htmlResponse(
+          "تم التمرير للمستوى التالي", 
+          `تمت الموافقة على المستوى الحالي لـ ${ticketType} رقم ${ticket.ticket_number}. تم إرسال التذكرة للمستوى التالي للموافقة.`, 
+          true
+        );
+      } else {
+        // No more admins - fully approve the ticket
+        const { error: updateError } = await supabase
+          .from("tickets")
+          .update({
+            approved_at: new Date().toISOString(),
+            status: "In Progress",
+          })
+          .eq("id", ticketId);
+
+        if (updateError) {
+          console.error("Failed to approve ticket:", updateError);
+          return htmlResponse("خطأ", "فشل في الموافقة على التذكرة. يرجى المحاولة مرة أخرى.", false);
+        }
+
+        // Notify the ticket creator
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_approved",
+            ticketId: ticketId,
+            recipientUserId: ticket.user_id,
+          },
+        });
+
+        return htmlResponse("تمت الموافقة النهائية", `تمت الموافقة النهائية على ${ticketType} رقم ${ticket.ticket_number} بنجاح.`, true);
+      }
 
     } else if (action === "reject") {
       // Update ticket status to Rejected
