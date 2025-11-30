@@ -152,7 +152,7 @@ const ShiftReport = () => {
         } else {
           sessionLudo.push({
             product_sku: tx.product_sku,
-            product_name: tx.product_sku === "LUDOF001" ? "فارس" : tx.product_sku === "LUDOL001" ? "اللواء" : tx.product_sku,
+            product_name: tx.product_sku === "YA019" ? "فارس" : tx.product_sku === "YA018" ? "اللواء" : tx.product_sku,
             count: 1,
             total: tx.amount
           });

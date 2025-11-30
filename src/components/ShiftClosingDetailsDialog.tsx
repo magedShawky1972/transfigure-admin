@@ -166,8 +166,8 @@ export default function ShiftClosingDetailsDialog({
   };
 
   const getProductName = (sku: string) => {
-    if (sku === "LUDOF001") return language === "ar" ? "فارس" : "Fares";
-    if (sku === "LUDOL001") return language === "ar" ? "اللواء" : "Liwa";
+    if (sku === "YA019") return language === "ar" ? "فارس" : "Fares";
+    if (sku === "YA018") return language === "ar" ? "اللواء" : "Liwa";
     return sku;
   };
 
