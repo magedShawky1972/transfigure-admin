@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
 
       // Add optional fields for creation
       if (uom) postBody.uom = uom;
-      if (odooCategoryId) postBody.cat_code = odooCategoryId;
+      if (brandCode) postBody.cat_code = brandCode; // Use brand_code string, not odoo_category_id number
       if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
       if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
       if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
