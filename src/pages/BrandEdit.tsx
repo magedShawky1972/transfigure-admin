@@ -449,12 +449,10 @@ const BrandEdit = () => {
               <Label htmlFor="reorder_point">Reorder Point</Label>
               <Input
                 id="reorder_point"
-                type="number"
-                min="0"
-                step="1"
-                value={formData.reorder_point}
+                type="text"
+                value={formatNumber(formData.reorder_point)}
                 onChange={(e) =>
-                  setFormData({ ...formData, reorder_point: e.target.value })
+                  setFormData({ ...formData, reorder_point: parseFormattedNumber(e.target.value) })
                 }
                 placeholder="Enter reorder point quantity"
               />
