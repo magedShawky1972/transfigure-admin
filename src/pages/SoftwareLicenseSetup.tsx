@@ -570,6 +570,7 @@ const SoftwareLicenseSetup = () => {
       expired: "bg-red-500",
       expiring_soon: "bg-orange-500",
       cancelled: "bg-gray-500",
+      canceled: "bg-gray-500",
     };
 
     const statusLabels: Record<string, { en: string; ar: string }> = {
@@ -577,11 +578,12 @@ const SoftwareLicenseSetup = () => {
       expired: { en: "Expired", ar: "منتهي" },
       expiring_soon: { en: "Expiring Soon", ar: "ينتهي قريباً" },
       cancelled: { en: "Cancelled", ar: "ملغي" },
+      canceled: { en: "Cancelled", ar: "ملغي" },
     };
 
     return (
-      <Badge className={statusColors[status]}>
-        {language === "ar" ? statusLabels[status]?.ar : statusLabels[status]?.en}
+      <Badge className={statusColors[status] || "bg-gray-500"}>
+        {language === "ar" ? statusLabels[status]?.ar || status : statusLabels[status]?.en || status}
       </Badge>
     );
   };
