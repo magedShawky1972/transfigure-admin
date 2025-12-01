@@ -1,20 +1,15 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { 
-      productId,
+      product_id,
+      sku,
       productName, 
       uom, 
       catCode, 
@@ -26,96 +21,180 @@ serve(async (req) => {
       productWeight
     } = await req.json();
 
-    console.log('Syncing product to Odoo:', { productId, productName });
+    console.log('Syncing product to Odoo:', { product_id, sku, productName });
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    if (!sku || !productName) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'SKU and product name are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Fetch Odoo configuration from database
-    const { data: config, error: configError } = await supabase
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Fetch Odoo API configuration
+    const { data: odooConfig, error: configError } = await supabase
       .from('odoo_api_config')
-      .select('product_api_url, api_key')
+      .select('*')
       .eq('is_active', true)
       .maybeSingle();
 
-    if (configError || !config) {
+    if (configError || !odooConfig) {
       console.error('Error fetching Odoo config:', configError);
-      throw new Error('Odoo API configuration not found. Please configure it in the admin panel.');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Odoo API configuration not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const odooUrl = config.product_api_url;
-    const odooApiKey = config.api_key;
-
-    if (!odooUrl || !odooApiKey) {
-      throw new Error('Odoo product API credentials not properly configured');
+    if (!odooConfig.product_api_url) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Product API URL not configured' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Prepare Odoo request body
-    const odooRequestBody: any = {
-      sku: productId,
+    const odooApiKey = odooConfig.api_key;
+    const productApiUrl = odooConfig.product_api_url;
+
+    // First, try PUT to check if product exists (update existing)
+    console.log('Checking if product exists in Odoo with PUT:', `${productApiUrl}/${sku}`);
+    
+    const putResponse = await fetch(`${productApiUrl}/${sku}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': odooApiKey,
+      },
+      body: JSON.stringify({
+        name: productName,
+      }),
+    });
+
+    const putText = await putResponse.text();
+    console.log('PUT response status:', putResponse.status);
+    console.log('PUT response:', putText);
+
+    let putResult;
+    try {
+      putResult = JSON.parse(putText);
+    } catch (e) {
+      putResult = { success: false, error: putText };
+    }
+
+    if (putResult.success) {
+      // Product exists and was updated
+      console.log('Product updated in Odoo:', putResult);
+      
+      // Update local product with odoo_product_id
+      if (putResult.product_id && product_id) {
+        await supabase
+          .from('products')
+          .update({ 
+            odoo_product_id: putResult.product_id,
+            odoo_sync_status: 'synced',
+            odoo_synced_at: new Date().toISOString()
+          })
+          .eq('id', product_id);
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Product updated in Odoo',
+          odoo_product_id: putResult.product_id,
+          odoo_response: putResult 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // If PUT failed (product doesn't exist), try POST to create
+    console.log('Product not found, creating with POST:', productApiUrl);
+    
+    // Build request body with all available fields
+    const postBody: any = {
+      sku: sku,
       name: productName,
     };
 
-    // Add optional fields only if they have values
-    if (uom) odooRequestBody.uom = uom;
-    if (catCode) odooRequestBody.cat_code = catCode;
-    if (reorderPoint !== undefined && reorderPoint !== null) odooRequestBody.reorder_point = reorderPoint;
-    if (minimumOrder !== undefined && minimumOrder !== null) odooRequestBody.minimum_order = minimumOrder;
-    if (maximumOrder !== undefined && maximumOrder !== null) odooRequestBody.maximum_order = maximumOrder;
-    if (costPrice !== undefined && costPrice !== null) odooRequestBody.cost_price = costPrice;
-    if (salesPrice !== undefined && salesPrice !== null) odooRequestBody.sales_price = salesPrice;
-    if (productWeight !== undefined && productWeight !== null) odooRequestBody.product_weight = productWeight;
+    // Add optional fields if provided
+    if (uom) postBody.uom = uom;
+    if (catCode) postBody.cat_code = catCode;
+    if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
+    if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
+    if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
+    if (costPrice !== undefined && costPrice !== null) postBody.cost_price = costPrice;
+    if (salesPrice !== undefined && salesPrice !== null) postBody.sales_price = salesPrice;
+    if (productWeight !== undefined && productWeight !== null) postBody.product_weight = productWeight;
 
-    console.log('Sending to Odoo:', odooRequestBody);
+    console.log('POST body:', postBody);
 
-    // Call Odoo API
-    const odooResponse = await fetch(odooUrl, {
+    const postResponse = await fetch(productApiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': odooApiKey,
         'Content-Type': 'application/json',
+        'Authorization': odooApiKey,
       },
-      body: JSON.stringify(odooRequestBody),
+      body: JSON.stringify(postBody),
     });
 
-    const responseText = await odooResponse.text();
-    console.log('Odoo response status:', odooResponse.status);
-    console.log('Odoo response:', responseText);
+    const postText = await postResponse.text();
+    console.log('POST response status:', postResponse.status);
+    console.log('POST response:', postText);
 
-    if (!odooResponse.ok) {
-      throw new Error(`Odoo API error: ${odooResponse.status} - ${responseText}`);
-    }
-
-    let odooData;
+    let postResult;
     try {
-      odooData = JSON.parse(responseText);
+      postResult = JSON.parse(postText);
     } catch (e) {
-      odooData = { message: responseText };
+      postResult = { success: false, error: postText };
     }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: odooData.message || 'Product synced to Odoo successfully',
-        data: odooData,
-        odoo_product_id: odooData?.product_id || odooData?.id || null
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (postResult.success) {
+      // Product created successfully
+      console.log('Product created in Odoo:', postResult);
+      
+      // Update local product with odoo_product_id
+      if (postResult.product_id && product_id) {
+        await supabase
+          .from('products')
+          .update({ 
+            odoo_product_id: postResult.product_id,
+            odoo_sync_status: 'synced',
+            odoo_synced_at: new Date().toISOString()
+          })
+          .eq('id', product_id);
+      }
 
-  } catch (error) {
-    console.error('Error syncing product to Odoo:', error);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Product created in Odoo',
+          odoo_product_id: postResult.product_id,
+          odoo_response: postResult 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Both PUT and POST failed
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: postResult.message || postResult.error || 'Failed to sync product to Odoo',
+        odoo_response: postResult 
       }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error in sync-product-to-odoo:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.sync-brand-to-odoo]
 verify_jwt = false
+
+[functions.sync-product-to-odoo]
+verify_jwt = false

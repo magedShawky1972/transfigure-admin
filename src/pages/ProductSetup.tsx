@@ -469,16 +469,17 @@ const ProductSetup = () => {
 
       const { data, error } = await supabase.functions.invoke('sync-product-to-odoo', {
         body: {
-          productId: product.product_id || product.id,
+          product_id: product.id,
+          sku: product.sku || product.product_id,
           productName: product.product_name,
           uom: null,
-          catCode: null,
-          reorderPoint: null,
-          minimumOrder: null,
+          catCode: product.brand_code || null,
+          reorderPoint: product.reorder_point || null,
+          minimumOrder: product.minimum_order_quantity || null,
           maximumOrder: null,
           costPrice: product.product_cost ? parseFloat(product.product_cost) : null,
           salesPrice: product.product_price ? parseFloat(product.product_price) : null,
-          productWeight: null,
+          productWeight: product.weight || null,
         }
       });
 
