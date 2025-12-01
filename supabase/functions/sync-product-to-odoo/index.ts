@@ -35,6 +35,23 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Look up the brand's odoo_category_id if brandCode is provided
+    let odooCategoryId: number | null = null;
+    if (brandCode) {
+      const { data: brandData, error: brandError } = await supabase
+        .from('brands')
+        .select('odoo_category_id')
+        .eq('brand_code', brandCode)
+        .maybeSingle();
+      
+      if (!brandError && brandData?.odoo_category_id) {
+        odooCategoryId = brandData.odoo_category_id;
+        console.log('Found brand odoo_category_id:', odooCategoryId);
+      } else {
+        console.log('Brand not synced to Odoo or not found, skipping cat_code');
+      }
+    }
+
     // Fetch Odoo API configuration
     const { data: odooConfig, error: configError } = await supabase
       .from('odoo_api_config')
@@ -60,59 +77,120 @@ Deno.serve(async (req) => {
     const odooApiKey = odooConfig.api_key;
     const productApiUrl = odooConfig.product_api_url;
 
-    // First, try PUT to check if product exists (update existing)
-    console.log('Checking if product exists in Odoo with PUT:', `${productApiUrl}/${sku}`);
+    // First, try GET to check if product exists in Odoo
+    console.log('Checking if product exists in Odoo with GET:', `${productApiUrl}/${sku}`);
     
-    const putResponse = await fetch(`${productApiUrl}/${sku}`, {
-      method: 'PUT',
+    const getResponse = await fetch(`${productApiUrl}/${sku}`, {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': odooApiKey,
       },
-      body: JSON.stringify({
-        name: productName,
-      }),
     });
 
-    const putText = await putResponse.text();
-    console.log('PUT response status:', putResponse.status);
-    console.log('PUT response:', putText);
+    const getText = await getResponse.text();
+    console.log('GET response status:', getResponse.status);
+    console.log('GET response:', getText);
 
-    let putResult;
+    let getResult;
     try {
-      putResult = JSON.parse(putText);
+      getResult = JSON.parse(getText);
     } catch (e) {
-      putResult = { success: false, error: putText };
+      getResult = { success: false, error: getText };
     }
 
-    if (putResult.success) {
-      // Product exists and was updated
-      console.log('Product updated in Odoo:', putResult);
+    // If product exists (GET successful), use PUT to update
+    if (getResult.success && getResult.product_id) {
+      console.log('Product found in Odoo, updating with PUT:', getResult.product_id);
       
-      // Update local product with odoo_product_id
-      if (putResult.product_id && product_id) {
+      const putBody: any = {
+        name: productName,
+      };
+
+      // Add optional fields for update
+      if (uom) putBody.uom = uom;
+      if (odooCategoryId) putBody.cat_code = odooCategoryId;
+      if (reorderPoint !== undefined && reorderPoint !== null) putBody.reorder_point = reorderPoint;
+      if (minimumOrder !== undefined && minimumOrder !== null) putBody.minimum_order = minimumOrder;
+      if (maximumOrder !== undefined && maximumOrder !== null) putBody.maximum_order = maximumOrder;
+      if (costPrice !== undefined && costPrice !== null) putBody.cost_price = costPrice;
+      if (salesPrice !== undefined && salesPrice !== null) putBody.sales_price = salesPrice;
+      if (productWeight !== undefined && productWeight !== null) putBody.product_weight = productWeight;
+
+      console.log('PUT body:', putBody);
+
+      const putResponse = await fetch(`${productApiUrl}/${sku}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': odooApiKey,
+        },
+        body: JSON.stringify(putBody),
+      });
+
+      const putText = await putResponse.text();
+      console.log('PUT response status:', putResponse.status);
+      console.log('PUT response:', putText);
+
+      let putResult;
+      try {
+        putResult = JSON.parse(putText);
+      } catch (e) {
+        putResult = { success: false, error: putText };
+      }
+
+      if (putResult.success) {
+        // Product updated successfully
+        console.log('Product updated in Odoo:', putResult);
+        
+        // Update local product with odoo_product_id
+        const odooProductId = putResult.product_id || getResult.product_id;
+        if (odooProductId && product_id) {
+          await supabase
+            .from('products')
+            .update({ 
+              odoo_product_id: odooProductId,
+              odoo_sync_status: 'synced',
+              odoo_synced_at: new Date().toISOString()
+            })
+            .eq('id', product_id);
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Product updated in Odoo',
+            odoo_product_id: odooProductId,
+            odoo_response: putResult 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // PUT failed but product exists - use GET product_id
+      if (getResult.product_id && product_id) {
         await supabase
           .from('products')
           .update({ 
-            odoo_product_id: putResult.product_id,
+            odoo_product_id: getResult.product_id,
             odoo_sync_status: 'synced',
             odoo_synced_at: new Date().toISOString()
           })
           .eq('id', product_id);
-      }
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Product updated in Odoo',
-          odoo_product_id: putResult.product_id,
-          odoo_response: putResult 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Product found in Odoo (update skipped)',
+            odoo_product_id: getResult.product_id,
+            odoo_response: getResult 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    // If PUT failed (product doesn't exist), try POST to create
+    // Product doesn't exist, try POST to create
     console.log('Product not found, creating with POST:', productApiUrl);
     
     // Build request body with all available fields
@@ -123,7 +201,7 @@ Deno.serve(async (req) => {
 
     // Add optional fields if provided
     if (uom) postBody.uom = uom;
-    if (brandCode) postBody.cat_code = brandCode;
+    if (odooCategoryId) postBody.cat_code = odooCategoryId;
     if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
     if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
     if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
@@ -180,7 +258,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Both PUT and POST failed
+    // Both GET and POST failed
     return new Response(
       JSON.stringify({ 
         success: false, 
