@@ -46,6 +46,7 @@ const BrandEdit = () => {
     abc_analysis: "C",
     brand_type_id: "none",
     status: "active",
+    odoo_category_id: "",
   });
 
   // Format number with thousand separators and 2 decimal places
@@ -165,6 +166,7 @@ const BrandEdit = () => {
           abc_analysis: data.abc_analysis || "C",
           brand_type_id: data.brand_type_id || "none",
           status: data.status,
+          odoo_category_id: data.odoo_category_id?.toString() || "",
         });
       }
     } catch (error: any) {
@@ -561,6 +563,18 @@ const BrandEdit = () => {
                   <SelectItem value="inactive">{t("brandSetup.inactive")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="odoo_category_id">Odoo Category ID</Label>
+              <Input
+                id="odoo_category_id"
+                type="text"
+                value={formData.odoo_category_id}
+                disabled
+                className="bg-muted"
+                placeholder="Set after syncing to Odoo"
+              />
             </div>
           </div>
 

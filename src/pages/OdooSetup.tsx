@@ -12,6 +12,7 @@ interface OdooConfig {
   id?: string;
   customer_api_url: string;
   product_api_url: string;
+  brand_api_url: string;
   api_key: string;
   is_active: boolean;
 }
@@ -23,6 +24,7 @@ const OdooSetup = () => {
   const [config, setConfig] = useState<OdooConfig>({
     customer_api_url: "",
     product_api_url: "",
+    brand_api_url: "",
     api_key: "",
     is_active: true,
   });
@@ -62,7 +64,7 @@ const OdooSetup = () => {
   };
 
   const handleSave = async () => {
-    if (!config.customer_api_url || !config.product_api_url || !config.api_key) {
+    if (!config.customer_api_url || !config.product_api_url || !config.brand_api_url || !config.api_key) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description: language === "ar" 
@@ -83,6 +85,7 @@ const OdooSetup = () => {
           .update({
             customer_api_url: config.customer_api_url,
             product_api_url: config.product_api_url,
+            brand_api_url: config.brand_api_url,
             api_key: config.api_key,
             is_active: config.is_active,
           })
@@ -96,6 +99,7 @@ const OdooSetup = () => {
           .insert({
             customer_api_url: config.customer_api_url,
             product_api_url: config.product_api_url,
+            brand_api_url: config.brand_api_url,
             api_key: config.api_key,
             is_active: config.is_active,
           });
@@ -177,6 +181,26 @@ const OdooSetup = () => {
               {language === "ar"
                 ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالمنتجات"
                 : "Enter the full URL of the product API endpoint"}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="brand_api_url">
+              {language === "ar" ? "عنوان API للعلامات التجارية" : "Brand API URL"}
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="brand_api_url"
+              type="url"
+              placeholder="https://purplecard-staging-24752844.dev.odoo.com/api/product_categories"
+              value={config.brand_api_url}
+              onChange={(e) => setConfig({ ...config, brand_api_url: e.target.value })}
+              disabled={loading}
+            />
+            <p className="text-sm text-muted-foreground">
+              {language === "ar"
+                ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالعلامات التجارية"
+                : "Enter the full URL of the brand/product categories API endpoint"}
             </p>
           </div>
 
