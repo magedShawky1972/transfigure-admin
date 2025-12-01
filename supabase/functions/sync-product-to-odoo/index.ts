@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
       sku,
       productName, 
       uom, 
-      catCode, 
+      brandCode,
       reorderPoint, 
       minimumOrder, 
       maximumOrder,
@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
       productWeight
     } = await req.json();
 
-    console.log('Syncing product to Odoo:', { product_id, sku, productName });
+    console.log('Syncing product to Odoo:', { product_id, sku, productName, brandCode });
 
     if (!sku || !productName) {
       return new Response(
@@ -34,6 +34,23 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Look up the brand's odoo_category_id if brandCode is provided
+    let odooCategoryId: number | null = null;
+    if (brandCode) {
+      const { data: brandData, error: brandError } = await supabase
+        .from('brands')
+        .select('odoo_category_id')
+        .eq('brand_code', brandCode)
+        .maybeSingle();
+      
+      if (!brandError && brandData?.odoo_category_id) {
+        odooCategoryId = brandData.odoo_category_id;
+        console.log('Found brand odoo_category_id:', odooCategoryId);
+      } else {
+        console.log('Brand not synced to Odoo or not found, skipping cat_code');
+      }
+    }
 
     // Fetch Odoo API configuration
     const { data: odooConfig, error: configError } = await supabase
@@ -123,7 +140,7 @@ Deno.serve(async (req) => {
 
     // Add optional fields if provided
     if (uom) postBody.uom = uom;
-    if (catCode) postBody.cat_code = catCode;
+    if (odooCategoryId) postBody.cat_code = odooCategoryId;
     if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
     if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
     if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
