@@ -77,24 +77,23 @@ Deno.serve(async (req) => {
     const odooApiKey = odooConfig.api_key;
     const productApiUrl = odooConfig.product_api_url;
 
-    // Build request body with all available fields
-    const requestBody: any = {
+    // Build PUT request body (for updates - do NOT include cat_code, let Odoo keep existing category)
+    const putBody: any = {
       name: productName,
     };
 
-    // Add optional fields if provided
-    if (uom) requestBody.uom = uom;
-    if (odooCategoryId) requestBody.cat_code = odooCategoryId;
-    if (reorderPoint !== undefined && reorderPoint !== null) requestBody.reorder_point = reorderPoint;
-    if (minimumOrder !== undefined && minimumOrder !== null) requestBody.minimum_order = minimumOrder;
-    if (maximumOrder !== undefined && maximumOrder !== null) requestBody.maximum_order = maximumOrder;
-    if (costPrice !== undefined && costPrice !== null) requestBody.cost_price = costPrice;
-    if (salesPrice !== undefined && salesPrice !== null) requestBody.sales_price = salesPrice;
-    if (productWeight !== undefined && productWeight !== null) requestBody.product_weight = productWeight;
+    // Add optional fields for update (excluding cat_code)
+    if (uom) putBody.uom = uom;
+    if (reorderPoint !== undefined && reorderPoint !== null) putBody.reorder_point = reorderPoint;
+    if (minimumOrder !== undefined && minimumOrder !== null) putBody.minimum_order = minimumOrder;
+    if (maximumOrder !== undefined && maximumOrder !== null) putBody.maximum_order = maximumOrder;
+    if (costPrice !== undefined && costPrice !== null) putBody.cost_price = costPrice;
+    if (salesPrice !== undefined && salesPrice !== null) putBody.sales_price = salesPrice;
+    if (productWeight !== undefined && productWeight !== null) putBody.product_weight = productWeight;
 
     // Try PUT first to update existing product
     console.log('Trying PUT to update product:', `${productApiUrl}/${sku}`);
-    console.log('PUT body:', requestBody);
+    console.log('PUT body:', putBody);
 
     const putResponse = await fetch(`${productApiUrl}/${sku}`, {
       method: 'PUT',
@@ -102,7 +101,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
         'Authorization': odooApiKey,
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(putBody),
     });
 
     const putText = await putResponse.text();
@@ -155,11 +154,21 @@ Deno.serve(async (req) => {
       // Product doesn't exist, try POST to create
       console.log('Product not found, creating with POST:', productApiUrl);
       
-      // Add SKU for creation
-      const postBody = {
+      // Build POST body (for creation - include cat_code if available)
+      const postBody: any = {
         sku: sku,
-        ...requestBody,
+        name: productName,
       };
+
+      // Add optional fields for creation
+      if (uom) postBody.uom = uom;
+      if (odooCategoryId) postBody.cat_code = odooCategoryId;
+      if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
+      if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
+      if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
+      if (costPrice !== undefined && costPrice !== null) postBody.cost_price = costPrice;
+      if (salesPrice !== undefined && salesPrice !== null) postBody.sales_price = salesPrice;
+      if (productWeight !== undefined && productWeight !== null) postBody.product_weight = productWeight;
 
       console.log('POST body:', postBody);
 
