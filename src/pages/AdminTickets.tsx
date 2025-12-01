@@ -46,6 +46,7 @@ type Ticket = {
   approved_by: string | null;
   is_purchase_ticket: boolean;
   next_admin_order: number | null;
+  external_link: string | null;
   departments: {
     department_name: string;
   };
@@ -761,6 +762,18 @@ const AdminTickets = () => {
                 </Badge>
               )}
             </div>
+            {ticket.external_link && (
+              <div className="mt-2">
+                <a 
+                  href={ticket.external_link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs sm:text-sm text-primary hover:underline flex items-center gap-1"
+                >
+                  🔗 {language === 'ar' ? 'رابط خارجي' : 'External Link'}
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>

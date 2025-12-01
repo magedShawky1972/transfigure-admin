@@ -2049,6 +2049,7 @@ export type Database = {
           deleted_by: string | null
           department_id: string
           description: string
+          external_link: string | null
           id: string
           is_deleted: boolean
           is_purchase_ticket: boolean
@@ -2069,6 +2070,7 @@ export type Database = {
           deleted_by?: string | null
           department_id: string
           description: string
+          external_link?: string | null
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean
@@ -2089,6 +2091,7 @@ export type Database = {
           deleted_by?: string | null
           department_id?: string
           description?: string
+          external_link?: string | null
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean
