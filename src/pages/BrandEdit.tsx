@@ -430,15 +430,13 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="safety_stock">Safety Stock ({formatNumber(formData.safety_stock)})</Label>
+              <Label htmlFor="safety_stock">Safety Stock</Label>
               <Input
                 id="safety_stock"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.safety_stock}
+                type="text"
+                value={formatNumber(formData.safety_stock)}
                 onChange={(e) =>
-                  setFormData({ ...formData, safety_stock: e.target.value })
+                  setFormData({ ...formData, safety_stock: parseFormattedNumber(e.target.value) })
                 }
                 placeholder="Auto-calculated: Lead Time × Daily Avg"
                 className="bg-muted"
@@ -461,30 +459,26 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="average_consumption_per_month">Average Consumption Per Month ({formatNumber(formData.average_consumption_per_month)})</Label>
+              <Label htmlFor="average_consumption_per_month">Average Consumption Per Month</Label>
               <Input
                 id="average_consumption_per_month"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.average_consumption_per_month}
+                type="text"
+                value={formatNumber(formData.average_consumption_per_month)}
                 onChange={(e) =>
-                  setFormData({ ...formData, average_consumption_per_month: e.target.value })
+                  setFormData({ ...formData, average_consumption_per_month: parseFormattedNumber(e.target.value) })
                 }
                 placeholder="Enter average consumption per month"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="average_consumption_per_day">Average Consumption Per Day ({formatNumber(formData.average_consumption_per_day)})</Label>
+              <Label htmlFor="average_consumption_per_day">Average Consumption Per Day</Label>
               <Input
                 id="average_consumption_per_day"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.average_consumption_per_day}
+                type="text"
+                value={formatNumber(formData.average_consumption_per_day)}
                 onChange={(e) => {
-                  const newAvgDaily = e.target.value;
+                  const newAvgDaily = parseFormattedNumber(e.target.value);
                   const newSafetyStock = calculateSafetyStock(formData.leadtime, newAvgDaily);
                   setFormData({ ...formData, average_consumption_per_day: newAvgDaily, safety_stock: newSafetyStock });
                 }}
