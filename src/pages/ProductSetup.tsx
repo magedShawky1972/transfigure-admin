@@ -473,7 +473,7 @@ const ProductSetup = () => {
           sku: product.sku || product.product_id,
           productName: product.product_name,
           uom: null,
-          catCode: product.brand_code || null,
+          brandCode: product.brand_code || null,
           reorderPoint: product.reorder_point || null,
           minimumOrder: product.minimum_order_quantity || null,
           maximumOrder: null,
