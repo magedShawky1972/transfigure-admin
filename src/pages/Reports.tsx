@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'api-documentation']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation']);
         return;
       }
 
@@ -96,6 +96,15 @@ const Reports = () => {
         : "Shift plan report with multi-filters and Excel export",
       icon: Calendar,
       route: "/reports/shift-plan",
+    },
+    {
+      id: "brand-balance",
+      name: language === "ar" ? "تقرير أرصدة البراندات" : "Brand Balance Report",
+      description: language === "ar" 
+        ? "تقرير أرصدة الإغلاق لمنتجات الفئة A المسجلة من مندوبي المبيعات" 
+        : "Closing balances report for A-class products recorded by sales reps",
+      icon: FileText,
+      route: "/reports/brand-balance",
     },
     {
       id: "api-documentation",

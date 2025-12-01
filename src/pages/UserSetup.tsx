@@ -134,6 +134,7 @@ const REPORTS = [
   { key: "software-licenses", label: "Software Licenses Report" },
   { key: "shift-report", label: "Shift Report" },
   { key: "shift-plan", label: "Shift Plan Report" },
+  { key: "brand-balance", label: "Brand Balance Report" },
   { key: "api-documentation", label: "API Documentation" },
 ];
 
