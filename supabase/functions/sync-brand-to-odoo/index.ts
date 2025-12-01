@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': odooApiKey,
+        'Authorization': odooApiKey,
       },
       body: JSON.stringify({
         name: brand_name,
@@ -63,8 +63,16 @@ Deno.serve(async (req) => {
       }),
     });
 
-    const putResult = await putResponse.json();
-    console.log('PUT response:', putResult);
+    const putText = await putResponse.text();
+    console.log('PUT response status:', putResponse.status);
+    console.log('PUT response:', putText);
+
+    let putResult;
+    try {
+      putResult = JSON.parse(putText);
+    } catch (e) {
+      putResult = { success: false, error: putText };
+    }
 
     if (putResult.success) {
       // Brand exists and was updated
@@ -96,7 +104,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': odooApiKey,
+        'Authorization': odooApiKey,
       },
       body: JSON.stringify({
         name: brand_name,
@@ -105,8 +113,16 @@ Deno.serve(async (req) => {
       }),
     });
 
-    const postResult = await postResponse.json();
-    console.log('POST response:', postResult);
+    const postText = await postResponse.text();
+    console.log('POST response status:', postResponse.status);
+    console.log('POST response:', postText);
+
+    let postResult;
+    try {
+      postResult = JSON.parse(postText);
+    } catch (e) {
+      postResult = { success: false, error: postText };
+    }
 
     if (postResult.success) {
       // Brand created successfully
@@ -135,7 +151,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: postResult.message || 'Failed to sync brand to Odoo',
+        error: postResult.message || postResult.error || 'Failed to sync brand to Odoo',
         odoo_response: postResult 
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
