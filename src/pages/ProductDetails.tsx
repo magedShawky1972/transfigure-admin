@@ -94,6 +94,7 @@ const ProductDetails = () => {
   }>>([]);
   const [status, setStatus] = useState("active");
   const [productId, setProductId] = useState("");
+  const [odooProductId, setOdooProductId] = useState("");
   const [leadtime, setLeadtime] = useState("");
   const [safetyStock, setSafetyStock] = useState("");
   const [abcAnalysis, setAbcAnalysis] = useState("C");
@@ -184,6 +185,7 @@ const ProductDetails = () => {
 
       if (data) {
         setProductId(data.product_id || "");
+        setOdooProductId(data.odoo_product_id?.toString() || "");
         setSku(data.sku || "");
         setDescription(data.description || "");
         setCategory(data.category || "");
@@ -433,6 +435,18 @@ const ProductDetails = () => {
                       placeholder={isRTL ? "معرف المنتج" : "Product ID"}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="odooProductId" className={isRTL ? 'text-right block' : ''}>Odoo Product ID</Label>
+                    <Input
+                      id="odooProductId"
+                      className={`${isRTL ? 'text-right' : ''} bg-muted`}
+                      value={odooProductId}
+                      disabled
+                      placeholder={isRTL ? "معرف منتج أودو" : "Odoo Product ID"}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="brandName" className={isRTL ? 'text-right block' : ''}>{t("brandSetup.brandName")}</Label>
                     <Select value={brandName} onValueChange={handleBrandChange}>

@@ -720,6 +720,15 @@ const ProductSetup = () => {
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("odoo_product_id")}
+                  >
+                    <div className="flex items-center">
+                      Odoo ID
+                      <SortIcon column="odoo_product_id" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
                     onClick={() => handleSort("odoo_sync_status")}
                   >
                     <div className="flex items-center">
@@ -759,6 +768,7 @@ const ProductSetup = () => {
                         {product.status}
                       </span>
                     </TableCell>
+                    <TableCell className="text-center">{product.odoo_product_id || "-"}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         product.odoo_sync_status === "synced" 
@@ -840,6 +850,7 @@ const ProductSetup = () => {
                             <TableHead>{t("productSetup.productPrice")}</TableHead>
                             <TableHead>{t("productSetup.productCost")}</TableHead>
                             <TableHead>{t("productSetup.status")}</TableHead>
+                            <TableHead>Odoo ID</TableHead>
                             <TableHead>Odoo Sync Status</TableHead>
                             <TableHead>{t("productSetup.createdDate")}</TableHead>
                             <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
@@ -861,6 +872,7 @@ const ProductSetup = () => {
                                   {product.status}
                                 </span>
                               </TableCell>
+                              <TableCell className="text-center">{product.odoo_product_id || "-"}</TableCell>
                               <TableCell>
                                 <span className={`px-2 py-1 rounded-full text-xs ${
                                   product.odoo_sync_status === "synced" 
