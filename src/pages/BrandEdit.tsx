@@ -61,10 +61,11 @@ const BrandEdit = () => {
   };
 
   // Calculate safety stock when leadtime or average_consumption_per_day changes
-  const calculateSafetyStock = (leadtime: string, avgDaily: string): string => {
+  const calculateSafetyStock = (leadtime: string, avgDaily: string): { safetyStock: string; reorderPoint: string } => {
     const lt = parseFloat(leadtime) || 0;
     const daily = parseFloat(avgDaily) || 0;
-    return (lt * daily).toFixed(2);
+    const safetyStock = (lt * daily).toFixed(2);
+    return { safetyStock, reorderPoint: safetyStock };
   };
 
   useEffect(() => {
@@ -234,12 +235,13 @@ const BrandEdit = () => {
       const avgDaily = totalCoins / daysCount;
       const avgMonthly = avgDaily * 30;
 
-      const newSafetyStock = calculateSafetyStock(formData.leadtime, avgDaily.toFixed(2));
+      const { safetyStock, reorderPoint } = calculateSafetyStock(formData.leadtime, avgDaily.toFixed(2));
       setFormData(prev => ({
         ...prev,
         average_consumption_per_day: avgDaily.toFixed(2),
         average_consumption_per_month: avgMonthly.toFixed(2),
-        safety_stock: newSafetyStock,
+        safety_stock: safetyStock,
+        reorder_point: reorderPoint,
       }));
 
       toast({
@@ -422,8 +424,8 @@ const BrandEdit = () => {
                 value={formData.leadtime}
                 onChange={(e) => {
                   const newLeadtime = e.target.value;
-                  const newSafetyStock = calculateSafetyStock(newLeadtime, formData.average_consumption_per_day);
-                  setFormData({ ...formData, leadtime: newLeadtime, safety_stock: newSafetyStock });
+                  const { safetyStock, reorderPoint } = calculateSafetyStock(newLeadtime, formData.average_consumption_per_day);
+                  setFormData({ ...formData, leadtime: newLeadtime, safety_stock: safetyStock, reorder_point: reorderPoint });
                 }}
                 placeholder="Enter lead time in days"
               />
@@ -479,8 +481,8 @@ const BrandEdit = () => {
                 value={formatNumber(formData.average_consumption_per_day)}
                 onChange={(e) => {
                   const newAvgDaily = parseFormattedNumber(e.target.value);
-                  const newSafetyStock = calculateSafetyStock(formData.leadtime, newAvgDaily);
-                  setFormData({ ...formData, average_consumption_per_day: newAvgDaily, safety_stock: newSafetyStock });
+                  const { safetyStock, reorderPoint } = calculateSafetyStock(formData.leadtime, newAvgDaily);
+                  setFormData({ ...formData, average_consumption_per_day: newAvgDaily, safety_stock: safetyStock, reorder_point: reorderPoint });
                 }}
                 placeholder="Enter average consumption per day"
               />
