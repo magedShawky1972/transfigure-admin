@@ -164,7 +164,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
-        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link")
         .eq("id", ticketId)
         .single();
 
@@ -224,7 +224,8 @@ const handler = async (req: Request): Promise<Response> => {
         departmentName: department?.department_name || "",
         createdBy: creatorProfile?.user_name || "",
         createdAt: ticket.created_at,
-        isPurchaseTicket: ticket.is_purchase_ticket
+        isPurchaseTicket: ticket.is_purchase_ticket,
+        externalLink: ticket.external_link
       };
 
       // Prepare notification data
@@ -317,7 +318,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
-        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link")
         .eq("id", ticketId)
         .single();
 
@@ -356,7 +357,8 @@ const handler = async (req: Request): Promise<Response> => {
         departmentName: department?.department_name || "",
         createdBy: creatorProfile?.user_name || "",
         createdAt: ticket.created_at,
-        isPurchaseTicket: ticket.is_purchase_ticket
+        isPurchaseTicket: ticket.is_purchase_ticket,
+        externalLink: ticket.external_link
       };
 
       // Prepare notification data
@@ -450,7 +452,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
-        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link")
         .eq("id", ticketId)
         .single();
 
@@ -491,7 +493,8 @@ const handler = async (req: Request): Promise<Response> => {
         departmentName: department?.department_name || "",
         createdBy: creatorProfile?.user_name || "",
         createdAt: ticket.created_at,
-        isPurchaseTicket: ticket.is_purchase_ticket
+        isPurchaseTicket: ticket.is_purchase_ticket,
+        externalLink: ticket.external_link
       };
 
       // Get notification content
@@ -599,6 +602,7 @@ interface TicketDetails {
   createdBy: string;
   createdAt: string;
   isPurchaseTicket: boolean;
+  externalLink?: string | null;
 }
 
 function getNotificationContent(
@@ -647,6 +651,11 @@ const appUrl = "https://edaraasus.com";
     minute: '2-digit'
   });
 
+  // External link HTML (conditionally shown)
+  const externalLinkHtml = ticketDetails.externalLink 
+    ? `<li style="margin: 10px 0;"><strong>رابط خارجي:</strong> <a href="${ticketDetails.externalLink}" target="_blank" style="color: #4F46E5;">${ticketDetails.externalLink}</a></li>`
+    : '';
+
 switch (type) {
     case "ticket_created":
       emailSubject = ticketTypeSubject;
@@ -662,6 +671,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+            ${externalLinkHtml}
           </ul>
           <p>يرجى المراجعة واتخاذ الإجراء المناسب.</p>
           <div style="margin: 20px 0; display: flex; gap: 10px; justify-content: flex-start;">
@@ -691,6 +701,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+            ${externalLinkHtml}
           </ul>
           <p>جاري معالجة التذكرة الآن.</p>
           <div style="margin: 20px 0;">
@@ -716,6 +727,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+            ${externalLinkHtml}
           </ul>
           <p>يرجى المراجعة والعمل على هذه التذكرة.</p>
           <div style="margin: 20px 0;">
@@ -741,6 +753,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+            ${externalLinkHtml}
           </ul>
           <p>يرجى مراجعة التذكرة والموافقة عليها.</p>
           <div style="margin: 20px 0; display: flex; gap: 10px; justify-content: flex-start;">

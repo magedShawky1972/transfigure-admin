@@ -40,6 +40,7 @@ type Ticket = {
   user_id: string;
   approved_at: string | null;
   next_admin_order: number | null;
+  external_link: string | null;
   departments: {
     department_name: string;
   };
@@ -793,6 +794,19 @@ const TicketDetails = () => {
                 <span className="text-muted-foreground">{t("ticketDetails.email")}</span>
                 <span className="sm:ml-2 truncate">{ticket.profiles.email}</span>
               </div>
+              {ticket.external_link && (
+                <div className="flex flex-col sm:flex-row sm:items-center col-span-1 sm:col-span-2">
+                  <span className="text-muted-foreground">{language === 'ar' ? 'رابط خارجي:' : 'External Link:'}</span>
+                  <a 
+                    href={ticket.external_link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="sm:ml-2 text-primary hover:underline truncate"
+                  >
+                    {ticket.external_link}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
