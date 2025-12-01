@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Calculator } from "lucide-react";
 
 interface BrandType {
   id: string;
@@ -148,6 +148,85 @@ const BrandEdit = () => {
         });
       }
     } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateConsumption = async () => {
+    if (!formData.brand_code) {
+      toast({
+        title: t("common.error"),
+        description: "Brand code is required to calculate consumption",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Get daily consumption data for the last 90 days
+      const { data, error } = await supabase
+        .from("purpletransaction")
+        .select("created_at_date, coins_number")
+        .eq("brand_code", formData.brand_code)
+        .gte("created_at_date", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No transactions found for this brand in the last 90 days",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Group by date and sum coins
+      const dailyTotals: Record<string, number> = {};
+      data.forEach((tx: any) => {
+        if (tx.created_at_date) {
+          const dateKey = tx.created_at_date.split("T")[0].split(" ")[0];
+          dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + (tx.coins_number || 0);
+        }
+      });
+
+      const dailyValues = Object.values(dailyTotals);
+      const daysCount = dailyValues.length;
+      
+      if (daysCount === 0) {
+        toast({
+          title: "No Data",
+          description: "No valid transaction dates found",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const totalCoins = dailyValues.reduce((sum, val) => sum + val, 0);
+      const avgDaily = totalCoins / daysCount;
+      const avgMonthly = avgDaily * 30;
+
+      setFormData(prev => ({
+        ...prev,
+        average_consumption_per_day: avgDaily.toFixed(2),
+        average_consumption_per_month: avgMonthly.toFixed(2),
+      }));
+
+      toast({
+        title: t("common.success"),
+        description: `Calculated from ${daysCount} days of data. Daily: ${avgDaily.toLocaleString()}, Monthly: ${avgMonthly.toLocaleString()}`,
+      });
+    } catch (error: any) {
+      console.error("Error calculating consumption:", error);
       toast({
         title: t("common.error"),
         description: error.message,
@@ -385,6 +464,20 @@ const BrandEdit = () => {
                 }
                 placeholder="Enter average consumption per day"
               />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label>&nbsp;</Label>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={calculateConsumption}
+                disabled={loading || !formData.brand_code}
+                className="w-full md:w-auto"
+              >
+                <Calculator className="mr-2 h-4 w-4" />
+                Calculate Consumption from Transactions (90 days)
+              </Button>
             </div>
 
             <div className="space-y-2">
