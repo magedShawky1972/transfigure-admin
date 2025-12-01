@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info, Printer, FileSpreadsheet } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -1555,6 +1555,156 @@ const Dashboard = () => {
     setBrandSalesSortDirection(newDirection);
   };
 
+  const handleBrandSalesExportExcel = () => {
+    if (brandSalesGrid.length === 0) {
+      toast({
+        title: language === 'ar' ? 'لا توجد بيانات' : 'No Data',
+        description: language === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const headers = [
+      language === 'ar' ? 'العلامة التجارية' : 'Brand',
+      language === 'ar' ? 'المبيعات' : 'Sales',
+      language === 'ar' ? 'التكلفة' : 'Cost',
+      language === 'ar' ? 'الربح' : 'Profit',
+      language === 'ar' ? 'نسبة الربح %' : 'Profit %',
+      language === 'ar' ? 'عدد المعاملات' : 'Transactions',
+    ];
+
+    const rows = brandSalesGrid.map(brand => [
+      brand.brandName,
+      brand.totalSales.toFixed(2),
+      brand.totalCost.toFixed(2),
+      brand.totalProfit.toFixed(2),
+      brand.profitPercentage.toFixed(1),
+      brand.transactionCount,
+    ]);
+
+    // Add totals row
+    const totalSales = brandSalesGrid.reduce((sum, brand) => sum + brand.totalSales, 0);
+    const totalCost = brandSalesGrid.reduce((sum, brand) => sum + brand.totalCost, 0);
+    const totalProfit = brandSalesGrid.reduce((sum, brand) => sum + brand.totalProfit, 0);
+    const totalTransactions = brandSalesGrid.reduce((sum, brand) => sum + brand.transactionCount, 0);
+    const totalProfitPercentage = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+
+    rows.push([
+      language === 'ar' ? 'المجموع' : 'Total',
+      totalSales.toFixed(2),
+      totalCost.toFixed(2),
+      totalProfit.toFixed(2),
+      totalProfitPercentage.toFixed(1),
+      totalTransactions,
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(',')),
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `brand_sales_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+
+    toast({
+      title: language === 'ar' ? 'تم التصدير' : 'Exported',
+      description: language === 'ar' ? 'تم تصدير البيانات بنجاح' : 'Data exported successfully',
+    });
+  };
+
+  const handleBrandSalesPrint = () => {
+    if (brandSalesGrid.length === 0) {
+      toast({
+        title: language === 'ar' ? 'لا توجد بيانات' : 'No Data',
+        description: language === 'ar' ? 'لا توجد بيانات للطباعة' : 'No data to print',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const totalSales = brandSalesGrid.reduce((sum, brand) => sum + brand.totalSales, 0);
+    const totalCost = brandSalesGrid.reduce((sum, brand) => sum + brand.totalCost, 0);
+    const totalProfit = brandSalesGrid.reduce((sum, brand) => sum + brand.totalProfit, 0);
+    const totalTransactions = brandSalesGrid.reduce((sum, brand) => sum + brand.transactionCount, 0);
+    const totalProfitPercentage = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+
+    const dateRange = getDateRange();
+    const dateRangeText = dateRange 
+      ? `${format(dateRange.start, 'yyyy-MM-dd')} - ${format(dateRange.end, 'yyyy-MM-dd')}`
+      : '';
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: ${language === 'ar' ? 'rtl' : 'ltr'}; }
+          h1 { text-align: center; margin-bottom: 5px; }
+          .date-range { text-align: center; margin-bottom: 20px; color: #666; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: ${language === 'ar' ? 'right' : 'left'}; }
+          th { background-color: #f4f4f4; font-weight: bold; }
+          .total-row { background-color: #e8f5e9; font-weight: bold; }
+          .number { text-align: ${language === 'ar' ? 'left' : 'right'}; }
+          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <h1>${language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</h1>
+        <div class="date-range">${dateRangeText}</div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${language === 'ar' ? 'العلامة التجارية' : 'Brand'}</th>
+              <th class="number">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+              <th class="number">${language === 'ar' ? 'التكلفة' : 'Cost'}</th>
+              <th class="number">${language === 'ar' ? 'الربح' : 'Profit'}</th>
+              <th class="number">${language === 'ar' ? 'النسبة %' : 'Profit %'}</th>
+              <th class="number">${language === 'ar' ? 'المعاملات' : 'Trans'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${brandSalesGrid.map((brand, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${brand.brandName}</td>
+                <td class="number">${brand.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td class="number">${brand.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td class="number">${brand.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td class="number">${brand.profitPercentage.toFixed(1)}%</td>
+                <td class="number">${brand.transactionCount.toLocaleString()}</td>
+              </tr>
+            `).join('')}
+            <tr class="total-row">
+              <td></td>
+              <td>${language === 'ar' ? 'المجموع' : 'Total'}</td>
+              <td class="number">${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td class="number">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td class="number">${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td class="number">${totalProfitPercentage.toFixed(1)}%</td>
+              <td class="number">${totalTransactions.toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   const handlePaymentChargesClick = async () => {
     try {
       setLoadingPaymentCharges(true);
@@ -2025,10 +2175,36 @@ const Dashboard = () => {
           </div>
         )}
         <CardHeader>
-          <CardTitle>{language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</CardTitle>
-          <CardDescription>
-            {language === 'ar' ? 'جميع مبيعات العلامات التجارية للفترة المحددة' : 'All brand sales for the selected period'}
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle>{language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' ? 'جميع مبيعات العلامات التجارية للفترة المحددة' : 'All brand sales for the selected period'}
+              </CardDescription>
+            </div>
+            <div className="flex gap-2 print:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBrandSalesPrint}
+                className="gap-1"
+                disabled={brandSalesGrid.length === 0}
+              >
+                <Printer className="h-4 w-4" />
+                {language === 'ar' ? 'طباعة' : 'Print'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBrandSalesExportExcel}
+                className="gap-1"
+                disabled={brandSalesGrid.length === 0}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                {language === 'ar' ? 'تصدير' : 'Export'}
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Sorting Controls */}
