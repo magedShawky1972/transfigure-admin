@@ -189,6 +189,7 @@ export type Database = {
           created_at: string
           id: string
           leadtime: number | null
+          odoo_category_id: number | null
           recharge_usd_value: number | null
           reorder_point: number | null
           safety_stock: number | null
@@ -207,6 +208,7 @@ export type Database = {
           created_at?: string
           id?: string
           leadtime?: number | null
+          odoo_category_id?: number | null
           recharge_usd_value?: number | null
           reorder_point?: number | null
           safety_stock?: number | null
@@ -225,6 +227,7 @@ export type Database = {
           created_at?: string
           id?: string
           leadtime?: number | null
+          odoo_category_id?: number | null
           recharge_usd_value?: number | null
           reorder_point?: number | null
           safety_stock?: number | null
@@ -741,6 +744,7 @@ export type Database = {
       odoo_api_config: {
         Row: {
           api_key: string
+          brand_api_url: string | null
           created_at: string
           customer_api_url: string
           id: string
@@ -750,6 +754,7 @@ export type Database = {
         }
         Insert: {
           api_key: string
+          brand_api_url?: string | null
           created_at?: string
           customer_api_url: string
           id?: string
@@ -759,6 +764,7 @@ export type Database = {
         }
         Update: {
           api_key?: string
+          brand_api_url?: string | null
           created_at?: string
           customer_api_url?: string
           id?: string

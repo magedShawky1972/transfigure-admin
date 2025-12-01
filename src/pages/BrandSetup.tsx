@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 interface Brand {
@@ -32,6 +32,7 @@ interface Brand {
   abc_analysis?: string;
   status: string;
   brand_type_id?: string;
+  odoo_category_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +51,7 @@ const BrandSetup = () => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncingBrandId, setSyncingBrandId] = useState<string | null>(null);
   
   // Load filters from localStorage or use defaults
   const [filterBrandName, setFilterBrandName] = useState(() => 
@@ -164,6 +166,51 @@ const BrandSetup = () => {
 
   const handleAddNew = () => {
     navigate("/brand-setup/edit");
+  };
+
+  const handleSyncToOdoo = async (brand: Brand) => {
+    if (!brand.brand_code) {
+      toast({
+        title: t("common.error"),
+        description: "Brand code is required for Odoo sync",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSyncingBrandId(brand.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-brand-to-odoo', {
+        body: {
+          brand_id: brand.id,
+          brand_code: brand.brand_code,
+          brand_name: brand.brand_name,
+          status: brand.status,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: t("common.success"),
+          description: data.message || "Brand synced to Odoo successfully",
+        });
+        // Refresh brands to get updated odoo_category_id
+        fetchBrands();
+      } else {
+        throw new Error(data.error || "Failed to sync brand to Odoo");
+      }
+    } catch (error: any) {
+      console.error("Error syncing brand to Odoo:", error);
+      toast({
+        title: t("common.error"),
+        description: error.message || "Failed to sync brand to Odoo",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingBrandId(null);
+    }
   };
 
   const handleSort = (column: string) => {
@@ -319,13 +366,16 @@ const BrandSetup = () => {
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("status")}>
                   {t("brandSetup.status")} {sortColumn === "status" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("odoo_category_id")}>
+                  Odoo ID {sortColumn === "odoo_category_id" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead>{t("brandSetup.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName || filterABCAnalysis || filterBrandType ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -363,7 +413,23 @@ const BrandSetup = () => {
                       </span>
                     </TableCell>
                     <TableCell>
+                      {brand.odoo_category_id ? (
+                        <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          {brand.odoo_category_id}
+                        </span>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSyncToOdoo(brand)}
+                          disabled={syncingBrandId === brand.id || !brand.brand_code}
+                          title="Sync to Odoo"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${syncingBrandId === brand.id ? 'animate-spin' : ''}`} />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
