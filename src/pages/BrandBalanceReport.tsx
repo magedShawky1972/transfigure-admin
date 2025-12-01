@@ -17,6 +17,7 @@ interface BrandBalanceEntry {
   brand_name: string;
   brand_code: string | null;
   closing_balance: number;
+  reorder_point: number;
   user_name: string;
   shift_name: string;
   assignment_date: string;
@@ -77,14 +78,14 @@ const BrandBalanceReport = () => {
       // First get A-class brand IDs
       const { data: aClassBrands, error: brandsError } = await supabase
         .from("brands")
-        .select("id, brand_name, brand_code")
+        .select("id, brand_name, brand_code, reorder_point")
         .eq("abc_analysis", "A")
         .eq("status", "active");
 
       if (brandsError) throw brandsError;
 
       const aClassBrandIds = aClassBrands?.map(b => b.id) || [];
-      const brandMap = new Map(aClassBrands?.map(b => [b.id, { name: b.brand_name, code: b.brand_code }]) || []);
+      const brandMap = new Map(aClassBrands?.map(b => [b.id, { name: b.brand_name, code: b.brand_code, reorder_point: b.reorder_point || 0 }]) || []);
 
       // Get shift sessions within date range
       const { data: sessionsData, error: sessionsError } = await supabase
@@ -144,6 +145,7 @@ const BrandBalanceReport = () => {
           brand_name: brandInfo?.name || "Unknown",
           brand_code: brandInfo?.code || null,
           closing_balance: balance.closing_balance,
+          reorder_point: brandInfo?.reorder_point || 0,
           user_name: profilesMap.get(session?.user_id) || "Unknown",
           shift_name: (session?.shift_assignments as any)?.shifts?.shift_name || "",
           assignment_date: (session?.shift_assignments as any)?.assignment_date || "",
@@ -180,18 +182,23 @@ const BrandBalanceReport = () => {
     }
 
     const headers = language === "ar"
-      ? ["التاريخ", "البراند", "كود البراند", "رصيد الإغلاق", "الموظف", "المناوبة", "وقت الإغلاق"]
-      : ["Date", "Brand", "Brand Code", "Closing Balance", "Employee", "Shift", "Close Time"];
+      ? ["التاريخ", "البراند", "كود البراند", "رصيد الإغلاق", "نقطة إعادة الطلب", "الفرق", "الموظف", "المناوبة", "وقت الإغلاق"]
+      : ["Date", "Brand", "Brand Code", "Closing Balance", "Reorder Point", "Difference", "Employee", "Shift", "Close Time"];
 
-    const rows = balances.map(balance => [
-      balance.assignment_date,
-      balance.brand_name,
-      balance.brand_code || "",
-      balance.closing_balance.toLocaleString(),
-      balance.user_name,
-      balance.shift_name,
-      balance.closed_at ? format(new Date(balance.closed_at), "yyyy-MM-dd HH:mm:ss") : ""
-    ]);
+    const rows = balances.map(balance => {
+      const diff = balance.closing_balance - balance.reorder_point;
+      return [
+        balance.assignment_date,
+        balance.brand_name,
+        balance.brand_code || "",
+        balance.closing_balance.toLocaleString(),
+        balance.reorder_point.toLocaleString(),
+        diff.toLocaleString(),
+        balance.user_name,
+        balance.shift_name,
+        balance.closed_at ? format(new Date(balance.closed_at), "yyyy-MM-dd HH:mm:ss") : ""
+      ];
+    });
 
     const csvContent = [
       headers.join(","),
@@ -384,37 +391,49 @@ const BrandBalanceReport = () => {
                       <TableHead className="whitespace-nowrap">{language === "ar" ? "البراند" : "Brand"}</TableHead>
                       <TableHead className="whitespace-nowrap">{language === "ar" ? "كود البراند" : "Brand Code"}</TableHead>
                       <TableHead className="whitespace-nowrap text-right">{language === "ar" ? "رصيد الإغلاق" : "Closing Balance"}</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">{language === "ar" ? "نقطة إعادة الطلب" : "Reorder Point"}</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">{language === "ar" ? "الفرق" : "Difference"}</TableHead>
                       <TableHead className="whitespace-nowrap">{language === "ar" ? "الموظف" : "Employee"}</TableHead>
                       <TableHead className="whitespace-nowrap">{language === "ar" ? "المناوبة" : "Shift"}</TableHead>
                       <TableHead className="whitespace-nowrap">{language === "ar" ? "وقت الإغلاق" : "Close Time"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {balances.map((balance) => (
-                      <TableRow key={balance.id}>
-                        <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">
-                          {balance.assignment_date}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">
-                          {balance.brand_name}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-black dark:text-white">
-                          {balance.brand_code || "-"}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-black dark:text-white font-bold text-right">
-                          {balance.closing_balance.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-black dark:text-white">
-                          {balance.user_name}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-black dark:text-white">
-                          {balance.shift_name}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-black dark:text-white">
-                          {formatDateTime(balance.closed_at)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {balances.map((balance) => {
+                      const diff = balance.closing_balance - balance.reorder_point;
+                      const isPositive = balance.closing_balance > balance.reorder_point;
+                      return (
+                        <TableRow key={balance.id}>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">
+                            {balance.assignment_date}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">
+                            {balance.brand_name}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white">
+                            {balance.brand_code || "-"}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white font-bold text-right">
+                            {balance.closing_balance.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white text-right">
+                            {balance.reorder_point.toLocaleString()}
+                          </TableCell>
+                          <TableCell className={`whitespace-nowrap font-bold text-right ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {diff.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white">
+                            {balance.user_name}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white">
+                            {balance.shift_name}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-black dark:text-white">
+                            {formatDateTime(balance.closed_at)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
