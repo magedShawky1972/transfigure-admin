@@ -526,58 +526,69 @@ export default function ShiftFollowUp() {
                               </Button>
                             </>
                           ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  handleEditClick(assignment.id, assignment.user_id)
-                                }
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              {assignment.shift_sessions?.some(s => s.status === "open") && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 border-red-300 hover:bg-red-50"
-                                  onClick={() => {
-                                    setAssignmentToHardClose(assignment);
-                                    setHardCloseDialogOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 ml-1" />
-                                  {t("Hard Close")}
-                                </Button>
-                              )}
-                              {assignment.shift_sessions?.some(s => s.status === "closed") && (
+                            (() => {
+                              // Get the latest session to determine current status
+                              const sortedSessions = [...(assignment.shift_sessions || [])].sort(
+                                (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+                              );
+                              const latestSession = sortedSessions[0];
+                              const currentStatus = latestSession?.status || null;
+                              
+                              return (
                                 <>
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setSelectedAssignment(assignment);
-                                      setDetailsDialogOpen(true);
-                                    }}
+                                    variant="ghost"
+                                    onClick={() =>
+                                      handleEditClick(assignment.id, assignment.user_id)
+                                    }
                                   >
-                                    <Eye className="h-4 w-4 ml-1" />
-                                    {t("Details")}
+                                    <Edit2 className="h-4 w-4" />
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                                    onClick={() => {
-                                      setAssignmentToReopen(assignment);
-                                      setReopenDialogOpen(true);
-                                    }}
-                                  >
-                                    <RotateCcw className="h-4 w-4 ml-1" />
-                                    {t("Reopen")}
-                                  </Button>
+                                  {currentStatus === "open" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 border-red-300 hover:bg-red-50"
+                                      onClick={() => {
+                                        setAssignmentToHardClose(assignment);
+                                        setHardCloseDialogOpen(true);
+                                      }}
+                                    >
+                                      <XCircle className="h-4 w-4 ml-1" />
+                                      {t("Hard Close")}
+                                    </Button>
+                                  )}
+                                  {currentStatus === "closed" && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setSelectedAssignment(assignment);
+                                          setDetailsDialogOpen(true);
+                                        }}
+                                      >
+                                        <Eye className="h-4 w-4 ml-1" />
+                                        {t("Details")}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                                        onClick={() => {
+                                          setAssignmentToReopen(assignment);
+                                          setReopenDialogOpen(true);
+                                        }}
+                                      >
+                                        <RotateCcw className="h-4 w-4 ml-1" />
+                                        {t("Reopen")}
+                                      </Button>
+                                    </>
+                                  )}
                                 </>
-                              )}
-                            </>
+                              );
+                            })()
                           )}
                         </div>
                       </TableCell>
