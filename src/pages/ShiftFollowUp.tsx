@@ -485,13 +485,13 @@ export default function ShiftFollowUp() {
                     const formatDateTime = (dateStr: string | null) => {
                       if (!dateStr) return "-";
                       const date = new Date(dateStr);
-                      return date.toLocaleString('ar-SA', { 
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        hour12: true 
-                      });
+                      const day = date.getDate().toString().padStart(2, '0');
+                      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                      const hours = date.getHours();
+                      const minutes = date.getMinutes().toString().padStart(2, '0');
+                      const hour12 = hours % 12 || 12;
+                      const ampm = hours >= 12 ? 'PM' : 'AM';
+                      return `${day}/${month} ${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
                     };
                     
                     return (
