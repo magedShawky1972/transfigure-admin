@@ -233,8 +233,18 @@ export default function ShiftFollowUp() {
   const handleReopenShift = async () => {
     if (!assignmentToReopen) return;
     
-    // Get the latest closed session
-    const sortedSessions = [...(assignmentToReopen.shift_sessions || [])].sort(
+    // Filter sessions to only those opened on the selected date
+    const selectedDateStart = new Date(selectedDate + 'T00:00:00');
+    const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
+    
+    const sessionsForDate = (assignmentToReopen.shift_sessions || []).filter(session => {
+      if (!session.opened_at) return false;
+      const openedDate = new Date(session.opened_at);
+      return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+    });
+    
+    // Get the latest closed session for this date
+    const sortedSessions = [...sessionsForDate].sort(
       (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
     );
     const closedSession = sortedSessions.find(s => s.status === "closed");
@@ -335,8 +345,18 @@ export default function ShiftFollowUp() {
   const handleHardCloseShift = async () => {
     if (!assignmentToHardClose) return;
     
-    // Get the latest open session
-    const sortedSessions = [...(assignmentToHardClose.shift_sessions || [])].sort(
+    // Filter sessions to only those opened on the selected date
+    const selectedDateStart = new Date(selectedDate + 'T00:00:00');
+    const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
+    
+    const sessionsForDate = (assignmentToHardClose.shift_sessions || []).filter(session => {
+      if (!session.opened_at) return false;
+      const openedDate = new Date(session.opened_at);
+      return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+    });
+    
+    // Get the latest open session for this date
+    const sortedSessions = [...sessionsForDate].sort(
       (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
     );
     const openSession = sortedSessions.find(s => s.status === "open");
@@ -393,20 +413,14 @@ export default function ShiftFollowUp() {
     }
   };
 
-  const getStatusBadge = (sessions: ShiftAssignment["shift_sessions"]) => {
-    if (!sessions || sessions.length === 0) {
+  const getStatusBadge = (session: ShiftAssignment["shift_sessions"][0] | null) => {
+    if (!session) {
       return <Badge variant="secondary">{t("Not Started")}</Badge>;
     }
-
-    // Sort by opened_at to get the latest session
-    const sortedSessions = [...sessions].sort(
-      (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
-    );
-    const latestSession = sortedSessions[0];
     
-    if (latestSession.status === "open") {
+    if (session.status === "open") {
       return <Badge className="bg-green-500">{t("Open")}</Badge>;
-    } else if (latestSession.status === "closed") {
+    } else if (session.status === "closed") {
       return <Badge className="bg-blue-500">{t("Closed")}</Badge>;
     }
 
@@ -476,11 +490,21 @@ export default function ShiftFollowUp() {
                 </TableHeader>
                 <TableBody>
                   {assignments.map((assignment) => {
-                    // Get the latest session for this assignment
-                    const sortedSessions = [...(assignment.shift_sessions || [])].sort(
+                    // Filter sessions to only those opened on the selected date (in local timezone)
+                    const selectedDateStart = new Date(selectedDate + 'T00:00:00');
+                    const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
+                    
+                    const sessionsForDate = (assignment.shift_sessions || []).filter(session => {
+                      if (!session.opened_at) return false;
+                      const openedDate = new Date(session.opened_at);
+                      return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+                    });
+                    
+                    // Get the latest session for this date (or show the most recent if none match)
+                    const sortedSessions = [...sessionsForDate].sort(
                       (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
                     );
-                    const latestSession = sortedSessions[0];
+                    const latestSession = sortedSessions[0] || null;
                     
                     const formatDateTime = (dateStr: string | null) => {
                       if (!dateStr) return "-";
@@ -536,7 +560,7 @@ export default function ShiftFollowUp() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(assignment.shift_sessions)}
+                        {getStatusBadge(latestSession)}
                       </TableCell>
                       <TableCell className="text-sm">
                         {formatDateTime(latestSession?.opened_at || null)}
@@ -567,11 +591,7 @@ export default function ShiftFollowUp() {
                             </>
                           ) : (
                             (() => {
-                              // Get the latest session to determine current status
-                              const sortedSessions = [...(assignment.shift_sessions || [])].sort(
-                                (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
-                              );
-                              const latestSession = sortedSessions[0];
+                              // Use the already-filtered latestSession for this date
                               const currentStatus = latestSession?.status || null;
                               
                               return (
@@ -648,7 +668,18 @@ export default function ShiftFollowUp() {
         onOpenChange={setDetailsDialogOpen}
         shiftSessionId={(() => {
           if (!selectedAssignment?.shift_sessions) return null;
-          const sorted = [...selectedAssignment.shift_sessions].sort(
+          
+          // Filter sessions to only those opened on the selected date
+          const selectedDateStart = new Date(selectedDate + 'T00:00:00');
+          const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
+          
+          const sessionsForDate = selectedAssignment.shift_sessions.filter(session => {
+            if (!session.opened_at) return false;
+            const openedDate = new Date(session.opened_at);
+            return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+          });
+          
+          const sorted = [...sessionsForDate].sort(
             (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
           );
           return sorted.find(s => s.status === "closed")?.id || null;
