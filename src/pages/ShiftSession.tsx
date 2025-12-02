@@ -626,14 +626,26 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
     try {
       if (!shiftSession) return;
 
-      // Check if all required brands have uploaded images (exclude Yalla Ludo)
-      const missingBrands = brands.filter((brand) => {
-        // Skip Yalla Ludo brands - they are not mandatory
+      // CRITICAL: Ensure brands are loaded before allowing close
+      if (brands.length === 0) {
+        toast({
+          title: t("error") || "خطأ",
+          description: "يرجى الانتظار حتى يتم تحميل العلامات التجارية",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Filter only non-Ludo brands for validation
+      const requiredBrands = brands.filter((brand) => {
         const brandNameLower = brand.brand_name.toLowerCase();
-        if (brandNameLower.includes("yalla ludo") || brandNameLower.includes("يلا لودو") || brandNameLower.includes("ludo")) {
-          return false;
-        }
-        // Check if this brand has an uploaded image
+        return !brandNameLower.includes("yalla ludo") && 
+               !brandNameLower.includes("يلا لودو") && 
+               !brandNameLower.includes("ludo");
+      });
+
+      // Check if all required brands have uploaded images
+      const missingBrands = requiredBrands.filter((brand) => {
         const balance = balances[brand.id];
         return !balance?.receipt_image_path;
       });
@@ -980,7 +992,12 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
               />
 
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button onClick={handleCloseShift} className="flex-1" variant="destructive">
+                <Button 
+                  onClick={handleCloseShift} 
+                  className="flex-1" 
+                  variant="destructive"
+                  disabled={brands.length === 0}
+                >
                   {t("closeShift")}
                 </Button>
                 <Button 
