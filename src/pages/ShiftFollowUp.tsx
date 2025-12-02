@@ -509,10 +509,15 @@ export default function ShiftFollowUp() {
                     const formatDateTime = (dateStr: string | null) => {
                       if (!dateStr) return "-";
                       const date = new Date(dateStr);
-                      const day = date.getDate().toString().padStart(2, '0');
-                      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                      const hours = date.getHours();
-                      const minutes = date.getMinutes().toString().padStart(2, '0');
+                      // Convert to KSA time (UTC+3)
+                      const ksaOffset = 3 * 60; // KSA is UTC+3 in minutes
+                      const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+                      const ksaTime = new Date(utcTime + (ksaOffset * 60000));
+                      
+                      const day = ksaTime.getDate().toString().padStart(2, '0');
+                      const month = (ksaTime.getMonth() + 1).toString().padStart(2, '0');
+                      const hours = ksaTime.getHours();
+                      const minutes = ksaTime.getMinutes().toString().padStart(2, '0');
                       const hour12 = hours % 12 || 12;
                       const ampm = hours >= 12 ? 'PM' : 'AM';
                       return `${day}/${month} ${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
