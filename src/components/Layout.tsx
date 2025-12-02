@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Languages, LogOut, Home } from "lucide-react";
+import { Moon, Sun, Languages, LogOut, Home, Clock } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -11,11 +11,33 @@ import { useToast } from "@/hooks/use-toast";
 import edaraLogo from "@/assets/edara-logo.png";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 
+const getKSADateTime = () => {
+  const now = new Date();
+  const ksaOffset = 3 * 60; // KSA is UTC+3 in minutes
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const ksaTime = new Date(utcTime + (ksaOffset * 60000));
+  
+  const day = ksaTime.getDate().toString().padStart(2, '0');
+  const month = (ksaTime.getMonth() + 1).toString().padStart(2, '0');
+  const year = ksaTime.getFullYear();
+  const hours = ksaTime.getHours();
+  const minutes = ksaTime.getMinutes().toString().padStart(2, '0');
+  const seconds = ksaTime.getSeconds().toString().padStart(2, '0');
+  const hour12 = hours % 12 || 12;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  
+  return {
+    date: `${day}/${month}/${year}`,
+    time: `${hour12.toString().padStart(2, '0')}:${minutes}:${seconds} ${ampm}`
+  };
+};
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [ksaDateTime, setKsaDateTime] = useState(getKSADateTime());
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,6 +45,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   
   // Initialize idle timeout session manager (30 minutes)
   useIdleTimeout();
+
+  // Update KSA time every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setKsaDateTime(getKSADateTime());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" || "dark";
@@ -144,6 +174,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               {user && (
                 <>
+                  {/* KSA Date & Time Display */}
+                  <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs font-medium text-foreground">{ksaDateTime.date}</span>
+                      <span className="text-xs text-muted-foreground">{ksaDateTime.time}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">KSA</span>
+                  </div>
                   {userName && (
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
