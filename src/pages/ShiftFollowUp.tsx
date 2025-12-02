@@ -468,12 +468,33 @@ export default function ShiftFollowUp() {
                     <TableHead className="text-right">{t("End Time")}</TableHead>
                     <TableHead className="text-right">{t("Assigned Person")}</TableHead>
                     <TableHead className="text-right">{t("Status")}</TableHead>
+                    <TableHead className="text-right">{t("Opened At")}</TableHead>
+                    <TableHead className="text-right">{t("Closed At")}</TableHead>
                     <TableHead className="text-right">{t("Notes")}</TableHead>
                     <TableHead className="text-right">{t("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assignments.map((assignment) => (
+                  {assignments.map((assignment) => {
+                    // Get the latest session for this assignment
+                    const sortedSessions = [...(assignment.shift_sessions || [])].sort(
+                      (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+                    );
+                    const latestSession = sortedSessions[0];
+                    
+                    const formatDateTime = (dateStr: string | null) => {
+                      if (!dateStr) return "-";
+                      const date = new Date(dateStr);
+                      return date.toLocaleString('ar-SA', { 
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true 
+                      });
+                    };
+                    
+                    return (
                     <TableRow key={assignment.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -516,6 +537,12 @@ export default function ShiftFollowUp() {
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(assignment.shift_sessions)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {formatDateTime(latestSession?.opened_at || null)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {formatDateTime(latestSession?.closed_at || null)}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {assignment.notes || "-"}
@@ -606,7 +633,8 @@ export default function ShiftFollowUp() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
