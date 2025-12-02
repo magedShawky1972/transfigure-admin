@@ -99,14 +99,14 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
 
       // Check if user has active shift assignment for today
       const today = new Date().toISOString().split('T')[0];
-      const { data: assignment } = await supabase
+      const { data: assignments } = await supabase
         .from("shift_assignments")
-        .select("id")
+        .select("id, shift_id, shifts(shift_name, shift_start_time, shift_end_time, shift_order)")
         .eq("user_id", user.id)
         .eq("assignment_date", today)
-        .single();
+        .order("shifts(shift_order)", { ascending: true });
 
-      if (!assignment) {
+      if (!assignments || assignments.length === 0) {
         toast({
           title: t("noShiftAssignment"),
           description: t("noShiftAssignmentMessage"),
@@ -115,6 +115,24 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         setHasActiveAssignment(false);
         setLoading(false);
         return;
+      }
+
+      // Find the best assignment to use - prefer one with existing open session or next upcoming shift
+      let assignment = assignments[0];
+      
+      // Check if any assignment has an open session
+      for (const a of assignments) {
+        const { data: openSession } = await supabase
+          .from("shift_sessions")
+          .select("id")
+          .eq("shift_assignment_id", a.id)
+          .eq("status", "open")
+          .maybeSingle();
+        
+        if (openSession) {
+          assignment = a;
+          break;
+        }
       }
 
       setHasActiveAssignment(true);
@@ -181,19 +199,45 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       if (!user) return;
 
       const today = new Date().toISOString().split('T')[0];
-      const { data: assignment } = await supabase
+      const { data: assignments } = await supabase
         .from("shift_assignments")
-        .select("id, shift_id, shifts(shift_name, shift_start_time, shift_end_time)")
+        .select("id, shift_id, shifts(shift_name, shift_start_time, shift_end_time, shift_order)")
         .eq("user_id", user.id)
         .eq("assignment_date", today)
-        .single();
+        .order("shifts(shift_order)", { ascending: true });
 
-      if (!assignment) {
+      if (!assignments || assignments.length === 0) {
         toast({
           title: t("error"),
           description: t("noShiftAssignment"),
           variant: "destructive",
         });
+        return;
+      }
+
+      // Find an assignment without an open session, prioritizing by shift_order
+      let assignment = null;
+      for (const a of assignments) {
+        const { data: existingSession } = await supabase
+          .from("shift_sessions")
+          .select("id")
+          .eq("shift_assignment_id", a.id)
+          .eq("status", "open")
+          .maybeSingle();
+        
+        if (!existingSession) {
+          assignment = a;
+          break;
+        }
+      }
+
+      if (!assignment) {
+        toast({
+          title: t("error"),
+          description: t("shiftAlreadyOpen") || "جميع الورديات مفتوحة بالفعل",
+          variant: "destructive",
+        });
+        await checkShiftAssignmentAndLoadData();
         return;
       }
 

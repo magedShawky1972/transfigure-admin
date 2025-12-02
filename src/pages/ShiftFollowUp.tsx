@@ -213,12 +213,42 @@ export default function ShiftFollowUp() {
     }
 
     try {
+      // Get assignment details before update
+      const { data: assignmentData } = await supabase
+        .from("shift_assignments")
+        .select("shift_id, assignment_date, shifts(shift_name)")
+        .eq("id", assignmentId)
+        .single();
+
       const { error } = await supabase
         .from("shift_assignments")
         .update({ user_id: selectedUserId })
         .eq("id", assignmentId);
 
       if (error) throw error;
+
+      // Send notification email to the new assigned user
+      try {
+        const { data: newUserProfile } = await supabase
+          .from("profiles")
+          .select("user_name, email")
+          .eq("user_id", selectedUserId)
+          .single();
+
+        if (newUserProfile && assignmentData) {
+          // Send shift notification to the new user
+          await supabase.functions.invoke("send-shift-notifications", {
+            body: {
+              startDate: assignmentData.assignment_date,
+              endDate: assignmentData.assignment_date,
+              userIds: [selectedUserId],
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error("Error sending notification:", notifError);
+        // Don't fail the whole operation if notification fails
+      }
 
       toast.success(t("Shift assignment updated successfully"));
       setEditingId(null);
