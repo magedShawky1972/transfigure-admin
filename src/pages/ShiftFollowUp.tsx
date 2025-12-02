@@ -233,7 +233,11 @@ export default function ShiftFollowUp() {
   const handleReopenShift = async () => {
     if (!assignmentToReopen) return;
     
-    const closedSession = assignmentToReopen.shift_sessions?.find(s => s.status === "closed");
+    // Get the latest closed session
+    const sortedSessions = [...(assignmentToReopen.shift_sessions || [])].sort(
+      (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+    );
+    const closedSession = sortedSessions.find(s => s.status === "closed");
     if (!closedSession) return;
 
     setReopening(true);
@@ -331,7 +335,11 @@ export default function ShiftFollowUp() {
   const handleHardCloseShift = async () => {
     if (!assignmentToHardClose) return;
     
-    const openSession = assignmentToHardClose.shift_sessions?.find(s => s.status === "open");
+    // Get the latest open session
+    const sortedSessions = [...(assignmentToHardClose.shift_sessions || [])].sort(
+      (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+    );
+    const openSession = sortedSessions.find(s => s.status === "open");
     if (!openSession) return;
 
     setHardClosing(true);
@@ -390,7 +398,12 @@ export default function ShiftFollowUp() {
       return <Badge variant="secondary">{t("Not Started")}</Badge>;
     }
 
-    const latestSession = sessions[sessions.length - 1];
+    // Sort by opened_at to get the latest session
+    const sortedSessions = [...sessions].sort(
+      (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+    );
+    const latestSession = sortedSessions[0];
+    
     if (latestSession.status === "open") {
       return <Badge className="bg-green-500">{t("Open")}</Badge>;
     } else if (latestSession.status === "closed") {
@@ -605,7 +618,13 @@ export default function ShiftFollowUp() {
       <ShiftClosingDetailsDialog
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
-        shiftSessionId={selectedAssignment?.shift_sessions?.find(s => s.status === "closed")?.id || null}
+        shiftSessionId={(() => {
+          if (!selectedAssignment?.shift_sessions) return null;
+          const sorted = [...selectedAssignment.shift_sessions].sort(
+            (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+          );
+          return sorted.find(s => s.status === "closed")?.id || null;
+        })()}
         userName={selectedAssignment?.profiles.user_name || ""}
         shiftName={selectedAssignment?.shifts.shift_name || ""}
       />
