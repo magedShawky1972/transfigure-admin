@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -88,6 +88,9 @@ export default function ShiftFollowUp() {
   const [hardCloseDialogOpen, setHardCloseDialogOpen] = useState(false);
   const [assignmentToHardClose, setAssignmentToHardClose] = useState<ShiftAssignment | null>(null);
   const [hardClosing, setHardClosing] = useState(false);
+  const [openShiftDialogOpen, setOpenShiftDialogOpen] = useState(false);
+  const [assignmentToOpen, setAssignmentToOpen] = useState<ShiftAssignment | null>(null);
+  const [openingShift, setOpeningShift] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -443,6 +446,118 @@ export default function ShiftFollowUp() {
     }
   };
 
+  const handleAdminOpenShift = async () => {
+    if (!assignmentToOpen) return;
+    
+    setOpeningShift(true);
+    try {
+      // Get current admin user
+      const { data: { user: adminUser } } = await supabase.auth.getUser();
+      if (!adminUser) throw new Error("Admin not authenticated");
+
+      const shiftData = assignmentToOpen.shifts;
+      
+      // Validation 1: Check if shift time has ended (KSA timezone)
+      if (shiftData?.shift_end_time) {
+        const now = new Date();
+        const ksaOffset = 3 * 60; // KSA is UTC+3
+        const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+        const ksaMinutes = utcMinutes + ksaOffset;
+        const currentTimeInMinutes = ((ksaMinutes % 1440) + 1440) % 1440;
+        
+        const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
+        const endTimeInMinutes = endHours * 60 + endMinutes;
+        
+        const [startHours, startMinutes] = (shiftData.shift_start_time || "00:00:00").split(':').map(Number);
+        const startTimeInMinutes = startHours * 60 + startMinutes;
+        
+        const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
+        
+        let isShiftEnded = false;
+        
+        if (isOvernightShift) {
+          if (currentTimeInMinutes > endTimeInMinutes && currentTimeInMinutes < 300) {
+            isShiftEnded = true;
+          }
+        } else {
+          if (currentTimeInMinutes > endTimeInMinutes) {
+            isShiftEnded = true;
+          }
+        }
+        
+        if (isShiftEnded) {
+          toast.error(t("shiftTimeEnded") || "انتهى وقت الوردية - لا يمكن فتح الوردية بعد انتهاء وقتها");
+          setOpeningShift(false);
+          setOpenShiftDialogOpen(false);
+          setAssignmentToOpen(null);
+          return;
+        }
+      }
+
+      // Validation 2: Check for existing open session for this assignment
+      const { data: existingOpenSession } = await supabase
+        .from("shift_sessions")
+        .select("id")
+        .eq("shift_assignment_id", assignmentToOpen.id)
+        .eq("status", "open")
+        .maybeSingle();
+
+      if (existingOpenSession) {
+        toast.error(t("shiftAlreadyOpen") || "الوردية مفتوحة بالفعل");
+        setOpeningShift(false);
+        setOpenShiftDialogOpen(false);
+        setAssignmentToOpen(null);
+        fetchAssignments();
+        return;
+      }
+
+      // Create new shift session for the assigned user
+      const { data: newSession, error } = await supabase
+        .from("shift_sessions")
+        .insert({
+          user_id: assignmentToOpen.user_id,
+          shift_assignment_id: assignmentToOpen.id,
+          status: "open",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send notifications to shift admins
+      try {
+        // Get shift_id from assignment
+        const { data: assignmentData } = await supabase
+          .from("shift_assignments")
+          .select("shift_id")
+          .eq("id", assignmentToOpen.id)
+          .single();
+
+        if (assignmentData) {
+          await supabase.functions.invoke("send-shift-open-notification", {
+            body: {
+              shiftId: assignmentData.shift_id,
+              userId: assignmentToOpen.user_id,
+              shiftSessionId: newSession.id,
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error("Error sending notifications:", notifError);
+      }
+
+      toast.success(t("Shift opened successfully") || "تم فتح الوردية بنجاح");
+      fetchAssignments();
+    } catch (error: any) {
+      console.error("Error opening shift:", error);
+      toast.error(t("Failed to open shift") || "فشل في فتح الوردية");
+    } finally {
+      setOpeningShift(false);
+      setOpenShiftDialogOpen(false);
+      setAssignmentToOpen(null);
+    }
+  };
+
   const getStatusBadge = (session: ShiftAssignment["shift_sessions"][0] | null) => {
     if (!session) {
       return <Badge variant="secondary">{t("Not Started")}</Badge>;
@@ -640,6 +755,20 @@ export default function ShiftFollowUp() {
                                   >
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
+                                  {!currentStatus && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-green-600 border-green-300 hover:bg-green-50"
+                                      onClick={() => {
+                                        setAssignmentToOpen(assignment);
+                                        setOpenShiftDialogOpen(true);
+                                      }}
+                                    >
+                                      <Play className="h-4 w-4 ml-1" />
+                                      {t("Open Shift")}
+                                    </Button>
+                                  )}
                                   {currentStatus === "open" && (
                                     <Button
                                       size="sm"
@@ -777,6 +906,35 @@ export default function ShiftFollowUp() {
               className="bg-red-600 hover:bg-red-700"
             >
               {hardClosing ? t("Closing...") : t("Confirm Close")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Open Shift Confirmation Dialog */}
+      <AlertDialog open={openShiftDialogOpen} onOpenChange={setOpenShiftDialogOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("Open Shift")}</AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
+              {t("Are you sure you want to open this shift for the assigned user?")}
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p><strong>{t("Shift")}:</strong> {assignmentToOpen?.shifts.shift_name}</p>
+                <p><strong>{t("Date")}:</strong> {assignmentToOpen?.assignment_date}</p>
+                <p><strong>{t("Employee")}:</strong> {assignmentToOpen?.profiles.user_name}</p>
+                <p><strong>{t("Start Time")}:</strong> {assignmentToOpen?.shifts.shift_start_time}</p>
+                <p><strong>{t("End Time")}:</strong> {assignmentToOpen?.shifts.shift_end_time}</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={openingShift}>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleAdminOpenShift}
+              disabled={openingShift}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {openingShift ? t("Opening...") : t("Confirm Open")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
