@@ -8,9 +8,23 @@ export const usePushNotifications = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
-    }
+    const checkStatus = async () => {
+      if ('Notification' in window) {
+        setPermission(Notification.permission);
+        
+        // Check if already subscribed
+        if ('serviceWorker' in navigator) {
+          try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            setIsSubscribed(!!subscription);
+          } catch (error) {
+            console.error('Error checking subscription:', error);
+          }
+        }
+      }
+    };
+    checkStatus();
   }, []);
 
   const requestPermission = async () => {
