@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff } from "lucide-react";
+import { SendNotificationDialog } from "./SendNotificationDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -173,7 +174,13 @@ export const NotificationBell = () => {
               </Button>
             )}
           </div>
-          <ScrollArea className="h-[400px]">
+          
+          {/* Send Notification Option */}
+          <div className="mb-3">
+            <SendNotificationDialog />
+          </div>
+          
+          <ScrollArea className="h-[350px]">
             {notifications.length === 0 && reminders.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 {language === "ar"
