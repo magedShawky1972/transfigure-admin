@@ -150,6 +150,17 @@ export const NotificationBell = () => {
             <h3 className="font-semibold">
               {language === "ar" ? "الإشعارات" : "Notifications"}
             </h3>
+            {permission === 'default' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={subscribe}
+                className="text-xs"
+              >
+                <Bell className="h-3 w-3 mr-1" />
+                {language === "ar" ? "تفعيل التنبيهات" : "Enable Push"}
+              </Button>
+            )}
             {permission === 'granted' && !isSubscribed && (
               <Button
                 variant="outline"
