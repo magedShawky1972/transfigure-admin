@@ -1,3 +1,14 @@
+// Service Worker for Push Notifications
+self.addEventListener('install', function(event) {
+  console.log('Service Worker installing...');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function(event) {
+  console.log('Service Worker activating...');
+  event.waitUntil(clients.claim());
+});
+
 self.addEventListener('push', function(event) {
   console.log('Push notification received:', event);
   
@@ -17,7 +28,8 @@ self.addEventListener('push', function(event) {
       badge: '/edara-logo-192.png',
       data: data.data || {},
       tag: data.data?.tag || 'default',
-      requireInteraction: false,
+      requireInteraction: true,
+      vibrate: [200, 100, 200]
     };
 
     event.waitUntil(

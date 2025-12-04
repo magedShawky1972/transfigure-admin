@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      srcDir: "public",
+      filename: "sw.js",
+      strategies: "injectManifest",
+      injectManifest: {
+        injectionPoint: undefined
+      },
       includeAssets: ["favicon.ico", "edara-logo-192.png", "edara-logo-512.png"],
       manifest: {
         name: "إدارة - Edara Admin Platform",
@@ -39,22 +45,8 @@ export default defineConfig(({ mode }) => ({
           }
         ]
       },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-cache",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              }
-            }
-          }
-        ]
+      devOptions: {
+        enabled: true
       }
     })
   ].filter(Boolean),
