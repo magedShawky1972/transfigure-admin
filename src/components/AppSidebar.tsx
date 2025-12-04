@@ -85,6 +85,7 @@ export function AppSidebar() {
     "/tawasoul": "tawasoul",
     "/closing-training": "closingTraining",
     "/currency-setup": "currencySetup",
+    "/user-group-setup": "userGroupSetup",
   };
 
   useEffect(() => {
@@ -202,6 +203,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد الورديات' : 'Shift Setup', url: "/shift-setup", icon: Clock },
         { title: language === 'ar' ? 'تقويم الورديات' : 'Shift Calendar', url: "/shift-calendar", icon: BarChart3 },
         { title: language === 'ar' ? 'إعداد العملات' : 'Currency Setup', url: "/currency-setup", icon: DollarSign },
+        { title: language === 'ar' ? 'مجموعات المستخدمين' : 'User Groups', url: "/user-group-setup", icon: Users },
       ]
     },
     {

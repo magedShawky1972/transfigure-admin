@@ -53,6 +53,7 @@ import MyShiftsCalendar from "./pages/MyShiftsCalendar";
 import Tawasoul from "./pages/Tawasoul";
 import ClosingTraining from "./pages/ClosingTraining";
 import CurrencySetup from "./pages/CurrencySetup";
+import UserGroupSetup from "./pages/UserGroupSetup";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -114,6 +115,7 @@ const App = () => (
               <Route path="/tawasoul" element={<Tawasoul />} />
               <Route path="/closing-training" element={<ClosingTraining />} />
               <Route path="/currency-setup" element={<CurrencySetup />} />
+              <Route path="/user-group-setup" element={<UserGroupSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
