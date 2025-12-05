@@ -142,13 +142,19 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const now = new Date();
-    const hijriDate = now.toLocaleDateString('ar-SA-u-ca-islamic', { year: 'numeric', month: 'numeric', day: 'numeric' });
-    // Format Gregorian date properly (YYYY/MM/DD format in Arabic)
-    const day = now.getDate();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    
+    // Convert to KSA time (UTC+3) for all date calculations
+    const ksaOffset = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+    const ksaDate = new Date(now.getTime() + ksaOffset);
+    
+    // Use KSA date for Hijri and Gregorian date formatting
+    const hijriDate = ksaDate.toLocaleDateString('ar-SA-u-ca-islamic', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Riyadh' });
+    // Format Gregorian date properly (YYYY/MM/DD format in Arabic) using KSA date
+    const day = ksaDate.getUTCDate();
+    const month = ksaDate.getUTCMonth() + 1;
+    const year = ksaDate.getUTCFullYear();
     const gregorianDate = `${year}/${month}/${day} م`;
-    const weekday = now.toLocaleDateString('ar-SA', { weekday: 'long' });
+    const weekday = ksaDate.toLocaleDateString('ar-SA', { weekday: 'long', timeZone: 'Asia/Riyadh' });
     
     // Get open time in KSA (UTC+3) and Egypt (UTC+2)
     const ksaTime = getTimeInTimezone(now, 3);
