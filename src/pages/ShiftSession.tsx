@@ -58,6 +58,14 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [brandErrors, setBrandErrors] = useState<Record<string, string | null>>({});
 
+  // Helper function to get KSA date string (YYYY-MM-DD) since all shifts use KSA timezone
+  const getKSADateString = (): string => {
+    const now = new Date();
+    // Add 3 hours offset for KSA (UTC+3)
+    const ksaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+    return ksaTime.toISOString().split('T')[0];
+  };
+
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
     updateDateTime();
@@ -66,11 +74,13 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
   }, []);
 
   const updateDateTime = () => {
+    // Use KSA timezone for all date/time display
     const now = new Date();
-    setCurrentDateHijri(now.toLocaleDateString('ar-SA-u-ca-islamic'));
-    setCurrentDateGregorian(now.toLocaleDateString('en-GB'));
-    setCurrentWeekday(now.toLocaleDateString('ar-SA', { weekday: 'long' }));
-    setCurrentTime(now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }));
+    const ksaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+    setCurrentDateHijri(ksaTime.toLocaleDateString('ar-SA-u-ca-islamic', { timeZone: 'Asia/Riyadh' }));
+    setCurrentDateGregorian(ksaTime.toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh' }));
+    setCurrentWeekday(ksaTime.toLocaleDateString('ar-SA', { weekday: 'long', timeZone: 'Asia/Riyadh' }));
+    setCurrentTime(ksaTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Riyadh' }));
   };
 
   const checkShiftAssignmentAndLoadData = async () => {
@@ -97,8 +107,8 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
         setUserName(profile.user_name);
       }
 
-      // Check if user has active shift assignment for today
-      const today = new Date().toISOString().split('T')[0];
+      // Check if user has active shift assignment for today (using KSA date)
+      const today = getKSADateString();
       const { data: assignments } = await supabase
         .from("shift_assignments")
         .select("id, shift_id, shifts(shift_name, shift_start_time, shift_end_time, shift_order)")
@@ -198,7 +208,8 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const today = new Date().toISOString().split('T')[0];
+      // Use KSA date since all shifts are based on KSA timezone
+      const today = getKSADateString();
       const { data: assignments } = await supabase
         .from("shift_assignments")
         .select("id, shift_id, shifts(shift_name, shift_start_time, shift_end_time, shift_order)")
@@ -748,7 +759,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       // Send notifications to shift admins
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        const today = new Date().toISOString().split('T')[0];
+        const today = getKSADateString();
         const { data: assignment } = await supabase
           .from("shift_assignments")
           .select("shift_id")
@@ -804,8 +815,8 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get today's assignment
-      const today = new Date().toISOString().split('T')[0];
+      // Get today's assignment (using KSA date)
+      const today = getKSADateString();
       const { data: assignment } = await supabase
         .from("shift_assignments")
         .select("id")
