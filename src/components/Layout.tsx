@@ -163,80 +163,93 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         
         <main className="flex-1 flex flex-col min-w-0">
-          <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-10">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className={language === "ar" ? "ml-4" : "mr-4"} />
-              <img src={edaraLogo} alt="Edara Logo" className="w-10 h-10 object-contain" />
-              <h1 className="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                {t("app.name")}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              {user && (
-                <>
-                  {/* KSA Date & Time Display */}
-                  <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <div className="flex flex-col items-center">
-                      <span className="text-xs font-medium text-foreground">{ksaDateTime.date}</span>
-                      <span className="text-xs text-muted-foreground">{ksaDateTime.time}</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">KSA</span>
-                  </div>
-                  {userName && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                        {userName.charAt(0).toUpperCase()}
+          <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+            {/* Main header row */}
+            <div className="h-16 flex items-center justify-between px-4 md:px-6">
+              <div className="flex items-center gap-3">
+                <SidebarTrigger className={language === "ar" ? "ml-4" : "mr-4"} />
+                <img src={edaraLogo} alt="Edara Logo" className="w-10 h-10 object-contain" />
+                <h1 className="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  {t("app.name")}
+                </h1>
+              </div>
+              <div className="flex items-center gap-2">
+                {user && (
+                  <>
+                    {/* KSA Date & Time Display - Desktop only */}
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                      <Clock className="h-4 w-4 text-primary" />
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs font-medium text-foreground">{ksaDateTime.date}</span>
+                        <span className="text-xs text-muted-foreground">{ksaDateTime.time}</span>
                       </div>
-                      <span className="text-sm font-medium text-foreground hidden sm:inline">
-                        {userName}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">KSA</span>
                     </div>
-                  )}
-                  <NotificationBell />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate("/")}
-                    className="rounded-full"
-                    title={t("navigation.home")}
-                  >
-                    <Home className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleLogout}
-                    className="rounded-full"
-                    title="Logout"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </Button>
-                </>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleLanguage}
-                className="rounded-full"
-                title={t("language.toggle")}
-              >
-                <Languages className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTheme}
-                className="rounded-full"
-                title={t("theme.toggle")}
-              >
-                {theme === "light" ? (
-                  <Moon className="h-5 w-5" />
-                ) : (
-                  <Sun className="h-5 w-5" />
+                    {userName && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                          {userName.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-sm font-medium text-foreground hidden sm:inline">
+                          {userName}
+                        </span>
+                      </div>
+                    )}
+                    <NotificationBell />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate("/")}
+                      className="rounded-full"
+                      title={t("navigation.home")}
+                    >
+                      <Home className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleLogout}
+                      className="rounded-full"
+                      title="Logout"
+                    >
+                      <LogOut className="h-5 w-5" />
+                    </Button>
+                  </>
                 )}
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleLanguage}
+                  className="rounded-full"
+                  title={t("language.toggle")}
+                >
+                  <Languages className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTheme}
+                  className="rounded-full"
+                  title={t("theme.toggle")}
+                >
+                  {theme === "light" ? (
+                    <Moon className="h-5 w-5" />
+                  ) : (
+                    <Sun className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
             </div>
+            
+            {/* Mobile KSA Date & Time - shown under logo on mobile */}
+            {user && (
+              <div className="md:hidden flex items-center justify-center gap-2 px-4 pb-2 border-t border-border/50">
+                <Clock className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-foreground">{ksaDateTime.date}</span>
+                <span className="text-xs text-muted-foreground">{ksaDateTime.time}</span>
+                <span className="text-[10px] text-muted-foreground">KSA</span>
+              </div>
+            )}
           </header>
           
           <div className="flex-1 overflow-auto p-6 w-full">
