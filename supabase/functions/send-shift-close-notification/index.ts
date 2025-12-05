@@ -97,12 +97,26 @@ serve(async (req) => {
     );
     const adminProfiles = await adminProfilesResponse.json();
 
-    // Format dates
-    const closedAt = new Date(session.closed_at);
-    const hijriDate = closedAt.toLocaleDateString('ar-SA-u-ca-islamic');
-    const gregorianDate = closedAt.toLocaleDateString('ar-SA');
-    const weekday = closedAt.toLocaleDateString('ar-SA', { weekday: 'long' });
-    const time = closedAt.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    // Format dates - Convert to KSA time (UTC+3) since all shifts use KSA timezone
+    const closedAtUtc = new Date(session.closed_at);
+    const ksaOffset = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+    const closedAtKSA = new Date(closedAtUtc.getTime() + ksaOffset);
+    
+    // Use KSA date for formatting
+    const hijriDate = closedAtKSA.toLocaleDateString('ar-SA-u-ca-islamic', { timeZone: 'Asia/Riyadh' });
+    const day = closedAtKSA.getUTCDate();
+    const month = closedAtKSA.getUTCMonth() + 1;
+    const year = closedAtKSA.getUTCFullYear();
+    const gregorianDate = `${year}/${month}/${day} م`;
+    const weekday = closedAtKSA.toLocaleDateString('ar-SA', { weekday: 'long', timeZone: 'Asia/Riyadh' });
+    
+    // Format time in KSA
+    let hours = closedAtKSA.getUTCHours();
+    const minutes = closedAtKSA.getUTCMinutes().toString().padStart(2, '0');
+    const period = hours >= 12 ? 'م' : 'ص';
+    if (hours === 0) hours = 12;
+    else if (hours > 12) hours = hours - 12;
+    const time = `${hours}:${minutes} ${period}`;
 
     // Create brand balances table HTML
     let balancesTableRows = '';

@@ -70,11 +70,17 @@ interface User {
   job_position_id: string | null;
 }
 
+// Helper function to get KSA date string (YYYY-MM-DD) since all shifts use KSA timezone
+const getKSADateString = (): string => {
+  const now = new Date();
+  // Add 3 hours offset for KSA (UTC+3)
+  const ksaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+  return ksaTime.toISOString().split('T')[0];
+};
+
 export default function ShiftFollowUp() {
   const { t } = useLanguage();
-  const [selectedDate, setSelectedDate] = useState<string>(
-    format(new Date(), "yyyy-MM-dd")
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getKSADateString());
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
