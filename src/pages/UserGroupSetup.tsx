@@ -88,6 +88,7 @@ const UserGroupSetup = () => {
       status: "الحالة",
       activeStatus: "نشط",
       inactiveStatus: "غير نشط",
+      currentMembers: "الأعضاء الحاليين",
     },
     en: {
       title: "User Groups Setup",
@@ -116,6 +117,7 @@ const UserGroupSetup = () => {
       status: "Status",
       activeStatus: "Active",
       inactiveStatus: "Inactive",
+      currentMembers: "Current Members",
     },
   };
 
@@ -264,6 +266,21 @@ const UserGroupSetup = () => {
     return groupMembers.filter((m) => m.group_id === groupId).length;
   };
 
+  const getSelectedUsersText = () => {
+    return selectedUsers
+      .map((userId) => profiles.find((p) => p.user_id === userId)?.user_name)
+      .filter(Boolean)
+      .join("\n");
+  };
+
+  const getGroupMembersText = (groupId: string) => {
+    const memberUserIds = groupMembers.filter((m) => m.group_id === groupId).map((m) => m.user_id);
+    return memberUserIds
+      .map((userId) => profiles.find((p) => p.user_id === userId)?.user_name)
+      .filter(Boolean)
+      .join("\n");
+  };
+
   return (
     <div className={`container mx-auto p-4 md:p-6 ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
       <Card>
@@ -290,6 +307,7 @@ const UserGroupSetup = () => {
                     <TableHead>{t.groupName}</TableHead>
                     <TableHead>{t.description}</TableHead>
                     <TableHead>{t.memberCount}</TableHead>
+                    <TableHead>{t.currentMembers}</TableHead>
                     <TableHead>{t.status}</TableHead>
                     <TableHead>{t.actions}</TableHead>
                   </TableRow>
@@ -302,6 +320,15 @@ const UserGroupSetup = () => {
                       <TableCell className="max-w-xs truncate">{group.description || "-"}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{getMemberCount(group.id)}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <Textarea
+                          value={getGroupMembersText(group.id)}
+                          readOnly
+                          rows={2}
+                          className="bg-muted resize-none text-xs min-w-[150px]"
+                          placeholder={language === "ar" ? "لا يوجد أعضاء" : "No members"}
+                        />
                       </TableCell>
                       <TableCell>
                         <Badge variant={group.is_active ? "default" : "outline"}>
@@ -398,30 +425,42 @@ const UserGroupSetup = () => {
               {t.manageMembers} - {selectedGroup?.group_name}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Label className="mb-4 block">{t.selectUsers}</Label>
-            <div className="max-h-80 overflow-y-auto space-y-2 border rounded-md p-3">
-              {profiles.map((profile) => (
-                <div
-                  key={profile.user_id}
-                  className="flex items-center gap-3 p-2 hover:bg-muted rounded-md cursor-pointer"
-                  onClick={() => handleUserToggle(profile.user_id)}
-                >
-                  <Checkbox
-                    checked={selectedUsers.includes(profile.user_id)}
-                    onCheckedChange={() => handleUserToggle(profile.user_id)}
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">{profile.user_name}</div>
-                    <div className="text-sm text-muted-foreground">{profile.email}</div>
-                  </div>
-                </div>
-              ))}
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>{t.currentMembers}</Label>
+              <Textarea
+                value={getSelectedUsersText()}
+                readOnly
+                rows={4}
+                className="bg-muted resize-none"
+                placeholder={language === "ar" ? "لا يوجد أعضاء" : "No members"}
+              />
             </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              {language === "ar"
-                ? `تم اختيار ${selectedUsers.length} مستخدم`
-                : `${selectedUsers.length} users selected`}
+            <div className="space-y-2">
+              <Label>{t.selectUsers}</Label>
+              <div className="max-h-60 overflow-y-auto space-y-2 border rounded-md p-3">
+                {profiles.map((profile) => (
+                  <div
+                    key={profile.user_id}
+                    className="flex items-center gap-3 p-2 hover:bg-muted rounded-md cursor-pointer"
+                    onClick={() => handleUserToggle(profile.user_id)}
+                  >
+                    <Checkbox
+                      checked={selectedUsers.includes(profile.user_id)}
+                      onCheckedChange={() => handleUserToggle(profile.user_id)}
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">{profile.user_name}</div>
+                      <div className="text-sm text-muted-foreground">{profile.email}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {language === "ar"
+                  ? `تم اختيار ${selectedUsers.length} مستخدم`
+                  : `${selectedUsers.length} users selected`}
+              </div>
             </div>
           </div>
           <DialogFooter>
