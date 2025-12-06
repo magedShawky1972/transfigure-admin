@@ -10,24 +10,19 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import edaraLogo from "@/assets/edara-logo.png";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { getKSAGregorianDate, getKSADate } from "@/lib/ksaTime";
 
 const getKSADateTime = () => {
-  const now = new Date();
-  const ksaOffset = 3 * 60; // KSA is UTC+3 in minutes
-  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const ksaTime = new Date(utcTime + (ksaOffset * 60000));
+  const ksaDate = getKSADate();
   
-  const day = ksaTime.getDate().toString().padStart(2, '0');
-  const month = (ksaTime.getMonth() + 1).toString().padStart(2, '0');
-  const year = ksaTime.getFullYear();
-  const hours = ksaTime.getHours();
-  const minutes = ksaTime.getMinutes().toString().padStart(2, '0');
-  const seconds = ksaTime.getSeconds().toString().padStart(2, '0');
+  const hours = ksaDate.getHours();
+  const minutes = ksaDate.getMinutes().toString().padStart(2, '0');
+  const seconds = ksaDate.getSeconds().toString().padStart(2, '0');
   const hour12 = hours % 12 || 12;
   const ampm = hours >= 12 ? 'PM' : 'AM';
   
   return {
-    date: `${day}/${month}/${year}`,
+    date: getKSAGregorianDate(),
     time: `${hour12.toString().padStart(2, '0')}:${minutes}:${seconds} ${ampm}`
   };
 };
