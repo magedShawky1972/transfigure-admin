@@ -73,34 +73,53 @@ const ShiftReport = () => {
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      // Fetch shift sessions with assignments
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from("shift_sessions")
+      // Fetch shift sessions via assignment_date (which is in KSA date format)
+      // This ensures we get sessions for shifts assigned on the selected dates
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from("shift_assignments")
         .select(`
           id,
-          status,
-          opened_at,
-          closed_at,
-          user_id,
-          shift_assignment_id,
-          shift_assignments (
-            assignment_date,
-            shift_id,
-            shifts (
-              shift_name,
-              color,
-              shift_type_id,
-              shift_types (
-                zone_name
-              )
+          assignment_date,
+          shift_id,
+          shifts (
+            shift_name,
+            color,
+            shift_type_id,
+            shift_types (
+              zone_name
             )
+          ),
+          shift_sessions (
+            id,
+            status,
+            opened_at,
+            closed_at,
+            user_id
           )
         `)
-        .gte("opened_at", `${startDate}T00:00:00`)
-        .lte("opened_at", `${endDate}T23:59:59`)
-        .order("opened_at", { ascending: false });
+        .gte("assignment_date", startDate)
+        .lte("assignment_date", endDate);
 
-      if (sessionsError) throw sessionsError;
+      if (assignmentsError) throw assignmentsError;
+
+      // Flatten to sessions with assignment info
+      const sessionsData: any[] = [];
+      assignmentsData?.forEach(assignment => {
+        assignment.shift_sessions?.forEach(session => {
+          sessionsData.push({
+            ...session,
+            shift_assignment_id: assignment.id,
+            shift_assignments: {
+              assignment_date: assignment.assignment_date,
+              shift_id: assignment.shift_id,
+              shifts: assignment.shifts
+            }
+          });
+        });
+      });
+
+      // Sort by opened_at descending
+      sessionsData.sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime());
 
       // Get user profiles
       const userIds = [...new Set(sessionsData?.map(s => s.user_id) || [])];
