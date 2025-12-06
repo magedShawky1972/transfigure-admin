@@ -17,6 +17,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import LudoTransactionsSection from "@/components/LudoTransactionsSection";
+import { 
+  getKSADateString, 
+  getKSATimeInMinutes, 
+  getKSAHijriDate, 
+  getKSAGregorianDate, 
+  getKSAWeekdayArabic, 
+  getKSATimeFormatted 
+} from "@/lib/ksaTime";
 
 interface Brand {
   id: string;
@@ -58,14 +66,6 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [brandErrors, setBrandErrors] = useState<Record<string, string | null>>({});
 
-  // Helper function to get KSA date string (YYYY-MM-DD) since all shifts use KSA timezone
-  const getKSADateString = (): string => {
-    const now = new Date();
-    // Add 3 hours offset for KSA (UTC+3)
-    const ksaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
-    return ksaTime.toISOString().split('T')[0];
-  };
-
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
     updateDateTime();
@@ -74,13 +74,11 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
   }, []);
 
   const updateDateTime = () => {
-    // Use KSA timezone for all date/time display
-    const now = new Date();
-    const ksaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
-    setCurrentDateHijri(ksaTime.toLocaleDateString('ar-SA-u-ca-islamic', { timeZone: 'Asia/Riyadh' }));
-    setCurrentDateGregorian(ksaTime.toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh' }));
-    setCurrentWeekday(ksaTime.toLocaleDateString('ar-SA', { weekday: 'long', timeZone: 'Asia/Riyadh' }));
-    setCurrentTime(ksaTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Riyadh' }));
+    // Use centralized KSA timezone functions
+    setCurrentDateHijri(getKSAHijriDate());
+    setCurrentDateGregorian(getKSAGregorianDate());
+    setCurrentWeekday(getKSAWeekdayArabic());
+    setCurrentTime(getKSATimeFormatted());
   };
 
   const checkShiftAssignmentAndLoadData = async () => {
@@ -255,12 +253,8 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       // Check if current time is after shift end time
       const shiftData = assignment.shifts as { shift_name: string; shift_end_time: string; shift_start_time?: string } | null;
       if (shiftData?.shift_end_time) {
-        // Get current time in KSA (UTC+3) since all shifts are configured in KSA time
-        const now = new Date();
-        const ksaOffset = 3 * 60; // KSA is UTC+3
-        const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-        const ksaMinutes = utcMinutes + ksaOffset;
-        const currentTimeInMinutes = ((ksaMinutes % 1440) + 1440) % 1440; // Handle day wrap (1440 = 24*60)
+        // Get current time in KSA using centralized function
+        const currentTimeInMinutes = getKSATimeInMinutes();
         
         const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
         const endTimeInMinutes = endHours * 60 + endMinutes;

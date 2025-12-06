@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import ShiftClosingDetailsDialog from "@/components/ShiftClosingDetailsDialog";
+import { getKSADateString, formatKSADateTime, isOnKSADate, getKSATimeInMinutes } from "@/lib/ksaTime";
 
 interface ShiftAssignment {
   id: string;
@@ -69,14 +70,6 @@ interface User {
   user_name: string;
   job_position_id: string | null;
 }
-
-// Helper function to get KSA date string (YYYY-MM-DD) since all shifts use KSA timezone
-const getKSADateString = (): string => {
-  const now = new Date();
-  // Add 3 hours offset for KSA (UTC+3)
-  const ksaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
-  return ksaTime.toISOString().split('T')[0];
-};
 
 export default function ShiftFollowUp() {
   const { t } = useLanguage();
@@ -465,11 +458,8 @@ export default function ShiftFollowUp() {
       
       // Validation 1: Check if shift time has ended (KSA timezone)
       if (shiftData?.shift_end_time) {
-        const now = new Date();
-        const ksaOffset = 3 * 60; // KSA is UTC+3
-        const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-        const ksaMinutes = utcMinutes + ksaOffset;
-        const currentTimeInMinutes = ((ksaMinutes % 1440) + 1440) % 1440;
+        // Use centralized KSA time function
+        const currentTimeInMinutes = getKSATimeInMinutes();
         
         const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
         const endTimeInMinutes = endHours * 60 + endMinutes;
@@ -641,14 +631,11 @@ export default function ShiftFollowUp() {
                 </TableHeader>
                 <TableBody>
                   {assignments.map((assignment) => {
-                    // Filter sessions to only those opened on the selected date (in local timezone)
-                    const selectedDateStart = new Date(selectedDate + 'T00:00:00');
-                    const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
-                    
+                    // Filter sessions to only those opened on the selected date (using KSA timezone)
                     const sessionsForDate = (assignment.shift_sessions || []).filter(session => {
                       if (!session.opened_at) return false;
-                      const openedDate = new Date(session.opened_at);
-                      return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+                      // Use centralized KSA date checking
+                      return isOnKSADate(session.opened_at, selectedDate);
                     });
                     
                     // Get the latest session for this date (or show the most recent if none match)
@@ -656,23 +643,6 @@ export default function ShiftFollowUp() {
                       (a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
                     );
                     const latestSession = sortedSessions[0] || null;
-                    
-                    const formatDateTime = (dateStr: string | null) => {
-                      if (!dateStr) return "-";
-                      const date = new Date(dateStr);
-                      // Convert to KSA time (UTC+3)
-                      const ksaOffset = 3 * 60; // KSA is UTC+3 in minutes
-                      const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
-                      const ksaTime = new Date(utcTime + (ksaOffset * 60000));
-                      
-                      const day = ksaTime.getDate().toString().padStart(2, '0');
-                      const month = (ksaTime.getMonth() + 1).toString().padStart(2, '0');
-                      const hours = ksaTime.getHours();
-                      const minutes = ksaTime.getMinutes().toString().padStart(2, '0');
-                      const hour12 = hours % 12 || 12;
-                      const ampm = hours >= 12 ? 'PM' : 'AM';
-                      return `${day}/${month} ${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
-                    };
                     
                     return (
                     <TableRow key={assignment.id}>
@@ -719,10 +689,10 @@ export default function ShiftFollowUp() {
                         {getStatusBadge(latestSession)}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {formatDateTime(latestSession?.opened_at || null)}
+                        {formatKSADateTime(latestSession?.opened_at || null, false)}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {formatDateTime(latestSession?.closed_at || null)}
+                        {formatKSADateTime(latestSession?.closed_at || null, false)}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {assignment.notes || "-"}

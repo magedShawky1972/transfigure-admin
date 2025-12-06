@@ -11,6 +11,7 @@ import { FileDown, Calendar as CalendarIcon, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
+import { formatKSADateTime, getKSADateString } from "@/lib/ksaTime";
 
 interface BrandBalance {
   brand_id: string;
@@ -43,8 +44,9 @@ const ShiftReport = () => {
   const { language } = useLanguage();
   const [sessions, setSessions] = useState<ShiftSession[]>([]);
   const [loading, setLoading] = useState(false);
-  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  // Initialize with KSA date
+  const [startDate, setStartDate] = useState(getKSADateString());
+  const [endDate, setEndDate] = useState(getKSADateString());
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<string>("all");
   const [users, setUsers] = useState<any[]>([]);
@@ -203,8 +205,8 @@ const ShiftReport = () => {
       session.shift_name,
       session.zone_name || "",
       session.status,
-      format(new Date(session.opened_at), "yyyy-MM-dd HH:mm:ss"),
-      session.closed_at ? format(new Date(session.closed_at), "yyyy-MM-dd HH:mm:ss") : "",
+      formatKSADateTime(session.opened_at, true),
+      session.closed_at ? formatKSADateTime(session.closed_at, true) : "",
       session.brand_balances.map(b => `${b.brand_name}: ${b.closing_balance}`).join(" | "),
       session.ludo_summary.map(l => `${l.product_name}: ${l.total} (${l.count})`).join(" | ")
     ]);
@@ -246,9 +248,9 @@ const ShiftReport = () => {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const formatDateTime = (dateTime: string | null) => {
-    if (!dateTime) return "-";
-    return format(new Date(dateTime), "yyyy-MM-dd HH:mm:ss");
+  // Use centralized KSA time formatting
+  const formatDateTimeKSA = (dateTime: string | null) => {
+    return formatKSADateTime(dateTime, true);
   };
 
   return (
@@ -406,8 +408,8 @@ const ShiftReport = () => {
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{session.zone_name || "-"}</TableCell>
                       <TableCell>{getStatusBadge(session.status)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{formatDateTime(session.opened_at)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{formatDateTime(session.closed_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{formatDateTimeKSA(session.opened_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-black dark:text-white font-medium">{formatDateTimeKSA(session.closed_at)}</TableCell>
                       <TableCell>
                         {session.brand_balances.length > 0 ? (
                           <div className="space-y-1">
