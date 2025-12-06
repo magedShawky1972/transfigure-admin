@@ -809,14 +809,10 @@ export default function ShiftFollowUp() {
         shiftSessionId={(() => {
           if (!selectedAssignment?.shift_sessions) return null;
           
-          // Filter sessions to only those opened on the selected date
-          const selectedDateStart = new Date(selectedDate + 'T00:00:00');
-          const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
-          
+          // Filter sessions to only those opened on the selected date (using KSA timezone)
           const sessionsForDate = selectedAssignment.shift_sessions.filter(session => {
             if (!session.opened_at) return false;
-            const openedDate = new Date(session.opened_at);
-            return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+            return isOnKSADate(session.opened_at, selectedDate);
           });
           
           const sorted = [...sessionsForDate].sort(
