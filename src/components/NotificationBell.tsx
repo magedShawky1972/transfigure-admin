@@ -127,7 +127,13 @@ export const NotificationBell = () => {
 
   const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
-    navigate(`/tickets/${notification.ticket_id}`);
+    if (notification.ticket_id) {
+      navigate(`/tickets/${notification.ticket_id}`);
+    }
+  };
+
+  const handleViewAll = () => {
+    navigate("/notifications");
   };
 
   return (
@@ -148,7 +154,10 @@ export const NotificationBell = () => {
       <PopoverContent className="w-96" align="end">
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <h3 className="font-semibold">
+            <h3 
+              className="font-semibold cursor-pointer hover:text-primary transition-colors"
+              onClick={handleViewAll}
+            >
               {language === "ar" ? "الإشعارات" : "Notifications"}
             </h3>
             {!isSubscribed && (
@@ -266,6 +275,16 @@ export const NotificationBell = () => {
               </div>
             )}
           </ScrollArea>
+          
+          {/* View All Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2"
+            onClick={handleViewAll}
+          >
+            {language === "ar" ? "عرض جميع الإشعارات" : "View All Notifications"}
+          </Button>
         </div>
       </PopoverContent>
     </Popover>
