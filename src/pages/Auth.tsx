@@ -11,13 +11,7 @@ import { Shield, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import logo from "@/assets/edara-logo.png";
 
 const Auth = () => {
@@ -64,8 +58,8 @@ const Auth = () => {
       }
 
       // Check if email exists in profiles table
-      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-email', {
-        body: { email }
+      const { data: checkData, error: checkError } = await supabase.functions.invoke("check-email", {
+        body: { email },
       });
 
       if (checkError) {
@@ -98,20 +92,20 @@ const Auth = () => {
 
       // Check if password change is required
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('must_change_password')
-        .eq('email', email)
+        .from("profiles")
+        .select("must_change_password")
+        .eq("email", email)
         .single();
 
       if (profile?.must_change_password) {
-        setStep('change-password');
+        setStep("change-password");
         return;
       }
 
       // Skip MFA and go directly to dashboard
       toast({
-        title: t('common.success'),
-        description: t('auth.signInButton'),
+        title: t("common.success"),
+        description: t("auth.signInButton"),
       });
       navigate("/");
     } catch (error: any) {
@@ -127,27 +121,27 @@ const Auth = () => {
 
   const handlePasswordReset = async () => {
     if (!email) {
-      toast({ 
-        title: t('auth.enterEmailFirst'), 
-        variant: 'destructive' 
+      toast({
+        title: t("auth.enterEmailFirst"),
+        variant: "destructive",
       });
       return;
     }
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('send-password-reset', {
+      const { error } = await supabase.functions.invoke("send-password-reset", {
         body: { email },
       });
       if (error) throw error;
-      toast({ 
-        title: t('common.success'), 
-        description: t('auth.passwordResetSent')
+      toast({
+        title: t("common.success"),
+        description: t("auth.passwordResetSent"),
       });
     } catch (err: any) {
-      toast({ 
-        title: t('common.error'), 
-        description: t('auth.passwordResetError'), 
-        variant: 'destructive' 
+      toast({
+        title: t("common.error"),
+        description: t("auth.passwordResetError"),
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -159,8 +153,8 @@ const Auth = () => {
 
     if (newPassword !== confirmPassword) {
       toast({
-        title: t('common.error'),
-        description: language === 'ar' ? "كلمات المرور غير متطابقة" : "Passwords do not match",
+        title: t("common.error"),
+        description: language === "ar" ? "كلمات المرور غير متطابقة" : "Passwords do not match",
         variant: "destructive",
       });
       return;
@@ -168,8 +162,9 @@ const Auth = () => {
 
     if (newPassword.length < 6) {
       toast({
-        title: t('common.error'),
-        description: language === 'ar' ? "يجب أن تكون كلمة المرور 6 أحرف على الأقل" : "Password must be at least 6 characters",
+        title: t("common.error"),
+        description:
+          language === "ar" ? "يجب أن تكون كلمة المرور 6 أحرف على الأقل" : "Password must be at least 6 characters",
         variant: "destructive",
       });
       return;
@@ -179,37 +174,40 @@ const Auth = () => {
 
     try {
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
       });
 
       if (updateError) throw updateError;
 
       // Update the must_change_password flag
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         const { error: profileError } = await supabase
-          .from('profiles')
+          .from("profiles")
           .update({ must_change_password: false })
-          .eq('user_id', user.id);
+          .eq("user_id", user.id);
 
         if (profileError) {
-          console.error('Error updating profile:', profileError);
+          console.error("Error updating profile:", profileError);
         }
       }
 
       toast({
-        title: t('common.success'),
-        description: language === 'ar' ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully",
+        title: t("common.success"),
+        description: language === "ar" ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully",
       });
-      
+
       setTimeout(() => {
-        navigate('/');
+        navigate("/");
       }, 1500);
     } catch (error: any) {
-      console.error('Error changing password:', error);
+      console.error("Error changing password:", error);
       toast({
-        title: t('common.error'),
-        description: error.message || (language === 'ar' ? "حدث خطأ أثناء تغيير كلمة المرور" : "Error changing password"),
+        title: t("common.error"),
+        description:
+          error.message || (language === "ar" ? "حدث خطأ أثناء تغيير كلمة المرور" : "Error changing password"),
         variant: "destructive",
       });
     } finally {
@@ -222,8 +220,8 @@ const Auth = () => {
 
     if (!resetEmail) {
       toast({
-        title: t('common.error'),
-        description: language === 'ar' ? "يرجى إدخال البريد الإلكتروني" : "Please enter your email",
+        title: t("common.error"),
+        description: language === "ar" ? "يرجى إدخال البريد الإلكتروني" : "Please enter your email",
         variant: "destructive",
       });
       return;
@@ -239,17 +237,21 @@ const Auth = () => {
       if (error) throw error;
 
       toast({
-        title: t('common.success'),
-        description: language === 'ar' ? "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني" : "Password reset link sent to your email",
+        title: t("common.success"),
+        description:
+          language === "ar"
+            ? "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني"
+            : "Password reset link sent to your email",
       });
-      
+
       setShowForgotPassword(false);
       setResetEmail("");
     } catch (error: any) {
-      console.error('Error sending reset email:', error);
+      console.error("Error sending reset email:", error);
       toast({
-        title: t('common.error'),
-        description: error.message || (language === 'ar' ? "حدث خطأ أثناء إرسال البريد الإلكتروني" : "Error sending reset email"),
+        title: t("common.error"),
+        description:
+          error.message || (language === "ar" ? "حدث خطأ أثناء إرسال البريد الإلكتروني" : "Error sending reset email"),
         variant: "destructive",
       });
     } finally {
@@ -257,27 +259,26 @@ const Auth = () => {
     }
   };
 
-
   const handleSetupMFA = async () => {
     setLoading(true);
     try {
       // Always start fresh when no verified factor exists
       const { data: listed } = await supabase.auth.mfa.listFactors();
       const existingListed = (listed?.totp ?? []) as any[];
-      if (existingListed.some((f) => f.status === 'verified')) {
-        setStep('verify');
+      if (existingListed.some((f) => f.status === "verified")) {
+        setStep("verify");
         return;
       }
 
       // Remove any lingering unverified factors to avoid mismatched secrets
       for (const f of existingListed) {
-        if (f.status === 'unverified') {
+        if (f.status === "unverified") {
           await supabase.auth.mfa.unenroll({ factorId: f.id });
         }
       }
 
       const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
+        factorType: "totp",
         friendlyName: `authenticator-${Date.now()}` as any,
       } as any);
 
@@ -289,9 +290,9 @@ const Auth = () => {
         if (first) {
           setMfaFactorId(first.id);
           // If API didn't return QR again, keep setup step without QR and ask to verify
-          setQrCode((first as any).totp?.qr_code ?? '');
-          setSecret((first as any).totp?.secret ?? '');
-          setStep('setup');
+          setQrCode((first as any).totp?.qr_code ?? "");
+          setSecret((first as any).totp?.secret ?? "");
+          setStep("setup");
           return;
         }
         throw enrollError;
@@ -300,9 +301,9 @@ const Auth = () => {
       setMfaFactorId(enrollData.id);
       setQrCode(enrollData.totp.qr_code);
       setSecret(enrollData.totp.secret);
-      setStep('setup');
+      setStep("setup");
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -320,7 +321,7 @@ const Auth = () => {
 
       // Enroll a new factor to get a brand new QR
       const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
+        factorType: "totp",
         // give it a unique friendly name to avoid collisions
         friendlyName: `authenticator-${Date.now()}` as any,
       } as any);
@@ -329,12 +330,12 @@ const Auth = () => {
       setMfaFactorId(enrollData.id);
       setQrCode(enrollData.totp.qr_code);
       setSecret(enrollData.totp.secret);
-      setTotpCode('');
-      setStep('setup');
+      setTotpCode("");
+      setStep("setup");
 
-      toast({ title: 'MFA reset', description: 'New QR generated. Please re‑scan and enter the code.' });
+      toast({ title: "MFA reset", description: "New QR generated. Please re‑scan and enter the code." });
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -364,7 +365,7 @@ const Auth = () => {
         } catch (e1: any) {
           // If current factor id is stale, fetch latest unverified factor and retry once
           const { data: listed } = await supabase.auth.mfa.listFactors();
-          const latest = (listed?.totp ?? []).find((f: any) => f.status === 'unverified');
+          const latest = (listed?.totp ?? []).find((f: any) => f.status === "unverified");
           if (!latest) throw e1;
           factorIdToUse = latest.id;
           setMfaFactorId(factorIdToUse);
@@ -387,7 +388,7 @@ const Auth = () => {
       const challenge = await supabase.auth.mfa.challenge({ factorId });
       if (challenge.error) throw challenge.error;
 
-      const code = totpCode.replace(/\D/g, '');
+      const code = totpCode.replace(/\D/g, "");
       const verify = await supabase.auth.mfa.verify({
         factorId,
         challengeId: challenge.data.id,
@@ -408,7 +409,9 @@ const Auth = () => {
   // Check if already logged in
   useEffect(() => {
     const checkExistingSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session) {
         // If we have a full session with MFA verified, redirect to dashboard
         navigate("/");
@@ -425,23 +428,23 @@ const Auth = () => {
           <div className="flex justify-center mb-4">
             <img src={logo} alt="Edara Logo" className="h-16 w-auto" />
           </div>
-          <CardTitle className="text-2xl">{t('auth.welcome')}</CardTitle>
+          <CardTitle className="text-2xl">{t("auth.welcome")}</CardTitle>
           <CardDescription>
-            {step === "email" && t('auth.signIn')}
-            {step === "change-password" && t('auth.changePassword')}
-            {step === "setup" && t('auth.setupMFA')}
-            {step === "verify" && t('auth.verifyMFA')}
+            {step === "email" && t("auth.signIn")}
+            {step === "change-password" && t("auth.changePassword")}
+            {step === "setup" && t("auth.setupMFA")}
+            {step === "verify" && t("auth.verifyMFA")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {step === "email" && (
             <form onSubmit={handleEmailSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">{t('auth.email')}</Label>
+                <Label htmlFor="email">{t("auth.email")}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder={t('auth.emailPlaceholder')}
+                  placeholder={t("auth.emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -449,12 +452,12 @@ const Auth = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">{t('auth.password')}</Label>
+                <Label htmlFor="password">{t("auth.password")}</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder={t('auth.passwordPlaceholder')}
+                    placeholder={t("auth.passwordPlaceholder")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -481,12 +484,12 @@ const Auth = () => {
                   className="text-sm text-primary hover:underline p-0 h-auto"
                   onClick={() => setShowForgotPassword(true)}
                 >
-                  {language === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
+                  {language === "ar" ? "نسيت كلمة المرور؟" : "Forgot Password?"}
                 </Button>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
-                {loading ? t('auth.signingIn') : t('auth.signInButton')}
+                {loading ? t("auth.signingIn") : t("auth.signInButton")}
               </Button>
             </form>
           )}
@@ -494,12 +497,12 @@ const Auth = () => {
           {step === "change-password" && (
             <form onSubmit={handlePasswordChange} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="new-password">{t('auth.newPassword')}</Label>
+                <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
                 <div className="relative">
                   <Input
                     id="new-password"
                     type={showNewPassword ? "text" : "password"}
-                    placeholder={t('auth.newPasswordPlaceholder')}
+                    placeholder={t("auth.newPasswordPlaceholder")}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
@@ -521,12 +524,12 @@ const Auth = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
+                <Label htmlFor="confirm-password">{t("auth.confirmPassword")}</Label>
                 <div className="relative">
                   <Input
                     id="confirm-password"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder={t('auth.confirmPasswordPlaceholder')}
+                    placeholder={t("auth.confirmPasswordPlaceholder")}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -548,7 +551,7 @@ const Auth = () => {
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
-                {loading ? t('auth.updating') : t('auth.changePasswordButton')}
+                {loading ? t("auth.updating") : t("auth.changePasswordButton")}
               </Button>
             </form>
           )}
@@ -557,7 +560,7 @@ const Auth = () => {
             <div className="space-y-4">
               <div className="rounded-lg bg-muted p-6 text-center">
                 <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
-                <p className="text-sm font-medium mb-4">{t('auth.scanQR')}</p>
+                <p className="text-sm font-medium mb-4">{t("auth.scanQR")}</p>
                 {qrCode && (
                   <div className="bg-white p-4 rounded-lg inline-block mb-4">
                     <img src={qrCode} alt="QR Code" className="w-64 h-64" />
@@ -565,18 +568,14 @@ const Auth = () => {
                 )}
                 <div className="mt-4 p-3 bg-background rounded border">
                   <p className="text-xs font-mono break-all">{secret}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{t('auth.manualEntry')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t("auth.manualEntry")}</p>
                 </div>
               </div>
               <form onSubmit={handleVerifyTOTP} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="totp">{t('auth.enterCode')}</Label>
+                  <Label htmlFor="totp">{t("auth.enterCode")}</Label>
                   <div className="flex justify-center">
-                    <InputOTP
-                      maxLength={6}
-                      value={totpCode}
-                      onChange={setTotpCode}
-                    >
+                    <InputOTP maxLength={6} value={totpCode} onChange={setTotpCode}>
                       <InputOTPGroup>
                         <InputOTPSlot index={0} />
                         <InputOTPSlot index={1} />
@@ -590,7 +589,7 @@ const Auth = () => {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading || totpCode.length !== 6}>
                   <Shield className="mr-2 h-4 w-4" />
-                  {loading ? t('auth.verifying') : t('auth.verifyButton')}
+                  {loading ? t("auth.verifying") : t("auth.verifyButton")}
                 </Button>
               </form>
             </div>
@@ -599,13 +598,9 @@ const Auth = () => {
           {step === "verify" && (
             <form onSubmit={handleVerifyTOTP} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="totp">{t('auth.enterCode')}</Label>
+                <Label htmlFor="totp">{t("auth.enterCode")}</Label>
                 <div className="flex justify-center">
-                  <InputOTP
-                    maxLength={6}
-                    value={totpCode}
-                    onChange={setTotpCode}
-                  >
+                  <InputOTP maxLength={6} value={totpCode} onChange={setTotpCode}>
                     <InputOTPGroup>
                       <InputOTPSlot index={0} />
                       <InputOTPSlot index={1} />
@@ -619,7 +614,7 @@ const Auth = () => {
               </div>
               <Button type="submit" className="w-full" disabled={loading || totpCode.length !== 6}>
                 <Shield className="mr-2 h-4 w-4" />
-                {loading ? t('auth.verifying') : t('auth.signInButton')}
+                {loading ? t("auth.verifying") : t("auth.signInButton")}
               </Button>
               <Button
                 type="button"
@@ -632,14 +627,14 @@ const Auth = () => {
                   setTotpCode("");
                 }}
               >
-                {t('auth.backToLogin')}
+                {t("auth.backToLogin")}
               </Button>
             </form>
           )}
-          
+
           <div className="text-center mt-6 space-y-2 border-t pt-4">
-            <p className="text-sm text-muted-foreground">{format(new Date(), 'MMMM dd, yyyy')}</p>
-            <p className="text-sm text-muted-foreground">Version 1.2.3</p>
+            <p className="text-sm text-muted-foreground">{format(new Date(), "MMMM dd, yyyy")}</p>
+            <p className="text-sm text-muted-foreground">Version 1.2.4</p>
           </div>
         </CardContent>
       </Card>
@@ -647,35 +642,39 @@ const Auth = () => {
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className={language === 'ar' ? 'text-right' : ''}>
-              {language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}
+            <DialogTitle className={language === "ar" ? "text-right" : ""}>
+              {language === "ar" ? "إعادة تعيين كلمة المرور" : "Reset Password"}
             </DialogTitle>
-            <DialogDescription className={language === 'ar' ? 'text-right' : ''}>
-              {language === 'ar' 
-                ? 'أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور'
-                : 'Enter your email and we will send you a link to reset your password'}
+            <DialogDescription className={language === "ar" ? "text-right" : ""}>
+              {language === "ar"
+                ? "أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور"
+                : "Enter your email and we will send you a link to reset your password"}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="reset-email" className={language === 'ar' ? 'text-right block' : ''}>
-                {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+              <Label htmlFor="reset-email" className={language === "ar" ? "text-right block" : ""}>
+                {language === "ar" ? "البريد الإلكتروني" : "Email"}
               </Label>
               <Input
                 id="reset-email"
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
-                placeholder={language === 'ar' ? 'أدخل بريدك الإلكتروني' : 'Enter your email'}
+                placeholder={language === "ar" ? "أدخل بريدك الإلكتروني" : "Enter your email"}
                 required
                 disabled={isResetting}
-                className={language === 'ar' ? 'text-right' : ''}
+                className={language === "ar" ? "text-right" : ""}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isResetting}>
-              {isResetting 
-                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') 
-                : (language === 'ar' ? 'إرسال رابط إعادة التعيين' : 'Send Reset Link')}
+              {isResetting
+                ? language === "ar"
+                  ? "جاري الإرسال..."
+                  : "Sending..."
+                : language === "ar"
+                  ? "إرسال رابط إعادة التعيين"
+                  : "Send Reset Link"}
             </Button>
           </form>
         </DialogContent>
