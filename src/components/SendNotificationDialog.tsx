@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Send, X } from "lucide-react";
+import { Bell, Send, X, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
@@ -36,20 +37,30 @@ type User = {
   email: string;
 };
 
+type UserGroup = {
+  id: string;
+  group_name: string;
+  group_code: string;
+};
+
 export const SendNotificationDialog = () => {
   const [open, setOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<UserGroup[]>([]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [userPickerOpen, setUserPickerOpen] = useState(false);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const { language } = useLanguage();
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
       fetchUsers();
+      fetchUserGroups();
     }
   }, [open]);
 
@@ -68,6 +79,21 @@ export const SendNotificationDialog = () => {
     }
   };
 
+  const fetchUserGroups = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("user_groups")
+        .select("id, group_name, group_code")
+        .eq("is_active", true)
+        .order("group_name");
+
+      if (error) throw error;
+      setUserGroups(data || []);
+    } catch (error) {
+      console.error("Error fetching user groups:", error);
+    }
+  };
+
   const handleSelectUser = (user: User) => {
     if (!selectedUsers.find((u) => u.user_id === user.user_id)) {
       setSelectedUsers([...selectedUsers, user]);
@@ -79,11 +105,51 @@ export const SendNotificationDialog = () => {
     setSelectedUsers(selectedUsers.filter((u) => u.user_id !== userId));
   };
 
+  const handleSelectGroup = (group: UserGroup) => {
+    if (!selectedGroups.find((g) => g.id === group.id)) {
+      setSelectedGroups([...selectedGroups, group]);
+    }
+    setGroupPickerOpen(false);
+  };
+
+  const handleRemoveGroup = (groupId: string) => {
+    setSelectedGroups(selectedGroups.filter((g) => g.id !== groupId));
+  };
+
+  const getGroupMembers = async (groupIds: string[]): Promise<User[]> => {
+    if (groupIds.length === 0) return [];
+
+    try {
+      const { data: members, error } = await supabase
+        .from("user_group_members")
+        .select("user_id")
+        .in("group_id", groupIds);
+
+      if (error) throw error;
+
+      const userIds = members?.map((m) => m.user_id) || [];
+      if (userIds.length === 0) return [];
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, user_name, email")
+        .in("user_id", userIds)
+        .eq("is_active", true);
+
+      if (profilesError) throw profilesError;
+
+      return profiles || [];
+    } catch (error) {
+      console.error("Error fetching group members:", error);
+      return [];
+    }
+  };
+
   const handleSend = async () => {
-    if (selectedUsers.length === 0) {
+    if (selectedUsers.length === 0 && selectedGroups.length === 0) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
-        description: language === "ar" ? "يرجى اختيار مستخدم واحد على الأقل" : "Please select at least one user",
+        description: language === "ar" ? "يرجى اختيار مستخدم أو مجموعة واحدة على الأقل" : "Please select at least one user or group",
         variant: "destructive",
       });
       return;
@@ -110,9 +176,28 @@ export const SendNotificationDialog = () => {
     setIsLoading(true);
 
     try {
-      // Send push notification to each selected user
+      // Get all group members
+      const groupMembers = await getGroupMembers(selectedGroups.map((g) => g.id));
+
+      // Combine selected users with group members, removing duplicates
+      const allUsersMap = new Map<string, User>();
+      selectedUsers.forEach((u) => allUsersMap.set(u.user_id, u));
+      groupMembers.forEach((u) => allUsersMap.set(u.user_id, u));
+      const allUsers = Array.from(allUsersMap.values());
+
+      if (allUsers.length === 0) {
+        toast({
+          title: language === "ar" ? "خطأ" : "Error",
+          description: language === "ar" ? "لا يوجد مستخدمين للإرسال إليهم" : "No users to send to",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Send push notification to each user
       const results = await Promise.allSettled(
-        selectedUsers.map((user) =>
+        allUsers.map((user) =>
           supabase.functions.invoke("send-push-notification", {
             body: {
               userId: user.user_id,
@@ -124,7 +209,7 @@ export const SendNotificationDialog = () => {
       );
 
       // Also create in-app notifications for each user
-      const notifications = selectedUsers.map((user) => ({
+      const notifications = allUsers.map((user) => ({
         user_id: user.user_id,
         title: subject,
         message: body,
@@ -146,6 +231,7 @@ export const SendNotificationDialog = () => {
 
       // Reset form
       setSelectedUsers([]);
+      setSelectedGroups([]);
       setSubject("");
       setBody("");
       setOpen(false);
@@ -178,50 +264,107 @@ export const SendNotificationDialog = () => {
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {/* To Field */}
+          {/* To Field with Tabs */}
           <div className="space-y-2">
             <Label>{language === "ar" ? "إلى" : "To"}</Label>
-            <Popover open={userPickerOpen} onOpenChange={setUserPickerOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-muted-foreground"
-                >
-                  {language === "ar" ? "اختر المستخدمين..." : "Select users..."}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0" align="start">
-                <Command>
-                  <CommandInput
-                    placeholder={language === "ar" ? "بحث عن مستخدم..." : "Search user..."}
-                  />
-                  <CommandList>
-                    <CommandEmpty>
-                      {language === "ar" ? "لا يوجد مستخدمين" : "No users found"}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {users
-                        .filter((u) => !selectedUsers.find((s) => s.user_id === u.user_id))
-                        .map((user) => (
-                          <CommandItem
-                            key={user.user_id}
-                            onSelect={() => handleSelectUser(user)}
-                          >
-                            <span>{user.user_name}</span>
-                            <span className="text-muted-foreground text-xs ml-2">
-                              ({user.email})
-                            </span>
-                          </CommandItem>
-                        ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            
+            <Tabs defaultValue="users" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="users">
+                  {language === "ar" ? "المستخدمين" : "Users"}
+                </TabsTrigger>
+                <TabsTrigger value="groups">
+                  <Users className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "المجموعات" : "Groups"}
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="users" className="mt-2">
+                <Popover open={userPickerOpen} onOpenChange={setUserPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-muted-foreground"
+                    >
+                      {language === "ar" ? "اختر المستخدمين..." : "Select users..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder={language === "ar" ? "بحث عن مستخدم..." : "Search user..."}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {language === "ar" ? "لا يوجد مستخدمين" : "No users found"}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {users
+                            .filter((u) => !selectedUsers.find((s) => s.user_id === u.user_id))
+                            .map((user) => (
+                              <CommandItem
+                                key={user.user_id}
+                                onSelect={() => handleSelectUser(user)}
+                              >
+                                <span>{user.user_name}</span>
+                                <span className="text-muted-foreground text-xs ml-2">
+                                  ({user.email})
+                                </span>
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </TabsContent>
+              
+              <TabsContent value="groups" className="mt-2">
+                <Popover open={groupPickerOpen} onOpenChange={setGroupPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-muted-foreground"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      {language === "ar" ? "اختر المجموعات..." : "Select groups..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder={language === "ar" ? "بحث عن مجموعة..." : "Search group..."}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {language === "ar" ? "لا يوجد مجموعات" : "No groups found"}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {userGroups
+                            .filter((g) => !selectedGroups.find((s) => s.id === g.id))
+                            .map((group) => (
+                              <CommandItem
+                                key={group.id}
+                                onSelect={() => handleSelectGroup(group)}
+                              >
+                                <Users className="h-4 w-4 mr-2" />
+                                <span>{group.group_name}</span>
+                                <span className="text-muted-foreground text-xs ml-2">
+                                  ({group.group_code})
+                                </span>
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </TabsContent>
+            </Tabs>
 
             {/* Selected Users */}
             {selectedUsers.length > 0 && (
-              <ScrollArea className="max-h-24">
+              <ScrollArea className="max-h-20">
                 <div className="flex flex-wrap gap-1 mt-2">
                   {selectedUsers.map((user) => (
                     <Badge
@@ -233,6 +376,28 @@ export const SendNotificationDialog = () => {
                       <X
                         className="h-3 w-3 cursor-pointer hover:text-destructive"
                         onClick={() => handleRemoveUser(user.user_id)}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+
+            {/* Selected Groups */}
+            {selectedGroups.length > 0 && (
+              <ScrollArea className="max-h-20">
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedGroups.map((group) => (
+                    <Badge
+                      key={group.id}
+                      variant="default"
+                      className="flex items-center gap-1 bg-primary/80"
+                    >
+                      <Users className="h-3 w-3" />
+                      {group.group_name}
+                      <X
+                        className="h-3 w-3 cursor-pointer hover:text-destructive"
+                        onClick={() => handleRemoveGroup(group.id)}
                       />
                     </Badge>
                   ))}
