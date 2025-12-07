@@ -15,8 +15,10 @@ const Index = () => {
   useEffect(() => {
     const checkAccess = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (!session?.user) {
           navigate("/auth");
           return;
@@ -42,20 +44,20 @@ const Index = () => {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center bg-background p-4 ${language === 'ar' ? 'rtl' : 'ltr'}`}>
+    <div
+      className={`min-h-screen flex items-center justify-center bg-background p-4 ${language === "ar" ? "rtl" : "ltr"}`}
+    >
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex flex-col items-center mb-4 space-y-2">
             <img src={logo} alt="Edara Logo" className="h-24 w-auto" />
-            <p className="text-sm text-muted-foreground">{format(new Date(), 'MMMM dd, yyyy')}</p>
+            <p className="text-sm text-muted-foreground">{format(new Date(), "MMMM dd, yyyy")}</p>
           </div>
-          <CardTitle className="text-3xl font-bold">{t('welcome.title')}</CardTitle>
-          <CardDescription className="text-lg mt-4">
-            {t('welcome.subtitle')}
-          </CardDescription>
+          <CardTitle className="text-3xl font-bold">{t("welcome.title")}</CardTitle>
+          <CardDescription className="text-lg mt-4">{t("welcome.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-sm text-muted-foreground">Version 1.2.3</p>
+          <p className="text-sm text-muted-foreground">Version 1.2.4</p>
         </CardContent>
       </Card>
     </div>
