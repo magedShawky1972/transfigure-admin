@@ -295,11 +295,12 @@ const Notifications = () => {
 
                               {/* Actions */}
                               <div className="flex items-center gap-1">
-                                {notification.sender_id && (
+                                {/* Reply button - always show for general notifications */}
+                                {!isTicketNotification(notification) && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-primary hover:text-primary"
+                                    className={`h-8 w-8 ${notification.sender_id ? "text-primary hover:text-primary" : "text-muted-foreground"}`}
                                     onClick={(e) => handleReplyClick(notification, e)}
                                     title={language === "ar" ? "رد" : "Reply"}
                                   >
