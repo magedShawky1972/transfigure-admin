@@ -208,13 +208,27 @@ export const SendNotificationDialog = () => {
         )
       );
 
-      // Also create in-app notifications for each user
+      // Get current user for sender info
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      let senderName = "Unknown";
+      if (currentUser) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("user_name")
+          .eq("user_id", currentUser.id)
+          .single();
+        senderName = profile?.user_name || currentUser.email || "Unknown";
+      }
+
+      // Also create in-app notifications for each user with sender info
       const notifications = allUsers.map((user) => ({
         user_id: user.user_id,
         title: subject,
         message: body,
         type: "custom",
         is_read: false,
+        sender_id: currentUser?.id || null,
+        sender_name: senderName,
       }));
 
       await supabase.from("notifications").insert(notifications);

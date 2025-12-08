@@ -706,6 +706,9 @@ export type Database = {
           id: string
           is_read: boolean
           message: string
+          parent_notification_id: string | null
+          sender_id: string | null
+          sender_name: string | null
           ticket_id: string | null
           title: string
           type: string
@@ -716,6 +719,9 @@ export type Database = {
           id?: string
           is_read?: boolean
           message: string
+          parent_notification_id?: string | null
+          sender_id?: string | null
+          sender_name?: string | null
           ticket_id?: string | null
           title: string
           type: string
@@ -726,12 +732,22 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string
+          parent_notification_id?: string | null
+          sender_id?: string | null
+          sender_name?: string | null
           ticket_id?: string | null
           title?: string
           type?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_parent_notification_id_fkey"
+            columns: ["parent_notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_ticket_id_fkey"
             columns: ["ticket_id"]

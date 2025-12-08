@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Ticket, MessageSquare, Check, CheckCheck, Trash2, Filter } from "lucide-react";
+import { Bell, Ticket, MessageSquare, Check, CheckCheck, Trash2, Filter, Reply } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { SendNotificationDialog } from "@/components/SendNotificationDialog";
+import { NotificationReplyDialog } from "@/components/NotificationReplyDialog";
 
 type Notification = {
   id: string;
@@ -21,12 +22,16 @@ type Notification = {
   ticket_id: string | null;
   is_read: boolean;
   created_at: string;
+  sender_id: string | null;
+  sender_name: string | null;
 };
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const [replyDialogOpen, setReplyDialogOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -140,6 +145,13 @@ const Notifications = () => {
 
   const isTicketNotification = (notification: Notification) => {
     return notification.ticket_id !== null;
+  };
+
+  const handleReplyClick = (notification: Notification, e: React.MouseEvent) => {
+    e.stopPropagation();
+    markAsRead(notification.id);
+    setSelectedNotification(notification);
+    setReplyDialogOpen(true);
   };
 
   const filteredNotifications = notifications.filter((n) => {
@@ -283,6 +295,17 @@ const Notifications = () => {
 
                               {/* Actions */}
                               <div className="flex items-center gap-1">
+                                {notification.sender_id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-primary hover:text-primary"
+                                    onClick={(e) => handleReplyClick(notification, e)}
+                                    title={language === "ar" ? "رد" : "Reply"}
+                                  >
+                                    <Reply className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 {!notification.is_read && (
                                   <Button
                                     variant="ghost"
@@ -317,6 +340,13 @@ const Notifications = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Reply Dialog */}
+      <NotificationReplyDialog
+        open={replyDialogOpen}
+        onOpenChange={setReplyDialogOpen}
+        notification={selectedNotification}
+      />
     </div>
   );
 };
