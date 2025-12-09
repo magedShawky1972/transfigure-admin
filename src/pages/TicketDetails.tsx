@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus, Edit, X, Save } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -41,6 +42,9 @@ type Ticket = {
   approved_at: string | null;
   next_admin_order: number | null;
   external_link: string | null;
+  budget_value: number | null;
+  qty: number | null;
+  uom: string | null;
   departments: {
     department_name: string;
   };
@@ -48,6 +52,18 @@ type Ticket = {
     user_name: string;
     email: string;
   };
+};
+
+type Department = {
+  id: string;
+  department_name: string;
+};
+
+type UOM = {
+  id: string;
+  uom_code: string;
+  uom_name: string;
+  uom_name_ar: string | null;
 };
 
 type Attachment = {
@@ -98,6 +114,25 @@ const TicketDetails = () => {
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const [sendingExtraApproval, setSendingExtraApproval] = useState(false);
 
+  // Edit mode states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    department_id: "",
+    subject: "",
+    description: "",
+    priority: "",
+    external_link: "",
+    is_purchase_ticket: false,
+    budget_value: null as number | null,
+    qty: null as number | null,
+    uom: null as string | null,
+  });
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [uomList, setUomList] = useState<UOM[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [newUomName, setNewUomName] = useState("");
+  const [addingUom, setAddingUom] = useState(false);
+
   // Get the source page from navigation state
   const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
 
@@ -106,14 +141,134 @@ const TicketDetails = () => {
       fetchTicket();
       fetchComments();
       fetchAttachments();
+      fetchDepartments();
+      fetchUomList();
     }
   }, [id]);
 
   useEffect(() => {
     if (ticket) {
       checkAdminStatus();
+      // Initialize edit data when ticket loads
+      setEditData({
+        department_id: ticket.department_id,
+        subject: ticket.subject,
+        description: ticket.description,
+        priority: ticket.priority,
+        external_link: ticket.external_link || "",
+        is_purchase_ticket: ticket.is_purchase_ticket,
+        budget_value: ticket.budget_value,
+        qty: ticket.qty,
+        uom: ticket.uom,
+      });
     }
   }, [ticket]);
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, department_name")
+        .eq("is_active", true)
+        .order("department_name");
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchUomList = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("uom")
+        .select("*")
+        .eq("is_active", true)
+        .order("uom_name");
+
+      if (error) throw error;
+      setUomList(data || []);
+    } catch (error: any) {
+      console.error("Error fetching UOM list:", error);
+    }
+  };
+
+  const handleAddNewUom = async () => {
+    if (!newUomName.trim()) return;
+    
+    setAddingUom(true);
+    try {
+      const uomCode = newUomName.toUpperCase().replace(/\s+/g, '_').substring(0, 10);
+      const { data, error } = await supabase
+        .from("uom")
+        .insert({
+          uom_code: uomCode,
+          uom_name: newUomName,
+          uom_name_ar: newUomName,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setUomList(prev => [...prev, data]);
+      setEditData(prev => ({ ...prev, uom: data.uom_code }));
+      setNewUomName("");
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إضافة وحدة القياس' : 'UOM added successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setAddingUom(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!ticket) return;
+
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({
+          department_id: editData.department_id,
+          subject: editData.subject,
+          description: editData.description,
+          priority: editData.priority,
+          external_link: editData.external_link || null,
+          is_purchase_ticket: editData.is_purchase_ticket,
+          budget_value: editData.is_purchase_ticket ? editData.budget_value : null,
+          qty: editData.is_purchase_ticket ? editData.qty : null,
+          uom: editData.is_purchase_ticket ? editData.uom : null,
+        })
+        .eq("id", ticket.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم تحديث التذكرة' : 'Ticket updated successfully',
+      });
+
+      setIsEditing(false);
+      fetchTicket();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const fetchTicket = async () => {
     try {
@@ -743,87 +898,276 @@ const TicketDetails = () => {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-      <Button variant="ghost" onClick={() => navigate(sourceRoute)} className="h-8 sm:h-9 text-sm">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        {t("ticketDetails.backToTickets")}
-      </Button>
+      <div className="flex justify-between items-center">
+        <Button variant="ghost" onClick={() => navigate(sourceRoute)} className="h-8 sm:h-9 text-sm">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {t("ticketDetails.backToTickets")}
+        </Button>
+        
+        {/* Edit button - only show if not approved and user can view details */}
+        {canViewDetails && !ticket.approved_at && !isEditing && (
+          <Button variant="outline" onClick={() => setIsEditing(true)}>
+            <Edit className="mr-2 h-4 w-4" />
+            {language === 'ar' ? 'تعديل' : 'Edit'}
+          </Button>
+        )}
+      </div>
 
       <Card>
         <CardHeader className="p-4 sm:p-6">
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+          {isEditing ? (
+            // Edit mode UI
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold">{language === 'ar' ? 'تعديل التذكرة' : 'Edit Ticket'}</h2>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+                    <X className="mr-1 h-4 w-4" />
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
+                    <Save className="mr-1 h-4 w-4" />
+                    {savingEdit ? '...' : (language === 'ar' ? 'حفظ' : 'Save')}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">{language === 'ar' ? 'القسم' : 'Department'}</label>
+                  <Select value={editData.department_id} onValueChange={(v) => setEditData(prev => ({ ...prev, department_id: v }))}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.department_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">{language === 'ar' ? 'الأولوية' : 'Priority'}</label>
+                  <Select value={editData.priority} onValueChange={(v) => setEditData(prev => ({ ...prev, priority: v }))}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
+                      <SelectItem value="Medium">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
+                      <SelectItem value="High">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
+                      <SelectItem value="Urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
               <div>
-                <CardTitle className="text-lg sm:text-2xl">
-                  {canViewDetails 
-                    ? ticket.subject 
-                    : (language === 'ar' ? '--- محتوى مخفي ---' : '--- Hidden Content ---')}
-                </CardTitle>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-                  {t("ticketDetails.ticketNumber")}{ticket.ticket_number}
-                </p>
+                <label className="text-sm font-medium">{language === 'ar' ? 'الموضوع' : 'Subject'}</label>
+                <Input
+                  value={editData.subject}
+                  onChange={(e) => setEditData(prev => ({ ...prev, subject: e.target.value }))}
+                  className="mt-1"
+                />
               </div>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                <Badge variant={getPriorityColor(ticket.priority)} className="text-xs">
-                  {ticket.priority}
-                </Badge>
-                <Badge variant={getStatusColor(ticket.status)} className="text-xs">
-                  {ticket.status}
-                </Badge>
-                {ticket.is_purchase_ticket && (
-                  <Badge variant="secondary" className="flex items-center gap-1 text-xs">
-                    <ShoppingCart className="h-3 w-3" />
-                    {language === 'ar' ? 'مشتريات' : 'Purchase'}
-                  </Badge>
-                )}
+              
+              <div>
+                <label className="text-sm font-medium">{language === 'ar' ? 'الوصف' : 'Description'}</label>
+                <Textarea
+                  value={editData.description}
+                  onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
+                  className="mt-1 min-h-[100px]"
+                />
               </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center">
-                <span className="text-muted-foreground">{t("ticketDetails.department")}</span>
-                <span className="sm:ml-2 font-medium">{ticket.departments.department_name}</span>
+              
+              <div>
+                <label className="text-sm font-medium">{language === 'ar' ? 'رابط خارجي' : 'External Link'}</label>
+                <Input
+                  value={editData.external_link}
+                  onChange={(e) => setEditData(prev => ({ ...prev, external_link: e.target.value }))}
+                  placeholder="https://..."
+                  className="mt-1"
+                />
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center">
-                <span className="text-muted-foreground">{t("ticketDetails.created")}</span>
-                <span className="sm:ml-2">{format(new Date(ticket.created_at), "PPp")}</span>
+              
+              <div className="flex items-center space-x-3 p-4 border rounded-md">
+                <Checkbox
+                  checked={editData.is_purchase_ticket}
+                  onCheckedChange={(checked) => setEditData(prev => ({ ...prev, is_purchase_ticket: checked as boolean }))}
+                />
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? 'طلب شراء' : 'Purchase Request'}
+                </label>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center">
-                <span className="text-muted-foreground">{t("ticketDetails.createdBy")}</span>
-                <span className="sm:ml-2">{ticket.profiles.user_name}</span>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center">
-                <span className="text-muted-foreground">{t("ticketDetails.email")}</span>
-                <span className="sm:ml-2 truncate">{ticket.profiles.email}</span>
-              </div>
-              {ticket.external_link && (
-                <div className="flex flex-col sm:flex-row sm:items-center col-span-1 sm:col-span-2">
-                  <span className="text-muted-foreground">{language === 'ar' ? 'رابط خارجي:' : 'External Link:'}</span>
-                  <a 
-                    href={ticket.external_link} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="sm:ml-2 text-primary hover:underline truncate"
-                  >
-                    {ticket.external_link}
-                  </a>
+              
+              {/* Purchase ticket fields */}
+              {editData.is_purchase_ticket && (
+                <div className="space-y-4 p-4 border rounded-md bg-muted/30">
+                  <h3 className="font-medium">{language === 'ar' ? 'تفاصيل الشراء' : 'Purchase Details'}</h3>
+                  
+                  <div>
+                    <label className="text-sm font-medium">{language === 'ar' ? 'قيمة الميزانية' : 'Budget Value'}</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editData.budget_value ?? ''}
+                      onChange={(e) => setEditData(prev => ({ ...prev, budget_value: e.target.value ? parseFloat(e.target.value) : null }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{language === 'ar' ? 'الكمية' : 'Quantity'}</label>
+                      <Input
+                        type="number"
+                        step="1"
+                        min="1"
+                        value={editData.qty ?? ''}
+                        onChange={(e) => setEditData(prev => ({ ...prev, qty: e.target.value ? parseFloat(e.target.value) : null }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">{language === 'ar' ? 'وحدة القياس' : 'UOM'}</label>
+                      <Select value={editData.uom || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, uom: v }))}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder={language === 'ar' ? 'اختر الوحدة' : 'Select UOM'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uomList.map((uom) => (
+                            <SelectItem key={uom.id} value={uom.uom_code}>
+                              {language === 'ar' && uom.uom_name_ar ? uom.uom_name_ar : uom.uom_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium">{language === 'ar' ? 'إضافة وحدة قياس جديدة' : 'Add New UOM'}</label>
+                      <Input
+                        value={newUomName}
+                        onChange={(e) => setNewUomName(e.target.value)}
+                        placeholder={language === 'ar' ? 'اسم الوحدة' : 'UOM name'}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddNewUom}
+                      disabled={addingUom || !newUomName.trim()}
+                    >
+                      {addingUom ? '...' : (language === 'ar' ? 'إضافة' : 'Add')}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
+          ) : (
+            // View mode UI
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                <div>
+                  <CardTitle className="text-lg sm:text-2xl">
+                    {canViewDetails 
+                      ? ticket.subject 
+                      : (language === 'ar' ? '--- محتوى مخفي ---' : '--- Hidden Content ---')}
+                  </CardTitle>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                    {t("ticketDetails.ticketNumber")}{ticket.ticket_number}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  <Badge variant={getPriorityColor(ticket.priority)} className="text-xs">
+                    {ticket.priority}
+                  </Badge>
+                  <Badge variant={getStatusColor(ticket.status)} className="text-xs">
+                    {ticket.status}
+                  </Badge>
+                  {ticket.is_purchase_ticket && (
+                    <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+                      <ShoppingCart className="h-3 w-3" />
+                      {language === 'ar' ? 'مشتريات' : 'Purchase'}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="text-muted-foreground">{t("ticketDetails.department")}</span>
+                  <span className="sm:ml-2 font-medium">{ticket.departments.department_name}</span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="text-muted-foreground">{t("ticketDetails.created")}</span>
+                  <span className="sm:ml-2">{format(new Date(ticket.created_at), "PPp")}</span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="text-muted-foreground">{t("ticketDetails.createdBy")}</span>
+                  <span className="sm:ml-2">{ticket.profiles.user_name}</span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="text-muted-foreground">{t("ticketDetails.email")}</span>
+                  <span className="sm:ml-2 truncate">{ticket.profiles.email}</span>
+                </div>
+                {ticket.external_link && (
+                  <div className="flex flex-col sm:flex-row sm:items-center col-span-1 sm:col-span-2">
+                    <span className="text-muted-foreground">{language === 'ar' ? 'رابط خارجي:' : 'External Link:'}</span>
+                    <a 
+                      href={ticket.external_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="sm:ml-2 text-primary hover:underline truncate"
+                    >
+                      {ticket.external_link}
+                    </a>
+                  </div>
+                )}
+                
+                {/* Purchase ticket fields display */}
+                {ticket.is_purchase_ticket && (
+                  <>
+                    {ticket.budget_value !== null && (
+                      <div className="flex flex-col sm:flex-row sm:items-center">
+                        <span className="text-muted-foreground">{language === 'ar' ? 'الميزانية:' : 'Budget:'}</span>
+                        <span className="sm:ml-2 font-medium">{ticket.budget_value?.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {ticket.qty !== null && (
+                      <div className="flex flex-col sm:flex-row sm:items-center">
+                        <span className="text-muted-foreground">{language === 'ar' ? 'الكمية:' : 'Quantity:'}</span>
+                        <span className="sm:ml-2 font-medium">{ticket.qty} {ticket.uom || ''}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">{t("ticketDetails.description")}</h3>
-              {canViewDetails ? (
-                <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
-              ) : (
-                <p className="text-muted-foreground italic">
-                  {language === 'ar' 
-                    ? 'لا يمكنك عرض تفاصيل هذه التذكرة لأنك لست مسؤولاً عن هذا القسم' 
-                    : 'You cannot view this ticket\'s details as you are not an admin for this department'}
-                </p>
-              )}
-            </div>
+            {!isEditing && (
+              <div>
+                <h3 className="font-semibold mb-2">{t("ticketDetails.description")}</h3>
+                {canViewDetails ? (
+                  <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    {language === 'ar' 
+                      ? 'لا يمكنك عرض تفاصيل هذه التذكرة لأنك لست مسؤولاً عن هذا القسم' 
+                      : 'You cannot view this ticket\'s details as you are not an admin for this department'}
+                  </p>
+                )}
+              </div>
+            )}
 
             {isAdmin && (
               <>

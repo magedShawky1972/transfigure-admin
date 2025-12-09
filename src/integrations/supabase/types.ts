@@ -2060,6 +2060,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           assigned_to: string | null
+          budget_value: number | null
           created_at: string
           deleted_at: string | null
           deleted_by: string | null
@@ -2071,9 +2072,11 @@ export type Database = {
           is_purchase_ticket: boolean
           next_admin_order: number | null
           priority: string
+          qty: number | null
           status: string
           subject: string
           ticket_number: string
+          uom: string | null
           updated_at: string
           user_id: string
         }
@@ -2081,6 +2084,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           assigned_to?: string | null
+          budget_value?: number | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
@@ -2092,9 +2096,11 @@ export type Database = {
           is_purchase_ticket?: boolean
           next_admin_order?: number | null
           priority: string
+          qty?: number | null
           status?: string
           subject: string
           ticket_number: string
+          uom?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2102,6 +2108,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           assigned_to?: string | null
+          budget_value?: number | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
@@ -2113,9 +2120,11 @@ export type Database = {
           is_purchase_ticket?: boolean
           next_admin_order?: number | null
           priority?: string
+          qty?: number | null
           status?: string
           subject?: string
           ticket_number?: string
+          uom?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -2128,6 +2137,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      uom: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          uom_code: string
+          uom_name: string
+          uom_name_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          uom_code: string
+          uom_name: string
+          uom_name_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          uom_code?: string
+          uom_name?: string
+          uom_name_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       upload_logs: {
         Row: {
