@@ -47,6 +47,9 @@ type Ticket = {
   is_purchase_ticket: boolean;
   next_admin_order: number | null;
   external_link: string | null;
+  budget_value: number | null;
+  qty: number | null;
+  uom: string | null;
   departments: {
     department_name: string;
   };
@@ -772,6 +775,21 @@ const AdminTickets = () => {
                 >
                   🔗 {language === 'ar' ? 'رابط خارجي' : 'External Link'}
                 </a>
+              </div>
+            )}
+            {/* Purchase ticket details */}
+            {ticket.is_purchase_ticket && (ticket.budget_value !== null || ticket.qty !== null) && (
+              <div className="mt-2 flex flex-wrap gap-3 text-xs sm:text-sm">
+                {ticket.budget_value !== null && (
+                  <span className="text-muted-foreground">
+                    {language === 'ar' ? 'الميزانية:' : 'Budget:'} <span className="font-medium text-foreground">{ticket.budget_value?.toLocaleString()}</span>
+                  </span>
+                )}
+                {ticket.qty !== null && (
+                  <span className="text-muted-foreground">
+                    {language === 'ar' ? 'الكمية:' : 'Qty:'} <span className="font-medium text-foreground">{ticket.qty} {ticket.uom || ''}</span>
+                  </span>
+                )}
               </div>
             )}
           </div>
