@@ -569,8 +569,15 @@ export default function ShiftFollowUp() {
   };
 
   const formatDateInArabic = (dateString: string) => {
-    const date = new Date(dateString);
-    return format(date, "EEEE, dd MMMM yyyy", { locale: ar });
+    try {
+      if (!dateString) return "";
+      const date = new Date(dateString + 'T00:00:00');
+      if (isNaN(date.getTime())) return dateString;
+      return format(date, "EEEE, dd MMMM yyyy", { locale: ar });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return dateString;
+    }
   };
 
   return (
