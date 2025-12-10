@@ -2062,6 +2062,7 @@ export type Database = {
           assigned_to: string | null
           budget_value: number | null
           created_at: string
+          currency_id: string | null
           deleted_at: string | null
           deleted_by: string | null
           department_id: string
@@ -2086,6 +2087,7 @@ export type Database = {
           assigned_to?: string | null
           budget_value?: number | null
           created_at?: string
+          currency_id?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           department_id: string
@@ -2110,6 +2112,7 @@ export type Database = {
           assigned_to?: string | null
           budget_value?: number | null
           created_at?: string
+          currency_id?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           department_id?: string
@@ -2129,6 +2132,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tickets_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tickets_department_id_fkey"
             columns: ["department_id"]
