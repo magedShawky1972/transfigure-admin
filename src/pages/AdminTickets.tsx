@@ -50,6 +50,7 @@ type Ticket = {
   budget_value: number | null;
   qty: number | null;
   uom: string | null;
+  currency_id: string | null;
   departments: {
     department_name: string;
   };
@@ -60,6 +61,10 @@ type Ticket = {
   assigned_user?: {
     user_name: string;
     email: string;
+  } | null;
+  currency?: {
+    currency_code: string;
+    currency_name: string;
   } | null;
 };
 
@@ -226,6 +231,10 @@ const AdminTickets = () => {
           *,
           departments (
             department_name
+          ),
+          currencies:currency_id (
+            currency_code,
+            currency_name
           )
         `)
         .in("department_id", departmentIds)
@@ -251,7 +260,8 @@ const AdminTickets = () => {
         const ticketsWithProfiles = data.map(ticket => ({
           ...ticket,
           profiles: profileMap.get(ticket.user_id) || { user_name: "Unknown", email: "" },
-          assigned_user: ticket.assigned_to ? profileMap.get(ticket.assigned_to) : null
+          assigned_user: ticket.assigned_to ? profileMap.get(ticket.assigned_to) : null,
+          currency: ticket.currencies || null
         }));
         
         setTickets(ticketsWithProfiles);
@@ -782,7 +792,7 @@ const AdminTickets = () => {
               <div className="mt-2 flex flex-wrap gap-3 text-xs sm:text-sm">
                 {ticket.budget_value !== null && (
                   <span className="text-muted-foreground">
-                    {language === 'ar' ? 'الميزانية:' : 'Budget:'} <span className="font-medium text-foreground">{ticket.budget_value?.toLocaleString()}</span>
+                    {language === 'ar' ? 'الميزانية:' : 'Budget:'} <span className="font-medium text-foreground">{ticket.currency?.currency_code || ''} {ticket.budget_value?.toLocaleString()}</span>
                   </span>
                 )}
                 {ticket.qty !== null && (
