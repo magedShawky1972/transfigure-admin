@@ -2006,6 +2006,8 @@ export type Database = {
           deadline: string | null
           department_id: string
           description: string | null
+          external_links: string[] | null
+          file_attachments: Json | null
           id: string
           priority: string
           project_id: string | null
@@ -2013,6 +2015,7 @@ export type Database = {
           ticket_id: string | null
           title: string
           updated_at: string
+          video_attachments: Json | null
         }
         Insert: {
           assigned_to: string
@@ -2021,6 +2024,8 @@ export type Database = {
           deadline?: string | null
           department_id: string
           description?: string | null
+          external_links?: string[] | null
+          file_attachments?: Json | null
           id?: string
           priority?: string
           project_id?: string | null
@@ -2028,6 +2033,7 @@ export type Database = {
           ticket_id?: string | null
           title: string
           updated_at?: string
+          video_attachments?: Json | null
         }
         Update: {
           assigned_to?: string
@@ -2036,6 +2042,8 @@ export type Database = {
           deadline?: string | null
           department_id?: string
           description?: string | null
+          external_links?: string[] | null
+          file_attachments?: Json | null
           id?: string
           priority?: string
           project_id?: string | null
@@ -2043,6 +2051,7 @@ export type Database = {
           ticket_id?: string | null
           title?: string
           updated_at?: string
+          video_attachments?: Json | null
         }
         Relationships: [
           {

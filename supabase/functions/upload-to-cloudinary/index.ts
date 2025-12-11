@@ -12,12 +12,12 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, folder, publicId } = await req.json();
+    const { imageBase64, folder, publicId, resourceType = 'image' } = await req.json();
 
     if (!imageBase64) {
-      console.error("No image data provided");
+      console.error("No file data provided");
       return new Response(
-        JSON.stringify({ error: "No image data provided" }),
+        JSON.stringify({ error: "No file data provided" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -34,7 +34,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Uploading image to Cloudinary folder: ${folder || 'shift-receipts'}`);
+    console.log(`Uploading ${resourceType} to Cloudinary folder: ${folder || 'uploads'}`);
 
     // Generate timestamp for signature
     const timestamp = Math.round(new Date().getTime() / 1000);
@@ -63,7 +63,7 @@ serve(async (req) => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    console.log("Generated signature for Cloudinary upload");
+    console.log(`Generated signature for Cloudinary ${resourceType} upload`);
 
     // Prepare form data for upload
     const formData = new FormData();
@@ -80,8 +80,10 @@ serve(async (req) => {
       formData.append('public_id', publicId);
     }
 
-    // Upload to Cloudinary
-    const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    // Determine upload URL based on resource type
+    // 'image' for images, 'video' for videos, 'raw' for documents/files
+    const uploadType = resourceType === 'video' ? 'video' : resourceType === 'raw' ? 'raw' : 'image';
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${uploadType}/upload`;
     console.log(`Uploading to: ${uploadUrl}`);
 
     const uploadResponse = await fetch(uploadUrl, {
@@ -99,7 +101,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Image uploaded successfully: ${result.secure_url}`);
+    console.log(`${resourceType} uploaded successfully: ${result.secure_url}`);
 
     return new Response(
       JSON.stringify({
@@ -108,6 +110,9 @@ serve(async (req) => {
         format: result.format,
         width: result.width,
         height: result.height,
+        resourceType: result.resource_type,
+        bytes: result.bytes,
+        duration: result.duration, // For videos
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
