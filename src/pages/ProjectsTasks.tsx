@@ -14,8 +14,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Plus, FolderKanban, GanttChart, Calendar as CalendarIcon, Trash2, Edit, CheckCircle2, Clock, AlertCircle, Circle } from "lucide-react";
+import { Plus, FolderKanban, GanttChart, Calendar as CalendarIcon, Trash2, Edit, CheckCircle2, Clock, AlertCircle, Circle, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
 interface Project {
   id: string;
@@ -58,6 +59,37 @@ interface Profile {
   user_name: string;
 }
 
+// Draggable Task Component
+const DraggableTask = ({ task, children }: { task: Task; children: React.ReactNode }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+    data: { task }
+  });
+  
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1
+  } : undefined;
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+};
+
+// Droppable Column Component
+const DroppableColumn = ({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  
+  return (
+    <div ref={setNodeRef} className={cn(className, isOver && "ring-2 ring-primary ring-offset-2")}>
+      {children}
+    </div>
+  );
+};
+
 const ProjectsTasks = () => {
   const { language } = useLanguage();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -67,6 +99,7 @@ const ProjectsTasks = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<'kanban' | 'gantt'>('kanban');
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   
   // Dialog states
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -318,6 +351,28 @@ const ProjectsTasks = () => {
     await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
     fetchData();
   };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveTaskId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveTaskId(null);
+    const { active, over } = event;
+    if (!over) return;
+    
+    const taskId = active.id as string;
+    const newStatus = over.id as string;
+    const task = tasks.find(t => t.id === taskId);
+    
+    if (task && task.status !== newStatus) {
+      // Optimistically update UI
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+    }
+  };
+
+  const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
 
   const resetProjectForm = () => {
     setProjectForm({ name: '', description: '', department_id: '', status: 'active', start_date: null, end_date: null });
@@ -625,48 +680,57 @@ const ProjectsTasks = () => {
         </CardHeader>
         <CardContent>
           {activeView === 'kanban' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {statusColumns.map(column => (
-                <div key={column.key} className={cn("rounded-lg p-4", column.color)}>
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <column.icon className="h-4 w-4" />
-                    {column.label}
-                    <Badge variant="outline" className="ml-auto">{tasks.filter(t => t.status === column.key).length}</Badge>
-                  </h3>
-                  <div className="space-y-2">
-                    {tasks.filter(t => t.status === column.key).map(task => (
-                      <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                        <CardContent className="p-3">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium text-sm">{task.title}</h4>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTask(task)}><Edit className="h-3 w-3" /></Button>
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteTask(task.id)}><Trash2 className="h-3 w-3" /></Button>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            <Badge className={cn("text-xs text-white", priorityColors[task.priority])}>{getPriorityLabel(task.priority)}</Badge>
-                            {task.ticket_id && <Badge variant="outline" className="text-xs">{t.fromTicket}</Badge>}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {task.profiles?.user_name && <p>{t.assignedTo}: {task.profiles.user_name}</p>}
-                            {task.deadline && <p>{t.deadline}: {format(new Date(task.deadline), 'PP', { locale: language === 'ar' ? ar : undefined })}</p>}
-                          </div>
-                          {column.key !== 'done' && (
-                            <Select value={task.status} onValueChange={(v) => handleTaskStatusChange(task.id, v)}>
-                              <SelectTrigger className="mt-2 h-7 text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {statusColumns.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {statusColumns.map(column => (
+                  <DroppableColumn key={column.key} id={column.key} className={cn("rounded-lg p-4 min-h-[200px] transition-all", column.color)}>
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <column.icon className="h-4 w-4" />
+                      {column.label}
+                      <Badge variant="outline" className="ml-auto">{tasks.filter(t => t.status === column.key).length}</Badge>
+                    </h3>
+                    <div className="space-y-2">
+                      {tasks.filter(t => t.status === column.key).map(task => (
+                        <DraggableTask key={task.id} task={task}>
+                          <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow">
+                            <CardContent className="p-3">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  <h4 className="font-medium text-sm">{task.title}</h4>
+                                </div>
+                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTask(task)}><Edit className="h-3 w-3" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteTask(task.id)}><Trash2 className="h-3 w-3" /></Button>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                <Badge className={cn("text-xs text-white", priorityColors[task.priority])}>{getPriorityLabel(task.priority)}</Badge>
+                                {task.ticket_id && <Badge variant="outline" className="text-xs">{t.fromTicket}</Badge>}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {task.profiles?.user_name && <p>{t.assignedTo}: {task.profiles.user_name}</p>}
+                                {task.deadline && <p>{t.deadline}: {format(new Date(task.deadline), 'PP', { locale: language === 'ar' ? ar : undefined })}</p>}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </DraggableTask>
+                      ))}
+                    </div>
+                  </DroppableColumn>
+                ))}
+              </div>
+              <DragOverlay>
+                {activeTask && (
+                  <Card className="cursor-grabbing shadow-xl rotate-3">
+                    <CardContent className="p-3">
+                      <h4 className="font-medium text-sm">{activeTask.title}</h4>
+                      <Badge className={cn("text-xs text-white mt-2", priorityColors[activeTask.priority])}>{getPriorityLabel(activeTask.priority)}</Badge>
+                    </CardContent>
+                  </Card>
+                )}
+              </DragOverlay>
+            </DndContext>
           ) : (
             <GanttChartView />
           )}
