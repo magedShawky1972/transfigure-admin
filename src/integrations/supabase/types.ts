@@ -1104,6 +1104,39 @@ export type Database = {
           },
         ]
       }
+      purchase_items: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          item_code: string | null
+          item_name: string
+          item_name_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          item_code?: string | null
+          item_name: string
+          item_name_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          item_code?: string | null
+          item_name?: string
+          item_name_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       purpletransaction: {
         Row: {
           bank_fee: number | null
@@ -2101,6 +2134,7 @@ export type Database = {
           id: string
           is_deleted: boolean
           is_purchase_ticket: boolean
+          item_id: string | null
           next_admin_order: number | null
           priority: string
           qty: number | null
@@ -2126,6 +2160,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean
+          item_id?: string | null
           next_admin_order?: number | null
           priority: string
           qty?: number | null
@@ -2151,6 +2186,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean
+          item_id?: string | null
           next_admin_order?: number | null
           priority?: string
           qty?: number | null
@@ -2174,6 +2210,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_items"
             referencedColumns: ["id"]
           },
         ]

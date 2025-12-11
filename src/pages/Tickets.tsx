@@ -47,8 +47,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
+type PurchaseItemRecord = {
+  id: string;
+  item_name: string;
+  item_name_ar: string | null;
+  item_code: string | null;
+};
+
 type PurchaseItem = {
   id: string;
+  item_id: string | null;
   budget_value: number | null;
   qty: number | null;
   uom: string | null;
@@ -137,8 +145,13 @@ const Tickets = () => {
   
   // Multi purchase items
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([
-    { id: crypto.randomUUID(), budget_value: null, qty: null, uom: null, currency_id: null, external_link: '' }
+    { id: crypto.randomUUID(), item_id: null, budget_value: null, qty: null, uom: null, currency_id: null, external_link: '' }
   ]);
+  
+  // Purchase items list (for combo box)
+  const [purchaseItemsList, setPurchaseItemsList] = useState<PurchaseItemRecord[]>([]);
+  const [newItemName, setNewItemName] = useState("");
+  const [addingItem, setAddingItem] = useState(false);
 
   const formSchema = getFormSchema(language);
 
@@ -160,7 +173,58 @@ const Tickets = () => {
     fetchDepartments();
     fetchUomList();
     fetchCurrencies();
+    fetchPurchaseItemsList();
   }, []);
+
+  const fetchPurchaseItemsList = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("purchase_items")
+        .select("id, item_name, item_name_ar, item_code")
+        .eq("is_active", true)
+        .order("item_name");
+
+      if (error) throw error;
+      setPurchaseItemsList(data || []);
+    } catch (error: any) {
+      console.error("Error fetching purchase items:", error);
+    }
+  };
+
+  const handleAddNewItem = async () => {
+    if (!newItemName.trim()) return;
+    
+    setAddingItem(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase
+        .from("purchase_items")
+        .insert({
+          item_name: newItemName.trim(),
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPurchaseItemsList(prev => [...prev, data]);
+      setNewItemName("");
+      toast({
+        title: language === 'ar' ? 'تم الإضافة' : 'Added',
+        description: language === 'ar' ? 'تم إضافة العنصر بنجاح' : 'Item added successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setAddingItem(false);
+    }
+  };
 
   const fetchCurrencies = async () => {
     try {
@@ -318,6 +382,7 @@ const Tickets = () => {
   const addPurchaseItem = () => {
     setPurchaseItems(prev => [...prev, { 
       id: crypto.randomUUID(), 
+      item_id: null,
       budget_value: null, 
       qty: null, 
       uom: null, 
@@ -343,7 +408,7 @@ const Tickets = () => {
     setSelectedImages([]);
     setSelectedVideos([]);
     setExternalLinks(['']);
-    setPurchaseItems([{ id: crypto.randomUUID(), budget_value: null, qty: null, uom: null, currency_id: null, external_link: '' }]);
+    setPurchaseItems([{ id: crypto.randomUUID(), item_id: null, budget_value: null, qty: null, uom: null, currency_id: null, external_link: '' }]);
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -352,7 +417,7 @@ const Tickets = () => {
     // Validate purchase items if purchase ticket
     if (values.is_purchase_ticket) {
       const invalidItems = purchaseItems.filter(item => 
-        item.budget_value === null || item.qty === null || !item.uom || !item.currency_id
+        !item.item_id || item.budget_value === null || item.qty === null || !item.uom || !item.currency_id
       );
       if (invalidItems.length > 0) {
         toast({
@@ -391,6 +456,7 @@ const Tickets = () => {
           qty: values.is_purchase_ticket ? firstPurchaseItem.qty : null,
           uom: values.is_purchase_ticket ? firstPurchaseItem.uom : null,
           currency_id: values.is_purchase_ticket ? firstPurchaseItem.currency_id : null,
+          item_id: values.is_purchase_ticket ? firstPurchaseItem.item_id : null,
           ticket_number: "",
         })
         .select()
@@ -762,6 +828,26 @@ const Tickets = () => {
                           )}
                         </div>
                         
+                        {/* Item Selection */}
+                        <div className="mb-3">
+                          <label className="text-sm font-medium">{language === 'ar' ? 'العنصر' : 'Item'} *</label>
+                          <Select 
+                            value={item.item_id || ""} 
+                            onValueChange={(v) => updatePurchaseItem(item.id, 'item_id', v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر العنصر' : 'Select Item'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {purchaseItemsList.map((pItem) => (
+                                <SelectItem key={pItem.id} value={pItem.id}>
+                                  {language === 'ar' && pItem.item_name_ar ? pItem.item_name_ar : pItem.item_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-sm font-medium">{language === 'ar' ? 'قيمة الميزانية' : 'Budget Value'} *</label>
@@ -851,6 +937,27 @@ const Tickets = () => {
                         disabled={addingUom || !newUomName.trim()}
                       >
                         {addingUom ? '...' : (language === 'ar' ? 'إضافة' : 'Add')}
+                      </Button>
+                    </div>
+                    
+                    {/* Add new Item section */}
+                    <div className="flex gap-2 items-end pt-2 border-t">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium">{language === 'ar' ? 'إضافة عنصر جديد' : 'Add New Item'}</label>
+                        <Input
+                          value={newItemName}
+                          onChange={(e) => setNewItemName(e.target.value)}
+                          placeholder={language === 'ar' ? 'اسم العنصر' : 'Item name'}
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleAddNewItem}
+                        disabled={addingItem || !newItemName.trim()}
+                      >
+                        {addingItem ? '...' : (language === 'ar' ? 'إضافة' : 'Add')}
                       </Button>
                     </div>
                   </div>
