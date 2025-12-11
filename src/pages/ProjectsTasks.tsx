@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Plus, FolderKanban, GanttChart, Calendar as CalendarIcon, Trash2, Edit, CheckCircle2, Clock, AlertCircle, Circle, GripVertical } from "lucide-react";
+import { Plus, FolderKanban, GanttChart, Calendar as CalendarIcon, Trash2, Edit, CheckCircle2, Clock, AlertCircle, Circle, GripVertical, Link, FileText, Video, X, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
@@ -31,6 +31,12 @@ interface Project {
   departments?: { department_name: string };
 }
 
+interface FileAttachment {
+  url: string;
+  name: string;
+  type: string;
+}
+
 interface Task {
   id: string;
   title: string;
@@ -44,6 +50,9 @@ interface Task {
   deadline: string | null;
   ticket_id: string | null;
   created_at: string;
+  external_links?: string[] | null;
+  file_attachments?: FileAttachment[] | null;
+  video_attachments?: FileAttachment[] | null;
   projects?: { name: string } | null;
   departments?: { department_name: string };
   profiles?: { user_name: string };
@@ -125,8 +134,13 @@ const ProjectsTasks = () => {
     assigned_to: '',
     status: 'todo',
     priority: 'medium',
-    deadline: null as Date | null
+    deadline: null as Date | null,
+    external_links: [] as string[],
+    file_attachments: [] as FileAttachment[],
+    video_attachments: [] as FileAttachment[]
   });
+  const [newLink, setNewLink] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const translations = {
     ar: {
@@ -169,7 +183,14 @@ const ProjectsTasks = () => {
       selectUser: 'اختر المستخدم',
       selectDate: 'اختر التاريخ',
       fromTicket: 'من تذكرة',
-      noTasks: 'لا توجد مهام'
+      noTasks: 'لا توجد مهام',
+      externalLinks: 'روابط خارجية',
+      addLink: 'إضافة رابط',
+      files: 'الملفات والمستندات',
+      videos: 'الفيديوهات',
+      uploadFiles: 'رفع ملفات',
+      uploadVideos: 'رفع فيديوهات',
+      uploading: 'جاري الرفع...'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -211,7 +232,14 @@ const ProjectsTasks = () => {
       selectUser: 'Select User',
       selectDate: 'Select Date',
       fromTicket: 'From Ticket',
-      noTasks: 'No tasks'
+      noTasks: 'No tasks',
+      externalLinks: 'External Links',
+      addLink: 'Add Link',
+      files: 'Files & Documents',
+      videos: 'Videos',
+      uploadFiles: 'Upload Files',
+      uploadVideos: 'Upload Videos',
+      uploading: 'Uploading...'
     }
   };
 
@@ -250,9 +278,12 @@ const ProjectsTasks = () => {
         // Map tasks with user names from profiles
         const tasksWithProfiles = tasksRes.data.map(task => ({
           ...task,
+          file_attachments: (task.file_attachments as unknown as FileAttachment[]) || [],
+          video_attachments: (task.video_attachments as unknown as FileAttachment[]) || [],
+          external_links: task.external_links || [],
           profiles: usersRes.data?.find(u => u.user_id === task.assigned_to) || null
         }));
-        setTasks(tasksWithProfiles as Task[]);
+        setTasks(tasksWithProfiles as unknown as Task[]);
       }
       if (depsRes.data) setDepartments(depsRes.data);
       if (usersRes.data) setUsers(usersRes.data);
@@ -316,7 +347,10 @@ const ProjectsTasks = () => {
         status: taskForm.status,
         priority: taskForm.priority,
         deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
-        created_by: currentUserId!
+        created_by: currentUserId!,
+        external_links: taskForm.external_links,
+        file_attachments: JSON.parse(JSON.stringify(taskForm.file_attachments)),
+        video_attachments: JSON.parse(JSON.stringify(taskForm.video_attachments))
       };
 
       if (editingTask) {
@@ -333,6 +367,102 @@ const ProjectsTasks = () => {
       console.error('Error saving task:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
     }
+  };
+
+  // Get department name for folder structure
+  const getDepartmentFolder = (departmentId: string) => {
+    const dept = departments.find(d => d.id === departmentId);
+    return dept ? dept.department_name.replace(/\s+/g, '_') : 'General';
+  };
+
+  // Handle file upload to Cloudinary
+  const handleFileUpload = async (files: FileList, type: 'file' | 'video') => {
+    if (!taskForm.department_id) {
+      toast({ title: language === 'ar' ? 'يرجى اختيار القسم أولاً' : 'Please select department first', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+    const uploadedFiles: FileAttachment[] = [];
+    const departmentFolder = getDepartmentFolder(taskForm.department_id);
+    const folder = `Projects_Tasks/${departmentFolder}`;
+    const resourceType = type === 'video' ? 'video' : 'raw';
+
+    try {
+      for (const file of Array.from(files)) {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+
+        const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
+          body: {
+            imageBase64: base64,
+            folder,
+            resourceType
+          }
+        });
+
+        if (error) throw error;
+
+        uploadedFiles.push({
+          url: data.url,
+          name: file.name,
+          type: file.type
+        });
+      }
+
+      if (type === 'video') {
+        setTaskForm(prev => ({
+          ...prev,
+          video_attachments: [...prev.video_attachments, ...uploadedFiles]
+        }));
+      } else {
+        setTaskForm(prev => ({
+          ...prev,
+          file_attachments: [...prev.file_attachments, ...uploadedFiles]
+        }));
+      }
+
+      toast({ title: language === 'ar' ? 'تم الرفع بنجاح' : 'Upload successful' });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({ title: language === 'ar' ? 'فشل الرفع' : 'Upload failed', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const addLink = () => {
+    if (newLink.trim()) {
+      setTaskForm(prev => ({
+        ...prev,
+        external_links: [...prev.external_links, newLink.trim()]
+      }));
+      setNewLink('');
+    }
+  };
+
+  const removeLink = (index: number) => {
+    setTaskForm(prev => ({
+      ...prev,
+      external_links: prev.external_links.filter((_, i) => i !== index)
+    }));
+  };
+
+  const removeFile = (index: number) => {
+    setTaskForm(prev => ({
+      ...prev,
+      file_attachments: prev.file_attachments.filter((_, i) => i !== index)
+    }));
+  };
+
+  const removeVideo = (index: number) => {
+    setTaskForm(prev => ({
+      ...prev,
+      video_attachments: prev.video_attachments.filter((_, i) => i !== index)
+    }));
   };
 
   const handleDeleteProject = async (id: string) => {
@@ -380,8 +510,9 @@ const ProjectsTasks = () => {
   };
 
   const resetTaskForm = () => {
-    setTaskForm({ title: '', description: '', project_id: '', department_id: '', assigned_to: '', status: 'todo', priority: 'medium', deadline: null });
+    setTaskForm({ title: '', description: '', project_id: '', department_id: '', assigned_to: '', status: 'todo', priority: 'medium', deadline: null, external_links: [], file_attachments: [], video_attachments: [] });
     setEditingTask(null);
+    setNewLink('');
   };
 
   const openEditProject = (project: Project) => {
@@ -407,7 +538,10 @@ const ProjectsTasks = () => {
       assigned_to: task.assigned_to,
       status: task.status,
       priority: task.priority,
-      deadline: task.deadline ? new Date(task.deadline) : null
+      deadline: task.deadline ? new Date(task.deadline) : null,
+      external_links: task.external_links || [],
+      file_attachments: task.file_attachments || [],
+      video_attachments: task.video_attachments || []
     });
     setTaskDialogOpen(true);
   };
@@ -550,7 +684,7 @@ const ProjectsTasks = () => {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
               </DialogHeader>
@@ -619,9 +753,105 @@ const ProjectsTasks = () => {
                     </Popover>
                   </div>
                 </div>
+
+                {/* External Links */}
+                <div>
+                  <label className="text-sm font-medium flex items-center gap-2"><Link className="h-4 w-4" />{t.externalLinks}</label>
+                  <div className="flex gap-2 mt-1">
+                    <Input 
+                      value={newLink} 
+                      onChange={(e) => setNewLink(e.target.value)} 
+                      placeholder="https://..." 
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLink())}
+                    />
+                    <Button type="button" variant="outline" onClick={addLink}>{t.addLink}</Button>
+                  </div>
+                  {taskForm.external_links.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {taskForm.external_links.map((link, i) => (
+                        <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                          <a href={link} target="_blank" rel="noopener noreferrer" className="max-w-[150px] truncate">{link}</a>
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => removeLink(i)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* File Uploads */}
+                <div>
+                  <label className="text-sm font-medium flex items-center gap-2"><FileText className="h-4 w-4" />{t.files}</label>
+                  <div className="mt-1">
+                    <label className="cursor-pointer">
+                      <div className="border-2 border-dashed rounded-lg p-3 text-center hover:bg-muted/50 transition-colors">
+                        <Upload className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">{t.uploadFiles}</span>
+                      </div>
+                      <input 
+                        type="file" 
+                        multiple 
+                        className="hidden" 
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg"
+                        onChange={(e) => e.target.files && handleFileUpload(e.target.files, 'file')}
+                        disabled={uploading || !taskForm.department_id}
+                      />
+                    </label>
+                    {taskForm.file_attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {taskForm.file_attachments.map((file, i) => (
+                          <Badge key={i} variant="outline" className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            <span className="max-w-[100px] truncate">{file.name}</span>
+                            <X className="h-3 w-3 cursor-pointer" onClick={() => removeFile(i)} />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Video Uploads */}
+                <div>
+                  <label className="text-sm font-medium flex items-center gap-2"><Video className="h-4 w-4" />{t.videos}</label>
+                  <div className="mt-1">
+                    <label className="cursor-pointer">
+                      <div className="border-2 border-dashed rounded-lg p-3 text-center hover:bg-muted/50 transition-colors">
+                        <Video className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">{t.uploadVideos}</span>
+                      </div>
+                      <input 
+                        type="file" 
+                        multiple 
+                        className="hidden" 
+                        accept="video/*"
+                        onChange={(e) => e.target.files && handleFileUpload(e.target.files, 'video')}
+                        disabled={uploading || !taskForm.department_id}
+                      />
+                    </label>
+                    {taskForm.video_attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {taskForm.video_attachments.map((video, i) => (
+                          <Badge key={i} variant="outline" className="flex items-center gap-1">
+                            <Video className="h-3 w-3" />
+                            <span className="max-w-[100px] truncate">{video.name}</span>
+                            <X className="h-3 w-3 cursor-pointer" onClick={() => removeVideo(i)} />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {uploading && (
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{t.uploading}</span>
+                  </div>
+                )}
+
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>{t.cancel}</Button>
-                  <Button onClick={handleSaveTask}>{t.save}</Button>
+                  <Button onClick={handleSaveTask} disabled={uploading}>{t.save}</Button>
                 </div>
               </div>
             </DialogContent>
