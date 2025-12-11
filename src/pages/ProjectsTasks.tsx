@@ -60,7 +60,7 @@ interface Profile {
 }
 
 // Draggable Task Component
-const DraggableTask = ({ task, children }: { task: Task; children: React.ReactNode }) => {
+const DraggableTask = ({ task, children }: { task: Task; children: (props: { listeners: any }) => React.ReactNode }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task }
@@ -73,8 +73,8 @@ const DraggableTask = ({ task, children }: { task: Task; children: React.ReactNo
   } : undefined;
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {children({ listeners })}
     </div>
   );
 };
@@ -692,28 +692,32 @@ const ProjectsTasks = () => {
                     <div className="space-y-2">
                       {tasks.filter(t => t.status === column.key).map(task => (
                         <DraggableTask key={task.id} task={task}>
-                          <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow">
-                            <CardContent className="p-3">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center gap-2">
-                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                  <h4 className="font-medium text-sm">{task.title}</h4>
+                          {({ listeners }: { listeners: any }) => (
+                            <Card className="hover:shadow-md transition-shadow">
+                              <CardContent className="p-3">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
+                                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                    <h4 className="font-medium text-sm">{task.title}</h4>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTask(task)}><Edit className="h-3 w-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteTask(task.id)}><Trash2 className="h-3 w-3" /></Button>
+                                  </div>
                                 </div>
-                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTask(task)}><Edit className="h-3 w-3" /></Button>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteTask(task.id)}><Trash2 className="h-3 w-3" /></Button>
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  <Badge className={cn("text-xs text-white", priorityColors[task.priority])}>{getPriorityLabel(task.priority)}</Badge>
+                                  {task.ticket_id && <Badge variant="outline" className="text-xs">{t.fromTicket}</Badge>}
                                 </div>
-                              </div>
-                              <div className="flex flex-wrap gap-1 mb-2">
-                                <Badge className={cn("text-xs text-white", priorityColors[task.priority])}>{getPriorityLabel(task.priority)}</Badge>
-                                {task.ticket_id && <Badge variant="outline" className="text-xs">{t.fromTicket}</Badge>}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {task.profiles?.user_name && <p>{t.assignedTo}: {task.profiles.user_name}</p>}
-                                {task.deadline && <p>{t.deadline}: {format(new Date(task.deadline), 'PP', { locale: language === 'ar' ? ar : undefined })}</p>}
-                              </div>
-                            </CardContent>
-                          </Card>
+                                <div className="text-xs text-muted-foreground">
+                                  {task.profiles?.user_name && <p>{t.assignedTo}: {task.profiles.user_name}</p>}
+                                  {task.deadline && <p>{t.deadline}: {format(new Date(task.deadline), 'PP', { locale: language === 'ar' ? ar : undefined })}</p>}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
                         </DraggableTask>
                       ))}
                     </div>
