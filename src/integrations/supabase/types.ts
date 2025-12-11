@@ -2006,11 +2006,13 @@ export type Database = {
           deadline: string | null
           department_id: string
           description: string | null
+          end_time: string | null
           external_links: string[] | null
           file_attachments: Json | null
           id: string
           priority: string
           project_id: string | null
+          start_time: string | null
           status: string
           ticket_id: string | null
           title: string
@@ -2024,11 +2026,13 @@ export type Database = {
           deadline?: string | null
           department_id: string
           description?: string | null
+          end_time?: string | null
           external_links?: string[] | null
           file_attachments?: Json | null
           id?: string
           priority?: string
           project_id?: string | null
+          start_time?: string | null
           status?: string
           ticket_id?: string | null
           title: string
@@ -2042,11 +2046,13 @@ export type Database = {
           deadline?: string | null
           department_id?: string
           description?: string | null
+          end_time?: string | null
           external_links?: string[] | null
           file_attachments?: Json | null
           id?: string
           priority?: string
           project_id?: string | null
+          start_time?: string | null
           status?: string
           ticket_id?: string | null
           title?: string
