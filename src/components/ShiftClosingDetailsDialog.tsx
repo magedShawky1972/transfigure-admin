@@ -91,6 +91,27 @@ export default function ShiftClosingDetailsDialog({
 
       if (ludoError) throw ludoError;
 
+      // Helper function to get image URL (supports both Cloudinary URLs and Supabase storage paths)
+      const getImageUrl = async (imagePath: string | null, bucket: string): Promise<string | null> => {
+        if (!imagePath) return null;
+        
+        // If it's already a full URL (Cloudinary), use it directly
+        if (imagePath.startsWith('https://') || imagePath.startsWith('http://')) {
+          return imagePath;
+        }
+        
+        // Otherwise, try to get signed URL from Supabase storage (for legacy images)
+        try {
+          const { data: signedUrlData } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(imagePath, 3600);
+          return signedUrlData?.signedUrl || null;
+        } catch (error) {
+          console.error(`Error getting signed URL for ${imagePath}:`, error);
+          return null;
+        }
+      };
+
       // Process brand balances
       if (balanceData && balanceData.length > 0) {
         const brandIds = balanceData.map((b) => b.brand_id);
@@ -105,15 +126,7 @@ export default function ShiftClosingDetailsDialog({
 
         const enrichedBalances: BrandBalance[] = await Promise.all(
           balanceData.map(async (balance) => {
-            let imageUrl: string | null = null;
-
-            if (balance.receipt_image_path) {
-              const { data: signedUrlData } = await supabase.storage
-                .from("shift-receipts")
-                .createSignedUrl(balance.receipt_image_path, 3600);
-
-              imageUrl = signedUrlData?.signedUrl || null;
-            }
+            const imageUrl = await getImageUrl(balance.receipt_image_path, "shift-receipts");
 
             return {
               ...balance,
@@ -132,15 +145,7 @@ export default function ShiftClosingDetailsDialog({
       if (ludoData && ludoData.length > 0) {
         const enrichedLudo: LudoTransaction[] = await Promise.all(
           ludoData.map(async (ludo) => {
-            let imageUrl: string | null = null;
-
-            if (ludo.image_path) {
-              const { data: signedUrlData } = await supabase.storage
-                .from("ludo-receipts")
-                .createSignedUrl(ludo.image_path, 3600);
-
-              imageUrl = signedUrlData?.signedUrl || null;
-            }
+            const imageUrl = await getImageUrl(ludo.image_path, "ludo-receipts");
 
             return {
               id: ludo.id,
