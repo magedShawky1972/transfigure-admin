@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Download, Trash2, Mail } from "lucide-react";
+import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import {
@@ -47,50 +47,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
+type PurchaseItem = {
+  id: string;
+  budget_value: number | null;
+  qty: number | null;
+  uom: string | null;
+  currency_id: string | null;
+  external_link: string;
+};
+
 const getFormSchema = (language: string) => z.object({
   department_id: z.string().min(1, language === 'ar' ? "القسم مطلوب" : "Department is required"),
   subject: z.string().min(3, language === 'ar' ? "الموضوع يجب أن يكون 3 أحرف على الأقل" : "Subject must be at least 3 characters"),
   description: z.string().min(10, language === 'ar' ? "الوصف يجب أن يكون 10 أحرف على الأقل" : "Description must be at least 10 characters"),
   priority: z.enum(["Low", "Medium", "High", "Urgent"]),
   is_purchase_ticket: z.boolean().default(false),
-  external_link: z.string().url(language === 'ar' ? "الرجاء إدخال رابط صحيح" : "Please enter a valid URL").optional().or(z.literal("")),
-  attachment: z.any().optional(),
-  budget_value: z.number().optional().nullable(),
-  qty: z.number().optional().nullable(),
-  uom: z.string().optional().nullable(),
-  currency_id: z.string().optional().nullable(),
-}).refine((data) => {
-  if (data.is_purchase_ticket) {
-    return data.budget_value !== null && data.budget_value !== undefined;
-  }
-  return true;
-}, {
-  message: language === 'ar' ? "قيمة الميزانية مطلوبة لطلبات الشراء" : "Budget value is required for purchase requests",
-  path: ["budget_value"],
-}).refine((data) => {
-  if (data.is_purchase_ticket) {
-    return data.qty !== null && data.qty !== undefined;
-  }
-  return true;
-}, {
-  message: language === 'ar' ? "الكمية مطلوبة لطلبات الشراء" : "Quantity is required for purchase requests",
-  path: ["qty"],
-}).refine((data) => {
-  if (data.is_purchase_ticket) {
-    return data.uom !== null && data.uom !== undefined && data.uom !== "";
-  }
-  return true;
-}, {
-  message: language === 'ar' ? "وحدة القياس مطلوبة لطلبات الشراء" : "UOM is required for purchase requests",
-  path: ["uom"],
-}).refine((data) => {
-  if (data.is_purchase_ticket) {
-    return data.currency_id !== null && data.currency_id !== undefined && data.currency_id !== "";
-  }
-  return true;
-}, {
-  message: language === 'ar' ? "العملة مطلوبة لطلبات الشراء" : "Currency is required for purchase requests",
-  path: ["currency_id"],
 });
 
 type UOM = {
@@ -156,6 +127,18 @@ const Tickets = () => {
   const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
   const [newUomName, setNewUomName] = useState("");
   const [addingUom, setAddingUom] = useState(false);
+  
+  // Multi-file states
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
+  
+  // Multi external links (for non-purchase tickets)
+  const [externalLinks, setExternalLinks] = useState<string[]>(['']);
+  
+  // Multi purchase items
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([
+    { id: crypto.randomUUID(), budget_value: null, qty: null, uom: null, currency_id: null, external_link: '' }
+  ]);
 
   const formSchema = getFormSchema(language);
 
@@ -167,12 +150,6 @@ const Tickets = () => {
       description: "",
       priority: "Medium",
       is_purchase_ticket: false,
-      external_link: "",
-      attachment: undefined,
-      budget_value: null,
-      qty: null,
-      uom: null,
-      currency_id: null,
     },
   });
 
@@ -234,7 +211,6 @@ const Tickets = () => {
       if (error) throw error;
 
       setUomList(prev => [...prev, data]);
-      form.setValue("uom", data.uom_code);
       setNewUomName("");
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
@@ -303,15 +279,104 @@ const Tickets = () => {
     }
   };
 
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedImages(prev => [...prev, ...files]);
+    e.target.value = '';
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle video selection
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedVideos(prev => [...prev, ...files]);
+    e.target.value = '';
+  };
+
+  const removeVideo = (index: number) => {
+    setSelectedVideos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle external links for non-purchase tickets
+  const addExternalLink = () => {
+    setExternalLinks(prev => [...prev, '']);
+  };
+
+  const removeExternalLink = (index: number) => {
+    setExternalLinks(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateExternalLink = (index: number, value: string) => {
+    setExternalLinks(prev => prev.map((link, i) => i === index ? value : link));
+  };
+
+  // Handle purchase items
+  const addPurchaseItem = () => {
+    setPurchaseItems(prev => [...prev, { 
+      id: crypto.randomUUID(), 
+      budget_value: null, 
+      qty: null, 
+      uom: null, 
+      currency_id: null, 
+      external_link: '' 
+    }]);
+  };
+
+  const removePurchaseItem = (id: string) => {
+    if (purchaseItems.length > 1) {
+      setPurchaseItems(prev => prev.filter(item => item.id !== id));
+    }
+  };
+
+  const updatePurchaseItem = (id: string, field: keyof PurchaseItem, value: any) => {
+    setPurchaseItems(prev => prev.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+
+  const resetForm = () => {
+    form.reset();
+    setSelectedImages([]);
+    setSelectedVideos([]);
+    setExternalLinks(['']);
+    setPurchaseItems([{ id: crypto.randomUUID(), budget_value: null, qty: null, uom: null, currency_id: null, external_link: '' }]);
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (isSubmitting) return; // Prevent multiple submissions
+    if (isSubmitting) return;
+    
+    // Validate purchase items if purchase ticket
+    if (values.is_purchase_ticket) {
+      const invalidItems = purchaseItems.filter(item => 
+        item.budget_value === null || item.qty === null || !item.uom || !item.currency_id
+      );
+      if (invalidItems.length > 0) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'يرجى ملء جميع حقول عناصر الشراء المطلوبة' : 'Please fill all required purchase item fields',
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error(language === 'ar' ? "غير مصرح" : "Not authenticated");
 
-      // Create the ticket first
+      // Prepare external links
+      const validExternalLinks = values.is_purchase_ticket 
+        ? purchaseItems.map(item => item.external_link).filter(link => link.trim())
+        : externalLinks.filter(link => link.trim());
+      
+      // Use first item for main ticket fields, store all links as JSON
+      const firstPurchaseItem = purchaseItems[0];
+      
       const { data: ticketData, error } = await supabase
         .from("tickets")
         .insert({
@@ -321,47 +386,65 @@ const Tickets = () => {
           description: values.description,
           priority: values.priority,
           is_purchase_ticket: values.is_purchase_ticket,
-          external_link: values.external_link || null,
-          budget_value: values.is_purchase_ticket ? values.budget_value : null,
-          qty: values.is_purchase_ticket ? values.qty : null,
-          uom: values.is_purchase_ticket ? values.uom : null,
-          currency_id: values.is_purchase_ticket ? values.currency_id : null,
-          ticket_number: "", // Will be auto-generated by trigger
+          external_link: validExternalLinks.length > 0 ? validExternalLinks.join('\n') : null,
+          budget_value: values.is_purchase_ticket ? firstPurchaseItem.budget_value : null,
+          qty: values.is_purchase_ticket ? firstPurchaseItem.qty : null,
+          uom: values.is_purchase_ticket ? firstPurchaseItem.uom : null,
+          currency_id: values.is_purchase_ticket ? firstPurchaseItem.currency_id : null,
+          ticket_number: "",
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Handle file upload if attachment exists
-      if (values.attachment && values.attachment[0] && ticketData) {
-        const file = values.attachment[0];
+      // Upload images
+      for (const file of selectedImages) {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('ticket-attachments')
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
-        
-        // Insert attachment record
-        const { error: attachmentError } = await supabase
-          .from('ticket_attachments')
-          .insert({
-            ticket_id: ticketData.id,
-            user_id: user.id,
-            file_name: file.name,
-            file_path: fileName,
-            file_size: file.size,
-            mime_type: file.type,
-          });
-
-        if (attachmentError) throw attachmentError;
+        if (!uploadError) {
+          await supabase
+            .from('ticket_attachments')
+            .insert({
+              ticket_id: ticketData.id,
+              user_id: user.id,
+              file_name: file.name,
+              file_path: fileName,
+              file_size: file.size,
+              mime_type: file.type,
+            });
+        }
       }
 
-      // Get department admins at order level 1 to notify (first approval level)
-      // For initial notification, target regular admins (not purchase admins) at order 1
+      // Upload videos
+      for (const file of selectedVideos) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('ticket-attachments')
+          .upload(fileName, file);
+
+        if (!uploadError) {
+          await supabase
+            .from('ticket_attachments')
+            .insert({
+              ticket_id: ticketData.id,
+              user_id: user.id,
+              file_name: file.name,
+              file_path: fileName,
+              file_size: file.size,
+              mime_type: file.type,
+            });
+        }
+      }
+
+      // Send notification
       const { data: firstLevelAdmins } = await supabase
         .from("department_admins")
         .select("user_id")
@@ -369,7 +452,6 @@ const Tickets = () => {
         .eq("admin_order", 1)
         .eq("is_purchase_admin", false);
 
-      // Send notification to first level regular admins only
       if (firstLevelAdmins && firstLevelAdmins.length > 0 && ticketData) {
         await supabase.functions.invoke("send-ticket-notification", {
           body: {
@@ -387,7 +469,7 @@ const Tickets = () => {
       });
 
       setOpen(false);
-      form.reset();
+      resetForm();
       fetchTickets();
     } catch (error: any) {
       toast({
@@ -410,7 +492,7 @@ const Tickets = () => {
     }
   };
 
-const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "Open": return "default";
       case "In Progress": return "default";
@@ -477,7 +559,6 @@ const getStatusColor = (status: string) => {
 
   const handleResendNotification = async (ticket: Ticket) => {
     try {
-      // Get all department admins for this ticket's department
       const { data: adminData, error: adminError } = await supabase
         .from("department_admins")
         .select("user_id")
@@ -491,7 +572,6 @@ const getStatusColor = (status: string) => {
         throw new Error(language === 'ar' ? 'لم يتم العثور على مسؤولين للقسم' : 'No admins found for this department');
       }
 
-      // Send batch notification to all department admins
       const { error: notificationError } = await supabase.functions.invoke("send-ticket-notification", {
         body: {
           type: "ticket_created",
@@ -524,14 +604,17 @@ const getStatusColor = (status: string) => {
             {language === 'ar' ? 'إنشاء وتتبع تذاكر الدعم الخاصة بك' : 'Create and track your support tickets'}
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) resetForm();
+        }}>
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               {language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket'}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{language === 'ar' ? 'إنشاء تذكرة جديدة' : 'Create New Ticket'}</DialogTitle>
             </DialogHeader>
@@ -606,7 +689,7 @@ const getStatusColor = (status: string) => {
                       <FormControl>
                         <Textarea
                           placeholder={language === 'ar' ? 'قدم معلومات تفصيلية عن مشكلتك' : 'Provide detailed information about your issue'}
-                          className="min-h-[120px]"
+                          className="min-h-[100px]"
                           {...field}
                         />
                       </FormControl>
@@ -634,89 +717,84 @@ const getStatusColor = (status: string) => {
                   )}
                 />
                 
-                {/* Purchase ticket fields - only show when is_purchase_ticket is checked */}
+                {/* Purchase Items Section */}
                 {isPurchaseTicket && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="budget_value"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{language === 'ar' ? 'قيمة الميزانية' : 'Budget Value'} *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number"
-                                step="0.01"
-                                placeholder={language === 'ar' ? 'أدخل قيمة الميزانية' : 'Enter budget value'}
-                                {...field}
-                                value={field.value ?? ''}
-                                onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="currency_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{language === 'ar' ? 'العملة' : 'Currency'} *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={language === 'ar' ? 'اختر العملة' : 'Select Currency'} />
-                                </SelectTrigger>
-                              </FormControl>
+                  <div className="space-y-4 border rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium">{language === 'ar' ? 'عناصر الشراء' : 'Purchase Items'}</h3>
+                      <Button type="button" variant="outline" size="sm" onClick={addPurchaseItem}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        {language === 'ar' ? 'إضافة عنصر' : 'Add Item'}
+                      </Button>
+                    </div>
+                    
+                    {purchaseItems.map((item, index) => (
+                      <div key={item.id} className="border rounded-lg p-3 space-y-3 bg-muted/30">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">
+                            {language === 'ar' ? `عنصر ${index + 1}` : `Item ${index + 1}`}
+                          </span>
+                          {purchaseItems.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removePurchaseItem(item.id)}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-sm font-medium">{language === 'ar' ? 'قيمة الميزانية' : 'Budget Value'} *</label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder={language === 'ar' ? 'القيمة' : 'Value'}
+                              value={item.budget_value ?? ''}
+                              onChange={(e) => updatePurchaseItem(item.id, 'budget_value', e.target.value ? parseFloat(e.target.value) : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{language === 'ar' ? 'العملة' : 'Currency'} *</label>
+                            <Select 
+                              value={item.currency_id || ""} 
+                              onValueChange={(v) => updatePurchaseItem(item.id, 'currency_id', v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={language === 'ar' ? 'اختر' : 'Select'} />
+                              </SelectTrigger>
                               <SelectContent>
                                 {currencies.map((currency) => (
                                   <SelectItem key={currency.id} value={currency.id}>
-                                    {currency.currency_code} - {language === 'ar' && currency.currency_name_ar ? currency.currency_name_ar : currency.currency_name}
+                                    {currency.currency_code}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="qty"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{language === 'ar' ? 'الكمية' : 'Quantity'}</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number"
-                                step="1"
-                                min="1"
-                                placeholder={language === 'ar' ? 'الكمية' : 'Qty'}
-                                {...field}
-                                value={field.value ?? ''}
-                                onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="uom"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{language === 'ar' ? 'وحدة القياس' : 'UOM'}</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={language === 'ar' ? 'اختر الوحدة' : 'Select UOM'} />
-                                </SelectTrigger>
-                              </FormControl>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{language === 'ar' ? 'الكمية' : 'Quantity'} *</label>
+                            <Input
+                              type="number"
+                              step="1"
+                              min="1"
+                              placeholder={language === 'ar' ? 'الكمية' : 'Qty'}
+                              value={item.qty ?? ''}
+                              onChange={(e) => updatePurchaseItem(item.id, 'qty', e.target.value ? parseFloat(e.target.value) : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{language === 'ar' ? 'وحدة القياس' : 'UOM'} *</label>
+                            <Select 
+                              value={item.uom || ""} 
+                              onValueChange={(v) => updatePurchaseItem(item.id, 'uom', v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={language === 'ar' ? 'اختر' : 'Select'} />
+                              </SelectTrigger>
                               <SelectContent>
                                 {uomList.map((uom) => (
                                   <SelectItem key={uom.id} value={uom.uom_code}>
@@ -725,12 +803,22 @@ const getStatusColor = (status: string) => {
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="flex gap-2 items-end">
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="text-sm font-medium">{language === 'ar' ? 'رابط خارجي' : 'External Link'}</label>
+                          <Input
+                            placeholder="https://..."
+                            value={item.external_link}
+                            onChange={(e) => updatePurchaseItem(item.id, 'external_link', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Add new UOM section */}
+                    <div className="flex gap-2 items-end pt-2 border-t">
                       <div className="flex-1">
                         <label className="text-sm font-medium">{language === 'ar' ? 'إضافة وحدة قياس جديدة' : 'Add New UOM'}</label>
                         <Input
@@ -749,43 +837,133 @@ const getStatusColor = (status: string) => {
                         {addingUom ? '...' : (language === 'ar' ? 'إضافة' : 'Add')}
                       </Button>
                     </div>
-                  </>
+                  </div>
                 )}
-                <FormField
-                  control={form.control}
-                  name="external_link"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'رابط خارجي' : 'External Link'}</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder={language === 'ar' ? 'https://www.amazon.com/...' : 'https://www.amazon.com/...'} 
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="attachment"
-                  render={({ field: { value, onChange, ...field } }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'مرفق' : 'Attachment'}</FormLabel>
-                      <FormControl>
+                
+                {/* External Links Section (for non-purchase tickets) */}
+                {!isPurchaseTicket && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <FormLabel>{language === 'ar' ? 'روابط خارجية' : 'External Links'}</FormLabel>
+                      <Button type="button" variant="outline" size="sm" onClick={addExternalLink}>
+                        <LinkIcon className="h-4 w-4 mr-1" />
+                        {language === 'ar' ? 'إضافة رابط' : 'Add Link'}
+                      </Button>
+                    </div>
+                    {externalLinks.map((link, index) => (
+                      <div key={index} className="flex gap-2">
                         <Input
-                          type="file"
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                          onChange={(e) => onChange(e.target.files)}
-                          {...field}
+                          placeholder="https://..."
+                          value={link}
+                          onChange={(e) => updateExternalLink(index, e.target.value)}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                        {externalLinks.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeExternalLink(index)}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Images Upload */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <FormLabel>{language === 'ar' ? 'الصور' : 'Images'}</FormLabel>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageSelect}
+                      />
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <span>
+                          <Image className="h-4 w-4 mr-1" />
+                          {language === 'ar' ? 'إضافة صور' : 'Add Images'}
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+                  {selectedImages.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedImages.map((file, index) => (
+                        <div key={index} className="relative group">
+                          <div className="w-20 h-20 border rounded-lg overflow-hidden">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeImage(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                />
-                <div className="flex flex-col sm:flex-row justify-end gap-2">
+                </div>
+
+                {/* Videos Upload */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <FormLabel>{language === 'ar' ? 'الفيديوهات' : 'Videos'}</FormLabel>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleVideoSelect}
+                      />
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <span>
+                          <Video className="h-4 w-4 mr-1" />
+                          {language === 'ar' ? 'إضافة فيديو' : 'Add Videos'}
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+                  {selectedVideos.length > 0 && (
+                    <div className="space-y-2">
+                      {selectedVideos.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between border rounded-lg p-2">
+                          <div className="flex items-center gap-2">
+                            <Video className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeVideo(index)}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting} className="w-full sm:w-auto">
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
@@ -871,7 +1049,7 @@ const getStatusColor = (status: string) => {
                     >
                       <FileText className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                       <span className="truncate max-w-[120px] sm:max-w-none">
-                        {ticket.ticket_attachments[0].file_name || (language === 'ar' ? 'مرفق' : 'Attachment')}
+                        {ticket.ticket_attachments.length} {language === 'ar' ? 'مرفقات' : 'attachments'}
                       </span>
                     </Button>
                   )}
