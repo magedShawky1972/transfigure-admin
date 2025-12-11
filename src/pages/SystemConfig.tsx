@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save } from "lucide-react";
+import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ConfigItem {
@@ -42,6 +42,11 @@ interface WhatsAppConfig {
   is_active: boolean;
 }
 
+interface IdleTimeoutConfig {
+  enabled: boolean;
+  timeout_minutes: number;
+}
+
 const SystemConfig = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -66,11 +71,17 @@ const SystemConfig = () => {
     is_active: true,
   });
   const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+  const [idleTimeoutConfig, setIdleTimeoutConfig] = useState<IdleTimeoutConfig>({
+    enabled: true,
+    timeout_minutes: 30,
+  });
+  const [savingIdleTimeout, setSavingIdleTimeout] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
     loadApiKeys();
     loadWhatsappConfig();
+    loadIdleTimeoutConfig();
   }, []);
 
   const checkAdminAccess = async () => {
@@ -197,6 +208,75 @@ const SystemConfig = () => {
       });
     } finally {
       setSavingWhatsapp(false);
+    }
+  };
+
+  const loadIdleTimeoutConfig = async () => {
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("*")
+      .eq("setting_key", "idle_timeout")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading idle timeout config:", error);
+      return;
+    }
+
+    if (data && data.setting_value) {
+      const value = data.setting_value as unknown as IdleTimeoutConfig;
+      setIdleTimeoutConfig({
+        enabled: value.enabled ?? true,
+        timeout_minutes: value.timeout_minutes ?? 30,
+      });
+    }
+  };
+
+  const handleSaveIdleTimeoutConfig = async () => {
+    setSavingIdleTimeout(true);
+    try {
+      const { data: existing } = await supabase
+        .from("system_settings")
+        .select("id")
+        .eq("setting_key", "idle_timeout")
+        .maybeSingle();
+
+      const settingValueJson = { enabled: idleTimeoutConfig.enabled, timeout_minutes: idleTimeoutConfig.timeout_minutes };
+
+      if (existing) {
+        const { error } = await supabase
+          .from("system_settings")
+          .update({
+            setting_value: settingValueJson,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("setting_key", "idle_timeout");
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("system_settings")
+          .insert([{
+            setting_key: "idle_timeout",
+            setting_value: settingValueJson,
+          }]);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: "Idle timeout configuration saved successfully",
+      });
+    } catch (error) {
+      console.error("Error saving idle timeout config:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save idle timeout configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingIdleTimeout(false);
     }
   };
 
@@ -761,6 +841,46 @@ const SystemConfig = () => {
             <Button onClick={handleSaveWhatsappConfig} disabled={savingWhatsapp} className="gap-2">
               <Save className="h-4 w-4" />
               {savingWhatsapp ? "Saving..." : "Save Configuration"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Session Timeout Configuration Section */}
+      <div className="space-y-6 mt-8">
+        <div className="flex items-center gap-3">
+          <Clock className="h-6 w-6 text-primary" />
+          <h2 className="text-2xl font-bold">Session Timeout Configuration</h2>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Idle Session Timeout</CardTitle>
+            <CardDescription>
+              Configure automatic logout after user inactivity
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-3">
+              <Checkbox
+                id="idle_timeout_enabled"
+                checked={idleTimeoutConfig.enabled}
+                onCheckedChange={(checked) =>
+                  setIdleTimeoutConfig({ ...idleTimeoutConfig, enabled: checked as boolean })
+                }
+              />
+              <Label htmlFor="idle_timeout_enabled" className="cursor-pointer">
+                Enable automatic logout after idle session (30 minutes)
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              When enabled, users will be automatically logged out after 30 minutes of inactivity. 
+              A warning notification will appear 2 minutes before logout.
+            </p>
+
+            <Button onClick={handleSaveIdleTimeoutConfig} disabled={savingIdleTimeout} className="gap-2">
+              <Save className="h-4 w-4" />
+              {savingIdleTimeout ? "Saving..." : "Save Configuration"}
             </Button>
           </CardContent>
         </Card>
