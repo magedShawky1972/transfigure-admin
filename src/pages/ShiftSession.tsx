@@ -259,7 +259,7 @@ const ShiftSession = () => {
       const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
         body: { 
           imageBase64: base64Image, 
-          folder: "shift-receipts",
+          folder: "Edara_Shifts_Images",
           publicId 
         },
       });
@@ -697,7 +697,7 @@ const ShiftSession = () => {
       const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
         body: { 
           imageBase64: base64Image, 
-          folder: "shift-receipts",
+          folder: "Edara_Shifts_Images",
           publicId 
         },
       });
