@@ -243,16 +243,31 @@ const ShiftSession = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const fileExt = file.name.split('.').pop();
-      const tempSessionId = `opening-${user.id}-${new Date().toISOString().split('T')[0]}`;
-      const fileName = `${user.id}/${tempSessionId}/${brandId}-opening.${fileExt}`;
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Image = await base64Promise;
 
-      const { error: uploadError } = await supabase.storage
-        .from("shift-receipts")
-        .upload(fileName, file, { upsert: true });
+      // Upload to Cloudinary
+      const tempSessionId = `opening-${user.id}-${new Date().toISOString().split('T')[0]}`;
+      const publicId = `${user.id}/${tempSessionId}/${brandId}-opening`;
+
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
+        body: { 
+          imageBase64: base64Image, 
+          folder: "shift-receipts",
+          publicId 
+        },
+      });
 
       if (uploadError) throw uploadError;
+      if (!uploadData?.url) throw new Error("Failed to get image URL from Cloudinary");
 
+      const cloudinaryUrl = uploadData.url;
       const newBalance = openingBalances[brandId]?.opening_balance || 0;
       
       setOpeningBalances((prev) => ({
@@ -263,13 +278,12 @@ const ShiftSession = () => {
           closing_balance: 0,
           receipt_image_path: null,
           opening_balance: newBalance,
-          opening_image_path: fileName,
+          opening_image_path: cloudinaryUrl,
         },
       }));
 
-      // Get signed URL immediately for display
-      const signedUrl = await getImageUrl(fileName);
-      setOpeningImageUrls((prev) => ({ ...prev, [brandId]: signedUrl }));
+      // Set URL directly for display (Cloudinary URLs are public)
+      setOpeningImageUrls((prev) => ({ ...prev, [brandId]: cloudinaryUrl }));
 
       toast({
         title: t("success"),
@@ -284,7 +298,7 @@ const ShiftSession = () => {
       const brandName = brand?.short_name || brand?.brand_name || "unknown";
 
       // Automatically extract number using AI
-      await extractOpeningNumberFromImage(brandId, file, fileName, brandName);
+      await extractOpeningNumberFromImage(brandId, file, cloudinaryUrl, brandName);
     } catch (error: any) {
       console.error("Error uploading opening image:", error);
       toast({
@@ -300,11 +314,7 @@ const ShiftSession = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const existingPath = openingBalances[brandId]?.opening_image_path;
-      if (existingPath) {
-        await supabase.storage.from("shift-receipts").remove([existingPath]);
-      }
-
+      // Note: Cloudinary deletion is optional - images will be overwritten on re-upload
       const currentBalance = openingBalances[brandId]?.opening_balance || 0;
 
       setOpeningBalances((prev) => ({
@@ -672,15 +682,30 @@ const ShiftSession = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !shiftSession) return;
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${shiftSession.id}/${brandId}.${fileExt}`;
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Image = await base64Promise;
 
-      const { error: uploadError } = await supabase.storage
-        .from("shift-receipts")
-        .upload(fileName, file, { upsert: true });
+      // Upload to Cloudinary
+      const publicId = `${user.id}/${shiftSession.id}/${brandId}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
+        body: { 
+          imageBase64: base64Image, 
+          folder: "shift-receipts",
+          publicId 
+        },
+      });
 
       if (uploadError) throw uploadError;
+      if (!uploadData?.url) throw new Error("Failed to get image URL from Cloudinary");
 
+      const cloudinaryUrl = uploadData.url;
       const newBalance = balances[brandId]?.closing_balance || 0;
       
       setBalances((prev) => ({
@@ -689,16 +714,15 @@ const ShiftSession = () => {
           ...prev[brandId],
           brand_id: brandId,
           closing_balance: newBalance,
-          receipt_image_path: fileName,
+          receipt_image_path: cloudinaryUrl,
         },
       }));
 
-      // Get signed URL immediately for display
-      const signedUrl = await getImageUrl(fileName);
-      setImageUrls((prev) => ({ ...prev, [brandId]: signedUrl }));
+      // Set URL directly for display (Cloudinary URLs are public)
+      setImageUrls((prev) => ({ ...prev, [brandId]: cloudinaryUrl }));
 
       // Save to database immediately
-      await saveBalanceToDb(brandId, newBalance, fileName);
+      await saveBalanceToDb(brandId, newBalance, cloudinaryUrl);
 
       toast({
         title: t("success"),
@@ -713,7 +737,7 @@ const ShiftSession = () => {
       const brandName = brand?.short_name || brand?.brand_name || "unknown";
 
       // Automatically extract number using AI
-      await extractNumberFromImage(brandId, file, fileName, brandName);
+      await extractNumberFromImage(brandId, file, cloudinaryUrl, brandName);
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
@@ -729,11 +753,7 @@ const ShiftSession = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !shiftSession) return;
 
-      const existingPath = balances[brandId]?.receipt_image_path;
-      if (existingPath) {
-        await supabase.storage.from("shift-receipts").remove([existingPath]);
-      }
-
+      // Note: Cloudinary deletion is optional - images will be overwritten on re-upload
       const currentBalance = balances[brandId]?.closing_balance || 0;
 
       setBalances((prev) => ({
@@ -768,7 +788,15 @@ const ShiftSession = () => {
   };
 
   const getImageUrl = async (imagePath: string | null): Promise<string | null> => {
+    // For Cloudinary URLs, return them directly as they are already public
     if (!imagePath) return null;
+    
+    // If it's already a Cloudinary URL (starts with https://res.cloudinary.com), return as-is
+    if (imagePath.startsWith('https://res.cloudinary.com') || imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    // Fallback for old Supabase storage paths (backward compatibility)
     const { data, error } = await supabase.storage.from("shift-receipts").createSignedUrl(imagePath, 3600);
     if (error || !data?.signedUrl) return null;
     return data.signedUrl;
