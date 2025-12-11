@@ -1444,6 +1444,8 @@ export type Database = {
           closing_balance: number
           created_at: string
           id: string
+          opening_balance: number | null
+          opening_image_path: string | null
           receipt_image_path: string | null
           shift_session_id: string
           updated_at: string
@@ -1453,6 +1455,8 @@ export type Database = {
           closing_balance?: number
           created_at?: string
           id?: string
+          opening_balance?: number | null
+          opening_image_path?: string | null
           receipt_image_path?: string | null
           shift_session_id: string
           updated_at?: string
@@ -1462,6 +1466,8 @@ export type Database = {
           closing_balance?: number
           created_at?: string
           id?: string
+          opening_balance?: number | null
+          opening_image_path?: string | null
           receipt_image_path?: string | null
           shift_session_id?: string
           updated_at?: string

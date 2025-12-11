@@ -1350,6 +1350,8 @@ const translations = {
     "closeShift": "إغلاق الوردية",
     "shiftOpenedAt": "تم فتح الوردية في",
     "closingBalance": "الرصيد الختامي",
+    "openingBalance": "رصيد الفتح",
+    "uploadOpeningImagesMessage": "يجب رفع صور الفتح لجميع العلامات التجارية قبل فتح الوردية",
     "receiptImage": "صورة الإيصال",
     "uploadImage": "رفع صورة",
     "changeImage": "تغيير الصورة",

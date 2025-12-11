@@ -44,6 +44,8 @@ interface BrandBalance {
   brand_id: string;
   closing_balance: number;
   receipt_image_path: string | null;
+  opening_balance: number;
+  opening_image_path: string | null;
 }
 
 const ShiftSession = () => {
@@ -54,6 +56,7 @@ const ShiftSession = () => {
   const [shiftSession, setShiftSession] = useState<ShiftSession | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [balances, setBalances] = useState<Record<string, BrandBalance>>({});
+  const [openingBalances, setOpeningBalances] = useState<Record<string, BrandBalance>>({});
   const [userName, setUserName] = useState("");
   const [currentDateHijri, setCurrentDateHijri] = useState("");
   const [currentDateGregorian, setCurrentDateGregorian] = useState("");
@@ -62,9 +65,12 @@ const ShiftSession = () => {
   const [hasActiveAssignment, setHasActiveAssignment] = useState(false);
   const [showRollbackDialog, setShowRollbackDialog] = useState(false);
   const [rollbackPassword, setRollbackPassword] = useState("");
-const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>>({});
+  const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>>({});
+  const [extractingOpeningBrands, setExtractingOpeningBrands] = useState<Record<string, boolean>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [brandErrors, setBrandErrors] = useState<Record<string, string | null>>({});
+  const [openingBrandErrors, setOpeningBrandErrors] = useState<Record<string, string | null>>({});
+  const [openingImageUrls, setOpeningImageUrls] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -198,19 +204,251 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       if (error) throw error;
 
       const balancesMap: Record<string, BrandBalance> = {};
+      const openingBalancesMap: Record<string, BrandBalance> = {};
       data?.forEach((balance) => {
-        balancesMap[balance.brand_id] = balance;
+        balancesMap[balance.brand_id] = {
+          brand_id: balance.brand_id,
+          closing_balance: balance.closing_balance,
+          receipt_image_path: balance.receipt_image_path,
+          opening_balance: balance.opening_balance || 0,
+          opening_image_path: balance.opening_image_path,
+        };
+        openingBalancesMap[balance.brand_id] = {
+          brand_id: balance.brand_id,
+          closing_balance: balance.closing_balance,
+          receipt_image_path: balance.receipt_image_path,
+          opening_balance: balance.opening_balance || 0,
+          opening_image_path: balance.opening_image_path,
+        };
       });
       setBalances(balancesMap);
+      setOpeningBalances(openingBalancesMap);
+      
+      // Load opening image URLs
+      const urls: Record<string, string | null> = {};
+      for (const brandId of Object.keys(openingBalancesMap)) {
+        const imagePath = openingBalancesMap[brandId]?.opening_image_path;
+        if (imagePath) {
+          urls[brandId] = await getImageUrl(imagePath);
+        }
+      }
+      setOpeningImageUrls(urls);
     } catch (error: any) {
       console.error("Error loading balances:", error);
     }
+  };
+
+  const handleOpeningImageUpload = async (brandId: string, file: File) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const fileExt = file.name.split('.').pop();
+      const tempSessionId = `opening-${user.id}-${new Date().toISOString().split('T')[0]}`;
+      const fileName = `${user.id}/${tempSessionId}/${brandId}-opening.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("shift-receipts")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const newBalance = openingBalances[brandId]?.opening_balance || 0;
+      
+      setOpeningBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: 0,
+          receipt_image_path: null,
+          opening_balance: newBalance,
+          opening_image_path: fileName,
+        },
+      }));
+
+      // Get signed URL immediately for display
+      const signedUrl = await getImageUrl(fileName);
+      setOpeningImageUrls((prev) => ({ ...prev, [brandId]: signedUrl }));
+
+      toast({
+        title: t("success"),
+        description: t("imageUploadedSuccessfully"),
+      });
+
+      // Clear any previous error for this brand
+      setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: null }));
+
+      // Get brand name for AI validation
+      const brand = brands.find(b => b.id === brandId);
+      const brandName = brand?.short_name || brand?.brand_name || "unknown";
+
+      // Automatically extract number using AI
+      await extractOpeningNumberFromImage(brandId, file, fileName, brandName);
+    } catch (error: any) {
+      console.error("Error uploading opening image:", error);
+      toast({
+        title: t("error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteOpeningImage = async (brandId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const existingPath = openingBalances[brandId]?.opening_image_path;
+      if (existingPath) {
+        await supabase.storage.from("shift-receipts").remove([existingPath]);
+      }
+
+      const currentBalance = openingBalances[brandId]?.opening_balance || 0;
+
+      setOpeningBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: 0,
+          receipt_image_path: null,
+          opening_balance: currentBalance,
+          opening_image_path: null,
+        },
+      }));
+
+      // Clear the image URL and error
+      setOpeningImageUrls((prev) => ({ ...prev, [brandId]: null }));
+      setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: null }));
+
+      toast({
+        title: t("success"),
+        description: t("imageDeletedSuccessfully") || "تم حذف الصورة بنجاح",
+      });
+    } catch (error: any) {
+      console.error("Error deleting opening image:", error);
+      toast({
+        title: t("error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const extractOpeningNumberFromImage = async (brandId: string, file: File, imagePath: string, brandName: string) => {
+    setExtractingOpeningBrands((prev) => ({ ...prev, [brandId]: true }));
+    
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Image = await base64Promise;
+
+      const { data, error } = await supabase.functions.invoke("extract-shift-closing-number", {
+        body: { imageUrl: base64Image, brandId, brandName },
+      });
+
+      if (error) throw error;
+
+      if (data?.isValidBrand === false) {
+        const errorMsg = data.brandMismatchReason || "صورة لعلامة تجارية مختلفة";
+        setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: `صورة خاطئة: ${errorMsg}` }));
+        toast({
+          title: t("error") || "خطأ",
+          description: `الصورة المرفوعة ليست لـ ${brandName}. يرجى رفع الصورة الصحيحة.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.extractedNumber !== null && data?.extractedNumber !== undefined) {
+        setOpeningBalances((prev) => ({
+          ...prev,
+          [brandId]: {
+            ...prev[brandId],
+            brand_id: brandId,
+            closing_balance: 0,
+            receipt_image_path: null,
+            opening_balance: data.extractedNumber,
+            opening_image_path: imagePath,
+          },
+        }));
+
+        toast({
+          title: t("success"),
+          description: `تم استخراج الرقم: ${data.extractedNumber}`,
+        });
+      } else {
+        setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: "لم يتم العثور على الرقم في الصورة" }));
+        toast({
+          title: t("error") || "خطأ",
+          description: "لم يتم العثور على رقم الفتح. يرجى التأكد من الصورة أو إدخال الرقم يدوياً.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error extracting opening number:", error);
+      setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: "فشل في قراءة الصورة - يرجى المحاولة مرة أخرى" }));
+      toast({
+        title: t("error") || "خطأ",
+        description: "فشل في قراءة الصورة. يرجى رفع صورة أخرى.",
+        variant: "destructive",
+      });
+    } finally {
+      setExtractingOpeningBrands((prev) => ({ ...prev, [brandId]: false }));
+    }
+  };
+
+  const handleOpeningBalanceChange = (brandId: string, value: string) => {
+    const newBalance = parseFloat(value) || 0;
+    const imagePath = openingBalances[brandId]?.opening_image_path || null;
+    
+    setOpeningBalances((prev) => ({
+      ...prev,
+      [brandId]: {
+        ...prev[brandId],
+        brand_id: brandId,
+        closing_balance: 0,
+        receipt_image_path: null,
+        opening_balance: newBalance,
+        opening_image_path: imagePath,
+      },
+    }));
   };
 
   const handleOpenShift = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Filter only non-Ludo brands for validation
+      const requiredBrands = brands.filter((brand) => {
+        const brandNameLower = brand.brand_name.toLowerCase();
+        return !brandNameLower.includes("yalla ludo") && 
+               !brandNameLower.includes("يلا لودو") && 
+               !brandNameLower.includes("ludo");
+      });
+
+      // Check if all required brands have uploaded opening images
+      const missingOpeningBrands = requiredBrands.filter((brand) => {
+        const balance = openingBalances[brand.id];
+        return !balance?.opening_image_path;
+      });
+
+      if (missingOpeningBrands.length > 0) {
+        const missingNames = missingOpeningBrands.map((b) => b.brand_name).join("، ");
+        toast({
+          title: t("error") || "خطأ",
+          description: `يجب رفع صور الفتح لجميع العلامات التجارية التالية: ${missingNames}`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       // CRITICAL: Check if user has ANY open shift session (from any day) before opening a new one
       const { data: anyOpenSession } = await supabase
@@ -335,6 +573,28 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
 
       if (error) throw error;
 
+      // Save opening balances for all brands
+      const openingBalanceRecords = Object.values(openingBalances)
+        .filter(b => b.opening_image_path)
+        .map((balance) => ({
+          shift_session_id: newSession.id,
+          brand_id: balance.brand_id,
+          opening_balance: balance.opening_balance,
+          opening_image_path: balance.opening_image_path,
+          closing_balance: 0,
+          receipt_image_path: null,
+        }));
+
+      if (openingBalanceRecords.length > 0) {
+        const { error: balanceError } = await supabase
+          .from("shift_brand_balances")
+          .insert(openingBalanceRecords);
+        
+        if (balanceError) {
+          console.error("Error saving opening balances:", balanceError);
+        }
+      }
+
       // Send notifications to shift admins
       try {
         await supabase.functions.invoke("send-shift-open-notification", {
@@ -349,6 +609,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
       }
 
       setShiftSession(newSession);
+      await loadBrandBalances(newSession.id);
       toast({
         title: t("success"),
         description: t("shiftOpenedSuccessfully"),
@@ -924,51 +1185,53 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
           </div>
 
           {!shiftSession ? (
-            <Button onClick={handleOpenShift} className="w-full">
-              {t("openShift")}
-            </Button>
-          ) : (
             <div className="space-y-4">
-              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                <p className="font-semibold">{t("shiftOpenedAt")}: {new Date(shiftSession.opened_at).toLocaleString('ar-SA')}</p>
+              {/* Opening Balance Section - Before Opening Shift */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">{t("openingBalance") || "رصيد الفتح"}</h3>
+                <p className="text-sm text-muted-foreground">{t("uploadOpeningImagesMessage") || "يجب رفع صور الفتح لجميع العلامات التجارية قبل فتح الوردية"}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {brands.map((brand) => (
+                {brands.filter((brand) => {
+                  const brandNameLower = brand.brand_name.toLowerCase();
+                  return !brandNameLower.includes("yalla ludo") && 
+                         !brandNameLower.includes("يلا لودو") && 
+                         !brandNameLower.includes("ludo");
+                }).map((brand) => (
                   <Card 
                     key={brand.id}
-                    className={brandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
+                    className={openingBrandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
                   >
                     <CardHeader className="p-3 sm:p-4">
                       <CardTitle className="text-base sm:text-lg flex items-center justify-between">
                         <span className="truncate">{brand.short_name || brand.brand_name}</span>
-                        {brandErrors[brand.id] && (
+                        {openingBrandErrors[brand.id] && (
                           <span className="text-xs font-normal text-destructive">⚠️</span>
                         )}
                       </CardTitle>
-                      {brandErrors[brand.id] && (
-                        <p className="text-xs text-destructive">{brandErrors[brand.id]}</p>
+                      {openingBrandErrors[brand.id] && (
+                        <p className="text-xs text-destructive">{openingBrandErrors[brand.id]}</p>
                       )}
                     </CardHeader>
                     <CardContent className="p-3 sm:p-4 space-y-3">
                       <div>
-                        <Label>{t("closingBalance")}</Label>
+                        <Label>{t("openingBalance") || "رصيد الفتح"}</Label>
                         <div className="relative">
                           <Input
                             type="number"
-                            value={balances[brand.id]?.closing_balance || ""}
-                            onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
-                            onBlur={() => handleBalanceBlur(brand.id)}
+                            value={openingBalances[brand.id]?.opening_balance || ""}
+                            onChange={(e) => handleOpeningBalanceChange(brand.id, e.target.value)}
                             placeholder="0.00"
-                            disabled={extractingBrands[brand.id]}
+                            disabled={extractingOpeningBrands[brand.id]}
                           />
-                          {extractingBrands[brand.id] && (
+                          {extractingOpeningBrands[brand.id] && (
                             <div className="absolute left-3 top-1/2 -translate-y-1/2">
                               <Loader2 className="h-4 w-4 animate-spin text-primary" />
                             </div>
                           )}
                         </div>
-                        {extractingBrands[brand.id] && (
+                        {extractingOpeningBrands[brand.id] && (
                           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                             <Sparkles className="h-3 w-3" />
                             جاري قراءة الرقم...
@@ -976,23 +1239,23 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label>{t("receiptImage")}</Label>
+                        <Label>{t("receiptImage") || "صورة الإيصال"}</Label>
                         
                         {/* Image Preview */}
-                        {balances[brand.id]?.receipt_image_path && imageUrls[brand.id] && (
+                        {openingBalances[brand.id]?.opening_image_path && openingImageUrls[brand.id] && (
                           <div className="relative rounded-lg overflow-hidden border bg-muted">
                             <img
-                              src={imageUrls[brand.id] || ""}
+                              src={openingImageUrls[brand.id] || ""}
                               alt={brand.brand_name}
                               className="w-full h-32 object-cover cursor-pointer"
-                              onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
+                              onClick={() => setSelectedImage(openingImageUrls[brand.id] || null)}
                             />
                             <div className="absolute top-2 right-2 flex gap-1">
                               <Button
                                 size="icon"
                                 variant="secondary"
                                 className="h-7 w-7 bg-background/80 hover:bg-background"
-                                onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
+                                onClick={() => setSelectedImage(openingImageUrls[brand.id] || null)}
                               >
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
@@ -1000,7 +1263,7 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                                 size="icon"
                                 variant="destructive"
                                 className="h-7 w-7"
-                                onClick={() => handleDeleteImage(brand.id)}
+                                onClick={() => handleDeleteOpeningImage(brand.id)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
@@ -1015,28 +1278,182 @@ const [extractingBrands, setExtractingBrands] = useState<Record<string, boolean>
                             accept="image/*"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleImageUpload(brand.id, file);
+                              if (file) handleOpeningImageUpload(brand.id, file);
                             }}
                             className="hidden"
-                            id={`file-${brand.id}`}
-                            disabled={extractingBrands[brand.id]}
+                            id={`opening-file-${brand.id}`}
+                            disabled={extractingOpeningBrands[brand.id]}
                           />
                           <Label
-                            htmlFor={`file-${brand.id}`}
-                            className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent w-full justify-center ${extractingBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
+                            htmlFor={`opening-file-${brand.id}`}
+                            className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent w-full justify-center ${extractingOpeningBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
                           >
-                            {extractingBrands[brand.id] ? (
+                            {extractingOpeningBrands[brand.id] ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <Upload className="h-4 w-4" />
                             )}
-                            {balances[brand.id]?.receipt_image_path ? t("changeImage") : t("uploadImage")}
+                            {openingBalances[brand.id]?.opening_image_path ? t("changeImage") : t("uploadImage")}
                           </Label>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+
+              <Button onClick={handleOpenShift} className="w-full">
+                {t("openShift")}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                <p className="font-semibold">{t("shiftOpenedAt")}: {new Date(shiftSession.opened_at).toLocaleString('ar-SA')}</p>
+              </div>
+
+              {/* Opening Balances - Read Only */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">{t("openingBalance") || "أرصدة الفتح"}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {brands.filter((brand) => {
+                    const brandNameLower = brand.brand_name.toLowerCase();
+                    return !brandNameLower.includes("yalla ludo") && 
+                           !brandNameLower.includes("يلا لودو") && 
+                           !brandNameLower.includes("ludo");
+                  }).map((brand) => (
+                    <Card key={`opening-${brand.id}`} className="bg-muted/30">
+                      <CardHeader className="p-3 sm:p-4 pb-2">
+                        <CardTitle className="text-sm font-medium">{brand.short_name || brand.brand_name}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">{t("openingBalance") || "رصيد الفتح"}:</span>
+                          <span className="font-semibold">{balances[brand.id]?.opening_balance?.toFixed(2) || "0.00"}</span>
+                        </div>
+                        {balances[brand.id]?.opening_image_path && openingImageUrls[brand.id] && (
+                          <div className="relative rounded-lg overflow-hidden border h-20 cursor-pointer" onClick={() => setSelectedImage(openingImageUrls[brand.id] || null)}>
+                            <img
+                              src={openingImageUrls[brand.id] || ""}
+                              alt={brand.brand_name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              {/* Closing Balances */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">{t("closingBalance") || "أرصدة الإغلاق"}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {brands.map((brand) => (
+                    <Card 
+                      key={brand.id}
+                      className={brandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
+                    >
+                      <CardHeader className="p-3 sm:p-4">
+                        <CardTitle className="text-base sm:text-lg flex items-center justify-between">
+                          <span className="truncate">{brand.short_name || brand.brand_name}</span>
+                          {brandErrors[brand.id] && (
+                            <span className="text-xs font-normal text-destructive">⚠️</span>
+                          )}
+                        </CardTitle>
+                        {brandErrors[brand.id] && (
+                          <p className="text-xs text-destructive">{brandErrors[brand.id]}</p>
+                        )}
+                      </CardHeader>
+                      <CardContent className="p-3 sm:p-4 space-y-3">
+                        <div>
+                          <Label>{t("closingBalance")}</Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              value={balances[brand.id]?.closing_balance || ""}
+                              onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
+                              onBlur={() => handleBalanceBlur(brand.id)}
+                              placeholder="0.00"
+                              disabled={extractingBrands[brand.id]}
+                            />
+                            {extractingBrands[brand.id] && (
+                              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                              </div>
+                            )}
+                          </div>
+                          {extractingBrands[brand.id] && (
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <Sparkles className="h-3 w-3" />
+                              جاري قراءة الرقم...
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t("receiptImage")}</Label>
+                          
+                          {/* Image Preview */}
+                          {balances[brand.id]?.receipt_image_path && imageUrls[brand.id] && (
+                            <div className="relative rounded-lg overflow-hidden border bg-muted">
+                              <img
+                                src={imageUrls[brand.id] || ""}
+                                alt={brand.brand_name}
+                                className="w-full h-32 object-cover cursor-pointer"
+                                onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
+                              />
+                              <div className="absolute top-2 right-2 flex gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="secondary"
+                                  className="h-7 w-7 bg-background/80 hover:bg-background"
+                                  onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="destructive"
+                                  className="h-7 w-7"
+                                  onClick={() => handleDeleteImage(brand.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Upload Button */}
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImageUpload(brand.id, file);
+                              }}
+                              className="hidden"
+                              id={`file-${brand.id}`}
+                              disabled={extractingBrands[brand.id]}
+                            />
+                            <Label
+                              htmlFor={`file-${brand.id}`}
+                              className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent w-full justify-center ${extractingBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
+                            >
+                              {extractingBrands[brand.id] ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Upload className="h-4 w-4" />
+                              )}
+                              {balances[brand.id]?.receipt_image_path ? t("changeImage") : t("uploadImage")}
+                            </Label>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
 
               {/* Ludo Manual Transactions Section */}
