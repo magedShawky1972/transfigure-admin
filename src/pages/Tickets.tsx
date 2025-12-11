@@ -846,6 +846,25 @@ const Tickets = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                          {/* Add New Item inline */}
+                          <div className="flex gap-2 items-center mt-2">
+                            <Input
+                              value={newItemName}
+                              onChange={(e) => setNewItemName(e.target.value)}
+                              placeholder={language === 'ar' ? 'اسم عنصر جديد' : 'New item name'}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleAddNewItem}
+                              disabled={addingItem || !newItemName.trim()}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              {addingItem ? '...' : (language === 'ar' ? 'إضافة' : 'Add')}
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3">
@@ -937,27 +956,6 @@ const Tickets = () => {
                         disabled={addingUom || !newUomName.trim()}
                       >
                         {addingUom ? '...' : (language === 'ar' ? 'إضافة' : 'Add')}
-                      </Button>
-                    </div>
-                    
-                    {/* Add new Item section */}
-                    <div className="flex gap-2 items-end pt-2 border-t">
-                      <div className="flex-1">
-                        <label className="text-sm font-medium">{language === 'ar' ? 'إضافة عنصر جديد' : 'Add New Item'}</label>
-                        <Input
-                          value={newItemName}
-                          onChange={(e) => setNewItemName(e.target.value)}
-                          placeholder={language === 'ar' ? 'اسم العنصر' : 'Item name'}
-                          className="mt-1"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleAddNewItem}
-                        disabled={addingItem || !newItemName.trim()}
-                      >
-                        {addingItem ? '...' : (language === 'ar' ? 'إضافة' : 'Add')}
                       </Button>
                     </div>
                   </div>
