@@ -6,12 +6,43 @@ import { useNavigate } from 'react-router-dom';
 const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 const WARNING_TIME = 2 * 60 * 1000; // Show warning 2 minutes before logout
 
+interface IdleTimeoutConfig {
+  enabled: boolean;
+  timeout_minutes: number;
+}
+
 export const useIdleTimeout = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const timeoutId = useRef<NodeJS.Timeout | null>(null);
   const warningId = useRef<NodeJS.Timeout | null>(null);
   const [showWarning, setShowWarning] = useState(false);
+  const [isEnabled, setIsEnabled] = useState(true);
+  const isEnabledRef = useRef(true);
+
+  // Load configuration from database
+  const loadConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("setting_value")
+        .eq("setting_key", "idle_timeout")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error loading idle timeout config:", error);
+        return;
+      }
+
+      if (data && data.setting_value) {
+        const config = data.setting_value as unknown as IdleTimeoutConfig;
+        setIsEnabled(config.enabled ?? true);
+        isEnabledRef.current = config.enabled ?? true;
+      }
+    } catch (error) {
+      console.error("Error loading idle timeout config:", error);
+    }
+  };
 
   const logout = async () => {
     try {
@@ -28,6 +59,11 @@ export const useIdleTimeout = () => {
   };
 
   const resetTimer = () => {
+    // Don't set timers if feature is disabled
+    if (!isEnabledRef.current) {
+      return;
+    }
+
     // Clear existing timers
     if (timeoutId.current) {
       clearTimeout(timeoutId.current);
@@ -56,19 +92,27 @@ export const useIdleTimeout = () => {
   };
 
   const handleActivity = () => {
-    resetTimer();
+    if (isEnabledRef.current) {
+      resetTimer();
+    }
   };
 
   useEffect(() => {
+    // Load config first
+    loadConfig();
+
     // Check if user is logged in
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      if (session && isEnabledRef.current) {
         resetTimer();
       }
     };
 
-    checkAuth();
+    // Delay auth check to allow config to load first
+    const initTimeout = setTimeout(() => {
+      checkAuth();
+    }, 500);
 
     // Activity events to track
     const events = [
@@ -87,7 +131,7 @@ export const useIdleTimeout = () => {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+      if (event === 'SIGNED_IN' && session && isEnabledRef.current) {
         resetTimer();
       } else if (event === 'SIGNED_OUT') {
         if (timeoutId.current) clearTimeout(timeoutId.current);
@@ -97,6 +141,7 @@ export const useIdleTimeout = () => {
 
     // Cleanup
     return () => {
+      clearTimeout(initTimeout);
       events.forEach((event) => {
         document.removeEventListener(event, handleActivity);
       });
@@ -105,6 +150,18 @@ export const useIdleTimeout = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Update ref when isEnabled changes
+  useEffect(() => {
+    isEnabledRef.current = isEnabled;
+    
+    // If disabled, clear any existing timers
+    if (!isEnabled) {
+      if (timeoutId.current) clearTimeout(timeoutId.current);
+      if (warningId.current) clearTimeout(warningId.current);
+      setShowWarning(false);
+    }
+  }, [isEnabled]);
 
   return { showWarning };
 };
