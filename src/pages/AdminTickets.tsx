@@ -500,12 +500,32 @@ const AdminTickets = () => {
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from("tickets")
         .update({ assigned_to: userId })
         .eq("id", ticketId);
 
       if (error) throw error;
+
+      // Auto-create a task for the assigned user
+      const { error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title: ticket.subject,
+          description: ticket.description,
+          department_id: ticket.department_id,
+          assigned_to: userId,
+          created_by: user?.id,
+          status: 'todo',
+          priority: ticket.priority === 'Low' ? 'low' : ticket.priority === 'Medium' ? 'medium' : ticket.priority === 'High' ? 'high' : 'urgent',
+          ticket_id: ticketId
+        });
+
+      if (taskError) {
+        console.error('Error creating task from ticket:', taskError);
+      }
 
       // Send notification to assigned user
       await supabase.functions.invoke("send-ticket-notification", {
@@ -518,7 +538,7 @@ const AdminTickets = () => {
 
       toast({
         title: language === 'ar' ? 'تم' : 'Success',
-        description: language === 'ar' ? 'تم تعيين التذكرة' : 'Ticket assigned',
+        description: language === 'ar' ? 'تم تعيين التذكرة وإنشاء مهمة' : 'Ticket assigned and task created',
       });
 
       fetchTickets();
