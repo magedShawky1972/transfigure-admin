@@ -205,7 +205,24 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`No admins found at order level ${adminOrder} (purchase phase: ${isPurchasePhase}) for this department`);
       }
 
-      const recipientUserIds = adminData.map(admin => admin.user_id);
+      // Filter out the ticket creator from recipients - don't send approval notification to sender
+      const recipientUserIds = adminData
+        .map(admin => admin.user_id)
+        .filter(userId => userId !== ticket.user_id);
+
+      console.log(`Filtered recipients: ${recipientUserIds.length} (excluded creator: ${ticket.user_id})`);
+
+      // If all admins at this level are the ticket creator, skip notification
+      if (recipientUserIds.length === 0) {
+        console.log("All admins at this level are the ticket creator, skipping notification");
+        return new Response(
+          JSON.stringify({ success: true, notificationsSent: 0, message: "Creator is the only admin at this level" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
 
       // Get all recipient profiles at once
       const { data: profiles, error: profilesError } = await supabase
@@ -340,11 +357,27 @@ const handler = async (req: Request): Promise<Response> => {
         .eq("user_id", ticket.user_id)
         .single();
 
+      // Filter out the ticket creator from recipients - don't send approval notification to sender
+      const filteredRecipientUserIds = recipientUserIds.filter(userId => userId !== ticket.user_id);
+      console.log(`Filtered batch recipients: ${filteredRecipientUserIds.length} (excluded creator: ${ticket.user_id})`);
+
+      // If all recipients are the ticket creator, skip notification
+      if (filteredRecipientUserIds.length === 0) {
+        console.log("All recipients are the ticket creator, skipping notification");
+        return new Response(
+          JSON.stringify({ success: true, notificationsSent: 0, message: "Creator is the only recipient" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+
       // Get all recipient profiles at once
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, email, user_name")
-        .in("user_id", recipientUserIds);
+        .in("user_id", filteredRecipientUserIds);
 
       if (profilesError || !profiles) {
         throw new Error("Failed to fetch recipient profiles");
