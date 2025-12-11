@@ -328,10 +328,10 @@ export default function ShiftFollowUp() {
         if (ludoDeleteError) throw ludoDeleteError;
       }
 
-      // 2. Delete shift_brand_balances for this session
+      // 2. Reset closing_balance to 0 but keep images intact
       const { error: brandBalanceError } = await supabase
         .from("shift_brand_balances")
-        .delete()
+        .update({ closing_balance: 0, updated_at: new Date().toISOString() })
         .eq("shift_session_id", closedSession.id);
 
       if (brandBalanceError) throw brandBalanceError;
@@ -840,7 +840,7 @@ export default function ShiftFollowUp() {
               {t("Are you sure you want to reopen this shift? This will:")}
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li>{t("Move Ludo transactions back to temporary state")}</li>
-                <li>{t("Delete all brand closing balances")}</li>
+                <li>{t("Reset all brand closing balances")}</li>
                 <li>{t("Change shift status from closed to open")}</li>
               </ul>
               <div className="mt-4 p-3 bg-muted rounded-lg">
