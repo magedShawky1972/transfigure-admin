@@ -520,10 +520,10 @@ const ProjectsTasks = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium">{t.projects}</label>
-                    <Select value={taskForm.project_id} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v })}>
+                    <Select value={taskForm.project_id || 'none'} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === 'none' ? '' : v })}>
                       <SelectTrigger><SelectValue placeholder={t.selectProject} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">{t.noProject}</SelectItem>
+                        <SelectItem value="none">{t.noProject}</SelectItem>
                         {projects.filter(p => !taskForm.department_id || p.department_id === taskForm.department_id).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
