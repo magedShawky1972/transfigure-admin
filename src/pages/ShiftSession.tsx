@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, RotateCcw, Loader2, Sparkles, Trash2, Image as ImageIcon, Eye } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -1212,13 +1213,56 @@ const ShiftSession = () => {
             </div>
           </div>
 
-          {!shiftSession ? (
+            {!shiftSession ? (
             <div className="space-y-4">
               {/* Opening Balance Section - Before Opening Shift */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2">{t("openingBalance") || "رصيد الفتح"}</h3>
-                <p className="text-sm text-muted-foreground">{t("uploadOpeningImagesMessage") || "يجب رفع صور الفتح لجميع العلامات التجارية قبل فتح الوردية"}</p>
-              </div>
+              {(() => {
+                const requiredBrands = brands.filter((brand) => {
+                  const brandNameLower = brand.brand_name.toLowerCase();
+                  return !brandNameLower.includes("yalla ludo") && 
+                         !brandNameLower.includes("يلا لودو") && 
+                         !brandNameLower.includes("ludo");
+                });
+                const uploadedCount = requiredBrands.filter((brand) => 
+                  openingBalances[brand.id]?.opening_image_path
+                ).length;
+                const totalRequired = requiredBrands.length;
+                const progressPercent = totalRequired > 0 ? Math.round((uploadedCount / totalRequired) * 100) : 0;
+                const allUploaded = uploadedCount === totalRequired && totalRequired > 0;
+
+                return (
+                  <div className={`p-4 rounded-lg border-2 ${allUploaded ? 'bg-green-50 dark:bg-green-900/20 border-green-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        {allUploaded ? (
+                          <span className="text-green-600">✓</span>
+                        ) : (
+                          <span className="text-amber-600">⚠️</span>
+                        )}
+                        {t("openingBalance") || "رصيد الفتح"}
+                      </h3>
+                      <Badge variant={allUploaded ? "default" : "secondary"} className={allUploaded ? "bg-green-600" : "bg-amber-500"}>
+                        {uploadedCount} / {totalRequired}
+                      </Badge>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
+                      <div 
+                        className={`h-2.5 rounded-full transition-all duration-300 ${allUploaded ? 'bg-green-600' : 'bg-amber-500'}`}
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    
+                    <p className={`text-sm ${allUploaded ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                      {allUploaded 
+                        ? "✓ تم رفع جميع صور الفتح - يمكنك الآن فتح الوردية" 
+                        : `⚠️ يجب رفع صور الفتح لجميع العلامات التجارية (${totalRequired - uploadedCount} متبقية) قبل فتح الوردية`
+                      }
+                    </p>
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {brands.filter((brand) => {

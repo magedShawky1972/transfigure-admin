@@ -904,6 +904,11 @@ export default function ShiftFollowUp() {
                 <p><strong>{t("Start Time")}:</strong> {assignmentToOpen?.shifts.shift_start_time}</p>
                 <p><strong>{t("End Time")}:</strong> {assignmentToOpen?.shifts.shift_end_time}</p>
               </div>
+              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-300">
+                <p className="text-amber-700 dark:text-amber-300 text-sm">
+                  <strong>⚠️ ملاحظة:</strong> فتح الوردية من هنا يتجاوز رفع صور الفتح. سيتم فتح الوردية بدون صور رصيد الفتح.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row-reverse gap-2">
