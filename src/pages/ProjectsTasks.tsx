@@ -48,6 +48,8 @@ interface Task {
   status: string;
   priority: string;
   deadline: string | null;
+  start_time: string | null;
+  end_time: string | null;
   ticket_id: string | null;
   created_at: string;
   external_links?: string[] | null;
@@ -135,6 +137,8 @@ const ProjectsTasks = () => {
     status: 'todo',
     priority: 'medium',
     deadline: null as Date | null,
+    start_time: '',
+    end_time: '',
     external_links: [] as string[],
     file_attachments: [] as FileAttachment[],
     video_attachments: [] as FileAttachment[]
@@ -190,7 +194,9 @@ const ProjectsTasks = () => {
       videos: 'الفيديوهات',
       uploadFiles: 'رفع ملفات',
       uploadVideos: 'رفع فيديوهات',
-      uploading: 'جاري الرفع...'
+      uploading: 'جاري الرفع...',
+      startTime: 'وقت البداية',
+      endTime: 'وقت الانتهاء'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -239,7 +245,9 @@ const ProjectsTasks = () => {
       videos: 'Videos',
       uploadFiles: 'Upload Files',
       uploadVideos: 'Upload Videos',
-      uploading: 'Uploading...'
+      uploading: 'Uploading...',
+      startTime: 'Start Time',
+      endTime: 'End Time'
     }
   };
 
@@ -347,6 +355,8 @@ const ProjectsTasks = () => {
         status: taskForm.status,
         priority: taskForm.priority,
         deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
+        start_time: taskForm.start_time || null,
+        end_time: taskForm.end_time || null,
         created_by: currentUserId!,
         external_links: taskForm.external_links,
         file_attachments: JSON.parse(JSON.stringify(taskForm.file_attachments)),
@@ -510,7 +520,7 @@ const ProjectsTasks = () => {
   };
 
   const resetTaskForm = () => {
-    setTaskForm({ title: '', description: '', project_id: '', department_id: '', assigned_to: '', status: 'todo', priority: 'medium', deadline: null, external_links: [], file_attachments: [], video_attachments: [] });
+    setTaskForm({ title: '', description: '', project_id: '', department_id: '', assigned_to: '', status: 'todo', priority: 'medium', deadline: null, start_time: '', end_time: '', external_links: [], file_attachments: [], video_attachments: [] });
     setEditingTask(null);
     setNewLink('');
   };
@@ -539,6 +549,8 @@ const ProjectsTasks = () => {
       status: task.status,
       priority: task.priority,
       deadline: task.deadline ? new Date(task.deadline) : null,
+      start_time: task.start_time || '',
+      end_time: task.end_time || '',
       external_links: task.external_links || [],
       file_attachments: task.file_attachments || [],
       video_attachments: task.video_attachments || []
@@ -751,6 +763,24 @@ const ProjectsTasks = () => {
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={taskForm.deadline || undefined} onSelect={(d) => setTaskForm({ ...taskForm, deadline: d || null })} /></PopoverContent>
                     </Popover>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">{t.startTime}</label>
+                    <Input 
+                      type="time" 
+                      value={taskForm.start_time} 
+                      onChange={(e) => setTaskForm({ ...taskForm, start_time: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">{t.endTime}</label>
+                    <Input 
+                      type="time" 
+                      value={taskForm.end_time} 
+                      onChange={(e) => setTaskForm({ ...taskForm, end_time: e.target.value })} 
+                    />
                   </div>
                 </div>
 
