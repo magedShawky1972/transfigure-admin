@@ -22,7 +22,8 @@ import {
   Calendar,
   GraduationCap,
   DollarSign,
-  Gamepad2
+  Gamepad2,
+  FolderKanban
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -86,6 +87,7 @@ export function AppSidebar() {
     "/closing-training": "closingTraining",
     "/currency-setup": "currencySetup",
     "/user-group-setup": "userGroupSetup",
+    "/projects-tasks": "projectsTasks",
   };
 
   useEffect(() => {
@@ -186,6 +188,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "تقويم وردياتي" : "My Shifts Calendar", url: "/my-shifts", icon: Calendar },
         { title: language === 'ar' ? "متابعة الورديات" : "Shift Follow-Up", url: "/shift-follow-up", icon: BarChart3 },
         { title: language === 'ar' ? "تواصل" : "Tawasoul", url: "/tawasoul", icon: MessageCircle },
+        { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
       ]
     },
     {

@@ -55,6 +55,7 @@ import ClosingTraining from "./pages/ClosingTraining";
 import CurrencySetup from "./pages/CurrencySetup";
 import UserGroupSetup from "./pages/UserGroupSetup";
 import Notifications from "./pages/Notifications";
+import ProjectsTasks from "./pages/ProjectsTasks";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -118,6 +119,7 @@ const App = () => (
               <Route path="/currency-setup" element={<CurrencySetup />} />
               <Route path="/user-group-setup" element={<UserGroupSetup />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/projects-tasks" element={<ProjectsTasks />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

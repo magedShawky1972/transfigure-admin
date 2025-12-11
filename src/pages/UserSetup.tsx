@@ -95,6 +95,7 @@ interface UserPermission {
   { key: "shiftCalendar", label: "Shift Calendar" },
   { key: "currencySetup", label: "Currency Setup" },
   { key: "userGroupSetup", label: "User Groups" },
+  { key: "projectsTasks", label: "Projects & Tasks" },
   { key: "systemConfig", label: "System Configuration" },
   { key: "closingTraining", label: "Closing Training" },
   { key: "odooSetup", label: "Odoo Setup" },
