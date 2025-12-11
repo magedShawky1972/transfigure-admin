@@ -498,20 +498,30 @@ const TicketDetails = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const fileExt = selectedFile.name.split('.').pop();
-      const filePath = `${id}/${Date.now()}.${fileExt}`;
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(selectedFile);
+      });
 
-      const { error: uploadError } = await supabase.storage
-        .from('ticket-attachments')
-        .upload(filePath, selectedFile);
+      const publicId = `tickets/${id}/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
+        body: { 
+          imageBase64: base64, 
+          folder: "Edara_Images",
+          publicId 
+        },
+      });
 
       if (uploadError) throw uploadError;
+      if (!uploadData?.url) throw new Error("Failed to get URL from Cloudinary");
 
       const { error: dbError } = await supabase.from("ticket_attachments").insert({
         ticket_id: id,
         user_id: user.id,
         file_name: selectedFile.name,
-        file_path: filePath,
+        file_path: uploadData.url,
         file_size: selectedFile.size,
         mime_type: selectedFile.type,
       });
@@ -538,17 +548,27 @@ const TicketDetails = () => {
 
   const handleDownload = async (filePath: string, fileName: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('ticket-attachments')
-        .download(filePath);
+      // If it's a Cloudinary URL, open directly
+      if (filePath.startsWith('http')) {
+        const a = document.createElement('a');
+        a.href = filePath;
+        a.download = fileName;
+        a.target = '_blank';
+        a.click();
+      } else {
+        // Fallback for old Supabase storage files
+        const { data, error } = await supabase.storage
+          .from('ticket-attachments')
+          .download(filePath);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.click();
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+      }
     } catch (error: any) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',

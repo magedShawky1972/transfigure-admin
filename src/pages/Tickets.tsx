@@ -398,46 +398,62 @@ const Tickets = () => {
 
       if (error) throw error;
 
-      // Upload images
+      // Upload images to Cloudinary
       for (const file of selectedImages) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('ticket-attachments')
-          .upload(fileName, file);
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
 
-        if (!uploadError) {
+        const publicId = `tickets/${ticketData.id}/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
+          body: { 
+            imageBase64: base64, 
+            folder: "Edara_Images",
+            publicId 
+          },
+        });
+
+        if (!uploadError && uploadData?.url) {
           await supabase
             .from('ticket_attachments')
             .insert({
               ticket_id: ticketData.id,
               user_id: user.id,
               file_name: file.name,
-              file_path: fileName,
+              file_path: uploadData.url,
               file_size: file.size,
               mime_type: file.type,
             });
         }
       }
 
-      // Upload videos
+      // Upload videos to Cloudinary
       for (const file of selectedVideos) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('ticket-attachments')
-          .upload(fileName, file);
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
 
-        if (!uploadError) {
+        const publicId = `tickets/${ticketData.id}/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
+          body: { 
+            imageBase64: base64, 
+            folder: "Edara_Images",
+            publicId 
+          },
+        });
+
+        if (!uploadError && uploadData?.url) {
           await supabase
             .from('ticket_attachments')
             .insert({
               ticket_id: ticketData.id,
               user_id: user.id,
               file_name: file.name,
-              file_path: fileName,
+              file_path: uploadData.url,
               file_size: file.size,
               mime_type: file.type,
             });
@@ -1039,11 +1055,17 @@ const Tickets = () => {
                       className="h-8 text-xs sm:text-sm px-2 sm:px-3"
                       onClick={async () => {
                         const attachment = ticket.ticket_attachments[0];
-                        const { data } = await supabase.storage
-                          .from('ticket-attachments')
-                          .createSignedUrl(attachment.file_path, 60);
-                        if (data?.signedUrl) {
-                          window.open(data.signedUrl, '_blank');
+                        // If it's a Cloudinary URL, open directly
+                        if (attachment.file_path.startsWith('http')) {
+                          window.open(attachment.file_path, '_blank');
+                        } else {
+                          // Fallback for old Supabase storage files
+                          const { data } = await supabase.storage
+                            .from('ticket-attachments')
+                            .createSignedUrl(attachment.file_path, 60);
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
+                          }
                         }
                       }}
                     >

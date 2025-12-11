@@ -364,21 +364,26 @@ const SoftwareLicenseSetup = () => {
 
     setUploading(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `license-invoices/${fileName}`;
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
 
-      const { error: uploadError } = await supabase.storage
-        .from("ticket-attachments")
-        .upload(filePath, file);
+      const publicId = `license-invoices/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
+        body: { 
+          imageBase64: base64, 
+          folder: "Edara_Images",
+          publicId 
+        },
+      });
 
       if (uploadError) throw uploadError;
+      if (!uploadData?.url) throw new Error("Failed to get URL from Cloudinary");
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("ticket-attachments")
-        .getPublicUrl(filePath);
-
-      setFormData({ ...formData, invoice_file_path: publicUrl });
+      setFormData({ ...formData, invoice_file_path: uploadData.url });
 
       toast({
         title: language === "ar" ? "تم الرفع بنجاح" : "Upload successful",
