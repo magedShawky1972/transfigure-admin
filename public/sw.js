@@ -1,4 +1,6 @@
-// Service Worker for Push Notifications
+// Service Worker for Push Notifications and Version Management
+const CACHE_NAME = 'edara-cache-v1.2.5';
+
 self.addEventListener('install', function(event) {
   console.log('Service Worker installing...');
   self.skipWaiting();
@@ -6,7 +8,45 @@ self.addEventListener('install', function(event) {
 
 self.addEventListener('activate', function(event) {
   console.log('Service Worker activating...');
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    Promise.all([
+      clients.claim(),
+      // Clear all old caches
+      caches.keys().then(function(cacheNames) {
+        return Promise.all(
+          cacheNames.map(function(cacheName) {
+            if (cacheName !== CACHE_NAME) {
+              console.log('Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
+  );
+});
+
+// Listen for messages from the main app
+self.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    console.log('Clearing all caches...');
+    event.waitUntil(
+      caches.keys().then(function(cacheNames) {
+        return Promise.all(
+          cacheNames.map(function(cacheName) {
+            return caches.delete(cacheName);
+          })
+        );
+      }).then(function() {
+        // Notify all clients to reload
+        return clients.matchAll().then(function(clientList) {
+          clientList.forEach(function(client) {
+            client.postMessage({ type: 'CACHE_CLEARED' });
+          });
+        });
+      })
+    );
+  }
 });
 
 self.addEventListener('push', function(event) {
