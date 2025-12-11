@@ -441,7 +441,7 @@ const Tickets = () => {
         const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
           body: { 
             imageBase64: base64, 
-            folder: "Edara_Images",
+            folder: "Edara_Videos",
             publicId 
           },
         });
