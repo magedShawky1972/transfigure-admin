@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Plus, FolderKanban, GanttChart, Calendar as CalendarIcon, Trash2, Edit, CheckCircle2, Clock, AlertCircle, Circle, GripVertical, Link, FileText, Video, X, Upload, Loader2 } from "lucide-react";
+import { Plus, FolderKanban, GanttChart, Calendar as CalendarIcon, Trash2, Edit, CheckCircle2, Clock, AlertCircle, Circle, GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, Timer, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
@@ -35,6 +35,17 @@ interface FileAttachment {
   url: string;
   name: string;
   type: string;
+}
+
+interface TimeEntry {
+  id: string;
+  task_id: string;
+  user_id: string;
+  start_time: string;
+  end_time: string | null;
+  duration_minutes: number | null;
+  notes: string | null;
+  created_at: string;
 }
 
 interface Task {
@@ -58,6 +69,9 @@ interface Task {
   projects?: { name: string } | null;
   departments?: { department_name: string };
   profiles?: { user_name: string };
+  time_entries?: TimeEntry[];
+  total_time_minutes?: number;
+  active_timer?: TimeEntry | null;
 }
 
 interface Department {
@@ -111,6 +125,9 @@ const ProjectsTasks = () => {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<'kanban' | 'gantt'>('kanban');
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [timeEntriesDialogOpen, setTimeEntriesDialogOpen] = useState(false);
+  const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
+  const [runningTimers, setRunningTimers] = useState<Record<string, number>>({});
   
   // Dialog states
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -196,7 +213,15 @@ const ProjectsTasks = () => {
       uploadVideos: 'رفع فيديوهات',
       uploading: 'جاري الرفع...',
       startTime: 'وقت البداية',
-      endTime: 'وقت الانتهاء'
+      endTime: 'وقت الانتهاء',
+      startTimer: 'بدء التوقيت',
+      stopTimer: 'إيقاف التوقيت',
+      totalTime: 'الوقت الكلي',
+      timeEntries: 'سجل الأوقات',
+      noTimeEntries: 'لا يوجد سجل أوقات',
+      hours: 'ساعة',
+      minutes: 'دقيقة',
+      timerRunning: 'المؤقت يعمل'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -247,7 +272,15 @@ const ProjectsTasks = () => {
       uploadVideos: 'Upload Videos',
       uploading: 'Uploading...',
       startTime: 'Start Time',
-      endTime: 'End Time'
+      endTime: 'End Time',
+      startTimer: 'Start Timer',
+      stopTimer: 'Stop Timer',
+      totalTime: 'Total Time',
+      timeEntries: 'Time Entries',
+      noTimeEntries: 'No time entries',
+      hours: 'hours',
+      minutes: 'minutes',
+      timerRunning: 'Timer Running'
     }
   };
 
@@ -274,23 +307,42 @@ const ProjectsTasks = () => {
       if (!user) return;
       setCurrentUserId(user.id);
 
-      const [projectsRes, tasksRes, depsRes, usersRes] = await Promise.all([
+      const [projectsRes, tasksRes, depsRes, usersRes, timeEntriesRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('departments').select('id, department_name').eq('is_active', true),
-        supabase.from('profiles').select('user_id, user_name').eq('is_active', true)
+        supabase.from('profiles').select('user_id, user_name').eq('is_active', true),
+        supabase.from('task_time_entries').select('*').order('start_time', { ascending: false })
       ]);
 
       if (projectsRes.data) setProjects(projectsRes.data);
       if (tasksRes.data) {
-        // Map tasks with user names from profiles
-        const tasksWithProfiles = tasksRes.data.map(task => ({
-          ...task,
-          file_attachments: (task.file_attachments as unknown as FileAttachment[]) || [],
-          video_attachments: (task.video_attachments as unknown as FileAttachment[]) || [],
-          external_links: task.external_links || [],
-          profiles: usersRes.data?.find(u => u.user_id === task.assigned_to) || null
-        }));
+        const timeEntries = (timeEntriesRes.data || []) as TimeEntry[];
+        
+        // Map tasks with user names, time entries, and calculate totals
+        const tasksWithProfiles = tasksRes.data.map(task => {
+          const taskTimeEntries = timeEntries.filter(te => te.task_id === task.id);
+          const activeTimer = taskTimeEntries.find(te => te.end_time === null);
+          const totalMinutes = taskTimeEntries.reduce((sum, te) => {
+            if (te.duration_minutes) return sum + te.duration_minutes;
+            if (te.end_time) {
+              const duration = Math.floor((new Date(te.end_time).getTime() - new Date(te.start_time).getTime()) / 60000);
+              return sum + duration;
+            }
+            return sum;
+          }, 0);
+          
+          return {
+            ...task,
+            file_attachments: (task.file_attachments as unknown as FileAttachment[]) || [],
+            video_attachments: (task.video_attachments as unknown as FileAttachment[]) || [],
+            external_links: task.external_links || [],
+            profiles: usersRes.data?.find(u => u.user_id === task.assigned_to) || null,
+            time_entries: taskTimeEntries,
+            total_time_minutes: totalMinutes,
+            active_timer: activeTimer || null
+          };
+        });
         setTasks(tasksWithProfiles as unknown as Task[]);
       }
       if (depsRes.data) setDepartments(depsRes.data);
@@ -301,6 +353,87 @@ const ProjectsTasks = () => {
       setLoading(false);
     }
   }, []);
+
+  // Timer update effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newRunningTimers: Record<string, number> = {};
+      tasks.forEach(task => {
+        if (task.active_timer) {
+          const elapsed = Math.floor((Date.now() - new Date(task.active_timer.start_time).getTime()) / 1000);
+          newRunningTimers[task.id] = elapsed;
+        }
+      });
+      setRunningTimers(newRunningTimers);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [tasks]);
+
+  const handleStartTimer = async (taskId: string) => {
+    if (!currentUserId) return;
+    
+    try {
+      const { error } = await supabase.from('task_time_entries').insert({
+        task_id: taskId,
+        user_id: currentUserId,
+        start_time: new Date().toISOString()
+      });
+      
+      if (error) throw error;
+      toast({ title: language === 'ar' ? 'تم بدء المؤقت' : 'Timer started' });
+      fetchData();
+    } catch (error) {
+      console.error('Error starting timer:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+    }
+  };
+
+  const handleStopTimer = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task?.active_timer) return;
+    
+    try {
+      const endTime = new Date();
+      const startTime = new Date(task.active_timer.start_time);
+      const durationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+      
+      const { error } = await supabase.from('task_time_entries')
+        .update({ 
+          end_time: endTime.toISOString(),
+          duration_minutes: durationMinutes
+        })
+        .eq('id', task.active_timer.id);
+      
+      if (error) throw error;
+      toast({ title: language === 'ar' ? 'تم إيقاف المؤقت' : 'Timer stopped' });
+      fetchData();
+    } catch (error) {
+      console.error('Error stopping timer:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+    }
+  };
+
+  const formatDuration = (totalMinutes: number) => {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) {
+      return `${hours}${language === 'ar' ? 'س' : 'h'} ${minutes}${language === 'ar' ? 'د' : 'm'}`;
+    }
+    return `${minutes}${language === 'ar' ? 'د' : 'm'}`;
+  };
+
+  const formatRunningTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const openTimeEntriesDialog = (task: Task) => {
+    setSelectedTaskForTimeEntries(task);
+    setTimeEntriesDialogOpen(true);
+  };
 
   useEffect(() => {
     fetchData();
@@ -765,24 +898,6 @@ const ProjectsTasks = () => {
                     </Popover>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">{t.startTime}</label>
-                    <Input 
-                      type="time" 
-                      value={taskForm.start_time} 
-                      onChange={(e) => setTaskForm({ ...taskForm, start_time: e.target.value })} 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">{t.endTime}</label>
-                    <Input 
-                      type="time" 
-                      value={taskForm.end_time} 
-                      onChange={(e) => setTaskForm({ ...taskForm, end_time: e.target.value })} 
-                    />
-                  </div>
-                </div>
 
                 {/* External Links */}
                 <div>
@@ -953,7 +1068,7 @@ const ProjectsTasks = () => {
                       {tasks.filter(t => t.status === column.key).map(task => (
                         <DraggableTask key={task.id} task={task}>
                           {({ listeners }: { listeners: any }) => (
-                            <Card className="hover:shadow-md transition-shadow">
+                            <Card className={cn("hover:shadow-md transition-shadow", task.active_timer && "ring-2 ring-green-500")}>
                               <CardContent className="p-3">
                                 <div className="flex justify-between items-start mb-2">
                                   <div className="flex items-center gap-2">
@@ -963,6 +1078,7 @@ const ProjectsTasks = () => {
                                     <h4 className="font-medium text-sm">{task.title}</h4>
                                   </div>
                                   <div className="flex gap-1">
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openTimeEntriesDialog(task)}><History className="h-3 w-3" /></Button>
                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTask(task)}><Edit className="h-3 w-3" /></Button>
                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteTask(task.id)}><Trash2 className="h-3 w-3" /></Button>
                                   </div>
@@ -971,9 +1087,44 @@ const ProjectsTasks = () => {
                                   <Badge className={cn("text-xs text-white", priorityColors[task.priority])}>{getPriorityLabel(task.priority)}</Badge>
                                   {task.ticket_id && <Badge variant="outline" className="text-xs">{t.fromTicket}</Badge>}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs text-muted-foreground mb-2">
                                   {task.profiles?.user_name && <p>{t.assignedTo}: {task.profiles.user_name}</p>}
                                   {task.deadline && <p>{t.deadline}: {format(new Date(task.deadline), 'PP', { locale: language === 'ar' ? ar : undefined })}</p>}
+                                </div>
+                                
+                                {/* Time Tracking Section */}
+                                <div className="border-t pt-2 mt-2">
+                                  {task.active_timer ? (
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1 text-green-600">
+                                        <Timer className="h-3 w-3 animate-pulse" />
+                                        <span className="text-xs font-mono">{formatRunningTime(runningTimers[task.id] || 0)}</span>
+                                      </div>
+                                      <Button 
+                                        variant="destructive" 
+                                        size="sm" 
+                                        className="h-6 text-xs"
+                                        onClick={() => handleStopTimer(task.id)}
+                                      >
+                                        <Square className="h-3 w-3 mr-1" />{t.stopTimer}
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1 text-muted-foreground">
+                                        <Clock className="h-3 w-3" />
+                                        <span className="text-xs">{formatDuration(task.total_time_minutes || 0)}</span>
+                                      </div>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-6 text-xs"
+                                        onClick={() => handleStartTimer(task.id)}
+                                      >
+                                        <Play className="h-3 w-3 mr-1" />{t.startTimer}
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </CardContent>
                             </Card>
@@ -1000,6 +1151,50 @@ const ProjectsTasks = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Time Entries Dialog */}
+      <Dialog open={timeEntriesDialogOpen} onOpenChange={setTimeEntriesDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              {t.timeEntries}: {selectedTaskForTimeEntries?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {selectedTaskForTimeEntries?.time_entries && selectedTaskForTimeEntries.time_entries.length > 0 ? (
+              <>
+                <div className="mb-4 p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">{t.totalTime}: {formatDuration(selectedTaskForTimeEntries.total_time_minutes || 0)}</p>
+                </div>
+                {selectedTaskForTimeEntries.time_entries.map((entry) => (
+                  <div key={entry.id} className="flex justify-between items-center p-2 border rounded-lg">
+                    <div>
+                      <p className="text-sm">
+                        {format(new Date(entry.start_time), 'PPp', { locale: language === 'ar' ? ar : undefined })}
+                      </p>
+                      {entry.end_time && (
+                        <p className="text-xs text-muted-foreground">
+                          → {format(new Date(entry.end_time), 'p', { locale: language === 'ar' ? ar : undefined })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {entry.end_time ? (
+                        <Badge variant="outline">{formatDuration(entry.duration_minutes || 0)}</Badge>
+                      ) : (
+                        <Badge variant="default" className="bg-green-500">{t.timerRunning}</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">{t.noTimeEntries}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
