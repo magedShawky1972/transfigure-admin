@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserSelectionDialog from "@/components/UserSelectionDialog";
 
 interface Department {
   id: string;
@@ -243,14 +244,14 @@ const CompanyHierarchy = () => {
     setAssignToDeptDialogOpen(true);
   };
 
-  const handleAssignUser = async () => {
-    if (!selectedUserId || !selectedJobId) return;
+  const handleAssignUser = async (userId: string) => {
+    if (!userId || !selectedJobId) return;
 
     try {
       const { error } = await supabase.from("profiles").update({
         job_position_id: selectedJobId,
         default_department_id: selectedDeptId,
-      }).eq("user_id", selectedUserId);
+      }).eq("user_id", userId);
 
       if (error) throw error;
       toast({ title: language === 'ar' ? "تم تعيين الموظف" : "User assigned" });
@@ -261,15 +262,15 @@ const CompanyHierarchy = () => {
     }
   };
 
-  const handleAssignUserToDept = async () => {
-    if (!selectedUserId || !selectedDeptId) return;
+  const handleAssignUserToDept = async (userId: string) => {
+    if (!userId || !selectedDeptId) return;
 
     try {
       // Clear job_position_id when assigning directly to department
       const { error } = await supabase.from("profiles").update({
         default_department_id: selectedDeptId,
         job_position_id: null,
-      }).eq("user_id", selectedUserId);
+      }).eq("user_id", userId);
 
       if (error) throw error;
       toast({ title: language === 'ar' ? "تم تعيين الموظف للقسم" : "User assigned to department" });
@@ -672,66 +673,22 @@ const CompanyHierarchy = () => {
       </Dialog>
 
       {/* Assign User to Job Dialog */}
-      <Dialog open={assignUserDialogOpen} onOpenChange={setAssignUserDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {language === 'ar' ? 'تعيين موظف للوظيفة' : 'Assign User to Job'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{language === 'ar' ? 'اختر الموظف' : 'Select User'}</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={language === 'ar' ? 'اختر موظف' : 'Select a user'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAllActiveUsers().map(user => (
-                    <SelectItem key={user.user_id} value={user.user_id}>
-                      {user.user_name} ({user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleAssignUser} className="w-full" disabled={!selectedUserId}>
-              {language === 'ar' ? 'تعيين' : 'Assign'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <UserSelectionDialog
+        open={assignUserDialogOpen}
+        onOpenChange={setAssignUserDialogOpen}
+        users={getAllActiveUsers()}
+        onSelect={handleAssignUser}
+        title={language === 'ar' ? 'تعيين موظف للوظيفة' : 'Assign User to Job'}
+      />
 
-      {/* Assign User to Department Dialog (without job) */}
-      <Dialog open={assignToDeptDialogOpen} onOpenChange={setAssignToDeptDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {language === 'ar' ? 'تعيين موظف للقسم' : 'Assign User to Department'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{language === 'ar' ? 'اختر الموظف' : 'Select User'}</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={language === 'ar' ? 'اختر موظف' : 'Select a user'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAllActiveUsers().map(user => (
-                    <SelectItem key={user.user_id} value={user.user_id}>
-                      {user.user_name} ({user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleAssignUserToDept} className="w-full" disabled={!selectedUserId}>
-              {language === 'ar' ? 'تعيين' : 'Assign'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Assign User to Department Dialog */}
+      <UserSelectionDialog
+        open={assignToDeptDialogOpen}
+        onOpenChange={setAssignToDeptDialogOpen}
+        users={getAllActiveUsers()}
+        onSelect={handleAssignUserToDept}
+        title={language === 'ar' ? 'تعيين موظف للقسم' : 'Assign User to Department'}
+      />
     </div>
   );
 };
