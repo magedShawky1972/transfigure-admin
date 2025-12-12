@@ -17,15 +17,27 @@ export const useVersionCheck = () => {
       console.log('All caches cleared');
     }
 
-    // Tell service worker to clear its caches
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+    // Tell service worker to clear its caches and skip waiting
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        // If there's a waiting worker, tell it to activate
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        // Tell the active worker to clear cache
+        if (registration.active) {
+          registration.active.postMessage({ type: 'CLEAR_CACHE' });
+        }
+        // Force update check
+        await registration.update();
+      }
     }
 
     // Update stored version
     localStorage.setItem(LOCAL_VERSION_KEY, CURRENT_VERSION);
 
-    // Force reload from server
+    // Force reload from server (bypass cache)
     window.location.reload();
   }, []);
 
@@ -33,7 +45,11 @@ export const useVersionCheck = () => {
     try {
       // Fetch manifest with cache-busting
       const response = await fetch(`/manifest.json?t=${Date.now()}`, {
-        cache: 'no-store'
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
       });
       
       if (!response.ok) return;
@@ -65,19 +81,28 @@ export const useVersionCheck = () => {
 
     // Listen for service worker messages
     const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'CACHE_CLEARED') {
+      if (event.data && (event.data.type === 'CACHE_CLEARED' || event.data.type === 'SW_ACTIVATED')) {
+        console.log('Service worker cache cleared or activated, reloading...');
         window.location.reload();
       }
     };
 
+    // Listen for service worker updates
+    const handleControllerChange = () => {
+      console.log('Service worker controller changed, reloading...');
+      window.location.reload();
+    };
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleMessage);
+      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
     }
 
     return () => {
       clearInterval(intervalId);
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleMessage);
+        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
       }
     };
   }, [checkVersion]);
