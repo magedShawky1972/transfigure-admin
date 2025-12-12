@@ -657,6 +657,7 @@ export type Database = {
       job_positions: {
         Row: {
           created_at: string
+          department_id: string | null
           id: string
           is_active: boolean
           position_name: string
@@ -664,6 +665,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          department_id?: string | null
           id?: string
           is_active?: boolean
           position_name: string
@@ -671,12 +673,21 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          department_id?: string | null
           id?: string
           is_active?: boolean
           position_name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "job_positions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ludo_training: {
         Row: {
