@@ -526,6 +526,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          parent_department_id: string | null
           updated_at: string
         }
         Insert: {
@@ -535,6 +536,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          parent_department_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -544,9 +546,18 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          parent_department_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "departments_parent_department_id_fkey"
+            columns: ["parent_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       excel_column_mappings: {
         Row: {
@@ -1097,6 +1108,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           default_department_id: string | null
           email: string
@@ -1113,6 +1125,7 @@ export type Database = {
           user_name: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           default_department_id?: string | null
           email: string
@@ -1129,6 +1142,7 @@ export type Database = {
           user_name: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           default_department_id?: string | null
           email?: string

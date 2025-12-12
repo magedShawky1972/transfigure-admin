@@ -9,6 +9,7 @@ import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart } from "lucide
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import DepartmentTaskPhases from "@/components/DepartmentTaskPhases";
+import DepartmentHierarchy from "@/components/DepartmentHierarchy";
 import {
   DndContext,
   closestCenter,
@@ -68,6 +69,7 @@ const departmentSchema = z.object({
   department_name: z.string().min(2, "Name must be at least 2 characters"),
   department_code: z.string().min(2, "Code must be at least 2 characters"),
   description: z.string().optional(),
+  parent_department_id: z.string().nullable().optional(),
 });
 
 type Department = {
@@ -76,6 +78,7 @@ type Department = {
   department_code: string;
   description: string | null;
   is_active: boolean;
+  parent_department_id: string | null;
 };
 
 type Profile = {
@@ -215,6 +218,7 @@ const DepartmentManagement = () => {
       department_name: "",
       department_code: "",
       description: "",
+      parent_department_id: null,
     },
   });
 
@@ -339,6 +343,7 @@ const DepartmentManagement = () => {
           department_name: values.department_name,
           department_code: values.department_code,
           description: values.description || null,
+          parent_department_id: values.parent_department_id || null,
         });
 
       if (error) throw error;
@@ -363,6 +368,16 @@ const DepartmentManagement = () => {
   const onSubmitEditDepartment = async (values: z.infer<typeof departmentSchema>) => {
     if (!editingDept) return;
 
+    // Prevent setting a department as its own parent
+    if (values.parent_department_id === editingDept.id) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'لا يمكن تعيين القسم كقسم رئيسي لنفسه' : 'A department cannot be its own parent',
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("departments")
@@ -370,6 +385,7 @@ const DepartmentManagement = () => {
           department_name: values.department_name,
           department_code: values.department_code,
           description: values.description || null,
+          parent_department_id: values.parent_department_id || null,
         })
         .eq("id", editingDept.id);
 
@@ -398,6 +414,7 @@ const DepartmentManagement = () => {
     form.setValue("department_name", dept.department_name);
     form.setValue("department_code", dept.department_code);
     form.setValue("description", dept.description || "");
+    form.setValue("parent_department_id", dept.parent_department_id);
     setOpenEditDept(true);
   };
 
@@ -688,6 +705,24 @@ const DepartmentManagement = () => {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="parent_department_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'القسم الرئيسي (اختياري)' : 'Parent Department (Optional)'}</FormLabel>
+                      <FormControl>
+                        <DepartmentHierarchy
+                          departments={departments}
+                          selectedId={field.value}
+                          onSelect={(id) => field.onChange(id)}
+                          language={language}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setOpenDept(false)}>
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
@@ -745,6 +780,24 @@ const DepartmentManagement = () => {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="parent_department_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'القسم الرئيسي (اختياري)' : 'Parent Department (Optional)'}</FormLabel>
+                      <FormControl>
+                        <DepartmentHierarchy
+                          departments={departments.filter(d => d.id !== editingDept?.id)}
+                          selectedId={field.value}
+                          onSelect={(id) => field.onChange(id)}
+                          language={language}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => {
                     setOpenEditDept(false);
@@ -765,18 +818,43 @@ const DepartmentManagement = () => {
         <div className="text-center py-8">{language === 'ar' ? 'جاري التحميل...' : 'Loading departments...'}</div>
       ) : (
         <div className="grid gap-4">
-          {departments.map((dept) => {
+          {/* Root departments first, then sorted by hierarchy */}
+          {departments
+            .sort((a, b) => {
+              // Root departments first
+              if (!a.parent_department_id && b.parent_department_id) return -1;
+              if (a.parent_department_id && !b.parent_department_id) return 1;
+              return a.department_name.localeCompare(b.department_name);
+            })
+            .map((dept) => {
             const deptAdmins = getDepartmentAdmins(dept.id);
             const deptMembers = getDepartmentMembers(dept.id);
+            const parentDept = dept.parent_department_id 
+              ? departments.find(d => d.id === dept.parent_department_id) 
+              : null;
+            const childDepartments = departments.filter(d => d.parent_department_id === dept.id);
+            
             return (
-              <Card key={dept.id}>
+              <Card key={dept.id} className={dept.parent_department_id ? 'ml-8 border-l-4 border-l-primary/30' : ''}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <CardTitle>{dept.department_name}</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        {dept.department_name}
+                        {childDepartments.length > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            {childDepartments.length} {language === 'ar' ? 'أقسام فرعية' : 'sub-depts'}
+                          </Badge>
+                        )}
+                      </CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
                         {language === 'ar' ? 'الكود' : 'Code'}: {dept.department_code}
                       </p>
+                      {parentDept && (
+                        <p className="text-sm text-primary mt-1">
+                          {language === 'ar' ? 'القسم الرئيسي' : 'Parent'}: {parentDept.department_name}
+                        </p>
+                      )}
                       {dept.description && (
                         <p className="text-sm text-muted-foreground mt-2">
                           {dept.description}

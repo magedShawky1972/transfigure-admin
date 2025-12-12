@@ -41,6 +41,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown } from "lucide-react";
+import AvatarSelector from "@/components/AvatarSelector";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface Profile {
@@ -55,6 +57,7 @@ interface Profile {
   job_position_name?: string | null;
   default_department_id?: string | null;
   default_department_name?: string | null;
+  avatar_url?: string | null;
 }
 
 interface JobPosition {
@@ -187,6 +190,7 @@ const UserSetup = () => {
     is_admin: false,
     job_position_id: null as string | null,
     default_department_id: null as string | null,
+    avatar_url: null as string | null,
   });
 
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
@@ -348,6 +352,7 @@ const UserSetup = () => {
             is_active: formData.is_active,
             job_position_id: formData.job_position_id,
             default_department_id: formData.default_department_id,
+            avatar_url: formData.avatar_url,
           })
           .eq("id", editingProfile.id);
 
@@ -436,6 +441,7 @@ const UserSetup = () => {
       is_admin: profile.is_admin || false,
       job_position_id: profile.job_position_id || null,
       default_department_id: profile.default_department_id || null,
+      avatar_url: profile.avatar_url || null,
     });
     setDialogOpen(true);
   };
@@ -519,6 +525,7 @@ const UserSetup = () => {
       is_admin: false,
       job_position_id: null,
       default_department_id: null,
+      avatar_url: null,
     });
     setEditingProfile(null);
   };
@@ -802,7 +809,14 @@ const UserSetup = () => {
                 {editingProfile ? "Edit User" : "Add New User"}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+              {editingProfile && (
+                <AvatarSelector
+                  currentAvatar={formData.avatar_url}
+                  onAvatarChange={(url) => setFormData({ ...formData, avatar_url: url })}
+                  userName={formData.user_name}
+                />
+              )}
               <div className="space-y-2">
                 <Label htmlFor="user_name">User Name</Label>
                 <Input
