@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,38 +20,29 @@ interface ReorderNotificationRequest {
   userName: string;
 }
 
-async function sendEmailInBackground(
+async function sendEmailWithResend(
   email: string,
-  userName: string,
   brandName: string,
   emailHtml: string
 ) {
   try {
-    const smtpClient = new SMTPClient({
-      connection: {
-        hostname: "smtp.hostinger.com",
-        port: 465,
-        tls: true,
-        auth: {
-          username: "edara@asuscards.com",
-          password: Deno.env.get("SMTP_PASSWORD") ?? "",
-        },
-      },
-    });
-
     console.log("Sending reorder notification email to:", email);
     
-    // Use simple English subject to avoid encoding issues, Arabic content is in the email body
-    const subject = `${brandName} - Reorder Alert`;
+    // Arabic subject with brand name
+    const subject = `${brandName} - طلب شراء`;
     
-    await smtpClient.send({
-      from: "Edara Support <edara@asuscards.com>",
-      to: email,
+    const { error } = await resend.emails.send({
+      from: "Edara System <edara@asuscards.com>",
+      to: [email],
       subject: subject,
-      content: "text/html; charset=utf-8",
       html: emailHtml,
     });
-    await smtpClient.close();
+    
+    if (error) {
+      console.error("Resend error:", error);
+      throw error;
+    }
+    
     console.log("Reorder email sent successfully to:", email);
   } catch (emailError) {
     console.error("Failed to send reorder email to", email, ":", emailError);
@@ -157,7 +149,6 @@ serve(async (req) => {
     const currentTime = timeFormatter.format(now);
 
     const typeLabel = type === "opening" ? "فتح الوردية" : "إغلاق الوردية";
-    const emailSubject = `${brandName} - طلب شراء`;
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -227,8 +218,8 @@ serve(async (req) => {
         console.log("Notification created for:", profile.email);
       }
 
-      // Send email
-      await sendEmailInBackground(profile.email, profile.user_name, brandName, emailHtml);
+      // Send email using Resend
+      await sendEmailWithResend(profile.email, brandName, emailHtml);
 
       // Send push notification
       try {
