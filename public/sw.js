@@ -1,5 +1,5 @@
 // Service Worker for Push Notifications and Version Management
-const CACHE_NAME = 'edara-cache-v1.2.5';
+const CACHE_NAME = 'edara-cache-v1.2.6';
 
 self.addEventListener('install', function(event) {
   console.log('Service Worker installing...');
