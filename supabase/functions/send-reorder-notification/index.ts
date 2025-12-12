@@ -22,7 +22,7 @@ interface ReorderNotificationRequest {
 async function sendEmailInBackground(
   email: string,
   userName: string,
-  emailSubject: string,
+  brandName: string,
   emailHtml: string
 ) {
   try {
@@ -39,11 +39,15 @@ async function sendEmailInBackground(
     });
 
     console.log("Sending reorder notification email to:", email);
+    
+    // Use simple English subject to avoid encoding issues, Arabic content is in the email body
+    const subject = `${brandName} - Reorder Alert`;
+    
     await smtpClient.send({
-      from: "Edara System <edara@asuscards.com>",
+      from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: emailSubject,
-      content: "auto",
+      subject: subject,
+      content: "text/html; charset=utf-8",
       html: emailHtml,
     });
     await smtpClient.close();
@@ -224,7 +228,7 @@ serve(async (req) => {
       }
 
       // Send email
-      await sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml);
+      await sendEmailInBackground(profile.email, profile.user_name, brandName, emailHtml);
 
       // Send push notification
       try {
