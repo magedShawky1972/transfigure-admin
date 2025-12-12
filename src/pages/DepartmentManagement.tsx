@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import DepartmentTaskPhases from "@/components/DepartmentTaskPhases";
 import {
   DndContext,
   closestCenter,
@@ -782,7 +783,11 @@ const DepartmentManagement = () => {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <DepartmentTaskPhases
+                        departmentId={dept.id}
+                        departmentName={dept.department_name}
+                      />
                       <Button
                         size="sm"
                         variant="ghost"
