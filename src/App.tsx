@@ -57,6 +57,7 @@ import UserGroupSetup from "./pages/UserGroupSetup";
 import Notifications from "./pages/Notifications";
 import ProjectsTasks from "./pages/ProjectsTasks";
 import TaskDashboard from "./pages/TaskDashboard";
+import CompanyHierarchy from "./pages/CompanyHierarchy";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -122,6 +123,7 @@ const App = () => (
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/projects-tasks" element={<ProjectsTasks />} />
               <Route path="/task-dashboard" element={<TaskDashboard />} />
+              <Route path="/company-hierarchy" element={<CompanyHierarchy />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
