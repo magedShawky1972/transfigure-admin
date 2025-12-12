@@ -32,6 +32,7 @@ interface Brand {
   brand_name: string;
   short_name: string | null;
   abc_analysis: string;
+  reorder_point: number | null;
 }
 
 interface ShiftSession {
@@ -249,6 +250,46 @@ const ShiftSession = () => {
     }
   };
 
+  // Check if balance is at or below reorder point and send notifications
+  const checkAndSendReorderNotification = async (
+    brandId: string,
+    balance: number,
+    type: 'opening' | 'closing'
+  ) => {
+    try {
+      // Skip if balance is zero
+      if (balance === 0) return;
+
+      const brand = brands.find((b) => b.id === brandId);
+      if (!brand) return;
+
+      const reorderPoint = brand.reorder_point || 0;
+
+      // Check if balance is less than or equal to reorder point
+      if (balance <= reorderPoint && reorderPoint > 0) {
+        console.log(`Balance ${balance} <= reorder point ${reorderPoint} for ${brand.brand_name}, sending notification`);
+        
+        await supabase.functions.invoke("send-reorder-notification", {
+          body: {
+            brandId,
+            brandName: brand.short_name || brand.brand_name,
+            currentBalance: balance,
+            reorderPoint,
+            type,
+            userName,
+          },
+        });
+
+        toast({
+          title: "تنبيه",
+          description: `تم إرسال إشعار طلب شراء لـ ${brand.short_name || brand.brand_name}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error sending reorder notification:", error);
+    }
+  };
+
   const handleOpeningImageUpload = async (brandId: string, file: File) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -411,6 +452,9 @@ const ShiftSession = () => {
             opening_image_path: imagePath,
           },
         }));
+
+        // Check if balance is at or below reorder point
+        await checkAndSendReorderNotification(brandId, data.extractedNumber, 'opening');
 
         toast({
           title: t("success"),
@@ -1054,6 +1098,9 @@ const ShiftSession = () => {
 
         // Save extracted number to database immediately
         await saveBalanceToDb(brandId, data.extractedNumber, imagePath);
+
+        // Check if balance is at or below reorder point
+        await checkAndSendReorderNotification(brandId, data.extractedNumber, 'closing');
 
         toast({
           title: t("success"),
