@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.migrate-shift-images-to-cloudinary]
 verify_jwt = false
+
+[functions.send-reorder-notification]
+verify_jwt = false
