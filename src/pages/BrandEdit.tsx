@@ -61,12 +61,15 @@ const BrandEdit = () => {
     return value.replace(/,/g, '');
   };
 
-  // Calculate safety stock when leadtime or average_consumption_per_day changes
+  // Calculate safety stock and reorder point when leadtime or average_consumption_per_day changes
+  // Safety Stock = Average Consumption Per Day * 1.5
+  // Reorder Point = Safety Stock + (Average Consumption Per Day * Lead Time)
   const calculateSafetyStock = (leadtime: string, avgDaily: string): { safetyStock: string; reorderPoint: string } => {
     const lt = parseFloat(leadtime) || 0;
     const daily = parseFloat(avgDaily) || 0;
-    const safetyStock = (lt * daily).toFixed(2);
-    return { safetyStock, reorderPoint: safetyStock };
+    const safetyStock = (daily * 1.5);
+    const reorderPoint = safetyStock + (daily * lt);
+    return { safetyStock: safetyStock.toFixed(2), reorderPoint: reorderPoint.toFixed(2) };
   };
 
   useEffect(() => {
@@ -434,7 +437,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="safety_stock">Safety Stock</Label>
+              <Label htmlFor="safety_stock">Safety Stock (Daily Avg × 1.5)</Label>
               <Input
                 id="safety_stock"
                 type="text"
@@ -442,13 +445,13 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, safety_stock: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Auto-calculated: Lead Time × Daily Avg"
+                placeholder="Auto-calculated: Daily Avg × 1.5"
                 className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reorder_point">Reorder Point</Label>
+              <Label htmlFor="reorder_point">Reorder Point (Safety + Daily × Lead)</Label>
               <Input
                 id="reorder_point"
                 type="text"
@@ -456,7 +459,8 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, reorder_point: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Enter reorder point quantity"
+                placeholder="Auto-calculated: Safety Stock + (Daily Avg × Lead Time)"
+                className="bg-muted"
               />
             </div>
 
