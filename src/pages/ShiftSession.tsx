@@ -72,6 +72,16 @@ const ShiftSession = () => {
   const [brandErrors, setBrandErrors] = useState<Record<string, string | null>>({});
   const [openingBrandErrors, setOpeningBrandErrors] = useState<Record<string, string | null>>({});
   const [openingImageUrls, setOpeningImageUrls] = useState<Record<string, string | null>>({});
+  const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
+  
+  // Zero value confirmation dialog state
+  const [zeroValueDialog, setZeroValueDialog] = useState<{
+    open: boolean;
+    brandId: string;
+    brandName: string;
+    imagePath: string;
+    type: 'opening' | 'closing';
+  } | null>(null);
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -378,6 +388,18 @@ const ShiftSession = () => {
       }
 
       if (data?.extractedNumber !== null && data?.extractedNumber !== undefined) {
+        // Check if value is zero - show confirmation dialog
+        if (data.extractedNumber === 0) {
+          setZeroValueDialog({
+            open: true,
+            brandId,
+            brandName,
+            imagePath,
+            type: 'opening',
+          });
+          return;
+        }
+        
         setOpeningBalances((prev) => ({
           ...prev,
           [brandId]: {
@@ -635,7 +657,92 @@ const ShiftSession = () => {
     }
   };
 
-  // Helper function to save balance to database
+  // Handle zero value confirmation
+  const handleZeroValueConfirm = async () => {
+    if (!zeroValueDialog) return;
+    
+    const { brandId, imagePath, type, brandName } = zeroValueDialog;
+    
+    if (type === 'opening') {
+      setOpeningBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: 0,
+          receipt_image_path: null,
+          opening_balance: 0,
+          opening_image_path: imagePath,
+        },
+      }));
+      toast({
+        title: t("success"),
+        description: `تم تأكيد الرصيد: 0`,
+      });
+    } else {
+      setBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: 0,
+          receipt_image_path: imagePath,
+        },
+      }));
+      await saveBalanceToDb(brandId, 0, imagePath);
+      toast({
+        title: t("success"),
+        description: `تم تأكيد الرصيد: 0`,
+      });
+    }
+    
+    setZeroValueDialog(null);
+  };
+
+  const handleZeroValueReject = async () => {
+    if (!zeroValueDialog) return;
+    
+    const { brandId, type } = zeroValueDialog;
+    
+    // Clear the image so user can re-upload
+    if (type === 'opening') {
+      setOpeningBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: 0,
+          receipt_image_path: null,
+          opening_balance: 0,
+          opening_image_path: null,
+        },
+      }));
+      setOpeningImageUrls((prev) => ({ ...prev, [brandId]: null }));
+      setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: "يرجى رفع صورة جديدة" }));
+    } else {
+      setBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: 0,
+          receipt_image_path: null,
+        },
+      }));
+      setImageUrls((prev) => ({ ...prev, [brandId]: null }));
+      setBrandErrors((prev) => ({ ...prev, [brandId]: "يرجى رفع صورة جديدة" }));
+      if (shiftSession) {
+        await saveBalanceToDb(brandId, 0, null);
+      }
+    }
+    
+    toast({
+      title: t("info") || "معلومات",
+      description: "يرجى رفع صورة جديدة للعلامة التجارية",
+    });
+    
+    setZeroValueDialog(null);
+  };
   const saveBalanceToDb = async (brandId: string, closingBalance: number, receiptImagePath: string | null) => {
     if (!shiftSession) return;
     
@@ -803,9 +910,6 @@ const ShiftSession = () => {
     return data.signedUrl;
   };
 
-  // State to store signed URLs for images
-  const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
-
   // Load signed URLs when balances change
   useEffect(() => {
     const loadImageUrls = async () => {
@@ -926,6 +1030,18 @@ const ShiftSession = () => {
       }
 
       if (data?.extractedNumber !== null && data?.extractedNumber !== undefined) {
+        // Check if value is zero - show confirmation dialog
+        if (data.extractedNumber === 0) {
+          setZeroValueDialog({
+            open: true,
+            brandId,
+            brandName,
+            imagePath,
+            type: 'closing',
+          });
+          return;
+        }
+        
         setBalances((prev) => ({
           ...prev,
           [brandId]: {
@@ -1607,6 +1723,40 @@ const ShiftSession = () => {
               className="w-full max-h-[70vh] object-contain rounded-lg"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Zero Value Confirmation Dialog */}
+      <Dialog open={zeroValueDialog?.open || false} onOpenChange={(open) => !open && setZeroValueDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-amber-600">
+              تأكيد القيمة الصفرية
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              تم استخراج القيمة <span className="font-bold text-red-600">0</span> من صورة{" "}
+              <span className="font-semibold">{zeroValueDialog?.brandName}</span>.
+              <br />
+              <br />
+              هل أنت متأكد أن هذه القيمة صحيحة؟ عادةً لا تصل الأرصدة إلى الصفر.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={handleZeroValueReject}
+              className="flex-1 sm:flex-none"
+            >
+              لا، إعادة رفع الصورة
+            </Button>
+            <Button 
+              variant="default"
+              onClick={handleZeroValueConfirm}
+              className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700"
+            >
+              نعم، القيمة صحيحة
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
