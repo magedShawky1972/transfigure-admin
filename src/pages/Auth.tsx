@@ -13,11 +13,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import logo from "@/assets/edara-logo.png";
+import { useAppVersion } from "@/hooks/useAppVersion";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const version = useAppVersion();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -634,7 +636,7 @@ const Auth = () => {
 
           <div className="text-center mt-6 space-y-2 border-t pt-4">
             <p className="text-sm text-muted-foreground">{format(new Date(), "MMMM dd, yyyy")}</p>
-            <p className="text-sm text-muted-foreground">Version 1.2.5</p>
+            {version && <p className="text-sm text-muted-foreground">Version {version}</p>}
           </div>
         </CardContent>
       </Card>
