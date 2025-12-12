@@ -265,8 +265,10 @@ const CompanyHierarchy = () => {
     if (!selectedUserId || !selectedDeptId) return;
 
     try {
+      // Clear job_position_id when assigning directly to department
       const { error } = await supabase.from("profiles").update({
         default_department_id: selectedDeptId,
+        job_position_id: null,
       }).eq("user_id", selectedUserId);
 
       if (error) throw error;
@@ -293,6 +295,10 @@ const CompanyHierarchy = () => {
   // Get users assigned directly to department (no job)
   const getUsersDirectlyInDepartment = (deptId: string) => {
     return profiles.filter(p => p.default_department_id === deptId && !p.job_position_id);
+  };
+
+  const getAllActiveUsers = () => {
+    return profiles.filter(p => p.is_active);
   };
 
   const getUnassignedUsers = () => {
@@ -681,7 +687,7 @@ const CompanyHierarchy = () => {
                   <SelectValue placeholder={language === 'ar' ? 'اختر موظف' : 'Select a user'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {getUnassignedUsers().map(user => (
+                  {getAllActiveUsers().map(user => (
                     <SelectItem key={user.user_id} value={user.user_id}>
                       {user.user_name} ({user.email})
                     </SelectItem>
@@ -712,7 +718,7 @@ const CompanyHierarchy = () => {
                   <SelectValue placeholder={language === 'ar' ? 'اختر موظف' : 'Select a user'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {getUnassignedUsers().map(user => (
+                  {getAllActiveUsers().map(user => (
                     <SelectItem key={user.user_id} value={user.user_id}>
                       {user.user_name} ({user.email})
                     </SelectItem>
