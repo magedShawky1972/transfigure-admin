@@ -1,10 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,31 +16,37 @@ interface ReorderNotificationRequest {
   currentBalance: number;
   reorderPoint: number;
   type: "opening" | "closing";
+  userId: string;
   userName: string;
 }
 
-async function sendEmailWithResend(
+async function sendEmailWithSMTP(
   email: string,
-  brandName: string,
   emailHtml: string
 ) {
   try {
+    const smtpClient = new SMTPClient({
+      connection: {
+        hostname: "smtp.hostinger.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: "edara@asuscards.com",
+          password: Deno.env.get("SMTP_PASSWORD") ?? "",
+        },
+      },
+    });
+
     console.log("Sending reorder notification email to:", email);
     
-    // Arabic subject with brand name
-    const subject = `${brandName} - طلب شراء`;
-    
-    const { error } = await resend.emails.send({
-      from: "Edara System <edara@asuscards.com>",
-      to: [email],
-      subject: subject,
+    await smtpClient.send({
+      from: "Edara Support <edara@asuscards.com>",
+      to: email,
+      subject: "Reorder Request",
+      content: "text/html; charset=utf-8",
       html: emailHtml,
     });
-    
-    if (error) {
-      console.error("Resend error:", error);
-      throw error;
-    }
+    await smtpClient.close();
     
     console.log("Reorder email sent successfully to:", email);
   } catch (emailError) {
@@ -218,8 +223,8 @@ serve(async (req) => {
         console.log("Notification created for:", profile.email);
       }
 
-      // Send email using Resend
-      await sendEmailWithResend(profile.email, brandName, emailHtml);
+      // Send email using SMTP
+      await sendEmailWithSMTP(profile.email, emailHtml);
 
       // Send push notification
       try {
