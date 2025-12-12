@@ -43,7 +43,7 @@ async function sendEmailWithSMTP(
       from: "Edara Support <edara@asuscards.com>",
       to: email,
       subject: "Reorder Request",
-      content: "text/html; charset=utf-8",
+      content: "auto",
       html: emailHtml,
     });
     await smtpClient.close();
@@ -155,53 +155,7 @@ serve(async (req) => {
 
     const typeLabel = type === "opening" ? "فتح الوردية" : "إغلاق الوردية";
 
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; direction: rtl; padding: 20px; background-color: #f5f5f5; }
-          .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-          .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; margin: -30px -30px 20px -30px; }
-          h3 { color: #dc2626; font-size: 1.5em; margin: 15px 0; }
-          p { font-size: 1.2em; line-height: 1.8; color: #333; margin: 10px 0; }
-          .info-box { background-color: #fef3c7; border-right: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
-          .warning { background-color: #fee2e2; border-right: 4px solid #dc2626; padding: 15px; margin: 20px 0; border-radius: 5px; }
-          .value { font-weight: bold; color: #dc2626; font-size: 1.3em; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 0.9em; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>⚠️ تنبيه: رصيد منخفض</h1>
-          </div>
-          
-          <h3>طلب شراء عملات</h3>
-          
-          <div class="warning">
-            <p><strong>العلامة التجارية:</strong> <span class="value">${brandName}</span></p>
-          </div>
-          
-          <div class="info-box">
-            <p><strong>الرصيد الحالي:</strong> <span class="value">${currentBalance.toLocaleString("ar-SA")}</span></p>
-            <p><strong>نقطة إعادة الطلب:</strong> ${reorderPoint.toLocaleString("ar-SA")}</p>
-          </div>
-          
-          <p><strong>تم الإبلاغ عند:</strong> ${typeLabel}</p>
-          <p><strong>بواسطة:</strong> ${userName}</p>
-          <p><strong>التاريخ:</strong> ${currentDate}</p>
-          <p><strong>الوقت:</strong> ${currentTime}</p>
-          
-          <div class="footer">
-            <p>هذا إشعار تلقائي من نظام إدارة الورديات</p>
-            <p>يرجى اتخاذ الإجراء اللازم لتجديد المخزون</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const emailHtml = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;direction:rtl;padding:20px;background-color:#f5f5f5}.container{max-width:600px;margin:0 auto;background-color:white;border-radius:10px;padding:30px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}.header{background-color:#dc2626;color:white;padding:20px;text-align:center;border-radius:10px 10px 0 0;margin:-30px -30px 20px -30px}h3{color:#dc2626;font-size:1.5em;margin:15px 0}p{font-size:1.2em;line-height:1.8;color:#333;margin:10px 0}.info-box{background-color:#fef3c7;border-right:4px solid #f59e0b;padding:15px;margin:20px 0;border-radius:5px}.warning{background-color:#fee2e2;border-right:4px solid #dc2626;padding:15px;margin:20px 0;border-radius:5px}.value{font-weight:bold;color:#dc2626;font-size:1.3em}.footer{margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:0.9em}</style></head><body><div class="container"><div class="header"><h1>تنبيه: رصيد منخفض</h1></div><h3>طلب شراء كوينز</h3><div class="warning"><p><strong>العلامة التجارية:</strong> <span class="value">${brandName}</span></p></div><div class="info-box"><p><strong>الرصيد الحالي:</strong> <span class="value">${currentBalance.toLocaleString("ar-SA")}</span></p><p><strong>نقطة إعادة الطلب:</strong> ${reorderPoint.toLocaleString("ar-SA")}</p></div><p><strong>تم الإبلاغ عند:</strong> ${typeLabel}</p><p><strong>بواسطة:</strong> ${userName}</p><p><strong>التاريخ:</strong> ${currentDate}</p><p><strong>الوقت:</strong> ${currentTime}</p><div class="footer"><p>هذا إشعار تلقائي من نظام إدارة الورديات</p><p>يرجى اتخاذ الإجراء اللازم لتجديد المخزون</p></div></div></body></html>`;
 
     const notificationTitle = `${brandName} - طلب شراء`;
     const notificationMessage = `رصيد ${brandName} الحالي (${currentBalance.toLocaleString("ar-SA")}) أقل من أو يساوي نقطة إعادة الطلب (${reorderPoint.toLocaleString("ar-SA")}). تم الإبلاغ عند ${typeLabel} بواسطة ${userName}.`;
