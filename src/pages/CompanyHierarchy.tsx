@@ -16,7 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, ChevronDown, ChevronRight, Pencil, Trash2, UserPlus } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -57,8 +63,6 @@ const CompanyHierarchy = () => {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
-  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
 
   // Dialog states
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
@@ -70,7 +74,7 @@ const CompanyHierarchy = () => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   // Form states
-  const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "" });
+  const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "__none__" });
   const [jobForm, setJobForm] = useState({ name: "", departmentId: "" });
   const [selectedUserId, setSelectedUserId] = useState("");
 
@@ -93,32 +97,11 @@ const CompanyHierarchy = () => {
       setDepartments(deptRes.data || []);
       setJobPositions(jobRes.data || []);
       setProfiles(profileRes.data || []);
-
-      // Expand all departments by default
-      setExpandedDepts(new Set((deptRes.data || []).map(d => d.id)));
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleDept = (deptId: string) => {
-    setExpandedDepts(prev => {
-      const next = new Set(prev);
-      if (next.has(deptId)) next.delete(deptId);
-      else next.add(deptId);
-      return next;
-    });
-  };
-
-  const toggleJob = (jobId: string) => {
-    setExpandedJobs(prev => {
-      const next = new Set(prev);
-      if (next.has(jobId)) next.delete(jobId);
-      else next.add(jobId);
-      return next;
-    });
   };
 
   const handleAddDepartment = (parentId: string | null = null) => {
@@ -277,21 +260,6 @@ const CompanyHierarchy = () => {
     }
   };
 
-  const handleRemoveUserFromJob = async (userId: string) => {
-    try {
-      const { error } = await supabase.from("profiles").update({
-        job_position_id: null,
-        default_department_id: null,
-      }).eq("user_id", userId);
-
-      if (error) throw error;
-      toast({ title: language === 'ar' ? "تم إزالة الموظف" : "User removed" });
-      fetchData();
-    } catch (error: any) {
-      toast({ title: error.message, variant: "destructive" });
-    }
-  };
-
   const getChildDepartments = (parentId: string | null) => {
     return departments.filter(d => d.parent_department_id === parentId && d.is_active);
   };
@@ -309,124 +277,117 @@ const CompanyHierarchy = () => {
     return profiles.filter(p => !assignedUserIds.includes(p.user_id));
   };
 
-  const renderDepartmentNode = (dept: Department, level: number = 0) => {
+  // Org Chart Node Component
+  const OrgChartNode = ({ dept, isRoot = false }: { dept: Department; isRoot?: boolean }) => {
     const children = getChildDepartments(dept.id);
     const jobs = getJobsForDepartment(dept.id);
-    const isExpanded = expandedDepts.has(dept.id);
-    const hasContent = children.length > 0 || jobs.length > 0;
 
     return (
-      <div key={dept.id} className="relative">
-        {/* Connection line from parent */}
-        {level > 0 && (
-          <div className="absolute top-0 -left-8 w-8 h-6 border-l-2 border-b-2 border-border rounded-bl-lg" />
-        )}
-        
-        {/* Department card */}
-        <div
-          className={cn(
-            "relative flex items-center gap-2 p-3 mb-2 rounded-lg border-2 bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors",
-            level === 0 && "bg-primary text-primary-foreground border-primary"
-          )}
-          style={{ marginLeft: level * 40 }}
-        >
-          {hasContent && (
-            <button onClick={() => toggleDept(dept.id)} className="p-1 hover:bg-background/20 rounded">
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-          )}
-          <Building2 className="h-5 w-5 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold truncate">{dept.department_name}</div>
-            <div className="text-xs opacity-70">{dept.department_code}</div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleAddDepartment(dept.id)}>
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleAddJob(dept.id)}>
-              <Briefcase className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditDepartment(dept)}>
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteDepartment(dept.id)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      <div className="flex flex-col items-center">
+        {/* Department Box */}
+        <ContextMenu>
+          <ContextMenuTrigger>
+            <div
+              className={cn(
+                "px-6 py-3 rounded-lg text-white font-semibold text-center min-w-[140px] cursor-pointer transition-all hover:scale-105 hover:shadow-lg",
+                isRoot ? "bg-primary" : "bg-primary/80"
+              )}
+            >
+              <div className="text-sm font-bold">{dept.department_name}</div>
+              <div className="text-xs opacity-80">{dept.department_code}</div>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onClick={() => handleAddDepartment(dept.id)}>
+              <Plus className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'إضافة قسم فرعي' : 'Add Sub-Department'}
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handleAddJob(dept.id)}>
+              <Briefcase className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'إضافة وظيفة' : 'Add Job'}
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handleEditDepartment(dept)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'تعديل' : 'Edit'}
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handleDeleteDepartment(dept.id)} className="text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'حذف' : 'Delete'}
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
 
-        {/* Jobs and child departments */}
-        {isExpanded && (
-          <div className="relative" style={{ marginLeft: (level + 1) * 40 }}>
-            {/* Vertical connection line */}
-            {(jobs.length > 0 || children.length > 0) && (
-              <div className="absolute top-0 -left-8 w-0.5 h-full bg-border" />
-            )}
-
-            {/* Jobs */}
-            {jobs.map((job, idx) => {
+        {/* Jobs under department */}
+        {jobs.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {jobs.map(job => {
               const jobUsers = getUsersForJob(job.id);
-              const isJobExpanded = expandedJobs.has(job.id);
-              const isLastItem = idx === jobs.length - 1 && children.length === 0;
-
               return (
-                <div key={job.id} className="relative">
-                  {/* Connection line */}
-                  <div className={cn(
-                    "absolute top-3 -left-8 w-8 border-t-2 border-border",
-                    isLastItem && "border-l-2 rounded-bl-lg h-3 -top-0"
-                  )} />
-
-                  <div className="flex items-center gap-2 p-2 mb-2 rounded-lg border bg-secondary/50 border-secondary hover:bg-secondary/80 transition-colors">
-                    {jobUsers.length > 0 && (
-                      <button onClick={() => toggleJob(job.id)} className="p-1 hover:bg-background/20 rounded">
-                        {isJobExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                      </button>
-                    )}
-                    <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 text-sm font-medium">{job.position_name}</span>
-                    <span className="text-xs text-muted-foreground">({jobUsers.length})</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenAssignUser(job.id, dept.id)}>
-                      <UserPlus className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditJob(job)}>
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteJob(job.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-
-                  {/* Users under job */}
-                  {isJobExpanded && jobUsers.length > 0 && (
-                    <div className="ml-8 space-y-1 mb-2">
-                      {jobUsers.map(user => (
-                        <div key={user.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={user.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs">{user.user_name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <span className="flex-1 truncate">{user.user_name}</span>
-                          <span className="text-xs text-muted-foreground truncate">{user.email}</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => handleRemoveUserFromJob(user.user_id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                <ContextMenu key={job.id}>
+                  <ContextMenuTrigger>
+                    <div className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-xs text-center cursor-pointer hover:bg-secondary/80">
+                      <div className="font-medium">{job.position_name}</div>
+                      {jobUsers.length > 0 && (
+                        <div className="flex items-center justify-center gap-1 mt-1">
+                          {jobUsers.slice(0, 3).map(user => (
+                            <Avatar key={user.id} className="h-5 w-5">
+                              <AvatarImage src={user.avatar_url || undefined} />
+                              <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          ))}
+                          {jobUsers.length > 3 && (
+                            <span className="text-[10px] text-muted-foreground">+{jobUsers.length - 3}</span>
+                          )}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => handleOpenAssignUser(job.id, dept.id)}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'تعيين موظف' : 'Assign User'}
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handleEditJob(job)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'تعديل' : 'Edit'}
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handleDeleteJob(job.id)} className="text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'حذف' : 'Delete'}
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })}
-
-            {/* Child departments */}
-            {children.map((child, idx) => (
-              <div key={child.id} className="relative">
-                {renderDepartmentNode(child, 0)}
-              </div>
-            ))}
           </div>
+        )}
+
+        {/* Vertical line to children */}
+        {children.length > 0 && (
+          <>
+            <div className="w-0.5 h-6 bg-primary/50" />
+            
+            {/* Horizontal connector line */}
+            {children.length > 1 && (
+              <div 
+                className="h-0.5 bg-primary/50" 
+                style={{ 
+                  width: `calc(${(children.length - 1) * 180}px)`,
+                }}
+              />
+            )}
+
+            {/* Children */}
+            <div className="flex gap-8 mt-0">
+              {children.map((child, index) => (
+                <div key={child.id} className="flex flex-col items-center">
+                  {/* Vertical line from horizontal connector */}
+                  <div className="w-0.5 h-6 bg-primary/50" />
+                  <OrgChartNode dept={child} />
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     );
@@ -445,8 +406,8 @@ const CompanyHierarchy = () => {
             </h1>
             <p className="text-muted-foreground">
               {language === 'ar' 
-                ? 'إدارة الأقسام والوظائف والموظفين' 
-                : 'Manage departments, jobs, and employees'}
+                ? 'انقر بزر الماوس الأيمن على أي عنصر لإدارته' 
+                : 'Right-click on any element to manage it'}
             </p>
           </div>
         </div>
@@ -518,10 +479,10 @@ const CompanyHierarchy = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            {language === 'ar' ? 'الهيكل التنظيمي' : 'Organizational Structure'}
+            {language === 'ar' ? 'الهيكل التنظيمي' : 'Organizational Chart'}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">
               {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
@@ -533,8 +494,10 @@ const CompanyHierarchy = () => {
                 : 'No departments found. Click "Add Main Department" to start.'}
             </div>
           ) : (
-            <div className="p-4 overflow-x-auto">
-              {rootDepartments.map(dept => renderDepartmentNode(dept, 0))}
+            <div className="flex justify-center gap-16 p-8 min-w-max">
+              {rootDepartments.map(dept => (
+                <OrgChartNode key={dept.id} dept={dept} isRoot />
+              ))}
             </div>
           )}
         </CardContent>
