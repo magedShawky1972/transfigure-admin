@@ -42,8 +42,8 @@ async function sendEmailWithSMTP(
     await smtpClient.send({
       from: "Edara Support <edara@asuscards.com>",
       to: email,
-      subject: "Reorder Request",
-      content: "auto",
+      subject: "طلب شراء كوينز",
+      content: "text/html; charset=utf-8",
       html: emailHtml,
     });
     await smtpClient.close();
