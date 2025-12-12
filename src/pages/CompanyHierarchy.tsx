@@ -16,12 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
 import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -285,37 +279,46 @@ const CompanyHierarchy = () => {
     return (
       <div className="flex flex-col items-center">
         {/* Department Box */}
-        <ContextMenu>
-          <ContextMenuTrigger>
-            <div
-              className={cn(
-                "px-6 py-3 rounded-lg text-white font-semibold text-center min-w-[140px] cursor-pointer transition-all hover:scale-105 hover:shadow-lg",
-                isRoot ? "bg-primary" : "bg-primary/80"
-              )}
+        <div
+          className={cn(
+            "relative px-6 py-3 rounded-lg text-white font-semibold text-center min-w-[180px] transition-all hover:shadow-lg group",
+            isRoot ? "bg-primary" : "bg-primary/80"
+          )}
+        >
+          <div className="text-sm font-bold">{dept.department_name}</div>
+          <div className="text-xs opacity-80">{dept.department_code}</div>
+          
+          {/* Action buttons - visible on hover */}
+          <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-6 w-6 rounded-full shadow-md"
+              onClick={(e) => { e.stopPropagation(); handleEditDepartment(dept); }}
+              title={language === 'ar' ? 'تعديل القسم' : 'Edit Department'}
             >
-              <div className="text-sm font-bold">{dept.department_name}</div>
-              <div className="text-xs opacity-80">{dept.department_code}</div>
-            </div>
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem onClick={() => handleAddDepartment(dept.id)}>
-              <Plus className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'إضافة قسم فرعي' : 'Add Sub-Department'}
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleAddJob(dept.id)}>
-              <Briefcase className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'إضافة وظيفة' : 'Add Job'}
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleEditDepartment(dept)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'تعديل' : 'Edit'}
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleDeleteDepartment(dept.id)} className="text-destructive">
-              <Trash2 className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'حذف' : 'Delete'}
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+              <Pencil className="h-3 w-3" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-6 w-6 rounded-full shadow-md"
+              onClick={(e) => { e.stopPropagation(); handleAddJob(dept.id); }}
+              title={language === 'ar' ? 'إضافة وظيفة' : 'Add Job'}
+            >
+              <Briefcase className="h-3 w-3" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-6 w-6 rounded-full shadow-md"
+              onClick={(e) => { e.stopPropagation(); handleAddDepartment(dept.id); }}
+              title={language === 'ar' ? 'إضافة قسم فرعي' : 'Add Sub-Department'}
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
 
         {/* Jobs under department */}
         {jobs.length > 0 && (
@@ -323,40 +326,45 @@ const CompanyHierarchy = () => {
             {jobs.map(job => {
               const jobUsers = getUsersForJob(job.id);
               return (
-                <ContextMenu key={job.id}>
-                  <ContextMenuTrigger>
-                    <div className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-xs text-center cursor-pointer hover:bg-secondary/80">
-                      <div className="font-medium">{job.position_name}</div>
-                      {jobUsers.length > 0 && (
-                        <div className="flex items-center justify-center gap-1 mt-1">
-                          {jobUsers.slice(0, 3).map(user => (
-                            <Avatar key={user.id} className="h-5 w-5">
-                              <AvatarImage src={user.avatar_url || undefined} />
-                              <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                          ))}
-                          {jobUsers.length > 3 && (
-                            <span className="text-[10px] text-muted-foreground">+{jobUsers.length - 3}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    <ContextMenuItem onClick={() => handleOpenAssignUser(job.id, dept.id)}>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'تعيين موظف' : 'Assign User'}
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={() => handleEditJob(job)}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'تعديل' : 'Edit'}
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={() => handleDeleteJob(job.id)} className="text-destructive">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'حذف' : 'Delete'}
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
+                <div key={job.id} className="relative group/job">
+                  <div className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-xs text-center">
+                    <div className="font-medium">{job.position_name}</div>
+                    {jobUsers.length > 0 && (
+                      <div className="flex items-center justify-center gap-1 mt-1">
+                        {jobUsers.slice(0, 3).map(user => (
+                          <Avatar key={user.id} className="h-5 w-5">
+                            <AvatarImage src={user.avatar_url || undefined} />
+                            <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {jobUsers.length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">+{jobUsers.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {/* Job action buttons */}
+                  <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover/job:opacity-100 transition-opacity">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-5 w-5 rounded-full shadow-sm bg-background"
+                      onClick={(e) => { e.stopPropagation(); handleEditJob(job); }}
+                      title={language === 'ar' ? 'تعديل الوظيفة' : 'Edit Job'}
+                    >
+                      <Pencil className="h-2.5 w-2.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-5 w-5 rounded-full shadow-sm bg-background"
+                      onClick={(e) => { e.stopPropagation(); handleOpenAssignUser(job.id, dept.id); }}
+                      title={language === 'ar' ? 'تعيين موظف' : 'Assign User'}
+                    >
+                      <UserPlus className="h-2.5 w-2.5" />
+                    </Button>
+                  </div>
+                </div>
               );
             })}
           </div>
