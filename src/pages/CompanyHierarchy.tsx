@@ -123,7 +123,7 @@ const CompanyHierarchy = () => {
 
   const handleAddDepartment = (parentId: string | null = null) => {
     setEditingDept(null);
-    setDeptForm({ name: "", code: "", parentId: parentId || "" });
+    setDeptForm({ name: "", code: "", parentId: parentId || "__none__" });
     setDeptDialogOpen(true);
   };
 
@@ -132,7 +132,7 @@ const CompanyHierarchy = () => {
     setDeptForm({
       name: dept.department_name,
       code: dept.department_code,
-      parentId: dept.parent_department_id || "",
+      parentId: dept.parent_department_id || "__none__",
     });
     setDeptDialogOpen(true);
   };
@@ -147,7 +147,7 @@ const CompanyHierarchy = () => {
       const data = {
         department_name: deptForm.name.trim(),
         department_code: deptForm.code.trim(),
-        parent_department_id: deptForm.parentId || null,
+        parent_department_id: deptForm.parentId === "__none__" ? null : deptForm.parentId,
       };
 
       if (editingDept) {
@@ -574,7 +574,7 @@ const CompanyHierarchy = () => {
                   <SelectValue placeholder={language === 'ar' ? 'بدون (قسم رئيسي)' : 'None (Root department)'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === 'ar' ? 'بدون (قسم رئيسي)' : 'None (Root department)'}</SelectItem>
+                  <SelectItem value="__none__">{language === 'ar' ? 'بدون (قسم رئيسي)' : 'None (Root department)'}</SelectItem>
                   {departments
                     .filter(d => d.is_active && d.id !== editingDept?.id)
                     .map(d => (
