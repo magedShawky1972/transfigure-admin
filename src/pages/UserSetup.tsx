@@ -114,6 +114,7 @@ interface UserPermission {
   { key: "currencySetup", label: "Currency Setup" },
   { key: "userGroupSetup", label: "User Groups" },
   { key: "projectsTasks", label: "Projects & Tasks" },
+  { key: "companyHierarchy", label: "Company Hierarchy" },
   { key: "systemConfig", label: "System Configuration" },
   { key: "closingTraining", label: "Closing Training" },
   { key: "odooSetup", label: "Odoo Setup" },
