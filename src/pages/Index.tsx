@@ -6,11 +6,13 @@ import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
 import logo from "@/assets/edara-logo.png";
+import { useAppVersion } from "@/hooks/useAppVersion";
 
 const Index = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const { t, language } = useLanguage();
+  const version = useAppVersion();
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -57,7 +59,7 @@ const Index = () => {
           <CardDescription className="text-lg mt-4">{t("welcome.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-sm text-muted-foreground">Version 1.2.5</p>
+          {version && <p className="text-sm text-muted-foreground">Version {version}</p>}
         </CardContent>
       </Card>
     </div>
