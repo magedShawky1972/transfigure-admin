@@ -26,6 +26,23 @@ self.addEventListener('activate', function(event) {
   );
 });
 
+// Network-first strategy - always try to get fresh content
+self.addEventListener('fetch', function(event) {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
+  
+  // Skip chrome-extension and other non-http requests
+  if (!event.request.url.startsWith('http')) return;
+  
+  event.respondWith(
+    fetch(event.request)
+      .catch(function() {
+        // If network fails, try cache as fallback
+        return caches.match(event.request);
+      })
+  );
+});
+
 // Listen for messages from the main app
 self.addEventListener('message', function(event) {
   if (event.data && event.data.type === 'CLEAR_CACHE') {
