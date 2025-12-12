@@ -471,6 +471,53 @@ export type Database = {
           },
         ]
       }
+      department_task_phases: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          is_active: boolean
+          phase_color: string
+          phase_key: string
+          phase_name: string
+          phase_name_ar: string | null
+          phase_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          is_active?: boolean
+          phase_color?: string
+          phase_key: string
+          phase_name: string
+          phase_name_ar?: string | null
+          phase_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          is_active?: boolean
+          phase_color?: string
+          phase_key?: string
+          phase_name?: string
+          phase_name_ar?: string | null
+          phase_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_task_phases_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           created_at: string
@@ -1051,6 +1098,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          default_department_id: string | null
           email: string
           id: string
           is_active: boolean
@@ -1066,6 +1114,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_department_id?: string | null
           email: string
           id?: string
           is_active?: boolean
@@ -1081,6 +1130,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_department_id?: string | null
           email?: string
           id?: string
           is_active?: boolean
@@ -1095,6 +1145,13 @@ export type Database = {
           user_name?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_default_department_id_fkey"
+            columns: ["default_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_job_position_id_fkey"
             columns: ["job_position_id"]

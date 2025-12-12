@@ -33,6 +33,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,12 +53,19 @@ interface Profile {
   is_admin?: boolean;
   job_position_id?: string | null;
   job_position_name?: string | null;
+  default_department_id?: string | null;
+  default_department_name?: string | null;
 }
 
 interface JobPosition {
   id: string;
   position_name: string;
   is_active: boolean;
+}
+
+interface Department {
+  id: string;
+  department_name: string;
 }
 
 interface UserPermission {
@@ -172,17 +186,35 @@ const UserSetup = () => {
     is_active: true,
     is_admin: false,
     job_position_id: null as string | null,
+    default_department_id: null as string | null,
   });
 
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [jobPositionOpen, setJobPositionOpen] = useState(false);
   const [newJobPosition, setNewJobPosition] = useState("");
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   useEffect(() => {
     fetchProfiles();
     checkCurrentUserAdmin();
     fetchJobPositions();
+    fetchDepartments();
   }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, department_name")
+        .eq("is_active", true)
+        .order("department_name");
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+    }
+  };
 
   const fetchJobPositions = async () => {
     try {
@@ -254,12 +286,13 @@ const UserSetup = () => {
   const fetchProfiles = async () => {
     setLoading(true);
     try {
-      // Fetch profiles with job positions
+      // Fetch profiles with job positions and departments
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select(`
           *,
-          job_position:job_positions(position_name)
+          job_position:job_positions(position_name),
+          default_department:departments(department_name)
         `)
         .order("created_at", { ascending: false });
 
@@ -285,6 +318,7 @@ const UserSetup = () => {
         ...profile,
         is_admin: adminMap.get(profile.user_id) || false,
         job_position_name: profile.job_position?.position_name || null,
+        default_department_name: profile.default_department?.department_name || null,
       }));
       
       setProfiles(profilesWithAdmin);
@@ -313,6 +347,7 @@ const UserSetup = () => {
             mobile_number: formData.mobile_number || null,
             is_active: formData.is_active,
             job_position_id: formData.job_position_id,
+            default_department_id: formData.default_department_id,
           })
           .eq("id", editingProfile.id);
 
@@ -400,6 +435,7 @@ const UserSetup = () => {
       is_active: profile.is_active,
       is_admin: profile.is_admin || false,
       job_position_id: profile.job_position_id || null,
+      default_department_id: profile.default_department_id || null,
     });
     setDialogOpen(true);
   };
@@ -482,6 +518,7 @@ const UserSetup = () => {
       is_active: true,
       is_admin: false,
       job_position_id: null,
+      default_department_id: null,
     });
     setEditingProfile(null);
   };
@@ -866,6 +903,28 @@ const UserSetup = () => {
                     </Command>
                   </PopoverContent>
                 </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Default Department</Label>
+                <Select
+                  value={formData.default_department_id || "none"}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, default_department_id: value === "none" ? null : value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Default Department</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.department_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="flex items-center space-x-2">

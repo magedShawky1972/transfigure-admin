@@ -5,16 +5,21 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Plus, FolderKanban, GanttChart, Calendar as CalendarIcon, Trash2, Edit, CheckCircle2, Clock, AlertCircle, Circle, GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, Timer, History } from "lucide-react";
+import { 
+  Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
+  GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
+  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
@@ -46,6 +51,17 @@ interface TimeEntry {
   duration_minutes: number | null;
   notes: string | null;
   created_at: string;
+}
+
+interface TaskPhase {
+  id: string;
+  department_id: string;
+  phase_key: string;
+  phase_name: string;
+  phase_name_ar: string | null;
+  phase_order: number;
+  phase_color: string;
+  is_active: boolean;
 }
 
 interface Task {
@@ -82,6 +98,7 @@ interface Department {
 interface Profile {
   user_id: string;
   user_name: string;
+  default_department_id: string | null;
 }
 
 // Draggable Task Component
@@ -109,7 +126,7 @@ const DroppableColumn = ({ id, children, className }: { id: string; children: Re
   const { setNodeRef, isOver } = useDroppable({ id });
   
   return (
-    <div ref={setNodeRef} className={cn(className, isOver && "ring-2 ring-primary ring-offset-2")}>
+    <div ref={setNodeRef} className={cn(className, isOver && "ring-2 ring-primary ring-offset-2 bg-primary/5")}>
       {children}
     </div>
   );
@@ -121,19 +138,23 @@ const ProjectsTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [taskPhases, setTaskPhases] = useState<TaskPhase[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'kanban' | 'gantt'>('kanban');
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [timeEntriesDialogOpen, setTimeEntriesDialogOpen] = useState(false);
-  const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
   const [runningTimers, setRunningTimers] = useState<Record<string, number>>({});
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedUser, setSelectedUser] = useState<string>("all");
   
   // Dialog states
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [timeEntriesDialogOpen, setTimeEntriesDialogOpen] = useState(false);
+  const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
   
   // Form states
   const [projectForm, setProjectForm] = useState({
@@ -168,8 +189,6 @@ const ProjectsTasks = () => {
       pageTitle: 'المشاريع والمهام',
       projects: 'المشاريع',
       tasks: 'المهام',
-      kanbanView: 'عرض كانبان',
-      ganttView: 'مخطط جانت',
       addProject: 'إضافة مشروع',
       addTask: 'إضافة مهمة',
       projectName: 'اسم المشروع',
@@ -186,10 +205,6 @@ const ProjectsTasks = () => {
       cancel: 'إلغاء',
       delete: 'حذف',
       edit: 'تعديل',
-      todo: 'للتنفيذ',
-      inProgress: 'قيد التنفيذ',
-      review: 'مراجعة',
-      done: 'مكتمل',
       active: 'نشط',
       completed: 'مكتمل',
       onHold: 'معلق',
@@ -221,14 +236,17 @@ const ProjectsTasks = () => {
       noTimeEntries: 'لا يوجد سجل أوقات',
       hours: 'ساعة',
       minutes: 'دقيقة',
-      timerRunning: 'المؤقت يعمل'
+      timerRunning: 'المؤقت يعمل',
+      search: 'بحث...',
+      allProjects: 'كل المشاريع',
+      allUsers: 'كل المستخدمين',
+      filterByProject: 'تصفية حسب المشروع',
+      filterByUser: 'تصفية حسب المستخدم'
     },
     en: {
       pageTitle: 'Projects & Tasks',
       projects: 'Projects',
       tasks: 'Tasks',
-      kanbanView: 'Kanban View',
-      ganttView: 'Gantt Chart',
       addProject: 'Add Project',
       addTask: 'Add Task',
       projectName: 'Project Name',
@@ -245,10 +263,6 @@ const ProjectsTasks = () => {
       cancel: 'Cancel',
       delete: 'Delete',
       edit: 'Edit',
-      todo: 'To Do',
-      inProgress: 'In Progress',
-      review: 'Review',
-      done: 'Done',
       active: 'Active',
       completed: 'Completed',
       onHold: 'On Hold',
@@ -280,24 +294,22 @@ const ProjectsTasks = () => {
       noTimeEntries: 'No time entries',
       hours: 'hours',
       minutes: 'minutes',
-      timerRunning: 'Timer Running'
+      timerRunning: 'Timer Running',
+      search: 'Search...',
+      allProjects: 'All Projects',
+      allUsers: 'All Users',
+      filterByProject: 'Filter by Project',
+      filterByUser: 'Filter by User'
     }
   };
 
   const t = translations[language as keyof typeof translations] || translations.en;
 
-  const statusColumns = [
-    { key: 'todo', label: t.todo, icon: Circle, color: 'bg-muted' },
-    { key: 'in_progress', label: t.inProgress, icon: Clock, color: 'bg-blue-500/20' },
-    { key: 'review', label: t.review, icon: AlertCircle, color: 'bg-yellow-500/20' },
-    { key: 'done', label: t.done, icon: CheckCircle2, color: 'bg-green-500/20' }
-  ];
-
-  const priorityColors: Record<string, string> = {
-    low: 'bg-slate-500',
-    medium: 'bg-blue-500',
-    high: 'bg-orange-500',
-    urgent: 'bg-red-500'
+  const priorityConfig: Record<string, { color: string; label: string; labelAr: string }> = {
+    low: { color: 'bg-slate-500', label: 'Low', labelAr: 'منخفضة' },
+    medium: { color: 'bg-blue-500', label: 'Medium', labelAr: 'متوسطة' },
+    high: { color: 'bg-orange-500', label: 'High', labelAr: 'عالية' },
+    urgent: { color: 'bg-red-500', label: 'Urgent', labelAr: 'عاجلة' }
   };
 
   const fetchData = useCallback(async () => {
@@ -307,19 +319,37 @@ const ProjectsTasks = () => {
       if (!user) return;
       setCurrentUserId(user.id);
 
-      const [projectsRes, tasksRes, depsRes, usersRes, timeEntriesRes] = await Promise.all([
+      // Get user's default department
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('default_department_id')
+        .eq('user_id', user.id)
+        .single();
+
+      const [projectsRes, tasksRes, depsRes, usersRes, timeEntriesRes, phasesRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('departments').select('id, department_name').eq('is_active', true),
-        supabase.from('profiles').select('user_id, user_name').eq('is_active', true),
-        supabase.from('task_time_entries').select('*').order('start_time', { ascending: false })
+        supabase.from('profiles').select('user_id, user_name, default_department_id').eq('is_active', true),
+        supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
+        supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true })
       ]);
 
       if (projectsRes.data) setProjects(projectsRes.data);
+      if (depsRes.data) setDepartments(depsRes.data);
+      if (usersRes.data) setUsers(usersRes.data);
+      if (phasesRes.data) setTaskPhases(phasesRes.data);
+
+      // Set default department if user has one
+      if (profileData?.default_department_id && !selectedDepartment) {
+        setSelectedDepartment(profileData.default_department_id);
+      } else if (depsRes.data && depsRes.data.length > 0 && !selectedDepartment) {
+        setSelectedDepartment(depsRes.data[0].id);
+      }
+
       if (tasksRes.data) {
         const timeEntries = (timeEntriesRes.data || []) as TimeEntry[];
         
-        // Map tasks with user names, time entries, and calculate totals
         const tasksWithProfiles = tasksRes.data.map(task => {
           const taskTimeEntries = timeEntries.filter(te => te.task_id === task.id);
           const activeTimer = taskTimeEntries.find(te => te.end_time === null);
@@ -345,14 +375,12 @@ const ProjectsTasks = () => {
         });
         setTasks(tasksWithProfiles as unknown as Task[]);
       }
-      if (depsRes.data) setDepartments(depsRes.data);
-      if (usersRes.data) setUsers(usersRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedDepartment]);
 
   // Timer update effect
   useEffect(() => {
@@ -430,14 +458,55 @@ const ProjectsTasks = () => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const openTimeEntriesDialog = (task: Task) => {
-    setSelectedTaskForTimeEntries(task);
-    setTimeEntriesDialogOpen(true);
-  };
-
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Get phases for selected department
+  const departmentPhases = taskPhases.filter(p => p.department_id === selectedDepartment);
+  const defaultPhases = [
+    { id: 'todo', phase_key: 'todo', phase_name: 'To Do', phase_name_ar: 'للتنفيذ', phase_order: 0, phase_color: '#6B7280', department_id: selectedDepartment, is_active: true },
+    { id: 'in_progress', phase_key: 'in_progress', phase_name: 'In Progress', phase_name_ar: 'قيد التنفيذ', phase_order: 1, phase_color: '#3B82F6', department_id: selectedDepartment, is_active: true },
+    { id: 'review', phase_key: 'review', phase_name: 'Review', phase_name_ar: 'مراجعة', phase_order: 2, phase_color: '#F59E0B', department_id: selectedDepartment, is_active: true },
+    { id: 'done', phase_key: 'done', phase_name: 'Done', phase_name_ar: 'مكتمل', phase_order: 3, phase_color: '#22C55E', department_id: selectedDepartment, is_active: true }
+  ];
+  
+  const activePhases = departmentPhases.length > 0 ? departmentPhases : defaultPhases;
+
+  // Filter tasks
+  const filteredTasks = tasks.filter(task => {
+    if (task.department_id !== selectedDepartment) return false;
+    if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
+    if (selectedUser !== 'all' && task.assigned_to !== selectedUser) return false;
+    return true;
+  });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveTaskId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveTaskId(null);
+    const { active, over } = event;
+    
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const newStatus = over.id as string;
+    const task = tasks.find(t => t.id === taskId);
+    
+    if (task && task.status !== newStatus) {
+      try {
+        await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+        toast({ title: language === 'ar' ? 'تم تحديث الحالة' : 'Status updated' });
+      } catch (error) {
+        console.error('Error updating task status:', error);
+        toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+      }
+    }
+  };
 
   const handleSaveProject = async () => {
     if (!projectForm.name || !projectForm.department_id) {
@@ -490,10 +559,10 @@ const ProjectsTasks = () => {
         deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
         start_time: taskForm.start_time || null,
         end_time: taskForm.end_time || null,
-        created_by: currentUserId!,
         external_links: taskForm.external_links,
-        file_attachments: JSON.parse(JSON.stringify(taskForm.file_attachments)),
-        video_attachments: JSON.parse(JSON.stringify(taskForm.video_attachments))
+        file_attachments: taskForm.file_attachments as unknown as Record<string, unknown>[],
+        video_attachments: taskForm.video_attachments as unknown as Record<string, unknown>[],
+        created_by: currentUserId!
       };
 
       if (editingTask) {
@@ -512,166 +581,18 @@ const ProjectsTasks = () => {
     }
   };
 
-  // Get department name for folder structure
-  const getDepartmentFolder = (departmentId: string) => {
-    const dept = departments.find(d => d.id === departmentId);
-    return dept ? dept.department_name.replace(/\s+/g, '_') : 'General';
-  };
-
-  // Handle file upload to Cloudinary
-  const handleFileUpload = async (files: FileList, type: 'file' | 'video') => {
-    if (!taskForm.department_id) {
-      toast({ title: language === 'ar' ? 'يرجى اختيار القسم أولاً' : 'Please select department first', variant: 'destructive' });
-      return;
-    }
-
-    setUploading(true);
-    const uploadedFiles: FileAttachment[] = [];
-    const departmentFolder = getDepartmentFolder(taskForm.department_id);
-    const folder = `Projects_Tasks/${departmentFolder}`;
-    const resourceType = type === 'video' ? 'video' : 'raw';
-
+  const handleDeleteTask = async (taskId: string) => {
     try {
-      for (const file of Array.from(files)) {
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-
-        const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
-          body: {
-            imageBase64: base64,
-            folder,
-            resourceType
-          }
-        });
-
-        if (error) throw error;
-
-        uploadedFiles.push({
-          url: data.url,
-          name: file.name,
-          type: file.type
-        });
-      }
-
-      if (type === 'video') {
-        setTaskForm(prev => ({
-          ...prev,
-          video_attachments: [...prev.video_attachments, ...uploadedFiles]
-        }));
-      } else {
-        setTaskForm(prev => ({
-          ...prev,
-          file_attachments: [...prev.file_attachments, ...uploadedFiles]
-        }));
-      }
-
-      toast({ title: language === 'ar' ? 'تم الرفع بنجاح' : 'Upload successful' });
+      await supabase.from('tasks').delete().eq('id', taskId);
+      toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted' });
+      fetchData();
     } catch (error) {
-      console.error('Upload error:', error);
-      toast({ title: language === 'ar' ? 'فشل الرفع' : 'Upload failed', variant: 'destructive' });
-    } finally {
-      setUploading(false);
+      console.error('Error deleting task:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
     }
   };
 
-  const addLink = () => {
-    if (newLink.trim()) {
-      setTaskForm(prev => ({
-        ...prev,
-        external_links: [...prev.external_links, newLink.trim()]
-      }));
-      setNewLink('');
-    }
-  };
-
-  const removeLink = (index: number) => {
-    setTaskForm(prev => ({
-      ...prev,
-      external_links: prev.external_links.filter((_, i) => i !== index)
-    }));
-  };
-
-  const removeFile = (index: number) => {
-    setTaskForm(prev => ({
-      ...prev,
-      file_attachments: prev.file_attachments.filter((_, i) => i !== index)
-    }));
-  };
-
-  const removeVideo = (index: number) => {
-    setTaskForm(prev => ({
-      ...prev,
-      video_attachments: prev.video_attachments.filter((_, i) => i !== index)
-    }));
-  };
-
-  const handleDeleteProject = async (id: string) => {
-    if (!confirm(language === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?')) return;
-    await supabase.from('projects').delete().eq('id', id);
-    fetchData();
-  };
-
-  const handleDeleteTask = async (id: string) => {
-    if (!confirm(language === 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?')) return;
-    await supabase.from('tasks').delete().eq('id', id);
-    fetchData();
-  };
-
-  const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
-    fetchData();
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveTaskId(event.active.id as string);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    setActiveTaskId(null);
-    const { active, over } = event;
-    if (!over) return;
-    
-    const taskId = active.id as string;
-    const newStatus = over.id as string;
-    const task = tasks.find(t => t.id === taskId);
-    
-    if (task && task.status !== newStatus) {
-      // Optimistically update UI
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-      await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
-    }
-  };
-
-  const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
-
-  const resetProjectForm = () => {
-    setProjectForm({ name: '', description: '', department_id: '', status: 'active', start_date: null, end_date: null });
-    setEditingProject(null);
-  };
-
-  const resetTaskForm = () => {
-    setTaskForm({ title: '', description: '', project_id: '', department_id: '', assigned_to: '', status: 'todo', priority: 'medium', deadline: null, start_time: '', end_time: '', external_links: [], file_attachments: [], video_attachments: [] });
-    setEditingTask(null);
-    setNewLink('');
-  };
-
-  const openEditProject = (project: Project) => {
-    setEditingProject(project);
-    setProjectForm({
-      name: project.name,
-      description: project.description || '',
-      department_id: project.department_id,
-      status: project.status,
-      start_date: project.start_date ? new Date(project.start_date) : null,
-      end_date: project.end_date ? new Date(project.end_date) : null
-    });
-    setProjectDialogOpen(true);
-  };
-
-  const openEditTask = (task: Task) => {
+  const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setTaskForm({
       title: task.title,
@@ -691,508 +612,495 @@ const ProjectsTasks = () => {
     setTaskDialogOpen(true);
   };
 
-  const getPriorityLabel = (priority: string) => {
-    const labels: Record<string, string> = { low: t.low, medium: t.medium, high: t.high, urgent: t.urgent };
-    return labels[priority] || priority;
+  const resetProjectForm = () => {
+    setEditingProject(null);
+    setProjectForm({ name: '', description: '', department_id: selectedDepartment, status: 'active', start_date: null, end_date: null });
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = { todo: t.todo, in_progress: t.inProgress, review: t.review, done: t.done };
-    return labels[status] || status;
+  const resetTaskForm = () => {
+    setEditingTask(null);
+    setTaskForm({
+      title: '', description: '', project_id: '', department_id: selectedDepartment, assigned_to: '',
+      status: activePhases[0]?.phase_key || 'todo', priority: 'medium', deadline: null, start_time: '', end_time: '',
+      external_links: [], file_attachments: [], video_attachments: []
+    });
   };
 
-  // Gantt Chart Component
-  const GanttChartView = () => {
-    const tasksWithDeadline = tasks.filter(t => t.deadline);
-    if (tasksWithDeadline.length === 0) {
-      return <div className="text-center py-8 text-muted-foreground">{t.noTasks}</div>;
+  const handleFileUpload = async (files: FileList, type: 'file' | 'video') => {
+    setUploading(true);
+    try {
+      const uploadedFiles: FileAttachment[] = [];
+      for (const file of Array.from(files)) {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        
+        const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
+          body: { 
+            file: base64, 
+            folder: type === 'video' ? 'Projects_Tasks/Videos' : 'Projects_Tasks/Files',
+            resourceType: type === 'video' ? 'video' : 'auto'
+          }
+        });
+        
+        if (error) throw error;
+        uploadedFiles.push({ url: data.secure_url, name: file.name, type: file.type });
+      }
+      
+      if (type === 'file') {
+        setTaskForm(prev => ({ ...prev, file_attachments: [...prev.file_attachments, ...uploadedFiles] }));
+      } else {
+        setTaskForm(prev => ({ ...prev, video_attachments: [...prev.video_attachments, ...uploadedFiles] }));
+      }
+      
+      toast({ title: language === 'ar' ? 'تم الرفع بنجاح' : 'Upload successful' });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({ title: language === 'ar' ? 'فشل الرفع' : 'Upload failed', variant: 'destructive' });
+    } finally {
+      setUploading(false);
     }
-
-    const minDate = new Date(Math.min(...tasksWithDeadline.map(t => new Date(t.created_at).getTime())));
-    const maxDate = new Date(Math.max(...tasksWithDeadline.map(t => new Date(t.deadline!).getTime())));
-    const totalDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
-    return (
-      <div className="overflow-x-auto">
-        <div className="min-w-[800px]">
-          {/* Header with dates */}
-          <div className="flex border-b pb-2 mb-4">
-            <div className="w-48 shrink-0 font-medium">{t.tasks}</div>
-            <div className="flex-1 flex">
-              {Array.from({ length: Math.min(totalDays, 30) }).map((_, i) => {
-                const date = new Date(minDate);
-                date.setDate(date.getDate() + i);
-                return (
-                  <div key={i} className="flex-1 text-center text-xs text-muted-foreground min-w-[30px]">
-                    {format(date, 'dd')}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {/* Tasks */}
-          {tasksWithDeadline.map(task => {
-            const taskStart = new Date(task.created_at);
-            const taskEnd = new Date(task.deadline!);
-            const startOffset = Math.max(0, Math.ceil((taskStart.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)));
-            const duration = Math.ceil((taskEnd.getTime() - taskStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-            const widthPercent = (duration / Math.min(totalDays, 30)) * 100;
-            const leftPercent = (startOffset / Math.min(totalDays, 30)) * 100;
-
-            return (
-              <div key={task.id} className="flex items-center mb-2">
-                <div className="w-48 shrink-0 text-sm truncate pr-2">{task.title}</div>
-                <div className="flex-1 relative h-6">
-                  <div
-                    className={cn("absolute h-full rounded", priorityColors[task.priority])}
-                    style={{ left: `${leftPercent}%`, width: `${Math.min(widthPercent, 100 - leftPercent)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
   };
+
+  const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   return (
-    <div className={`container mx-auto p-4 md:p-6 ${language === 'ar' ? 'rtl' : 'ltr'}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">{t.pageTitle}</h1>
-        <div className="flex flex-wrap gap-2">
-          <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
-            <DialogTrigger asChild>
-              <Button variant="outline"><Plus className="h-4 w-4 mr-1" />{t.addProject}</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{editingProject ? t.edit : t.addProject}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">{t.projectName} *</label>
-                  <Input value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">{t.description}</label>
-                  <Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">{t.department} *</label>
-                  <Select value={projectForm.department_id} onValueChange={(v) => setProjectForm({ ...projectForm, department_id: v })}>
-                    <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
-                    <SelectContent>
-                      {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">{t.startDate}</label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          <CalendarIcon className="h-4 w-4 mr-2" />
-                          {projectForm.start_date ? format(projectForm.start_date, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={projectForm.start_date || undefined} onSelect={(d) => setProjectForm({ ...projectForm, start_date: d || null })} /></PopoverContent>
-                    </Popover>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">{t.endDate}</label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          <CalendarIcon className="h-4 w-4 mr-2" />
-                          {projectForm.end_date ? format(projectForm.end_date, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={projectForm.end_date || undefined} onSelect={(d) => setProjectForm({ ...projectForm, end_date: d || null })} /></PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>{t.cancel}</Button>
-                  <Button onClick={handleSaveProject}>{t.save}</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+    <div className={`min-h-screen bg-background ${language === 'ar' ? 'rtl' : 'ltr'}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      {/* Header */}
+      <div className="border-b bg-card/50 backdrop-blur sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <FolderKanban className="h-6 w-6 text-primary" />
+              <h1 className="text-xl font-semibold">{t.pageTitle}</h1>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
+              {/* Department Selector */}
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder={t.selectDepartment} />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Dialog open={taskDialogOpen} onOpenChange={(o) => { setTaskDialogOpen(o); if (!o) resetTaskForm(); }}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">{t.taskTitle} *</label>
-                  <Input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">{t.description}</label>
-                  <Textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">{t.department} *</label>
-                    <Select value={taskForm.department_id} onValueChange={(v) => setTaskForm({ ...taskForm, department_id: v })}>
-                      <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
-                      <SelectContent>
-                        {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">{t.projects}</label>
-                    <Select value={taskForm.project_id || 'none'} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === 'none' ? '' : v })}>
-                      <SelectTrigger><SelectValue placeholder={t.selectProject} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{t.noProject}</SelectItem>
-                        {projects.filter(p => !taskForm.department_id || p.department_id === taskForm.department_id).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">{t.assignedTo} *</label>
-                  <Select value={taskForm.assigned_to} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: v })}>
-                    <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
-                    <SelectContent>
-                      {users.map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">{t.priority}</label>
-                    <Select value={taskForm.priority} onValueChange={(v) => setTaskForm({ ...taskForm, priority: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">{t.low}</SelectItem>
-                        <SelectItem value="medium">{t.medium}</SelectItem>
-                        <SelectItem value="high">{t.high}</SelectItem>
-                        <SelectItem value="urgent">{t.urgent}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">{t.deadline}</label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          <CalendarIcon className="h-4 w-4 mr-2" />
-                          {taskForm.deadline ? format(taskForm.deadline, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={taskForm.deadline || undefined} onSelect={(d) => setTaskForm({ ...taskForm, deadline: d || null })} /></PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                {/* External Links */}
-                <div>
-                  <label className="text-sm font-medium flex items-center gap-2"><Link className="h-4 w-4" />{t.externalLinks}</label>
-                  <div className="flex gap-2 mt-1">
-                    <Input 
-                      value={newLink} 
-                      onChange={(e) => setNewLink(e.target.value)} 
-                      placeholder="https://..." 
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLink())}
-                    />
-                    <Button type="button" variant="outline" onClick={addLink}>{t.addLink}</Button>
-                  </div>
-                  {taskForm.external_links.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {taskForm.external_links.map((link, i) => (
-                        <Badge key={i} variant="secondary" className="flex items-center gap-1">
-                          <a href={link} target="_blank" rel="noopener noreferrer" className="max-w-[150px] truncate">{link}</a>
-                          <X className="h-3 w-3 cursor-pointer" onClick={() => removeLink(i)} />
-                        </Badge>
-                      ))}
+              {/* Add buttons */}
+              <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t.addProject}</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>{editingProject ? t.edit : t.addProject}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">{t.projectName} *</label>
+                      <Input value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} />
                     </div>
-                  )}
-                </div>
-
-                {/* File Uploads */}
-                <div>
-                  <label className="text-sm font-medium flex items-center gap-2"><FileText className="h-4 w-4" />{t.files}</label>
-                  <div className="mt-1">
-                    <label className="cursor-pointer">
-                      <div className="border-2 border-dashed rounded-lg p-3 text-center hover:bg-muted/50 transition-colors">
-                        <Upload className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">{t.uploadFiles}</span>
-                      </div>
-                      <input 
-                        type="file" 
-                        multiple 
-                        className="hidden" 
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg"
-                        onChange={(e) => e.target.files && handleFileUpload(e.target.files, 'file')}
-                        disabled={uploading || !taskForm.department_id}
-                      />
-                    </label>
-                    {taskForm.file_attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {taskForm.file_attachments.map((file, i) => (
-                          <Badge key={i} variant="outline" className="flex items-center gap-1">
-                            <FileText className="h-3 w-3" />
-                            <span className="max-w-[100px] truncate">{file.name}</span>
-                            <X className="h-3 w-3 cursor-pointer" onClick={() => removeFile(i)} />
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                    <div>
+                      <label className="text-sm font-medium">{t.description}</label>
+                      <Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.department} *</label>
+                      <Select value={projectForm.department_id} onValueChange={(v) => setProjectForm({ ...projectForm, department_id: v })}>
+                        <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
+                        <SelectContent>
+                          {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>{t.cancel}</Button>
+                      <Button onClick={handleSaveProject}>{t.save}</Button>
+                    </div>
                   </div>
-                </div>
+                </DialogContent>
+              </Dialog>
 
-                {/* Video Uploads */}
-                <div>
-                  <label className="text-sm font-medium flex items-center gap-2"><Video className="h-4 w-4" />{t.videos}</label>
-                  <div className="mt-1">
-                    <label className="cursor-pointer">
-                      <div className="border-2 border-dashed rounded-lg p-3 text-center hover:bg-muted/50 transition-colors">
-                        <Video className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">{t.uploadVideos}</span>
+              <Dialog open={taskDialogOpen} onOpenChange={(o) => { setTaskDialogOpen(o); if (!o) resetTaskForm(); }}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">{t.taskTitle} *</label>
+                      <Input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.description}</label>
+                      <Textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">{t.department} *</label>
+                        <Select value={taskForm.department_id} onValueChange={(v) => setTaskForm({ ...taskForm, department_id: v })}>
+                          <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
+                          <SelectContent>
+                            {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <input 
-                        type="file" 
-                        multiple 
-                        className="hidden" 
-                        accept="video/*"
-                        onChange={(e) => e.target.files && handleFileUpload(e.target.files, 'video')}
-                        disabled={uploading || !taskForm.department_id}
-                      />
-                    </label>
-                    {taskForm.video_attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {taskForm.video_attachments.map((video, i) => (
-                          <Badge key={i} variant="outline" className="flex items-center gap-1">
-                            <Video className="h-3 w-3" />
-                            <span className="max-w-[100px] truncate">{video.name}</span>
-                            <X className="h-3 w-3 cursor-pointer" onClick={() => removeVideo(i)} />
-                          </Badge>
-                        ))}
+                      <div>
+                        <label className="text-sm font-medium">{t.projects}</label>
+                        <Select value={taskForm.project_id || 'none'} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === 'none' ? '' : v })}>
+                          <SelectTrigger><SelectValue placeholder={t.selectProject} /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">{t.noProject}</SelectItem>
+                            {projects.filter(p => !taskForm.department_id || p.department_id === taskForm.department_id).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.assignedTo} *</label>
+                      <Select value={taskForm.assigned_to} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: v })}>
+                        <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
+                        <SelectContent>
+                          {users.map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">{t.status}</label>
+                        <Select value={taskForm.status} onValueChange={(v) => setTaskForm({ ...taskForm, status: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {activePhases.map(phase => (
+                              <SelectItem key={phase.phase_key} value={phase.phase_key}>
+                                {language === 'ar' ? phase.phase_name_ar || phase.phase_name : phase.phase_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">{t.priority}</label>
+                        <Select value={taskForm.priority} onValueChange={(v) => setTaskForm({ ...taskForm, priority: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">{t.low}</SelectItem>
+                            <SelectItem value="medium">{t.medium}</SelectItem>
+                            <SelectItem value="high">{t.high}</SelectItem>
+                            <SelectItem value="urgent">{t.urgent}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.deadline}</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start">
+                            <CalendarIcon className="h-4 w-4 mr-2" />
+                            {taskForm.deadline ? format(taskForm.deadline, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={taskForm.deadline || undefined} onSelect={(d) => setTaskForm({ ...taskForm, deadline: d || null })} /></PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    {/* External Links */}
+                    <div>
+                      <label className="text-sm font-medium">{t.externalLinks}</label>
+                      <div className="flex gap-2 mt-1">
+                        <Input value={newLink} onChange={(e) => setNewLink(e.target.value)} placeholder="https://..." />
+                        <Button type="button" size="sm" onClick={() => { if (newLink) { setTaskForm(prev => ({ ...prev, external_links: [...prev.external_links, newLink] })); setNewLink(''); } }}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {taskForm.external_links.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {taskForm.external_links.map((link, i) => (
+                            <Badge key={i} variant="outline" className="gap-1">
+                              <Link className="h-3 w-3" />
+                              <span className="max-w-[150px] truncate">{link}</span>
+                              <X className="h-3 w-3 cursor-pointer" onClick={() => setTaskForm(prev => ({ ...prev, external_links: prev.external_links.filter((_, idx) => idx !== i) }))} />
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                {uploading && (
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{t.uploading}</span>
-                  </div>
-                )}
+                    {/* File Upload */}
+                    <div>
+                      <label className="text-sm font-medium">{t.files}</label>
+                      <div className="flex gap-2 mt-1">
+                        <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => document.getElementById('file-upload')?.click()}>
+                          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                          {t.uploadFiles}
+                        </Button>
+                        <input id="file-upload" type="file" multiple className="hidden" onChange={(e) => e.target.files && handleFileUpload(e.target.files, 'file')} />
+                      </div>
+                      {taskForm.file_attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {taskForm.file_attachments.map((file, i) => (
+                            <Badge key={i} variant="outline" className="gap-1">
+                              <FileText className="h-3 w-3" />
+                              <span className="max-w-[150px] truncate">{file.name}</span>
+                              <X className="h-3 w-3 cursor-pointer" onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))} />
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>{t.cancel}</Button>
-                  <Button onClick={handleSaveTask} disabled={uploading}>{t.save}</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>{t.cancel}</Button>
+                      <Button onClick={handleSaveTask}>{t.save}</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* Filters Row */}
+          <div className="flex flex-wrap gap-3 mt-3 items-center">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                placeholder={t.search}
+                className="pl-9"
+              />
+            </div>
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder={t.filterByProject} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.allProjects}</SelectItem>
+                {projects.filter(p => p.department_id === selectedDepartment).map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedUser} onValueChange={setSelectedUser}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder={t.filterByUser} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.allUsers}</SelectItem>
+                {users.map(u => (
+                  <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* User avatars */}
+            <div className="flex -space-x-2">
+              {users.slice(0, 5).map(u => (
+                <Avatar key={u.user_id} className="h-8 w-8 border-2 border-background cursor-pointer hover:z-10">
+                  <AvatarFallback className="text-xs bg-primary/10">
+                    {u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {users.length > 5 && (
+                <Avatar className="h-8 w-8 border-2 border-background">
+                  <AvatarFallback className="text-xs bg-muted">+{users.length - 5}</AvatarFallback>
+                </Avatar>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Projects Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FolderKanban className="h-5 w-5" />{t.projects}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map(project => (
-              <Card key={project.id} className="relative">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold">{project.name}</h3>
-                      <p className="text-sm text-muted-foreground">{project.departments?.department_name}</p>
-                      {project.description && <p className="text-sm mt-1 line-clamp-2">{project.description}</p>}
+      {/* Kanban Board */}
+      <div className="p-4">
+        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <ScrollArea className="w-full">
+            <div className="flex gap-4 pb-4" style={{ minWidth: activePhases.length * 320 }}>
+              {activePhases.map((phase) => {
+                const phaseTasks = filteredTasks.filter(t => t.status === phase.phase_key);
+                return (
+                  <DroppableColumn 
+                    key={phase.phase_key} 
+                    id={phase.phase_key}
+                    className="w-[300px] shrink-0 rounded-xl bg-muted/30 p-3 transition-colors"
+                  >
+                    {/* Column Header */}
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <div 
+                        className="w-3 h-3 rounded-full shrink-0" 
+                        style={{ backgroundColor: phase.phase_color }}
+                      />
+                      <span className="font-medium text-sm">
+                        {language === 'ar' ? phase.phase_name_ar || phase.phase_name : phase.phase_name}
+                      </span>
+                      <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
+                        {phaseTasks.length}
+                      </Badge>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEditProject(project)}><Edit className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteProject(project.id)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
-                      {project.status === 'active' ? t.active : project.status === 'completed' ? t.completed : project.status === 'on_hold' ? t.onHold : t.cancelled}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {tasks.filter(t => t.project_id === project.id).length} {t.tasks}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Tasks Section with Views */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <CardTitle className="flex items-center gap-2">{t.tasks}</CardTitle>
-            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'kanban' | 'gantt')}>
-              <TabsList>
-                <TabsTrigger value="kanban"><FolderKanban className="h-4 w-4 mr-1" />{t.kanbanView}</TabsTrigger>
-                <TabsTrigger value="gantt"><GanttChart className="h-4 w-4 mr-1" />{t.ganttView}</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {activeView === 'kanban' ? (
-            <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {statusColumns.map(column => (
-                  <DroppableColumn key={column.key} id={column.key} className={cn("rounded-lg p-4 min-h-[200px] transition-all", column.color)}>
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <column.icon className="h-4 w-4" />
-                      {column.label}
-                      <Badge variant="outline" className="ml-auto">{tasks.filter(t => t.status === column.key).length}</Badge>
-                    </h3>
-                    <div className="space-y-2">
-                      {tasks.filter(t => t.status === column.key).map(task => (
+                    {/* Tasks */}
+                    <div className="space-y-2 min-h-[200px]">
+                      {phaseTasks.map((task) => (
                         <DraggableTask key={task.id} task={task}>
-                          {({ listeners }: { listeners: any }) => (
-                            <Card className={cn("hover:shadow-md transition-shadow", task.active_timer && "ring-2 ring-green-500")}>
+                          {({ listeners }) => (
+                            <Card className="group hover:shadow-md transition-all cursor-pointer bg-card">
                               <CardContent className="p-3">
-                                <div className="flex justify-between items-start mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <div {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
-                                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                    <h4 className="font-medium text-sm">{task.title}</h4>
-                                  </div>
-                                  <div className="flex gap-1">
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openTimeEntriesDialog(task)}><History className="h-3 w-3" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTask(task)}><Edit className="h-3 w-3" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteTask(task.id)}><Trash2 className="h-3 w-3" /></Button>
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                  <Badge className={cn("text-xs text-white", priorityColors[task.priority])}>{getPriorityLabel(task.priority)}</Badge>
-                                  {task.ticket_id && <Badge variant="outline" className="text-xs">{t.fromTicket}</Badge>}
-                                </div>
-                                <div className="text-xs text-muted-foreground mb-2">
-                                  {task.profiles?.user_name && <p>{t.assignedTo}: {task.profiles.user_name}</p>}
-                                  {task.deadline && <p>{t.deadline}: {format(new Date(task.deadline), 'PP', { locale: language === 'ar' ? ar : undefined })}</p>}
-                                </div>
-                                
-                                {/* Time Tracking Section */}
-                                <div className="border-t pt-2 mt-2">
-                                  {task.active_timer ? (
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-1 text-green-600">
-                                        <Timer className="h-3 w-3 animate-pulse" />
-                                        <span className="text-xs font-mono">{formatRunningTime(runningTimers[task.id] || 0)}</span>
+                                <div className="flex items-start gap-2">
+                                  <button {...listeners} className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  </button>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h4 className="font-medium text-sm leading-tight">{task.title}</h4>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleEditTask(task)}>
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDeleteTask(task.id)}>
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
                                       </div>
-                                      <Button 
-                                        variant="destructive" 
-                                        size="sm" 
-                                        className="h-6 text-xs"
-                                        onClick={() => handleStopTimer(task.id)}
-                                      >
-                                        <Square className="h-3 w-3 mr-1" />{t.stopTimer}
-                                      </Button>
                                     </div>
-                                  ) : (
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-1 text-muted-foreground">
-                                        <Clock className="h-3 w-3" />
-                                        <span className="text-xs">{formatDuration(task.total_time_minutes || 0)}</span>
-                                      </div>
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className="h-6 text-xs"
-                                        onClick={() => handleStartTimer(task.id)}
-                                      >
-                                        <Play className="h-3 w-3 mr-1" />{t.startTimer}
-                                      </Button>
+
+                                    {task.projects?.name && (
+                                      <Badge variant="outline" className="mt-1.5 text-xs h-5 px-1.5">
+                                        {task.projects.name}
+                                      </Badge>
+                                    )}
+
+                                    {task.description && (
+                                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{task.description}</p>
+                                    )}
+
+                                    {/* Task metadata */}
+                                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                      {/* Priority */}
+                                      <div className={cn("w-2 h-2 rounded-full", priorityConfig[task.priority]?.color)} title={priorityConfig[task.priority]?.label} />
+                                      
+                                      {/* Task ID */}
+                                      <span className="text-xs text-muted-foreground font-mono">
+                                        #{task.id.slice(0, 6)}
+                                      </span>
+
+                                      {/* Time */}
+                                      {(task.total_time_minutes && task.total_time_minutes > 0) && (
+                                        <Badge variant="secondary" className="text-xs h-5 gap-1 px-1.5">
+                                          <Timer className="h-3 w-3" />
+                                          {formatDuration(task.total_time_minutes)}
+                                        </Badge>
+                                      )}
+
+                                      {/* Timer controls */}
+                                      {task.active_timer ? (
+                                        <Badge variant="destructive" className="text-xs h-5 gap-1 px-1.5 cursor-pointer" onClick={() => handleStopTimer(task.id)}>
+                                          <Square className="h-3 w-3" />
+                                          {formatRunningTime(runningTimers[task.id] || 0)}
+                                        </Badge>
+                                      ) : (
+                                        <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100" onClick={() => handleStartTimer(task.id)}>
+                                          <Play className="h-3 w-3" />
+                                        </Button>
+                                      )}
+
+                                      {/* Due date */}
+                                      {task.deadline && (
+                                        <Badge variant="outline" className="text-xs h-5 gap-1 px-1.5">
+                                          <CalendarIcon className="h-3 w-3" />
+                                          {format(new Date(task.deadline), 'MMM d')}
+                                        </Badge>
+                                      )}
+
+                                      {/* Attachments count */}
+                                      {(task.file_attachments?.length > 0 || task.external_links?.length > 0) && (
+                                        <Badge variant="outline" className="text-xs h-5 gap-1 px-1.5">
+                                          <FileText className="h-3 w-3" />
+                                          {(task.file_attachments?.length || 0) + (task.external_links?.length || 0)}
+                                        </Badge>
+                                      )}
                                     </div>
-                                  )}
+
+                                    {/* Assignee */}
+                                    <div className="flex items-center gap-2 mt-3">
+                                      <Avatar className="h-6 w-6">
+                                        <AvatarFallback className="text-xs bg-primary/10">
+                                          {task.profiles?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {task.profiles?.user_name || t.selectUser}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
                           )}
                         </DraggableTask>
                       ))}
+
+                      {phaseTasks.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                          <CheckCircle2 className="h-8 w-8 mb-2 opacity-30" />
+                          <p className="text-xs">{t.noTasks}</p>
+                        </div>
+                      )}
                     </div>
                   </DroppableColumn>
-                ))}
-              </div>
-              <DragOverlay>
-                {activeTask && (
-                  <Card className="cursor-grabbing shadow-xl rotate-3">
-                    <CardContent className="p-3">
-                      <h4 className="font-medium text-sm">{activeTask.title}</h4>
-                      <Badge className={cn("text-xs text-white mt-2", priorityColors[activeTask.priority])}>{getPriorityLabel(activeTask.priority)}</Badge>
-                    </CardContent>
-                  </Card>
-                )}
-              </DragOverlay>
-            </DndContext>
-          ) : (
-            <GanttChartView />
-          )}
-        </CardContent>
-      </Card>
+                );
+              })}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+
+          <DragOverlay>
+            {activeTask && (
+              <Card className="w-[280px] shadow-lg rotate-3">
+                <CardContent className="p-3">
+                  <h4 className="font-medium text-sm">{activeTask.title}</h4>
+                  {activeTask.projects?.name && (
+                    <Badge variant="outline" className="mt-1.5 text-xs">{activeTask.projects.name}</Badge>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
       {/* Time Entries Dialog */}
       <Dialog open={timeEntriesDialogOpen} onOpenChange={setTimeEntriesDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              {t.timeEntries}: {selectedTaskForTimeEntries?.title}
-            </DialogTitle>
+            <DialogTitle>{t.timeEntries}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            {selectedTaskForTimeEntries?.time_entries && selectedTaskForTimeEntries.time_entries.length > 0 ? (
-              <>
-                <div className="mb-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm font-medium">{t.totalTime}: {formatDuration(selectedTaskForTimeEntries.total_time_minutes || 0)}</p>
-                </div>
-                {selectedTaskForTimeEntries.time_entries.map((entry) => (
-                  <div key={entry.id} className="flex justify-between items-center p-2 border rounded-lg">
-                    <div>
-                      <p className="text-sm">
-                        {format(new Date(entry.start_time), 'PPp', { locale: language === 'ar' ? ar : undefined })}
-                      </p>
-                      {entry.end_time && (
-                        <p className="text-xs text-muted-foreground">
-                          → {format(new Date(entry.end_time), 'p', { locale: language === 'ar' ? ar : undefined })}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      {entry.end_time ? (
-                        <Badge variant="outline">{formatDuration(entry.duration_minutes || 0)}</Badge>
-                      ) : (
-                        <Badge variant="default" className="bg-green-500">{t.timerRunning}</Badge>
-                      )}
-                    </div>
+          {selectedTaskForTimeEntries?.time_entries?.length ? (
+            <div className="space-y-2">
+              {selectedTaskForTimeEntries.time_entries.map((entry) => (
+                <div key={entry.id} className="flex justify-between items-center p-2 bg-muted rounded">
+                  <div>
+                    <p className="text-sm">{format(new Date(entry.start_time), 'PPp')}</p>
+                    {entry.end_time && <p className="text-xs text-muted-foreground">{format(new Date(entry.end_time), 'PPp')}</p>}
                   </div>
-                ))}
-              </>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">{t.noTimeEntries}</p>
-            )}
-          </div>
+                  <Badge>{entry.duration_minutes ? formatDuration(entry.duration_minutes) : t.timerRunning}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-4">{t.noTimeEntries}</p>
+          )}
         </DialogContent>
       </Dialog>
     </div>
