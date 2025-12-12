@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -560,8 +561,8 @@ const ProjectsTasks = () => {
         start_time: taskForm.start_time || null,
         end_time: taskForm.end_time || null,
         external_links: taskForm.external_links,
-        file_attachments: taskForm.file_attachments as unknown as Record<string, unknown>[],
-        video_attachments: taskForm.video_attachments as unknown as Record<string, unknown>[],
+        file_attachments: taskForm.file_attachments as unknown as Json,
+        video_attachments: taskForm.video_attachments as unknown as Json,
         created_by: currentUserId!
       };
 
