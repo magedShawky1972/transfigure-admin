@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 
-const CURRENT_VERSION = '1.2.5';
+const CURRENT_VERSION = '1.2.6';
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
 const LOCAL_VERSION_KEY = 'edara_app_version';
 
