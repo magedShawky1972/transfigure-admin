@@ -370,32 +370,41 @@ const CompanyHierarchy = () => {
           </div>
         )}
 
-        {/* Vertical line to children */}
+        {/* Connector to children */}
         {children.length > 0 && (
-          <>
-            <div className="w-0.5 h-6 bg-primary/50" />
+          <div className="flex flex-col items-center">
+            {/* Vertical line down from parent */}
+            <div className="w-0.5 h-8 bg-border" />
             
-            {/* Horizontal connector line */}
-            {children.length > 1 && (
-              <div 
-                className="h-0.5 bg-primary/50" 
-                style={{ 
-                  width: `calc(${(children.length - 1) * 180}px)`,
-                }}
-              />
-            )}
-
-            {/* Children */}
-            <div className="flex gap-8 mt-0">
-              {children.map((child, index) => (
-                <div key={child.id} className="flex flex-col items-center">
-                  {/* Vertical line from horizontal connector */}
-                  <div className="w-0.5 h-6 bg-primary/50" />
-                  <OrgChartNode dept={child} />
-                </div>
-              ))}
+            {/* Container for horizontal line and children */}
+            <div className="relative flex">
+              {/* Horizontal line spanning all children */}
+              {children.length > 1 && (
+                <div 
+                  className="absolute top-0 h-0.5 bg-border"
+                  style={{ 
+                    left: '50%',
+                    right: '50%',
+                    transform: 'translateX(-50%)',
+                    width: `calc(100% - ${200}px)`,
+                    marginLeft: '100px',
+                    marginRight: '100px',
+                  }}
+                />
+              )}
+              
+              {/* Children with their vertical connectors */}
+              <div className="flex gap-12">
+                {children.map((child, index) => (
+                  <div key={child.id} className="relative flex flex-col items-center">
+                    {/* Vertical line up to horizontal connector */}
+                    <div className="w-0.5 h-8 bg-border" />
+                    <OrgChartNode dept={child} />
+                  </div>
+                ))}
+              </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     );
