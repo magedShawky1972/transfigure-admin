@@ -73,54 +73,67 @@ serve(async (req) => {
       userName,
     });
 
-    // Find "Coins Purchase" department
-    const { data: department, error: deptError } = await supabase
-      .from("departments")
-      .select("id, department_name")
-      .eq("department_name", "Coins Purchase")
-      .single();
+    // TEST MODE: Set to true to send only to test email, false for production
+    const TEST_MODE = true;
+    const TEST_EMAIL = "maged.shawky@asuscards.com";
+    
+    let profiles: Array<{ user_id: string; user_name: string; email: string }> = [];
+    
+    if (TEST_MODE) {
+      console.log("TEST MODE: Sending reorder notification only to", TEST_EMAIL);
+      profiles = [{ user_id: "test-user", user_name: "Test User", email: TEST_EMAIL }];
+    } else {
+      // Find "Coins Purchase" department
+      const { data: department, error: deptError } = await supabase
+        .from("departments")
+        .select("id, department_name")
+        .eq("department_name", "Coins Purchase")
+        .single();
 
-    if (deptError || !department) {
-      console.error("Coins Purchase department not found:", deptError);
-      return new Response(
-        JSON.stringify({ error: "Coins Purchase department not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+      if (deptError || !department) {
+        console.error("Coins Purchase department not found:", deptError);
+        return new Response(
+          JSON.stringify({ error: "Coins Purchase department not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-    console.log("Found department:", department.department_name);
+      console.log("Found department:", department.department_name);
 
-    // Get all members of the Coins Purchase department
-    const { data: members, error: membersError } = await supabase
-      .from("department_members")
-      .select("user_id")
-      .eq("department_id", department.id);
+      // Get all members of the Coins Purchase department
+      const { data: members, error: membersError } = await supabase
+        .from("department_members")
+        .select("user_id")
+        .eq("department_id", department.id);
 
-    if (membersError) {
-      console.error("Error fetching department members:", membersError);
-      throw membersError;
-    }
+      if (membersError) {
+        console.error("Error fetching department members:", membersError);
+        throw membersError;
+      }
 
-    if (!members || members.length === 0) {
-      console.log("No members in Coins Purchase department");
-      return new Response(
-        JSON.stringify({ message: "No members in department" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+      if (!members || members.length === 0) {
+        console.log("No members in Coins Purchase department");
+        return new Response(
+          JSON.stringify({ message: "No members in department" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-    const userIds = members.map((m) => m.user_id);
-    console.log("Department members:", userIds.length);
+      const userIds = members.map((m) => m.user_id);
+      console.log("Department members:", userIds.length);
 
-    // Get user profiles for emails
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("user_id, user_name, email")
-      .in("user_id", userIds);
+      // Get user profiles for emails
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, user_name, email")
+        .in("user_id", userIds);
 
-    if (profilesError) {
-      console.error("Error fetching profiles:", profilesError);
-      throw profilesError;
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+        throw profilesError;
+      }
+      
+      profiles = profilesData || [];
     }
 
     // Get current date in Arabic format
