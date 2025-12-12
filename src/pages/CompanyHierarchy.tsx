@@ -62,6 +62,7 @@ const CompanyHierarchy = () => {
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [assignUserDialogOpen, setAssignUserDialogOpen] = useState(false);
+  const [assignToDeptDialogOpen, setAssignToDeptDialogOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [editingJob, setEditingJob] = useState<JobPosition | null>(null);
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
@@ -236,6 +237,12 @@ const CompanyHierarchy = () => {
     setAssignUserDialogOpen(true);
   };
 
+  const handleOpenAssignToDept = (departmentId: string) => {
+    setSelectedDeptId(departmentId);
+    setSelectedUserId("");
+    setAssignToDeptDialogOpen(true);
+  };
+
   const handleAssignUser = async () => {
     if (!selectedUserId || !selectedJobId) return;
 
@@ -254,6 +261,23 @@ const CompanyHierarchy = () => {
     }
   };
 
+  const handleAssignUserToDept = async () => {
+    if (!selectedUserId || !selectedDeptId) return;
+
+    try {
+      const { error } = await supabase.from("profiles").update({
+        default_department_id: selectedDeptId,
+      }).eq("user_id", selectedUserId);
+
+      if (error) throw error;
+      toast({ title: language === 'ar' ? "تم تعيين الموظف للقسم" : "User assigned to department" });
+      setAssignToDeptDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({ title: error.message, variant: "destructive" });
+    }
+  };
+
   const getChildDepartments = (parentId: string | null) => {
     return departments.filter(d => d.parent_department_id === parentId && d.is_active);
   };
@@ -266,15 +290,20 @@ const CompanyHierarchy = () => {
     return profiles.filter(p => p.job_position_id === jobId);
   };
 
+  // Get users assigned directly to department (no job)
+  const getUsersDirectlyInDepartment = (deptId: string) => {
+    return profiles.filter(p => p.default_department_id === deptId && !p.job_position_id);
+  };
+
   const getUnassignedUsers = () => {
-    const assignedUserIds = profiles.filter(p => p.job_position_id).map(p => p.user_id);
-    return profiles.filter(p => !assignedUserIds.includes(p.user_id));
+    return profiles.filter(p => !p.job_position_id && !p.default_department_id);
   };
 
   // Org Chart Node Component
   const OrgChartNode = ({ dept, isRoot = false }: { dept: Department; isRoot?: boolean }) => {
     const children = getChildDepartments(dept.id);
     const jobs = getJobsForDepartment(dept.id);
+    const directUsers = getUsersDirectlyInDepartment(dept.id);
 
     return (
       <div className="flex flex-col items-center">
@@ -303,6 +332,15 @@ const CompanyHierarchy = () => {
               size="icon"
               variant="secondary"
               className="h-6 w-6 rounded-full shadow-md"
+              onClick={(e) => { e.stopPropagation(); handleOpenAssignToDept(dept.id); }}
+              title={language === 'ar' ? 'تعيين موظف للقسم' : 'Assign User to Department'}
+            >
+              <UserPlus className="h-3 w-3" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-6 w-6 rounded-full shadow-md"
               onClick={(e) => { e.stopPropagation(); handleAddJob(dept.id); }}
               title={language === 'ar' ? 'إضافة وظيفة' : 'Add Job'}
             >
@@ -319,6 +357,24 @@ const CompanyHierarchy = () => {
             </Button>
           </div>
         </div>
+
+        {/* Users directly assigned to department (no job) */}
+        {directUsers.length > 0 && (
+          <div className="mt-2 flex items-center justify-center gap-1 px-3 py-1.5 bg-muted rounded-md">
+            {directUsers.slice(0, 4).map(user => (
+              <div key={user.id} className="flex flex-col items-center">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={user.avatar_url || undefined} />
+                  <AvatarFallback className="text-[9px]">{user.user_name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <span className="text-[8px] text-muted-foreground truncate max-w-[50px]">{user.user_name.split(' ')[0]}</span>
+              </div>
+            ))}
+            {directUsers.length > 4 && (
+              <span className="text-xs text-muted-foreground">+{directUsers.length - 4}</span>
+            )}
+          </div>
+        )}
 
         {/* Jobs under department */}
         {jobs.length > 0 && (
@@ -609,12 +665,12 @@ const CompanyHierarchy = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Assign User Dialog */}
+      {/* Assign User to Job Dialog */}
       <Dialog open={assignUserDialogOpen} onOpenChange={setAssignUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {language === 'ar' ? 'تعيين موظف' : 'Assign User'}
+              {language === 'ar' ? 'تعيين موظف للوظيفة' : 'Assign User to Job'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -634,6 +690,37 @@ const CompanyHierarchy = () => {
               </Select>
             </div>
             <Button onClick={handleAssignUser} className="w-full" disabled={!selectedUserId}>
+              {language === 'ar' ? 'تعيين' : 'Assign'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign User to Department Dialog (without job) */}
+      <Dialog open={assignToDeptDialogOpen} onOpenChange={setAssignToDeptDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تعيين موظف للقسم' : 'Assign User to Department'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{language === 'ar' ? 'اختر الموظف' : 'Select User'}</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر موظف' : 'Select a user'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getUnassignedUsers().map(user => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      {user.user_name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleAssignUserToDept} className="w-full" disabled={!selectedUserId}>
               {language === 'ar' ? 'تعيين' : 'Assign'}
             </Button>
           </div>
