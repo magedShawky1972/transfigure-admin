@@ -1544,7 +1544,19 @@ const ShiftSession = () => {
           ) : (
             <div className="space-y-4">
               <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                <p className="font-semibold">{t("shiftOpenedAt")}: {new Date(shiftSession.opened_at).toLocaleString('ar-SA')}</p>
+                <p className="font-semibold">{t("shiftOpenedAt")}: {(() => {
+                  const openedDate = new Date(shiftSession.opened_at);
+                  // Convert to KSA time (UTC+3)
+                  const ksaDate = new Date(openedDate.getTime() + (3 * 60 * 60 * 1000));
+                  const day = ksaDate.getUTCDate().toString().padStart(2, '0');
+                  const month = (ksaDate.getUTCMonth() + 1).toString().padStart(2, '0');
+                  const year = ksaDate.getUTCFullYear();
+                  let hours = ksaDate.getUTCHours();
+                  const minutes = ksaDate.getUTCMinutes().toString().padStart(2, '0');
+                  const ampm = hours >= 12 ? 'م' : 'ص';
+                  hours = hours % 12 || 12;
+                  return `${day}/${month}/${year} ${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+                })()}</p>
               </div>
 
               {/* Opening Balances - Read Only */}
