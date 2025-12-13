@@ -115,15 +115,30 @@ serve(async (req) => {
     console.log('Odoo creation response status:', odooResponse.status);
     console.log('Odoo creation response:', responseText);
 
-    if (!odooResponse.ok) {
-      throw new Error(`Odoo API error: ${odooResponse.status} - ${responseText}`);
-    }
-
     let odooData;
     try {
       odooData = JSON.parse(responseText);
     } catch (e) {
       odooData = { message: responseText };
+    }
+
+    // Handle case where customer already exists (Odoo returns existing_partner_profile_id)
+    if (odooData.success === false && odooData.existing_partner_profile_id) {
+      console.log('Customer already exists in Odoo, using existing IDs');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: odooData.error || 'Customer already exists in Odoo',
+          partner_profile_id: odooData.existing_partner_profile_id,
+          res_partner_id: odooData.existing_res_partner_id,
+          data: odooData 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!odooResponse.ok) {
+      throw new Error(`Odoo API error: ${odooResponse.status} - ${responseText}`);
     }
 
     return new Response(
