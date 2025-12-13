@@ -181,6 +181,49 @@ const ShiftSession = () => {
         return;
       }
 
+      // Check if user has a valid shift for current time
+      const currentTimeInMinutes = getKSATimeInMinutes();
+      let hasValidShiftForCurrentTime = false;
+
+      for (const assignment of assignments) {
+        const shiftData = assignment.shifts as { shift_name: string; shift_start_time: string; shift_end_time: string } | null;
+        if (!shiftData) continue;
+
+        const [startHours, startMinutes] = shiftData.shift_start_time.split(':').map(Number);
+        const startTimeInMinutes = startHours * 60 + startMinutes;
+        
+        const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
+        const endTimeInMinutes = endHours * 60 + endMinutes;
+        
+        // Check if this is an overnight shift (end time < start time)
+        const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
+        
+        if (isOvernightShift) {
+          // For overnight shifts: valid if current time >= start OR current time <= end
+          if (currentTimeInMinutes >= startTimeInMinutes || currentTimeInMinutes <= endTimeInMinutes) {
+            hasValidShiftForCurrentTime = true;
+            break;
+          }
+        } else {
+          // For regular shifts: valid if current time is between start and end
+          if (currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes) {
+            hasValidShiftForCurrentTime = true;
+            break;
+          }
+        }
+      }
+
+      if (!hasValidShiftForCurrentTime) {
+        toast({
+          title: t("noShiftAssignment") || "لا يوجد وردية",
+          description: t("notAssignedToCurrentTimeShift") || "لست مكلفاً بوردية في هذا الوقت",
+          variant: "destructive",
+        });
+        setHasActiveAssignment(false);
+        setLoading(false);
+        return;
+      }
+
       setHasActiveAssignment(true);
 
       // Load A-Class brands
@@ -1240,9 +1283,10 @@ const ShiftSession = () => {
         description: t("shiftClosedSuccessfully"),
       });
 
-      // Reset state
+      // Reset state and navigate to home
       setShiftSession(null);
       setBalances({});
+      navigate("/");
     } catch (error: any) {
       console.error("Error closing shift:", error);
       toast({
