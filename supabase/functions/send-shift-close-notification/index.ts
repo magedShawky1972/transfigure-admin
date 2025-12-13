@@ -180,17 +180,14 @@ const handler = async (req: Request): Promise<Response> => {
     };
     const shiftPeriod = getShiftPeriod(shift?.shift_start_time);
 
-    // Create brand balances table HTML
+    // Create brand balances table HTML - use single line to avoid =20 encoding
     let balancesTableRows = '';
     if (brandBalances && brandBalances.length > 0) {
       brandBalances.forEach((balance: any) => {
         const brandName = balance.brands?.short_name || balance.brands?.brand_name || 'غير معروف';
-        balancesTableRows += `
-          <div class="info-row">
-            <span class="info-label">${brandName}:</span>
-            <span class="info-value">${balance.closing_balance?.toFixed(2) || '0.00'} ${balance.receipt_image_path ? '✓' : ''}</span>
-          </div>
-        `;
+        const closingValue = balance.closing_balance?.toFixed(2) || '0.00';
+        const checkMark = balance.receipt_image_path ? ' ✓' : '';
+        balancesTableRows += '<div class="info-row"><span class="info-label">' + brandName + ':</span><span class="info-value">' + closingValue + checkMark + '</span></div>';
       });
     }
 
