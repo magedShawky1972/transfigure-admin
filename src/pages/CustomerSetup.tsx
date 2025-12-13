@@ -366,15 +366,19 @@ const CustomerSetup = () => {
       if (error) throw error;
 
       if (data?.success) {
-        // Update customer with both partner IDs from Odoo response
-        if (data.partner_profile_id && data.res_partner_id) {
+        // Update customer with partner IDs from Odoo response (res_partner_id is optional)
+        if (data.partner_profile_id) {
+          const updateData: any = { 
+            partner_id: data.partner_profile_id,
+            partner_profile_id: data.partner_profile_id,
+          };
+          if (data.res_partner_id) {
+            updateData.res_partner_id = data.res_partner_id;
+          }
+          
           const { error: updateError } = await supabase
             .from('customers')
-            .update({ 
-              partner_id: data.partner_profile_id,
-              partner_profile_id: data.partner_profile_id,
-              res_partner_id: data.res_partner_id
-            })
+            .update(updateData)
             .eq('customer_phone', customer.customer_phone);
           
           if (updateError) {
@@ -387,7 +391,7 @@ const CustomerSetup = () => {
                     ...c, 
                     partner_id: data.partner_profile_id,
                     partner_profile_id: data.partner_profile_id,
-                    res_partner_id: data.res_partner_id
+                    ...(data.res_partner_id && { res_partner_id: data.res_partner_id })
                   }
                 : c
             ));
