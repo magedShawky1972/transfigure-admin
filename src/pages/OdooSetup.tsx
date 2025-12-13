@@ -23,6 +23,7 @@ interface OdooConfig {
   purchase_order_api_url: string;
   purchase_order_api_url_test: string;
   api_key: string;
+  api_key_test: string;
   is_active: boolean;
 }
 
@@ -44,6 +45,7 @@ const OdooSetup = () => {
     purchase_order_api_url: "",
     purchase_order_api_url_test: "",
     api_key: "",
+    api_key_test: "",
     is_active: true,
   });
 
@@ -80,6 +82,7 @@ const OdooSetup = () => {
           purchase_order_api_url: (data as any).purchase_order_api_url || "",
           purchase_order_api_url_test: (data as any).purchase_order_api_url_test || "",
           api_key: data.api_key || "",
+          api_key_test: (data as any).api_key_test || "",
           is_active: data.is_active,
         });
       }
@@ -102,8 +105,8 @@ const OdooSetup = () => {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description: language === "ar" 
-          ? "يرجى إدخال مفتاح API" 
-          : "Please enter the API key",
+          ? "يرجى إدخال مفتاح API للإنتاج" 
+          : "Please enter the Production API key",
         variant: "destructive",
       });
       return;
@@ -126,6 +129,7 @@ const OdooSetup = () => {
         purchase_order_api_url: config.purchase_order_api_url,
         purchase_order_api_url_test: config.purchase_order_api_url_test,
         api_key: config.api_key,
+        api_key_test: config.api_key_test,
         is_active: config.is_active,
       };
 
@@ -172,35 +176,41 @@ const OdooSetup = () => {
     testKey: keyof OdooConfig,
     placeholder: string
   ) => (
-    <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
       <Label className="text-base font-semibold">{label}</Label>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor={prodKey} className="text-sm text-muted-foreground">
-            {language === "ar" ? "الإنتاج (Production)" : "Production"}
-          </Label>
-          <Input
-            id={prodKey}
-            type="url"
-            placeholder={placeholder}
-            value={config[prodKey] as string}
-            onChange={(e) => setConfig({ ...config, [prodKey]: e.target.value })}
-            disabled={loading}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={testKey} className="text-sm text-muted-foreground">
-            {language === "ar" ? "الاختبار (Test)" : "Test"}
-          </Label>
-          <Input
-            id={testKey}
-            type="url"
-            placeholder={placeholder.replace("your-odoo-instance", "test-instance")}
-            value={config[testKey] as string}
-            onChange={(e) => setConfig({ ...config, [testKey]: e.target.value })}
-            disabled={loading}
-          />
-        </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor={prodKey} className="text-sm text-muted-foreground flex items-center gap-2">
+          <span className="bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-xs font-medium">
+            {language === "ar" ? "الإنتاج" : "Production"}
+          </span>
+        </Label>
+        <Input
+          id={prodKey}
+          type="url"
+          placeholder={placeholder}
+          value={config[prodKey] as string}
+          onChange={(e) => setConfig({ ...config, [prodKey]: e.target.value })}
+          disabled={loading}
+          className="font-mono text-sm"
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor={testKey} className="text-sm text-muted-foreground flex items-center gap-2">
+          <span className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded text-xs font-medium">
+            {language === "ar" ? "الاختبار" : "Test"}
+          </span>
+        </Label>
+        <Input
+          id={testKey}
+          type="url"
+          placeholder={placeholder.replace("your-odoo-instance", "test-instance")}
+          value={config[testKey] as string}
+          onChange={(e) => setConfig({ ...config, [testKey]: e.target.value })}
+          disabled={loading}
+          className="font-mono text-sm"
+        />
       </div>
     </div>
   );
@@ -219,6 +229,52 @@ const OdooSetup = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* API Keys Section */}
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+            <Label className="text-base font-semibold">
+              {language === "ar" ? "مفاتيح API" : "API Keys"}
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            
+            <div className="space-y-2">
+              <Label htmlFor="api_key" className="text-sm text-muted-foreground flex items-center gap-2">
+                <span className="bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-xs font-medium">
+                  {language === "ar" ? "الإنتاج" : "Production"}
+                </span>
+              </Label>
+              <Input
+                id="api_key"
+                type="password"
+                placeholder="Enter production API key"
+                value={config.api_key}
+                onChange={(e) => setConfig({ ...config, api_key: e.target.value })}
+                disabled={loading}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="api_key_test" className="text-sm text-muted-foreground flex items-center gap-2">
+                <span className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded text-xs font-medium">
+                  {language === "ar" ? "الاختبار" : "Test"}
+                </span>
+              </Label>
+              <Input
+                id="api_key_test"
+                type="password"
+                placeholder="Enter test API key"
+                value={config.api_key_test}
+                onChange={(e) => setConfig({ ...config, api_key_test: e.target.value })}
+                disabled={loading}
+              />
+            </div>
+            
+            <p className="text-sm text-muted-foreground">
+              {language === "ar"
+                ? "أدخل مفاتيح API الخاصة بك لـ Odoo"
+                : "Enter your API keys for Odoo authentication"}
+            </p>
+          </div>
+
           {renderUrlSection(
             language === "ar" ? "عنوان API للعملاء" : "Customer API URL",
             "customer_api_url",
@@ -260,26 +316,6 @@ const OdooSetup = () => {
             "purchase_order_api_url_test",
             "https://your-odoo-instance.com/api/purchase_orders"
           )}
-
-          <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
-            <Label htmlFor="api_key" className="text-base font-semibold">
-              {language === "ar" ? "مفتاح API" : "API Key"}
-              <span className="text-destructive ml-1">*</span>
-            </Label>
-            <Input
-              id="api_key"
-              type="password"
-              placeholder="Enter your API key"
-              value={config.api_key}
-              onChange={(e) => setConfig({ ...config, api_key: e.target.value })}
-              disabled={loading}
-            />
-            <p className="text-sm text-muted-foreground">
-              {language === "ar"
-                ? "أدخل مفتاح API الخاص بك لـ Odoo"
-                : "Enter your API key for Odoo authentication"}
-            </p>
-          </div>
 
           <div className="flex gap-3 pt-4">
             <Button onClick={handleSave} disabled={loading}>

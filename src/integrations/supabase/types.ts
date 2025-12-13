@@ -829,6 +829,7 @@ export type Database = {
       odoo_api_config: {
         Row: {
           api_key: string
+          api_key_test: string | null
           brand_api_url: string | null
           brand_api_url_test: string | null
           created_at: string
@@ -848,6 +849,7 @@ export type Database = {
         }
         Insert: {
           api_key: string
+          api_key_test?: string | null
           brand_api_url?: string | null
           brand_api_url_test?: string | null
           created_at?: string
@@ -867,6 +869,7 @@ export type Database = {
         }
         Update: {
           api_key?: string
+          api_key_test?: string | null
           brand_api_url?: string | null
           brand_api_url_test?: string | null
           created_at?: string
