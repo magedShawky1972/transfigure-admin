@@ -830,31 +830,58 @@ export type Database = {
         Row: {
           api_key: string
           brand_api_url: string | null
+          brand_api_url_test: string | null
           created_at: string
           customer_api_url: string
+          customer_api_url_test: string | null
           id: string
           is_active: boolean
           product_api_url: string | null
+          product_api_url_test: string | null
+          purchase_order_api_url: string | null
+          purchase_order_api_url_test: string | null
+          sales_order_api_url: string | null
+          sales_order_api_url_test: string | null
+          supplier_api_url: string | null
+          supplier_api_url_test: string | null
           updated_at: string
         }
         Insert: {
           api_key: string
           brand_api_url?: string | null
+          brand_api_url_test?: string | null
           created_at?: string
           customer_api_url: string
+          customer_api_url_test?: string | null
           id?: string
           is_active?: boolean
           product_api_url?: string | null
+          product_api_url_test?: string | null
+          purchase_order_api_url?: string | null
+          purchase_order_api_url_test?: string | null
+          sales_order_api_url?: string | null
+          sales_order_api_url_test?: string | null
+          supplier_api_url?: string | null
+          supplier_api_url_test?: string | null
           updated_at?: string
         }
         Update: {
           api_key?: string
           brand_api_url?: string | null
+          brand_api_url_test?: string | null
           created_at?: string
           customer_api_url?: string
+          customer_api_url_test?: string | null
           id?: string
           is_active?: boolean
           product_api_url?: string | null
+          product_api_url_test?: string | null
+          purchase_order_api_url?: string | null
+          purchase_order_api_url_test?: string | null
+          sales_order_api_url?: string | null
+          sales_order_api_url_test?: string | null
+          supplier_api_url?: string | null
+          supplier_api_url_test?: string | null
           updated_at?: string
         }
         Relationships: []
