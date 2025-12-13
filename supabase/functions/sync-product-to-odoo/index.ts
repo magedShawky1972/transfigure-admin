@@ -67,15 +67,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!odooConfig.product_api_url) {
+    // Determine which URL and API key to use based on is_production_mode
+    const isProductionMode = odooConfig.is_production_mode !== false;
+    const productApiUrl = isProductionMode ? odooConfig.product_api_url : odooConfig.product_api_url_test;
+    const odooApiKey = isProductionMode ? odooConfig.api_key : odooConfig.api_key_test;
+
+    console.log('Using environment:', isProductionMode ? 'Production' : 'Test');
+
+    if (!productApiUrl) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Product API URL not configured' }),
+        JSON.stringify({ success: false, error: `Product API URL not configured for ${isProductionMode ? 'Production' : 'Test'} environment` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const odooApiKey = odooConfig.api_key;
-    const productApiUrl = odooConfig.product_api_url;
+    if (!odooApiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: `API key not configured for ${isProductionMode ? 'Production' : 'Test'} environment` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Build PUT request body (for updates - do NOT include cat_code, let Odoo keep existing category)
     const putBody: any = {

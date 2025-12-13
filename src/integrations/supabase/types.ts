@@ -837,6 +837,7 @@ export type Database = {
           customer_api_url_test: string | null
           id: string
           is_active: boolean
+          is_production_mode: boolean
           product_api_url: string | null
           product_api_url_test: string | null
           purchase_order_api_url: string | null
@@ -857,6 +858,7 @@ export type Database = {
           customer_api_url_test?: string | null
           id?: string
           is_active?: boolean
+          is_production_mode?: boolean
           product_api_url?: string | null
           product_api_url_test?: string | null
           purchase_order_api_url?: string | null
@@ -877,6 +879,7 @@ export type Database = {
           customer_api_url_test?: string | null
           id?: string
           is_active?: boolean
+          is_production_mode?: boolean
           product_api_url?: string | null
           product_api_url_test?: string | null
           purchase_order_api_url?: string | null

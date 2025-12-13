@@ -25,7 +25,7 @@ serve(async (req) => {
     // Fetch Odoo configuration from database
     const { data: config, error: configError } = await supabase
       .from('odoo_api_config')
-      .select('customer_api_url, api_key')
+      .select('*')
       .eq('is_active', true)
       .maybeSingle();
 
@@ -34,15 +34,19 @@ serve(async (req) => {
       throw new Error('Odoo API configuration not found. Please configure it in the admin panel.');
     }
 
-    const odooUrl = config.customer_api_url;
-    const odooApiKey = config.api_key;
+    // Determine which URL and API key to use based on is_production_mode
+    const isProductionMode = config.is_production_mode !== false;
+    const odooUrl = isProductionMode ? config.customer_api_url : config.customer_api_url_test;
+    const odooApiKey = isProductionMode ? config.api_key : config.api_key_test;
+
+    console.log('Using environment:', isProductionMode ? 'Production' : 'Test');
 
     if (!odooUrl || !odooApiKey) {
-      throw new Error('Odoo credentials not properly configured');
+      throw new Error(`Odoo credentials not properly configured for ${isProductionMode ? 'Production' : 'Test'} environment`);
     }
 
     // First, check if customer exists using PUT request
-    const checkUrl = `https://purplecard-staging-24752844.dev.odoo.com/api/partners/${customerPhone}`;
+    const checkUrl = `${odooUrl}/${customerPhone}`;
     console.log('Checking if customer exists:', checkUrl);
 
     try {
