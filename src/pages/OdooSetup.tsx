@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Save, RefreshCw } from "lucide-react";
+import { Save, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Switch } from "@/components/ui/switch";
 
@@ -33,6 +33,7 @@ const OdooSetup = () => {
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [isProductionMode, setIsProductionMode] = useState(true);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [config, setConfig] = useState<OdooConfig>({
     customer_api_url: "",
     customer_api_url_test: "",
@@ -252,17 +253,33 @@ const OdooSetup = () => {
               {language === "ar" ? "مفتاح API" : "API Key"}
               <span className="text-destructive ml-1">*</span>
             </Label>
-            <Input
-              id="api_key"
-              type="password"
-              placeholder={isProductionMode ? "Enter production API key" : "Enter test API key"}
-              value={isProductionMode ? config.api_key : config.api_key_test}
-              onChange={(e) => setConfig({ 
-                ...config, 
-                [isProductionMode ? 'api_key' : 'api_key_test']: e.target.value 
-              })}
-              disabled={loading}
-            />
+            <div className="relative">
+              <Input
+                id="api_key"
+                type={showApiKey ? "text" : "password"}
+                placeholder={isProductionMode ? "Enter production API key" : "Enter test API key"}
+                value={isProductionMode ? config.api_key : config.api_key_test}
+                onChange={(e) => setConfig({ 
+                  ...config, 
+                  [isProductionMode ? 'api_key' : 'api_key_test']: e.target.value 
+                })}
+                disabled={loading}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowApiKey(!showApiKey)}
+              >
+                {showApiKey ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
               {language === "ar"
                 ? "أدخل مفتاح API الخاص بك لـ Odoo"
