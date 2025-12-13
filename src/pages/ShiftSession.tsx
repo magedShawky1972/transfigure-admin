@@ -1514,6 +1514,7 @@ const ShiftSession = () => {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) handleOpeningImageUpload(brand.id, file);
+                              e.target.value = '';
                             }}
                             className="hidden"
                             id={`opening-file-${brand.id}`}
@@ -1679,6 +1680,7 @@ const ShiftSession = () => {
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) handleImageUpload(brand.id, file);
+                                e.target.value = '';
                               }}
                               className="hidden"
                               id={`file-${brand.id}`}
