@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Save, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Switch } from "@/components/ui/switch";
 
 interface OdooConfig {
   id?: string;
@@ -31,6 +32,7 @@ const OdooSetup = () => {
   const { toast } = useToast();
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
+  const [isProductionMode, setIsProductionMode] = useState(true);
   const [config, setConfig] = useState<OdooConfig>({
     customer_api_url: "",
     customer_api_url_test: "",
@@ -175,103 +177,93 @@ const OdooSetup = () => {
     prodKey: keyof OdooConfig,
     testKey: keyof OdooConfig,
     placeholder: string
-  ) => (
-    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-      <Label className="text-base font-semibold">{label}</Label>
-      
+  ) => {
+    const activeKey = isProductionMode ? prodKey : testKey;
+    const activePlaceholder = isProductionMode 
+      ? placeholder 
+      : placeholder.replace("your-odoo-instance", "test-instance");
+    
+    return (
       <div className="space-y-2">
-        <Label htmlFor={prodKey} className="text-sm text-muted-foreground flex items-center gap-2">
-          <span className="bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-xs font-medium">
-            {language === "ar" ? "الإنتاج" : "Production"}
-          </span>
-        </Label>
+        <Label htmlFor={activeKey} className="text-sm font-medium">{label}</Label>
         <Input
-          id={prodKey}
+          id={activeKey}
           type="url"
-          placeholder={placeholder}
-          value={config[prodKey] as string}
-          onChange={(e) => setConfig({ ...config, [prodKey]: e.target.value })}
+          placeholder={activePlaceholder}
+          value={config[activeKey] as string}
+          onChange={(e) => setConfig({ ...config, [activeKey]: e.target.value })}
           disabled={loading}
           className="font-mono text-sm"
         />
       </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor={testKey} className="text-sm text-muted-foreground flex items-center gap-2">
-          <span className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded text-xs font-medium">
-            {language === "ar" ? "الاختبار" : "Test"}
-          </span>
-        </Label>
-        <Input
-          id={testKey}
-          type="url"
-          placeholder={placeholder.replace("your-odoo-instance", "test-instance")}
-          value={config[testKey] as string}
-          onChange={(e) => setConfig({ ...config, [testKey]: e.target.value })}
-          disabled={loading}
-          className="font-mono text-sm"
-        />
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {language === "ar" ? "إعداد Odoo API" : "Odoo API Setup"}
-          </CardTitle>
-          <CardDescription>
-            {language === "ar"
-              ? "قم بتكوين إعدادات اتصال Odoo API للإنتاج والاختبار"
-              : "Configure your Odoo API connection settings for production and test environments"}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                {language === "ar" ? "إعداد Odoo API" : "Odoo API Setup"}
+              </CardTitle>
+              <CardDescription>
+                {language === "ar"
+                  ? "قم بتكوين إعدادات اتصال Odoo API للإنتاج والاختبار"
+                  : "Configure your Odoo API connection settings for production and test environments"}
+              </CardDescription>
+            </div>
+            
+            {/* Environment Toggle */}
+            <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+              <span className={`text-sm font-medium ${!isProductionMode ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'}`}>
+                {language === "ar" ? "اختبار" : "Test"}
+              </span>
+              <Switch
+                checked={isProductionMode}
+                onCheckedChange={setIsProductionMode}
+              />
+              <span className={`text-sm font-medium ${isProductionMode ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                {language === "ar" ? "إنتاج" : "Production"}
+              </span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* API Keys Section */}
-          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-            <Label className="text-base font-semibold">
-              {language === "ar" ? "مفاتيح API" : "API Keys"}
+          {/* Environment Indicator */}
+          <div className={`p-3 rounded-lg text-center font-medium ${
+            isProductionMode 
+              ? 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30' 
+              : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30'
+          }`}>
+            {isProductionMode 
+              ? (language === "ar" ? "🟢 وضع الإنتاج" : "🟢 Production Mode")
+              : (language === "ar" ? "🟡 وضع الاختبار" : "🟡 Test Mode")
+            }
+          </div>
+
+          {/* API Key Section */}
+          <div className="space-y-2">
+            <Label htmlFor="api_key" className="text-sm font-medium">
+              {language === "ar" ? "مفتاح API" : "API Key"}
               <span className="text-destructive ml-1">*</span>
             </Label>
-            
-            <div className="space-y-2">
-              <Label htmlFor="api_key" className="text-sm text-muted-foreground flex items-center gap-2">
-                <span className="bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-xs font-medium">
-                  {language === "ar" ? "الإنتاج" : "Production"}
-                </span>
-              </Label>
-              <Input
-                id="api_key"
-                type="password"
-                placeholder="Enter production API key"
-                value={config.api_key}
-                onChange={(e) => setConfig({ ...config, api_key: e.target.value })}
-                disabled={loading}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="api_key_test" className="text-sm text-muted-foreground flex items-center gap-2">
-                <span className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded text-xs font-medium">
-                  {language === "ar" ? "الاختبار" : "Test"}
-                </span>
-              </Label>
-              <Input
-                id="api_key_test"
-                type="password"
-                placeholder="Enter test API key"
-                value={config.api_key_test}
-                onChange={(e) => setConfig({ ...config, api_key_test: e.target.value })}
-                disabled={loading}
-              />
-            </div>
-            
+            <Input
+              id="api_key"
+              type="password"
+              placeholder={isProductionMode ? "Enter production API key" : "Enter test API key"}
+              value={isProductionMode ? config.api_key : config.api_key_test}
+              onChange={(e) => setConfig({ 
+                ...config, 
+                [isProductionMode ? 'api_key' : 'api_key_test']: e.target.value 
+              })}
+              disabled={loading}
+            />
             <p className="text-sm text-muted-foreground">
               {language === "ar"
-                ? "أدخل مفاتيح API الخاصة بك لـ Odoo"
-                : "Enter your API keys for Odoo authentication"}
+                ? "أدخل مفتاح API الخاص بك لـ Odoo"
+                : "Enter your API key for Odoo authentication"}
             </p>
           </div>
 
