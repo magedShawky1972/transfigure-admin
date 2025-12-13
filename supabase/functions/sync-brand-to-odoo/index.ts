@@ -59,56 +59,81 @@ Deno.serve(async (req) => {
       );
     }
 
-    // First, try PUT to check if brand exists (update existing)
-    console.log('Checking if brand exists in Odoo with PUT:', `${brandApiUrl}/${brand_code}`);
+    // First, try GET to check if brand exists by cat_code
+    console.log('Checking if brand exists in Odoo with GET:', `${brandApiUrl}/${brand_code}`);
     
-    const putResponse = await fetch(`${brandApiUrl}/${brand_code}`, {
-      method: 'PUT',
+    const getResponse = await fetch(`${brandApiUrl}/${brand_code}`, {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': odooApiKey,
       },
-      body: JSON.stringify({
-        name: brand_name,
-        cat_code: brand_code,
-      }),
     });
 
-    const putText = await putResponse.text();
-    console.log('PUT response status:', putResponse.status);
-    console.log('PUT response:', putText);
+    const getText = await getResponse.text();
+    console.log('GET response status:', getResponse.status);
+    console.log('GET response:', getText);
 
-    let putResult;
+    let getResult;
     try {
-      putResult = JSON.parse(putText);
+      getResult = JSON.parse(getText);
     } catch (e) {
-      putResult = { success: false, error: putText };
+      getResult = { success: false, error: getText };
     }
 
-    if (putResult.success) {
-      // Brand exists and was updated
-      console.log('Brand updated in Odoo:', putResult);
+    // If brand exists in Odoo, update it with PUT and get the category_id
+    if (getResult.success && getResult.category_id) {
+      console.log('Brand found in Odoo, updating with PUT:', getResult);
+      
+      const putResponse = await fetch(`${brandApiUrl}/${brand_code}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': odooApiKey,
+        },
+        body: JSON.stringify({
+          name: brand_name,
+        }),
+      });
+
+      const putText = await putResponse.text();
+      console.log('PUT response status:', putResponse.status);
+      console.log('PUT response:', putText);
+
+      let putResult;
+      try {
+        putResult = JSON.parse(putText);
+      } catch (e) {
+        putResult = { success: false, error: putText };
+      }
+
+      // Get category_id from either PUT response or original GET response
+      const categoryId = putResult.category_id || getResult.category_id;
       
       // Update local brand with odoo_category_id
-      if (putResult.category_id && brand_id) {
-        await supabase
+      if (categoryId && brand_id) {
+        const { error: updateError } = await supabase
           .from('brands')
-          .update({ odoo_category_id: putResult.category_id })
+          .update({ odoo_category_id: categoryId })
           .eq('id', brand_id);
+        
+        if (updateError) {
+          console.error('Error updating brand with odoo_category_id:', updateError);
+        }
       }
 
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'Brand updated in Odoo',
-          odoo_category_id: putResult.category_id,
+          odoo_category_id: categoryId,
           odoo_response: putResult 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // If PUT failed (brand doesn't exist), try POST to create
+    // If brand doesn't exist, create with POST
     console.log('Brand not found, creating with POST:', brandApiUrl);
     
     const postResponse = await fetch(brandApiUrl, {
@@ -141,10 +166,14 @@ Deno.serve(async (req) => {
       
       // Update local brand with odoo_category_id
       if (postResult.category_id && brand_id) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('brands')
           .update({ odoo_category_id: postResult.category_id })
           .eq('id', brand_id);
+        
+        if (updateError) {
+          console.error('Error updating brand with odoo_category_id:', updateError);
+        }
       }
 
       return new Response(
@@ -158,7 +187,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Both PUT and POST failed
+    // POST failed - check if brand already exists (different error response)
+    if (postResult.existing_category_id) {
+      // Update local brand with existing odoo_category_id
+      if (brand_id) {
+        const { error: updateError } = await supabase
+          .from('brands')
+          .update({ odoo_category_id: postResult.existing_category_id })
+          .eq('id', brand_id);
+        
+        if (updateError) {
+          console.error('Error updating brand with existing odoo_category_id:', updateError);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Brand already exists in Odoo',
+          odoo_category_id: postResult.existing_category_id,
+          odoo_response: postResult 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Both GET and POST failed
     return new Response(
       JSON.stringify({ 
         success: false, 
