@@ -11,8 +11,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 interface OdooConfig {
   id?: string;
   customer_api_url: string;
+  customer_api_url_test: string;
   product_api_url: string;
+  product_api_url_test: string;
   brand_api_url: string;
+  brand_api_url_test: string;
+  supplier_api_url: string;
+  supplier_api_url_test: string;
+  sales_order_api_url: string;
+  sales_order_api_url_test: string;
+  purchase_order_api_url: string;
+  purchase_order_api_url_test: string;
   api_key: string;
   is_active: boolean;
 }
@@ -23,8 +32,17 @@ const OdooSetup = () => {
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<OdooConfig>({
     customer_api_url: "",
+    customer_api_url_test: "",
     product_api_url: "",
+    product_api_url_test: "",
     brand_api_url: "",
+    brand_api_url_test: "",
+    supplier_api_url: "",
+    supplier_api_url_test: "",
+    sales_order_api_url: "",
+    sales_order_api_url_test: "",
+    purchase_order_api_url: "",
+    purchase_order_api_url_test: "",
     api_key: "",
     is_active: true,
   });
@@ -47,7 +65,23 @@ const OdooSetup = () => {
       }
 
       if (data) {
-        setConfig(data);
+        setConfig({
+          id: data.id,
+          customer_api_url: data.customer_api_url || "",
+          customer_api_url_test: (data as any).customer_api_url_test || "",
+          product_api_url: data.product_api_url || "",
+          product_api_url_test: (data as any).product_api_url_test || "",
+          brand_api_url: data.brand_api_url || "",
+          brand_api_url_test: (data as any).brand_api_url_test || "",
+          supplier_api_url: (data as any).supplier_api_url || "",
+          supplier_api_url_test: (data as any).supplier_api_url_test || "",
+          sales_order_api_url: (data as any).sales_order_api_url || "",
+          sales_order_api_url_test: (data as any).sales_order_api_url_test || "",
+          purchase_order_api_url: (data as any).purchase_order_api_url || "",
+          purchase_order_api_url_test: (data as any).purchase_order_api_url_test || "",
+          api_key: data.api_key || "",
+          is_active: data.is_active,
+        });
       }
     } catch (error) {
       console.error("Error fetching Odoo config:", error);
@@ -64,12 +98,12 @@ const OdooSetup = () => {
   };
 
   const handleSave = async () => {
-    if (!config.customer_api_url || !config.product_api_url || !config.brand_api_url || !config.api_key) {
+    if (!config.api_key) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
         description: language === "ar" 
-          ? "يرجى ملء جميع الحقول المطلوبة" 
-          : "Please fill in all required fields",
+          ? "يرجى إدخال مفتاح API" 
+          : "Please enter the API key",
         variant: "destructive",
       });
       return;
@@ -78,31 +112,34 @@ const OdooSetup = () => {
     try {
       setLoading(true);
 
+      const saveData = {
+        customer_api_url: config.customer_api_url,
+        customer_api_url_test: config.customer_api_url_test,
+        product_api_url: config.product_api_url,
+        product_api_url_test: config.product_api_url_test,
+        brand_api_url: config.brand_api_url,
+        brand_api_url_test: config.brand_api_url_test,
+        supplier_api_url: config.supplier_api_url,
+        supplier_api_url_test: config.supplier_api_url_test,
+        sales_order_api_url: config.sales_order_api_url,
+        sales_order_api_url_test: config.sales_order_api_url_test,
+        purchase_order_api_url: config.purchase_order_api_url,
+        purchase_order_api_url_test: config.purchase_order_api_url_test,
+        api_key: config.api_key,
+        is_active: config.is_active,
+      };
+
       if (config.id) {
-        // Update existing config
         const { error } = await supabase
           .from("odoo_api_config")
-          .update({
-            customer_api_url: config.customer_api_url,
-            product_api_url: config.product_api_url,
-            brand_api_url: config.brand_api_url,
-            api_key: config.api_key,
-            is_active: config.is_active,
-          })
+          .update(saveData)
           .eq("id", config.id);
 
         if (error) throw error;
       } else {
-        // Insert new config
         const { error } = await supabase
           .from("odoo_api_config")
-          .insert({
-            customer_api_url: config.customer_api_url,
-            product_api_url: config.product_api_url,
-            brand_api_url: config.brand_api_url,
-            api_key: config.api_key,
-            is_active: config.is_active,
-          });
+          .insert(saveData);
 
         if (error) throw error;
       }
@@ -114,7 +151,6 @@ const OdooSetup = () => {
           : "Odoo configuration saved successfully",
       });
 
-      // Refresh the config
       fetchConfig();
     } catch (error) {
       console.error("Error saving Odoo config:", error);
@@ -130,6 +166,45 @@ const OdooSetup = () => {
     }
   };
 
+  const renderUrlSection = (
+    label: string,
+    prodKey: keyof OdooConfig,
+    testKey: keyof OdooConfig,
+    placeholder: string
+  ) => (
+    <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+      <Label className="text-base font-semibold">{label}</Label>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor={prodKey} className="text-sm text-muted-foreground">
+            {language === "ar" ? "الإنتاج (Production)" : "Production"}
+          </Label>
+          <Input
+            id={prodKey}
+            type="url"
+            placeholder={placeholder}
+            value={config[prodKey] as string}
+            onChange={(e) => setConfig({ ...config, [prodKey]: e.target.value })}
+            disabled={loading}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={testKey} className="text-sm text-muted-foreground">
+            {language === "ar" ? "الاختبار (Test)" : "Test"}
+          </Label>
+          <Input
+            id={testKey}
+            type="url"
+            placeholder={placeholder.replace("your-odoo-instance", "test-instance")}
+            value={config[testKey] as string}
+            onChange={(e) => setConfig({ ...config, [testKey]: e.target.value })}
+            disabled={loading}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
@@ -139,73 +214,55 @@ const OdooSetup = () => {
           </CardTitle>
           <CardDescription>
             {language === "ar"
-              ? "قم بتكوين إعدادات اتصال Odoo API"
-              : "Configure your Odoo API connection settings"}
+              ? "قم بتكوين إعدادات اتصال Odoo API للإنتاج والاختبار"
+              : "Configure your Odoo API connection settings for production and test environments"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="customer_api_url">
-              {language === "ar" ? "عنوان API للعملاء" : "Customer API URL"}
-              <span className="text-destructive ml-1">*</span>
-            </Label>
-            <Input
-              id="customer_api_url"
-              type="url"
-              placeholder="https://your-odoo-instance.com/api/partners"
-              value={config.customer_api_url}
-              onChange={(e) => setConfig({ ...config, customer_api_url: e.target.value })}
-              disabled={loading}
-            />
-            <p className="text-sm text-muted-foreground">
-              {language === "ar"
-                ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالعملاء"
-                : "Enter the full URL of the customer API endpoint"}
-            </p>
-          </div>
+          {renderUrlSection(
+            language === "ar" ? "عنوان API للعملاء" : "Customer API URL",
+            "customer_api_url",
+            "customer_api_url_test",
+            "https://your-odoo-instance.com/api/partners"
+          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="product_api_url">
-              {language === "ar" ? "عنوان API للمنتجات" : "Product API URL"}
-              <span className="text-destructive ml-1">*</span>
-            </Label>
-            <Input
-              id="product_api_url"
-              type="url"
-              placeholder="https://your-odoo-instance.com/api/products"
-              value={config.product_api_url}
-              onChange={(e) => setConfig({ ...config, product_api_url: e.target.value })}
-              disabled={loading}
-            />
-            <p className="text-sm text-muted-foreground">
-              {language === "ar"
-                ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالمنتجات"
-                : "Enter the full URL of the product API endpoint"}
-            </p>
-          </div>
+          {renderUrlSection(
+            language === "ar" ? "عنوان API للمنتجات" : "Product API URL",
+            "product_api_url",
+            "product_api_url_test",
+            "https://your-odoo-instance.com/api/products"
+          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="brand_api_url">
-              {language === "ar" ? "عنوان API للعلامات التجارية" : "Brand API URL"}
-              <span className="text-destructive ml-1">*</span>
-            </Label>
-            <Input
-              id="brand_api_url"
-              type="url"
-              placeholder="https://purplecard-staging-24752844.dev.odoo.com/api/product_categories"
-              value={config.brand_api_url}
-              onChange={(e) => setConfig({ ...config, brand_api_url: e.target.value })}
-              disabled={loading}
-            />
-            <p className="text-sm text-muted-foreground">
-              {language === "ar"
-                ? "أدخل عنوان URL الكامل لنقطة نهاية API الخاصة بالعلامات التجارية"
-                : "Enter the full URL of the brand/product categories API endpoint"}
-            </p>
-          </div>
+          {renderUrlSection(
+            language === "ar" ? "عنوان API للعلامات التجارية" : "Brand API URL",
+            "brand_api_url",
+            "brand_api_url_test",
+            "https://your-odoo-instance.com/api/product_categories"
+          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="api_key">
+          {renderUrlSection(
+            language === "ar" ? "عنوان API للموردين" : "Supplier API URL",
+            "supplier_api_url",
+            "supplier_api_url_test",
+            "https://your-odoo-instance.com/api/suppliers"
+          )}
+
+          {renderUrlSection(
+            language === "ar" ? "عنوان API لأوامر البيع" : "Sales Order API URL",
+            "sales_order_api_url",
+            "sales_order_api_url_test",
+            "https://your-odoo-instance.com/api/sales_orders"
+          )}
+
+          {renderUrlSection(
+            language === "ar" ? "عنوان API لأوامر الشراء" : "Purchase Order API URL",
+            "purchase_order_api_url",
+            "purchase_order_api_url_test",
+            "https://your-odoo-instance.com/api/purchase_orders"
+          )}
+
+          <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
+            <Label htmlFor="api_key" className="text-base font-semibold">
               {language === "ar" ? "مفتاح API" : "API Key"}
               <span className="text-destructive ml-1">*</span>
             </Label>
