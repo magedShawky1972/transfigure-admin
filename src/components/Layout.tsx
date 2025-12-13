@@ -10,7 +10,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import edaraLogo from "@/assets/edara-logo.png";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
-import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { getKSAGregorianDate, getKSADate } from "@/lib/ksaTime";
 
 const getKSADateTime = () => {
@@ -41,9 +40,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   
   // Initialize idle timeout session manager (30 minutes)
   useIdleTimeout();
-  
-  // Initialize version check for auto cache clear
-  useVersionCheck();
 
   // Update KSA time every second
   useEffect(() => {
