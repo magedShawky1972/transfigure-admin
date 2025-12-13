@@ -87,6 +87,8 @@ const OdooSetup = () => {
           api_key_test: (data as any).api_key_test || "",
           is_active: data.is_active,
         });
+        // Set production mode from database
+        setIsProductionMode((data as any).is_production_mode !== false);
       }
     } catch (error) {
       console.error("Error fetching Odoo config:", error);
@@ -133,6 +135,7 @@ const OdooSetup = () => {
         api_key: config.api_key,
         api_key_test: config.api_key_test,
         is_active: config.is_active,
+        is_production_mode: isProductionMode,
       };
 
       if (config.id) {

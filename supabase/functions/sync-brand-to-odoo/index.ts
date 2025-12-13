@@ -38,15 +38,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!odooConfig.brand_api_url) {
+    // Determine which URL and API key to use based on is_production_mode
+    const isProductionMode = odooConfig.is_production_mode !== false;
+    const brandApiUrl = isProductionMode ? odooConfig.brand_api_url : odooConfig.brand_api_url_test;
+    const odooApiKey = isProductionMode ? odooConfig.api_key : odooConfig.api_key_test;
+
+    console.log('Using environment:', isProductionMode ? 'Production' : 'Test');
+
+    if (!brandApiUrl) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Brand API URL not configured' }),
+        JSON.stringify({ success: false, error: `Brand API URL not configured for ${isProductionMode ? 'Production' : 'Test'} environment` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const odooApiKey = odooConfig.api_key;
-    const brandApiUrl = odooConfig.brand_api_url;
+    if (!odooApiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: `API key not configured for ${isProductionMode ? 'Production' : 'Test'} environment` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // First, try PUT to check if brand exists (update existing)
     console.log('Checking if brand exists in Odoo with PUT:', `${brandApiUrl}/${brand_code}`);
