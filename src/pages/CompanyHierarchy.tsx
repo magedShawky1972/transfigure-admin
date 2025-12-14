@@ -401,13 +401,13 @@ const CompanyHierarchy = () => {
 
   const handleRemoveUserFromJob = async (userId: string, userName: string) => {
     try {
+      // Only clear department assignment, keep the job title
       const { error } = await supabase.from("profiles").update({
-        job_position_id: null,
         default_department_id: null,
       }).eq("user_id", userId);
 
       if (error) throw error;
-      toast({ title: language === 'ar' ? `تم إزالة ${userName} من الوظيفة` : `${userName} removed from job` });
+      toast({ title: language === 'ar' ? `تم إزالة ${userName} من القسم` : `${userName} removed from department` });
       fetchData();
     } catch (error: any) {
       toast({ title: error.message, variant: "destructive" });
