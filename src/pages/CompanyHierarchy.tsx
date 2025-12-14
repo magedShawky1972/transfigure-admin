@@ -383,10 +383,12 @@ const CompanyHierarchy = () => {
 
         if (error) throw error;
       }
-      toast({ title: language === 'ar' ? `تم تعيين ${userIds.length} موظف` : `${userIds.length} user(s) assigned` });
+      
       setAssignUserDialogOpen(false);
-      fetchData();
+      await fetchData();
+      toast({ title: language === 'ar' ? `تم تعيين ${userIds.length} موظف بنجاح` : `${userIds.length} user(s) assigned successfully` });
     } catch (error: any) {
+      console.error("Error assigning users:", error);
       toast({ title: error.message, variant: "destructive" });
     }
   };
