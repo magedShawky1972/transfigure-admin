@@ -362,7 +362,17 @@ const CompanyHierarchy = () => {
   };
 
   const handleAssignMultipleUsers = async (userIds: string[]) => {
-    if (userIds.length === 0 || !selectedJobId) return;
+    console.log("handleAssignMultipleUsers called with:", { userIds, selectedJobId, selectedDeptId });
+    
+    if (userIds.length === 0) {
+      toast({ title: language === 'ar' ? "اختر موظف واحد على الأقل" : "Select at least one user", variant: "destructive" });
+      return;
+    }
+    
+    if (!selectedJobId) {
+      toast({ title: language === 'ar' ? "لم يتم تحديد الوظيفة" : "No job selected", variant: "destructive" });
+      return;
+    }
 
     try {
       for (const userId of userIds) {
