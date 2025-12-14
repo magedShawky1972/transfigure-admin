@@ -5,11 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart } from "lucide-react";
+import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart, ChevronDown, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import DepartmentTaskPhases from "@/components/DepartmentTaskPhases";
 import DepartmentHierarchy from "@/components/DepartmentHierarchy";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DndContext,
   closestCenter,
@@ -208,6 +213,8 @@ const DepartmentManagement = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [deleteDeptDialog, setDeleteDeptDialog] = useState(false);
   const [deptToDelete, setDeptToDelete] = useState<Department | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -703,6 +710,23 @@ const DepartmentManagement = () => {
     return members.filter(m => m.department_id === deptId);
   };
 
+  const toggleDeptExpanded = (deptId: string) => {
+    setExpandedDepts(prev => {
+      const next = new Set(prev);
+      if (next.has(deptId)) {
+        next.delete(deptId);
+      } else {
+        next.add(deptId);
+      }
+      return next;
+    });
+  };
+
+  const filteredDepartments = departments.filter(dept => 
+    dept.department_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    dept.department_code.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -909,12 +933,23 @@ const DepartmentManagement = () => {
         </Dialog>
       </div>
 
+      {/* Search Box */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={language === 'ar' ? 'بحث في الأقسام...' : 'Search departments...'}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       {loading ? (
         <div className="text-center py-8">{language === 'ar' ? 'جاري التحميل...' : 'Loading departments...'}</div>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-2">
           {/* Root departments first, then sorted by hierarchy */}
-          {departments
+          {filteredDepartments
             .sort((a, b) => {
               // Root departments first
               if (!a.parent_department_id && b.parent_department_id) return -1;
@@ -928,78 +963,98 @@ const DepartmentManagement = () => {
               ? departments.find(d => d.id === dept.parent_department_id) 
               : null;
             const childDepartments = departments.filter(d => d.parent_department_id === dept.id);
+            const isExpanded = expandedDepts.has(dept.id);
             
             return (
-              <Card key={dept.id} className={dept.parent_department_id ? 'ml-8 border-l-4 border-l-primary/30' : ''}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        {dept.department_name}
-                        {childDepartments.length > 0 && (
-                          <Badge variant="outline" className="text-xs">
-                            {childDepartments.length} {language === 'ar' ? 'أقسام فرعية' : 'sub-depts'}
+              <Collapsible
+                key={dept.id}
+                open={isExpanded}
+                onOpenChange={() => toggleDeptExpanded(dept.id)}
+              >
+                <Card className={`${dept.parent_department_id ? 'ml-4 sm:ml-8 border-l-4 border-l-primary/30' : ''}`}>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <CardTitle className="text-base">{dept.department_name}</CardTitle>
+                              <span className="text-xs text-muted-foreground">({dept.department_code})</span>
+                              {childDepartments.length > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {childDepartments.length} {language === 'ar' ? 'فرعي' : 'sub'}
+                                </Badge>
+                              )}
+                              <Badge variant="secondary" className="text-xs">
+                                {deptAdmins.length} {language === 'ar' ? 'مسؤول' : 'admin'}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                {deptMembers.length} {language === 'ar' ? 'موظف' : 'staff'}
+                              </Badge>
+                            </div>
+                            {parentDept && (
+                              <p className="text-xs text-primary mt-0.5">
+                                ← {parentDept.department_name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <DepartmentTaskPhases
+                            departmentId={dept.id}
+                            departmentName={dept.department_name}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditDepartment(dept);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeptToDelete(dept);
+                              setDeleteDeptDialog(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Badge variant={dept.is_active ? "default" : "secondary"} className="text-xs">
+                            {dept.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
                           </Badge>
-                        )}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {language === 'ar' ? 'الكود' : 'Code'}: {dept.department_code}
-                      </p>
-                      {parentDept && (
-                        <p className="text-sm text-primary mt-1">
-                          {language === 'ar' ? 'القسم الرئيسي' : 'Parent'}: {parentDept.department_name}
-                        </p>
-                      )}
+                          {dept.is_outsource && (
+                            <Badge variant="outline" className="border-orange-500 text-orange-600 text-xs">
+                              {language === 'ar' ? 'خارجي' : 'Outsource'}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
                       {dept.description && (
-                        <p className="text-sm text-muted-foreground mt-2">
+                        <p className="text-sm text-muted-foreground mb-4">
                           {dept.description}
                         </p>
                       )}
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <DepartmentTaskPhases
-                        departmentId={dept.id}
-                        departmentName={dept.department_name}
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEditDepartment(dept)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => {
-                          setDeptToDelete(dept);
-                          setDeleteDeptDialog(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Badge variant={dept.is_active ? "default" : "secondary"}>
-                        {dept.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
-                      </Badge>
-                      {dept.is_outsource && (
-                        <Badge variant="outline" className="border-orange-500 text-orange-600">
-                          {language === 'ar' ? 'خارجي' : 'Outsource'}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-semibold text-sm">{language === 'ar' ? 'مسؤولو القسم' : 'Department Admins'}</h4>
-                      <Dialog open={openAdmin && selectedDept === dept.id} onOpenChange={(open) => {
-                        if (!open) {
-                          setOpenAdmin(false);
-                          setIsPurchaseAdmin(false);
-                        }
-                      }}>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold text-sm">{language === 'ar' ? 'مسؤولو القسم' : 'Department Admins'}</h4>
+                          <Dialog open={openAdmin && selectedDept === dept.id} onOpenChange={(open) => {
+                            if (!open) {
+                              setOpenAdmin(false);
+                              setIsPurchaseAdmin(false);
+                            }
+                          }}>
                         <DialogTrigger asChild>
                           <Button
                             size="sm"
@@ -1142,6 +1197,16 @@ const DepartmentManagement = () => {
                               </Button>
                             </div>
                           ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+            );
+          })}
         </div>
       )}
 
@@ -1226,14 +1291,6 @@ const DepartmentManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 };
