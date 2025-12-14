@@ -112,7 +112,9 @@ const Transactions = () => {
   const [loadingAll, setLoadingAll] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const [transactionToRestore, setTransactionToRestore] = useState<Transaction | null>(null);
   const pageSize = 500;
 
   const allColumns = [
@@ -762,16 +764,17 @@ const Transactions = () => {
 
   const handleDeleteClick = (transaction: Transaction) => {
     if (transaction.is_deleted) {
-      // If already deleted, restore without confirmation
-      confirmToggleDeleted(transaction);
+      // If already deleted, show restore confirmation
+      setTransactionToRestore(transaction);
+      setRestoreDialogOpen(true);
     } else {
-      // If not deleted, show confirmation dialog
+      // If not deleted, show delete confirmation dialog
       setTransactionToDelete(transaction);
       setDeleteDialogOpen(true);
     }
   };
 
-  const confirmToggleDeleted = async (transaction: Transaction) => {
+  const confirmToggleDeleted = async (transaction: Transaction, isRestore: boolean) => {
     try {
       const newValue = !transaction.is_deleted;
       const { error } = await supabase
@@ -787,8 +790,8 @@ const Transactions = () => {
 
       toast({
         title: language === 'ar' 
-          ? (newValue ? 'تم تعليم المعاملة كمحذوفة' : 'تم إلغاء تعليم المحذوفة')
-          : (newValue ? 'Transaction marked as deleted' : 'Transaction unmarked'),
+          ? (isRestore ? 'تم استعادة المعاملة' : 'تم حذف المعاملة')
+          : (isRestore ? 'Transaction restored' : 'Transaction deleted'),
       });
     } catch (error) {
       console.error('Error updating transaction:', error);
@@ -802,9 +805,17 @@ const Transactions = () => {
 
   const handleConfirmDelete = () => {
     if (transactionToDelete) {
-      confirmToggleDeleted(transactionToDelete);
+      confirmToggleDeleted(transactionToDelete, false);
       setTransactionToDelete(null);
       setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleConfirmRestore = () => {
+    if (transactionToRestore) {
+      confirmToggleDeleted(transactionToRestore, true);
+      setTransactionToRestore(null);
+      setRestoreDialogOpen(false);
     }
   };
 
@@ -886,6 +897,30 @@ const Transactions = () => {
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {language === 'ar' ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'تأكيد الاستعادة' : 'Confirm Restore'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? `هل أنت متأكد من استعادة الطلب رقم ${transactionToRestore?.order_number || ''}؟`
+                : `Are you sure you want to restore order number ${transactionToRestore?.order_number || ''}?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRestore} className="bg-green-600 text-white hover:bg-green-700">
+              {language === 'ar' ? 'استعادة' : 'Restore'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
