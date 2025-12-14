@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft } from "lucide-react";
 import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -109,13 +109,32 @@ const AdminTickets = () => {
   const [selectedTicketForLog, setSelectedTicketForLog] = useState<{ id: string; number: string } | null>(null);
   const [currentUserAdminInfo, setCurrentUserAdminInfo] = useState<DepartmentAdminInfo[]>([]);
   const [allDepartmentAdmins, setAllDepartmentAdmins] = useState<AllDepartmentAdmin[]>([]);
+  const [changeDeptDialog, setChangeDeptDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const [newDepartmentId, setNewDepartmentId] = useState<string>("");
+  const [allDepartments, setAllDepartments] = useState<{ id: string; department_name: string }[]>([]);
 
   useEffect(() => {
     checkAdminStatus();
     fetchTickets();
     fetchDepartmentMembers();
     fetchCurrentUserAdminInfo();
+    fetchAllDepartments();
   }, []);
+
+  const fetchAllDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, department_name")
+        .eq("is_active", true)
+        .order("department_name");
+      
+      if (error) throw error;
+      setAllDepartments(data || []);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+    }
+  };
 
   // Check if current user can approve a specific ticket
   const canUserApprove = (ticket: Ticket): boolean => {
@@ -758,6 +777,39 @@ const AdminTickets = () => {
     }
   };
 
+  const handleChangeDepartment = async () => {
+    if (!changeDeptDialog.ticket || !newDepartmentId) return;
+    
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ 
+          department_id: newDepartmentId,
+          next_admin_order: 1, // Reset approval chain
+          approved_at: null,
+          approved_by: null
+        })
+        .eq("id", changeDeptDialog.ticket.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم تغيير القسم بنجاح' : 'Department changed successfully',
+      });
+
+      setChangeDeptDialog({ open: false, ticket: null });
+      setNewDepartmentId("");
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredTickets = tickets.filter(ticket => {
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
@@ -979,6 +1031,22 @@ const AdminTickets = () => {
             <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'سجل' : 'Log'}</span>
           </Button>
 
+          {/* Change Department button - only for not fully approved tickets */}
+          {!ticket.approved_at && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs sm:text-sm"
+              onClick={() => {
+                setChangeDeptDialog({ open: true, ticket });
+                setNewDepartmentId(ticket.department_id);
+              }}
+            >
+              <ArrowRightLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'نقل' : 'Move'}</span>
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -1129,6 +1197,48 @@ const AdminTickets = () => {
             <AlertDialogCancel>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {language === 'ar' ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Change Department Dialog */}
+      <AlertDialog open={changeDeptDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setChangeDeptDialog({ open: false, ticket: null });
+          setNewDepartmentId("");
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'تغيير القسم' : 'Change Department'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? 'اختر القسم الجديد للتذكرة. سيتم إعادة تعيين سلسلة الموافقات.'
+                : 'Select the new department for this ticket. The approval chain will be reset.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Select value={newDepartmentId} onValueChange={setNewDepartmentId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select Department'} />
+              </SelectTrigger>
+              <SelectContent>
+                {allDepartments.map(dept => (
+                  <SelectItem key={dept.id} value={dept.id}>{dept.department_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleChangeDepartment}
+              disabled={!newDepartmentId || newDepartmentId === changeDeptDialog.ticket?.department_id}
+            >
+              {language === 'ar' ? 'تأكيد' : 'Confirm'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
