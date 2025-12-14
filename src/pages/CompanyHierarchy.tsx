@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -399,6 +399,21 @@ const CompanyHierarchy = () => {
     }
   };
 
+  const handleRemoveUserFromJob = async (userId: string, userName: string) => {
+    try {
+      const { error } = await supabase.from("profiles").update({
+        job_position_id: null,
+        default_department_id: null,
+      }).eq("user_id", userId);
+
+      if (error) throw error;
+      toast({ title: language === 'ar' ? `تم إزالة ${userName} من الوظيفة` : `${userName} removed from job` });
+      fetchData();
+    } catch (error: any) {
+      toast({ title: error.message, variant: "destructive" });
+    }
+  };
+
   const getChildDepartments = (parentId: string | null) => {
     return departments.filter(d => d.parent_department_id === parentId && d.is_active && !d.is_outsource);
   };
@@ -525,10 +540,22 @@ const CompanyHierarchy = () => {
                           <TooltipProvider key={user.id}>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Avatar className="h-5 w-5 cursor-pointer">
-                                  <AvatarImage src={user.avatar_url || undefined} />
-                                  <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
-                                </Avatar>
+                                <div className="relative group/user">
+                                  <Avatar className="h-5 w-5 cursor-pointer">
+                                    <AvatarImage src={user.avatar_url || undefined} />
+                                    <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
+                                  </Avatar>
+                                  <button
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      handleRemoveUserFromJob(user.user_id, user.user_name); 
+                                    }}
+                                    className="absolute -top-1 -right-1 h-3 w-3 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover/user:opacity-100 transition-opacity flex items-center justify-center"
+                                    title={language === 'ar' ? 'إزالة من الوظيفة' : 'Remove from job'}
+                                  >
+                                    <X className="h-2 w-2" />
+                                  </button>
+                                </div>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>{user.user_name}</p>
