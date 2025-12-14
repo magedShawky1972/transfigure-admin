@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,9 @@ interface UserSelectionDialogProps {
   onOpenChange: (open: boolean) => void;
   users: User[];
   onSelect: (userId: string) => void;
+  onMultiSelect?: (userIds: string[]) => void;
   title?: string;
+  multiSelect?: boolean;
 }
 
 const ITEMS_PER_PAGE = 8;
@@ -38,12 +41,15 @@ const UserSelectionDialog = ({
   onOpenChange,
   users,
   onSelect,
+  onMultiSelect,
   title,
+  multiSelect = false,
 }: UserSelectionDialogProps) => {
   const { language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   // Filter users based on search
   const filteredUsers = useMemo(() => {
@@ -69,18 +75,36 @@ const UserSelectionDialog = ({
     setCurrentPage(1);
   };
 
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
   const handleSelect = () => {
-    if (selectedUserId) {
-      onSelect(selectedUserId);
-      setSelectedUserId(null);
-      setSearchQuery("");
-      setCurrentPage(1);
+    if (multiSelect) {
+      if (selectedUserIds.length > 0 && onMultiSelect) {
+        onMultiSelect(selectedUserIds);
+        setSelectedUserIds([]);
+        setSearchQuery("");
+        setCurrentPage(1);
+      }
+    } else {
+      if (selectedUserId) {
+        onSelect(selectedUserId);
+        setSelectedUserId(null);
+        setSearchQuery("");
+        setCurrentPage(1);
+      }
     }
   };
 
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
       setSelectedUserId(null);
+      setSelectedUserIds([]);
       setSearchQuery("");
       setCurrentPage(1);
     }
@@ -117,6 +141,46 @@ const UserSelectionDialog = ({
                 <div className="text-center py-8 text-muted-foreground">
                   {language === "ar" ? "لا توجد نتائج" : "No results found"}
                 </div>
+              ) : multiSelect ? (
+                paginatedUsers.map((user) => (
+                  <div
+                    key={user.user_id}
+                    onClick={() => toggleUserSelection(user.user_id)}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                      selectedUserIds.includes(user.user_id)
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted"
+                    )}
+                  >
+                    <Checkbox
+                      checked={selectedUserIds.includes(user.user_id)}
+                      onCheckedChange={() => toggleUserSelection(user.user_id)}
+                      className={cn(
+                        selectedUserIds.includes(user.user_id) && "border-primary-foreground"
+                      )}
+                    />
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.avatar_url || undefined} />
+                      <AvatarFallback>
+                        {user.user_name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{user.user_name}</div>
+                      <div
+                        className={cn(
+                          "text-sm truncate",
+                          selectedUserIds.includes(user.user_id)
+                            ? "text-primary-foreground/80"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {user.email}
+                      </div>
+                    </div>
+                  </div>
+                ))
               ) : (
                 paginatedUsers.map((user) => (
                   <div
@@ -188,9 +252,15 @@ const UserSelectionDialog = ({
 
           {/* Results count */}
           <div className="text-xs text-muted-foreground text-center">
-            {language === "ar"
-              ? `${filteredUsers.length} موظف`
-              : `${filteredUsers.length} users`}
+            {multiSelect ? (
+              language === "ar"
+                ? `${selectedUserIds.length} مختار من ${filteredUsers.length} موظف`
+                : `${selectedUserIds.length} selected of ${filteredUsers.length} users`
+            ) : (
+              language === "ar"
+                ? `${filteredUsers.length} موظف`
+                : `${filteredUsers.length} users`
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -205,7 +275,7 @@ const UserSelectionDialog = ({
             <Button
               className="flex-1"
               onClick={handleSelect}
-              disabled={!selectedUserId}
+              disabled={multiSelect ? selectedUserIds.length === 0 : !selectedUserId}
             >
               {language === "ar" ? "تعيين" : "Assign"}
             </Button>
