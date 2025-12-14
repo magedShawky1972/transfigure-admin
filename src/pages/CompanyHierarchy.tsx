@@ -219,10 +219,16 @@ const CompanyHierarchy = () => {
           // Use existing job in this department
           targetJobId = existingJobInDeptCheck.id;
         } else if (selectedJob.department_id && selectedJob.department_id !== jobForm.departmentId) {
-          // Job belongs to another department - just use the original job ID
-          // Don't create a new job, we'll assign users to the original job but with this department
-          targetJobId = selectedJob.id;
-        } else {
+          // Job belongs to another department - create a new job entry with the same name for this department
+          const { data: newJob, error: createError } = await supabase.from("job_positions").insert({
+            position_name: selectedJob.position_name,
+            department_id: jobForm.departmentId,
+            is_active: true,
+          }).select("id").single();
+
+          if (createError) throw createError;
+          targetJobId = newJob.id;
+        } else if (!selectedJob.department_id) {
           // Job has no department, assign it to this department
           const { error: updateError } = await supabase.from("job_positions").update({
             department_id: jobForm.departmentId,
