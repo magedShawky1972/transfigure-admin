@@ -30,6 +30,7 @@ interface ProductDetailsDialogProps {
   barcode?: string | null;
   supplier?: string | null;
   notes?: string | null;
+  nonStock?: boolean | null;
 }
 
 interface FreeCoin {
@@ -78,7 +79,8 @@ export const ProductDetailsDialog = ({
   weight: initialWeight,
   barcode: initialBarcode,
   supplier: initialSupplier,
-  notes: initialNotes
+  notes: initialNotes,
+  nonStock: initialNonStock
 }: ProductDetailsDialogProps) => {
   const { t, language } = useLanguage();
   const isRTL = language === "ar";
@@ -202,6 +204,23 @@ export const ProductDetailsDialog = ({
                 >
                   {mobileEnabled ? t("productSetup.on") : t("productSetup.off")}
                 </Button>
+              </div>
+            </div>
+            
+            {/* Non-Stock Toggle */}
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <Label className="text-base font-semibold">
+                {language === "ar" ? "منتج بدون مخزون" : "Non-Stock Product"}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={initialNonStock ?? false}
+                  disabled
+                  className="h-5 w-5"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {initialNonStock ? (language === "ar" ? "نعم" : "Yes") : (language === "ar" ? "لا" : "No")}
+                </span>
               </div>
             </div>
             

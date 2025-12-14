@@ -1039,6 +1039,7 @@ export type Database = {
           min_coins: number | null
           minimum_order_quantity: number | null
           mobile_enabled: boolean | null
+          non_stock: boolean
           notes: string | null
           odoo_product_id: number | null
           odoo_sync_status: string | null
@@ -1084,6 +1085,7 @@ export type Database = {
           min_coins?: number | null
           minimum_order_quantity?: number | null
           mobile_enabled?: boolean | null
+          non_stock?: boolean
           notes?: string | null
           odoo_product_id?: number | null
           odoo_sync_status?: string | null
@@ -1129,6 +1131,7 @@ export type Database = {
           min_coins?: number | null
           minimum_order_quantity?: number | null
           mobile_enabled?: boolean | null
+          non_stock?: boolean
           notes?: string | null
           odoo_product_id?: number | null
           odoo_sync_status?: string | null
