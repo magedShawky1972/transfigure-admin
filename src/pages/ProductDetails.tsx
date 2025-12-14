@@ -115,6 +115,9 @@ const ProductDetails = () => {
 
   // Mobile toggle
   const [mobileEnabled, setMobileEnabled] = useState(true);
+  
+  // Non-stock toggle
+  const [nonStock, setNonStock] = useState(false);
 
   // Free coins section
   const [freeCoins, setFreeCoins] = useState<FreeCoin[]>([
@@ -210,6 +213,7 @@ const ProductDetails = () => {
         
         // Load new fields
         setMobileEnabled(data.mobile_enabled ?? true);
+        setNonStock(data.non_stock ?? false);
         setCoinsNumber(data.coins_number?.toString() || "4000000");
         setMinCoins(data.min_coins?.toString() || "0");
         setMaxCoins(data.max_coins?.toString() || "0");
@@ -320,6 +324,7 @@ const ProductDetails = () => {
           product_cost: costPrice,
           product_price: retailPrice,
           mobile_enabled: mobileEnabled,
+          non_stock: nonStock,
           coins_number: coinsNumber ? parseFloat(coinsNumber) : 0,
           min_coins: minCoins ? parseFloat(minCoins) : 0,
           max_coins: maxCoins ? parseFloat(maxCoins) : 0,
@@ -413,6 +418,27 @@ const ProductDetails = () => {
                     >
                       {mobileEnabled ? t("productSetup.on") : t("productSetup.off")}
                     </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Non-Stock Toggle */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">
+                    {language === "ar" ? "منتج بدون مخزون" : "Non-Stock Product"}
+                  </Label>
+                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <Checkbox
+                      checked={nonStock}
+                      onCheckedChange={(checked) => setNonStock(checked === true)}
+                      className="h-5 w-5"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {nonStock ? (language === "ar" ? "نعم" : "Yes") : (language === "ar" ? "لا" : "No")}
+                    </span>
                   </div>
                 </div>
               </CardContent>
