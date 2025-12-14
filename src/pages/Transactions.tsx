@@ -48,6 +48,7 @@ import {
 import { DraggableColumnHeader } from "@/components/transactions/DraggableColumnHeader";
 import { MultiLevelGroupByZone } from "@/components/transactions/MultiLevelGroupByZone";
 import { MultiLevelGroupedTransactions } from "@/components/transactions/MultiLevelGroupedTransactions";
+import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
 
 interface GroupLevel {
   columnId: string;
@@ -123,6 +124,8 @@ const Transactions = () => {
   const [selectedOdooLines, setSelectedOdooLines] = useState<string[]>([]);
   const [syncingToOdoo, setSyncingToOdoo] = useState(false);
   const [syncingAllToOdoo, setSyncingAllToOdoo] = useState(false);
+  const [odooStepDialogOpen, setOdooStepDialogOpen] = useState(false);
+  const [odooStepTransactions, setOdooStepTransactions] = useState<Transaction[]>([]);
   const pageSize = 500;
 
   const allColumns = [
@@ -840,8 +843,9 @@ const Transactions = () => {
       setSelectedOdooLines(orderLines.map(l => l.id));
       setOdooSyncDialogOpen(true);
     } else {
-      // Single line order - sync directly
-      await syncTransactionsToOdoo([transaction]);
+      // Single line order - open step-by-step dialog
+      setOdooStepTransactions([transaction]);
+      setOdooStepDialogOpen(true);
     }
   };
 
@@ -887,11 +891,13 @@ const Transactions = () => {
     }
   };
 
-  // Confirm sync selected lines from dialog
+  // Confirm sync selected lines from dialog - open step dialog
   const handleConfirmOdooSync = () => {
     const selectedTxs = odooOrderLines.filter(t => selectedOdooLines.includes(t.id));
     if (selectedTxs.length > 0) {
-      syncTransactionsToOdoo(selectedTxs);
+      setOdooSyncDialogOpen(false);
+      setOdooStepTransactions(selectedTxs);
+      setOdooStepDialogOpen(true);
     }
   };
 
@@ -1137,6 +1143,18 @@ const Transactions = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Odoo Step-by-Step Sync Dialog */}
+      <OdooSyncStepDialog
+        open={odooStepDialogOpen}
+        onOpenChange={setOdooStepDialogOpen}
+        transactions={odooStepTransactions}
+        onSyncComplete={() => {
+          setOdooStepTransactions([]);
+          setOdooOrderLines([]);
+          setSelectedOdooLines([]);
+        }}
+      />
 
       {loadingAll && (
         <LoadingOverlay
