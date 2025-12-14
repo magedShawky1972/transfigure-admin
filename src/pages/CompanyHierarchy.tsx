@@ -422,8 +422,9 @@ const CompanyHierarchy = () => {
     return jobPositions.filter(j => j.department_id === deptId && j.is_active);
   };
 
-  const getUsersForJob = (jobId: string) => {
-    return profiles.filter(p => p.job_position_id === jobId);
+  const getUsersForJob = (jobId: string, departmentId: string) => {
+    // Filter users by both job AND department - user must have this job AND be assigned to this department
+    return profiles.filter(p => p.job_position_id === jobId && p.default_department_id === departmentId);
   };
 
   // Get users assigned directly to department (no job)
@@ -529,7 +530,7 @@ const CompanyHierarchy = () => {
         {jobs.length > 0 && (
           <div className="mt-2 space-y-1">
             {jobs.map(job => {
-              const jobUsers = getUsersForJob(job.id);
+              const jobUsers = getUsersForJob(job.id, dept.id);
               return (
                 <div key={job.id} className="relative group/job">
                   <div className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-xs text-center">
