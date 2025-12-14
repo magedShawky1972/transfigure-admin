@@ -23,6 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import UserSelectionDialog from "@/components/UserSelectionDialog";
 
 interface Department {
@@ -75,6 +77,7 @@ const CompanyHierarchy = () => {
   const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "__none__" });
   const [jobForm, setJobForm] = useState({ name: "", departmentId: "", existingJobId: "" });
   const [jobMode, setJobMode] = useState<"existing" | "new">("existing");
+  const [selectedJobUsers, setSelectedJobUsers] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
 
   useEffect(() => {
@@ -176,6 +179,7 @@ const CompanyHierarchy = () => {
     setEditingJob(null);
     setJobForm({ name: "", departmentId, existingJobId: "" });
     setJobMode("existing");
+    setSelectedJobUsers([]);
     setJobDialogOpen(true);
   };
 
@@ -187,15 +191,63 @@ const CompanyHierarchy = () => {
   };
 
   const handleSaveJob = async () => {
-    // If using existing job, just update its department
+    // If using existing job with user selection
     if (!editingJob && jobMode === "existing" && jobForm.existingJobId) {
       try {
-        const { error } = await supabase.from("job_positions").update({
-          department_id: jobForm.departmentId || null,
-        }).eq("id", jobForm.existingJobId);
+        const selectedJob = jobPositions.find(j => j.id === jobForm.existingJobId);
+        if (!selectedJob) return;
 
-        if (error) throw error;
-        toast({ title: language === 'ar' ? "تم تعيين الوظيفة للقسم" : "Job assigned to department" });
+        // Check if this job already exists in the target department
+        let targetJobId = jobForm.existingJobId;
+        const existingJobInDept = jobPositions.find(
+          j => j.position_name === selectedJob.position_name && j.department_id === jobForm.departmentId
+        );
+
+        if (existingJobInDept) {
+          // Use existing job in this department
+          targetJobId = existingJobInDept.id;
+        } else if (selectedJob.department_id && selectedJob.department_id !== jobForm.departmentId) {
+          // Job belongs to another department, create a new one for this department
+          const { data: newJob, error: createError } = await supabase.from("job_positions").insert({
+            position_name: selectedJob.position_name,
+            department_id: jobForm.departmentId,
+          }).select().single();
+
+          if (createError) throw createError;
+          targetJobId = newJob.id;
+        } else {
+          // Job has no department, assign it to this department
+          const { error: updateError } = await supabase.from("job_positions").update({
+            department_id: jobForm.departmentId,
+          }).eq("id", jobForm.existingJobId);
+
+          if (updateError) throw updateError;
+        }
+
+        // Update selected users to this job
+        for (const userId of selectedJobUsers) {
+          const { error } = await supabase.from("profiles").update({
+            job_position_id: targetJobId,
+            default_department_id: jobForm.departmentId,
+          }).eq("user_id", userId);
+          
+          if (error) throw error;
+        }
+
+        // Deselect users that were unchecked
+        const usersWithThisJob = profiles.filter(p => p.job_position_id === jobForm.existingJobId);
+        for (const user of usersWithThisJob) {
+          if (!selectedJobUsers.includes(user.user_id)) {
+            const { error } = await supabase.from("profiles").update({
+              job_position_id: null,
+              default_department_id: null,
+            }).eq("user_id", user.user_id);
+            
+            if (error) throw error;
+          }
+        }
+
+        toast({ title: language === 'ar' ? "تم تعيين الوظيفة والموظفين" : "Job and users assigned" });
         setJobDialogOpen(false);
         fetchData();
         return;
@@ -234,9 +286,46 @@ const CompanyHierarchy = () => {
     }
   };
 
-  // Get jobs not assigned to any department
-  const getUnassignedJobs = () => {
-    return jobPositions.filter(j => !j.department_id && j.is_active);
+  // Get all active jobs (for selection)
+  const getAllActiveJobs = () => {
+    return jobPositions.filter(j => j.is_active);
+  };
+
+  // Get unique job names for selection
+  const getUniqueJobNames = () => {
+    const uniqueNames = new Map<string, JobPosition>();
+    jobPositions.filter(j => j.is_active).forEach(j => {
+      if (!uniqueNames.has(j.position_name)) {
+        uniqueNames.set(j.position_name, j);
+      }
+    });
+    return Array.from(uniqueNames.values());
+  };
+
+  // Get users who have a specific job (by position name)
+  const getUsersWithJobName = (jobId: string) => {
+    const job = jobPositions.find(j => j.id === jobId);
+    if (!job) return [];
+    // Get all users who have any job with this position name
+    const jobIds = jobPositions.filter(j => j.position_name === job.position_name).map(j => j.id);
+    return profiles.filter(p => p.job_position_id && jobIds.includes(p.job_position_id));
+  };
+
+  // Handle job selection change
+  const handleJobSelectionChange = (jobId: string) => {
+    setJobForm({ ...jobForm, existingJobId: jobId });
+    // Pre-select users who already have this job
+    const usersWithJob = getUsersWithJobName(jobId);
+    setSelectedJobUsers(usersWithJob.map(u => u.user_id));
+  };
+
+  // Toggle user selection
+  const toggleUserSelection = (userId: string) => {
+    setSelectedJobUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   const handleDeleteJob = async (jobId: string) => {
@@ -709,24 +798,64 @@ const CompanyHierarchy = () => {
 
             {/* Existing job selection */}
             {!editingJob && jobMode === "existing" && (
-              <div>
-                <Label>{language === 'ar' ? 'اختر الوظيفة' : 'Select Job'}</Label>
-                <Select value={jobForm.existingJobId} onValueChange={(v) => setJobForm({ ...jobForm, existingJobId: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'ar' ? 'اختر وظيفة' : 'Select a job'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getUnassignedJobs().map(j => (
-                      <SelectItem key={j.id} value={j.id}>{j.position_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {getUnassignedJobs().length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {language === 'ar' ? 'لا توجد وظائف غير مخصصة' : 'No unassigned jobs available'}
-                  </p>
+              <>
+                <div>
+                  <Label>{language === 'ar' ? 'اختر الوظيفة' : 'Select Job'}</Label>
+                  <Select value={jobForm.existingJobId} onValueChange={handleJobSelectionChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === 'ar' ? 'اختر وظيفة' : 'Select a job'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getUniqueJobNames().map(j => (
+                        <SelectItem key={j.id} value={j.id}>{j.position_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {getUniqueJobNames().length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {language === 'ar' ? 'لا توجد وظائف' : 'No jobs available'}
+                    </p>
+                  )}
+                </div>
+
+                {/* Users with this job - multi-select */}
+                {jobForm.existingJobId && (
+                  <div>
+                    <Label>{language === 'ar' ? 'الموظفين بهذه الوظيفة' : 'Users with this job'}</Label>
+                    <ScrollArea className="h-48 border rounded-md p-2 mt-1">
+                      {getUsersWithJobName(jobForm.existingJobId).length > 0 ? (
+                        <div className="space-y-2">
+                          {getUsersWithJobName(jobForm.existingJobId).map(user => (
+                            <div key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted">
+                              <Checkbox
+                                id={`user-${user.id}`}
+                                checked={selectedJobUsers.includes(user.user_id)}
+                                onCheckedChange={() => toggleUserSelection(user.user_id)}
+                              />
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={user.avatar_url || undefined} />
+                                <AvatarFallback className="text-xs">{user.user_name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <label htmlFor={`user-${user.id}`} className="text-sm cursor-pointer flex-1">
+                                {user.user_name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          {language === 'ar' ? 'لا يوجد موظفين بهذه الوظيفة' : 'No users with this job'}
+                        </p>
+                      )}
+                    </ScrollArea>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {language === 'ar' 
+                        ? `تم اختيار ${selectedJobUsers.length} موظف`
+                        : `${selectedJobUsers.length} user(s) selected`}
+                    </p>
+                  </div>
                 )}
-              </div>
+              </>
             )}
 
             {/* New job name input */}
@@ -759,7 +888,7 @@ const CompanyHierarchy = () => {
               className="w-full"
               disabled={!editingJob && jobMode === "existing" && !jobForm.existingJobId}
             >
-              {language === 'ar' ? 'حفظ' : 'Save'}
+              {language === 'ar' ? 'تأكيد' : 'Confirm'}
             </Button>
           </div>
         </DialogContent>
