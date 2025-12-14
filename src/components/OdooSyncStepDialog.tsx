@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +51,33 @@ export function OdooSyncStepDialog({
   const [isProcessing, setIsProcessing] = useState(false);
   const [syncComplete, setSyncComplete] = useState(false);
   const [odooMode, setOdooMode] = useState<string | null>(null);
+  const [isLoadingMode, setIsLoadingMode] = useState(false);
+
+  // Fetch Odoo mode when dialog opens
+  useEffect(() => {
+    if (open && !odooMode) {
+      fetchOdooMode();
+    }
+  }, [open]);
+
+  const fetchOdooMode = async () => {
+    setIsLoadingMode(true);
+    try {
+      const { data, error } = await supabase
+        .from("odoo_api_config")
+        .select("is_production_mode")
+        .eq("is_active", true)
+        .single();
+      
+      if (data) {
+        setOdooMode(data.is_production_mode ? "Production" : "Test");
+      }
+    } catch (error) {
+      console.error("Error fetching Odoo mode:", error);
+    } finally {
+      setIsLoadingMode(false);
+    }
+  };
 
   const resetDialog = () => {
     setCurrentStep(0);
@@ -170,13 +197,22 @@ export function OdooSyncStepDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Sync Order to Odoo - Step by Step</span>
-          </DialogTitle>
+          <DialogTitle>Sync Order to Odoo - Step by Step</DialogTitle>
+          {/* Mode Banner at Top */}
+          <div className={`mt-3 p-3 rounded-lg border-2 flex items-center justify-center gap-2 ${
+            odooMode === "Production" 
+              ? "bg-destructive/10 border-destructive text-destructive" 
+              : "bg-blue-500/10 border-blue-500 text-blue-600 dark:text-blue-400"
+          }`}>
+            <Globe className="h-5 w-5" />
+            <span className="font-bold text-lg">
+              {isLoadingMode ? "Loading Mode..." : `Mode: ${odooMode || "Unknown"}`}
+            </span>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Mode Badge */}
+          {/* Order Info */}
           <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
             <div>
               <p className="text-sm font-medium">
@@ -186,13 +222,6 @@ export function OdooSyncStepDialog({
                 {transactions.length} line(s) to sync
               </p>
             </div>
-            <Badge 
-              variant={odooMode === "Production" ? "destructive" : "secondary"}
-              className="text-sm"
-            >
-              <Globe className="h-3 w-3 mr-1" />
-              {odooMode || "Loading..."}
-            </Badge>
           </div>
 
           <div className="space-y-3">
