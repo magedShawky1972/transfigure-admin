@@ -362,16 +362,23 @@ const CompanyHierarchy = () => {
   };
 
   const handleAssignUser = async (userId: string) => {
-    if (!userId || !selectedJobId) return;
+    // Single user assignment (fallback)
+    await handleAssignMultipleUsers([userId]);
+  };
+
+  const handleAssignMultipleUsers = async (userIds: string[]) => {
+    if (userIds.length === 0 || !selectedJobId) return;
 
     try {
-      const { error } = await supabase.from("profiles").update({
-        job_position_id: selectedJobId,
-        default_department_id: selectedDeptId,
-      }).eq("user_id", userId);
+      for (const userId of userIds) {
+        const { error } = await supabase.from("profiles").update({
+          job_position_id: selectedJobId,
+          default_department_id: selectedDeptId,
+        }).eq("user_id", userId);
 
-      if (error) throw error;
-      toast({ title: language === 'ar' ? "تم تعيين الموظف" : "User assigned" });
+        if (error) throw error;
+      }
+      toast({ title: language === 'ar' ? `تم تعيين ${userIds.length} موظف` : `${userIds.length} user(s) assigned` });
       setAssignUserDialogOpen(false);
       fetchData();
     } catch (error: any) {
@@ -433,6 +440,27 @@ const CompanyHierarchy = () => {
 
   const getAllActiveUsers = () => {
     return profiles.filter(p => p.is_active);
+  };
+
+  // Get users eligible for a job assignment (same job or no job)
+  const getEligibleUsersForJob = (jobId: string | null) => {
+    if (!jobId) return profiles.filter(p => p.is_active);
+    
+    const job = jobPositions.find(j => j.id === jobId);
+    if (!job) return profiles.filter(p => p.is_active);
+    
+    // Get all job IDs with the same position name
+    const sameJobIds = jobPositions
+      .filter(j => j.position_name === job.position_name)
+      .map(j => j.id);
+    
+    // Return users with same job name OR no job assigned
+    return profiles.filter(p => 
+      p.is_active && (
+        !p.job_position_id || // No job assigned
+        sameJobIds.includes(p.job_position_id) // Same job name
+      )
+    );
   };
 
   const getUnassignedUsers = () => {
@@ -939,9 +967,11 @@ const CompanyHierarchy = () => {
       <UserSelectionDialog
         open={assignUserDialogOpen}
         onOpenChange={setAssignUserDialogOpen}
-        users={getAllActiveUsers()}
+        users={getEligibleUsersForJob(selectedJobId)}
         onSelect={handleAssignUser}
-        title={language === 'ar' ? 'تعيين موظف للوظيفة' : 'Assign User to Job'}
+        onMultiSelect={handleAssignMultipleUsers}
+        title={language === 'ar' ? 'تعيين موظفين للوظيفة' : 'Assign Users to Job'}
+        multiSelect={true}
       />
 
       {/* Assign User to Department Dialog */}
