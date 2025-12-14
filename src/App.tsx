@@ -58,6 +58,7 @@ import Notifications from "./pages/Notifications";
 import ProjectsTasks from "./pages/ProjectsTasks";
 import TaskDashboard from "./pages/TaskDashboard";
 import CompanyHierarchy from "./pages/CompanyHierarchy";
+import TransactionStatistics from "./pages/TransactionStatistics";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -116,6 +117,7 @@ const App = () => (
               <Route path="/reports/shift-report" element={<ShiftReport />} />
               <Route path="/reports/shift-plan" element={<ShiftPlanReport />} />
               <Route path="/reports/brand-balance" element={<BrandBalanceReport />} />
+              <Route path="/reports/transaction-statistics" element={<TransactionStatistics />} />
               <Route path="/tawasoul" element={<Tawasoul />} />
               <Route path="/closing-training" element={<ClosingTraining />} />
               <Route path="/currency-setup" element={<CurrencySetup />} />
