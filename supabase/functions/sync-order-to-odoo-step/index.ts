@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
 
       case "product": {
         const productApiUrl = isProduction ? config.product_api_url : config.product_api_url_test;
-        const uniqueProducts = [...new Set(transactions.map((t: Transaction) => t.product_id))];
+        const uniqueProductIds = [...new Set(transactions.map((t: Transaction) => t.product_id))];
         
         result = {
           step: "product",
@@ -202,19 +202,34 @@ Deno.serve(async (req) => {
           products: [],
         };
 
-        for (const sku of uniqueProducts) {
-          const transaction = transactions.find((t: Transaction) => t.product_id === sku);
-          const productResult: any = { sku, product_name: transaction?.product_name };
+        // Fetch actual SKUs from products table
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select("product_id, sku, product_name, product_price, product_cost, brand_code")
+          .in("product_id", uniqueProductIds);
+
+        if (productsError) {
+          result.success = false;
+          result.error = `Failed to fetch products: ${productsError.message}`;
+          break;
+        }
+
+        for (const productId of uniqueProductIds) {
+          const product = productsData?.find((p: any) => p.product_id === productId);
+          const transaction = transactions.find((t: Transaction) => t.product_id === productId);
+          
+          const actualSku = product?.sku || productId;
+          const productResult: any = { sku: actualSku, product_name: transaction?.product_name };
 
           try {
-            const checkResponse = await fetch(`${productApiUrl}/${sku}`, {
+            const checkResponse = await fetch(`${productApiUrl}/${actualSku}`, {
               method: "PUT",
               headers: {
                 Authorization: apiKey,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                name: transaction?.product_name || sku,
+                name: transaction?.product_name || actualSku,
                 list_price: parseFloat(String(transaction?.unit_price)) || 0,
               }),
             });
@@ -230,8 +245,8 @@ Deno.serve(async (req) => {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                  default_code: sku,
-                  name: transaction?.product_name || sku,
+                  default_code: actualSku,
+                  name: transaction?.product_name || actualSku,
                   list_price: parseFloat(String(transaction?.unit_price)) || 0,
                   cat_code: transaction?.brand_code,
                 }),
@@ -267,6 +282,18 @@ Deno.serve(async (req) => {
           apiUrl: salesOrderApiUrl,
         };
 
+        // Fetch actual SKUs from products table for order lines
+        const productIds = [...new Set(transactions.map((t: Transaction) => t.product_id))];
+        const { data: productsData } = await supabase
+          .from("products")
+          .select("product_id, sku")
+          .in("product_id", productIds);
+
+        const skuMap = new Map();
+        productsData?.forEach((p: any) => {
+          skuMap.set(p.product_id, p.sku);
+        });
+
         const orderPayload = {
           order_number: firstTransaction.order_number,
           customer_phone: firstTransaction.customer_phone,
@@ -274,8 +301,9 @@ Deno.serve(async (req) => {
           payment_method: firstTransaction.payment_method,
           lines: transactions.map((t: Transaction, index: number) => ({
             line_number: index + 1,
-            product_sku: t.product_id,
-            quantity: t.qty || 1,
+            product_sku: skuMap.get(t.product_id) || t.product_id,
+            quantity: parseFloat(String(t.qty)) || 1,
+            uom: "Unit",
             unit_price: parseFloat(String(t.unit_price)) || 0,
             total: parseFloat(String(t.total)) || 0,
           })),
