@@ -845,14 +845,14 @@ const CompanyHierarchy = () => {
                   )}
                 </div>
 
-                {/* Users with this job - multi-select */}
+                {/* Users selection - show all active users for multi-select */}
                 {jobForm.existingJobId && (
                   <div>
-                    <Label>{language === 'ar' ? 'الموظفين بهذه الوظيفة' : 'Users with this job'}</Label>
+                    <Label>{language === 'ar' ? 'اختر الموظفين' : 'Select Users'}</Label>
                     <ScrollArea className="h-48 border rounded-md p-2 mt-1">
-                      {getUsersWithJobName(jobForm.existingJobId).length > 0 ? (
+                      {profiles.filter(p => p.is_active).length > 0 ? (
                         <div className="space-y-2">
-                          {getUsersWithJobName(jobForm.existingJobId).map(user => (
+                          {profiles.filter(p => p.is_active).map(user => (
                             <div key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted">
                               <Checkbox
                                 id={`user-${user.id}`}
@@ -871,7 +871,7 @@ const CompanyHierarchy = () => {
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground text-center py-4">
-                          {language === 'ar' ? 'لا يوجد موظفين بهذه الوظيفة' : 'No users with this job'}
+                          {language === 'ar' ? 'لا يوجد موظفين' : 'No users available'}
                         </p>
                       )}
                     </ScrollArea>
