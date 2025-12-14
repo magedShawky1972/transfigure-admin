@@ -1316,6 +1316,7 @@ export type Database = {
           customer_name: string | null
           customer_phone: string | null
           id: string
+          is_deleted: boolean
           order_number: string | null
           order_status: string | null
           payment_brand: string | null
@@ -1345,6 +1346,7 @@ export type Database = {
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
+          is_deleted?: boolean
           order_number?: string | null
           order_status?: string | null
           payment_brand?: string | null
@@ -1374,6 +1376,7 @@ export type Database = {
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
+          is_deleted?: boolean
           order_number?: string | null
           order_status?: string | null
           payment_brand?: string | null
