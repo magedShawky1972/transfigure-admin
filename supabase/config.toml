@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.sync-all-products-to-odoo]
 verify_jwt = false
+
+[functions.sync-order-to-odoo-step]
+verify_jwt = false

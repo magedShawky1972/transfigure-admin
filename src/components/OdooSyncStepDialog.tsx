@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,6 +23,7 @@ type StepStatus = "pending" | "loading" | "success" | "error";
 interface StepResult {
   status: StepStatus;
   message: string;
+  apiUrl?: string;
   details?: any;
 }
 
@@ -49,7 +50,7 @@ export function OdooSyncStepDialog({
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [syncComplete, setSyncComplete] = useState(false);
-  const [odooConfig, setOdooConfig] = useState<any>(null);
+  const [odooMode, setOdooMode] = useState<string | null>(null);
 
   const resetDialog = () => {
     setCurrentStep(0);
@@ -61,25 +62,12 @@ export function OdooSyncStepDialog({
     });
     setIsProcessing(false);
     setSyncComplete(false);
-    setOdooConfig(null);
+    setOdooMode(null);
   };
 
   const handleClose = () => {
     resetDialog();
     onOpenChange(false);
-  };
-
-  const fetchOdooConfig = async () => {
-    const { data, error } = await supabase
-      .from("odoo_api_config")
-      .select("*")
-      .eq("is_active", true)
-      .single();
-
-    if (error || !data) {
-      throw new Error("No active Odoo API configuration found");
-    }
-    return data;
   };
 
   const executeStep = async (stepId: string) => {
@@ -90,238 +78,45 @@ export function OdooSyncStepDialog({
     }));
 
     try {
-      let config = odooConfig;
-      if (!config) {
-        config = await fetchOdooConfig();
-        setOdooConfig(config);
+      const response = await supabase.functions.invoke("sync-order-to-odoo-step", {
+        body: { step: stepId, transactions },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
       }
 
-      const isProduction = config.is_production_mode;
-      const apiKey = isProduction ? config.api_key : config.api_key_test;
-
-      const firstTransaction = transactions[0];
-      let result: StepResult;
-
-      switch (stepId) {
-        case "customer": {
-          const customerApiUrl = isProduction
-            ? config.customer_api_url
-            : config.customer_api_url_test;
-
-          // Check if customer exists
-          const checkResponse = await fetch(
-            `${customerApiUrl}/${firstTransaction.customer_phone}`,
-            {
-              method: "PUT",
-              headers: {
-                Authorization: apiKey,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                name: firstTransaction.customer_name || "Customer",
-                phone: firstTransaction.customer_phone,
-              }),
-            }
-          );
-
-          if (checkResponse.ok) {
-            const data = await checkResponse.json();
-            result = {
-              status: "success",
-              message: `✓ Customer found/updated: ${firstTransaction.customer_name || firstTransaction.customer_phone}`,
-              details: data,
-            };
-          } else {
-            // Create new customer
-            const createResponse = await fetch(customerApiUrl, {
-              method: "POST",
-              headers: {
-                Authorization: apiKey,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                name: firstTransaction.customer_name || "Customer",
-                phone: firstTransaction.customer_phone,
-              }),
-            });
-
-            if (createResponse.ok) {
-              const data = await createResponse.json();
-              result = {
-                status: "success",
-                message: `✓ New customer created: ${firstTransaction.customer_name || firstTransaction.customer_phone}`,
-                details: data,
-              };
-            } else {
-              throw new Error("Failed to create customer");
-            }
-          }
-          break;
-        }
-
-        case "brand": {
-          const brandApiUrl = isProduction
-            ? config.brand_api_url
-            : config.brand_api_url_test;
-
-          const uniqueBrands = [...new Set(transactions.map((t) => t.brand_code))];
-          const brandResults: string[] = [];
-
-          for (const brandCode of uniqueBrands) {
-            const transaction = transactions.find((t) => t.brand_code === brandCode);
-            
-            // Try to update existing brand
-            const checkResponse = await fetch(`${brandApiUrl}/${brandCode}`, {
-              method: "PUT",
-              headers: {
-                Authorization: apiKey,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                name: transaction?.brand_name || brandCode,
-              }),
-            });
-
-            if (checkResponse.ok) {
-              brandResults.push(`Found: ${brandCode}`);
-            } else {
-              // Create new brand
-              const createResponse = await fetch(brandApiUrl, {
-                method: "POST",
-                headers: {
-                  Authorization: apiKey,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  cat_code: brandCode,
-                  name: transaction?.brand_name || brandCode,
-                }),
-              });
-
-              if (createResponse.ok) {
-                brandResults.push(`Created: ${brandCode}`);
-              } else {
-                brandResults.push(`Failed: ${brandCode}`);
-              }
-            }
-          }
-
-          result = {
-            status: "success",
-            message: `✓ Brands processed: ${brandResults.join(", ")}`,
-          };
-          break;
-        }
-
-        case "product": {
-          const productApiUrl = isProduction
-            ? config.product_api_url
-            : config.product_api_url_test;
-
-          const uniqueProducts = [...new Set(transactions.map((t) => t.product_id || t.sku))];
-          const productResults: string[] = [];
-
-          for (const sku of uniqueProducts) {
-            const transaction = transactions.find((t) => (t.product_id || t.sku) === sku);
-            
-            // Try to update existing product
-            const checkResponse = await fetch(`${productApiUrl}/${sku}`, {
-              method: "PUT",
-              headers: {
-                Authorization: apiKey,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                name: transaction?.product_name || sku,
-                list_price: parseFloat(transaction?.unit_price) || 0,
-              }),
-            });
-
-            if (checkResponse.ok) {
-              productResults.push(`Found: ${sku}`);
-            } else {
-              // Create new product
-              const createResponse = await fetch(productApiUrl, {
-                method: "POST",
-                headers: {
-                  Authorization: apiKey,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  default_code: sku,
-                  name: transaction?.product_name || sku,
-                  list_price: parseFloat(transaction?.unit_price) || 0,
-                  cat_code: transaction?.brand_code,
-                }),
-              });
-
-              if (createResponse.ok) {
-                productResults.push(`Created: ${sku}`);
-              } else {
-                productResults.push(`Failed: ${sku}`);
-              }
-            }
-          }
-
-          result = {
-            status: "success",
-            message: `✓ Products processed: ${productResults.length} item(s)`,
-            details: productResults,
-          };
-          break;
-        }
-
-        case "order": {
-          const salesOrderApiUrl = isProduction
-            ? config.sales_order_api_url
-            : config.sales_order_api_url_test;
-
-          const orderPayload = {
-            order_number: firstTransaction.order_number,
-            customer_phone: firstTransaction.customer_phone,
-            order_date: firstTransaction.created_at_date,
-            payment_method: firstTransaction.payment_method,
-            lines: transactions.map((t, index) => ({
-              line_number: index + 1,
-              product_sku: t.product_id || t.sku,
-              quantity: t.qty || 1,
-              unit_price: parseFloat(t.unit_price) || 0,
-              total: parseFloat(t.total) || 0,
-            })),
-          };
-
-          const orderResponse = await fetch(salesOrderApiUrl, {
-            method: "POST",
-            headers: {
-              Authorization: apiKey,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(orderPayload),
-          });
-
-          if (orderResponse.ok) {
-            const data = await orderResponse.json();
-            result = {
-              status: "success",
-              message: `✓ Order ${firstTransaction.order_number} created successfully in Odoo!`,
-              details: data,
-            };
-            setSyncComplete(true);
-          } else {
-            const errorText = await orderResponse.text();
-            throw new Error(`Failed to create order: ${errorText}`);
-          }
-          break;
-        }
-
-        default:
-          throw new Error("Unknown step");
+      const data = response.data;
+      
+      // Set mode from first response
+      if (data.mode && !odooMode) {
+        setOdooMode(data.mode);
       }
 
-      setStepResults((prev) => ({
-        ...prev,
-        [stepId]: result,
-      }));
+      if (data.success) {
+        setStepResults((prev) => ({
+          ...prev,
+          [stepId]: {
+            status: "success",
+            message: `✓ ${data.message}`,
+            apiUrl: data.apiUrl,
+            details: data.details || data.brands || data.products,
+          },
+        }));
+
+        if (stepId === "order") {
+          setSyncComplete(true);
+        }
+      } else {
+        setStepResults((prev) => ({
+          ...prev,
+          [stepId]: {
+            status: "error",
+            message: `✗ ${data.error || "Failed"}`,
+            apiUrl: data.apiUrl,
+          },
+        }));
+      }
     } catch (error: any) {
       console.error(`Error in step ${stepId}:`, error);
       setStepResults((prev) => ({
@@ -340,10 +135,8 @@ export function OdooSyncStepDialog({
     const currentStepId = steps[currentStep].id;
     
     if (stepResults[currentStepId].status === "pending") {
-      // Execute current step
       await executeStep(currentStepId);
     } else if (stepResults[currentStepId].status === "success" && currentStep < steps.length - 1) {
-      // Move to next step
       setCurrentStep(currentStep + 1);
     }
   };
@@ -375,19 +168,31 @@ export function OdooSyncStepDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Sync Order to Odoo - Step by Step</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Sync Order to Odoo - Step by Step</span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="bg-muted/50 p-3 rounded-lg">
-            <p className="text-sm font-medium">
-              Order: <span className="text-primary">{transactions[0]?.order_number}</span>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {transactions.length} line(s) to sync
-            </p>
+          {/* Mode Badge */}
+          <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+            <div>
+              <p className="text-sm font-medium">
+                Order: <span className="text-primary">{transactions[0]?.order_number}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {transactions.length} line(s) to sync
+              </p>
+            </div>
+            <Badge 
+              variant={odooMode === "Production" ? "destructive" : "secondary"}
+              className="text-sm"
+            >
+              <Globe className="h-3 w-3 mr-1" />
+              {odooMode || "Loading..."}
+            </Badge>
           </div>
 
           <div className="space-y-3">
@@ -397,8 +202,10 @@ export function OdooSyncStepDialog({
                 className={`p-3 rounded-lg border transition-colors ${
                   index === currentStep
                     ? "border-primary bg-primary/5"
-                    : index < currentStep
+                    : index < currentStep || stepResults[step.id].status === "success"
                     ? "border-green-500/50 bg-green-500/5"
+                    : stepResults[step.id].status === "error"
+                    ? "border-destructive/50 bg-destructive/5"
                     : "border-muted"
                 }`}
               >
@@ -412,19 +219,32 @@ export function OdooSyncStepDialog({
                       {stepResults[step.id].message}
                     </p>
                   </div>
-                  {index === currentStep && (
+                  {index === currentStep && stepResults[step.id].status !== "success" && (
                     <Badge variant="outline" className="flex-shrink-0">
                       Current
                     </Badge>
                   )}
                 </div>
                 
-                {stepResults[step.id].details && index <= currentStep && (
-                  <div className="mt-2 text-xs bg-muted/50 p-2 rounded max-h-20 overflow-auto">
+                {/* Show API URL */}
+                {stepResults[step.id].apiUrl && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                    <Globe className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate font-mono">{stepResults[step.id].apiUrl}</span>
+                  </div>
+                )}
+                
+                {/* Show details */}
+                {stepResults[step.id].details && (
+                  <div className="mt-2 text-xs bg-muted/50 p-2 rounded max-h-24 overflow-auto">
                     <pre className="whitespace-pre-wrap">
-                      {typeof stepResults[step.id].details === "string"
-                        ? stepResults[step.id].details
-                        : JSON.stringify(stepResults[step.id].details, null, 2)}
+                      {Array.isArray(stepResults[step.id].details)
+                        ? stepResults[step.id].details.map((item: any, i: number) => (
+                            `${i + 1}. ${item.brand_code || item.sku || item.name || 'Item'}: ${item.status || item.message || 'OK'}\n`
+                          )).join('')
+                        : typeof stepResults[step.id].details === "object"
+                        ? JSON.stringify(stepResults[step.id].details, null, 2)
+                        : stepResults[step.id].details}
                     </pre>
                   </div>
                 )}
