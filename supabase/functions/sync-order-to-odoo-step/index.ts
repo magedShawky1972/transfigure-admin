@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
             result.message = `Customer found/updated: ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
             result.details = data;
           } else {
-            // Create new customer
+            // Create new customer - must include partner_type
             const createResponse = await fetch(customerApiUrl, {
               method: "POST",
               headers: {
@@ -98,8 +98,14 @@ Deno.serve(async (req) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
+                partner_type: "customer",
                 name: firstTransaction.customer_name || "Customer",
                 phone: firstTransaction.customer_phone,
+                email: "",
+                customer_group: "Retail",
+                status: "active",
+                is_blocked: false,
+                block_reason: "",
               }),
             });
 
