@@ -526,6 +526,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_outsource: boolean
           parent_department_id: string | null
           updated_at: string
         }
@@ -536,6 +537,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_outsource?: boolean
           parent_department_id?: string | null
           updated_at?: string
         }
@@ -546,6 +548,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_outsource?: boolean
           parent_department_id?: string | null
           updated_at?: string
         }

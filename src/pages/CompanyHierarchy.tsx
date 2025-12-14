@@ -31,6 +31,7 @@ interface Department {
   parent_department_id: string | null;
   is_active: boolean;
   description: string | null;
+  is_outsource: boolean;
 }
 
 interface JobPosition {
@@ -282,7 +283,7 @@ const CompanyHierarchy = () => {
   };
 
   const getChildDepartments = (parentId: string | null) => {
-    return departments.filter(d => d.parent_department_id === parentId && d.is_active);
+    return departments.filter(d => d.parent_department_id === parentId && d.is_active && !d.is_outsource);
   };
 
   const getJobsForDepartment = (deptId: string) => {
@@ -473,7 +474,7 @@ const CompanyHierarchy = () => {
     );
   };
 
-  const rootDepartments = departments.filter(d => !d.parent_department_id && d.is_active);
+  const rootDepartments = departments.filter(d => !d.parent_department_id && d.is_active && !d.is_outsource);
 
   return (
     <div className="space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
