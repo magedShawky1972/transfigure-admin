@@ -8,6 +8,16 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, subDays, addDays } from "date-fns";
@@ -101,6 +111,8 @@ const Transactions = () => {
   const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const pageSize = 500;
 
   const allColumns = [
@@ -748,7 +760,18 @@ const Transactions = () => {
     link.click();
   };
 
-  const handleToggleDeleted = async (transaction: Transaction) => {
+  const handleDeleteClick = (transaction: Transaction) => {
+    if (transaction.is_deleted) {
+      // If already deleted, restore without confirmation
+      confirmToggleDeleted(transaction);
+    } else {
+      // If not deleted, show confirmation dialog
+      setTransactionToDelete(transaction);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const confirmToggleDeleted = async (transaction: Transaction) => {
     try {
       const newValue = !transaction.is_deleted;
       const { error } = await supabase
@@ -774,6 +797,14 @@ const Transactions = () => {
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل تحديث المعاملة' : 'Failed to update transaction',
       });
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (transactionToDelete) {
+      confirmToggleDeleted(transactionToDelete);
+      setTransactionToDelete(null);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -807,15 +838,16 @@ const Transactions = () => {
       case 'is_deleted':
         return (
           <Button
-            variant={transaction.is_deleted ? "destructive" : "ghost"}
+            variant={transaction.is_deleted ? "outline" : "ghost"}
             size="sm"
+            className={transaction.is_deleted ? "text-green-600 hover:text-green-700 border-green-600" : "text-destructive hover:text-destructive"}
             onClick={(e) => {
               e.stopPropagation();
-              handleToggleDeleted(transaction);
+              handleDeleteClick(transaction);
             }}
             title={language === 'ar' 
-              ? (transaction.is_deleted ? 'إلغاء الحذف' : 'تعليم كمحذوف')
-              : (transaction.is_deleted ? 'Unmark deleted' : 'Mark as deleted')}
+              ? (transaction.is_deleted ? 'استعادة' : 'حذف')
+              : (transaction.is_deleted ? 'Restore' : 'Delete')}
           >
             {transaction.is_deleted ? (
               <RotateCw className="h-4 w-4" />
@@ -835,6 +867,30 @@ const Transactions = () => {
 
   return (
     <div className="space-y-6">
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? `هل أنت متأكد من حذف الطلب رقم ${transactionToDelete?.order_number || ''}؟`
+                : `Are you sure you want to delete order number ${transactionToDelete?.order_number || ''}?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {language === 'ar' ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {loadingAll && (
         <LoadingOverlay
           progress={loadingProgress}
