@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw } from "lucide-react";
+import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, subDays, addDays } from "date-fns";
@@ -66,6 +66,7 @@ interface Transaction {
   coins_number: number;
   vendor_name: string;
   order_status: string;
+  is_deleted: boolean;
 }
 
 const Transactions = () => {
@@ -122,6 +123,7 @@ const Transactions = () => {
     { id: "unit_price", label: t("transactions.unitPrice"), enabled: false },
     { id: "cost_sold", label: t("transactions.costSold"), enabled: false },
     { id: "coins_number", label: t("transactions.coinsNumber"), enabled: false },
+    { id: "is_deleted", label: language === 'ar' ? 'محذوف' : 'Deleted', enabled: true },
   ];
 
   const [columnOrder, setColumnOrder] = useState<string[]>(
@@ -734,6 +736,35 @@ const Transactions = () => {
     link.click();
   };
 
+  const handleToggleDeleted = async (transaction: Transaction) => {
+    try {
+      const newValue = !transaction.is_deleted;
+      const { error } = await supabase
+        .from('purpletransaction')
+        .update({ is_deleted: newValue })
+        .eq('id', transaction.id);
+
+      if (error) throw error;
+
+      setTransactions(prev => 
+        prev.map(t => t.id === transaction.id ? { ...t, is_deleted: newValue } : t)
+      );
+
+      toast({
+        title: language === 'ar' 
+          ? (newValue ? 'تم تعليم المعاملة كمحذوفة' : 'تم إلغاء تعليم المحذوفة')
+          : (newValue ? 'Transaction marked as deleted' : 'Transaction unmarked'),
+      });
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل تحديث المعاملة' : 'Failed to update transaction',
+      });
+    }
+  };
+
   const renderCell = (transaction: Transaction, columnId: string) => {
     const value = transaction[columnId as keyof Transaction];
 
@@ -760,6 +791,26 @@ const Transactions = () => {
           <Badge variant="outline" className="font-mono">
             {value as string}
           </Badge>
+        );
+      case 'is_deleted':
+        return (
+          <Button
+            variant={transaction.is_deleted ? "destructive" : "ghost"}
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleDeleted(transaction);
+            }}
+            title={language === 'ar' 
+              ? (transaction.is_deleted ? 'إلغاء الحذف' : 'تعليم كمحذوف')
+              : (transaction.is_deleted ? 'Unmark deleted' : 'Mark as deleted')}
+          >
+            {transaction.is_deleted ? (
+              <RotateCw className="h-4 w-4" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
         );
       default:
         return value as string;
@@ -1061,7 +1112,12 @@ const Transactions = () => {
                   ) : (
                     <TableBody>
                       {sortedTransactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
+                        <TableRow 
+                          key={transaction.id}
+                          className={cn(
+                            transaction.is_deleted && "bg-destructive/10 line-through opacity-60"
+                          )}
+                        >
                           {visibleColumnIds.map((columnId) => (
                             <TableCell key={columnId}>
                               {renderCell(transaction, columnId)}
