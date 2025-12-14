@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import UserSelectionDialog from "@/components/UserSelectionDialog";
 
 interface Department {
@@ -397,13 +398,22 @@ const CompanyHierarchy = () => {
         {directUsers.length > 0 && (
           <div className="mt-2 flex items-center justify-center gap-1 px-3 py-1.5 bg-muted rounded-md">
             {directUsers.slice(0, 4).map(user => (
-              <div key={user.id} className="flex flex-col items-center">
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={user.avatar_url || undefined} />
-                  <AvatarFallback className="text-[9px]">{user.user_name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <span className="text-[8px] text-muted-foreground truncate max-w-[50px]">{user.user_name.split(' ')[0]}</span>
-              </div>
+              <TooltipProvider key={user.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex flex-col items-center cursor-pointer">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={user.avatar_url || undefined} />
+                        <AvatarFallback className="text-[9px]">{user.user_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-[8px] text-muted-foreground truncate max-w-[50px]">{user.user_name.split(' ')[0]}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{user.user_name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ))}
             {directUsers.length > 4 && (
               <span className="text-xs text-muted-foreground">+{directUsers.length - 4}</span>
@@ -423,10 +433,19 @@ const CompanyHierarchy = () => {
                     {jobUsers.length > 0 && (
                       <div className="flex items-center justify-center gap-1 mt-1">
                         {jobUsers.slice(0, 3).map(user => (
-                          <Avatar key={user.id} className="h-5 w-5">
-                            <AvatarImage src={user.avatar_url || undefined} />
-                            <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
-                          </Avatar>
+                          <TooltipProvider key={user.id}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Avatar className="h-5 w-5 cursor-pointer">
+                                  <AvatarImage src={user.avatar_url || undefined} />
+                                  <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{user.user_name}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         ))}
                         {jobUsers.length > 3 && (
                           <span className="text-[10px] text-muted-foreground">+{jobUsers.length - 3}</span>
