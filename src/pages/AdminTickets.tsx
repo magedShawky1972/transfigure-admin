@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw } from "lucide-react";
 import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -112,6 +112,7 @@ const AdminTickets = () => {
   const [changeDeptDialog, setChangeDeptDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
   const [newDepartmentId, setNewDepartmentId] = useState<string>("");
   const [allDepartments, setAllDepartments] = useState<{ id: string; department_name: string }[]>([]);
+  const [reverseApprovalDialog, setReverseApprovalDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
 
   useEffect(() => {
     checkAdminStatus();
@@ -810,6 +811,38 @@ const AdminTickets = () => {
     }
   };
 
+  const handleReverseApproval = async () => {
+    if (!reverseApprovalDialog.ticket) return;
+    
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ 
+          next_admin_order: 1, // Reset to first approval level
+          approved_at: null,
+          approved_by: null,
+          status: "Open"
+        })
+        .eq("id", reverseApprovalDialog.ticket.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إلغاء الموافقات بنجاح' : 'Approvals reversed successfully',
+      });
+
+      setReverseApprovalDialog({ open: false, ticket: null });
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredTickets = tickets.filter(ticket => {
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
@@ -1047,6 +1080,19 @@ const AdminTickets = () => {
             </Button>
           )}
 
+          {/* Reverse Approval button - for tickets that have partial approval (next_admin_order > 1 or approved_at set) */}
+          {((ticket.next_admin_order || 1) > 1 || ticket.approved_at) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs sm:text-sm text-amber-600 border-amber-600 hover:bg-amber-50"
+              onClick={() => setReverseApprovalDialog({ open: true, ticket })}
+            >
+              <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'عكس الموافقة' : 'Reverse'}</span>
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -1252,6 +1298,32 @@ const AdminTickets = () => {
           ticketNumber={selectedTicketForLog.number}
         />
       )}
+
+      {/* Reverse Approval Dialog */}
+      <AlertDialog open={reverseApprovalDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setReverseApprovalDialog({ open: false, ticket: null });
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'عكس الموافقة' : 'Reverse Approval'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? 'سيتم إلغاء جميع الموافقات وإعادة التذكرة للحالة الأولى. هل تريد المتابعة؟'
+                : 'All approvals will be reversed and the ticket will be reset to initial state. Do you want to continue?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReverseApproval}>
+              {language === 'ar' ? 'تأكيد' : 'Confirm'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
