@@ -64,10 +64,28 @@ Deno.serve(async (req) => {
       case "customer": {
         const customerApiUrl = isProduction ? config.customer_api_url : config.customer_api_url_test;
         
+        // Prepare request bodies for display
+        const updateBody = {
+          name: firstTransaction.customer_name || "Customer",
+          phone: firstTransaction.customer_phone,
+        };
+        
+        const createBody = {
+          partner_type: "customer",
+          name: firstTransaction.customer_name || "Customer",
+          phone: firstTransaction.customer_phone,
+          email: "",
+          customer_group: "Retail",
+          status: "active",
+          is_blocked: false,
+          block_reason: "",
+        };
+
         result = {
           step: "customer",
           mode: isProduction ? "Production" : "Test",
           apiUrl: customerApiUrl,
+          requestBody: createBody, // Show the POST body by default
         };
 
         try {
@@ -78,10 +96,7 @@ Deno.serve(async (req) => {
               Authorization: apiKey,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              name: firstTransaction.customer_name || "Customer",
-              phone: firstTransaction.customer_phone,
-            }),
+            body: JSON.stringify(updateBody),
           });
 
           if (checkResponse.ok) {
@@ -89,6 +104,9 @@ Deno.serve(async (req) => {
             result.success = true;
             result.message = `Customer found/updated: ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
             result.details = data;
+            result.requestBody = updateBody;
+            result.method = "PUT";
+            result.fullUrl = `${customerApiUrl}/${firstTransaction.customer_phone}`;
           } else {
             // Create new customer - must include partner_type
             const createResponse = await fetch(customerApiUrl, {
@@ -97,17 +115,11 @@ Deno.serve(async (req) => {
                 Authorization: apiKey,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({
-                partner_type: "customer",
-                name: firstTransaction.customer_name || "Customer",
-                phone: firstTransaction.customer_phone,
-                email: "",
-                customer_group: "Retail",
-                status: "active",
-                is_blocked: false,
-                block_reason: "",
-              }),
+              body: JSON.stringify(createBody),
             });
+
+            result.method = "POST";
+            result.fullUrl = customerApiUrl;
 
             if (createResponse.ok) {
               const data = await createResponse.json();
@@ -131,11 +143,23 @@ Deno.serve(async (req) => {
         const brandApiUrl = isProduction ? config.brand_api_url : config.brand_api_url_test;
         const uniqueBrands = [...new Set(transactions.map((t: Transaction) => t.brand_code))];
         
+        // Build request bodies for each brand
+        const brandBodies: any[] = [];
+        for (const brandCode of uniqueBrands) {
+          const transaction = transactions.find((t: Transaction) => t.brand_code === brandCode);
+          brandBodies.push({
+            cat_code: brandCode,
+            name: transaction?.brand_name || brandCode,
+          });
+        }
+
         result = {
           step: "brand",
           mode: isProduction ? "Production" : "Test",
           apiUrl: brandApiUrl,
           brands: [],
+          requestBody: brandBodies,
+          method: "POST/PUT",
         };
 
         for (const brandCode of uniqueBrands) {
@@ -195,13 +219,6 @@ Deno.serve(async (req) => {
         const productApiUrl = isProduction ? config.product_api_url : config.product_api_url_test;
         const uniqueProductIds = [...new Set(transactions.map((t: Transaction) => t.product_id))];
         
-        result = {
-          step: "product",
-          mode: isProduction ? "Production" : "Test",
-          apiUrl: productApiUrl,
-          products: [],
-        };
-
         // Fetch actual SKUs from products table
         const { data: productsData, error: productsError } = await supabase
           .from("products")
@@ -209,10 +226,39 @@ Deno.serve(async (req) => {
           .in("product_id", uniqueProductIds);
 
         if (productsError) {
-          result.success = false;
-          result.error = `Failed to fetch products: ${productsError.message}`;
+          result = {
+            step: "product",
+            mode: isProduction ? "Production" : "Test",
+            apiUrl: productApiUrl,
+            success: false,
+            error: `Failed to fetch products: ${productsError.message}`,
+          };
           break;
         }
+
+        // Build request bodies for display
+        const productBodies: any[] = [];
+        for (const productId of uniqueProductIds) {
+          const product = productsData?.find((p: any) => p.product_id === productId);
+          const transaction = transactions.find((t: Transaction) => t.product_id === productId);
+          const actualSku = product?.sku || productId;
+          
+          productBodies.push({
+            default_code: actualSku,
+            name: transaction?.product_name || actualSku,
+            list_price: parseFloat(String(transaction?.unit_price)) || 0,
+            cat_code: transaction?.brand_code,
+          });
+        }
+
+        result = {
+          step: "product",
+          mode: isProduction ? "Production" : "Test",
+          apiUrl: productApiUrl,
+          products: [],
+          requestBody: productBodies,
+          method: "POST/PUT",
+        };
 
         for (const productId of uniqueProductIds) {
           const product = productsData?.find((p: any) => p.product_id === productId);
@@ -276,12 +322,6 @@ Deno.serve(async (req) => {
       case "order": {
         const salesOrderApiUrl = isProduction ? config.sales_order_api_url : config.sales_order_api_url_test;
         
-        result = {
-          step: "order",
-          mode: isProduction ? "Production" : "Test",
-          apiUrl: salesOrderApiUrl,
-        };
-
         // Fetch actual SKUs from products table for order lines
         const productIds = [...new Set(transactions.map((t: Transaction) => t.product_id))];
         const { data: productsData } = await supabase
@@ -307,6 +347,14 @@ Deno.serve(async (req) => {
             unit_price: parseFloat(String(t.unit_price)) || 0,
             total: parseFloat(String(t.total)) || 0,
           })),
+        };
+
+        result = {
+          step: "order",
+          mode: isProduction ? "Production" : "Test",
+          apiUrl: salesOrderApiUrl,
+          requestBody: orderPayload,
+          method: "POST",
         };
 
         try {

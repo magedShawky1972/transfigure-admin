@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +25,9 @@ interface StepResult {
   message: string;
   apiUrl?: string;
   details?: any;
+  requestBody?: any;
+  method?: string;
+  fullUrl?: string;
 }
 
 const steps = [
@@ -52,6 +55,7 @@ export function OdooSyncStepDialog({
   const [syncComplete, setSyncComplete] = useState(false);
   const [odooMode, setOdooMode] = useState<string | null>(null);
   const [isLoadingMode, setIsLoadingMode] = useState(false);
+  const [copiedStep, setCopiedStep] = useState<string | null>(null);
 
   // Fetch Odoo mode when dialog opens
   useEffect(() => {
@@ -128,6 +132,9 @@ export function OdooSyncStepDialog({
             message: `✓ ${data.message}`,
             apiUrl: data.apiUrl,
             details: data.details || data.brands || data.products,
+            requestBody: data.requestBody,
+            method: data.method,
+            fullUrl: data.fullUrl,
           },
         }));
 
@@ -141,6 +148,9 @@ export function OdooSyncStepDialog({
             status: "error",
             message: `✗ ${data.error || "Failed"}`,
             apiUrl: data.apiUrl,
+            requestBody: data.requestBody,
+            method: data.method,
+            fullUrl: data.fullUrl,
           },
         }));
       }
@@ -191,6 +201,16 @@ export function OdooSyncStepDialog({
       return <XCircle className="h-5 w-5 text-destructive" />;
     }
     return <StepIcon className="h-5 w-5 text-muted-foreground" />;
+  };
+
+  const copyToClipboard = async (stepId: string, body: any) => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(body, null, 2));
+      setCopiedStep(stepId);
+      setTimeout(() => setCopiedStep(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
   };
 
   return (
@@ -260,6 +280,34 @@ export function OdooSyncStepDialog({
                   <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded">
                     <Globe className="h-3 w-3 flex-shrink-0" />
                     <span className="truncate font-mono">{stepResults[step.id].apiUrl}</span>
+                  </div>
+                )}
+                
+                {/* Show Request Body for Postman */}
+                {stepResults[step.id].requestBody && (
+                  <div className="mt-2 border border-primary/30 rounded">
+                    <div className="flex items-center justify-between bg-primary/10 px-2 py-1 border-b border-primary/30">
+                      <span className="text-xs font-medium text-primary">
+                        Request Body ({stepResults[step.id].method || "POST"})
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => copyToClipboard(step.id, stepResults[step.id].requestBody)}
+                      >
+                        {copiedStep === step.id ? (
+                          <><Check className="h-3 w-3 mr-1" /> Copied</>
+                        ) : (
+                          <><Copy className="h-3 w-3 mr-1" /> Copy</>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="p-2 text-xs bg-muted/30 max-h-32 overflow-auto">
+                      <pre className="whitespace-pre-wrap font-mono text-[10px]">
+                        {JSON.stringify(stepResults[step.id].requestBody, null, 2)}
+                      </pre>
+                    </div>
                   </div>
                 )}
                 
