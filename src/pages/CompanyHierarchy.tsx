@@ -197,24 +197,23 @@ const CompanyHierarchy = () => {
         const selectedJob = jobPositions.find(j => j.id === jobForm.existingJobId);
         if (!selectedJob) return;
 
-        // Check if this job already exists in the target department
+        // Check if this job already exists in the target department (refetch from DB to be sure)
         let targetJobId = jobForm.existingJobId;
-        const existingJobInDept = jobPositions.find(
-          j => j.position_name === selectedJob.position_name && j.department_id === jobForm.departmentId
-        );
+        
+        const { data: existingJobInDeptCheck } = await supabase
+          .from("job_positions")
+          .select("id")
+          .eq("position_name", selectedJob.position_name)
+          .eq("department_id", jobForm.departmentId)
+          .maybeSingle();
 
-        if (existingJobInDept) {
+        if (existingJobInDeptCheck) {
           // Use existing job in this department
-          targetJobId = existingJobInDept.id;
+          targetJobId = existingJobInDeptCheck.id;
         } else if (selectedJob.department_id && selectedJob.department_id !== jobForm.departmentId) {
-          // Job belongs to another department, create a new one for this department
-          const { data: newJob, error: createError } = await supabase.from("job_positions").insert({
-            position_name: selectedJob.position_name,
-            department_id: jobForm.departmentId,
-          }).select().single();
-
-          if (createError) throw createError;
-          targetJobId = newJob.id;
+          // Job belongs to another department - just use the original job ID
+          // Don't create a new job, we'll assign users to the original job but with this department
+          targetJobId = selectedJob.id;
         } else {
           // Job has no department, assign it to this department
           const { error: updateError } = await supabase.from("job_positions").update({
