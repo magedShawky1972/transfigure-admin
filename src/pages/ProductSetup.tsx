@@ -104,6 +104,7 @@ const ProductSetup = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [syncingProducts, setSyncingProducts] = useState<Set<string>>(new Set());
+  const [syncingAllProducts, setSyncingAllProducts] = useState(false);
   
   // Filter states
   const [filterName, setFilterName] = useState<string>(() =>
@@ -532,6 +533,35 @@ const ProductSetup = () => {
     }
   };
 
+  const handleSyncAllToOdoo = async () => {
+    setSyncingAllProducts(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-all-products-to-odoo');
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: t("common.success"),
+          description: `${data.results?.synced || 0} products synced, ${data.results?.skipped || 0} skipped`,
+        });
+        fetchProducts();
+      } else {
+        throw new Error(data?.error || 'Sync failed');
+      }
+    } catch (error: any) {
+      console.error('Error syncing all products:', error);
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingAllProducts(false);
+    }
+  };
+
   const handleDialogOpenChange = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
@@ -565,6 +595,14 @@ const ProductSetup = () => {
                 {t("productSetup.viewTree")}
               </Button>
             </div>
+            <Button 
+              variant="outline" 
+              onClick={handleSyncAllToOdoo}
+              disabled={syncingAllProducts}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncingAllProducts ? 'animate-spin' : ''}`} />
+              {syncingAllProducts ? 'Syncing...' : 'Sync All to Odoo'}
+            </Button>
             <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Upload Excel
