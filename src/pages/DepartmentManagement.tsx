@@ -206,6 +206,8 @@ const DepartmentManagement = () => {
   const [isPurchaseAdmin, setIsPurchaseAdmin] = useState(false);
   const [confirmAdminDialog, setConfirmAdminDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [deleteDeptDialog, setDeleteDeptDialog] = useState(false);
+  const [deptToDelete, setDeptToDelete] = useState<Department | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -422,6 +424,59 @@ const DepartmentManagement = () => {
     form.setValue("parent_department_id", dept.parent_department_id);
     form.setValue("is_outsource", dept.is_outsource || false);
     setOpenEditDept(true);
+  };
+
+  const handleDeleteDepartment = async () => {
+    if (!deptToDelete) return;
+
+    try {
+      // Check if department has admins
+      const deptAdmins = admins.filter(a => a.department_id === deptToDelete.id);
+      if (deptAdmins.length > 0) {
+        // Delete all admins first
+        const { error: adminError } = await supabase
+          .from("department_admins")
+          .delete()
+          .eq("department_id", deptToDelete.id);
+        if (adminError) throw adminError;
+      }
+
+      // Check if department has members
+      const deptMembers = members.filter(m => m.department_id === deptToDelete.id);
+      if (deptMembers.length > 0) {
+        // Delete all members first
+        const { error: memberError } = await supabase
+          .from("department_members")
+          .delete()
+          .eq("department_id", deptToDelete.id);
+        if (memberError) throw memberError;
+      }
+
+      // Delete the department
+      const { error } = await supabase
+        .from("departments")
+        .delete()
+        .eq("id", deptToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم' : 'Success',
+        description: language === 'ar' ? 'تم حذف القسم بنجاح' : 'Department deleted successfully',
+      });
+
+      setDeleteDeptDialog(false);
+      setDeptToDelete(null);
+      fetchDepartments();
+      fetchAdmins();
+      fetchMembers();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSelectUserForAdmin = (userId: string) => {
@@ -913,6 +968,17 @@ const DepartmentManagement = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => {
+                          setDeptToDelete(dept);
+                          setDeleteDeptDialog(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                       <Badge variant={dept.is_active ? "default" : "secondary"}>
                         {dept.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
                       </Badge>
@@ -1126,6 +1192,36 @@ const DepartmentManagement = () => {
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleAddAdmin}>
               {language === 'ar' ? 'إضافة' : 'Add'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Department Confirmation Dialog */}
+      <AlertDialog open={deleteDeptDialog} onOpenChange={setDeleteDeptDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'حذف القسم' : 'Delete Department'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? `هل أنت متأكد من حذف القسم "${deptToDelete?.department_name}"؟ سيتم حذف جميع المسؤولين والأعضاء المرتبطين بهذا القسم.`
+                : `Are you sure you want to delete "${deptToDelete?.department_name}"? All admins and members associated with this department will be removed.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDeptDialog(false);
+              setDeptToDelete(null);
+            }}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteDepartment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {language === 'ar' ? 'حذف' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
