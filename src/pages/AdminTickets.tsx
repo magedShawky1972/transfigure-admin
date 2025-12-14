@@ -97,6 +97,7 @@ const AdminTickets = () => {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [departmentMembers, setDepartmentMembers] = useState<Record<string, DepartmentMember[]>>({});
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [quickComment, setQuickComment] = useState<Record<string, string>>({});
@@ -760,8 +761,14 @@ const AdminTickets = () => {
   const filteredTickets = tickets.filter(ticket => {
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
+    if (filterDepartment !== "all" && ticket.department_id !== filterDepartment) return false;
     return true;
   });
+
+  // Get unique departments from tickets for the filter
+  const uniqueDepartments = Array.from(
+    new Map(tickets.map(t => [t.department_id, t.departments.department_name])).entries()
+  ).map(([id, name]) => ({ id, name }));
 
   const openTickets = filteredTickets.filter(t => t.status === "Open");
   const inProgressTickets = filteredTickets.filter(t => t.status === "In Progress");
@@ -1011,7 +1018,18 @@ const AdminTickets = () => {
         </p>
       </div>
 
-      <div className="flex gap-2 sm:gap-4">
+      <div className="flex flex-wrap gap-2 sm:gap-4">
+        <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+          <SelectTrigger className="w-full sm:w-[200px] h-9 text-sm">
+            <SelectValue placeholder={language === 'ar' ? 'القسم' : 'Department'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{language === 'ar' ? 'جميع الأقسام' : 'All Departments'}</SelectItem>
+            {uniqueDepartments.map(dept => (
+              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={filterPriority} onValueChange={setFilterPriority}>
           <SelectTrigger className="w-full sm:w-[180px] h-9 text-sm">
             <SelectValue placeholder={language === 'ar' ? 'الأولوية' : 'Priority'} />
