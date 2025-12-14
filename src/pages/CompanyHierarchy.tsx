@@ -195,7 +195,15 @@ const CompanyHierarchy = () => {
     if (!editingJob && jobMode === "existing" && jobForm.existingJobId) {
       try {
         const selectedJob = jobPositions.find(j => j.id === jobForm.existingJobId);
-        if (!selectedJob) return;
+        if (!selectedJob) {
+          toast({ title: language === 'ar' ? "الوظيفة غير موجودة" : "Job not found", variant: "destructive" });
+          return;
+        }
+        
+        if (selectedJobUsers.length === 0) {
+          toast({ title: language === 'ar' ? "اختر موظف واحد على الأقل" : "Select at least one user", variant: "destructive" });
+          return;
+        }
 
         // Check if this job already exists in the target department (refetch from DB to be sure)
         let targetJobId = jobForm.existingJobId;
@@ -223,7 +231,7 @@ const CompanyHierarchy = () => {
           if (updateError) throw updateError;
         }
 
-        // Update selected users to this job
+        // Update selected users to this job and department
         for (const userId of selectedJobUsers) {
           const { error } = await supabase.from("profiles").update({
             job_position_id: targetJobId,
@@ -231,19 +239,6 @@ const CompanyHierarchy = () => {
           }).eq("user_id", userId);
           
           if (error) throw error;
-        }
-
-        // Deselect users that were unchecked
-        const usersWithThisJob = profiles.filter(p => p.job_position_id === jobForm.existingJobId);
-        for (const user of usersWithThisJob) {
-          if (!selectedJobUsers.includes(user.user_id)) {
-            const { error } = await supabase.from("profiles").update({
-              job_position_id: null,
-              default_department_id: null,
-            }).eq("user_id", user.user_id);
-            
-            if (error) throw error;
-          }
         }
 
         toast({ title: language === 'ar' ? "تم تعيين الوظيفة والموظفين" : "Job and users assigned" });
