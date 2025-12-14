@@ -845,35 +845,49 @@ const CompanyHierarchy = () => {
                   )}
                 </div>
 
-                {/* Users selection - show all active users for multi-select */}
+                {/* Users selection - show users with same job or no job */}
                 {jobForm.existingJobId && (
                   <div>
                     <Label>{language === 'ar' ? 'اختر الموظفين' : 'Select Users'}</Label>
                     <ScrollArea className="h-48 border rounded-md p-2 mt-1">
-                      {profiles.filter(p => p.is_active).length > 0 ? (
-                        <div className="space-y-2">
-                          {profiles.filter(p => p.is_active).map(user => (
-                            <div key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted">
-                              <Checkbox
-                                id={`user-${user.id}`}
-                                checked={selectedJobUsers.includes(user.user_id)}
-                                onCheckedChange={() => toggleUserSelection(user.user_id)}
-                              />
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={user.avatar_url || undefined} />
-                                <AvatarFallback className="text-xs">{user.user_name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <label htmlFor={`user-${user.id}`} className="text-sm cursor-pointer flex-1">
-                                {user.user_name}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground text-center py-4">
-                          {language === 'ar' ? 'لا يوجد موظفين' : 'No users available'}
-                        </p>
-                      )}
+                      {(() => {
+                        const selectedJob = jobPositions.find(j => j.id === jobForm.existingJobId);
+                        const sameJobIds = selectedJob 
+                          ? jobPositions.filter(j => j.position_name === selectedJob.position_name).map(j => j.id)
+                          : [];
+                        // Filter: users with same job name OR users with no job
+                        const eligibleUsers = profiles.filter(p => 
+                          p.is_active && (
+                            !p.job_position_id || // No job assigned
+                            (p.job_position_id && sameJobIds.includes(p.job_position_id)) // Same job name
+                          )
+                        );
+                        
+                        return eligibleUsers.length > 0 ? (
+                          <div className="space-y-2">
+                            {eligibleUsers.map(user => (
+                              <div key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted">
+                                <Checkbox
+                                  id={`user-${user.id}`}
+                                  checked={selectedJobUsers.includes(user.user_id)}
+                                  onCheckedChange={() => toggleUserSelection(user.user_id)}
+                                />
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={user.avatar_url || undefined} />
+                                  <AvatarFallback className="text-xs">{user.user_name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <label htmlFor={`user-${user.id}`} className="text-sm cursor-pointer flex-1">
+                                  {user.user_name}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground text-center py-4">
+                            {language === 'ar' ? 'لا يوجد موظفين متاحين' : 'No users available'}
+                          </p>
+                        );
+                      })()}
                     </ScrollArea>
                     <p className="text-xs text-muted-foreground mt-1">
                       {language === 'ar' 
