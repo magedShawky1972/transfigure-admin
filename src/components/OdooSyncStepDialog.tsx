@@ -56,11 +56,80 @@ export function OdooSyncStepDialog({
   const [odooMode, setOdooMode] = useState<string | null>(null);
   const [isLoadingMode, setIsLoadingMode] = useState(false);
   const [copiedStep, setCopiedStep] = useState<string | null>(null);
+  const [productSkuMap, setProductSkuMap] = useState<Record<string, string>>({});
 
-  // Fetch Odoo mode when dialog opens
+  // Pre-calculate request bodies for display
+  const getPreCalculatedBodies = () => {
+    const firstTransaction = transactions[0];
+    
+    // Customer body
+    const customerBody = {
+      partner_type: "customer",
+      name: firstTransaction?.customer_name || "Customer",
+      phone: firstTransaction?.customer_phone,
+      email: "",
+      customer_group: "Retail",
+      status: "active",
+      is_blocked: false,
+      block_reason: "",
+    };
+
+    // Brand bodies
+    const uniqueBrands = [...new Set(transactions.map((t: any) => t.brand_code))];
+    const brandBodies = uniqueBrands.map((brandCode: string) => {
+      const transaction = transactions.find((t: any) => t.brand_code === brandCode);
+      return {
+        cat_code: brandCode,
+        name: transaction?.brand_name || brandCode,
+      };
+    });
+
+    // Product bodies
+    const uniqueProductIds = [...new Set(transactions.map((t: any) => t.product_id))];
+    const productBodies = uniqueProductIds.map((productId: string) => {
+      const transaction = transactions.find((t: any) => t.product_id === productId);
+      const actualSku = productSkuMap[productId] || productId;
+      return {
+        default_code: actualSku,
+        name: transaction?.product_name || actualSku,
+        list_price: parseFloat(String(transaction?.unit_price)) || 0,
+        cat_code: transaction?.brand_code,
+      };
+    });
+
+    // Order body
+    const orderBody = {
+      order_number: firstTransaction?.order_number,
+      customer_phone: firstTransaction?.customer_phone,
+      order_date: firstTransaction?.created_at_date,
+      payment_method: firstTransaction?.payment_method,
+      lines: transactions.map((t: any, index: number) => ({
+        line_number: index + 1,
+        product_sku: productSkuMap[t.product_id] || t.product_id,
+        quantity: parseFloat(String(t.qty)) || 1,
+        uom: "Unit",
+        unit_price: parseFloat(String(t.unit_price)) || 0,
+        total: parseFloat(String(t.total)) || 0,
+      })),
+    };
+
+    return {
+      customer: customerBody,
+      brand: brandBodies,
+      product: productBodies,
+      order: orderBody,
+    };
+  };
+
+  const preCalculatedBodies = getPreCalculatedBodies();
+
+  // Fetch Odoo mode and product SKUs when dialog opens
   useEffect(() => {
-    if (open && !odooMode) {
-      fetchOdooMode();
+    if (open) {
+      if (!odooMode) {
+        fetchOdooMode();
+      }
+      fetchProductSkus();
     }
   }, [open]);
 
@@ -83,6 +152,22 @@ export function OdooSyncStepDialog({
     }
   };
 
+  const fetchProductSkus = async () => {
+    const productIds = [...new Set(transactions.map((t: any) => t.product_id))];
+    const { data } = await supabase
+      .from("products")
+      .select("product_id, sku")
+      .in("product_id", productIds);
+    
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach((p: any) => {
+        map[p.product_id] = p.sku || p.product_id;
+      });
+      setProductSkuMap(map);
+    }
+  };
+
   const resetDialog = () => {
     setCurrentStep(0);
     setStepResults({
@@ -94,6 +179,7 @@ export function OdooSyncStepDialog({
     setIsProcessing(false);
     setSyncComplete(false);
     setOdooMode(null);
+    setProductSkuMap({});
   };
 
   const handleClose = () => {
@@ -283,37 +369,36 @@ export function OdooSyncStepDialog({
                   </div>
                 )}
                 
-                {/* Show Request Body for Postman */}
-                {stepResults[step.id].requestBody && (
-                  <div className="mt-2 border border-primary/30 rounded">
-                    <div className="flex items-center justify-between bg-primary/10 px-2 py-1 border-b border-primary/30">
-                      <span className="text-xs font-medium text-primary">
-                        Request Body ({stepResults[step.id].method || "POST"})
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        onClick={() => copyToClipboard(step.id, stepResults[step.id].requestBody)}
-                      >
-                        {copiedStep === step.id ? (
-                          <><Check className="h-3 w-3 mr-1" /> Copied</>
-                        ) : (
-                          <><Copy className="h-3 w-3 mr-1" /> Copy</>
-                        )}
-                      </Button>
-                    </div>
-                    <div className="p-2 text-xs bg-muted/30 max-h-32 overflow-auto">
-                      <pre className="whitespace-pre-wrap font-mono text-[10px]">
-                        {JSON.stringify(stepResults[step.id].requestBody, null, 2)}
-                      </pre>
-                    </div>
+                {/* Always Show Pre-calculated Request Body */}
+                <div className="mt-2 border border-primary/30 rounded">
+                  <div className="flex items-center justify-between bg-primary/10 px-2 py-1 border-b border-primary/30">
+                    <span className="text-xs font-medium text-primary">
+                      Request Body (POST)
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => copyToClipboard(step.id, preCalculatedBodies[step.id as keyof typeof preCalculatedBodies])}
+                    >
+                      {copiedStep === step.id ? (
+                        <><Check className="h-3 w-3 mr-1" /> Copied</>
+                      ) : (
+                        <><Copy className="h-3 w-3 mr-1" /> Copy</>
+                      )}
+                    </Button>
                   </div>
-                )}
+                  <div className="p-2 text-xs bg-muted/30 max-h-32 overflow-auto">
+                    <pre className="whitespace-pre-wrap font-mono text-[10px]">
+                      {JSON.stringify(preCalculatedBodies[step.id as keyof typeof preCalculatedBodies], null, 2)}
+                    </pre>
+                  </div>
+                </div>
                 
-                {/* Show details */}
+                {/* Show details after execution */}
                 {stepResults[step.id].details && (
-                  <div className="mt-2 text-xs bg-muted/50 p-2 rounded max-h-24 overflow-auto">
+                  <div className="mt-2 text-xs bg-green-500/10 border border-green-500/30 p-2 rounded max-h-24 overflow-auto">
+                    <p className="font-medium text-green-600 mb-1">Response:</p>
                     <pre className="whitespace-pre-wrap">
                       {Array.isArray(stepResults[step.id].details)
                         ? stepResults[step.id].details.map((item: any, i: number) => (
