@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw } from "lucide-react";
+import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw, Upload, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +61,10 @@ interface Transaction {
   customer_name: string;
   customer_phone: string;
   brand_name: string;
+  brand_code?: string;
   product_name: string;
+  product_id?: string;
+  sku?: string;
   total: number;
   profit: number;
   payment_method: string;
@@ -115,6 +118,11 @@ const Transactions = () => {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [transactionToRestore, setTransactionToRestore] = useState<Transaction | null>(null);
+  const [odooSyncDialogOpen, setOdooSyncDialogOpen] = useState(false);
+  const [odooOrderLines, setOdooOrderLines] = useState<Transaction[]>([]);
+  const [selectedOdooLines, setSelectedOdooLines] = useState<string[]>([]);
+  const [syncingToOdoo, setSyncingToOdoo] = useState(false);
+  const [syncingAllToOdoo, setSyncingAllToOdoo] = useState(false);
   const pageSize = 500;
 
   const allColumns = [
@@ -138,6 +146,7 @@ const Transactions = () => {
     { id: "cost_sold", label: t("transactions.costSold"), enabled: false },
     { id: "coins_number", label: t("transactions.coinsNumber"), enabled: false },
     { id: "is_deleted", label: language === 'ar' ? 'محذوف' : 'Deleted', enabled: true },
+    { id: "odoo_sync", label: language === 'ar' ? 'إرسال لـ Odoo' : 'Sync to Odoo', enabled: true },
   ];
 
   const [columnOrder, setColumnOrder] = useState<string[]>(
@@ -819,6 +828,116 @@ const Transactions = () => {
     }
   };
 
+  // Handle Odoo sync for a single transaction
+  const handleOdooSyncClick = async (transaction: Transaction) => {
+    // Find all lines with the same order number
+    const orderNumber = transaction.order_number;
+    const orderLines = sortedTransactions.filter(t => t.order_number === orderNumber);
+    
+    if (orderLines.length > 1) {
+      // Multi-line order - show dialog to select lines
+      setOdooOrderLines(orderLines);
+      setSelectedOdooLines(orderLines.map(l => l.id));
+      setOdooSyncDialogOpen(true);
+    } else {
+      // Single line order - sync directly
+      await syncTransactionsToOdoo([transaction]);
+    }
+  };
+
+  // Sync selected transactions to Odoo
+  const syncTransactionsToOdoo = async (txs: Transaction[]) => {
+    setSyncingToOdoo(true);
+    try {
+      const response = await supabase.functions.invoke('sync-order-to-odoo', {
+        body: { transactions: txs },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const result = response.data;
+      if (result.success) {
+        toast({
+          title: language === 'ar' ? 'تم الإرسال بنجاح' : 'Sync Successful',
+          description: language === 'ar' 
+            ? `تم إرسال ${result.synced} طلب(ات) إلى Odoo`
+            : `${result.synced} order(s) synced to Odoo`,
+        });
+      } else {
+        toast({
+          title: language === 'ar' ? 'فشل الإرسال' : 'Sync Failed',
+          description: result.errors?.[0]?.error || result.error || 'Unknown error',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing to Odoo:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error instanceof Error ? error.message : 'Failed to sync to Odoo',
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncingToOdoo(false);
+      setOdooSyncDialogOpen(false);
+      setOdooOrderLines([]);
+      setSelectedOdooLines([]);
+    }
+  };
+
+  // Confirm sync selected lines from dialog
+  const handleConfirmOdooSync = () => {
+    const selectedTxs = odooOrderLines.filter(t => selectedOdooLines.includes(t.id));
+    if (selectedTxs.length > 0) {
+      syncTransactionsToOdoo(selectedTxs);
+    }
+  };
+
+  // Sync all visible transactions to Odoo
+  const handleSyncAllToOdoo = async () => {
+    if (sortedTransactions.length === 0) {
+      toast({
+        title: language === 'ar' ? 'لا توجد معاملات' : 'No Transactions',
+        description: language === 'ar' ? 'لا توجد معاملات للإرسال' : 'No transactions to sync',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSyncingAllToOdoo(true);
+    try {
+      const response = await supabase.functions.invoke('sync-order-to-odoo', {
+        body: { transactions: sortedTransactions },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const result = response.data;
+      toast({
+        title: result.success 
+          ? (language === 'ar' ? 'تم الإرسال بنجاح' : 'Sync Successful')
+          : (language === 'ar' ? 'إرسال جزئي' : 'Partial Sync'),
+        description: language === 'ar'
+          ? `تم إرسال ${result.synced} من ${result.total_orders} طلب(ات)${result.failed > 0 ? ` - فشل ${result.failed}` : ''}`
+          : `${result.synced} of ${result.total_orders} order(s) synced${result.failed > 0 ? ` - ${result.failed} failed` : ''}`,
+        variant: result.failed > 0 ? 'destructive' : 'default',
+      });
+    } catch (error) {
+      console.error('Error syncing all to Odoo:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error instanceof Error ? error.message : 'Failed to sync to Odoo',
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncingAllToOdoo(false);
+    }
+  };
+
   const renderCell = (transaction: Transaction, columnId: string) => {
     const value = transaction[columnId as keyof Transaction];
 
@@ -864,6 +983,26 @@ const Transactions = () => {
               <RotateCw className="h-4 w-4" />
             ) : (
               <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
+        );
+      case 'odoo_sync':
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-primary hover:text-primary/80"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOdooSyncClick(transaction);
+            }}
+            disabled={syncingToOdoo || transaction.is_deleted}
+            title={language === 'ar' ? 'إرسال إلى Odoo' : 'Sync to Odoo'}
+          >
+            {syncingToOdoo ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
             )}
           </Button>
         );
@@ -921,6 +1060,79 @@ const Transactions = () => {
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmRestore} className="bg-green-600 text-white hover:bg-green-700">
               {language === 'ar' ? 'استعادة' : 'Restore'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Odoo Multi-Line Order Selection Dialog */}
+      <AlertDialog open={odooSyncDialogOpen} onOpenChange={setOdooSyncDialogOpen}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'اختر سطور الطلب للإرسال' : 'Select Order Lines to Sync'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? `الطلب رقم ${odooOrderLines[0]?.order_number || ''} يحتوي على ${odooOrderLines.length} سطور. اختر السطور المراد إرسالها.`
+                : `Order ${odooOrderLines[0]?.order_number || ''} has ${odooOrderLines.length} lines. Select lines to sync.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-64 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableCell className="w-12">
+                    <Checkbox
+                      checked={selectedOdooLines.length === odooOrderLines.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedOdooLines(odooOrderLines.map(l => l.id));
+                        } else {
+                          setSelectedOdooLines([]);
+                        }
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>{t("dashboard.product")}</TableCell>
+                  <TableCell>{t("transactions.qty")}</TableCell>
+                  <TableCell>{t("dashboard.amount")}</TableCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {odooOrderLines.map((line) => (
+                  <TableRow key={line.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedOdooLines.includes(line.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedOdooLines(prev => [...prev, line.id]);
+                          } else {
+                            setSelectedOdooLines(prev => prev.filter(id => id !== line.id));
+                          }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="truncate max-w-48">{line.product_name}</TableCell>
+                    <TableCell>{line.qty}</TableCell>
+                    <TableCell>{formatCurrency(line.total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={syncingToOdoo}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmOdooSync} 
+              disabled={selectedOdooLines.length === 0 || syncingToOdoo}
+              className="gap-2"
+            >
+              {syncingToOdoo && <Loader2 className="h-4 w-4 animate-spin" />}
+              {language === 'ar' ? `إرسال (${selectedOdooLines.length})` : `Sync (${selectedOdooLines.length})`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1037,6 +1249,15 @@ const Transactions = () => {
               <Button variant="outline" className="gap-2" onClick={exportToCSV}>
                 <Download className="h-4 w-4" />
                 {t("transactions.export")}
+              </Button>
+              <Button 
+                variant="default" 
+                className="gap-2" 
+                onClick={handleSyncAllToOdoo}
+                disabled={syncingAllToOdoo || sortedTransactions.length === 0}
+              >
+                {syncingAllToOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {language === 'ar' ? 'إرسال الكل لـ Odoo' : 'Sync All to Odoo'}
               </Button>
             </div>
           </div>

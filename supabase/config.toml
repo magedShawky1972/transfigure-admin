@@ -74,3 +74,12 @@ verify_jwt = false
 
 [functions.send-reorder-notification]
 verify_jwt = false
+
+[functions.sync-order-to-odoo]
+verify_jwt = false
+
+[functions.sync-customer-to-odoo]
+verify_jwt = false
+
+[functions.sync-all-products-to-odoo]
+verify_jwt = false
