@@ -70,6 +70,7 @@ const departmentSchema = z.object({
   department_code: z.string().min(2, "Code must be at least 2 characters"),
   description: z.string().optional(),
   parent_department_id: z.string().nullable().optional(),
+  is_outsource: z.boolean().optional(),
 });
 
 type Department = {
@@ -79,6 +80,7 @@ type Department = {
   description: string | null;
   is_active: boolean;
   parent_department_id: string | null;
+  is_outsource: boolean;
 };
 
 type Profile = {
@@ -219,6 +221,7 @@ const DepartmentManagement = () => {
       department_code: "",
       description: "",
       parent_department_id: null,
+      is_outsource: false,
     },
   });
 
@@ -344,6 +347,7 @@ const DepartmentManagement = () => {
           department_code: values.department_code,
           description: values.description || null,
           parent_department_id: values.parent_department_id || null,
+          is_outsource: values.is_outsource || false,
         });
 
       if (error) throw error;
@@ -386,6 +390,7 @@ const DepartmentManagement = () => {
           department_code: values.department_code,
           description: values.description || null,
           parent_department_id: values.parent_department_id || null,
+          is_outsource: values.is_outsource || false,
         })
         .eq("id", editingDept.id);
 
@@ -415,6 +420,7 @@ const DepartmentManagement = () => {
     form.setValue("department_code", dept.department_code);
     form.setValue("description", dept.description || "");
     form.setValue("parent_department_id", dept.parent_department_id);
+    form.setValue("is_outsource", dept.is_outsource || false);
     setOpenEditDept(true);
   };
 
@@ -723,6 +729,23 @@ const DepartmentManagement = () => {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="is_outsource"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rtl:space-x-reverse">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal cursor-pointer">
+                        {language === 'ar' ? 'قسم خارجي (لن يظهر في الهيكل التنظيمي)' : 'Outsource Department (Will not appear in Company Hierarchy)'}
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setOpenDept(false)}>
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
@@ -795,6 +818,23 @@ const DepartmentManagement = () => {
                         />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="is_outsource"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rtl:space-x-reverse">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal cursor-pointer">
+                        {language === 'ar' ? 'قسم خارجي (لن يظهر في الهيكل التنظيمي)' : 'Outsource Department (Will not appear in Company Hierarchy)'}
+                      </FormLabel>
                     </FormItem>
                   )}
                 />
@@ -876,6 +916,11 @@ const DepartmentManagement = () => {
                       <Badge variant={dept.is_active ? "default" : "secondary"}>
                         {dept.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
                       </Badge>
+                      {dept.is_outsource && (
+                        <Badge variant="outline" className="border-orange-500 text-orange-600">
+                          {language === 'ar' ? 'خارجي' : 'Outsource'}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
