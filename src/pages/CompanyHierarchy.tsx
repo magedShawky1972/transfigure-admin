@@ -432,7 +432,16 @@ const CompanyHierarchy = () => {
   };
 
   const getJobsForDepartment = (deptId: string) => {
-    return jobPositions.filter(j => j.department_id === deptId && j.is_active);
+    // Get jobs that belong to this department OR have users assigned to this department
+    const jobIdsWithUsersInDept = new Set(
+      profiles
+        .filter(p => p.default_department_id === deptId && p.job_position_id)
+        .map(p => p.job_position_id)
+    );
+    
+    return jobPositions.filter(j => 
+      j.is_active && (j.department_id === deptId || jobIdsWithUsersInDept.has(j.id))
+    );
   };
 
   const getUsersForJob = (jobId: string, departmentId: string) => {
