@@ -176,10 +176,22 @@ const Transactions = () => {
 
       if (profile) {
         if (profile.transaction_column_order) {
-          setColumnOrder(profile.transaction_column_order as string[]);
+          const savedOrder = profile.transaction_column_order as string[];
+          // Add any new columns that aren't in saved order
+          const allColumnIds = allColumns.map(col => col.id);
+          const newColumns = allColumnIds.filter(id => !savedOrder.includes(id));
+          setColumnOrder([...savedOrder, ...newColumns]);
         }
         if (profile.transaction_column_visibility) {
-          setVisibleColumns(profile.transaction_column_visibility as Record<string, boolean>);
+          const savedVisibility = profile.transaction_column_visibility as Record<string, boolean>;
+          // Add any new columns with their default visibility
+          const mergedVisibility = { ...savedVisibility };
+          allColumns.forEach(col => {
+            if (!(col.id in mergedVisibility)) {
+              mergedVisibility[col.id] = col.enabled;
+            }
+          });
+          setVisibleColumns(mergedVisibility);
         }
         if (profile.transaction_group_by) {
           const saved = profile.transaction_group_by;
