@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe, Copy, Check } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -57,6 +57,7 @@ export function OdooSyncStepDialog({
   const [isLoadingMode, setIsLoadingMode] = useState(false);
   const [copiedStep, setCopiedStep] = useState<string | null>(null);
   const [productSkuMap, setProductSkuMap] = useState<Record<string, string>>({});
+  const [expandedBodies, setExpandedBodies] = useState<Record<string, boolean>>({});
 
   // Pre-calculate request bodies for display
   const getPreCalculatedBodies = () => {
@@ -299,6 +300,10 @@ export function OdooSyncStepDialog({
     }
   };
 
+  const toggleBodyExpand = (stepId: string) => {
+    setExpandedBodies(prev => ({ ...prev, [stepId]: !prev[stepId] }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -369,17 +374,29 @@ export function OdooSyncStepDialog({
                   </div>
                 )}
                 
-                {/* Always Show Pre-calculated Request Body */}
                 <div className="mt-2 border border-primary/30 rounded">
-                  <div className="flex items-center justify-between bg-primary/10 px-2 py-1 border-b border-primary/30">
-                    <span className="text-xs font-medium text-primary">
-                      Request Body (POST)
-                    </span>
+                  <div 
+                    className="flex items-center justify-between bg-primary/10 px-2 py-1 cursor-pointer hover:bg-primary/20 transition-colors"
+                    onClick={() => toggleBodyExpand(step.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      {expandedBodies[step.id] ? (
+                        <ChevronUp className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3 text-primary" />
+                      )}
+                      <span className="text-xs font-medium text-primary">
+                        Request Body (POST)
+                      </span>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-6 px-2 text-xs"
-                      onClick={() => copyToClipboard(step.id, preCalculatedBodies[step.id as keyof typeof preCalculatedBodies])}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyToClipboard(step.id, preCalculatedBodies[step.id as keyof typeof preCalculatedBodies]);
+                      }}
                     >
                       {copiedStep === step.id ? (
                         <><Check className="h-3 w-3 mr-1" /> Copied</>
@@ -388,11 +405,13 @@ export function OdooSyncStepDialog({
                       )}
                     </Button>
                   </div>
-                  <div className="p-2 text-xs bg-muted/30 max-h-32 overflow-auto">
-                    <pre className="whitespace-pre-wrap font-mono text-[10px]">
-                      {JSON.stringify(preCalculatedBodies[step.id as keyof typeof preCalculatedBodies], null, 2)}
-                    </pre>
-                  </div>
+                  {expandedBodies[step.id] && (
+                    <div className="p-2 text-xs bg-muted/30 max-h-32 overflow-auto border-t border-primary/30">
+                      <pre className="whitespace-pre-wrap font-mono text-[10px]">
+                        {JSON.stringify(preCalculatedBodies[step.id as keyof typeof preCalculatedBodies], null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Show details after execution */}
