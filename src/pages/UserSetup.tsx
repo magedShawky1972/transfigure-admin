@@ -157,6 +157,7 @@ const REPORTS = [
   { key: "shift-plan", label: "Shift Plan Report" },
   { key: "brand-balance", label: "Brand Balance Report" },
   { key: "api-documentation", label: "API Documentation" },
+  { key: "transaction-statistics", label: "Transaction Statistics" },
 ];
 
 const UserSetup = () => {

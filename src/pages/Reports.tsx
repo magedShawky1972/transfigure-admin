@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics']);
         return;
       }
 
@@ -114,6 +114,15 @@ const Reports = () => {
         : "Comprehensive API guide for E-Commerce integration",
       icon: BookOpen,
       route: "/api-documentation",
+    },
+    {
+      id: "transaction-statistics",
+      name: language === "ar" ? "إحصائيات المعاملات" : "Transaction Statistics",
+      description: language === "ar" 
+        ? "متوسط حجم الطلب ومتوسط المعاملات اليومية والمبلغ الشهري" 
+        : "Average order size, daily transactions, and monthly amounts",
+      icon: BarChart3,
+      route: "/reports/transaction-statistics",
     },
   ];
 
