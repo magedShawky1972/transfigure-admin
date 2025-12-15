@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, ExternalLink } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +27,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserSelectionDialog from "@/components/UserSelectionDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import AvatarSelector from "@/components/AvatarSelector";
+import { Switch } from "@/components/ui/switch";
 
 const DEPARTMENT_COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e",
@@ -76,7 +77,6 @@ interface NodePosition {
 const CompanyHierarchy = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -99,6 +99,17 @@ const CompanyHierarchy = () => {
   const [colorPickerDeptId, setColorPickerDeptId] = useState<string | null>(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState<Profile | null>(null);
   const [userProfileDialogOpen, setUserProfileDialogOpen] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [userEditForm, setUserEditForm] = useState({
+    user_name: "",
+    email: "",
+    mobile_number: "",
+    is_active: true,
+    job_position_id: null as string | null,
+    default_department_id: null as string | null,
+    avatar_url: null as string | null,
+  });
+  const [savingUser, setSavingUser] = useState(false);
 
   // Form states
   const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "__none__" });
@@ -109,7 +120,78 @@ const CompanyHierarchy = () => {
 
   const handleOpenUserProfile = (user: Profile) => {
     setSelectedUserProfile(user);
+    setIsEditingUser(false);
     setUserProfileDialogOpen(true);
+  };
+
+  const handleStartEditUser = () => {
+    if (!selectedUserProfile) return;
+    setUserEditForm({
+      user_name: selectedUserProfile.user_name,
+      email: selectedUserProfile.email,
+      mobile_number: (selectedUserProfile as any).mobile_number || "",
+      is_active: selectedUserProfile.is_active,
+      job_position_id: selectedUserProfile.job_position_id,
+      default_department_id: selectedUserProfile.default_department_id,
+      avatar_url: selectedUserProfile.avatar_url,
+    });
+    setIsEditingUser(true);
+  };
+
+  const handleSaveUser = async () => {
+    if (!selectedUserProfile) return;
+    setSavingUser(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          user_name: userEditForm.user_name,
+          mobile_number: userEditForm.mobile_number || null,
+          is_active: userEditForm.is_active,
+          job_position_id: userEditForm.job_position_id,
+          default_department_id: userEditForm.default_department_id,
+          avatar_url: userEditForm.avatar_url,
+        })
+        .eq("id", selectedUserProfile.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم الحفظ' : 'Saved',
+        description: language === 'ar' ? 'تم تحديث بيانات المستخدم بنجاح' : 'User updated successfully',
+      });
+
+      // Update local state
+      setProfiles(prev => prev.map(p => 
+        p.id === selectedUserProfile.id 
+          ? { 
+              ...p, 
+              user_name: userEditForm.user_name,
+              is_active: userEditForm.is_active,
+              job_position_id: userEditForm.job_position_id,
+              default_department_id: userEditForm.default_department_id,
+              avatar_url: userEditForm.avatar_url,
+            } 
+          : p
+      ));
+      setSelectedUserProfile(prev => prev ? {
+        ...prev,
+        user_name: userEditForm.user_name,
+        is_active: userEditForm.is_active,
+        job_position_id: userEditForm.job_position_id,
+        default_department_id: userEditForm.default_department_id,
+        avatar_url: userEditForm.avatar_url,
+      } : null);
+      setIsEditingUser(false);
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingUser(false);
+    }
   };
 
   const getUserJobPosition = (user: Profile) => {
@@ -1243,14 +1325,19 @@ const CompanyHierarchy = () => {
       />
 
       {/* User Profile Dialog */}
-      <Dialog open={userProfileDialogOpen} onOpenChange={setUserProfileDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={userProfileDialogOpen} onOpenChange={(open) => {
+        setUserProfileDialogOpen(open);
+        if (!open) setIsEditingUser(false);
+      }}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {language === 'ar' ? 'بطاقة الموظف' : 'Employee Card'}
+              {isEditingUser 
+                ? (language === 'ar' ? 'تعديل الموظف' : 'Edit Employee')
+                : (language === 'ar' ? 'بطاقة الموظف' : 'Employee Card')}
             </DialogTitle>
           </DialogHeader>
-          {selectedUserProfile && (
+          {selectedUserProfile && !isEditingUser && (
             <div className="flex flex-col items-center gap-4 py-4">
               <Avatar className="h-24 w-24 ring-4 ring-primary/20">
                 <AvatarImage src={selectedUserProfile.avatar_url || undefined} />
@@ -1300,15 +1387,108 @@ const CompanyHierarchy = () => {
               {canEditUsers && (
                 <Button
                   className="w-full mt-4"
-                  onClick={() => {
-                    setUserProfileDialogOpen(false);
-                    navigate('/user-setup', { state: { selectedUserId: selectedUserProfile.user_id } });
-                  }}
+                  onClick={handleStartEditUser}
                 >
                   <Pencil className="h-4 w-4 mr-2" />
                   {language === 'ar' ? 'تعديل المستخدم' : 'Edit User'}
                 </Button>
               )}
+            </div>
+          )}
+
+          {selectedUserProfile && isEditingUser && (
+            <div className="space-y-4 py-4">
+              <AvatarSelector
+                currentAvatar={userEditForm.avatar_url}
+                onAvatarChange={(url) => setUserEditForm({ ...userEditForm, avatar_url: url })}
+                userName={userEditForm.user_name}
+                language={language}
+              />
+
+              <div>
+                <Label>{language === 'ar' ? 'اسم المستخدم' : 'User Name'}</Label>
+                <Input
+                  value={userEditForm.user_name}
+                  onChange={(e) => setUserEditForm({ ...userEditForm, user_name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label>{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</Label>
+                <Input value={userEditForm.email} disabled className="bg-muted" />
+              </div>
+
+              <div>
+                <Label>{language === 'ar' ? 'رقم الجوال' : 'Mobile Number'}</Label>
+                <Input
+                  value={userEditForm.mobile_number}
+                  onChange={(e) => setUserEditForm({ ...userEditForm, mobile_number: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label>{language === 'ar' ? 'الوظيفة' : 'Job Position'}</Label>
+                <Select 
+                  value={userEditForm.job_position_id || "__none__"} 
+                  onValueChange={(v) => setUserEditForm({ ...userEditForm, job_position_id: v === "__none__" ? null : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر الوظيفة' : 'Select job position'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{language === 'ar' ? 'بدون وظيفة' : 'No job position'}</SelectItem>
+                    {jobPositions.filter(j => j.is_active).map(j => (
+                      <SelectItem key={j.id} value={j.id}>{j.position_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>{language === 'ar' ? 'القسم' : 'Department'}</Label>
+                <Select 
+                  value={userEditForm.default_department_id || "__none__"} 
+                  onValueChange={(v) => setUserEditForm({ ...userEditForm, default_department_id: v === "__none__" ? null : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select department'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{language === 'ar' ? 'بدون قسم' : 'No department'}</SelectItem>
+                    {departments.filter(d => d.is_active).map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label>{language === 'ar' ? 'نشط' : 'Active'}</Label>
+                <Switch
+                  checked={userEditForm.is_active}
+                  onCheckedChange={(checked) => setUserEditForm({ ...userEditForm, is_active: checked })}
+                />
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsEditingUser(false)}
+                >
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleSaveUser}
+                  disabled={savingUser}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {savingUser 
+                    ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...') 
+                    : (language === 'ar' ? 'حفظ' : 'Save')}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

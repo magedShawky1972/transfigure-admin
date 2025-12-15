@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -156,7 +155,6 @@ const REPORTS = [
 const UserSetup = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const location = useLocation();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -200,19 +198,6 @@ const UserSetup = () => {
     fetchJobPositions();
     fetchDepartments();
   }, []);
-
-  // Handle navigation from Company Hierarchy with selectedUserId
-  useEffect(() => {
-    const state = location.state as { selectedUserId?: string } | null;
-    if (state?.selectedUserId && profiles.length > 0) {
-      const userToEdit = profiles.find(p => p.user_id === state.selectedUserId);
-      if (userToEdit) {
-        handleEdit(userToEdit);
-        // Clear the state to prevent re-opening on subsequent renders
-        window.history.replaceState({}, document.title);
-      }
-    }
-  }, [location.state, profiles]);
 
   const fetchDepartments = async () => {
     try {
