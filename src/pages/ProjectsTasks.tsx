@@ -100,6 +100,14 @@ interface Profile {
   user_id: string;
   user_name: string;
   default_department_id: string | null;
+  avatar_url?: string | null;
+  departmentMemberships?: string[]; // Additional department IDs from department_members
+}
+
+interface UserDepartmentAccess {
+  adminDepartments: string[];
+  memberDepartments: string[];
+  isSystemAdmin: boolean;
 }
 
 // Draggable Task Component
@@ -138,9 +146,11 @@ const ProjectsTasks = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [accessibleDepartments, setAccessibleDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [taskPhases, setTaskPhases] = useState<TaskPhase[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false });
   const [loading, setLoading] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [runningTimers, setRunningTimers] = useState<Record<string, number>>({});
@@ -320,38 +330,98 @@ const ProjectsTasks = () => {
       if (!user) return;
       setCurrentUserId(user.id);
 
-      // Get user's default department
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('default_department_id')
-        .eq('user_id', user.id)
-        .single();
+      // Get user's department access (admin and member)
+      const [adminDepsRes, memberDepsRes, userRolesRes, profileRes] = await Promise.all([
+        supabase.from('department_admins').select('department_id').eq('user_id', user.id),
+        supabase.from('department_members').select('department_id').eq('user_id', user.id),
+        supabase.from('user_roles').select('role').eq('user_id', user.id),
+        supabase.from('profiles').select('default_department_id').eq('user_id', user.id).single()
+      ]);
 
-      const [projectsRes, tasksRes, depsRes, usersRes, timeEntriesRes, phasesRes] = await Promise.all([
+      const adminDeptIds = (adminDepsRes.data || []).map(d => d.department_id);
+      const memberDeptIds = (memberDepsRes.data || []).map(d => d.department_id);
+      const isSystemAdmin = (userRolesRes.data || []).some(r => r.role === 'admin');
+      const defaultDeptId = profileRes.data?.default_department_id;
+
+      // Include default department in member departments
+      const allMemberDepts = defaultDeptId && !memberDeptIds.includes(defaultDeptId) 
+        ? [...memberDeptIds, defaultDeptId] 
+        : memberDeptIds;
+
+      setUserAccess({
+        adminDepartments: adminDeptIds,
+        memberDepartments: allMemberDepts,
+        isSystemAdmin
+      });
+
+      // Get all accessible department IDs
+      const accessibleDeptIds = isSystemAdmin 
+        ? [] // Will fetch all for system admins
+        : [...new Set([...adminDeptIds, ...allMemberDepts])];
+
+      const [projectsRes, tasksRes, depsRes, usersRes, timeEntriesRes, phasesRes, deptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('departments').select('id, department_name').eq('is_active', true),
-        supabase.from('profiles').select('user_id, user_name, default_department_id').eq('is_active', true),
+        supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
-        supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true })
+        supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
+        supabase.from('department_members').select('department_id, user_id')
       ]);
 
-      if (projectsRes.data) setProjects(projectsRes.data);
-      if (depsRes.data) setDepartments(depsRes.data);
-      if (usersRes.data) setUsers(usersRes.data);
-      if (phasesRes.data) setTaskPhases(phasesRes.data);
+      if (depsRes.data) {
+        setDepartments(depsRes.data);
+        
+        // Filter accessible departments based on user access
+        const filteredDeps = isSystemAdmin 
+          ? depsRes.data 
+          : depsRes.data.filter(d => accessibleDeptIds.includes(d.id));
+        setAccessibleDepartments(filteredDeps);
 
-      // Set default department if user has one
-      if (profileData?.default_department_id && !selectedDepartment) {
-        setSelectedDepartment(profileData.default_department_id);
-      } else if (depsRes.data && depsRes.data.length > 0 && !selectedDepartment) {
-        setSelectedDepartment(depsRes.data[0].id);
+        // Set default department
+        if (filteredDeps.length > 0 && !selectedDepartment) {
+          const defaultDep = defaultDeptId && filteredDeps.find(d => d.id === defaultDeptId);
+          setSelectedDepartment(defaultDep ? defaultDep.id : filteredDeps[0].id);
+        }
       }
+
+      if (projectsRes.data) {
+        // Filter projects based on accessible departments
+        const filteredProjects = isSystemAdmin 
+          ? projectsRes.data 
+          : projectsRes.data.filter(p => accessibleDeptIds.includes(p.department_id));
+        setProjects(filteredProjects);
+      }
+      
+      // Enhance users with department membership info
+      const deptMembers = deptMembersRes.data || [];
+      if (usersRes.data) {
+        const usersWithMemberships = usersRes.data.map(u => ({
+          ...u,
+          departmentMemberships: deptMembers
+            .filter(dm => dm.user_id === u.user_id)
+            .map(dm => dm.department_id)
+        }));
+        setUsers(usersWithMemberships);
+      }
+      if (phasesRes.data) setTaskPhases(phasesRes.data);
 
       if (tasksRes.data) {
         const timeEntries = (timeEntriesRes.data || []) as TimeEntry[];
         
-        const tasksWithProfiles = tasksRes.data.map(task => {
+        // Filter tasks based on user access
+        const filteredTasks = tasksRes.data.filter(task => {
+          // System admin sees all
+          if (isSystemAdmin) return true;
+          // Department admin sees all tasks in their departments
+          if (adminDeptIds.includes(task.department_id)) return true;
+          // Regular user sees only their own tasks in their department
+          if (allMemberDepts.includes(task.department_id) && 
+              (task.assigned_to === user.id || task.created_by === user.id)) return true;
+          return false;
+        });
+        
+        const tasksWithProfiles = filteredTasks.map(task => {
           const taskTimeEntries = timeEntries.filter(te => te.task_id === task.id);
           const activeTimer = taskTimeEntries.find(te => te.end_time === null);
           const totalMinutes = taskTimeEntries.reduce((sum, te) => {
@@ -473,6 +543,25 @@ const ProjectsTasks = () => {
   ];
   
   const activePhases = departmentPhases.length > 0 ? departmentPhases : defaultPhases;
+
+  // Check if user is admin of selected department
+  const isAdminOfSelectedDepartment = userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
+
+  // Filter users based on selected department (users in that department)
+  const departmentUsers = users.filter(u => {
+    // If system admin or department admin, show all users in the department
+    if (isAdminOfSelectedDepartment) {
+      return u.default_department_id === selectedDepartment || 
+             userAccess.adminDepartments.includes(selectedDepartment);
+    }
+    // Regular users only see themselves
+    return u.user_id === currentUserId;
+  });
+
+  // For task assignment, department admins can assign to any user in their departments
+  const assignableUsers = isAdminOfSelectedDepartment 
+    ? users.filter(u => u.default_department_id === selectedDepartment)
+    : users.filter(u => u.user_id === currentUserId);
 
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
@@ -727,7 +816,7 @@ const ProjectsTasks = () => {
                   <SelectValue placeholder={t.selectDepartment} />
                 </SelectTrigger>
                 <SelectContent>
-                  {departments.map(d => (
+                  {accessibleDepartments.map(d => (
                     <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -756,7 +845,7 @@ const ProjectsTasks = () => {
                       <Select value={projectForm.department_id} onValueChange={(v) => setProjectForm({ ...projectForm, department_id: v })}>
                         <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
                         <SelectContent>
-                          {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
+                          {accessibleDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -799,10 +888,10 @@ const ProjectsTasks = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium">{t.department} *</label>
-                        <Select value={taskForm.department_id} onValueChange={(v) => setTaskForm({ ...taskForm, department_id: v })}>
+                        <Select value={taskForm.department_id} onValueChange={(v) => setTaskForm({ ...taskForm, department_id: v, assigned_to: '' })}>
                           <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
                           <SelectContent>
-                            {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
+                            {accessibleDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -822,7 +911,13 @@ const ProjectsTasks = () => {
                       <Select value={taskForm.assigned_to} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: v })}>
                         <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
                         <SelectContent>
-                          {users.map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
+                          {(userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)
+                            ? users.filter(u => 
+                                u.default_department_id === taskForm.department_id || 
+                                (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
+                              )
+                            : users.filter(u => u.user_id === currentUserId)
+                          ).map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
