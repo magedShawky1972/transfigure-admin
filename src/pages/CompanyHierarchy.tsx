@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save, Printer, ZoomIn, ZoomOut } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -82,10 +82,12 @@ const CompanyHierarchy = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const printRef = useRef<HTMLDivElement>(null);
   const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map());
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [canEditUsers, setCanEditUsers] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Dialog states
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
@@ -797,6 +799,74 @@ const CompanyHierarchy = () => {
     return { width: maxX, height: maxY };
   };
 
+  // Zoom handlers
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 0.1, 2));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.1, 0.3));
+  };
+
+  // Print handler
+  const handlePrint = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const title = language === 'ar' ? 'الهيكل التنظيمي' : 'Organizational Chart';
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+      <head>
+        <title>${title}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            background: white;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+          }
+          .header h1 {
+            margin: 0;
+            color: #333;
+          }
+          .chart-container {
+            position: relative;
+            margin: 0 auto;
+          }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${title}</h1>
+          <p>${new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</p>
+        </div>
+        <div class="chart-container">
+          ${printContent.innerHTML}
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   const canvasSize = getCanvasSize();
   const activeDepts = departments.filter(d => d.is_active && !d.is_outsource);
 
@@ -817,6 +887,10 @@ const CompanyHierarchy = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" />
+            {language === 'ar' ? 'طباعة' : 'Print'}
+          </Button>
           <Button variant="outline" onClick={handleResetPositions}>
             <RotateCcw className="h-4 w-4 mr-2" />
             {language === 'ar' ? 'إعادة تعيين' : 'Reset Layout'}
@@ -887,11 +961,22 @@ const CompanyHierarchy = () => {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
             {language === 'ar' ? 'الهيكل التنظيمي' : 'Organizational Chart'}
           </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 0.3}>
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium min-w-[50px] text-center">
+              {Math.round(zoomLevel * 100)}%
+            </span>
+            <Button variant="outline" size="icon" onClick={handleZoomIn} disabled={zoomLevel >= 2}>
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="overflow-auto">
           {loading ? (
@@ -907,20 +992,33 @@ const CompanyHierarchy = () => {
           ) : (
             <div
               ref={canvasRef}
-              className="relative bg-muted/30 rounded-lg"
-              style={{ width: canvasSize.width, height: canvasSize.height, minHeight: 500 }}
+              className="relative bg-muted/30 rounded-lg origin-top-left"
+              style={{ 
+                width: canvasSize.width * zoomLevel, 
+                height: canvasSize.height * zoomLevel, 
+                minHeight: 500 * zoomLevel 
+              }}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
-              {/* SVG Layer for connection lines */}
-              <svg
-                className="absolute inset-0 pointer-events-none"
-                width={canvasSize.width}
-                height={canvasSize.height}
+              <div
+                ref={printRef}
+                className="origin-top-left"
+                style={{ 
+                  transform: `scale(${zoomLevel})`,
+                  width: canvasSize.width,
+                  height: canvasSize.height,
+                }}
               >
-                {renderConnectionLines()}
-              </svg>
+                {/* SVG Layer for connection lines */}
+                <svg
+                  className="absolute inset-0 pointer-events-none"
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                >
+                  {renderConnectionLines()}
+                </svg>
 
               {/* Department nodes */}
               {activeDepts.map(dept => {
@@ -1120,6 +1218,7 @@ const CompanyHierarchy = () => {
                   </div>
                 );
               })}
+              </div>
             </div>
           )}
         </CardContent>
