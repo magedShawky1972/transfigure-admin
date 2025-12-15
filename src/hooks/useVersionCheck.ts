@@ -32,27 +32,30 @@ export const useVersionCheck = () => {
     }
   }, []);
 
-  const applyUpdate = useCallback(() => {
-    // Clear all caches
-    if ('caches' in window) {
-      caches.keys().then((names) => {
-        names.forEach((name) => {
-          caches.delete(name);
-        });
-      });
-    }
-    
-    // Unregister service worker and reload
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        registrations.forEach((registration) => {
-          registration.unregister();
-        });
-        // Force hard reload
-        window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now();
-      });
-    } else {
-      window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now();
+  const applyUpdate = useCallback(async () => {
+    try {
+      // Clear all caches first
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      
+      // Unregister all service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(registration => registration.unregister()));
+      }
+      
+      // Clear sessionStorage and localStorage cache keys
+      sessionStorage.clear();
+      
+      // Force a complete page reload bypassing all caches
+      const baseUrl = window.location.origin + window.location.pathname;
+      window.location.replace(baseUrl + '?_cache_bust=' + Date.now());
+    } catch (error) {
+      console.error('Error during update:', error);
+      // Fallback: just do a hard reload
+      window.location.reload();
     }
   }, []);
 

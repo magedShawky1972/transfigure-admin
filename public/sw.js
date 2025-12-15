@@ -34,6 +34,14 @@ self.addEventListener('fetch', function(event) {
   // Skip chrome-extension and other non-http requests
   if (!event.request.url.startsWith('http')) return;
   
+  // Always bypass cache for manifest.json and version checks
+  if (event.request.url.includes('manifest.json')) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' })
+    );
+    return;
+  }
+  
   event.respondWith(
     fetch(event.request)
       .catch(function() {
