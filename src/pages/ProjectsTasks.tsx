@@ -14,12 +14,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { 
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
-  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2
+  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
@@ -182,7 +183,7 @@ const ProjectsTasks = () => {
     description: '',
     project_id: '',
     department_id: '',
-    assigned_to: '',
+    assigned_to: [] as string[], // Changed to array for multi-user
     status: 'todo',
     priority: 'medium',
     deadline: null as Date | null,
@@ -671,33 +672,84 @@ const ProjectsTasks = () => {
   };
 
   const handleSaveTask = async () => {
-    if (!taskForm.title || !taskForm.department_id || !taskForm.assigned_to) {
+    if (!taskForm.title || !taskForm.department_id || taskForm.assigned_to.length === 0) {
       toast({ title: language === 'ar' ? 'يرجى ملء الحقول المطلوبة' : 'Please fill required fields', variant: 'destructive' });
       return;
     }
 
     try {
-      const payload = {
-        title: taskForm.title,
-        description: taskForm.description || null,
-        project_id: taskForm.project_id || null,
-        department_id: taskForm.department_id,
-        assigned_to: taskForm.assigned_to,
-        status: taskForm.status,
-        priority: taskForm.priority,
-        deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
-        start_time: taskForm.start_time || null,
-        end_time: taskForm.end_time || null,
-        external_links: taskForm.external_links,
-        file_attachments: taskForm.file_attachments as unknown as Json,
-        video_attachments: taskForm.video_attachments as unknown as Json,
-        created_by: currentUserId!
-      };
-
       if (editingTask) {
+        // When editing, only update the single task (use first user if array)
+        const payload = {
+          title: taskForm.title,
+          description: taskForm.description || null,
+          project_id: taskForm.project_id || null,
+          department_id: taskForm.department_id,
+          assigned_to: taskForm.assigned_to[0],
+          status: taskForm.status,
+          priority: taskForm.priority,
+          deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
+          start_time: taskForm.start_time || null,
+          end_time: taskForm.end_time || null,
+          external_links: taskForm.external_links,
+          file_attachments: taskForm.file_attachments as unknown as Json,
+          video_attachments: taskForm.video_attachments as unknown as Json,
+          created_by: currentUserId!
+        };
         await supabase.from('tasks').update(payload).eq('id', editingTask.id);
       } else {
-        await supabase.from('tasks').insert(payload);
+        // For new tasks, create one task per selected user
+        const tasksToInsert = taskForm.assigned_to.map(userId => ({
+          title: taskForm.title,
+          description: taskForm.description || null,
+          project_id: taskForm.project_id || null,
+          department_id: taskForm.department_id,
+          assigned_to: userId,
+          status: taskForm.status,
+          priority: taskForm.priority,
+          deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
+          start_time: taskForm.start_time || null,
+          end_time: taskForm.end_time || null,
+          external_links: taskForm.external_links,
+          file_attachments: taskForm.file_attachments as unknown as Json,
+          video_attachments: taskForm.video_attachments as unknown as Json,
+          created_by: currentUserId!
+        }));
+
+        const { error: insertError } = await supabase.from('tasks').insert(tasksToInsert);
+        if (insertError) throw insertError;
+
+        // Send notification to each assigned user
+        for (const userId of taskForm.assigned_to) {
+          if (userId !== currentUserId) {
+            // Create in-app notification
+            await supabase.from('notifications').insert({
+              user_id: userId,
+              title: language === 'ar' ? 'مهمة جديدة' : 'New Task',
+              message: language === 'ar' 
+                ? `تم تعيين مهمة جديدة لك: ${taskForm.title}`
+                : `A new task has been assigned to you: ${taskForm.title}`,
+              type: 'task_assigned',
+              is_read: false
+            });
+
+            // Send push notification
+            try {
+              await supabase.functions.invoke('send-push-notification', {
+                body: {
+                  userId: userId,
+                  title: language === 'ar' ? 'مهمة جديدة' : 'New Task',
+                  body: language === 'ar' 
+                    ? `تم تعيين مهمة جديدة لك: ${taskForm.title}`
+                    : `A new task has been assigned to you: ${taskForm.title}`,
+                  data: { type: 'task_assigned' }
+                }
+              });
+            } catch (pushErr) {
+              console.error('Push notification error:', pushErr);
+            }
+          }
+        }
       }
 
       toast({ title: language === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully' });
@@ -751,7 +803,7 @@ const ProjectsTasks = () => {
       description: task.description || '',
       project_id: task.project_id || '',
       department_id: task.department_id,
-      assigned_to: task.assigned_to,
+      assigned_to: [task.assigned_to], // Wrap in array for editing
       status: task.status,
       priority: task.priority,
       deadline: task.deadline ? new Date(task.deadline) : null,
@@ -785,7 +837,7 @@ const ProjectsTasks = () => {
   const resetTaskForm = () => {
     setEditingTask(null);
     setTaskForm({
-      title: '', description: '', project_id: '', department_id: selectedDepartment, assigned_to: '',
+      title: '', description: '', project_id: '', department_id: selectedDepartment, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', deadline: null, start_time: '', end_time: '',
       external_links: [], file_attachments: [], video_attachments: []
     });
@@ -927,7 +979,7 @@ const ProjectsTasks = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium">{t.department} *</label>
-                        <Select value={taskForm.department_id} onValueChange={(v) => setTaskForm({ ...taskForm, department_id: v, assigned_to: '' })}>
+                        <Select value={taskForm.department_id} onValueChange={(v) => setTaskForm({ ...taskForm, department_id: v, assigned_to: [] })}>
                           <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
                           <SelectContent>
                             {accessibleDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
@@ -946,19 +998,61 @@ const ProjectsTasks = () => {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium">{t.assignedTo} *</label>
-                      <Select value={taskForm.assigned_to} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: v })}>
-                        <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
-                        <SelectContent>
+                      <label className="text-sm font-medium">{t.assignedTo} * {!editingTask && <span className="text-xs text-muted-foreground">({language === 'ar' ? 'يمكن اختيار عدة مستخدمين' : 'Multi-select'})</span>}</label>
+                      {editingTask ? (
+                        // Single select for editing
+                        <Select value={taskForm.assigned_to[0] || ''} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: [v] })}>
+                          <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
+                          <SelectContent>
+                            {(userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)
+                              ? users.filter(u => 
+                                  u.default_department_id === taskForm.department_id || 
+                                  (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
+                                )
+                              : users.filter(u => u.user_id === currentUserId)
+                            ).map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        // Multi-select for new task
+                        <div className="border rounded-md p-2 max-h-[150px] overflow-y-auto">
                           {(userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)
                             ? users.filter(u => 
                                 u.default_department_id === taskForm.department_id || 
                                 (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
                               )
                             : users.filter(u => u.user_id === currentUserId)
-                          ).map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                          ).map(u => (
+                            <div key={u.user_id} className="flex items-center gap-2 py-1">
+                              <Checkbox 
+                                id={`user-${u.user_id}`}
+                                checked={taskForm.assigned_to.includes(u.user_id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setTaskForm({ ...taskForm, assigned_to: [...taskForm.assigned_to, u.user_id] });
+                                  } else {
+                                    setTaskForm({ ...taskForm, assigned_to: taskForm.assigned_to.filter(id => id !== u.user_id) });
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`user-${u.user_id}`} className="text-sm cursor-pointer">{u.user_name}</label>
+                            </div>
+                          ))}
+                          {taskForm.assigned_to.length > 0 && (
+                            <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
+                              {taskForm.assigned_to.map(userId => {
+                                const user = users.find(u => u.user_id === userId);
+                                return user ? (
+                                  <Badge key={userId} variant="secondary" className="text-xs">
+                                    {user.user_name}
+                                    <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setTaskForm({ ...taskForm, assigned_to: taskForm.assigned_to.filter(id => id !== userId) })} />
+                                  </Badge>
+                                ) : null;
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
