@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, ExternalLink } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +76,7 @@ interface NodePosition {
 const CompanyHierarchy = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -83,6 +85,7 @@ const CompanyHierarchy = () => {
   const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map());
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [canEditUsers, setCanEditUsers] = useState(false);
 
   // Dialog states
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
@@ -125,7 +128,40 @@ const CompanyHierarchy = () => {
 
   useEffect(() => {
     fetchData();
+    checkUserSetupPermission();
   }, []);
+
+  const checkUserSetupPermission = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if user is admin
+      const { data: adminRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (adminRole) {
+        setCanEditUsers(true);
+        return;
+      }
+
+      // Check specific permission for userSetup
+      const { data: permission } = await supabase
+        .from('user_permissions')
+        .select('has_access')
+        .eq('user_id', user.id)
+        .eq('menu_item', 'userSetup')
+        .maybeSingle();
+
+      setCanEditUsers(permission?.has_access === true);
+    } catch (error) {
+      console.error('Error checking user setup permission:', error);
+    }
+  };
 
   // Initialize positions from database or auto-layout
   useEffect(() => {
@@ -1260,6 +1296,19 @@ const CompanyHierarchy = () => {
                   </span>
                 </div>
               </div>
+
+              {canEditUsers && (
+                <Button
+                  className="w-full mt-4"
+                  onClick={() => {
+                    setUserProfileDialogOpen(false);
+                    navigate('/user-setup', { state: { selectedUserId: selectedUserProfile.user_id } });
+                  }}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'تعديل المستخدم' : 'Edit User'}
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>
