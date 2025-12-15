@@ -631,6 +631,25 @@ const ProjectsTasks = () => {
         await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
         setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
         toast({ title: language === 'ar' ? 'تم تحديث الحالة' : 'Status updated' });
+
+        // If task is marked as done, notify department admins
+        if (newStatus === 'done') {
+          const currentUser = users.find(u => u.user_id === currentUserId);
+          try {
+            await supabase.functions.invoke('send-task-notification', {
+              body: {
+                type: 'task_completed',
+                taskId: task.id,
+                taskTitle: task.title,
+                departmentId: task.department_id,
+                completedByUserId: currentUserId,
+                completedByUserName: currentUser?.user_name || 'Unknown'
+              }
+            });
+          } catch (notifyError) {
+            console.error('Error sending task completion notification:', notifyError);
+          }
+        }
       } catch (error) {
         console.error('Error updating task status:', error);
         toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
@@ -697,6 +716,25 @@ const ProjectsTasks = () => {
           created_by: currentUserId!
         };
         await supabase.from('tasks').update(payload).eq('id', editingTask.id);
+
+        // If status changed to "done", notify department admins
+        if (taskForm.status === 'done' && editingTask.status !== 'done') {
+          const currentUser = users.find(u => u.user_id === currentUserId);
+          try {
+            await supabase.functions.invoke('send-task-notification', {
+              body: {
+                type: 'task_completed',
+                taskId: editingTask.id,
+                taskTitle: taskForm.title,
+                departmentId: taskForm.department_id,
+                completedByUserId: currentUserId,
+                completedByUserName: currentUser?.user_name || 'Unknown'
+              }
+            });
+          } catch (notifyError) {
+            console.error('Error sending task completion notification:', notifyError);
+          }
+        }
       } else {
         // For new tasks, create one task per selected user
         const tasksToInsert = taskForm.assigned_to.map(userId => ({
