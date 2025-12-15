@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.sync-order-to-odoo-step]
 verify_jwt = false
+
+[functions.send-task-notification]
+verify_jwt = false
