@@ -331,14 +331,32 @@ const ProjectsTasks = () => {
       setCurrentUserId(user.id);
 
       // Get user's department access (admin and member)
-      const [adminDepsRes, memberDepsRes, userRolesRes, profileRes] = await Promise.all([
+      const [adminDepsRes, memberDepsRes, userRolesRes, profileRes, allDepsRes] = await Promise.all([
         supabase.from('department_admins').select('department_id').eq('user_id', user.id),
         supabase.from('department_members').select('department_id').eq('user_id', user.id),
         supabase.from('user_roles').select('role').eq('user_id', user.id),
-        supabase.from('profiles').select('default_department_id').eq('user_id', user.id).single()
+        supabase.from('profiles').select('default_department_id').eq('user_id', user.id).single(),
+        supabase.from('departments').select('id, department_name, parent_department_id').eq('is_active', true)
       ]);
 
-      const adminDeptIds = (adminDepsRes.data || []).map(d => d.department_id);
+      const allDepartments = allDepsRes.data || [];
+      
+      // Helper function to get all child departments recursively
+      const getChildDepartments = (parentId: string): string[] => {
+        const children = allDepartments
+          .filter(d => d.parent_department_id === parentId)
+          .map(d => d.id);
+        const grandChildren = children.flatMap(childId => getChildDepartments(childId));
+        return [...children, ...grandChildren];
+      };
+
+      const directAdminDeptIds = (adminDepsRes.data || []).map(d => d.department_id);
+      // Include child departments for each admin department
+      const adminDeptIds = [...new Set([
+        ...directAdminDeptIds,
+        ...directAdminDeptIds.flatMap(id => getChildDepartments(id))
+      ])];
+      
       const memberDeptIds = (memberDepsRes.data || []).map(d => d.department_id);
       const isSystemAdmin = (userRolesRes.data || []).some(r => r.role === 'admin');
       const defaultDeptId = profileRes.data?.default_department_id;
@@ -354,35 +372,33 @@ const ProjectsTasks = () => {
         isSystemAdmin
       });
 
-      // Get all accessible department IDs
+      // Get all accessible department IDs (only departments user has direct access to)
       const accessibleDeptIds = isSystemAdmin 
         ? [] // Will fetch all for system admins
         : [...new Set([...adminDeptIds, ...allMemberDepts])];
 
-      const [projectsRes, tasksRes, depsRes, usersRes, timeEntriesRes, phasesRes, deptMembersRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, deptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
-        supabase.from('departments').select('id, department_name').eq('is_active', true),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
         supabase.from('department_members').select('department_id, user_id')
       ]);
 
-      if (depsRes.data) {
-        setDepartments(depsRes.data);
-        
-        // Filter accessible departments based on user access
-        const filteredDeps = isSystemAdmin 
-          ? depsRes.data 
-          : depsRes.data.filter(d => accessibleDeptIds.includes(d.id));
-        setAccessibleDepartments(filteredDeps);
+      // Use allDepartments from the initial fetch
+      setDepartments(allDepartments as Department[]);
+      
+      // Filter accessible departments based on user access
+      const filteredDeps = isSystemAdmin 
+        ? allDepartments 
+        : allDepartments.filter(d => accessibleDeptIds.includes(d.id));
+      setAccessibleDepartments(filteredDeps as Department[]);
 
-        // Set default department
-        if (filteredDeps.length > 0 && !selectedDepartment) {
-          const defaultDep = defaultDeptId && filteredDeps.find(d => d.id === defaultDeptId);
-          setSelectedDepartment(defaultDep ? defaultDep.id : filteredDeps[0].id);
-        }
+      // Set default department
+      if (filteredDeps.length > 0 && !selectedDepartment) {
+        const defaultDep = defaultDeptId && filteredDeps.find(d => d.id === defaultDeptId);
+        setSelectedDepartment(defaultDep ? defaultDep.id : filteredDeps[0].id);
       }
 
       if (projectsRes.data) {
@@ -393,7 +409,7 @@ const ProjectsTasks = () => {
         setProjects(filteredProjects);
       }
       
-      // Enhance users with department membership info
+      // Enhance users with department membership info and filter by accessible departments
       const deptMembers = deptMembersRes.data || [];
       if (usersRes.data) {
         const usersWithMemberships = usersRes.data.map(u => ({
@@ -402,7 +418,16 @@ const ProjectsTasks = () => {
             .filter(dm => dm.user_id === u.user_id)
             .map(dm => dm.department_id)
         }));
-        setUsers(usersWithMemberships);
+        
+        // Filter users to only show those in accessible departments
+        const filteredUsers = isSystemAdmin
+          ? usersWithMemberships
+          : usersWithMemberships.filter(u => 
+              (u.default_department_id && accessibleDeptIds.includes(u.default_department_id)) ||
+              (u.departmentMemberships && u.departmentMemberships.some(dm => accessibleDeptIds.includes(dm)))
+            );
+        
+        setUsers(filteredUsers);
       }
       if (phasesRes.data) setTaskPhases(phasesRes.data);
 
