@@ -79,6 +79,7 @@ interface Product {
   barcode?: string | null;
   supplier?: string | null;
   notes?: string | null;
+  non_stock?: boolean;
 }
 
 interface Brand {
@@ -481,6 +482,7 @@ const ProductSetup = () => {
           costPrice: product.product_cost ? parseFloat(product.product_cost) : null,
           salesPrice: product.product_price ? parseFloat(product.product_price) : null,
           productWeight: product.weight || null,
+          isNonStock: product.non_stock ?? false,
         }
       });
 
