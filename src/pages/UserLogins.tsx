@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Globe, Smartphone } from "lucide-react";
-import Layout from "@/components/Layout";
 
 interface UserLogin {
   id: string;
@@ -194,8 +193,7 @@ const UserLogins = () => {
   });
 
   return (
-    <Layout>
-      <div className="container mx-auto p-6 space-y-6" dir={language === "ar" ? "rtl" : "ltr"}>
+    <div className="container mx-auto p-6 space-y-6" dir={language === "ar" ? "rtl" : "ltr"}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -438,7 +436,6 @@ const UserLogins = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </Layout>
   );
 };
 
