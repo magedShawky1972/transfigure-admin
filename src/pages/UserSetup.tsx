@@ -756,12 +756,16 @@ const UserSetup = () => {
 
   // Filter profiles based on search and filters
   const filteredProfiles = profiles.filter((profile) => {
-    // Search term filter
+    // Search term filter - search across all fields
     const searchLower = filters.searchTerm.toLowerCase();
-    const matchesSearch = 
+    const matchesSearch = !searchLower || 
       profile.user_name.toLowerCase().includes(searchLower) ||
       profile.email.toLowerCase().includes(searchLower) ||
-      (profile.mobile_number?.toLowerCase().includes(searchLower) || false);
+      (profile.mobile_number?.toLowerCase().includes(searchLower)) ||
+      (profile.job_position_name?.toLowerCase().includes(searchLower)) ||
+      (profile.default_department_name?.toLowerCase().includes(searchLower)) ||
+      (profile.is_admin && 'admin'.includes(searchLower)) ||
+      (profile.is_active ? 'active'.includes(searchLower) : 'inactive'.includes(searchLower));
 
     // Status filter
     const matchesStatus = 
@@ -782,13 +786,23 @@ const UserSetup = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">User Setup</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* Main Search Box */}
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users..."
+              value={filters.searchTerm}
+              onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
+              className="pl-9"
+            />
+          </div>
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
           >
             <Filter className="h-4 w-4 mr-2" />
-            {showFilters ? "Hide Filters" : "Show Filters"}
+            {showFilters ? "Hide Filters" : "Filters"}
           </Button>
           <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
             <DialogTrigger asChild>
