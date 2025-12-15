@@ -520,10 +520,12 @@ export type Database = {
       }
       departments: {
         Row: {
+          color: string | null
           created_at: string
           department_code: string
           department_name: string
           description: string | null
+          display_order: number | null
           id: string
           is_active: boolean
           is_outsource: boolean
@@ -531,10 +533,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          color?: string | null
           created_at?: string
           department_code: string
           department_name: string
           description?: string | null
+          display_order?: number | null
           id?: string
           is_active?: boolean
           is_outsource?: boolean
@@ -542,10 +546,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          color?: string | null
           created_at?: string
           department_code?: string
           department_name?: string
           description?: string | null
+          display_order?: number | null
           id?: string
           is_active?: boolean
           is_outsource?: boolean

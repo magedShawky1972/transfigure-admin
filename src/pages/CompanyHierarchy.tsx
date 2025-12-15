@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,29 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserSelectionDialog from "@/components/UserSelectionDialog";
+import { DndContext, DragEndEvent, useDraggable, useDroppable, DragOverlay, DragStartEvent } from "@dnd-kit/core";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+const DEPARTMENT_COLORS = [
+  "#6366f1", // indigo
+  "#8b5cf6", // violet
+  "#a855f7", // purple
+  "#d946ef", // fuchsia
+  "#ec4899", // pink
+  "#f43f5e", // rose
+  "#ef4444", // red
+  "#f97316", // orange
+  "#f59e0b", // amber
+  "#eab308", // yellow
+  "#84cc16", // lime
+  "#22c55e", // green
+  "#10b981", // emerald
+  "#14b8a6", // teal
+  "#06b6d4", // cyan
+  "#0ea5e9", // sky
+  "#3b82f6", // blue
+  "#64748b", // slate
+];
 
 interface Department {
   id: string;
@@ -35,6 +58,8 @@ interface Department {
   is_active: boolean;
   description: string | null;
   is_outsource: boolean;
+  display_order?: number;
+  color?: string;
 }
 
 interface JobPosition {
@@ -62,6 +87,7 @@ const CompanyHierarchy = () => {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   // Dialog states
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
@@ -72,6 +98,7 @@ const CompanyHierarchy = () => {
   const [editingJob, setEditingJob] = useState<JobPosition | null>(null);
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [colorPickerDeptId, setColorPickerDeptId] = useState<string | null>(null);
 
   // Form states
   const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "__none__" });
@@ -87,7 +114,7 @@ const CompanyHierarchy = () => {
   const fetchData = async () => {
     try {
       const [deptRes, jobRes, profileRes] = await Promise.all([
-        supabase.from("departments").select("*").order("department_name"),
+        supabase.from("departments").select("*").order("display_order").order("department_name"),
         supabase.from("job_positions").select("*").order("position_name"),
         supabase.from("profiles").select("id, user_id, user_name, email, job_position_id, default_department_id, avatar_url, is_active").eq("is_active", true),
       ]);
@@ -103,6 +130,86 @@ const CompanyHierarchy = () => {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle department color change
+  const handleColorChange = async (deptId: string, color: string) => {
+    try {
+      const { error } = await supabase.from("departments").update({ color }).eq("id", deptId);
+      if (error) throw error;
+      setDepartments(prev => prev.map(d => d.id === deptId ? { ...d, color } : d));
+      setColorPickerDeptId(null);
+      toast({ title: language === 'ar' ? 'تم تحديث اللون' : 'Color updated' });
+    } catch (error: any) {
+      toast({ title: error.message, variant: "destructive" });
+    }
+  };
+
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
+  // Handle drag end - reorder departments
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+    
+    if (!over || active.id === over.id) return;
+    
+    const draggedDept = departments.find(d => d.id === active.id);
+    const targetDept = departments.find(d => d.id === over.id);
+    
+    if (!draggedDept || !targetDept) return;
+    
+    // Only allow reordering within same parent level
+    if (draggedDept.parent_department_id !== targetDept.parent_department_id) {
+      toast({ 
+        title: language === 'ar' ? 'لا يمكن نقل القسم لمستوى مختلف' : 'Cannot move to different level',
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Get siblings (same parent)
+    const siblings = departments.filter(d => 
+      d.parent_department_id === draggedDept.parent_department_id && 
+      d.is_active && 
+      !d.is_outsource
+    ).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    
+    const oldIndex = siblings.findIndex(d => d.id === active.id);
+    const newIndex = siblings.findIndex(d => d.id === over.id);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    // Reorder
+    const reordered = [...siblings];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    
+    // Update display_order for each
+    try {
+      for (let i = 0; i < reordered.length; i++) {
+        await supabase.from("departments").update({ display_order: i }).eq("id", reordered[i].id);
+      }
+      
+      // Update local state
+      setDepartments(prev => {
+        const updated = [...prev];
+        reordered.forEach((dept, index) => {
+          const idx = updated.findIndex(d => d.id === dept.id);
+          if (idx !== -1) {
+            updated[idx] = { ...updated[idx], display_order: index };
+          }
+        });
+        return updated;
+      });
+      
+      toast({ title: language === 'ar' ? 'تم إعادة ترتيب الأقسام' : 'Departments reordered' });
+    } catch (error: any) {
+      toast({ title: error.message, variant: "destructive" });
     }
   };
 
@@ -483,26 +590,86 @@ const CompanyHierarchy = () => {
     return profiles.filter(p => !p.job_position_id && !p.default_department_id);
   };
 
-  // Org Chart Node Component
-  const OrgChartNode = ({ dept, isRoot = false }: { dept: Department; isRoot?: boolean }) => {
+  // Draggable Department Node
+  const DraggableDeptNode = ({ dept, isRoot = false }: { dept: Department; isRoot?: boolean }) => {
+    const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
+      id: dept.id,
+    });
+    const { setNodeRef: setDropRef, isOver } = useDroppable({
+      id: dept.id,
+    });
+
     const children = getChildDepartments(dept.id);
     const jobs = getJobsForDepartment(dept.id);
     const directUsers = getUsersDirectlyInDepartment(dept.id);
+    const deptColor = dept.color || '#6366f1';
+
+    const style = transform ? {
+      transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    } : undefined;
 
     return (
       <div className="flex flex-col items-center">
         {/* Department Box */}
         <div
+          ref={(node) => {
+            setDragRef(node);
+            setDropRef(node);
+          }}
+          style={{
+            ...style,
+            backgroundColor: deptColor,
+          }}
           className={cn(
             "relative px-6 py-3 rounded-lg text-white font-semibold text-center min-w-[180px] transition-all hover:shadow-lg group",
-            isRoot ? "bg-primary" : "bg-primary/80"
+            isDragging && "opacity-50 shadow-2xl z-50",
+            isOver && "ring-2 ring-white ring-offset-2"
           )}
+          {...attributes}
         >
+          {/* Drag Handle */}
+          <div 
+            {...listeners}
+            className="absolute -left-2 top-1/2 -translate-y-1/2 h-8 w-4 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 rounded"
+            title={language === 'ar' ? 'اسحب لإعادة الترتيب' : 'Drag to reorder'}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+
           <div className="text-sm font-bold">{dept.department_name}</div>
           <div className="text-xs opacity-80">{dept.department_code}</div>
           
           {/* Action buttons - visible on hover */}
           <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Color Picker */}
+            <Popover open={colorPickerDeptId === dept.id} onOpenChange={(open) => setColorPickerDeptId(open ? dept.id : null)}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="h-6 w-6 rounded-full shadow-md"
+                  onClick={(e) => e.stopPropagation()}
+                  title={language === 'ar' ? 'تغيير اللون' : 'Change Color'}
+                >
+                  <Palette className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" onClick={(e) => e.stopPropagation()}>
+                <div className="grid grid-cols-6 gap-1">
+                  {DEPARTMENT_COLORS.map(color => (
+                    <button
+                      key={color}
+                      className={cn(
+                        "h-6 w-6 rounded-full border-2 transition-transform hover:scale-110",
+                        deptColor === color ? "border-foreground" : "border-transparent"
+                      )}
+                      style={{ backgroundColor: color }}
+                      onClick={() => handleColorChange(dept.id, color)}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               size="icon"
               variant="secondary"
@@ -665,11 +832,11 @@ const CompanyHierarchy = () => {
               
               {/* Children with their vertical connectors */}
               <div className="flex gap-12">
-                {children.map((child, index) => (
+                {children.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).map((child) => (
                   <div key={child.id} className="relative flex flex-col items-center">
                     {/* Vertical line up to horizontal connector */}
                     <div className="w-0.5 h-8 bg-border" />
-                    <OrgChartNode dept={child} />
+                    <DraggableDeptNode dept={child} />
                   </div>
                 ))}
               </div>
@@ -781,11 +948,13 @@ const CompanyHierarchy = () => {
                 : 'No departments found. Click "Add Main Department" to start.'}
             </div>
           ) : (
-            <div className="flex justify-center gap-16 p-8 min-w-max">
-              {rootDepartments.map(dept => (
-                <OrgChartNode key={dept.id} dept={dept} isRoot />
-              ))}
-            </div>
+            <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <div className="flex justify-center gap-16 p-8 min-w-max">
+                {rootDepartments.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).map(dept => (
+                  <DraggableDeptNode key={dept.id} dept={dept} isRoot />
+                ))}
+              </div>
+            </DndContext>
           )}
         </CardContent>
       </Card>
