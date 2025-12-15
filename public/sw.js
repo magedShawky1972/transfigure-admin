@@ -45,6 +45,10 @@ self.addEventListener('fetch', function(event) {
 
 // Listen for messages from the main app
 self.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  
   if (event.data && event.data.type === 'CLEAR_CACHE') {
     console.log('Clearing all caches...');
     event.waitUntil(
