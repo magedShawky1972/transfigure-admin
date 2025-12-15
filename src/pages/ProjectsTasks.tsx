@@ -593,6 +593,29 @@ const ProjectsTasks = () => {
     }
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      // First check if project has any tasks
+      const { data: projectTasks } = await supabase.from('tasks').select('id').eq('project_id', projectId);
+      if (projectTasks && projectTasks.length > 0) {
+        toast({ 
+          title: language === 'ar' ? 'لا يمكن حذف المشروع' : 'Cannot delete project', 
+          description: language === 'ar' ? 'يحتوي المشروع على مهام' : 'Project has tasks',
+          variant: 'destructive' 
+        });
+        return;
+      }
+      
+      await supabase.from('projects').delete().eq('id', projectId);
+      toast({ title: language === 'ar' ? 'تم حذف المشروع' : 'Project deleted' });
+      setProjectDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+    }
+  };
+
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setTaskForm({
@@ -611,6 +634,19 @@ const ProjectsTasks = () => {
       video_attachments: task.video_attachments || []
     });
     setTaskDialogOpen(true);
+  };
+
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project);
+    setProjectForm({
+      name: project.name,
+      description: project.description || '',
+      department_id: project.department_id,
+      status: project.status,
+      start_date: project.start_date ? new Date(project.start_date) : null,
+      end_date: project.end_date ? new Date(project.end_date) : null
+    });
+    setProjectDialogOpen(true);
   };
 
   const resetProjectForm = () => {
@@ -724,9 +760,20 @@ const ProjectsTasks = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>{t.cancel}</Button>
-                      <Button onClick={handleSaveProject}>{t.save}</Button>
+                    <div className="flex gap-2 justify-between">
+                      {editingProject && (
+                        <Button 
+                          variant="destructive" 
+                          onClick={() => handleDeleteProject(editingProject.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          {t.delete}
+                        </Button>
+                      )}
+                      <div className="flex gap-2 ml-auto">
+                        <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>{t.cancel}</Button>
+                        <Button onClick={handleSaveProject}>{t.save}</Button>
+                      </div>
                     </div>
                   </div>
                 </DialogContent>
@@ -923,6 +970,37 @@ const ProjectsTasks = () => {
                 </Avatar>
               )}
             </div>
+
+            {/* Projects List */}
+            {projects.filter(p => p.department_id === selectedDepartment).length > 0 && (
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-sm text-muted-foreground">{t.projects}:</span>
+                <div className="flex flex-wrap gap-2">
+                  {projects.filter(p => p.department_id === selectedDepartment).map(project => (
+                    <Badge 
+                      key={project.id} 
+                      variant="outline" 
+                      className="gap-1 pr-1 cursor-pointer hover:bg-muted"
+                      onClick={() => handleEditProject(project)}
+                    >
+                      <FolderKanban className="h-3 w-3" />
+                      {project.name}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 ml-1 hover:bg-destructive/20 hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProject(project.id);
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
