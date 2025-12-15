@@ -548,7 +548,7 @@ const AdminTickets = () => {
         console.error('Error creating task from ticket:', taskError);
       }
 
-      // Send notification to assigned user
+      // Send ticket assignment notification
       await supabase.functions.invoke("send-ticket-notification", {
         body: {
           type: "ticket_assigned",
@@ -556,6 +556,34 @@ const AdminTickets = () => {
           recipientUserId: userId,
         },
       });
+
+      // Send in-app notification for the task
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        title: language === 'ar' ? 'مهمة جديدة من تذكرة' : 'New Task from Ticket',
+        message: language === 'ar' 
+          ? `تم تعيين مهمة جديدة لك من تذكرة: ${ticket.subject}`
+          : `A new task has been assigned to you from ticket: ${ticket.subject}`,
+        type: 'task_assigned',
+        ticket_id: ticketId,
+        is_read: false
+      });
+
+      // Send push notification for the task
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            userId: userId,
+            title: language === 'ar' ? 'مهمة جديدة من تذكرة' : 'New Task from Ticket',
+            body: language === 'ar' 
+              ? `تم تعيين مهمة جديدة لك: ${ticket.subject}`
+              : `A new task has been assigned to you: ${ticket.subject}`,
+            data: { type: 'task_assigned', ticketId: ticketId }
+          }
+        });
+      } catch (pushErr) {
+        console.error('Push notification error:', pushErr);
+      }
 
       toast({
         title: language === 'ar' ? 'تم' : 'Success',
