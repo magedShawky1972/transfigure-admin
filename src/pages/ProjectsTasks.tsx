@@ -640,14 +640,16 @@ const ProjectsTasks = () => {
         
         const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
           body: { 
-            file: base64, 
-            folder: type === 'video' ? 'Projects_Tasks/Videos' : 'Projects_Tasks/Files',
-            resourceType: type === 'video' ? 'video' : 'auto'
+            imageBase64: base64, 
+            folder: type === 'video' ? 'Edara_Projects_Videos' : 'Edara_Projects_Files',
+            resourceType: type === 'video' ? 'video' : 'raw'
           }
         });
         
         if (error) throw error;
-        uploadedFiles.push({ url: data.secure_url, name: file.name, type: file.type });
+        if (data?.error) throw new Error(data.error);
+        
+        uploadedFiles.push({ url: data.url, name: file.name, type: file.type });
       }
       
       if (type === 'file') {
