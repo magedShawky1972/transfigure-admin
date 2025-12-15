@@ -63,10 +63,11 @@ const AvatarSelector = ({ currentAvatar, onAvatarChange, userName, language = 'e
     }
 
     setUploading(true);
-    try {
-      // Convert to base64
-      const reader = new FileReader();
-      reader.onload = async () => {
+    
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
         const base64 = (reader.result as string).split(',')[1];
         
         // Upload to Cloudinary
@@ -84,17 +85,25 @@ const AvatarSelector = ({ currentAvatar, onAvatarChange, userName, language = 'e
           title: language === 'ar' ? 'تم' : 'Success',
           description: language === 'ar' ? 'تم رفع الصورة بنجاح' : 'Image uploaded successfully',
         });
-      };
-      reader.readAsDataURL(file);
-    } catch (error: any) {
+      } catch (error: any) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.onerror = () => {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: error.message,
+        description: language === 'ar' ? 'فشل في قراءة الملف' : 'Failed to read file',
         variant: "destructive",
       });
-    } finally {
       setUploading(false);
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const getInitials = (name: string) => {
