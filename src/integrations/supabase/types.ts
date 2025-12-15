@@ -2690,6 +2690,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_logins: {
+        Row: {
+          application: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          google_account: string | null
+          id: string
+          needs_otp: boolean
+          otp_mobile_number: string | null
+          password: string | null
+          updated_at: string
+          user_name: string | null
+          website: string | null
+        }
+        Insert: {
+          application: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          google_account?: string | null
+          id?: string
+          needs_otp?: boolean
+          otp_mobile_number?: string | null
+          password?: string | null
+          updated_at?: string
+          user_name?: string | null
+          website?: string | null
+        }
+        Update: {
+          application?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          google_account?: string | null
+          id?: string
+          needs_otp?: boolean
+          otp_mobile_number?: string | null
+          password?: string | null
+          updated_at?: string
+          user_name?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string

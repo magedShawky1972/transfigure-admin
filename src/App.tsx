@@ -60,6 +60,7 @@ import TaskDashboard from "./pages/TaskDashboard";
 import CompanyHierarchy from "./pages/CompanyHierarchy";
 import TransactionStatistics from "./pages/TransactionStatistics";
 import Index from "./pages/Index";
+import UserLogins from "./pages/UserLogins";
 
 const queryClient = new QueryClient();
 
@@ -126,6 +127,7 @@ const App = () => (
               <Route path="/projects-tasks" element={<ProjectsTasks />} />
               <Route path="/task-dashboard" element={<TaskDashboard />} />
               <Route path="/company-hierarchy" element={<CompanyHierarchy />} />
+              <Route path="/user-logins" element={<UserLogins />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

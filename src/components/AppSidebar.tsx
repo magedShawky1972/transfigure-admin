@@ -24,7 +24,8 @@ import {
   DollarSign,
   Gamepad2,
   FolderKanban,
-  Building2
+  Building2,
+  KeyRound
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -91,6 +92,7 @@ export function AppSidebar() {
     "/user-group-setup": "userGroupSetup",
     "/projects-tasks": "projectsTasks",
     "/company-hierarchy": "companyHierarchy",
+    "/user-logins": "userLogins",
   };
 
   useEffect(() => {
@@ -218,6 +220,7 @@ export function AppSidebar() {
       label: t("sidebar.admin"),
       items: [
         { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
+        { title: language === 'ar' ? 'بيانات تسجيل الدخول' : 'Users Logins', url: "/user-logins", icon: KeyRound },
         { title: language === 'ar' ? 'إعدادات النظام' : 'System Configuration', url: "/system-config", icon: Shield },
         { title: language === 'ar' ? 'تدريب الإغلاق' : 'Closing Training', url: "/closing-training", icon: GraduationCap },
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
