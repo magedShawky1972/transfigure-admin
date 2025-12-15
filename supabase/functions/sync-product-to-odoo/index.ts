@@ -18,7 +18,8 @@ Deno.serve(async (req) => {
       maximumOrder,
       costPrice,
       salesPrice,
-      productWeight
+      productWeight,
+      isNonStock
     } = await req.json();
 
     console.log('Syncing product to Odoo:', { product_id, sku, productName, brandCode });
@@ -101,6 +102,7 @@ Deno.serve(async (req) => {
     if (costPrice !== undefined && costPrice !== null) putBody.cost_price = costPrice;
     if (salesPrice !== undefined && salesPrice !== null) putBody.sales_price = salesPrice;
     if (productWeight !== undefined && productWeight !== null) putBody.product_weight = productWeight;
+    if (isNonStock !== undefined && isNonStock !== null) putBody.is_non_stock = isNonStock;
 
     // Try PUT first to update existing product
     console.log('Trying PUT to update product:', `${productApiUrl}/${sku}`);
@@ -180,6 +182,7 @@ Deno.serve(async (req) => {
       if (costPrice !== undefined && costPrice !== null) postBody.cost_price = costPrice;
       if (salesPrice !== undefined && salesPrice !== null) postBody.sales_price = salesPrice;
       if (productWeight !== undefined && productWeight !== null) postBody.product_weight = productWeight;
+      if (isNonStock !== undefined && isNonStock !== null) postBody.is_non_stock = isNonStock;
 
       console.log('POST body:', postBody);
 

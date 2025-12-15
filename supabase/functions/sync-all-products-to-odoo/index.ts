@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     // Fetch all active products with SKU
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, sku, product_id, product_name, brand_code, reorder_point, minimum_order_quantity, product_cost, product_price, weight')
+      .select('id, sku, product_id, product_name, brand_code, reorder_point, minimum_order_quantity, product_cost, product_price, weight, non_stock')
       .eq('status', 'active')
       .not('sku', 'is', null);
 
@@ -96,6 +96,9 @@ Deno.serve(async (req) => {
         }
         if (product.weight !== undefined && product.weight !== null) {
           putBody.product_weight = product.weight;
+        }
+        if (product.non_stock !== undefined && product.non_stock !== null) {
+          putBody.is_non_stock = product.non_stock;
         }
 
         console.log(`PUT ${productApiUrl}/${sku}`, putBody);
