@@ -808,40 +808,96 @@ const CompanyHierarchy = () => {
     setZoomLevel(prev => Math.max(prev - 0.1, 0.3));
   };
 
-  // Print handler
+  // Print handler - generates clean printable version
   const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
-
+    const title = language === 'ar' ? 'الهيكل التنظيمي' : 'Organizational Chart';
+    const activeDepartments = departments.filter(d => d.is_active && !d.is_outsource);
+    
+    // Build department hierarchy HTML
+    const buildDeptHtml = (deptId: string | null, level: number = 0): string => {
+      const children = activeDepartments.filter(d => d.parent_department_id === deptId);
+      if (children.length === 0) return '';
+      
+      return children.map(dept => {
+        const deptColor = dept.color || '#6366f1';
+        const jobs = getJobsForDepartment(dept.id);
+        const directUsers = getUsersDirectlyInDepartment(dept.id);
+        
+        const jobsHtml = jobs.map(job => {
+          const users = getUsersForJob(job.id, dept.id);
+          const usersHtml = users.map(u => 
+            `<div style="display: inline-flex; align-items: center; gap: 4px; background: #f3f4f6; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin: 2px;">
+              <span style="width: 16px; height: 16px; background: #e5e7eb; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 8px;">${u.user_name.charAt(0)}</span>
+              ${u.user_name}
+            </div>`
+          ).join('');
+          return `<div style="background: #f9fafb; padding: 6px 10px; border-radius: 6px; margin-top: 6px; border-left: 3px solid ${deptColor};">
+            <div style="font-size: 11px; font-weight: 600; color: #374151;">${job.position_name}</div>
+            ${usersHtml ? `<div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">${usersHtml}</div>` : ''}
+          </div>`;
+        }).join('');
+        
+        const directUsersHtml = directUsers.map(u => 
+          `<div style="display: inline-flex; align-items: center; gap: 4px; background: #dbeafe; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin: 2px;">
+            <span style="width: 16px; height: 16px; background: #bfdbfe; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 8px;">${u.user_name.charAt(0)}</span>
+            ${u.user_name}
+          </div>`
+        ).join('');
+        
+        const childrenHtml = buildDeptHtml(dept.id, level + 1);
+        
+        return `
+          <div style="margin: ${level === 0 ? '0' : '0 0 0 30px'}; padding: 12px; background: white; border-radius: 8px; border: 2px solid ${deptColor}; margin-bottom: 16px;">
+            <div style="background: ${deptColor}; color: white; padding: 8px 12px; border-radius: 6px; font-weight: 600; margin-bottom: 8px;">
+              ${dept.department_name}
+              <span style="font-size: 10px; opacity: 0.8; margin-${language === 'ar' ? 'right' : 'left'}: 8px;">(${dept.department_code})</span>
+            </div>
+            ${directUsersHtml ? `<div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px;">${directUsersHtml}</div>` : ''}
+            ${jobsHtml}
+            ${childrenHtml ? `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e5e7eb;">${childrenHtml}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    };
+    
+    const chartHtml = buildDeptHtml(null);
+    
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const title = language === 'ar' ? 'الهيكل التنظيمي' : 'Organizational Chart';
-    
     printWindow.document.write(`
       <!DOCTYPE html>
       <html dir="${language === 'ar' ? 'rtl' : 'ltr'}">
       <head>
         <title>${title}</title>
         <style>
+          * { box-sizing: border-box; }
           body { 
             font-family: Arial, sans-serif; 
             margin: 20px;
             background: white;
+            color: #1f2937;
           }
           .header {
             text-align: center;
             margin-bottom: 30px;
-            border-bottom: 2px solid #333;
+            border-bottom: 2px solid #6366f1;
             padding-bottom: 15px;
           }
           .header h1 {
+            margin: 0 0 8px 0;
+            color: #1f2937;
+            font-size: 24px;
+          }
+          .header p {
             margin: 0;
-            color: #333;
+            color: #6b7280;
+            font-size: 14px;
           }
           .chart-container {
-            position: relative;
-            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
           }
           @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -854,7 +910,7 @@ const CompanyHierarchy = () => {
           <p>${new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</p>
         </div>
         <div class="chart-container">
-          ${printContent.innerHTML}
+          ${chartHtml}
         </div>
       </body>
       </html>
@@ -864,7 +920,7 @@ const CompanyHierarchy = () => {
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
-    }, 250);
+    }, 300);
   };
 
   const canvasSize = getCanvasSize();
