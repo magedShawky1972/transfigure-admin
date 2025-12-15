@@ -374,13 +374,14 @@ const ProjectsTasks = () => {
       // Get all accessible department IDs (only departments user has direct access to)
       const accessibleDeptIds = [...new Set([...adminDeptIds, ...allMemberDepts])];
 
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, deptMembersRes] = await Promise.all([
+      // Fetch users with job positions to determine department from organizational chart
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
-        supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url').eq('is_active', true),
+        supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
-        supabase.from('department_members').select('department_id, user_id')
+        supabase.from('job_positions').select('id, department_id').eq('is_active', true)
       ]);
 
       // Use allDepartments from the initial fetch
@@ -402,20 +403,39 @@ const ProjectsTasks = () => {
         setProjects(filteredProjects);
       }
       
-      // Enhance users with department membership info and filter by accessible departments
-      const deptMembers = deptMembersRes.data || [];
+      // Build job position to department map from organizational chart
+      const jobPositions = jobPositionsRes.data || [];
+      const jobToDeptMap = new Map<string, string>();
+      jobPositions.forEach((jp: { id: string; department_id: string | null }) => {
+        if (jp.department_id) {
+          jobToDeptMap.set(jp.id, jp.department_id);
+        }
+      });
+      
+      // Enhance users with department info from organizational chart (job_position or default_department)
       if (usersRes.data) {
-        const usersWithMemberships = usersRes.data.map(u => ({
-          ...u,
-          departmentMemberships: deptMembers
-            .filter(dm => dm.user_id === u.user_id)
-            .map(dm => dm.department_id)
-        }));
+        const usersWithDepts = usersRes.data.map((u: any) => {
+          const deptIds: string[] = [];
+          // Add department from job position (organizational chart)
+          if (u.job_position_id && jobToDeptMap.has(u.job_position_id)) {
+            deptIds.push(jobToDeptMap.get(u.job_position_id)!);
+          }
+          // Also add default department if different
+          if (u.default_department_id && !deptIds.includes(u.default_department_id)) {
+            deptIds.push(u.default_department_id);
+          }
+          return {
+            user_id: u.user_id,
+            user_name: u.user_name,
+            default_department_id: u.default_department_id,
+            avatar_url: u.avatar_url,
+            departmentMemberships: deptIds
+          };
+        });
         
-        // Filter users to only show those in accessible departments
-        const filteredUsers = usersWithMemberships.filter(u => 
-          (u.default_department_id && accessibleDeptIds.includes(u.default_department_id)) ||
-          (u.departmentMemberships && u.departmentMemberships.some(dm => accessibleDeptIds.includes(dm)))
+        // Filter users to only show those in accessible departments (from organizational chart)
+        const filteredUsers = usersWithDepts.filter(u => 
+          u.departmentMemberships.some(deptId => accessibleDeptIds.includes(deptId))
         );
         
         setUsers(filteredUsers);
