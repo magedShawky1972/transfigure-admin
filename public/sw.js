@@ -1,5 +1,4 @@
-// Service Worker for Push Notifications and Version Management
-const CACHE_NAME = 'edara-cache-v1.3.2';
+// Service Worker for Push Notifications only
 
 self.addEventListener('install', function(event) {
   console.log('Service Worker installing...');
@@ -8,74 +7,7 @@ self.addEventListener('install', function(event) {
 
 self.addEventListener('activate', function(event) {
   console.log('Service Worker activating...');
-  event.waitUntil(
-    Promise.all([
-      clients.claim(),
-      // Clear all old caches
-      caches.keys().then(function(cacheNames) {
-        return Promise.all(
-          cacheNames.map(function(cacheName) {
-            if (cacheName !== CACHE_NAME) {
-              console.log('Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-    ])
-  );
-});
-
-// Network-first strategy - always try to get fresh content
-self.addEventListener('fetch', function(event) {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
-  
-  // Skip chrome-extension and other non-http requests
-  if (!event.request.url.startsWith('http')) return;
-  
-  // Always bypass cache for manifest.json and version checks
-  if (event.request.url.includes('manifest.json')) {
-    event.respondWith(
-      fetch(event.request, { cache: 'no-store' })
-    );
-    return;
-  }
-  
-  event.respondWith(
-    fetch(event.request)
-      .catch(function() {
-        // If network fails, try cache as fallback
-        return caches.match(event.request);
-      })
-  );
-});
-
-// Listen for messages from the main app
-self.addEventListener('message', function(event) {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-  
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
-    console.log('Clearing all caches...');
-    event.waitUntil(
-      caches.keys().then(function(cacheNames) {
-        return Promise.all(
-          cacheNames.map(function(cacheName) {
-            return caches.delete(cacheName);
-          })
-        );
-      }).then(function() {
-        // Notify all clients to reload
-        return clients.matchAll().then(function(clientList) {
-          clientList.forEach(function(client) {
-            client.postMessage({ type: 'CACHE_CLEARED' });
-          });
-        });
-      })
-    );
-  }
+  event.waitUntil(clients.claim());
 });
 
 self.addEventListener('push', function(event) {
