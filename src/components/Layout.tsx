@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Languages, LogOut, Home, Clock } from "lucide-react";
+import { Moon, Sun, Languages, LogOut, Home, Clock, RefreshCw } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -10,8 +10,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import edaraLogo from "@/assets/edara-logo.png";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { getKSAGregorianDate, getKSADate } from "@/lib/ksaTime";
-
 const getKSADateTime = () => {
   const ksaDate = getKSADate();
   
@@ -37,6 +37,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  
+  // Version check for auto-updates
+  const { updateAvailable, newVersion, applyUpdate } = useVersionCheck();
   
   // Initialize idle timeout session manager (30 minutes)
   useIdleTimeout();
@@ -158,6 +161,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         
         <main className="flex-1 flex flex-col min-w-0">
+          {/* Update Available Banner */}
+          {updateAvailable && (
+            <div className="bg-primary text-primary-foreground px-4 py-2 flex items-center justify-center gap-3">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm font-medium">
+                {language === 'ar' 
+                  ? `إصدار جديد متوفر (${newVersion})` 
+                  : `New version available (${newVersion})`}
+              </span>
+              <Button 
+                size="sm" 
+                variant="secondary" 
+                onClick={applyUpdate}
+                className="h-7"
+              >
+                {language === 'ar' ? 'تحديث الآن' : 'Update Now'}
+              </Button>
+            </div>
+          )}
+          
           <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
             {/* Main header row */}
             <div className="h-16 flex items-center justify-between px-4 md:px-6">
