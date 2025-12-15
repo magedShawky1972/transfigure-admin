@@ -358,7 +358,6 @@ const ProjectsTasks = () => {
       ])];
       
       const memberDeptIds = (memberDepsRes.data || []).map(d => d.department_id);
-      const isSystemAdmin = (userRolesRes.data || []).some(r => r.role === 'admin');
       const defaultDeptId = profileRes.data?.default_department_id;
 
       // Include default department in member departments
@@ -369,13 +368,11 @@ const ProjectsTasks = () => {
       setUserAccess({
         adminDepartments: adminDeptIds,
         memberDepartments: allMemberDepts,
-        isSystemAdmin
+        isSystemAdmin: false // Never grant full access - always use department filtering
       });
 
       // Get all accessible department IDs (only departments user has direct access to)
-      const accessibleDeptIds = isSystemAdmin 
-        ? [] // Will fetch all for system admins
-        : [...new Set([...adminDeptIds, ...allMemberDepts])];
+      const accessibleDeptIds = [...new Set([...adminDeptIds, ...allMemberDepts])];
 
       const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, deptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
@@ -390,9 +387,7 @@ const ProjectsTasks = () => {
       setDepartments(allDepartments as Department[]);
       
       // Filter accessible departments based on user access
-      const filteredDeps = isSystemAdmin 
-        ? allDepartments 
-        : allDepartments.filter(d => accessibleDeptIds.includes(d.id));
+      const filteredDeps = allDepartments.filter(d => accessibleDeptIds.includes(d.id));
       setAccessibleDepartments(filteredDeps as Department[]);
 
       // Set default department
@@ -403,9 +398,7 @@ const ProjectsTasks = () => {
 
       if (projectsRes.data) {
         // Filter projects based on accessible departments
-        const filteredProjects = isSystemAdmin 
-          ? projectsRes.data 
-          : projectsRes.data.filter(p => accessibleDeptIds.includes(p.department_id));
+        const filteredProjects = projectsRes.data.filter(p => accessibleDeptIds.includes(p.department_id));
         setProjects(filteredProjects);
       }
       
@@ -420,12 +413,10 @@ const ProjectsTasks = () => {
         }));
         
         // Filter users to only show those in accessible departments
-        const filteredUsers = isSystemAdmin
-          ? usersWithMemberships
-          : usersWithMemberships.filter(u => 
-              (u.default_department_id && accessibleDeptIds.includes(u.default_department_id)) ||
-              (u.departmentMemberships && u.departmentMemberships.some(dm => accessibleDeptIds.includes(dm)))
-            );
+        const filteredUsers = usersWithMemberships.filter(u => 
+          (u.default_department_id && accessibleDeptIds.includes(u.default_department_id)) ||
+          (u.departmentMemberships && u.departmentMemberships.some(dm => accessibleDeptIds.includes(dm)))
+        );
         
         setUsers(filteredUsers);
       }
@@ -436,8 +427,6 @@ const ProjectsTasks = () => {
         
         // Filter tasks based on user access
         const filteredTasks = tasksRes.data.filter(task => {
-          // System admin sees all
-          if (isSystemAdmin) return true;
           // Department admin sees all tasks in their departments
           if (adminDeptIds.includes(task.department_id)) return true;
           // Regular user sees only their own tasks in their department
