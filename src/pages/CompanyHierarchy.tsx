@@ -94,6 +94,8 @@ const CompanyHierarchy = () => {
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [colorPickerDeptId, setColorPickerDeptId] = useState<string | null>(null);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<Profile | null>(null);
+  const [userProfileDialogOpen, setUserProfileDialogOpen] = useState(false);
 
   // Form states
   const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "__none__" });
@@ -101,6 +103,25 @@ const CompanyHierarchy = () => {
   const [jobMode, setJobMode] = useState<"existing" | "new">("existing");
   const [selectedJobUsers, setSelectedJobUsers] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
+
+  const handleOpenUserProfile = (user: Profile) => {
+    setSelectedUserProfile(user);
+    setUserProfileDialogOpen(true);
+  };
+
+  const getUserJobPosition = (user: Profile) => {
+    if (user.job_position_id) {
+      return jobPositions.find(j => j.id === user.job_position_id)?.position_name || null;
+    }
+    return null;
+  };
+
+  const getUserDepartment = (user: Profile) => {
+    if (user.default_department_id) {
+      return departments.find(d => d.id === user.default_department_id)?.department_name || null;
+    }
+    return null;
+  };
 
   useEffect(() => {
     fetchData();
@@ -888,14 +909,17 @@ const CompanyHierarchy = () => {
 
                     {/* Users directly in department */}
                     {directUsers.length > 0 && (
-                      <div className="mt-2 flex items-center justify-center gap-1 px-2 py-1 bg-muted rounded-md">
+                      <div className="mt-2 flex items-center justify-center gap-2 px-2 py-2 bg-muted rounded-md flex-wrap">
                         {directUsers.slice(0, 4).map(user => (
                           <TooltipProvider key={user.id}>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Avatar className="h-5 w-5">
+                                <Avatar 
+                                  className="h-8 w-8 cursor-pointer ring-2 ring-background hover:ring-primary transition-all"
+                                  onClick={() => handleOpenUserProfile(user)}
+                                >
                                   <AvatarImage src={user.avatar_url || undefined} />
-                                  <AvatarFallback className="text-[8px]">{user.user_name.charAt(0)}</AvatarFallback>
+                                  <AvatarFallback className="text-xs font-medium">{user.user_name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                               </TooltipTrigger>
                               <TooltipContent>{user.user_name}</TooltipContent>
@@ -918,24 +942,27 @@ const CompanyHierarchy = () => {
                               <div className="px-2 py-1 bg-secondary text-secondary-foreground rounded text-xs text-center">
                                 <div className="font-medium">{job.position_name}</div>
                                 {jobUsers.length > 0 && (
-                                  <div className="flex items-center justify-center gap-1 mt-1">
+                                  <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
                                     {jobUsers.slice(0, 3).map(user => (
                                       <TooltipProvider key={user.id}>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <div className="relative group/user">
-                                              <Avatar className="h-4 w-4 cursor-pointer">
+                                              <Avatar 
+                                                className="h-7 w-7 cursor-pointer ring-2 ring-background hover:ring-primary transition-all"
+                                                onClick={(e) => { e.stopPropagation(); handleOpenUserProfile(user); }}
+                                              >
                                                 <AvatarImage src={user.avatar_url || undefined} />
-                                                <AvatarFallback className="text-[7px]">{user.user_name.charAt(0)}</AvatarFallback>
+                                                <AvatarFallback className="text-[10px] font-medium">{user.user_name.charAt(0)}</AvatarFallback>
                                               </Avatar>
                                               <button
                                                 onClick={(e) => { 
                                                   e.stopPropagation(); 
                                                   handleRemoveUserFromJob(user.user_id, user.user_name); 
                                                 }}
-                                                className="absolute -top-1 -right-1 h-3 w-3 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover/user:opacity-100 transition-opacity flex items-center justify-center"
+                                                className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover/user:opacity-100 transition-opacity flex items-center justify-center"
                                               >
-                                                <X className="h-2 w-2" />
+                                                <X className="h-2.5 w-2.5" />
                                               </button>
                                             </div>
                                           </TooltipTrigger>
@@ -944,7 +971,7 @@ const CompanyHierarchy = () => {
                                       </TooltipProvider>
                                     ))}
                                     {jobUsers.length > 3 && (
-                                      <span className="text-[10px] text-muted-foreground">+{jobUsers.length - 3}</span>
+                                      <span className="text-xs text-muted-foreground">+{jobUsers.length - 3}</span>
                                     )}
                                   </div>
                                 )}
@@ -1178,6 +1205,65 @@ const CompanyHierarchy = () => {
         onSelect={handleAssignUserToDept}
         title={language === 'ar' ? 'تعيين موظف للقسم' : 'Assign User to Department'}
       />
+
+      {/* User Profile Dialog */}
+      <Dialog open={userProfileDialogOpen} onOpenChange={setUserProfileDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'بطاقة الموظف' : 'Employee Card'}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedUserProfile && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <Avatar className="h-24 w-24 ring-4 ring-primary/20">
+                <AvatarImage src={selectedUserProfile.avatar_url || undefined} />
+                <AvatarFallback className="text-3xl font-bold">{selectedUserProfile.user_name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              
+              <div className="text-center space-y-1">
+                <h3 className="text-xl font-bold">{selectedUserProfile.user_name}</h3>
+                <p className="text-sm text-muted-foreground">{selectedUserProfile.email}</p>
+              </div>
+
+              <div className="w-full space-y-3 mt-2">
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Briefcase className="h-4 w-4" />
+                    {language === 'ar' ? 'الوظيفة' : 'Job Position'}
+                  </span>
+                  <span className="font-medium">{getUserJobPosition(selectedUserProfile) || (language === 'ar' ? 'غير معين' : 'Not Assigned')}</span>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    {language === 'ar' ? 'القسم' : 'Department'}
+                  </span>
+                  <span className="font-medium">{getUserDepartment(selectedUserProfile) || (language === 'ar' ? 'غير معين' : 'Not Assigned')}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    {language === 'ar' ? 'الحالة' : 'Status'}
+                  </span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-xs font-medium",
+                    selectedUserProfile.is_active 
+                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" 
+                      : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                  )}>
+                    {selectedUserProfile.is_active 
+                      ? (language === 'ar' ? 'نشط' : 'Active') 
+                      : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
