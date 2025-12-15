@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 // This version is embedded at build time
-const BUILD_VERSION = '1.3.1';
+const BUILD_VERSION = '1.3.2';
 
 export const useVersionCheck = () => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
