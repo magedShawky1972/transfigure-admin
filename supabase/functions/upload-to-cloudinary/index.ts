@@ -66,8 +66,13 @@ serve(async (req) => {
     console.log(`Generated signature for Cloudinary ${resourceType} upload`);
 
     // Prepare form data for upload
+    // Cloudinary requires base64 data to have the data URI prefix
+    const fileData = imageBase64.startsWith('data:') 
+      ? imageBase64 
+      : `data:${resourceType === 'video' ? 'video/mp4' : 'image/jpeg'};base64,${imageBase64}`;
+    
     const formData = new FormData();
-    formData.append('file', imageBase64);
+    formData.append('file', fileData);
     formData.append('api_key', apiKey);
     formData.append('timestamp', timestamp.toString());
     formData.append('signature', signature);
