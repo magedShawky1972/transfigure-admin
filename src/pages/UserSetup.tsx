@@ -7,14 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -1036,73 +1028,100 @@ const UserSetup = () => {
         </div>
       )}
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User Name</TableHead>
-              <TableHead>Email</TableHead>
-              {canViewPasswords && <TableHead>Password</TableHead>}
-              <TableHead>Job Position</TableHead>
-              <TableHead>Mobile Number</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredProfiles.map((profile) => (
-              <TableRow key={profile.id}>
-                <TableCell className="font-medium">{profile.user_name}</TableCell>
-                <TableCell>{profile.email}</TableCell>
-                {canViewPasswords && <TableCell className="font-mono text-muted-foreground">123456</TableCell>}
-                <TableCell>{profile.job_position_name || "-"}</TableCell>
-                <TableCell>{profile.mobile_number || "-"}</TableCell>
-                <TableCell>
-                  <Switch
-                    checked={profile.is_active}
-                    onCheckedChange={() => handleToggleStatus(profile)}
-                  />
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSecurityClick(profile)}
-                      title="Security"
-                    >
-                      <Shield className="h-4 w-4" />
-                    </Button>
-                    {isCurrentUserAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleResetPassword(profile)}
-                        title="Reset Password to 123456"
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(profile)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(profile.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filteredProfiles.map((profile) => (
+          <div 
+            key={profile.id} 
+            className={cn(
+              "rounded-xl border bg-card p-4 flex flex-col items-center gap-3 transition-all hover:shadow-lg hover:border-primary/30",
+              !profile.is_active && "opacity-60"
+            )}
+          >
+            {/* Avatar */}
+            <Avatar className="h-20 w-20 border-4 border-primary/20">
+              <AvatarImage src={profile.avatar_url || undefined} alt={profile.user_name} />
+              <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
+                {profile.user_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+
+            {/* User Info */}
+            <div className="text-center space-y-1 w-full">
+              <h3 className="font-semibold text-lg truncate">{profile.user_name}</h3>
+              <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
+              {profile.job_position_name && (
+                <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                  {profile.job_position_name}
+                </span>
+              )}
+              {profile.default_department_name && (
+                <p className="text-xs text-muted-foreground">{profile.default_department_name}</p>
+              )}
+              {profile.mobile_number && (
+                <p className="text-xs text-muted-foreground">{profile.mobile_number}</p>
+              )}
+              {canViewPasswords && (
+                <p className="text-xs font-mono text-muted-foreground">Pass: 123456</p>
+              )}
+            </div>
+
+            {/* Status Badge */}
+            <div className="flex items-center gap-2">
+              {profile.is_admin && (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  Admin
+                </span>
+              )}
+              <span className={cn(
+                "px-2 py-0.5 text-xs rounded-full",
+                profile.is_active 
+                  ? "bg-green-500/20 text-green-600 dark:text-green-400" 
+                  : "bg-red-500/20 text-red-600 dark:text-red-400"
+              )}>
+                {profile.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 pt-2 border-t w-full justify-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleSecurityClick(profile)}
+                title="Security"
+              >
+                <Shield className="h-4 w-4" />
+              </Button>
+              {isCurrentUserAdmin && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleResetPassword(profile)}
+                  title="Reset Password"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleEdit(profile)}
+                title="Edit"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDelete(profile.id)}
+                title="Delete"
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
       </div>
 
       <Dialog open={securityDialogOpen} onOpenChange={setSecurityDialogOpen}>
