@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 
+// This version is embedded at build time
+const BUILD_VERSION = '1.3.1';
+
 export const useVersionCheck = () => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [currentVersion, setCurrentVersion] = useState<string>('');
   const [newVersion, setNewVersion] = useState<string>('');
 
   const checkForUpdates = useCallback(async () => {
     try {
       // Fetch manifest with cache-busting query param
-      const response = await fetch(`/manifest.json?t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        }
+      const response = await fetch(`/manifest.json?_=${Date.now()}`, {
+        cache: 'no-store'
       });
       
       if (!response.ok) return;
@@ -21,18 +19,13 @@ export const useVersionCheck = () => {
       const manifest = await response.json();
       const serverVersion = manifest.version || '';
       
-      // Get stored version from localStorage
-      const storedVersion = localStorage.getItem('app_version');
+      console.log('Version check:', { buildVersion: BUILD_VERSION, serverVersion });
       
-      if (!storedVersion) {
-        // First time - store current version
-        localStorage.setItem('app_version', serverVersion);
-        setCurrentVersion(serverVersion);
-      } else if (storedVersion !== serverVersion) {
-        // New version available
-        setCurrentVersion(storedVersion);
+      // Compare server version with build version
+      if (serverVersion && serverVersion !== BUILD_VERSION) {
         setNewVersion(serverVersion);
         setUpdateAvailable(true);
+        console.log('Update available:', serverVersion);
       }
     } catch (error) {
       console.error('Version check failed:', error);
@@ -49,33 +42,26 @@ export const useVersionCheck = () => {
       });
     }
     
-    // Update stored version
-    localStorage.setItem('app_version', newVersion);
-    
     // Unregister service worker and reload
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then((registrations) => {
         registrations.forEach((registration) => {
           registration.unregister();
         });
-        // Force reload from server
-        window.location.reload();
+        // Force hard reload
+        window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now();
       });
     } else {
-      window.location.reload();
+      window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now();
     }
-  }, [newVersion]);
-
-  const dismissUpdate = useCallback(() => {
-    setUpdateAvailable(false);
   }, []);
 
   useEffect(() => {
     // Check immediately on mount
     checkForUpdates();
     
-    // Check every 60 seconds
-    const interval = setInterval(checkForUpdates, 60000);
+    // Check every 30 seconds
+    const interval = setInterval(checkForUpdates, 30000);
     
     // Also check when window regains focus
     const handleFocus = () => checkForUpdates();
@@ -89,9 +75,8 @@ export const useVersionCheck = () => {
 
   return {
     updateAvailable,
-    currentVersion,
+    currentVersion: BUILD_VERSION,
     newVersion,
-    applyUpdate,
-    dismissUpdate
+    applyUpdate
   };
 };
