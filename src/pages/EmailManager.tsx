@@ -164,6 +164,7 @@ const EmailManager = () => {
   const [syncProgressCurrent, setSyncProgressCurrent] = useState(0);
   const [syncProgressTotal, setSyncProgressTotal] = useState(0);
   const syncAbortRef = useRef(false);
+  const autoSyncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // clear emails
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
@@ -430,28 +431,56 @@ const EmailManager = () => {
     }
   };
 
-  const syncEmailsFromServer = async () => {
+  // Get the latest email date from database for incremental sync
+  const getLatestEmailDate = async (folder: string): Promise<string | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("emails")
+        .select("email_date")
+        .eq("user_id", user.id)
+        .eq("folder", folder)
+        .order("email_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return data.email_date;
+    } catch (error) {
+      console.error("Error getting latest email date:", error);
+      return null;
+    }
+  };
+
+  const syncEmailsFromServer = async (isAutoSync = false) => {
     if (!userConfig?.mail_type || !userConfig.email_password) {
-      toast.error(isArabic ? "إعدادات البريد غير مكتملة" : "Email settings incomplete");
+      if (!isAutoSync) {
+        toast.error(isArabic ? "إعدادات البريد غير مكتملة" : "Email settings incomplete");
+      }
       return;
     }
 
-    // Reset abort flag and open progress dialog
-    syncAbortRef.current = false;
-    setIsSyncProgressOpen(true);
-    setSyncProgressCurrent(0);
-    setSyncProgressTotal(0);
+    // Don't show progress dialog for auto-sync
+    if (!isAutoSync) {
+      syncAbortRef.current = false;
+      setIsSyncProgressOpen(true);
+      setSyncProgressCurrent(0);
+      setSyncProgressTotal(0);
+    }
     setSyncing(true);
 
     try {
       const folder = activeTab === "sent" ? "Sent" : "INBOX";
-      let currentOffset = 0;
-      let totalEmails = 0;
-      let totalFetched = 0;
-      let totalSaved = 0;
+      
+      // Get latest email date for incremental sync
+      const sinceDate = await getLatestEmailDate(folder);
+      const incrementalOnly = !!sinceDate;
+      
+      console.log(`Syncing emails (incremental: ${incrementalOnly}, since: ${sinceDate})`);
 
-      // First call to get total count
-      const { data: firstData, error: firstError } = await supabase.functions.invoke("fetch-emails-imap", {
+      const { data, error } = await supabase.functions.invoke("fetch-emails-imap", {
         body: {
           imapHost: userConfig.mail_type.imap_host,
           imapPort: userConfig.mail_type.imap_port,
@@ -461,73 +490,80 @@ const EmailManager = () => {
           folder,
           limit: syncLimit,
           offset: 0,
+          sinceDate,
+          incrementalOnly,
         },
       });
 
-      if (firstError) throw firstError;
-      if (!firstData?.success) throw new Error(firstData?.error || "Unknown error");
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Unknown error");
 
-      totalEmails = firstData.total ?? firstData.fetched;
-      totalFetched += firstData.fetched;
-      totalSaved += firstData.saved;
-      currentOffset = syncLimit;
+      const totalFetched = data.fetched;
+      const totalSaved = data.saved;
+      const totalEmails = data.total;
 
-      setSyncProgressTotal(totalEmails);
-      setSyncProgressCurrent(Math.min(totalFetched, totalEmails));
-
-      // Continue fetching remaining batches
-      while (currentOffset < totalEmails && !syncAbortRef.current) {
-        const { data, error } = await supabase.functions.invoke("fetch-emails-imap", {
-          body: {
-            imapHost: userConfig.mail_type.imap_host,
-            imapPort: userConfig.mail_type.imap_port,
-            imapSecure: userConfig.mail_type.imap_secure,
-            email: userConfig.email,
-            emailPassword: userConfig.email_password,
-            folder,
-            limit: syncLimit,
-            offset: currentOffset,
-          },
-        });
-
-        if (error) throw error;
-        if (!data?.success) throw new Error(data?.error || "Unknown error");
-
-        totalFetched += data.fetched;
-        totalSaved += data.saved;
-        currentOffset += syncLimit;
-
-        setSyncProgressCurrent(Math.min(totalFetched, totalEmails));
-
-        // Small delay to prevent overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (!isAutoSync) {
+        setSyncProgressTotal(totalEmails);
+        setSyncProgressCurrent(totalFetched);
       }
 
-      if (!syncAbortRef.current) {
+      if (totalSaved > 0) {
         toast.success(
           isArabic
-            ? `تم جلب ${totalFetched} رسالة (${totalSaved} جديدة)`
-            : `Fetched ${totalFetched} emails (${totalSaved} new)`
+            ? `تم جلب ${totalSaved} رسالة جديدة`
+            : `Fetched ${totalSaved} new emails`
+        );
+      } else if (!isAutoSync) {
+        toast.info(
+          isArabic
+            ? "لا توجد رسائل جديدة"
+            : "No new emails"
         );
       }
 
-      setSyncOffset(currentOffset);
+      setSyncOffset(0);
       setServerTotal(totalEmails);
 
       await fetchEmails();
       await fetchEmailCounts();
     } catch (error: any) {
       console.error("Error syncing emails:", error);
-      toast.error(
-        isArabic
-          ? `خطأ في مزامنة البريد: ${error?.message || ""}`
-          : `Error syncing emails: ${error?.message || ""}`
-      );
+      if (!isAutoSync) {
+        toast.error(
+          isArabic
+            ? `خطأ في مزامنة البريد: ${error?.message || ""}`
+            : `Error syncing emails: ${error?.message || ""}`
+        );
+      }
     } finally {
       setSyncing(false);
-      setIsSyncProgressOpen(false);
+      if (!isAutoSync) {
+        setIsSyncProgressOpen(false);
+      }
     }
   };
+
+  // Auto-sync every 5 minutes
+  useEffect(() => {
+    if (userConfig?.mail_type && userConfig?.email_password) {
+      // Clear any existing interval
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+      }
+
+      // Set up auto-sync every 5 minutes (300000ms)
+      autoSyncIntervalRef.current = setInterval(() => {
+        console.log("Auto-sync triggered");
+        syncEmailsFromServer(true);
+      }, 5 * 60 * 1000);
+
+      return () => {
+        if (autoSyncIntervalRef.current) {
+          clearInterval(autoSyncIntervalRef.current);
+        }
+      };
+    }
+  }, [userConfig, activeTab]);
 
   const handleCancelSync = () => {
     syncAbortRef.current = true;
