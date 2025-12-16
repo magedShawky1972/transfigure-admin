@@ -249,18 +249,32 @@ const AsusTawasoul = () => {
       }));
       setMessages(messagesWithSenders);
       
-      // Mark messages as read
-      await supabase
-        .from('internal_messages')
-        .update({ is_read: true })
-        .eq('conversation_id', conversationId)
-        .neq('sender_id', currentUserId);
-      
-      await supabase
-        .from('internal_conversation_participants')
-        .update({ last_read_at: new Date().toISOString() })
-        .eq('conversation_id', conversationId)
-        .eq('user_id', currentUserId);
+      // Mark messages as read (via backend function to avoid permission/RLS issues)
+      try {
+        const { data: markData, error: markError } = await supabase.functions.invoke(
+          'mark-internal-messages-read',
+          {
+            body: { conversationId }
+          }
+        );
+        if (markError) {
+          console.error('Mark read error:', markError);
+        } else {
+          console.log('Marked messages as read:', markData);
+        }
+      } catch (e) {
+        console.error('Mark read invoke error:', e);
+      }
+
+      // Optimistically update unread counters
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, unread_count: 0 } : c))
+      );
+      setSelectedConversation((prev) => (prev && prev.id === conversationId ? { ...prev, unread_count: 0 } : prev));
+
+      if (currentUserId) {
+        await fetchConversations(currentUserId);
+      }
     }
   };
 
