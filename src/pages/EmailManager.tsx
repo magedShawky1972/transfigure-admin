@@ -698,31 +698,40 @@ const EmailManager = () => {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate">
-                            {decodeMimeWord(email.from_name || '') || email.from_address}
+                            {decodeMimeWord(email.from_name || "") || email.from_address}
                           </p>
                           <p className="text-sm truncate font-medium">
-                            {decodeMimeWord(email.subject || '') || (isArabic ? "(بدون موضوع)" : "(No subject)")}
+                            {decodeMimeWord(email.subject || "") ||
+                              (isArabic ? "(بدون موضوع)" : "(No subject)")}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {decodeMimeWord(email.body_text || '')?.substring(0, 50) || '...'}
+                            {decodeMimeWord(email.body_text || "")?.substring(0, 50) || "..."}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {format(new Date(email.email_date), "MMM d, h:mm a")}
                           </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleStar(email);
-                            }}
-                          >
-                            <Star
-                              className={`h-4 w-4 ${
-                                email.is_starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
-                              }`}
-                            />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {email.has_attachments && (
+                              <Paperclip className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleStar(email);
+                              }}
+                              aria-label={isArabic ? "تمييز" : "Star"}
+                            >
+                              <Star
+                                className={`h-4 w-4 ${
+                                  email.is_starred
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-muted-foreground"
+                                }`}
+                              />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
