@@ -112,6 +112,7 @@ interface UserPermission {
   { key: "userLogins", label: "Users Logins" },
   { key: "userEmails", label: "Users & Mails" },
   { key: "asusTawasoul", label: "Asus Tawasoul" },
+  { key: "emailManager", label: "Email Manager" },
   { key: "systemConfig", label: "System Configuration" },
   { key: "closingTraining", label: "Closing Training" },
   { key: "odooSetup", label: "Odoo Setup" },
