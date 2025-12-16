@@ -20,14 +20,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Copy, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface UserEmail {
   id: string;
@@ -35,6 +42,8 @@ interface UserEmail {
   email: string;
   password: string | null;
   host: string;
+  description: string | null;
+  owner: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -50,17 +59,30 @@ const UserEmails = () => {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [pendingPasswordId, setPendingPasswordId] = useState<string | null>(null);
   const [verificationPassword, setVerificationPassword] = useState("");
+  const [hostOptions, setHostOptions] = useState<string[]>(["Hostinger", "Google"]);
+  const [hostOpen, setHostOpen] = useState(false);
+  const [newHostValue, setNewHostValue] = useState("");
 
   const [formData, setFormData] = useState({
     user_name: "",
     email: "",
     password: "",
     host: "Hostinger",
+    description: "",
+    owner: "",
   });
 
   useEffect(() => {
     fetchUserEmails();
   }, []);
+
+  useEffect(() => {
+    // Extract unique hosts from existing data
+    const existingHosts = new Set(userEmails.map(e => e.host).filter(Boolean));
+    const defaultHosts = ["Hostinger", "Google"];
+    const allHosts = [...new Set([...defaultHosts, ...existingHosts])];
+    setHostOptions(allHosts);
+  }, [userEmails]);
 
   const fetchUserEmails = async () => {
     try {
@@ -86,6 +108,8 @@ const UserEmails = () => {
       email: "",
       password: "",
       host: "Hostinger",
+      description: "",
+      owner: "",
     });
     setIsDialogOpen(true);
   };
@@ -97,6 +121,8 @@ const UserEmails = () => {
       email: userEmail.email,
       password: userEmail.password || "",
       host: userEmail.host,
+      description: userEmail.description || "",
+      owner: userEmail.owner || "",
     });
     setIsDialogOpen(true);
   };
@@ -116,6 +142,8 @@ const UserEmails = () => {
             email: formData.email,
             password: formData.password || null,
             host: formData.host,
+            description: formData.description || null,
+            owner: formData.owner || null,
           })
           .eq("id", editingEmail.id);
 
@@ -127,6 +155,8 @@ const UserEmails = () => {
           email: formData.email,
           password: formData.password || null,
           host: formData.host,
+          description: formData.description || null,
+          owner: formData.owner || null,
         });
 
         if (error) throw error;
@@ -185,11 +215,23 @@ const UserEmails = () => {
     toast.success(language === "ar" ? "تم نسخ كلمة المرور" : "Password copied");
   };
 
+  const handleAddNewHost = () => {
+    if (newHostValue.trim() && !hostOptions.includes(newHostValue.trim())) {
+      const newHost = newHostValue.trim();
+      setHostOptions([...hostOptions, newHost]);
+      setFormData({ ...formData, host: newHost });
+      setNewHostValue("");
+      setHostOpen(false);
+    }
+  };
+
   const filteredEmails = userEmails.filter(
     (item) =>
       item.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.host.toLowerCase().includes(searchTerm.toLowerCase())
+      item.host.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.owner || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -225,6 +267,8 @@ const UserEmails = () => {
                 <TableHead>{language === "ar" ? "البريد الإلكتروني" : "Email"}</TableHead>
                 <TableHead>{language === "ar" ? "كلمة المرور" : "Password"}</TableHead>
                 <TableHead>{language === "ar" ? "الاستضافة" : "Host"}</TableHead>
+                <TableHead>{language === "ar" ? "الوصف" : "Description"}</TableHead>
+                <TableHead>{language === "ar" ? "المالك" : "Owner"}</TableHead>
                 <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
@@ -263,6 +307,8 @@ const UserEmails = () => {
                     </div>
                   </TableCell>
                   <TableCell>{item.host}</TableCell>
+                  <TableCell>{item.description || "-"}</TableCell>
+                  <TableCell>{item.owner || "-"}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="outline" size="icon" onClick={() => handleEdit(item)}>
@@ -277,7 +323,7 @@ const UserEmails = () => {
               ))}
               {filteredEmails.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {language === "ar" ? "لا توجد بيانات" : "No data found"}
                   </TableCell>
                 </TableRow>
@@ -327,18 +373,76 @@ const UserEmails = () => {
             </div>
             <div>
               <Label>{language === "ar" ? "الاستضافة" : "Host"}</Label>
-              <Select
-                value={formData.host}
-                onValueChange={(value) => setFormData({ ...formData, host: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Hostinger">Hostinger</SelectItem>
-                  <SelectItem value="Google">Google</SelectItem>
-                </SelectContent>
-              </Select>
+              <Popover open={hostOpen} onOpenChange={setHostOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={hostOpen}
+                    className="w-full justify-between"
+                  >
+                    {formData.host || (language === "ar" ? "اختر الاستضافة..." : "Select host...")}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder={language === "ar" ? "بحث أو إضافة جديد..." : "Search or add new..."} 
+                      value={newHostValue}
+                      onValueChange={setNewHostValue}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        <div className="p-2">
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start"
+                            onClick={handleAddNewHost}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {language === "ar" ? `إضافة "${newHostValue}"` : `Add "${newHostValue}"`}
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {hostOptions.map((host) => (
+                          <CommandItem
+                            key={host}
+                            value={host}
+                            onSelect={() => {
+                              setFormData({ ...formData, host });
+                              setHostOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.host === host ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {host}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>{language === "ar" ? "الوصف" : "Description"}</Label>
+              <Input
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>{language === "ar" ? "المالك" : "Owner"}</Label>
+              <Input
+                value={formData.owner}
+                onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter>
