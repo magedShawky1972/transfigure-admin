@@ -110,7 +110,6 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string } {
   };
 
   const headerValue = (headers: string, name: string): string | null => {
-    // Match only real header lines (start-of-line), with simple folded header support.
     const re = new RegExp(`(?:^|\\r?\\n)${name}:\\s*([^\\r\\n]+(?:\\r?\\n[\\t ].+)*)`, "i");
     const m = headers.match(re);
     if (!m) return null;
@@ -126,10 +125,19 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string } {
 
   const splitMultipartBody = (body: string, boundary: string): string[] => {
     const esc = boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Split on boundary lines. This is intentionally permissive about whitespace/newlines.
     const re = new RegExp(`\\r?\\n--${esc}(?:--)?\\s*\\r?\\n`, "g");
     const parts = ("\r\n" + body).split(re);
     return parts.map((p) => p.trim()).filter(Boolean);
+  };
+
+  // Check if content looks like actual body content (not headers/MIME artifacts)
+  const isValidBodyContent = (content: string): boolean => {
+    if (!content || content.length < 3) return false;
+    // Skip if it looks like a Content-Type header value
+    if (/^text\/(plain|html);\s*charset=/i.test(content)) return false;
+    // Skip if it starts with MIME headers
+    if (/^(Content-Type|Content-Transfer-Encoding|MIME-Version):/im.test(content)) return false;
+    return true;
   };
 
   const parseMimeRecursive = (part: string): { text: string; html: string } => {
@@ -158,12 +166,14 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string } {
 
         if (pType.startsWith("multipart/")) {
           const nested = parseMimeRecursive(pTrim);
-          if (!textContent && nested.text) textContent = nested.text;
-          if (!htmlContent && nested.html) htmlContent = nested.html;
+          if (!textContent && nested.text && isValidBodyContent(nested.text)) textContent = nested.text;
+          if (!htmlContent && nested.html && isValidBodyContent(nested.html)) htmlContent = nested.html;
         } else if (pType.includes("text/plain")) {
-          if (!textContent) textContent = decodeBodyByEncoding(ph, pb);
+          const decoded = decodeBodyByEncoding(ph, pb);
+          if (!textContent && isValidBodyContent(decoded)) textContent = decoded;
         } else if (pType.includes("text/html")) {
-          if (!htmlContent) htmlContent = decodeBodyByEncoding(ph, pb);
+          const decoded = decodeBodyByEncoding(ph, pb);
+          if (!htmlContent && isValidBodyContent(decoded)) htmlContent = decoded;
         }
 
         if (textContent && htmlContent) break;
@@ -172,8 +182,11 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string } {
       return { text: textContent, html: htmlContent };
     }
 
-    // Not multipart
+    // Not multipart - check if body is valid
     const decoded = decodeBodyByEncoding(headers, body);
+    if (!isValidBodyContent(decoded)) {
+      return { text: "", html: "" };
+    }
     if (contentType.includes("text/html")) return { text: "", html: decoded };
     return { text: decoded, html: "" };
   };
