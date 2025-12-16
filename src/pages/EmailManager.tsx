@@ -1084,11 +1084,11 @@ const EmailManager = () => {
                 </CardHeader>
                 <Separator />
                 <CardContent className="p-4 flex-1 min-h-0">
-                  <ScrollArea className="h-full">
-                    {selectedEmail.body_html ? (
+                  {selectedEmail.body_html ? (
+                    <div className="h-full min-h-0 rounded-md border overflow-hidden bg-background">
                       <iframe
                         title={isArabic ? "محتوى البريد" : "Email content"}
-                        className="w-full h-full rounded-md border"
+                        className="w-full h-full"
                         sandbox="allow-popups allow-top-navigation-by-user-activation"
                         srcDoc={`<!doctype html>
 <html lang="${isArabic ? "ar" : "en"}" dir="${isArabic ? "rtl" : "ltr"}">
@@ -1096,7 +1096,7 @@ const EmailManager = () => {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      html, body { margin: 0; padding: 0; background: #ffffff; }
+      html, body { margin: 0; padding: 0; background: #ffffff; height: 100%; }
       body {
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
         padding: 12px;
@@ -1115,16 +1115,20 @@ const EmailManager = () => {
   </body>
 </html>`}
                       />
-                    ) : selectedEmail.body_text ? (
-                      <pre className="whitespace-pre-wrap text-sm font-sans">
-                        {decodeMimeWord(selectedEmail.body_text)}
-                      </pre>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        {isArabic ? "لا يوجد محتوى" : "No content available"}
-                      </p>
-                    )}
-                  </ScrollArea>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-full">
+                      {selectedEmail.body_text ? (
+                        <pre className="whitespace-pre-wrap text-sm font-sans">
+                          {decodeMimeWord(selectedEmail.body_text)}
+                        </pre>
+                      ) : (
+                        <p className="text-muted-foreground text-sm">
+                          {isArabic ? "لا يوجد محتوى" : "No content available"}
+                        </p>
+                      )}
+                    </ScrollArea>
+                  )}
                 </CardContent>
               </>
             ) : (
