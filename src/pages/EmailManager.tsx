@@ -99,6 +99,9 @@ const EmailManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [inboxCount, setInboxCount] = useState(0);
+  const [sentCount, setSentCount] = useState(0);
+  const [starredCount, setStarredCount] = useState(0);
   
   // Compose dialog
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -134,6 +137,7 @@ const EmailManager = () => {
   useEffect(() => {
     if (userConfig?.mail_type) {
       fetchEmails();
+      fetchEmailCounts();
     }
   }, [userConfig, activeTab]);
 
@@ -217,6 +221,39 @@ const EmailManager = () => {
       setEmails(data || []);
     } catch (error) {
       console.error("Error fetching emails:", error);
+    }
+  };
+
+  const fetchEmailCounts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get inbox count
+      const { count: inbox } = await supabase
+        .from("emails")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("folder", "INBOX");
+      setInboxCount(inbox || 0);
+
+      // Get sent count
+      const { count: sent } = await supabase
+        .from("emails")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("folder", "Sent");
+      setSentCount(sent || 0);
+
+      // Get starred count
+      const { count: starred } = await supabase
+        .from("emails")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_starred", true);
+      setStarredCount(starred || 0);
+    } catch (error) {
+      console.error("Error fetching email counts:", error);
     }
   };
 
@@ -550,20 +587,42 @@ const EmailManager = () => {
         {/* Sidebar */}
         <div className="col-span-3">
           <Card>
-            <CardContent className="p-4 space-y-2">
+            <CardContent className="p-4 space-y-4">
+              {/* Email Account Info */}
+              <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
+                <p className="text-sm font-medium truncate">{userConfig?.user_name || userConfig?.email}</p>
+                <p className="text-xs text-muted-foreground truncate">{userConfig?.email}</p>
+                <p className="text-xs text-muted-foreground">{userConfig?.mail_type?.type_name}</p>
+              </div>
+              
               <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical">
                 <TabsList className="flex flex-col w-full h-auto bg-transparent gap-1">
-                  <TabsTrigger value="inbox" className="w-full justify-start gap-2">
-                    <Inbox className="h-4 w-4" />
-                    {isArabic ? "الوارد" : "Inbox"}
+                  <TabsTrigger value="inbox" className="w-full justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Inbox className="h-4 w-4" />
+                      {isArabic ? "الوارد" : "Inbox"}
+                    </span>
+                    {inboxCount > 0 && (
+                      <Badge variant="secondary" className="text-xs">{inboxCount}</Badge>
+                    )}
                   </TabsTrigger>
-                  <TabsTrigger value="sent" className="w-full justify-start gap-2">
-                    <Send className="h-4 w-4" />
-                    {isArabic ? "المرسل" : "Sent"}
+                  <TabsTrigger value="sent" className="w-full justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Send className="h-4 w-4" />
+                      {isArabic ? "المرسل" : "Sent"}
+                    </span>
+                    {sentCount > 0 && (
+                      <Badge variant="secondary" className="text-xs">{sentCount}</Badge>
+                    )}
                   </TabsTrigger>
-                  <TabsTrigger value="starred" className="w-full justify-start gap-2">
-                    <Star className="h-4 w-4" />
-                    {isArabic ? "المميز" : "Starred"}
+                  <TabsTrigger value="starred" className="w-full justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Star className="h-4 w-4" />
+                      {isArabic ? "المميز" : "Starred"}
+                    </span>
+                    {starredCount > 0 && (
+                      <Badge variant="secondary" className="text-xs">{starredCount}</Badge>
+                    )}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>

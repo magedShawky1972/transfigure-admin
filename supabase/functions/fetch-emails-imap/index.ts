@@ -16,6 +16,39 @@ interface FetchEmailsRequest {
   limit?: number;
 }
 
+// Decode MIME encoded words (=?charset?encoding?text?=)
+function decodeMimeWord(text: string): string {
+  if (!text) return text;
+  
+  // Pattern for encoded words: =?charset?encoding?encoded_text?=
+  const mimePattern = /=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi;
+  
+  return text.replace(mimePattern, (match, charset, encoding, encodedText) => {
+    try {
+      if (encoding.toUpperCase() === 'Q') {
+        // Quoted-Printable decoding
+        const decoded = encodedText
+          .replace(/_/g, ' ')
+          .replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) => 
+            String.fromCharCode(parseInt(hex, 16))
+          );
+        
+        // Convert bytes to proper charset
+        const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
+        return new TextDecoder(charset.toLowerCase()).decode(bytes);
+      } else if (encoding.toUpperCase() === 'B') {
+        // Base64 decoding
+        const decoded = atob(encodedText);
+        const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
+        return new TextDecoder(charset.toLowerCase()).decode(bytes);
+      }
+    } catch (e) {
+      console.error('MIME decode error:', e);
+    }
+    return match; // Return original if decoding fails
+  });
+}
+
 // Improved IMAP client implementation for Deno
 class IMAPClient {
   private conn: Deno.TcpConn | Deno.TlsConn | null = null;
@@ -343,11 +376,15 @@ serve(async (req) => {
       const fetchedEmails = await client.fetchEmails(startSeq, mailbox.exists);
       
       for (const fetchedEmail of fetchedEmails) {
+        // Decode MIME encoded subject and from_name
+        const decodedSubject = decodeMimeWord(fetchedEmail.subject || '');
+        const decodedFromName = decodeMimeWord(fetchedEmail.from_name || '');
+        
         const emailData = {
           message_id: `${email}-${fetchedEmail.seq}-${Date.now()}`,
-          subject: fetchedEmail.subject || '(No Subject)',
+          subject: decodedSubject || '(No Subject)',
           from_address: fetchedEmail.from_address || 'unknown@email.com',
-          from_name: fetchedEmail.from_name || '',
+          from_name: decodedFromName,
           to_addresses: [{ address: email }],
           email_date: fetchedEmail.date ? new Date(fetchedEmail.date).toISOString() : new Date().toISOString(),
           body_text: '',
