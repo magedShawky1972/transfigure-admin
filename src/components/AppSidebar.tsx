@@ -26,7 +26,8 @@ import {
   FolderKanban,
   Building2,
   KeyRound,
-  Truck
+  Truck,
+  Mail
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -95,6 +96,7 @@ export function AppSidebar() {
     "/company-hierarchy": "companyHierarchy",
     "/user-logins": "userLogins",
     "/supplier-setup": "supplierSetup",
+    "/user-emails": "userEmails",
   };
 
   useEffect(() => {
@@ -224,6 +226,7 @@ export function AppSidebar() {
       items: [
         { title: t("menu.userSetup"), url: "/user-setup", icon: Users },
         { title: language === 'ar' ? 'بيانات تسجيل الدخول' : 'Users Logins', url: "/user-logins", icon: KeyRound },
+        { title: language === 'ar' ? 'المستخدمين والبريد' : 'Users & Mails', url: "/user-emails", icon: Mail },
         { title: language === 'ar' ? 'إعدادات النظام' : 'System Configuration', url: "/system-config", icon: Shield },
         { title: language === 'ar' ? 'تدريب الإغلاق' : 'Closing Training', url: "/closing-training", icon: GraduationCap },
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },

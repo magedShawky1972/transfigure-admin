@@ -2634,6 +2634,36 @@ export type Database = {
           },
         ]
       }
+      user_emails: {
+        Row: {
+          created_at: string
+          email: string
+          host: string
+          id: string
+          password: string | null
+          updated_at: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          host?: string
+          id?: string
+          password?: string | null
+          updated_at?: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          host?: string
+          id?: string
+          password?: string | null
+          updated_at?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       user_group_members: {
         Row: {
           created_at: string
