@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { Send, Paperclip, Search, Users, X, Check, CheckCheck, MessageCircle } from "lucide-react";
 
 interface UserProfile {
@@ -771,15 +772,28 @@ const AsusTawasoul = () => {
 
       <Card className="h-[calc(100vh-140px)]">
         <CardContent className="p-0 h-full overflow-hidden">
-          <div className={`grid grid-cols-1 md:grid-cols-3 h-full ${isRTL ? "md:grid-flow-col-dense" : ""}`}>
+          <div
+            className={cn(
+              "grid grid-cols-1 md:grid-cols-3 h-full min-h-0",
+              isRTL ? "md:grid-flow-col-dense" : "",
+            )}
+          >
             <div
-              className={`border-b md:border-b-0 ${
-                isRTL ? "md:border-l md:col-start-3" : "md:border-r"
-              } h-full overflow-hidden`}
+              className={cn(
+                "border-b md:border-b-0 h-full min-h-0 overflow-hidden",
+                isRTL ? "md:border-l md:col-start-3" : "md:border-r",
+              )}
             >
               {usersList}
             </div>
-            <div className={`col-span-2 h-full ${isRTL ? "md:col-start-1 md:col-end-3" : ""}`}>{chatArea}</div>
+            <div
+              className={cn(
+                "col-span-2 h-full min-h-0 overflow-hidden",
+                isRTL ? "md:col-start-1 md:col-end-3" : "",
+              )}
+            >
+              {chatArea}
+            </div>
           </div>
         </CardContent>
       </Card>
