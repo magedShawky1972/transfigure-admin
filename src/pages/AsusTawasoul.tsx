@@ -61,6 +61,16 @@ const AsusTawasoul = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
 
+  const focusMessageInput = () => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    try {
+      (el as any).focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
+  };
+
   const translations = {
     en: {
       title: "Asus Tawasoul",
@@ -313,7 +323,7 @@ const AsusTawasoul = () => {
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
     await fetchMessages(conversation.id);
-    setTimeout(() => messageInputRef.current?.focus(), 100);
+    setTimeout(() => focusMessageInput(), 0);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -451,38 +461,36 @@ const AsusTawasoul = () => {
     });
   };
 
-  // Sort users by most recent conversation activity with CURRENT user only
+  // Sort users by most recent *message* activity with CURRENT user only
+  // (Conversations with no messages should NOT float to the top)
   const filteredUsers = users
-    .filter(u => 
-      u.user_id !== currentUserId &&
-      u.user_name.toLowerCase().includes(searchTerm.toLowerCase())
+    .filter(
+      (u) => u.user_id !== currentUserId && u.user_name.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
-      // Find existing conversations between CURRENT user and target user (both must be participants)
       const convoA = conversations.find(
-        c => !c.is_group && 
+        (c) =>
+          !c.is_group &&
           c.participants.length === 2 &&
-          c.participants.some(p => p.user_id === a.user_id) &&
-          c.participants.some(p => p.user_id === currentUserId)
+          c.participants.some((p) => p.user_id === a.user_id) &&
+          c.participants.some((p) => p.user_id === currentUserId)
       );
       const convoB = conversations.find(
-        c => !c.is_group && 
+        (c) =>
+          !c.is_group &&
           c.participants.length === 2 &&
-          c.participants.some(p => p.user_id === b.user_id) &&
-          c.participants.some(p => p.user_id === currentUserId)
+          c.participants.some((p) => p.user_id === b.user_id) &&
+          c.participants.some((p) => p.user_id === currentUserId)
       );
-      
-      // Users with conversations come first, sorted by last message time
-      const timeA = convoA?.last_message?.created_at || convoA?.created_at;
-      const timeB = convoB?.last_message?.created_at || convoB?.created_at;
-      
-      if (timeA && timeB) {
-        return new Date(timeB).getTime() - new Date(timeA).getTime();
-      }
+
+      const timeA = convoA?.last_message?.created_at; // ONLY last message time
+      const timeB = convoB?.last_message?.created_at;
+
+      if (timeA && timeB) return new Date(timeB).getTime() - new Date(timeA).getTime();
       if (timeA) return -1;
       if (timeB) return 1;
-      
-      // Users without conversations sorted by name
+
+      // No messages between current user and both users => sort by name
       return a.user_name.localeCompare(b.user_name);
     });
 
@@ -528,7 +536,7 @@ const AsusTawasoul = () => {
       };
       setSelectedConversation(newConvo);
       await fetchMessages(convId);
-      setTimeout(() => messageInputRef.current?.focus(), 100);
+      setTimeout(() => focusMessageInput(), 0);
     } catch (error) {
       console.error('Create chat error:', error);
       toast({
