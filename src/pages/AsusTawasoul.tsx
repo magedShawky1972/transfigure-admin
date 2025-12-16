@@ -485,7 +485,7 @@ const AsusTawasoul = () => {
   };
 
   const UsersList = () => (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       <div className="p-4 border-b">
         <div className="relative">
           <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
@@ -678,13 +678,13 @@ const AsusTawasoul = () => {
   );
 
   return (
-    <div className="container mx-auto py-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <h1 className="text-2xl font-bold mb-6">{t.title}</h1>
+    <div className="container mx-auto py-4" dir={isRTL ? 'rtl' : 'ltr'}>
+      <h1 className="text-2xl font-bold mb-4">{t.title}</h1>
       
-      <Card className="h-[calc(100vh-200px)]">
-        <CardContent className="p-0 h-full">
+      <Card className="h-[calc(100vh-140px)]">
+        <CardContent className="p-0 h-full overflow-hidden">
           <div className={`grid grid-cols-1 md:grid-cols-3 h-full ${isRTL ? 'md:grid-flow-col-dense' : ''}`}>
-            <div className={`border-b md:border-b-0 ${isRTL ? 'md:border-l md:col-start-3' : 'md:border-r'} h-full`}>
+            <div className={`border-b md:border-b-0 ${isRTL ? 'md:border-l md:col-start-3' : 'md:border-r'} h-full overflow-hidden`}>
               <UsersList />
             </div>
             <div className={`col-span-2 h-full ${isRTL ? 'md:col-start-1 md:col-end-3' : ''}`}>
