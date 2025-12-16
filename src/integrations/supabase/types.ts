@@ -407,6 +407,27 @@ export type Database = {
         }
         Relationships: []
       }
+      deleted_email_ids: {
+        Row: {
+          deleted_at: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          deleted_at?: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          deleted_at?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       department_admins: {
         Row: {
           admin_order: number

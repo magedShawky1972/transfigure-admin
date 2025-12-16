@@ -734,9 +734,22 @@ serve(async (req) => {
     }
     console.log(`Fetched ${emails.length} emails from ${mailbox.exists} total`);
 
+    // Fetch deleted message IDs to skip
+    const { data: deletedRows } = await supabase
+      .from("deleted_email_ids")
+      .select("message_id")
+      .eq("user_id", user.id);
+    const deletedSet = new Set((deletedRows ?? []).map((r) => r.message_id));
+
     // Save emails to database (update if exists)
     let savedCount = 0;
     for (const emailData of emails) {
+      // Skip if user previously deleted this email
+      if (deletedSet.has(emailData.message_id)) {
+        console.log(`Skipping deleted email: ${emailData.message_id}`);
+        continue;
+      }
+
       // 1) Try by message_id
       const { data: existingById } = await supabase
         .from("emails")
