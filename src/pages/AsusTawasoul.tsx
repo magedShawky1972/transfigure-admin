@@ -145,11 +145,13 @@ const AsusTawasoul = () => {
   }, [currentUserId, selectedConversation]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (selectedConversation && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, selectedConversation]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   };
 
   const fetchUsers = async () => {
@@ -182,49 +184,79 @@ const AsusTawasoul = () => {
 
     if (error || !participations) return;
 
-    const convos: Conversation[] = [];
+    const conversationIds = participations
+      .map(p => (p.internal_conversations as any)?.id)
+      .filter(Boolean);
 
-    for (const part of participations) {
-      const conv = part.internal_conversations as any;
-      if (!conv) continue;
+    if (conversationIds.length === 0) {
+      setConversations([]);
+      return;
+    }
 
-      const { data: allParticipants } = await supabase
+    // Batch fetch all participants, last messages, and unread counts
+    const [allParticipantsRes, lastMessagesRes, unreadCountsRes] = await Promise.all([
+      supabase
         .from('internal_conversation_participants')
-        .select('user_id')
-        .eq('conversation_id', conv.id);
-
-      const participantIds = allParticipants?.map(p => p.user_id) || [];
-      const { data: participantProfiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('user_id', participantIds);
-
-      const { data: lastMsg } = await supabase
+        .select('conversation_id, user_id')
+        .in('conversation_id', conversationIds),
+      supabase
         .from('internal_messages')
         .select('*')
-        .eq('conversation_id', conv.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      const { count: unreadCount } = await supabase
+        .in('conversation_id', conversationIds)
+        .order('created_at', { ascending: false }),
+      supabase
         .from('internal_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('conversation_id', conv.id)
+        .select('conversation_id', { count: 'exact' })
+        .in('conversation_id', conversationIds)
         .eq('is_read', false)
-        .neq('sender_id', userId);
+        .neq('sender_id', userId)
+    ]);
 
-      convos.push({
+    const allParticipantIds = [...new Set(allParticipantsRes.data?.map(p => p.user_id) || [])];
+    const { data: allProfiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('user_id', allParticipantIds);
+
+    const profilesMap = new Map(allProfiles?.map(p => [p.user_id, p]) || []);
+    
+    // Group last messages by conversation (take first one for each)
+    const lastMessageMap = new Map<string, any>();
+    lastMessagesRes.data?.forEach(msg => {
+      if (!lastMessageMap.has(msg.conversation_id)) {
+        lastMessageMap.set(msg.conversation_id, msg);
+      }
+    });
+
+    // Count unread per conversation
+    const unreadMap = new Map<string, number>();
+    unreadCountsRes.data?.forEach(row => {
+      unreadMap.set(row.conversation_id, (unreadMap.get(row.conversation_id) || 0) + 1);
+    });
+
+    const convos: Conversation[] = participations.map(part => {
+      const conv = part.internal_conversations as any;
+      if (!conv) return null;
+
+      const participantUserIds = allParticipantsRes.data
+        ?.filter(p => p.conversation_id === conv.id)
+        .map(p => p.user_id) || [];
+      
+      const participants = participantUserIds
+        .map(uid => profilesMap.get(uid))
+        .filter(Boolean) as UserProfile[];
+
+      return {
         id: conv.id,
         is_group: conv.is_group,
         group_id: conv.group_id,
         conversation_name: conv.conversation_name,
         created_at: conv.created_at,
-        participants: participantProfiles || [],
-        last_message: lastMsg || undefined,
-        unread_count: unreadCount || 0
-      });
-    }
+        participants,
+        last_message: lastMessageMap.get(conv.id) || undefined,
+        unread_count: unreadMap.get(conv.id) || 0
+      };
+    }).filter(Boolean) as Conversation[];
 
     convos.sort((a, b) => {
       const aTime = a.last_message?.created_at || a.created_at;
@@ -419,19 +451,25 @@ const AsusTawasoul = () => {
     });
   };
 
-  // Sort users by most recent conversation activity
+  // Sort users by most recent conversation activity with CURRENT user only
   const filteredUsers = users
     .filter(u => 
       u.user_id !== currentUserId &&
       u.user_name.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
-      // Find existing conversations for each user
+      // Find existing conversations between CURRENT user and target user (both must be participants)
       const convoA = conversations.find(
-        c => !c.is_group && c.participants.some(p => p.user_id === a.user_id)
+        c => !c.is_group && 
+          c.participants.length === 2 &&
+          c.participants.some(p => p.user_id === a.user_id) &&
+          c.participants.some(p => p.user_id === currentUserId)
       );
       const convoB = conversations.find(
-        c => !c.is_group && c.participants.some(p => p.user_id === b.user_id)
+        c => !c.is_group && 
+          c.participants.length === 2 &&
+          c.participants.some(p => p.user_id === b.user_id) &&
+          c.participants.some(p => p.user_id === currentUserId)
       );
       
       // Users with conversations come first, sorted by last message time
