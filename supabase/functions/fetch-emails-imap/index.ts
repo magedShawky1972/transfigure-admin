@@ -31,7 +31,7 @@ class IMAPClient {
 
   async connect(): Promise<void> {
     console.log(`Connecting to ${this.host}:${this.port} (secure: ${this.secure})`);
-    
+
     if (this.secure) {
       this.conn = await Deno.connectTls({
         hostname: this.host,
@@ -43,137 +43,145 @@ class IMAPClient {
         port: this.port,
       });
     }
-    
-    // Read server greeting
-    const greeting = await this.readUntilComplete();
-    console.log("Server greeting:", greeting.substring(0, 100));
+
+    const greeting = await this.readGreeting();
+    console.log("Server greeting:", greeting.substring(0, 200));
   }
 
-  private async readUntilComplete(): Promise<string> {
-    let result = "";
-    const buffer = new Uint8Array(8192);
-    
-    while (true) {
-      const n = await this.conn!.read(buffer);
-      if (n === null) break;
-      
-      result += this.decoder.decode(buffer.subarray(0, n));
-      
-      // Check if we have a complete response
-      if (result.includes("\r\n")) {
-        // For untagged responses, check if we hit an OK/NO/BAD or just * responses
-        const lines = result.split("\r\n");
-        const lastLine = lines[lines.length - 2] || lines[lines.length - 1];
-        
-        // Check for tagged response completion
-        if (lastLine.match(/^A\d+ (OK|NO|BAD)/)) {
-          break;
-        }
-        // Check for untagged greeting
-        if (lastLine.startsWith("* OK") && !result.includes("A")) {
-          break;
-        }
-      }
-    }
-    
-    return result;
-  }
-
-  private async sendCommand(command: string): Promise<string> {
-    const tag = `A${++this.tagCounter}`;
-    const fullCommand = `${tag} ${command}\r\n`;
-    
-    console.log(`Sending: ${tag} ${command.substring(0, 50)}...`);
-    
-    await this.conn!.write(this.encoder.encode(fullCommand));
-    
-    let result = "";
+  private async readWithTimeout(timeoutMs = 15000): Promise<Uint8Array | null> {
     const buffer = new Uint8Array(16384);
-    
-    while (true) {
-      const n = await this.conn!.read(buffer);
-      if (n === null) break;
-      
-      result += this.decoder.decode(buffer.subarray(0, n));
-      
-      // Check if the tagged response is complete
-      if (result.includes(`${tag} OK`) || result.includes(`${tag} NO`) || result.includes(`${tag} BAD`)) {
-        break;
-      }
+
+    const readPromise = this.conn!.read(buffer);
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), timeoutMs)
+    );
+
+    const n = (await Promise.race([readPromise, timeoutPromise])) as number | null;
+    if (n === null) return null;
+    return buffer.subarray(0, n);
+  }
+
+  private async readResponseUntil(predicate: (acc: string) => boolean, timeoutMs = 20000): Promise<string> {
+    let result = "";
+    const started = Date.now();
+
+    while (Date.now() - started < timeoutMs) {
+      const chunk = await this.readWithTimeout(5000);
+      if (chunk === null) break;
+      result += this.decoder.decode(chunk);
+      if (predicate(result)) break;
     }
-    
-    console.log(`Response (${result.length} bytes): ${result.substring(0, 200)}...`);
+
     return result;
   }
 
-  async login(user: string, pass: string): Promise<boolean> {
-    // Escape special characters in password
-    const escapedPass = pass.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const response = await this.sendCommand(`LOGIN "${user}" "${escapedPass}"`);
-    return response.includes(" OK");
+  private nextTag(): string {
+    return `A${++this.tagCounter}`;
+  }
+
+  private async readGreeting(): Promise<string> {
+    // IMAP greeting is typically a single untagged line: "* OK ..."
+    const greeting = await this.readResponseUntil(
+      (acc) => acc.includes("\r\n") && acc.trimStart().startsWith("*"),
+      10000
+    );
+    return greeting;
+  }
+
+  private async sendCommandRaw(tag: string, command: string): Promise<string> {
+    const fullCommand = `${tag} ${command}\r\n`;
+    console.log(`Sending: ${tag} ${command.substring(0, 80)}...`);
+    await this.conn!.write(this.encoder.encode(fullCommand));
+
+    const response = await this.readResponseUntil(
+      (acc) => acc.includes(`\r\n${tag} OK`) || acc.includes(`\r\n${tag} NO`) || acc.includes(`\r\n${tag} BAD`) || acc.startsWith(`${tag} OK`) || acc.startsWith(`${tag} NO`) || acc.startsWith(`${tag} BAD`),
+      30000
+    );
+
+    console.log(`Response (${response.length} bytes): ${response.substring(0, 300)}...`);
+    return response;
+  }
+
+  private async sendCommand(command: string): Promise<{ tag: string; response: string; ok: boolean; statusLine?: string }> {
+    const tag = this.nextTag();
+    const response = await this.sendCommandRaw(tag, command);
+
+    const statusMatch = response.match(new RegExp(`(?:^|\\r\\n)${tag}\\s+(OK|NO|BAD)\\b.*`, "i"));
+    const statusLine = statusMatch?.[0]?.trim();
+    const ok = statusLine?.toUpperCase().includes(`${tag} OK`) ?? false;
+
+    return { tag, response, ok, statusLine };
+  }
+
+  async login(user: string, pass: string): Promise<{ ok: boolean; statusLine?: string }> {
+    const escapedPass = pass.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+    const res = await this.sendCommand(`LOGIN "${user}" "${escapedPass}"`);
+    return { ok: res.ok, statusLine: res.statusLine };
   }
 
   async select(mailbox: string): Promise<{ exists: number; recent: number }> {
-    const response = await this.sendCommand(`SELECT "${mailbox}"`);
-    
+    const res = await this.sendCommand(`SELECT "${mailbox}"`);
+    const response = res.response;
+
     let exists = 0;
     let recent = 0;
-    
+
     // Parse EXISTS count
     const existsMatch = response.match(/\*\s+(\d+)\s+EXISTS/i);
     if (existsMatch) {
       exists = parseInt(existsMatch[1]);
     }
-    
+
     // Parse RECENT count
     const recentMatch = response.match(/\*\s+(\d+)\s+RECENT/i);
     if (recentMatch) {
       recent = parseInt(recentMatch[1]);
     }
-    
+
     console.log(`Mailbox ${mailbox}: EXISTS=${exists}, RECENT=${recent}`);
     return { exists, recent };
   }
 
   async fetchEmails(start: number, end: number): Promise<any[]> {
     const emails: any[] = [];
-    
+
     // Fetch envelope data for emails
-    const response = await this.sendCommand(
+    const res = await this.sendCommand(
       `FETCH ${start}:${end} (FLAGS ENVELOPE RFC822.SIZE)`
     );
-    
+    const response = res.response;
+
     console.log(`Fetch response length: ${response.length}`);
-    
+
     // Parse FETCH responses - each email starts with * N FETCH
     const fetchPattern = /\*\s+(\d+)\s+FETCH\s+\((.*?)\)\r?\n/gs;
     let match;
-    
+
     while ((match = fetchPattern.exec(response)) !== null) {
       const seq = parseInt(match[1]);
       const data = match[2];
-      
+
       const email: any = { seq };
-      
+
       // Parse FLAGS
       const flagsMatch = data.match(/FLAGS\s+\(([^)]*)\)/i);
       if (flagsMatch) {
-        email.flags = flagsMatch[1].split(/\s+/).filter(f => f);
+        email.flags = flagsMatch[1].split(/\s+/).filter((f) => f);
         email.is_read = email.flags.includes('\\Seen');
         email.is_starred = email.flags.includes('\\Flagged');
       }
-      
+
       // Parse ENVELOPE - format: (date subject from sender reply-to to cc bcc in-reply-to message-id)
       const envelopeMatch = data.match(/ENVELOPE\s+\((.+)\)/i);
       if (envelopeMatch) {
         const envData = envelopeMatch[1];
-        
+
         // Extract date (first quoted or NIL value)
         const dateMatch = envData.match(/^"([^"]+)"/);
         if (dateMatch) {
           email.date = dateMatch[1];
         }
-        
+
         // Extract subject (second quoted value after date)
         const subjectMatch = envData.match(/^"[^"]*"\s+"([^"]*)"/);
         if (subjectMatch) {
@@ -185,63 +193,64 @@ class IMAPClient {
             email.subject = "(No Subject)";
           }
         }
-        
+
         // Extract from address - look for ((name NIL user host)) pattern
         const fromMatch = envData.match(/\(\("?([^"]*)"?\s+NIL\s+"([^"]+)"\s+"([^"]+)"\)\)/);
         if (fromMatch) {
-          email.from_name = fromMatch[1] || '';
+          email.from_name = fromMatch[1] || "";
           email.from_address = `${fromMatch[2]}@${fromMatch[3]}`;
         }
       }
-      
+
       // Parse RFC822.SIZE
       const sizeMatch = data.match(/RFC822\.SIZE\s+(\d+)/i);
       if (sizeMatch) {
         email.size = parseInt(sizeMatch[1]);
       }
-      
+
       if (email.from_address || email.subject) {
         emails.push(email);
       }
     }
-    
+
     // If pattern matching failed, try simpler approach
     if (emails.length === 0) {
       console.log("Pattern matching failed, trying line-by-line parsing");
-      const lines = response.split('\r\n');
+      const lines = response.split("\r\n");
       for (const line of lines) {
-        if (line.includes('* ') && line.includes('FETCH')) {
+        if (line.includes("* ") && line.includes("FETCH")) {
           const seqMatch = line.match(/\*\s+(\d+)/);
           if (seqMatch) {
             emails.push({
               seq: parseInt(seqMatch[1]),
               subject: `Email #${seqMatch[1]}`,
-              from_address: 'unknown',
-              from_name: '',
-              is_read: line.includes('\\Seen'),
-              is_starred: line.includes('\\Flagged'),
-              date: new Date().toISOString()
+              from_address: "unknown",
+              from_name: "",
+              is_read: line.includes("\\Seen"),
+              is_starred: line.includes("\\Flagged"),
+              date: new Date().toISOString(),
             });
           }
         }
       }
     }
-    
+
     return emails;
   }
 
   async listMailboxes(): Promise<string[]> {
-    const response = await this.sendCommand('LIST "" "*"');
+    const res = await this.sendCommand('LIST "" "*"');
+    const response = res.response;
     const mailboxes: string[] = [];
-    
-    const lines = response.split('\r\n');
+
+    const lines = response.split("\r\n");
     for (const line of lines) {
       const match = line.match(/\*\s+LIST\s+\([^)]*\)\s+"[^"]*"\s+"?([^"\r\n]+)"?/i);
       if (match) {
         mailboxes.push(match[1]);
       }
     }
-    
+
     console.log("Available mailboxes:", mailboxes);
     return mailboxes;
   }
@@ -299,9 +308,10 @@ serve(async (req) => {
     await client.connect();
     console.log('Connected to IMAP server');
 
-    const loginSuccess = await client.login(email, emailPassword);
-    if (!loginSuccess) {
-      throw new Error('IMAP login failed - check credentials');
+    const loginResult = await client.login(email, emailPassword);
+    if (!loginResult.ok) {
+      const details = loginResult.statusLine ? ` (${loginResult.statusLine})` : "";
+      throw new Error(`IMAP login failed${details}`);
     }
     console.log('Login successful');
 
