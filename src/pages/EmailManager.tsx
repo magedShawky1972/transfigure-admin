@@ -922,9 +922,9 @@ const EmailManager = () => {
       </Dialog>
 
 
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Sidebar */}
-        <div className="col-span-3">
+        <div className="lg:col-span-3">
           <Card>
             <CardContent className="p-4 space-y-4">
               {/* Email Account Info */}
@@ -933,7 +933,7 @@ const EmailManager = () => {
                 <p className="text-xs text-muted-foreground truncate">{userConfig?.email}</p>
                 <p className="text-xs text-muted-foreground">{userConfig?.mail_type?.type_name}</p>
               </div>
-              
+
               <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical">
                 <TabsList className="flex flex-col w-full h-auto bg-transparent gap-1">
                   <TabsTrigger value="inbox" className="w-full justify-between gap-2">
@@ -970,8 +970,8 @@ const EmailManager = () => {
         </div>
 
         {/* Email List */}
-        <div className="col-span-4">
-          <Card className="h-[calc(100vh-200px)]">
+        <div className="lg:col-span-4">
+          <Card className="h-[calc(100vh-200px)] flex flex-col">
             <CardHeader className="pb-2">
               <div className="relative">
                 <Search className={`absolute ${isArabic ? "right-3" : "left-3"} top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
@@ -983,8 +983,8 @@ const EmailManager = () => {
                 />
               </div>
             </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[calc(100vh-300px)]">
+            <CardContent className="p-0 flex-1 min-h-0">
+              <ScrollArea className="h-full">
                 {filteredEmails.length === 0 ? (
                   <div className="p-4 text-center text-muted-foreground">
                     {isArabic ? "لا توجد رسائل" : "No emails"}
@@ -1046,8 +1046,8 @@ const EmailManager = () => {
         </div>
 
         {/* Email View */}
-        <div className="col-span-5">
-          <Card className="h-[calc(100vh-200px)]">
+        <div className="lg:col-span-5">
+          <Card className="h-[calc(100vh-200px)] flex flex-col">
             {selectedEmail ? (
               <>
                 <CardHeader className="pb-2">
@@ -1083,12 +1083,12 @@ const EmailManager = () => {
                   </div>
                 </CardHeader>
                 <Separator />
-                <CardContent className="p-4">
-                  <ScrollArea className="h-[calc(100vh-400px)]">
+                <CardContent className="p-4 flex-1 min-h-0">
+                  <ScrollArea className="h-full">
                     {selectedEmail.body_html ? (
                       <iframe
                         title={isArabic ? "محتوى البريد" : "Email content"}
-                        className="w-full h-[calc(100vh-440px)] rounded-md border"
+                        className="w-full h-full rounded-md border"
                         sandbox="allow-popups allow-top-navigation-by-user-activation"
                         srcDoc={`<!doctype html>
 <html lang="${isArabic ? "ar" : "en"}" dir="${isArabic ? "rtl" : "ltr"}">
