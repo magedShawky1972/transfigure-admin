@@ -262,22 +262,34 @@ serve(async (req) => {
     // Determine seq
     let seq: number | null = null;
 
-    // Our fallback format: `${email}|${folder}|${seq}`
-    const parts = messageId.split("|");
-    const last = parts[parts.length - 1];
-    if (parts.length >= 3 && /^\d+$/.test(last)) {
-      seq = parseInt(last, 10);
-    } else {
-      // message id header is after first "|" and may have been stored as `${email}|<id>` with <> stripped
-      // Search expects the actual header value; we try with and without <>.
-      const headerValue = parts.length >= 2 ? parts[1] : messageId;
-      const try1 = `<${headerValue.replace(/[<>]/g, "")}>
-`;
-      const try2 = headerValue.replace(/[<>]/g, "");
+    // 1) Most of our stored message_id values are NOT real RFC Message-ID headers.
+    // They often follow patterns like:
+    // - "email@domain.com|INBOX|438"   (explicit seq)
+    // - "email@domain.com-438-<timestamp>" (implicit seq)
+    // So we first try to extract a seq number directly.
 
-      seq = await client.searchMessageId(try1.trim());
-      if (!seq) seq = await client.searchMessageId(`<${try2}>`);
-      if (!seq) seq = await client.searchMessageId(try2);
+    // Pattern: "...-<seq>-<timestamp>" (very common in our sync)
+    const dashSeqMatch = messageId.match(/-(\d+)-(\d+)$/);
+    if (dashSeqMatch) {
+      const maybeSeq = parseInt(dashSeqMatch[1], 10);
+      if (!Number.isNaN(maybeSeq) && maybeSeq > 0) seq = maybeSeq;
+    }
+
+    // 2) Fallback: "${email}|${folder}|${seq}"
+    if (!seq) {
+      const parts = messageId.split("|");
+      const last = parts[parts.length - 1];
+      if (parts.length >= 3 && /^\d+$/.test(last)) {
+        seq = parseInt(last, 10);
+      } else {
+        // 3) Last resort: try searching by real Message-ID header.
+        // Some providers store header values like: "<abc@host>".
+        const headerValue = parts.length >= 2 ? parts[1] : messageId;
+        const normalized = headerValue.replace(/[<>]/g, "").trim();
+
+        seq = await client.searchMessageId(`<${normalized}>`);
+        if (!seq) seq = await client.searchMessageId(normalized);
+      }
     }
 
     if (!seq) {
