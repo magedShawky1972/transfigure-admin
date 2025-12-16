@@ -51,6 +51,14 @@ interface Profile {
   default_department_name?: string | null;
   avatar_url?: string | null;
   email_password?: string | null;
+  mail_type_id?: string | null;
+  mail_type_name?: string | null;
+}
+
+interface MailType {
+  id: string;
+  type_name: string;
+  is_active: boolean;
 }
 
 interface JobPosition {
@@ -113,6 +121,7 @@ interface UserPermission {
   { key: "userEmails", label: "Users & Mails" },
   { key: "asusTawasoul", label: "Asus Tawasoul" },
   { key: "emailManager", label: "Email Manager" },
+  { key: "mailSetup", label: "Mail Setup" },
   { key: "systemConfig", label: "System Configuration" },
   { key: "closingTraining", label: "Closing Training" },
   { key: "odooSetup", label: "Odoo Setup" },
@@ -192,7 +201,12 @@ const UserSetup = () => {
     default_department_id: null as string | null,
     avatar_url: null as string | null,
     email_password: "",
+    mail_type_id: null as string | null,
   });
+
+  const [mailTypes, setMailTypes] = useState<MailType[]>([]);
+  const [mailTypeOpen, setMailTypeOpen] = useState(false);
+  const [newMailType, setNewMailType] = useState("");
 
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [jobPositionOpen, setJobPositionOpen] = useState(false);
@@ -209,6 +223,7 @@ const UserSetup = () => {
     checkCurrentUserAdmin();
     fetchJobPositions();
     fetchDepartments();
+    fetchMailTypes();
   }, []);
 
   const fetchDepartments = async () => {
@@ -223,6 +238,55 @@ const UserSetup = () => {
       setDepartments(data || []);
     } catch (error: any) {
       console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchMailTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("mail_types")
+        .select("id, type_name, is_active")
+        .eq("is_active", true)
+        .order("type_name");
+
+      if (error) throw error;
+      setMailTypes(data || []);
+    } catch (error: any) {
+      console.error("Error fetching mail types:", error);
+    }
+  };
+
+  const handleAddNewMailType = async () => {
+    if (!newMailType.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("mail_types")
+        .insert({ 
+          type_name: newMailType.trim(),
+          imap_host: "",
+          smtp_host: ""
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setMailTypes([...mailTypes, data]);
+      setFormData({ ...formData, mail_type_id: data.id });
+      setNewMailType("");
+      setMailTypeOpen(false);
+
+      toast({
+        title: t("common.success"),
+        description: "Mail type added successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -296,13 +360,14 @@ const UserSetup = () => {
   const fetchProfiles = async () => {
     setLoading(true);
     try {
-      // Fetch profiles with job positions and departments
+      // Fetch profiles with job positions, departments and mail types
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select(`
           *,
           job_position:job_positions(position_name),
-          default_department:departments(department_name)
+          default_department:departments(department_name),
+          mail_type:mail_types(type_name)
         `)
         .order("created_at", { ascending: false });
 
@@ -329,6 +394,7 @@ const UserSetup = () => {
         is_admin: adminMap.get(profile.user_id) || false,
         job_position_name: profile.job_position?.position_name || null,
         default_department_name: profile.default_department?.department_name || null,
+        mail_type_name: profile.mail_type?.type_name || null,
       }));
       
       setProfiles(profilesWithAdmin);
@@ -360,6 +426,7 @@ const UserSetup = () => {
             default_department_id: formData.default_department_id,
             avatar_url: formData.avatar_url,
             email_password: formData.email_password || null,
+            mail_type_id: formData.mail_type_id,
           })
           .eq("id", editingProfile.id);
 
@@ -450,6 +517,7 @@ const UserSetup = () => {
       default_department_id: profile.default_department_id || null,
       avatar_url: profile.avatar_url || null,
       email_password: profile.email_password || "",
+      mail_type_id: profile.mail_type_id || null,
     });
     setShowEmailPassword(false);
     setDialogOpen(true);
@@ -536,6 +604,7 @@ const UserSetup = () => {
       default_department_id: null,
       avatar_url: null,
       email_password: "",
+      mail_type_id: null,
     });
     setEditingProfile(null);
     setShowEmailPassword(false);
@@ -993,6 +1062,89 @@ const UserSetup = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Mail Type</Label>
+                <Popover open={mailTypeOpen} onOpenChange={setMailTypeOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={mailTypeOpen}
+                      className="w-full justify-between"
+                    >
+                      {formData.mail_type_id
+                        ? mailTypes.find((mt) => mt.id === formData.mail_type_id)?.type_name
+                        : "Select mail type..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command shouldFilter={false}>
+                      <CommandInput 
+                        placeholder="Search or type new mail type..." 
+                        value={newMailType}
+                        onValueChange={setNewMailType}
+                      />
+                      <CommandGroup>
+                        <CommandItem
+                          value="none"
+                          onSelect={() => {
+                            setFormData({ ...formData, mail_type_id: null });
+                            setMailTypeOpen(false);
+                            setNewMailType("");
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              !formData.mail_type_id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          No Mail Type
+                        </CommandItem>
+                        {mailTypes
+                          .filter((mailType) => 
+                            mailType.type_name.toLowerCase().includes(newMailType.toLowerCase())
+                          )
+                          .map((mailType) => (
+                            <CommandItem
+                              key={mailType.id}
+                              value={mailType.type_name}
+                              onSelect={() => {
+                                setFormData({ ...formData, mail_type_id: mailType.id });
+                                setMailTypeOpen(false);
+                                setNewMailType("");
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.mail_type_id === mailType.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {mailType.type_name}
+                            </CommandItem>
+                          ))}
+                        {newMailType && 
+                          !mailTypes.some((mt) => mt.type_name.toLowerCase() === newMailType.toLowerCase()) && (
+                          <CommandItem
+                            value={newMailType}
+                            onSelect={handleAddNewMailType}
+                            className="bg-primary/10"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add "{newMailType}"
+                          </CommandItem>
+                        )}
+                      </CommandGroup>
+                      {mailTypes.length === 0 && !newMailType && (
+                        <CommandEmpty>No mail types found.</CommandEmpty>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {editingProfile && (
