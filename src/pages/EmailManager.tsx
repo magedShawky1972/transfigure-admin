@@ -684,6 +684,16 @@ const EmailManager = () => {
 
     setDeletingEmail(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Track deleted message_id so sync won't re-insert it
+      const { error: trackError } = await supabase.from("deleted_email_ids").upsert(
+        { user_id: user.id, message_id: selectedEmail.message_id },
+        { onConflict: "user_id,message_id" }
+      );
+      if (trackError) console.error("Failed to track deleted email:", trackError);
+
       // delete attachments first
       const { error: attError } = await supabase
         .from("email_attachments")
