@@ -33,7 +33,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Copy, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Copy, Check, ChevronsUpDown, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UserEmail {
@@ -225,6 +225,40 @@ const UserEmails = () => {
     }
   };
 
+  const handleUpdateUserSetup = async (userEmail: UserEmail) => {
+    if (!userEmail.email || !userEmail.password) {
+      toast.error(language === "ar" ? "البريد وكلمة المرور مطلوبان" : "Email and password are required");
+      return;
+    }
+
+    try {
+      // Find profile by email
+      const { data: profile, error: findError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", userEmail.email)
+        .single();
+
+      if (findError || !profile) {
+        toast.error(language === "ar" ? "لم يتم العثور على المستخدم" : "User not found");
+        return;
+      }
+
+      // Update email_password in profiles
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ email_password: userEmail.password })
+        .eq("id", profile.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(language === "ar" ? "تم تحديث كلمة مرور البريد في إعدادات المستخدم" : "Email password updated in User Setup");
+    } catch (error) {
+      console.error("Error updating user setup:", error);
+      toast.error(language === "ar" ? "خطأ في التحديث" : "Error updating");
+    }
+  };
+
   const filteredEmails = userEmails.filter(
     (item) =>
       item.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -316,6 +350,14 @@ const UserEmails = () => {
                       </Button>
                       <Button variant="destructive" size="icon" onClick={() => handleDelete(item.id)}>
                         <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        onClick={() => handleUpdateUserSetup(item)}
+                        title={language === "ar" ? "تحديث إعدادات المستخدم" : "Update User Setup"}
+                      >
+                        <Upload className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
