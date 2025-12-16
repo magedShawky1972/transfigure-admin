@@ -63,6 +63,7 @@ import Index from "./pages/Index";
 import UserLogins from "./pages/UserLogins";
 import SupplierSetup from "./pages/SupplierSetup";
 import UserEmails from "./pages/UserEmails";
+import AsusTawasoul from "./pages/AsusTawasoul";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,7 @@ const App = () => (
               <Route path="/user-logins" element={<UserLogins />} />
               <Route path="/supplier-setup" element={<SupplierSetup />} />
               <Route path="/user-emails" element={<UserEmails />} />
+              <Route path="/asus-tawasoul" element={<AsusTawasoul />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
