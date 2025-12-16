@@ -60,6 +60,122 @@ function decodeMimeWord(text: string): string {
   return result;
 }
 
+// Decode quoted-printable content
+function decodeQuotedPrintable(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/=\r?\n/g, '') // Remove soft line breaks
+    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => 
+      String.fromCharCode(parseInt(hex, 16))
+    );
+}
+
+// Decode base64 content
+function decodeBase64(text: string): string {
+  if (!text) return text;
+  try {
+    const cleaned = text.replace(/\s/g, '');
+    const decoded = atob(cleaned);
+    // Try to decode as UTF-8
+    const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch (e) {
+    console.error('Base64 decode error:', e);
+    return text;
+  }
+}
+
+// Parse MIME multipart message and extract text content
+function extractBodyFromMime(rawBody: string): { text: string; html: string } {
+  let textContent = '';
+  let htmlContent = '';
+  
+  // Check for Content-Transfer-Encoding in the body
+  const transferEncodingMatch = rawBody.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+  const contentTypeMatch = rawBody.match(/Content-Type:\s*([^;\r\n]+)/i);
+  
+  // Check if this is a multipart message
+  const boundaryMatch = rawBody.match(/boundary="?([^"\r\n;]+)"?/i);
+  
+  if (boundaryMatch) {
+    const boundary = boundaryMatch[1];
+    const parts = rawBody.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'));
+    
+    for (const part of parts) {
+      if (part.trim() === '' || part.trim() === '--') continue;
+      
+      const partContentType = part.match(/Content-Type:\s*([^;\r\n]+)/i);
+      const partEncoding = part.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+      
+      // Find the actual content (after headers, separated by double newline)
+      const contentStart = part.search(/\r?\n\r?\n/);
+      if (contentStart === -1) continue;
+      
+      let content = part.substring(contentStart).trim();
+      
+      // Decode based on transfer encoding
+      if (partEncoding) {
+        const encoding = partEncoding[1].toLowerCase();
+        if (encoding === 'base64') {
+          content = decodeBase64(content);
+        } else if (encoding === 'quoted-printable') {
+          content = decodeQuotedPrintable(content);
+        }
+      }
+      
+      if (partContentType) {
+        const type = partContentType[1].toLowerCase();
+        if (type.includes('text/plain') && !textContent) {
+          textContent = content;
+        } else if (type.includes('text/html') && !htmlContent) {
+          htmlContent = content;
+        }
+      }
+    }
+  } else {
+    // Not multipart - check for encoding and decode
+    let content = rawBody;
+    
+    // Find content after headers
+    const contentStart = rawBody.search(/\r?\n\r?\n/);
+    if (contentStart !== -1) {
+      content = rawBody.substring(contentStart).trim();
+    }
+    
+    if (transferEncodingMatch) {
+      const encoding = transferEncodingMatch[1].toLowerCase();
+      if (encoding === 'base64') {
+        content = decodeBase64(content);
+      } else if (encoding === 'quoted-printable') {
+        content = decodeQuotedPrintable(content);
+      }
+    }
+    
+    if (contentTypeMatch && contentTypeMatch[1].toLowerCase().includes('text/html')) {
+      htmlContent = content;
+    } else {
+      textContent = content;
+    }
+  }
+  
+  // Strip HTML tags for text version if we only have HTML
+  if (!textContent && htmlContent) {
+    textContent = htmlContent
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  
+  return { text: textContent, html: htmlContent };
+}
+
 // Improved IMAP client implementation for Deno
 class IMAPClient {
   private conn: Deno.TcpConn | Deno.TlsConn | null = null;
@@ -189,22 +305,29 @@ class IMAPClient {
   async fetchEmails(start: number, end: number): Promise<any[]> {
     const emails: any[] = [];
 
-    // Fetch envelope and body for emails
+    // Fetch envelope, headers, and full body for emails
     const res = await this.sendCommand(
-      `FETCH ${start}:${end} (FLAGS ENVELOPE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (SUBJECT FROM DATE)] BODY.PEEK[TEXT])`
+      `FETCH ${start}:${end} (FLAGS ENVELOPE RFC822.SIZE BODY.PEEK[])`
     );
     const response = res.response;
 
     console.log(`Fetch response length: ${response.length}`);
 
-    // Split response by email boundaries
-    const emailChunks = response.split(/\*\s+(\d+)\s+FETCH/);
+    // Split response by email boundaries - improved pattern
+    const emailPattern = /\*\s+(\d+)\s+FETCH\s+\(/g;
+    const matches: { seq: number; startIdx: number }[] = [];
+    let match;
     
-    for (let i = 1; i < emailChunks.length; i += 2) {
-      const seq = parseInt(emailChunks[i]);
-      const data = emailChunks[i + 1] || '';
+    while ((match = emailPattern.exec(response)) !== null) {
+      matches.push({ seq: parseInt(match[1]), startIdx: match.index + match[0].length });
+    }
+    
+    for (let i = 0; i < matches.length; i++) {
+      const startIdx = matches[i].startIdx;
+      const endIdx = i < matches.length - 1 ? matches[i + 1].startIdx - 50 : response.length;
+      const data = response.substring(startIdx, endIdx);
       
-      const email: any = { seq };
+      const email: any = { seq: matches[i].seq };
 
       // Parse FLAGS
       const flagsMatch = data.match(/FLAGS\s+\(([^)]*)\)/i);
@@ -214,22 +337,30 @@ class IMAPClient {
         email.is_starred = email.flags.includes('\\Flagged');
       }
 
-      // Parse HEADER fields for subject, from, date
-      const headerMatch = data.match(/BODY\[HEADER\.FIELDS.*?\]\s+\{(\d+)\}\r?\n([\s\S]*?)(?=\s*(?:BODY|FLAGS|ENVELOPE|\)|$))/i);
-      if (headerMatch) {
-        const headerContent = headerMatch[2];
+      // Parse BODY[] - the full message
+      const bodyStartMatch = data.match(/BODY\[\]\s+\{(\d+)\}/i);
+      if (bodyStartMatch) {
+        const bodyLength = parseInt(bodyStartMatch[1]);
+        const bodyStartIdx = data.indexOf(bodyStartMatch[0]) + bodyStartMatch[0].length;
+        // Skip the \r\n after the length indicator
+        const actualStart = data.indexOf('\n', bodyStartIdx) + 1;
+        const rawMessage = data.substring(actualStart, actualStart + bodyLength);
         
-        // Extract Subject from header
-        const subjectHeaderMatch = headerContent.match(/Subject:\s*(.+?)(?:\r?\n(?!\s)|$)/is);
-        if (subjectHeaderMatch) {
-          email.subject = subjectHeaderMatch[1].replace(/\r?\n\s*/g, ' ').trim();
+        // Parse headers from raw message
+        const headerEndIdx = rawMessage.search(/\r?\n\r?\n/);
+        const headers = headerEndIdx !== -1 ? rawMessage.substring(0, headerEndIdx) : rawMessage;
+        const bodyPart = headerEndIdx !== -1 ? rawMessage.substring(headerEndIdx) : '';
+        
+        // Extract Subject
+        const subjectMatch = headers.match(/^Subject:\s*(.+?)(?:\r?\n(?!\s)|$)/im);
+        if (subjectMatch) {
+          email.subject = subjectMatch[1].replace(/\r?\n\s*/g, ' ').trim();
         }
         
-        // Extract From from header
-        const fromHeaderMatch = headerContent.match(/From:\s*(.+?)(?:\r?\n(?!\s)|$)/is);
-        if (fromHeaderMatch) {
-          const fromRaw = fromHeaderMatch[1].replace(/\r?\n\s*/g, ' ').trim();
-          // Parse "Name <email>" or just "email"
+        // Extract From
+        const fromMatch = headers.match(/^From:\s*(.+?)(?:\r?\n(?!\s)|$)/im);
+        if (fromMatch) {
+          const fromRaw = fromMatch[1].replace(/\r?\n\s*/g, ' ').trim();
           const nameEmailMatch = fromRaw.match(/^"?([^"<]*)"?\s*<([^>]+)>/);
           if (nameEmailMatch) {
             email.from_name = nameEmailMatch[1].trim();
@@ -240,20 +371,16 @@ class IMAPClient {
           }
         }
         
-        // Extract Date from header
-        const dateHeaderMatch = headerContent.match(/Date:\s*(.+?)(?:\r?\n(?!\s)|$)/is);
-        if (dateHeaderMatch) {
-          email.date = dateHeaderMatch[1].trim();
+        // Extract Date
+        const dateMatch = headers.match(/^Date:\s*(.+?)(?:\r?\n(?!\s)|$)/im);
+        if (dateMatch) {
+          email.date = dateMatch[1].trim();
         }
-      }
-
-      // Parse BODY[TEXT] for email body
-      const bodyMatch = data.match(/BODY\[TEXT\]\s+(?:\{(\d+)\}\r?\n)?([\s\S]*?)(?=\s*(?:\)\r?\n|FLAGS|ENVELOPE|$))/i);
-      if (bodyMatch) {
-        let bodyContent = bodyMatch[2] || '';
-        // Clean up body - remove trailing ) and whitespace
-        bodyContent = bodyContent.replace(/\)\s*$/, '').trim();
-        email.body_text = bodyContent;
+        
+        // Extract and decode body content
+        const { text, html } = extractBodyFromMime(rawMessage);
+        email.body_text = text;
+        email.body_html = html;
       }
 
       // Fallback: Parse ENVELOPE if header parsing failed
@@ -435,10 +562,13 @@ serve(async (req) => {
       const fetchedEmails = await client.fetchEmails(startSeq, mailbox.exists);
       
       for (const fetchedEmail of fetchedEmails) {
-        // Decode MIME encoded subject, from_name, and body
+        // Decode MIME encoded subject and from_name
         const decodedSubject = decodeMimeWord(fetchedEmail.subject || '');
         const decodedFromName = decodeMimeWord(fetchedEmail.from_name || '');
-        const decodedBody = decodeMimeWord(fetchedEmail.body_text || '');
+        
+        // Body is already decoded by extractBodyFromMime
+        const bodyText = fetchedEmail.body_text || '';
+        const bodyHtml = fetchedEmail.body_html || '';
         
         // Parse date safely
         let emailDate = new Date().toISOString();
@@ -460,8 +590,8 @@ serve(async (req) => {
           from_name: decodedFromName,
           to_addresses: [{ address: email }],
           email_date: emailDate,
-          body_text: decodedBody,
-          body_html: '',
+          body_text: bodyText,
+          body_html: bodyHtml,
           is_read: fetchedEmail.is_read || false,
           is_starred: fetchedEmail.is_starred || false,
           has_attachments: false,
