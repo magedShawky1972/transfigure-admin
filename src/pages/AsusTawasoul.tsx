@@ -59,6 +59,7 @@ const AsusTawasoul = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
 
   const translations = {
     en: {
@@ -266,6 +267,7 @@ const AsusTawasoul = () => {
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
     await fetchMessages(conversation.id);
+    setTimeout(() => messageInputRef.current?.focus(), 100);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -450,6 +452,7 @@ const AsusTawasoul = () => {
       };
       setSelectedConversation(newConvo);
       await fetchMessages(convId);
+      setTimeout(() => messageInputRef.current?.focus(), 100);
     } catch (error) {
       console.error('Create chat error:', error);
       toast({
@@ -631,6 +634,7 @@ const AsusTawasoul = () => {
                 <Paperclip className="h-5 w-5" />
               </Button>
               <Input
+                ref={messageInputRef}
                 placeholder={t.typeMessage}
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
