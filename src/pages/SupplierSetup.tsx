@@ -36,6 +36,7 @@ interface Supplier {
   supplier_name: string;
   supplier_email: string | null;
   supplier_phone: string | null;
+  partner_profile_id: number | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -55,6 +56,7 @@ export default function SupplierSetup() {
     supplier_name: "",
     supplier_email: "",
     supplier_phone: "",
+    partner_profile_id: "",
     status: "active",
   });
 
@@ -160,6 +162,7 @@ export default function SupplierSetup() {
       supplier_name: "",
       supplier_email: "",
       supplier_phone: "",
+      partner_profile_id: "",
       status: "active",
     });
     setDialogOpen(true);
@@ -172,6 +175,7 @@ export default function SupplierSetup() {
       supplier_name: supplier.supplier_name,
       supplier_email: supplier.supplier_email || "",
       supplier_phone: supplier.supplier_phone || "",
+      partner_profile_id: supplier.partner_profile_id?.toString() || "",
       status: supplier.status,
     });
     setDialogOpen(true);
@@ -230,6 +234,7 @@ export default function SupplierSetup() {
             supplier_name: formData.supplier_name,
             supplier_email: formData.supplier_email || null,
             supplier_phone: formData.supplier_phone || null,
+            partner_profile_id: formData.partner_profile_id ? parseInt(formData.partner_profile_id) : null,
             status: formData.status,
           })
           .eq("id", selectedSupplier.id);
@@ -249,6 +254,7 @@ export default function SupplierSetup() {
             supplier_name: formData.supplier_name,
             supplier_email: formData.supplier_email || null,
             supplier_phone: formData.supplier_phone || null,
+            partner_profile_id: formData.partner_profile_id ? parseInt(formData.partner_profile_id) : null,
             status: formData.status,
           });
 
@@ -324,6 +330,7 @@ export default function SupplierSetup() {
                 <TableRow>
                   <TableHead>{isArabic ? "كود المورد" : "Supplier Code"}</TableHead>
                   <TableHead>{isArabic ? "اسم المورد" : "Supplier Name"}</TableHead>
+                  <TableHead>{isArabic ? "معرف Odoo" : "Odoo Id"}</TableHead>
                   <TableHead>{isArabic ? "البريد الإلكتروني" : "Email"}</TableHead>
                   <TableHead>{isArabic ? "رقم الهاتف" : "Phone"}</TableHead>
                   <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
@@ -333,7 +340,7 @@ export default function SupplierSetup() {
               <TableBody>
                 {filteredSuppliers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا يوجد موردين" : "No suppliers found"}
                     </TableCell>
                   </TableRow>
@@ -342,6 +349,7 @@ export default function SupplierSetup() {
                     <TableRow key={supplier.id}>
                       <TableCell className="font-medium">{supplier.supplier_code}</TableCell>
                       <TableCell>{supplier.supplier_name}</TableCell>
+                      <TableCell>{supplier.partner_profile_id || "-"}</TableCell>
                       <TableCell>{supplier.supplier_email || "-"}</TableCell>
                       <TableCell>{supplier.supplier_phone || "-"}</TableCell>
                       <TableCell>
@@ -416,6 +424,15 @@ export default function SupplierSetup() {
                 value={formData.supplier_phone}
                 onChange={(e) => setFormData({ ...formData, supplier_phone: e.target.value })}
                 placeholder={isArabic ? "أدخل رقم الهاتف" : "Enter phone number"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{isArabic ? "معرف Odoo" : "Odoo Id"}</Label>
+              <Input
+                type="number"
+                value={formData.partner_profile_id}
+                onChange={(e) => setFormData({ ...formData, partner_profile_id: e.target.value })}
+                placeholder={isArabic ? "أدخل معرف Odoo" : "Enter Odoo Id"}
               />
             </div>
             <div className="space-y-2">
