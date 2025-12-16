@@ -313,54 +313,67 @@ class IMAPClient {
 
     console.log(`Fetch response length: ${response.length}`);
 
-    // Split response by email boundaries - improved pattern
+    const hasAttachmentsFromRaw = (raw: string): boolean => {
+      // Covers regular attachments + inline images (common for Outlook/marketing emails)
+      if (/Content-Disposition:\s*attachment/i.test(raw)) return true;
+      if (/\bfilename\*?=|\bname\*?=/i.test(raw)) return true;
+      if (/Content-Type:\s*image\//i.test(raw) && /Content-ID:\s*<[^>]+>/i.test(raw)) return true;
+      return false;
+    };
+
+    // Find each "* <seq> FETCH (" block start
     const emailPattern = /\*\s+(\d+)\s+FETCH\s+\(/g;
     const matches: { seq: number; startIdx: number }[] = [];
-    let match;
-    
-    while ((match = emailPattern.exec(response)) !== null) {
-      matches.push({ seq: parseInt(match[1]), startIdx: match.index + match[0].length });
+    let m: RegExpExecArray | null;
+
+    while ((m = emailPattern.exec(response)) !== null) {
+      matches.push({ seq: parseInt(m[1]), startIdx: m.index });
     }
-    
+
     for (let i = 0; i < matches.length; i++) {
-      const startIdx = matches[i].startIdx;
-      const endIdx = i < matches.length - 1 ? matches[i + 1].startIdx - 50 : response.length;
-      const data = response.substring(startIdx, endIdx);
-      
+      const segStart = matches[i].startIdx;
+      const segEnd = i < matches.length - 1 ? matches[i + 1].startIdx : response.length;
+      const segment = response.substring(segStart, segEnd);
+
       const email: any = { seq: matches[i].seq };
 
       // Parse FLAGS
-      const flagsMatch = data.match(/FLAGS\s+\(([^)]*)\)/i);
+      const flagsMatch = segment.match(/FLAGS\s+\(([^)]*)\)/i);
       if (flagsMatch) {
         email.flags = flagsMatch[1].split(/\s+/).filter((f) => f);
         email.is_read = email.flags.includes('\\Seen');
         email.is_starred = email.flags.includes('\\Flagged');
       }
 
-      // Parse BODY[] - the full message
-      const bodyStartMatch = data.match(/BODY\[\]\s+\{(\d+)\}/i);
-      if (bodyStartMatch) {
-        const bodyLength = parseInt(bodyStartMatch[1]);
-        const bodyStartIdx = data.indexOf(bodyStartMatch[0]) + bodyStartMatch[0].length;
-        // Skip the \r\n after the length indicator
-        const actualStart = data.indexOf('\n', bodyStartIdx) + 1;
-        const rawMessage = data.substring(actualStart, actualStart + bodyLength);
-        
+      // Parse RFC822.SIZE
+      const sizeMatch = segment.match(/RFC822\.SIZE\s+(\d+)/i);
+      if (sizeMatch) {
+        email.size = parseInt(sizeMatch[1]);
+      }
+
+      // Parse BODY[] literal size, then slice exact bytes from the full response (not the segment)
+      const bodyLiteralMatch = segment.match(/BODY\[\]\s+\{(\d+)\}\r?\n/i);
+      if (bodyLiteralMatch) {
+        const bodyLength = parseInt(bodyLiteralMatch[1]);
+        const bodyHeaderIdxInSeg = segment.search(/BODY\[\]\s+\{\d+\}\r?\n/i);
+        const bodyContentAbsStart = segStart + bodyHeaderIdxInSeg + bodyLiteralMatch[0].length;
+        const rawMessage = response.substring(bodyContentAbsStart, bodyContentAbsStart + bodyLength);
+
         // Parse headers from raw message
         const headerEndIdx = rawMessage.search(/\r?\n\r?\n/);
         const headers = headerEndIdx !== -1 ? rawMessage.substring(0, headerEndIdx) : rawMessage;
-        const bodyPart = headerEndIdx !== -1 ? rawMessage.substring(headerEndIdx) : '';
-        
-        // Extract Subject
-        const subjectMatch = headers.match(/^Subject:\s*(.+?)(?:\r?\n(?!\s)|$)/im);
-        if (subjectMatch) {
-          email.subject = subjectMatch[1].replace(/\r?\n\s*/g, ' ').trim();
-        }
-        
-        // Extract From
-        const fromMatch = headers.match(/^From:\s*(.+?)(?:\r?\n(?!\s)|$)/im);
-        if (fromMatch) {
-          const fromRaw = fromMatch[1].replace(/\r?\n\s*/g, ' ').trim();
+
+        const getHeader = (name: string): string | null => {
+          const r = new RegExp(`^${name}:\\s*(.+?)(?:\\r?\\n(?!\\s)|$)`, 'im');
+          const hm = headers.match(r);
+          return hm ? hm[1].replace(/\r?\n\s*/g, ' ').trim() : null;
+        };
+
+        const subjectRaw = getHeader('Subject');
+        if (subjectRaw) email.subject = subjectRaw;
+
+        const fromRaw = getHeader('From');
+        if (fromRaw) {
           const nameEmailMatch = fromRaw.match(/^"?([^"<]*)"?\s*<([^>]+)>/);
           if (nameEmailMatch) {
             email.from_name = nameEmailMatch[1].trim();
@@ -370,61 +383,46 @@ class IMAPClient {
             email.from_name = '';
           }
         }
-        
-        // Extract Date
-        const dateMatch = headers.match(/^Date:\s*(.+?)(?:\r?\n(?!\s)|$)/im);
-        if (dateMatch) {
-          email.date = dateMatch[1].trim();
+
+        const dateRaw = getHeader('Date');
+        if (dateRaw) email.date = dateRaw;
+
+        const msgIdRaw = getHeader('Message-ID') || getHeader('Message-Id');
+        if (msgIdRaw) {
+          email.message_id_header = msgIdRaw.replace(/[<>\s]/g, '');
         }
-        
-        // Extract and decode body content
+
         const { text, html } = extractBodyFromMime(rawMessage);
         email.body_text = text;
         email.body_html = html;
+        email.has_attachments = hasAttachmentsFromRaw(rawMessage);
       }
 
       // Fallback: Parse ENVELOPE if header parsing failed
       if (!email.subject || !email.from_address) {
-        const envelopeMatch = data.match(/ENVELOPE\s+\((.+)\)/i);
+        const envelopeMatch = segment.match(/ENVELOPE\s+\((.+)\)/i);
         if (envelopeMatch) {
           const envData = envelopeMatch[1];
 
-          // Extract date (first quoted or NIL value)
           if (!email.date) {
             const dateMatch = envData.match(/^"([^"]+)"/);
-            if (dateMatch) {
-              email.date = dateMatch[1];
-            }
+            if (dateMatch) email.date = dateMatch[1];
           }
 
-          // Extract subject (second quoted value after date)
           if (!email.subject) {
             const subjectMatch = envData.match(/^"[^"]*"\s+"([^"]*)"/);
-            if (subjectMatch) {
-              email.subject = subjectMatch[1];
-            } else {
-              const nilSubjectMatch = envData.match(/^"[^"]*"\s+NIL/);
-              if (nilSubjectMatch) {
-                email.subject = "(No Subject)";
-              }
-            }
+            if (subjectMatch) email.subject = subjectMatch[1];
+            else if (envData.match(/^"[^"]*"\s+NIL/)) email.subject = '(No Subject)';
           }
 
-          // Extract from address - look for ((name NIL user host)) pattern
           if (!email.from_address) {
-            const fromMatch = envData.match(/\(\("?([^"]*)"?\s+NIL\s+"([^"]+)"\s+"([^"]+)"\)\)/);
+            const fromMatch = envData.match(/\(\(\"?([^\"]*)\"?\s+NIL\s+\"([^\"]+)\"\s+\"([^\"]+)\"\)\)/);
             if (fromMatch) {
-              email.from_name = fromMatch[1] || "";
+              email.from_name = fromMatch[1] || '';
               email.from_address = `${fromMatch[2]}@${fromMatch[3]}`;
             }
           }
         }
-      }
-
-      // Parse RFC822.SIZE
-      const sizeMatch = data.match(/RFC822\.SIZE\s+(\d+)/i);
-      if (sizeMatch) {
-        email.size = parseInt(sizeMatch[1]);
       }
 
       if (email.from_address || email.subject) {
@@ -434,20 +432,23 @@ class IMAPClient {
 
     // If pattern matching failed, try simpler approach
     if (emails.length === 0) {
-      console.log("Pattern matching failed, trying line-by-line parsing");
-      const lines = response.split("\r\n");
+      console.log('Pattern matching failed, trying line-by-line parsing');
+      const lines = response.split('\r\n');
       for (const line of lines) {
-        if (line.includes("* ") && line.includes("FETCH")) {
+        if (line.includes('* ') && line.includes('FETCH')) {
           const seqMatch = line.match(/\*\s+(\d+)/);
           if (seqMatch) {
             emails.push({
               seq: parseInt(seqMatch[1]),
               subject: `Email #${seqMatch[1]}`,
-              from_address: "unknown",
-              from_name: "",
-              is_read: line.includes("\\Seen"),
-              is_starred: line.includes("\\Flagged"),
+              from_address: 'unknown',
+              from_name: '',
+              is_read: line.includes('\\Seen'),
+              is_starred: line.includes('\\Flagged'),
               date: new Date().toISOString(),
+              body_text: '',
+              body_html: '',
+              has_attachments: false,
             });
           }
         }
@@ -563,13 +564,13 @@ serve(async (req) => {
       
       for (const fetchedEmail of fetchedEmails) {
         // Decode MIME encoded subject and from_name
-        const decodedSubject = decodeMimeWord(fetchedEmail.subject || '');
-        const decodedFromName = decodeMimeWord(fetchedEmail.from_name || '');
-        
+        const decodedSubject = decodeMimeWord(fetchedEmail.subject || "");
+        const decodedFromName = decodeMimeWord(fetchedEmail.from_name || "");
+
         // Body is already decoded by extractBodyFromMime
-        const bodyText = fetchedEmail.body_text || '';
-        const bodyHtml = fetchedEmail.body_html || '';
-        
+        const bodyText = fetchedEmail.body_text || "";
+        const bodyHtml = fetchedEmail.body_html || "";
+
         // Parse date safely
         let emailDate = new Date().toISOString();
         try {
@@ -580,13 +581,24 @@ serve(async (req) => {
             }
           }
         } catch (e) {
-          console.log('Date parse error:', e);
+          console.log("Date parse error:", e);
         }
-        
+
+        const storedFolder =
+          folder.toUpperCase() === "INBOX"
+            ? "INBOX"
+            : folder.toLowerCase().includes("sent")
+              ? "Sent"
+              : targetFolder;
+
+        const stableMessageId = fetchedEmail.message_id_header
+          ? `${email}|${fetchedEmail.message_id_header}`
+          : `${email}|${storedFolder}|${fetchedEmail.seq}`;
+
         const emailData = {
-          message_id: `${email}-${fetchedEmail.seq}-${Date.now()}`,
-          subject: decodedSubject || '(No Subject)',
-          from_address: fetchedEmail.from_address || 'unknown@email.com',
+          message_id: stableMessageId,
+          subject: decodedSubject || "(No Subject)",
+          from_address: fetchedEmail.from_address || "unknown@email.com",
           from_name: decodedFromName,
           to_addresses: [{ address: email }],
           email_date: emailDate,
@@ -594,9 +606,10 @@ serve(async (req) => {
           body_html: bodyHtml,
           is_read: fetchedEmail.is_read || false,
           is_starred: fetchedEmail.is_starred || false,
-          has_attachments: false,
-          folder: targetFolder
+          has_attachments: fetchedEmail.has_attachments || false,
+          folder: storedFolder,
         };
+
         emails.push(emailData);
       }
     }
@@ -604,29 +617,76 @@ serve(async (req) => {
     await client.logout();
     console.log(`Fetched ${emails.length} emails from ${mailbox.exists} total`);
 
-    // Save emails to database
+    // Save emails to database (update if exists)
     let savedCount = 0;
     for (const emailData of emails) {
-      const { data: existing } = await supabase
-        .from('emails')
-        .select('id')
-        .eq('message_id', emailData.message_id)
-        .eq('user_id', user.id)
+      // 1) Try by message_id
+      const { data: existingById } = await supabase
+        .from("emails")
+        .select("id")
+        .eq("message_id", emailData.message_id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!existing) {
-        const { error: saveError } = await supabase
-          .from('emails')
-          .insert({
-            ...emailData,
-            user_id: user.id
-          });
+      if (existingById?.id) {
+        const { error: updateError } = await supabase
+          .from("emails")
+          .update({
+            subject: emailData.subject,
+            from_address: emailData.from_address,
+            from_name: emailData.from_name,
+            to_addresses: emailData.to_addresses,
+            email_date: emailData.email_date,
+            body_text: emailData.body_text,
+            body_html: emailData.body_html,
+            is_read: emailData.is_read,
+            is_starred: emailData.is_starred,
+            has_attachments: emailData.has_attachments,
+            folder: emailData.folder,
+          })
+          .eq("id", existingById.id);
 
-        if (saveError) {
-          console.error('Error saving email:', saveError);
-        } else {
-          savedCount++;
+        if (updateError) console.error("Error updating email:", updateError);
+        continue;
+      }
+
+      // 2) Fallback match: same sender+date+subject in same folder (helps older rows that had random message_id)
+      const { data: existingFallback } = await supabase
+        .from("emails")
+        .select("id, body_text, body_html")
+        .eq("user_id", user.id)
+        .eq("folder", emailData.folder)
+        .eq("from_address", emailData.from_address)
+        .eq("email_date", emailData.email_date)
+        .eq("subject", emailData.subject)
+        .maybeSingle();
+
+      if (existingFallback?.id) {
+        // Only patch if content is missing
+        if (!existingFallback.body_text && !existingFallback.body_html) {
+          const { error: patchError } = await supabase
+            .from("emails")
+            .update({
+              body_text: emailData.body_text,
+              body_html: emailData.body_html,
+              has_attachments: emailData.has_attachments,
+            })
+            .eq("id", existingFallback.id);
+          if (patchError) console.error("Error patching email body:", patchError);
         }
+        continue;
+      }
+
+      // 3) Insert new
+      const { error: saveError } = await supabase.from("emails").insert({
+        ...emailData,
+        user_id: user.id,
+      });
+
+      if (saveError) {
+        console.error("Error saving email:", saveError);
+      } else {
+        savedCount++;
       }
     }
 
