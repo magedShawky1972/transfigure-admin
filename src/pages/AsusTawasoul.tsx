@@ -462,16 +462,18 @@ const AsusTawasoul = () => {
     }
   };
 
-  const UsersList = () => (
+  const usersList = (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="p-4 border-b">
         <div className="relative">
-          <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
+          <Search
+            className={`absolute ${isRTL ? "right-3" : "left-3"} top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`}
+          />
           <Input
             placeholder={t.search}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={isRTL ? 'pr-10' : 'pl-10'}
+            className={isRTL ? "pr-10" : "pl-10"}
           />
         </div>
       </div>
@@ -480,15 +482,13 @@ const AsusTawasoul = () => {
         <div className="p-2 space-y-1">
           {filteredUsers.length === 0 ? (
             <p className="text-center text-muted-foreground py-4">
-              {language === 'ar' ? 'لا يوجد مستخدمين' : 'No users found'}
+              {language === "ar" ? "لا يوجد مستخدمين" : "No users found"}
             </p>
           ) : (
-            filteredUsers.map(user => {
+            filteredUsers.map((user) => {
               // Check if there's an existing conversation with this user
-              const existingConvo = conversations.find(c => 
-                !c.is_group && 
-                c.participants.length === 2 &&
-                c.participants.some(p => p.user_id === user.user_id)
+              const existingConvo = conversations.find(
+                (c) => !c.is_group && c.participants.length === 2 && c.participants.some((p) => p.user_id === user.user_id)
               );
               const isSelected = selectedConversation && existingConvo?.id === selectedConversation.id;
               const unreadCount = existingConvo?.unread_count || 0;
@@ -498,7 +498,7 @@ const AsusTawasoul = () => {
                 <div
                   key={user.id}
                   className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                    isSelected ? 'bg-primary/10' : 'hover:bg-muted'
+                    isSelected ? "bg-primary/10" : "hover:bg-muted"
                   }`}
                   onClick={() => findOrCreateConversation(user.user_id)}
                 >
@@ -515,14 +515,17 @@ const AsusTawasoul = () => {
                     </div>
                     {lastMessage ? (
                       <p className="text-sm text-muted-foreground truncate">
-                        {lastMessage.message_text || (lastMessage.media_type === 'image' ? '📷 ' + t.image : '🎥 ' + t.video)}
+                        {lastMessage.message_text ||
+                          (lastMessage.media_type === "image" ? "📷 " + t.image : "🎥 " + t.video)}
                       </p>
                     ) : (
                       <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                     )}
                   </div>
                   {unreadCount > 0 && (
-                    <Badge variant="default" className="rounded-full">{unreadCount}</Badge>
+                    <Badge variant="default" className="rounded-full">
+                      {unreadCount}
+                    </Badge>
                   )}
                 </div>
               );
@@ -533,13 +536,13 @@ const AsusTawasoul = () => {
     </div>
   );
 
-  const ChatArea = () => (
+  const chatArea = (
     <div className="h-full flex flex-col">
       {!selectedConversation ? (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
             <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>{language === 'ar' ? 'اختر محادثة للبدء' : 'Select a conversation to start'}</p>
+            <p>{language === "ar" ? "اختر محادثة للبدء" : "Select a conversation to start"}</p>
           </div>
         </div>
       ) : (
@@ -547,10 +550,16 @@ const AsusTawasoul = () => {
           <div className="p-4 border-b flex items-center gap-3">
             <Avatar className="h-10 w-10">
               {selectedConversation.is_group ? (
-                <AvatarFallback><Users className="h-5 w-5" /></AvatarFallback>
+                <AvatarFallback>
+                  <Users className="h-5 w-5" />
+                </AvatarFallback>
               ) : (
                 <>
-                  <AvatarImage src={selectedConversation.participants.find(p => p.user_id !== currentUserId)?.avatar_url || undefined} />
+                  <AvatarImage
+                    src={
+                      selectedConversation.participants.find((p) => p.user_id !== currentUserId)?.avatar_url || undefined
+                    }
+                  />
                   <AvatarFallback>{getConversationName(selectedConversation).charAt(0)}</AvatarFallback>
                 </>
               )}
@@ -559,7 +568,7 @@ const AsusTawasoul = () => {
               <h3 className="font-semibold">{getConversationName(selectedConversation)}</h3>
               {selectedConversation.is_group && (
                 <p className="text-xs text-muted-foreground">
-                  {selectedConversation.participants.length} {language === 'ar' ? 'أعضاء' : 'members'}
+                  {selectedConversation.participants.length} {language === "ar" ? "أعضاء" : "members"}
                 </p>
               )}
             </div>
@@ -570,30 +579,41 @@ const AsusTawasoul = () => {
               {messages.length === 0 ? (
                 <p className="text-center text-muted-foreground">{t.noMessages}</p>
               ) : (
-                messages.map(msg => {
+                messages.map((msg) => {
                   const isOwn = msg.sender_id === currentUserId;
                   return (
-                    <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] ${isOwn ? 'order-2' : ''}`}>
+                    <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[70%] ${isOwn ? "order-2" : ""}`}>
                         {!isOwn && selectedConversation.is_group && (
                           <p className="text-xs text-muted-foreground mb-1">{msg.sender?.user_name}</p>
                         )}
-                        <div className={`rounded-lg p-3 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        <div
+                          className={`rounded-lg p-3 ${
+                            isOwn ? "bg-primary text-primary-foreground" : "bg-muted"
+                          }`}
+                        >
                           {msg.media_url && (
                             <div className="mb-2">
-                              {msg.media_type === 'image' ? (
-                                <img src={msg.media_url} alt="" className="rounded max-w-full max-h-60 object-cover" />
+                              {msg.media_type === "image" ? (
+                                <img
+                                  src={msg.media_url}
+                                  alt=""
+                                  className="rounded max-w-full max-h-60 object-cover"
+                                  loading="lazy"
+                                />
                               ) : (
                                 <video src={msg.media_url} controls className="rounded max-w-full max-h-60" />
                               )}
                             </div>
                           )}
                           {msg.message_text && <p>{msg.message_text}</p>}
-                          <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                          <div
+                            className={`flex items-center justify-end gap-1 mt-1 ${
+                              isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+                            }`}
+                          >
                             <span className="text-xs">{formatTime(msg.created_at)}</span>
-                            {isOwn && (
-                              msg.is_read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />
-                            )}
+                            {isOwn && (msg.is_read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />)}
                           </div>
                         </div>
                       </div>
@@ -608,8 +628,13 @@ const AsusTawasoul = () => {
           {attachmentPreview && (
             <div className="px-4 py-2 border-t bg-muted/50">
               <div className="flex items-center gap-2">
-                {attachmentPreview.type === 'image' ? (
-                  <img src={attachmentPreview.preview} alt="" className="h-16 w-16 object-cover rounded" />
+                {attachmentPreview.type === "image" ? (
+                  <img
+                    src={attachmentPreview.preview}
+                    alt=""
+                    className="h-16 w-16 object-cover rounded"
+                    loading="lazy"
+                  />
                 ) : (
                   <video src={attachmentPreview.preview} className="h-16 w-16 object-cover rounded" />
                 )}
@@ -639,7 +664,7 @@ const AsusTawasoul = () => {
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();
                   }
@@ -647,7 +672,7 @@ const AsusTawasoul = () => {
                 className="flex-1"
               />
               <Button onClick={handleSendMessage} disabled={isSending || (!messageText.trim() && !attachmentPreview)}>
-                <Send className={`h-5 w-5 ${isRTL ? 'rotate-180' : ''}`} />
+                <Send className={`h-5 w-5 ${isRTL ? "rotate-180" : ""}`} />
               </Button>
             </div>
           </div>
@@ -657,18 +682,20 @@ const AsusTawasoul = () => {
   );
 
   return (
-    <div className="container mx-auto py-4" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="container mx-auto py-4" dir={isRTL ? "rtl" : "ltr"}>
       <h1 className="text-2xl font-bold mb-4">{t.title}</h1>
-      
+
       <Card className="h-[calc(100vh-140px)]">
         <CardContent className="p-0 h-full overflow-hidden">
-          <div className={`grid grid-cols-1 md:grid-cols-3 h-full ${isRTL ? 'md:grid-flow-col-dense' : ''}`}>
-            <div className={`border-b md:border-b-0 ${isRTL ? 'md:border-l md:col-start-3' : 'md:border-r'} h-full overflow-hidden`}>
-              <UsersList />
+          <div className={`grid grid-cols-1 md:grid-cols-3 h-full ${isRTL ? "md:grid-flow-col-dense" : ""}`}>
+            <div
+              className={`border-b md:border-b-0 ${
+                isRTL ? "md:border-l md:col-start-3" : "md:border-r"
+              } h-full overflow-hidden`}
+            >
+              {usersList}
             </div>
-            <div className={`col-span-2 h-full ${isRTL ? 'md:col-start-1 md:col-end-3' : ''}`}>
-              <ChatArea />
-            </div>
+            <div className={`col-span-2 h-full ${isRTL ? "md:col-start-1 md:col-end-3" : ""}`}>{chatArea}</div>
           </div>
         </CardContent>
       </Card>
