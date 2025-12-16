@@ -618,7 +618,7 @@ export type Database = {
           body_html: string | null
           body_text: string | null
           cc_addresses: Json | null
-          config_id: string
+          config_id: string | null
           created_at: string
           email_date: string
           folder: string
@@ -642,7 +642,7 @@ export type Database = {
           body_html?: string | null
           body_text?: string | null
           cc_addresses?: Json | null
-          config_id: string
+          config_id?: string | null
           created_at?: string
           email_date: string
           folder?: string
@@ -666,7 +666,7 @@ export type Database = {
           body_html?: string | null
           body_text?: string | null
           cc_addresses?: Json | null
-          config_id?: string
+          config_id?: string | null
           created_at?: string
           email_date?: string
           folder?: string
