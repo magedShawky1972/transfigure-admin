@@ -3210,6 +3210,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_conversation_participant: {
+        Args: { p_conversation_id: string; p_user_id: string }
+        Returns: boolean
+      }
       revenue_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }
         Returns: {
