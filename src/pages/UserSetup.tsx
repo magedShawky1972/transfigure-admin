@@ -109,6 +109,7 @@ interface UserPermission {
   { key: "companyHierarchy", label: "Company Hierarchy" },
   { key: "supplierSetup", label: "Supplier Setup" },
   { key: "userLogins", label: "Users Logins" },
+  { key: "userEmails", label: "Users & Mails" },
   { key: "systemConfig", label: "System Configuration" },
   { key: "closingTraining", label: "Closing Training" },
   { key: "odooSetup", label: "Odoo Setup" },
