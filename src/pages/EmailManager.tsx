@@ -1088,7 +1088,7 @@ const EmailManager = () => {
                     {selectedEmail.body_html ? (
                       <iframe
                         title={isArabic ? "محتوى البريد" : "Email content"}
-                        className="w-full h-[calc(100vh-440px)] rounded-md border bg-transparent"
+                        className="w-full h-[calc(100vh-440px)] rounded-md border"
                         sandbox="allow-popups allow-top-navigation-by-user-activation"
                         srcDoc={`<!doctype html>
 <html lang="${isArabic ? "ar" : "en"}" dir="${isArabic ? "rtl" : "ltr"}">
@@ -1096,20 +1096,16 @@ const EmailManager = () => {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root { color-scheme: light dark; }
-      html, body { margin: 0; padding: 0; background: transparent !important; }
+      html, body { margin: 0; padding: 0; background: #ffffff; }
       body {
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
         padding: 12px;
-        background: transparent !important;
+        background: #ffffff;
         color: #111827;
-      }
-      @media (prefers-color-scheme: dark) {
-        body { color: #e5e7eb; }
-        a { color: #93c5fd; }
       }
       img { max-width: 100%; height: auto; }
       table { max-width: 100%; }
+      a { color: #2563eb; }
     </style>
   </head>
   <body>
