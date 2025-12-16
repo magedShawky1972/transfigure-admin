@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { EmailRecipientSelector } from "@/components/EmailRecipientSelector";
 
 interface UserEmailConfig {
   email: string;
@@ -179,6 +180,7 @@ const EmailManager = () => {
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Create ticket/task dialogs
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
@@ -196,12 +198,31 @@ const EmailManager = () => {
     priority: "medium",
   });
 
+  const fetchIsAdmin = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
+  };
+
   useEffect(() => {
     // Wait for auth session to be ready before fetching
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         fetchUserEmailConfig();
         fetchDepartments();
+        fetchIsAdmin();
       }
     });
 
@@ -210,6 +231,7 @@ const EmailManager = () => {
       if (session) {
         fetchUserEmailConfig();
         fetchDepartments();
+        fetchIsAdmin();
       }
     });
 
@@ -1164,21 +1186,18 @@ const EmailManager = () => {
             <DialogTitle>{isArabic ? "رسالة جديدة" : "New Email"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{isArabic ? "إلى" : "To"}</Label>
-              <Input
-                value={composeData.to}
-                onChange={(e) => setComposeData({ ...composeData, to: e.target.value })}
-                placeholder={isArabic ? "البريد الإلكتروني" : "email@example.com"}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{isArabic ? "نسخة" : "CC"}</Label>
-              <Input
-                value={composeData.cc}
-                onChange={(e) => setComposeData({ ...composeData, cc: e.target.value })}
-              />
-            </div>
+            <EmailRecipientSelector
+              label={isArabic ? "إلى" : "To"}
+              value={composeData.to}
+              onChange={(value) => setComposeData({ ...composeData, to: value })}
+              isAdmin={isAdmin}
+            />
+            <EmailRecipientSelector
+              label={isArabic ? "نسخة" : "CC"}
+              value={composeData.cc}
+              onChange={(value) => setComposeData({ ...composeData, cc: value })}
+              isAdmin={isAdmin}
+            />
             <div className="space-y-2">
               <Label>{isArabic ? "الموضوع" : "Subject"}</Label>
               <Input
