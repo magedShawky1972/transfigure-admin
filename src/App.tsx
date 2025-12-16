@@ -64,6 +64,7 @@ import UserLogins from "./pages/UserLogins";
 import SupplierSetup from "./pages/SupplierSetup";
 import UserEmails from "./pages/UserEmails";
 import AsusTawasoul from "./pages/AsusTawasoul";
+import EmailManager from "./pages/EmailManager";
 
 const queryClient = new QueryClient();
 
@@ -134,6 +135,7 @@ const App = () => (
               <Route path="/supplier-setup" element={<SupplierSetup />} />
               <Route path="/user-emails" element={<UserEmails />} />
               <Route path="/asus-tawasoul" element={<AsusTawasoul />} />
+              <Route path="/email-manager" element={<EmailManager />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

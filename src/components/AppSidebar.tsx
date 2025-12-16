@@ -99,6 +99,7 @@ export function AppSidebar() {
     "/supplier-setup": "supplierSetup",
     "/user-emails": "userEmails",
     "/asus-tawasoul": "asusTawasoul",
+    "/email-manager": "emailManager",
   };
 
   useEffect(() => {
@@ -250,6 +251,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "متابعة الورديات" : "Shift Follow-Up", url: "/shift-follow-up", icon: BarChart3 },
         { title: language === 'ar' ? "تواصل" : "Tawasoul", url: "/tawasoul", icon: MessageCircle },
         { title: language === 'ar' ? "أسس تواصل" : "Asus Tawasoul", url: "/asus-tawasoul", icon: Users },
+        { title: language === 'ar' ? "مدير البريد" : "Email Manager", url: "/email-manager", icon: Mail },
         { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
       ]
     },

@@ -574,6 +574,141 @@ export type Database = {
           },
         ]
       }
+      email_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          email_id: string
+          filename: string
+          id: string
+          size_bytes: number | null
+          storage_path: string | null
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          email_id: string
+          filename: string
+          id?: string
+          size_bytes?: number | null
+          storage_path?: string | null
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          email_id?: string
+          filename?: string
+          id?: string
+          size_bytes?: number | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachments_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emails: {
+        Row: {
+          bcc_addresses: Json | null
+          body_html: string | null
+          body_text: string | null
+          cc_addresses: Json | null
+          config_id: string
+          created_at: string
+          email_date: string
+          folder: string
+          from_address: string
+          from_name: string | null
+          has_attachments: boolean
+          id: string
+          is_draft: boolean
+          is_read: boolean
+          is_starred: boolean
+          linked_task_id: string | null
+          linked_ticket_id: string | null
+          message_id: string
+          subject: string | null
+          to_addresses: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bcc_addresses?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_addresses?: Json | null
+          config_id: string
+          created_at?: string
+          email_date: string
+          folder?: string
+          from_address: string
+          from_name?: string | null
+          has_attachments?: boolean
+          id?: string
+          is_draft?: boolean
+          is_read?: boolean
+          is_starred?: boolean
+          linked_task_id?: string | null
+          linked_ticket_id?: string | null
+          message_id: string
+          subject?: string | null
+          to_addresses?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bcc_addresses?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_addresses?: Json | null
+          config_id?: string
+          created_at?: string
+          email_date?: string
+          folder?: string
+          from_address?: string
+          from_name?: string | null
+          has_attachments?: boolean
+          id?: string
+          is_draft?: boolean
+          is_read?: boolean
+          is_starred?: boolean
+          linked_task_id?: string | null
+          linked_ticket_id?: string | null
+          message_id?: string
+          subject?: string | null
+          to_addresses?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emails_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "user_email_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_linked_task_id_fkey"
+            columns: ["linked_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_linked_ticket_id_fkey"
+            columns: ["linked_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       excel_column_mappings: {
         Row: {
           created_at: string
@@ -2750,6 +2885,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_email_configs: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email_address: string
+          email_password: string
+          email_username: string
+          id: string
+          imap_host: string
+          imap_port: number
+          imap_secure: boolean
+          is_active: boolean
+          last_sync_at: string | null
+          smtp_host: string
+          smtp_port: number
+          smtp_secure: boolean
+          sync_error: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email_address: string
+          email_password: string
+          email_username: string
+          id?: string
+          imap_host: string
+          imap_port?: number
+          imap_secure?: boolean
+          is_active?: boolean
+          last_sync_at?: string | null
+          smtp_host: string
+          smtp_port?: number
+          smtp_secure?: boolean
+          sync_error?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email_address?: string
+          email_password?: string
+          email_username?: string
+          id?: string
+          imap_host?: string
+          imap_port?: number
+          imap_secure?: boolean
+          is_active?: boolean
+          last_sync_at?: string | null
+          smtp_host?: string
+          smtp_port?: number
+          smtp_secure?: boolean
+          sync_error?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_emails: {
         Row: {
