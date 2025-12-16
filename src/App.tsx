@@ -62,6 +62,7 @@ import TransactionStatistics from "./pages/TransactionStatistics";
 import Index from "./pages/Index";
 import UserLogins from "./pages/UserLogins";
 import SupplierSetup from "./pages/SupplierSetup";
+import UserEmails from "./pages/UserEmails";
 
 const queryClient = new QueryClient();
 
@@ -130,6 +131,7 @@ const App = () => (
               <Route path="/company-hierarchy" element={<CompanyHierarchy />} />
               <Route path="/user-logins" element={<UserLogins />} />
               <Route path="/supplier-setup" element={<SupplierSetup />} />
+              <Route path="/user-emails" element={<UserEmails />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
