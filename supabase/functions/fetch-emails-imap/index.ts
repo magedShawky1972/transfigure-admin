@@ -120,9 +120,30 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string } {
 
   const decodeBodyByEncoding = (headers: string, body: string): string => {
     const enc = (headerValue(headers, "Content-Transfer-Encoding") || "").toLowerCase();
-    if (enc === "base64") return decodeBase64(body.trim()).trim();
-    if (enc === "quoted-printable") return decodeQuotedPrintable(body).trim();
-    return body.trim();
+    const contentType = (headerValue(headers, "Content-Type") || "").toLowerCase();
+    
+    // Extract charset from Content-Type
+    const charsetMatch = contentType.match(/charset\s*=\s*"?([^";\s]+)"?/i);
+    const charset = charsetMatch ? charsetMatch[1].toLowerCase() : "utf-8";
+    
+    let decoded = body.trim();
+    
+    if (enc === "base64") {
+      decoded = decodeBase64(body.trim()).trim();
+    } else if (enc === "quoted-printable") {
+      decoded = decodeQuotedPrintable(body).trim();
+    } else {
+      // For non-encoded content (7bit, 8bit, binary), try to decode from latin1 to proper charset
+      // Since we read IMAP as latin1, the bytes are preserved as char codes
+      try {
+        const bytes = new Uint8Array([...decoded].map((c) => c.charCodeAt(0)));
+        decoded = new TextDecoder(charset === "iso-8859-1" ? "iso-8859-1" : "utf-8").decode(bytes);
+      } catch {
+        // Keep original if decoding fails
+      }
+    }
+    
+    return decoded;
   };
 
   const splitMultipartBody = (body: string, boundary: string): string[] => {
