@@ -340,30 +340,55 @@ serve(async (req) => {
       });
     }
 
-    const raw = await client.fetchFullRaw(seq);
-    const { text, html, hasAttachments } = extractBodyFromMime(raw);
+     const raw = await client.fetchFullRaw(seq);
+     const { text, html, hasAttachments } = extractBodyFromMime(raw);
 
-    await client.logout();
+     // Basic diagnostics (trimmed) to help debug "hasBody=false"
+     const headerEndIdx = raw.search(/\r?\n\r?\n/);
+     const headerPreview = raw.substring(0, Math.min(raw.length, headerEndIdx === -1 ? 800 : Math.min(800, headerEndIdx)));
+     const contentTypeTop = raw.match(/Content-Type:\s*([^;\r\n]+)/i)?.[1] ?? null;
+     const transferEncTop = raw.match(/Content-Transfer-Encoding:\s*(\S+)/i)?.[1] ?? null;
+     const boundaryTop = raw.match(/boundary="?([^"\r\n;]+)"?/i)?.[1] ?? null;
 
-    // Update DB
-    const { error: updateError } = await supabase
-      .from("emails")
-      .update({
-        body_text: text || null,
-        body_html: html || null,
-        has_attachments: hasAttachments,
-      })
-      .eq("user_id", user.id)
-      .eq("message_id", messageId);
+     await client.logout();
 
-    if (updateError) {
-      console.error("DB update error:", updateError);
-    }
+     // Update DB
+     const { error: updateError } = await supabase
+       .from("emails")
+       .update({
+         body_text: text || null,
+         body_html: html || null,
+         has_attachments: hasAttachments,
+       })
+       .eq("user_id", user.id)
+       .eq("message_id", messageId);
 
-    return new Response(JSON.stringify({ success: true, seq, hasAttachments, hasBody: !!(text || html) }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+     if (updateError) {
+       console.error("DB update error:", updateError);
+     }
+
+     return new Response(
+       JSON.stringify({
+         success: true,
+         seq,
+         hasAttachments,
+         hasBody: !!(text || html),
+         diagnostics: {
+           raw_len: raw.length,
+           header_end_idx: headerEndIdx,
+           content_type: contentTypeTop,
+           transfer_encoding: transferEncTop,
+           boundary: boundaryTop,
+           header_preview: headerPreview,
+           text_len: text?.length ?? 0,
+           html_len: html?.length ?? 0,
+         },
+       }),
+       {
+         status: 200,
+         headers: { ...corsHeaders, "Content-Type": "application/json" },
+       }
+     );
   } catch (error: any) {
     console.error("Error fetching email body:", error);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
