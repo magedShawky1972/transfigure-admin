@@ -621,7 +621,7 @@ const AsusTawasoul = () => {
   );
 
   const chatArea = (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {!selectedConversation ? (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
@@ -658,7 +658,7 @@ const AsusTawasoul = () => {
             </div>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 min-h-0 p-4">
             <div className="space-y-4">
               {messages.length === 0 ? (
                 <p className="text-center text-muted-foreground">{t.noMessages}</p>
