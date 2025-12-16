@@ -759,6 +759,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existingById?.id) {
+        // Only update content fields, preserve user-controlled fields (is_read, is_starred)
         const { error: updateError } = await supabase
           .from("emails")
           .update({
@@ -769,10 +770,9 @@ serve(async (req) => {
             email_date: emailData.email_date,
             body_text: emailData.body_text,
             body_html: emailData.body_html,
-            is_read: emailData.is_read,
-            is_starred: emailData.is_starred,
             has_attachments: emailData.has_attachments,
             folder: emailData.folder,
+            // DO NOT update is_read or is_starred - preserve user's local settings
           })
           .eq("id", existingById.id);
 
