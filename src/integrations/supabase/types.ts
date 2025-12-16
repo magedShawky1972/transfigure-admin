@@ -669,6 +669,120 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_conversation_participants: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "internal_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_conversations: {
+        Row: {
+          conversation_name: string | null
+          created_at: string
+          created_by: string
+          group_id: string | null
+          id: string
+          is_group: boolean
+          updated_at: string
+        }
+        Insert: {
+          conversation_name?: string | null
+          created_at?: string
+          created_by: string
+          group_id?: string | null
+          id?: string
+          is_group?: boolean
+          updated_at?: string
+        }
+        Update: {
+          conversation_name?: string | null
+          created_at?: string
+          created_by?: string
+          group_id?: string | null
+          id?: string
+          is_group?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_conversations_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "user_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_messages: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          media_type: string | null
+          media_url: string | null
+          message_text: string | null
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "internal_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_positions: {
         Row: {
           created_at: string
