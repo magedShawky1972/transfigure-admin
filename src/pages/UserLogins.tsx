@@ -22,7 +22,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Globe, Smartphone } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Globe, Smartphone, Copy } from "lucide-react";
 
 interface UserLogin {
   id: string;
@@ -45,6 +45,9 @@ const UserLogins = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLogin, setEditingLogin] = useState<UserLogin | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [pendingPasswordLoginId, setPendingPasswordLoginId] = useState<string | null>(null);
+  const [verificationPassword, setVerificationPassword] = useState("");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -177,6 +180,36 @@ const UserLogins = () => {
     }
   };
 
+  const handleShowPassword = (id: string) => {
+    if (showPasswords[id]) {
+      // If already visible, just hide it
+      setShowPasswords((prev) => ({ ...prev, [id]: false }));
+    } else {
+      // Show verification dialog before revealing
+      setPendingPasswordLoginId(id);
+      setVerificationPassword("");
+      setIsPasswordDialogOpen(true);
+    }
+  };
+
+  const handleVerifyPassword = () => {
+    if (verificationPassword === "159753") {
+      if (pendingPasswordLoginId) {
+        setShowPasswords((prev) => ({ ...prev, [pendingPasswordLoginId]: true }));
+      }
+      setIsPasswordDialogOpen(false);
+      setPendingPasswordLoginId(null);
+      setVerificationPassword("");
+    } else {
+      toast.error(language === "ar" ? "كلمة المرور غير صحيحة" : "Incorrect password");
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(language === "ar" ? "تم نسخ كلمة المرور" : "Password copied");
+  };
+
   const togglePasswordVisibility = (id: string) => {
     setShowPasswords((prev) => ({ ...prev, [id]: !prev[id] }));
   };
@@ -273,7 +306,7 @@ const UserLogins = () => {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => togglePasswordVisibility(login.id)}
+                              onClick={() => handleShowPassword(login.id)}
                             >
                               {showPasswords[login.id] ? (
                                 <EyeOff className="h-3 w-3" />
@@ -281,6 +314,16 @@ const UserLogins = () => {
                                 <Eye className="h-3 w-3" />
                               )}
                             </Button>
+                            {showPasswords[login.id] && login.password && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => copyToClipboard(login.password!)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -431,6 +474,34 @@ const UserLogins = () => {
               </Button>
               <Button onClick={handleSave}>
                 {language === "ar" ? "حفظ" : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Password Verification Dialog */}
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+          <DialogContent className="max-w-sm" dir={language === "ar" ? "rtl" : "ltr"}>
+            <DialogHeader>
+              <DialogTitle>
+                {language === "ar" ? "أدخل كلمة المرور للعرض" : "Enter Password to View"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                type="password"
+                value={verificationPassword}
+                onChange={(e) => setVerificationPassword(e.target.value)}
+                placeholder={language === "ar" ? "كلمة المرور" : "Password"}
+                onKeyDown={(e) => e.key === "Enter" && handleVerifyPassword()}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleVerifyPassword}>
+                {language === "ar" ? "تأكيد" : "Confirm"}
               </Button>
             </DialogFooter>
           </DialogContent>
