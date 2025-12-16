@@ -543,7 +543,7 @@ const EmailManager = () => {
     }
   };
 
-  // Auto-sync every 5 minutes
+  // Auto-sync every 5 seconds
   useEffect(() => {
     if (userConfig?.mail_type && userConfig?.email_password) {
       // Clear any existing interval
@@ -551,11 +551,11 @@ const EmailManager = () => {
         clearInterval(autoSyncIntervalRef.current);
       }
 
-      // Set up auto-sync every 5 minutes (300000ms)
+      // Set up auto-sync every 5 seconds (5000ms)
       autoSyncIntervalRef.current = setInterval(() => {
         console.log("Auto-sync triggered");
         syncEmailsFromServer(true);
-      }, 5 * 60 * 1000);
+      }, 5 * 1000);
 
       return () => {
         if (autoSyncIntervalRef.current) {
