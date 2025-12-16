@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 interface SendEmailRequest {
-  configId: string;
   to: string[];
   cc?: string[];
   bcc?: string[];
@@ -16,6 +15,10 @@ interface SendEmailRequest {
   body: string;
   fromName: string;
   fromEmail: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  emailPassword: string;
   isHtml?: boolean;
 }
 
@@ -45,7 +48,6 @@ serve(async (req) => {
     }
 
     const {
-      configId,
       to,
       cc,
       bcc,
@@ -53,34 +55,25 @@ serve(async (req) => {
       body,
       fromName,
       fromEmail,
+      smtpHost,
+      smtpPort,
+      smtpSecure,
+      emailPassword,
       isHtml = false,
     }: SendEmailRequest = await req.json();
 
     console.log(`Sending email from ${fromEmail} to ${to.join(", ")}`);
-
-    // Get email config
-    const { data: config, error: configError } = await supabase
-      .from("user_email_configs")
-      .select("*")
-      .eq("id", configId)
-      .eq("user_id", user.id)
-      .single();
-
-    if (configError || !config) {
-      throw new Error("Email configuration not found");
-    }
-
-    console.log(`Using SMTP: ${config.smtp_host}:${config.smtp_port}`);
+    console.log(`Using SMTP: ${smtpHost}:${smtpPort}`);
 
     // Create SMTP client
     const client = new SMTPClient({
       connection: {
-        hostname: config.smtp_host,
-        port: config.smtp_port,
-        tls: config.smtp_secure,
+        hostname: smtpHost,
+        port: smtpPort,
+        tls: smtpSecure,
         auth: {
-          username: config.email_username,
-          password: config.email_password,
+          username: fromEmail,
+          password: emailPassword,
         },
       },
     });
@@ -105,7 +98,6 @@ serve(async (req) => {
       .from("emails")
       .insert({
         user_id: user.id,
-        config_id: configId,
         message_id: `sent-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         folder: "SENT",
         subject: subject,
