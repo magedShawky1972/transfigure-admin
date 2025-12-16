@@ -356,7 +356,11 @@ const EmailManager = () => {
       }
     } catch (error: any) {
       console.error("Error syncing emails:", error);
-      toast.error(isArabic ? "خطأ في مزامنة البريد" : "Error syncing emails");
+      toast.error(
+        isArabic
+          ? `خطأ في مزامنة البريد: ${error?.message || ""}`
+          : `Error syncing emails: ${error?.message || ""}`
+      );
     } finally {
       setSyncing(false);
       setSyncStatus("");
