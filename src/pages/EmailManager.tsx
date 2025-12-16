@@ -34,6 +34,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   Mail,
@@ -156,6 +157,12 @@ const EmailManager = () => {
   const [syncOffset, setSyncOffset] = useState(0);
   const syncLimit = 50;
   const [serverTotal, setServerTotal] = useState<number | null>(null); // total emails on server
+
+  // Sync progress dialog
+  const [isSyncProgressOpen, setIsSyncProgressOpen] = useState(false);
+  const [syncProgressCurrent, setSyncProgressCurrent] = useState(0);
+  const [syncProgressTotal, setSyncProgressTotal] = useState(0);
+  const syncAbortRef = useRef(false);
 
   // clear emails
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
@@ -384,24 +391,28 @@ const EmailManager = () => {
     }
   };
 
-  const syncEmailsFromServer = async (options?: { loadOlder?: boolean }) => {
+  const syncEmailsFromServer = async () => {
     if (!userConfig?.mail_type || !userConfig.email_password) {
       toast.error(isArabic ? "إعدادات البريد غير مكتملة" : "Email settings incomplete");
       return;
     }
 
-    const loadOlder = options?.loadOlder ?? false;
-    const nextOffset = loadOlder ? syncOffset + syncLimit : 0;
-
+    // Reset abort flag and open progress dialog
+    syncAbortRef.current = false;
+    setIsSyncProgressOpen(true);
+    setSyncProgressCurrent(0);
+    setSyncProgressTotal(0);
     setSyncing(true);
-    setSyncStatus(isArabic ? "جاري الاتصال بالخادم..." : "Connecting to server...");
 
     try {
       const folder = activeTab === "sent" ? "Sent" : "INBOX";
+      let currentOffset = 0;
+      let totalEmails = 0;
+      let totalFetched = 0;
+      let totalSaved = 0;
 
-      setSyncStatus(isArabic ? "جاري جلب الرسائل..." : "Fetching emails...");
-
-      const { data, error } = await supabase.functions.invoke("fetch-emails-imap", {
+      // First call to get total count
+      const { data: firstData, error: firstError } = await supabase.functions.invoke("fetch-emails-imap", {
         body: {
           imapHost: userConfig.mail_type.imap_host,
           imapPort: userConfig.mail_type.imap_port,
@@ -410,28 +421,62 @@ const EmailManager = () => {
           emailPassword: userConfig.email_password,
           folder,
           limit: syncLimit,
-          offset: nextOffset,
+          offset: 0,
         },
       });
 
-      if (error) throw error;
+      if (firstError) throw firstError;
+      if (!firstData?.success) throw new Error(firstData?.error || "Unknown error");
 
-      if (data?.success) {
-        setSyncStatus(isArabic ? "جاري حفظ الرسائل..." : "Saving emails...");
+      totalEmails = firstData.total ?? firstData.fetched;
+      totalFetched += firstData.fetched;
+      totalSaved += firstData.saved;
+      currentOffset = syncLimit;
+
+      setSyncProgressTotal(totalEmails);
+      setSyncProgressCurrent(Math.min(totalFetched, totalEmails));
+
+      // Continue fetching remaining batches
+      while (currentOffset < totalEmails && !syncAbortRef.current) {
+        const { data, error } = await supabase.functions.invoke("fetch-emails-imap", {
+          body: {
+            imapHost: userConfig.mail_type.imap_host,
+            imapPort: userConfig.mail_type.imap_port,
+            imapSecure: userConfig.mail_type.imap_secure,
+            email: userConfig.email,
+            emailPassword: userConfig.email_password,
+            folder,
+            limit: syncLimit,
+            offset: currentOffset,
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || "Unknown error");
+
+        totalFetched += data.fetched;
+        totalSaved += data.saved;
+        currentOffset += syncLimit;
+
+        setSyncProgressCurrent(Math.min(totalFetched, totalEmails));
+
+        // Small delay to prevent overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      if (!syncAbortRef.current) {
         toast.success(
           isArabic
-            ? `تم جلب ${data.fetched} رسالة (${data.saved} جديدة)`
-            : `Fetched ${data.fetched} emails (${data.saved} new)`
+            ? `تم جلب ${totalFetched} رسالة (${totalSaved} جديدة)`
+            : `Fetched ${totalFetched} emails (${totalSaved} new)`
         );
-
-        setSyncOffset(nextOffset);
-        setServerTotal(data.total ?? null);
-
-        await fetchEmails();
-        await fetchEmailCounts();
-      } else {
-        throw new Error(data?.error || "Unknown error");
       }
+
+      setSyncOffset(currentOffset);
+      setServerTotal(totalEmails);
+
+      await fetchEmails();
+      await fetchEmailCounts();
     } catch (error: any) {
       console.error("Error syncing emails:", error);
       toast.error(
@@ -441,8 +486,13 @@ const EmailManager = () => {
       );
     } finally {
       setSyncing(false);
-      setSyncStatus("");
+      setIsSyncProgressOpen(false);
     }
+  };
+
+  const handleCancelSync = () => {
+    syncAbortRef.current = true;
+    toast.info(isArabic ? "تم إلغاء المزامنة" : "Sync cancelled");
   };
 
   const fetchDepartments = async () => {
@@ -833,21 +883,44 @@ const EmailManager = () => {
             <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${syncing ? "animate-spin" : ""}`} />
             {isArabic ? "مزامنة" : "Sync"}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => syncEmailsFromServer({ loadOlder: true })}
-            disabled={syncing || (serverTotal !== null && inboxCount >= serverTotal)}
-            title={isArabic ? "تحميل رسائل أقدم" : "Load older emails"}
-          >
-            <ChevronLeft className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
-            {isArabic ? "أقدم" : "Older"}
-          </Button>
           <Button onClick={() => setIsComposeOpen(true)}>
             <Plus className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
             {isArabic ? "رسالة جديدة" : "Compose"}
           </Button>
         </div>
       </div>
+
+      {/* Sync Progress Dialog */}
+      <Dialog open={isSyncProgressOpen} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>{isArabic ? "مزامنة البريد الإلكتروني" : "Syncing Emails"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between text-sm">
+              <span>{isArabic ? "جاري التحميل..." : "Loading..."}</span>
+              <span className="font-medium">
+                {syncProgressCurrent} {isArabic ? "من" : "of"} {syncProgressTotal || "?"}
+              </span>
+            </div>
+            <Progress 
+              value={syncProgressTotal > 0 ? (syncProgressCurrent / syncProgressTotal) * 100 : 0} 
+              className="h-3"
+            />
+            <p className="text-xs text-muted-foreground text-center">
+              {isArabic 
+                ? "الرجاء الانتظار حتى اكتمال المزامنة" 
+                : "Please wait until sync is complete"}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="destructive" onClick={handleCancelSync} disabled={!syncing}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="grid grid-cols-12 gap-4">
         {/* Sidebar */}
