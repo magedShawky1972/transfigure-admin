@@ -138,6 +138,10 @@ const EmailManager = () => {
   const [inboxCount, setInboxCount] = useState(0);
   const [sentCount, setSentCount] = useState(0);
   const [starredCount, setStarredCount] = useState(0);
+
+  // server sync pagination
+  const [syncOffset, setSyncOffset] = useState(0);
+  const syncLimit = 50;
   
   // Compose dialog
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -176,6 +180,11 @@ const EmailManager = () => {
       fetchEmailCounts();
     }
   }, [userConfig, activeTab]);
+
+  useEffect(() => {
+    // reset server pagination when switching folders
+    setSyncOffset(0);
+  }, [activeTab]);
 
   const fetchUserEmailConfig = async () => {
     try {
@@ -293,20 +302,23 @@ const EmailManager = () => {
     }
   };
 
-  const syncEmailsFromServer = async () => {
+  const syncEmailsFromServer = async (options?: { loadOlder?: boolean }) => {
     if (!userConfig?.mail_type || !userConfig.email_password) {
       toast.error(isArabic ? "إعدادات البريد غير مكتملة" : "Email settings incomplete");
       return;
     }
 
+    const loadOlder = options?.loadOlder ?? false;
+    const nextOffset = loadOlder ? syncOffset + syncLimit : 0;
+
     setSyncing(true);
     setSyncStatus(isArabic ? "جاري الاتصال بالخادم..." : "Connecting to server...");
-    
+
     try {
       const folder = activeTab === "sent" ? "Sent" : "INBOX";
-      
+
       setSyncStatus(isArabic ? "جاري جلب الرسائل..." : "Fetching emails...");
-      
+
       const { data, error } = await supabase.functions.invoke("fetch-emails-imap", {
         body: {
           imapHost: userConfig.mail_type.imap_host,
@@ -314,8 +326,9 @@ const EmailManager = () => {
           imapSecure: userConfig.mail_type.imap_secure,
           email: userConfig.email,
           emailPassword: userConfig.email_password,
-          folder: folder,
-          limit: 50,
+          folder,
+          limit: syncLimit,
+          offset: nextOffset,
         },
       });
 
@@ -324,11 +337,13 @@ const EmailManager = () => {
       if (data?.success) {
         setSyncStatus(isArabic ? "جاري حفظ الرسائل..." : "Saving emails...");
         toast.success(
-          isArabic 
-            ? `تم جلب ${data.fetched} رسالة (${data.saved} جديدة)` 
+          isArabic
+            ? `تم جلب ${data.fetched} رسالة (${data.saved} جديدة)`
             : `Fetched ${data.fetched} emails (${data.saved} new)`
         );
+        setSyncOffset(nextOffset);
         await fetchEmails();
+        await fetchEmailCounts();
       } else {
         throw new Error(data?.error || "Unknown error");
       }
@@ -608,7 +623,7 @@ const EmailManager = () => {
               <span className="text-sm text-primary">{syncStatus}</span>
             </div>
           )}
-          <Button variant="outline" onClick={syncEmailsFromServer} disabled={syncing}>
+          <Button variant="outline" onClick={() => syncEmailsFromServer()} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${syncing ? "animate-spin" : ""}`} />
             {isArabic ? "مزامنة" : "Sync"}
           </Button>

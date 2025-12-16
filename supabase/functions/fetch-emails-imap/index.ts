@@ -14,6 +14,7 @@ interface FetchEmailsRequest {
   emailPassword: string;
   folder?: string;
   limit?: number;
+  offset?: number; // how many latest messages to skip (pagination)
 }
 
 // Decode MIME encoded words (=?charset?encoding?text?=)
@@ -181,7 +182,8 @@ class IMAPClient {
   private conn: Deno.TcpConn | Deno.TlsConn | null = null;
   private tagCounter = 0;
   private encoder = new TextEncoder();
-  private decoder = new TextDecoder();
+  // IMPORTANT: decode raw IMAP stream as latin1 so string indexes match byte counts for literals
+  private decoder = new TextDecoder("latin1");
 
   constructor(
     private host: string,
@@ -511,14 +513,15 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    const { 
-      imapHost, 
-      imapPort, 
-      imapSecure, 
-      email, 
+    const {
+      imapHost,
+      imapPort,
+      imapSecure,
+      email,
       emailPassword,
       folder = 'INBOX',
-      limit = 50 
+      limit = 50,
+      offset = 0,
     }: FetchEmailsRequest = await req.json();
 
     console.log(`Fetching emails for ${email} from ${imapHost}:${imapPort}`);
@@ -559,10 +562,12 @@ serve(async (req) => {
     const emails: any[] = [];
 
     if (mailbox.exists > 0) {
-      const startSeq = Math.max(1, mailbox.exists - limit + 1);
-      const fetchedEmails = await client.fetchEmails(startSeq, mailbox.exists);
-      
-      for (const fetchedEmail of fetchedEmails) {
+      const endSeq = mailbox.exists - Math.max(0, offset);
+      if (endSeq >= 1) {
+        const startSeq = Math.max(1, endSeq - limit + 1);
+        const fetchedEmails = await client.fetchEmails(startSeq, endSeq);
+
+        for (const fetchedEmail of fetchedEmails) {
         // Decode MIME encoded subject and from_name
         const decodedSubject = decodeMimeWord(fetchedEmail.subject || "");
         const decodedFromName = decodeMimeWord(fetchedEmail.from_name || "");
@@ -610,7 +615,7 @@ serve(async (req) => {
           folder: storedFolder,
         };
 
-        emails.push(emailData);
+        }
       }
     }
 
