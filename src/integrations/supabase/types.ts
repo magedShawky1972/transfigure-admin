@@ -2081,6 +2081,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          partner_profile_id: number | null
           status: string
           supplier_code: string
           supplier_email: string | null
@@ -2091,6 +2092,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          partner_profile_id?: number | null
           status?: string
           supplier_code: string
           supplier_email?: string | null
@@ -2101,6 +2103,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          partner_profile_id?: number | null
           status?: string
           supplier_code?: string
           supplier_email?: string | null
