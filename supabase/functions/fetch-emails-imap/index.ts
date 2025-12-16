@@ -15,6 +15,8 @@ interface FetchEmailsRequest {
   folder?: string;
   limit?: number;
   offset?: number; // how many latest messages to skip (pagination)
+  sinceDate?: string; // ISO date string - only fetch emails after this date
+  incrementalOnly?: boolean; // if true, only fetch new emails not in database
 }
 
 // Decode MIME encoded words (=?charset?encoding?text?=)
@@ -338,6 +340,29 @@ class IMAPClient {
     return { exists, recent };
   }
 
+  async searchSince(sinceDate: string): Promise<number[]> {
+    // Format date as DD-MMM-YYYY for IMAP SINCE search
+    const date = new Date(sinceDate);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const imapDate = `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear()}`;
+    
+    const res = await this.sendCommand(`SEARCH SINCE ${imapDate}`);
+    const response = res.response;
+    
+    const seqs: number[] = [];
+    const searchMatch = response.match(/\*\s+SEARCH\s+([\d\s]+)/i);
+    if (searchMatch) {
+      const nums = searchMatch[1].trim().split(/\s+/).filter(n => n);
+      for (const n of nums) {
+        const seq = parseInt(n);
+        if (!isNaN(seq)) seqs.push(seq);
+      }
+    }
+    
+    console.log(`SEARCH SINCE ${imapDate}: found ${seqs.length} messages`);
+    return seqs;
+  }
+
   async fetchEmails(start: number, end: number): Promise<any[]> {
     const emails: any[] = [];
 
@@ -556,6 +581,8 @@ serve(async (req) => {
       folder = 'INBOX',
       limit = 50,
       offset = 0,
+      sinceDate,
+      incrementalOnly = false,
     }: FetchEmailsRequest = await req.json();
 
     console.log(`Fetching emails for ${email} from ${imapHost}:${imapPort}`);
@@ -596,60 +623,91 @@ serve(async (req) => {
     const emails: any[] = [];
 
     if (mailbox.exists > 0) {
-      const endSeq = mailbox.exists - Math.max(0, offset);
-      if (endSeq >= 1) {
-        const startSeq = Math.max(1, endSeq - limit + 1);
-        const fetchedEmails = await client.fetchEmails(startSeq, endSeq);
-
-        for (const fetchedEmail of fetchedEmails) {
-          // Decode MIME encoded subject and from_name
-          const decodedSubject = decodeMimeWord(fetchedEmail.subject || "");
-          const decodedFromName = decodeMimeWord(fetchedEmail.from_name || "");
-
-          // Body is already decoded by extractBodyFromMime
-          const bodyText = fetchedEmail.body_text || "";
-          const bodyHtml = fetchedEmail.body_html || "";
-
-          // Parse date safely
-          let emailDate = new Date().toISOString();
-          try {
-            if (fetchedEmail.date) {
-              const parsed = new Date(fetchedEmail.date);
-              if (!isNaN(parsed.getTime())) {
-                emailDate = parsed.toISOString();
-              }
-            }
-          } catch (e) {
-            console.log("Date parse error:", e);
+      let seqsToFetch: number[] = [];
+      
+      // If sinceDate is provided, use SEARCH to find only new emails
+      if (sinceDate && incrementalOnly) {
+        console.log(`Incremental sync: fetching emails since ${sinceDate}`);
+        seqsToFetch = await client.searchSince(sinceDate);
+        
+        // Limit the number of emails to fetch
+        if (seqsToFetch.length > limit) {
+          seqsToFetch = seqsToFetch.slice(-limit); // Get the most recent ones
+        }
+      } else {
+        // Traditional offset-based fetching
+        const endSeq = mailbox.exists - Math.max(0, offset);
+        if (endSeq >= 1) {
+          const startSeq = Math.max(1, endSeq - limit + 1);
+          for (let i = startSeq; i <= endSeq; i++) {
+            seqsToFetch.push(i);
           }
+        }
+      }
 
-          const storedFolder =
-            folder.toUpperCase() === "INBOX"
-              ? "INBOX"
-              : folder.toLowerCase().includes("sent")
-                ? "Sent"
-                : targetFolder;
+      if (seqsToFetch.length > 0) {
+        // Fetch in chunks to avoid timeout
+        const chunkSize = 20;
+        for (let i = 0; i < seqsToFetch.length; i += chunkSize) {
+          const chunk = seqsToFetch.slice(i, i + chunkSize);
+          const minSeq = Math.min(...chunk);
+          const maxSeq = Math.max(...chunk);
+          
+          const fetchedEmails = await client.fetchEmails(minSeq, maxSeq);
 
-          const stableMessageId = fetchedEmail.message_id_header
-            ? `${email}|${fetchedEmail.message_id_header}`
-            : `${email}|${storedFolder}|${fetchedEmail.seq}`;
+          for (const fetchedEmail of fetchedEmails) {
+            // Only process emails in our target sequence list
+            if (!seqsToFetch.includes(fetchedEmail.seq)) continue;
+            
+            // Decode MIME encoded subject and from_name
+            const decodedSubject = decodeMimeWord(fetchedEmail.subject || "");
+            const decodedFromName = decodeMimeWord(fetchedEmail.from_name || "");
 
-          const emailData = {
-            message_id: stableMessageId,
-            subject: decodedSubject || "(No Subject)",
-            from_address: fetchedEmail.from_address || "unknown@email.com",
-            from_name: decodedFromName,
-            to_addresses: [{ address: email }],
-            email_date: emailDate,
-            body_text: bodyText,
-            body_html: bodyHtml,
-            is_read: fetchedEmail.is_read || false,
-            is_starred: fetchedEmail.is_starred || false,
-            has_attachments: fetchedEmail.has_attachments || false,
-            folder: storedFolder,
-          };
+            // Body is already decoded by extractBodyFromMime
+            const bodyText = fetchedEmail.body_text || "";
+            const bodyHtml = fetchedEmail.body_html || "";
 
-          emails.push(emailData);
+            // Parse date safely
+            let emailDate = new Date().toISOString();
+            try {
+              if (fetchedEmail.date) {
+                const parsed = new Date(fetchedEmail.date);
+                if (!isNaN(parsed.getTime())) {
+                  emailDate = parsed.toISOString();
+                }
+              }
+            } catch (e) {
+              console.log("Date parse error:", e);
+            }
+
+            const storedFolder =
+              folder.toUpperCase() === "INBOX"
+                ? "INBOX"
+                : folder.toLowerCase().includes("sent")
+                  ? "Sent"
+                  : targetFolder;
+
+            const stableMessageId = fetchedEmail.message_id_header
+              ? `${email}|${fetchedEmail.message_id_header}`
+              : `${email}|${storedFolder}|${fetchedEmail.seq}`;
+
+            const emailData = {
+              message_id: stableMessageId,
+              subject: decodedSubject || "(No Subject)",
+              from_address: fetchedEmail.from_address || "unknown@email.com",
+              from_name: decodedFromName,
+              to_addresses: [{ address: email }],
+              email_date: emailDate,
+              body_text: bodyText,
+              body_html: bodyHtml,
+              is_read: fetchedEmail.is_read || false,
+              is_starred: fetchedEmail.is_starred || false,
+              has_attachments: fetchedEmail.has_attachments || false,
+              folder: storedFolder,
+            };
+
+            emails.push(emailData);
+          }
         }
       }
     }
