@@ -142,6 +142,7 @@ const EmailManager = () => {
   // server sync pagination
   const [syncOffset, setSyncOffset] = useState(0);
   const syncLimit = 50;
+  const [serverTotal, setServerTotal] = useState<number | null>(null); // total emails on server
   
   // Compose dialog
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -184,6 +185,7 @@ const EmailManager = () => {
   useEffect(() => {
     // reset server pagination when switching folders
     setSyncOffset(0);
+    setServerTotal(null);
   }, [activeTab]);
 
   const fetchUserEmailConfig = async () => {
@@ -342,6 +344,7 @@ const EmailManager = () => {
             : `Fetched ${data.fetched} emails (${data.saved} new)`
         );
         setSyncOffset(nextOffset);
+        setServerTotal(data.total ?? null);
         await fetchEmails();
         await fetchEmailCounts();
       } else {
@@ -617,6 +620,14 @@ const EmailManager = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Loaded / Total indicator */}
+          {serverTotal !== null && (
+            <span className="text-sm text-muted-foreground">
+              {isArabic
+                ? `تم تحميل ${inboxCount} من ${serverTotal}`
+                : `Loaded ${inboxCount} of ${serverTotal}`}
+            </span>
+          )}
           {syncing && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-md">
               <RefreshCw className="h-4 w-4 animate-spin text-primary" />
@@ -626,6 +637,15 @@ const EmailManager = () => {
           <Button variant="outline" onClick={() => syncEmailsFromServer()} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${syncing ? "animate-spin" : ""}`} />
             {isArabic ? "مزامنة" : "Sync"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => syncEmailsFromServer({ loadOlder: true })}
+            disabled={syncing || (serverTotal !== null && inboxCount >= serverTotal)}
+            title={isArabic ? "تحميل رسائل أقدم" : "Load older emails"}
+          >
+            <ChevronLeft className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+            {isArabic ? "أقدم" : "Older"}
           </Button>
           <Button onClick={() => setIsComposeOpen(true)}>
             <Plus className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
