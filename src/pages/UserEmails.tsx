@@ -226,11 +226,22 @@ const UserEmails = () => {
   };
 
   const handleUpdateAllUserSetup = async () => {
+    if (userEmails.length === 0) {
+      toast.error(language === "ar" ? "لا توجد بيانات للتحديث" : "No data to update");
+      return;
+    }
+
     let successCount = 0;
     let errorCount = 0;
+    let skippedCount = 0;
+
+    toast.info(language === "ar" ? "جاري التحديث..." : "Updating...");
 
     for (const userEmail of userEmails) {
-      if (!userEmail.email || !userEmail.password) continue;
+      if (!userEmail.email || !userEmail.password) {
+        skippedCount++;
+        continue;
+      }
 
       try {
         const { data: profile, error: findError } = await supabase
@@ -267,10 +278,17 @@ const UserEmails = () => {
       );
     }
     if (errorCount > 0) {
-      toast.error(
+      toast.warning(
         language === "ar" 
-          ? `فشل تحديث ${errorCount} مستخدم` 
-          : `Failed to update ${errorCount} users`
+          ? `لم يتم العثور على ${errorCount} مستخدم في إعدادات المستخدمين` 
+          : `${errorCount} users not found in User Setup`
+      );
+    }
+    if (successCount === 0 && errorCount === 0) {
+      toast.info(
+        language === "ar" 
+          ? "لا توجد بيانات صالحة للتحديث" 
+          : "No valid data to update"
       );
     }
   };
