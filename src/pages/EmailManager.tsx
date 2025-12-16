@@ -558,11 +558,11 @@ const EmailManager = () => {
         clearInterval(autoSyncIntervalRef.current);
       }
 
-      // Set up auto-sync every 5 seconds (5000ms)
+      // Set up auto-sync every 30 seconds (30000ms)
       autoSyncIntervalRef.current = setInterval(() => {
         console.log("Auto-sync triggered");
         syncEmailsFromServer(true);
-      }, 5 * 1000);
+      }, 30 * 1000);
 
       return () => {
         if (autoSyncIntervalRef.current) {
