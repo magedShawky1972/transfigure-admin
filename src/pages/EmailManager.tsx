@@ -15,6 +15,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -41,6 +51,7 @@ import {
   ChevronLeft,
   AlertCircle,
   X,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -145,6 +156,10 @@ const EmailManager = () => {
   const [syncOffset, setSyncOffset] = useState(0);
   const syncLimit = 50;
   const [serverTotal, setServerTotal] = useState<number | null>(null); // total emails on server
+
+  // clear emails
+  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
   
   // Compose dialog
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -277,7 +292,9 @@ const EmailManager = () => {
 
   const fetchEmailCounts = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Get inbox count
@@ -305,6 +322,65 @@ const EmailManager = () => {
       setStarredCount(starred || 0);
     } catch (error) {
       console.error("Error fetching email counts:", error);
+    }
+  };
+
+  const handleClearAllEmails = async () => {
+    if (clearing) return;
+
+    setClearing(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // delete attachments first (avoid orphans)
+      const { data: ids, error: idsError } = await supabase
+        .from("emails")
+        .select("id")
+        .eq("user_id", user.id);
+      if (idsError) throw idsError;
+
+      const emailIds = (ids ?? []).map((r) => r.id);
+      if (emailIds.length > 0) {
+        // chunk to avoid URL limits
+        const chunkSize = 200;
+        for (let i = 0; i < emailIds.length; i += chunkSize) {
+          const chunk = emailIds.slice(i, i + chunkSize);
+          const { error: attError } = await supabase
+            .from("email_attachments")
+            .delete()
+            .in("email_id", chunk);
+          if (attError) throw attError;
+        }
+      }
+
+      const { error: delError } = await supabase
+        .from("emails")
+        .delete()
+        .eq("user_id", user.id);
+      if (delError) throw delError;
+
+      setSelectedEmail(null);
+      setEmails([]);
+      setInboxCount(0);
+      setSentCount(0);
+      setStarredCount(0);
+      setSyncOffset(0);
+      setServerTotal(null);
+
+      toast.success(isArabic ? "تم مسح جميع الرسائل" : "All emails cleared");
+      setIsClearDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error clearing emails:", error);
+      toast.error(
+        isArabic
+          ? `خطأ في مسح الرسائل: ${error?.message || ""}`
+          : `Error clearing emails: ${error?.message || ""}`
+      );
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -719,6 +795,40 @@ const EmailManager = () => {
               <span className="text-sm text-primary">{syncStatus}</span>
             </div>
           )}
+
+          <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsClearDialogOpen(true)}
+              disabled={syncing || clearing}
+              title={isArabic ? "مسح كل الرسائل" : "Clear all emails"}
+            >
+              <Trash2 className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+              {isArabic ? "مسح" : "Clear"}
+            </Button>
+            <AlertDialogContent dir={isArabic ? "rtl" : "ltr"}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {isArabic ? "مسح جميع الرسائل؟" : "Clear all emails?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isArabic
+                    ? "سيتم حذف جميع الرسائل المتزامنة من النظام لهذا الحساب فقط. يمكنك عمل مزامنة مرة أخرى بعد ذلك."
+                    : "This will delete all synced emails for this account only. You can sync again afterwards."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={clearing}>
+                  {isArabic ? "إلغاء" : "Cancel"}
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearAllEmails} disabled={clearing}>
+                  {clearing ? (isArabic ? "جارٍ المسح..." : "Clearing...") : isArabic ? "مسح" : "Clear"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <Button variant="outline" onClick={() => syncEmailsFromServer()} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${syncing ? "animate-spin" : ""}`} />
             {isArabic ? "مزامنة" : "Sync"}
