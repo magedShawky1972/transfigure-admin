@@ -122,13 +122,13 @@ export function AppSidebar() {
       )
       .subscribe();
 
-    // Set up real-time subscription for internal messages
+    // Set up real-time subscription for internal messages (INSERT and UPDATE for read status)
     const msgChannel = supabase
       .channel('sidebar-internal-messages')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'internal_messages',
         },
