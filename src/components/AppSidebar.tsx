@@ -25,7 +25,8 @@ import {
   Gamepad2,
   FolderKanban,
   Building2,
-  KeyRound
+  KeyRound,
+  Truck
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -93,6 +94,7 @@ export function AppSidebar() {
     "/projects-tasks": "projectsTasks",
     "/company-hierarchy": "companyHierarchy",
     "/user-logins": "userLogins",
+    "/supplier-setup": "supplierSetup",
   };
 
   useEffect(() => {
@@ -214,6 +216,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد العملات' : 'Currency Setup', url: "/currency-setup", icon: DollarSign },
         { title: language === 'ar' ? 'مجموعات المستخدمين' : 'User Groups', url: "/user-group-setup", icon: Users },
         { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
+        { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
       ]
     },
     {

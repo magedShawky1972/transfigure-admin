@@ -61,6 +61,7 @@ import CompanyHierarchy from "./pages/CompanyHierarchy";
 import TransactionStatistics from "./pages/TransactionStatistics";
 import Index from "./pages/Index";
 import UserLogins from "./pages/UserLogins";
+import SupplierSetup from "./pages/SupplierSetup";
 
 const queryClient = new QueryClient();
 
@@ -128,6 +129,7 @@ const App = () => (
               <Route path="/task-dashboard" element={<TaskDashboard />} />
               <Route path="/company-hierarchy" element={<CompanyHierarchy />} />
               <Route path="/user-logins" element={<UserLogins />} />
+              <Route path="/supplier-setup" element={<SupplierSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
