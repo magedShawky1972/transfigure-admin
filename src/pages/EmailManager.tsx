@@ -1013,29 +1013,37 @@ const EmailManager = () => {
                 <CardContent className="p-4">
                   <ScrollArea className="h-[calc(100vh-400px)]">
                     {selectedEmail.body_html ? (
-                      <iframe
-                        title={isArabic ? "محتوى البريد" : "Email content"}
-                        className="w-full min-h-[calc(100vh-440px)] rounded-md border bg-background"
-                        sandbox="allow-popups allow-top-navigation-by-user-activation"
-                        srcDoc={`<!doctype html>
-<html lang="${isArabic ? "ar" : "en"}" dir="${isArabic ? "rtl" : "ltr"}">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      html, body { margin: 0; padding: 0; }
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 12px; }
-      img { max-width: 100%; height: auto; }
-      table { max-width: 100%; }
-    </style>
-  </head>
-  <body>
-    ${selectedEmail.body_html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, "")}
-  </body>
-</html>`}
-                      />
+                      <div className="email-body-container rounded-md border bg-white text-black p-4 overflow-auto">
+                        <style>{`
+                          .email-body-container * {
+                            all: revert;
+                          }
+                          .email-body-container {
+                            font-family: system-ui, -apple-system, sans-serif;
+                            font-size: 14px;
+                            line-height: 1.5;
+                            color: #000;
+                            background: #fff;
+                          }
+                          .email-body-container img {
+                            max-width: 100%;
+                            height: auto;
+                          }
+                          .email-body-container table {
+                            max-width: 100%;
+                          }
+                          .email-body-container a {
+                            color: #0066cc;
+                          }
+                        `}</style>
+                        <div 
+                          dangerouslySetInnerHTML={{ 
+                            __html: selectedEmail.body_html
+                              .replace(/<script[\s\S]*?<\/script>/gi, '')
+                              .replace(/on\w+\s*=\s*("[^"]*"|'[^']*')/gi, '')
+                          }} 
+                        />
+                      </div>
                     ) : selectedEmail.body_text ? (
                       <pre className="whitespace-pre-wrap text-sm font-sans">
                         {decodeMimeWord(selectedEmail.body_text)}
