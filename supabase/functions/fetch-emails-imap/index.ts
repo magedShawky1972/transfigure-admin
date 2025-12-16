@@ -61,14 +61,22 @@ function decodeMimeWord(text: string): string {
   return result;
 }
 
-// Decode quoted-printable content
+// Decode quoted-printable content to UTF-8
 function decodeQuotedPrintable(text: string): string {
   if (!text) return text;
-  return text
+  // First replace soft line breaks, then decode hex sequences
+  const raw = text
     .replace(/=\r?\n/g, '') // Remove soft line breaks
     .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => 
       String.fromCharCode(parseInt(hex, 16))
     );
+  // Convert bytes to UTF-8
+  try {
+    const bytes = new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch {
+    return raw;
+  }
 }
 
 // Decode base64 content
@@ -91,79 +99,87 @@ function decodeBase64(text: string): string {
   }
 }
 
-// Parse MIME multipart message and extract text content
+// Parse MIME multipart message and extract text content (handles nested multipart)
 function extractBodyFromMime(rawBody: string): { text: string; html: string } {
-  let textContent = '';
-  let htmlContent = '';
-  
-  // Check for Content-Transfer-Encoding in the body
-  const transferEncodingMatch = rawBody.match(/Content-Transfer-Encoding:\s*(\S+)/i);
-  const contentTypeMatch = rawBody.match(/Content-Type:\s*([^;\r\n]+)/i);
-  
-  // Check if this is a multipart message
-  const boundaryMatch = rawBody.match(/boundary="?([^"\r\n;]+)"?/i);
-  
-  if (boundaryMatch) {
-    const boundary = boundaryMatch[1];
-    const parts = rawBody.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'));
-    
-    for (const part of parts) {
-      if (part.trim() === '' || part.trim() === '--') continue;
-      
-      const partContentType = part.match(/Content-Type:\s*([^;\r\n]+)/i);
-      const partEncoding = part.match(/Content-Transfer-Encoding:\s*(\S+)/i);
-      
-      // Find the actual content (after headers, separated by double newline)
-      const contentStart = part.search(/\r?\n\r?\n/);
-      if (contentStart === -1) continue;
-      
-      let content = part.substring(contentStart).trim();
-      
-      // Decode based on transfer encoding
-      if (partEncoding) {
-        const encoding = partEncoding[1].toLowerCase();
-        if (encoding === 'base64') {
-          content = decodeBase64(content);
-        } else if (encoding === 'quoted-printable') {
-          content = decodeQuotedPrintable(content);
+  const splitHeadersAndBody = (part: string): { headers: string; body: string } => {
+    const idx = part.search(/\r?\n\r?\n/);
+    if (idx === -1) return { headers: part, body: "" };
+    const headers = part.slice(0, idx);
+    const body = part.slice(idx).replace(/^\r?\n\r?\n/, "");
+    return { headers, body };
+  };
+
+  const headerValue = (headers: string, name: string): string | null => {
+    // Match only real header lines (start-of-line), with simple folded header support.
+    const re = new RegExp(`(?:^|\\r?\\n)${name}:\\s*([^\\r\\n]+(?:\\r?\\n[\\t ].+)*)`, "i");
+    const m = headers.match(re);
+    if (!m) return null;
+    return m[1].replace(/\r?\n[\t ]+/g, " ").trim();
+  };
+
+  const decodeBodyByEncoding = (headers: string, body: string): string => {
+    const enc = (headerValue(headers, "Content-Transfer-Encoding") || "").toLowerCase();
+    if (enc === "base64") return decodeBase64(body.trim()).trim();
+    if (enc === "quoted-printable") return decodeQuotedPrintable(body).trim();
+    return body.trim();
+  };
+
+  const splitMultipartBody = (body: string, boundary: string): string[] => {
+    const esc = boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Split on boundary lines. This is intentionally permissive about whitespace/newlines.
+    const re = new RegExp(`\\r?\\n--${esc}(?:--)?\\s*\\r?\\n`, "g");
+    const parts = ("\r\n" + body).split(re);
+    return parts.map((p) => p.trim()).filter(Boolean);
+  };
+
+  const parseMimeRecursive = (part: string): { text: string; html: string } => {
+    const { headers, body } = splitHeadersAndBody(part);
+
+    const contentTypeFull = (headerValue(headers, "Content-Type") || "").toLowerCase();
+    const contentType = contentTypeFull.split(";")[0].trim();
+    const boundary = (() => {
+      const m = contentTypeFull.match(/boundary\s*=\s*"?([^";\r\n]+)"?/i);
+      return m?.[1] ?? null;
+    })();
+
+    // Multipart: split and recurse
+    if (contentType.startsWith("multipart/") && boundary) {
+      let textContent = "";
+      let htmlContent = "";
+
+      const parts = splitMultipartBody(body, boundary);
+      for (const p of parts) {
+        const pTrim = p.trim();
+        if (!pTrim || pTrim === "--") continue;
+
+        const { headers: ph, body: pb } = splitHeadersAndBody(pTrim);
+        const pTypeFull = (headerValue(ph, "Content-Type") || "").toLowerCase();
+        const pType = pTypeFull.split(";")[0].trim();
+
+        if (pType.startsWith("multipart/")) {
+          const nested = parseMimeRecursive(pTrim);
+          if (!textContent && nested.text) textContent = nested.text;
+          if (!htmlContent && nested.html) htmlContent = nested.html;
+        } else if (pType.includes("text/plain")) {
+          if (!textContent) textContent = decodeBodyByEncoding(ph, pb);
+        } else if (pType.includes("text/html")) {
+          if (!htmlContent) htmlContent = decodeBodyByEncoding(ph, pb);
         }
+
+        if (textContent && htmlContent) break;
       }
-      
-      if (partContentType) {
-        const type = partContentType[1].toLowerCase();
-        if (type.includes('text/plain') && !textContent) {
-          textContent = content;
-        } else if (type.includes('text/html') && !htmlContent) {
-          htmlContent = content;
-        }
-      }
+
+      return { text: textContent, html: htmlContent };
     }
-  } else {
-    // Not multipart - check for encoding and decode
-    let content = rawBody;
-    
-    // Find content after headers
-    const contentStart = rawBody.search(/\r?\n\r?\n/);
-    if (contentStart !== -1) {
-      content = rawBody.substring(contentStart).trim();
-    }
-    
-    if (transferEncodingMatch) {
-      const encoding = transferEncodingMatch[1].toLowerCase();
-      if (encoding === 'base64') {
-        content = decodeBase64(content);
-      } else if (encoding === 'quoted-printable') {
-        content = decodeQuotedPrintable(content);
-      }
-    }
-    
-    if (contentTypeMatch && contentTypeMatch[1].toLowerCase().includes('text/html')) {
-      htmlContent = content;
-    } else {
-      textContent = content;
-    }
-  }
-  
+
+    // Not multipart
+    const decoded = decodeBodyByEncoding(headers, body);
+    if (contentType.includes("text/html")) return { text: "", html: decoded };
+    return { text: decoded, html: "" };
+  };
+
+  let { text: textContent, html: htmlContent } = parseMimeRecursive(rawBody);
+
   // Strip HTML tags for text version if we only have HTML
   if (!textContent && htmlContent) {
     textContent = htmlContent
@@ -178,7 +194,7 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string } {
       .replace(/\s+/g, ' ')
       .trim();
   }
-  
+
   return { text: textContent, html: htmlContent };
 }
 

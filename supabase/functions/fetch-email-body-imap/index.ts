@@ -18,9 +18,17 @@ interface FetchEmailBodyRequest {
 
 function decodeQuotedPrintable(text: string): string {
   if (!text) return text;
-  return text
+  // First replace soft line breaks, then decode hex sequences
+  const raw = text
     .replace(/=\r?\n/g, "")
     .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  // Convert bytes to UTF-8
+  try {
+    const bytes = new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch {
+    return raw;
+  }
 }
 
 function decodeBase64(text: string): string {
