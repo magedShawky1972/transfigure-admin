@@ -197,8 +197,25 @@ const EmailManager = () => {
   });
 
   useEffect(() => {
-    fetchUserEmailConfig();
-    fetchDepartments();
+    // Wait for auth session to be ready before fetching
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        fetchUserEmailConfig();
+        fetchDepartments();
+      }
+    });
+
+    // Also try immediately in case session is already available
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        fetchUserEmailConfig();
+        fetchDepartments();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
