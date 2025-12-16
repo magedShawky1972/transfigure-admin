@@ -1033,6 +1033,48 @@ export type Database = {
           },
         ]
       }
+      mail_types: {
+        Row: {
+          created_at: string
+          id: string
+          imap_host: string
+          imap_port: number
+          imap_secure: boolean
+          is_active: boolean
+          smtp_host: string
+          smtp_port: number
+          smtp_secure: boolean
+          type_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          imap_host: string
+          imap_port?: number
+          imap_secure?: boolean
+          is_active?: boolean
+          smtp_host: string
+          smtp_port?: number
+          smtp_secure?: boolean
+          type_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          imap_host?: string
+          imap_port?: number
+          imap_secure?: boolean
+          is_active?: boolean
+          smtp_host?: string
+          smtp_port?: number
+          smtp_secure?: boolean
+          type_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -1427,6 +1469,7 @@ export type Database = {
           id: string
           is_active: boolean
           job_position_id: string | null
+          mail_type_id: string | null
           mobile_number: string | null
           must_change_password: boolean
           transaction_column_order: Json | null
@@ -1445,6 +1488,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           job_position_id?: string | null
+          mail_type_id?: string | null
           mobile_number?: string | null
           must_change_password?: boolean
           transaction_column_order?: Json | null
@@ -1463,6 +1507,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           job_position_id?: string | null
+          mail_type_id?: string | null
           mobile_number?: string | null
           must_change_password?: boolean
           transaction_column_order?: Json | null
@@ -1485,6 +1530,13 @@ export type Database = {
             columns: ["job_position_id"]
             isOneToOne: false
             referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_mail_type_id_fkey"
+            columns: ["mail_type_id"]
+            isOneToOne: false
+            referencedRelation: "mail_types"
             referencedColumns: ["id"]
           },
         ]
