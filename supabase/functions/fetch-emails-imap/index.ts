@@ -74,14 +74,19 @@ function decodeQuotedPrintable(text: string): string {
 // Decode base64 content
 function decodeBase64(text: string): string {
   if (!text) return text;
+  const cleaned = text.replace(/\s/g, "");
+
+  // Quick validation to avoid expensive errors/log spam.
+  // Base64 should only contain A-Z a-z 0-9 + / =
+  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned) || cleaned.length % 4 !== 0) {
+    return text;
+  }
+
   try {
-    const cleaned = text.replace(/\s/g, '');
     const decoded = atob(cleaned);
-    // Try to decode as UTF-8
-    const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
-    return new TextDecoder('utf-8').decode(bytes);
-  } catch (e) {
-    console.error('Base64 decode error:', e);
+    const bytes = new Uint8Array([...decoded].map((c) => c.charCodeAt(0)));
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch {
     return text;
   }
 }
@@ -307,9 +312,9 @@ class IMAPClient {
   async fetchEmails(start: number, end: number): Promise<any[]> {
     const emails: any[] = [];
 
-    // Fetch envelope, headers, and full body for emails
+    // Fetch envelope, headers, and *partial* body for emails (faster + avoids runtime limits)
     const res = await this.sendCommand(
-      `FETCH ${start}:${end} (FLAGS ENVELOPE RFC822.SIZE BODY.PEEK[])`
+      `FETCH ${start}:${end} (FLAGS ENVELOPE RFC822.SIZE BODY.PEEK[]<0.65536>)`
     );
     const response = res.response;
 
@@ -568,58 +573,57 @@ serve(async (req) => {
         const fetchedEmails = await client.fetchEmails(startSeq, endSeq);
 
         for (const fetchedEmail of fetchedEmails) {
-        // Decode MIME encoded subject and from_name
-        const decodedSubject = decodeMimeWord(fetchedEmail.subject || "");
-        const decodedFromName = decodeMimeWord(fetchedEmail.from_name || "");
+          // Decode MIME encoded subject and from_name
+          const decodedSubject = decodeMimeWord(fetchedEmail.subject || "");
+          const decodedFromName = decodeMimeWord(fetchedEmail.from_name || "");
 
-        // Body is already decoded by extractBodyFromMime
-        const bodyText = fetchedEmail.body_text || "";
-        const bodyHtml = fetchedEmail.body_html || "";
+          // Body is already decoded by extractBodyFromMime
+          const bodyText = fetchedEmail.body_text || "";
+          const bodyHtml = fetchedEmail.body_html || "";
 
-        // Parse date safely
-        let emailDate = new Date().toISOString();
-        try {
-          if (fetchedEmail.date) {
-            const parsed = new Date(fetchedEmail.date);
-            if (!isNaN(parsed.getTime())) {
-              emailDate = parsed.toISOString();
+          // Parse date safely
+          let emailDate = new Date().toISOString();
+          try {
+            if (fetchedEmail.date) {
+              const parsed = new Date(fetchedEmail.date);
+              if (!isNaN(parsed.getTime())) {
+                emailDate = parsed.toISOString();
+              }
             }
+          } catch (e) {
+            console.log("Date parse error:", e);
           }
-        } catch (e) {
-          console.log("Date parse error:", e);
-        }
 
-        const storedFolder =
-          folder.toUpperCase() === "INBOX"
-            ? "INBOX"
-            : folder.toLowerCase().includes("sent")
-              ? "Sent"
-              : targetFolder;
+          const storedFolder =
+            folder.toUpperCase() === "INBOX"
+              ? "INBOX"
+              : folder.toLowerCase().includes("sent")
+                ? "Sent"
+                : targetFolder;
 
-        const stableMessageId = fetchedEmail.message_id_header
-          ? `${email}|${fetchedEmail.message_id_header}`
-          : `${email}|${storedFolder}|${fetchedEmail.seq}`;
+          const stableMessageId = fetchedEmail.message_id_header
+            ? `${email}|${fetchedEmail.message_id_header}`
+            : `${email}|${storedFolder}|${fetchedEmail.seq}`;
 
-        const emailData = {
-          message_id: stableMessageId,
-          subject: decodedSubject || "(No Subject)",
-          from_address: fetchedEmail.from_address || "unknown@email.com",
-          from_name: decodedFromName,
-          to_addresses: [{ address: email }],
-          email_date: emailDate,
-          body_text: bodyText,
-          body_html: bodyHtml,
-          is_read: fetchedEmail.is_read || false,
-          is_starred: fetchedEmail.is_starred || false,
-          has_attachments: fetchedEmail.has_attachments || false,
-          folder: storedFolder,
-        };
+          const emailData = {
+            message_id: stableMessageId,
+            subject: decodedSubject || "(No Subject)",
+            from_address: fetchedEmail.from_address || "unknown@email.com",
+            from_name: decodedFromName,
+            to_addresses: [{ address: email }],
+            email_date: emailDate,
+            body_text: bodyText,
+            body_html: bodyHtml,
+            is_read: fetchedEmail.is_read || false,
+            is_starred: fetchedEmail.is_starred || false,
+            has_attachments: fetchedEmail.has_attachments || false,
+            folder: storedFolder,
+          };
 
+          emails.push(emailData);
         }
       }
     }
-
-    await client.logout();
     console.log(`Fetched ${emails.length} emails from ${mailbox.exists} total`);
 
     // Save emails to database (update if exists)
