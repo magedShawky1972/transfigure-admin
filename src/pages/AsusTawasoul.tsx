@@ -424,49 +424,24 @@ const AsusTawasoul = () => {
   const findOrCreateConversation = async (targetUserId: string) => {
     if (!currentUserId) return;
 
-    // Check if a 1-on-1 conversation already exists
-    const existingConvo = conversations.find(c => 
-      !c.is_group && 
-      c.participants.length === 2 &&
-      c.participants.some(p => p.user_id === targetUserId)
-    );
-
-    if (existingConvo) {
-      handleSelectConversation(existingConvo);
-      return;
-    }
-
-    // Create new conversation
     try {
-      const { data: conv, error: convError } = await supabase
-        .from('internal_conversations')
-        .insert({
-          is_group: false,
-          group_id: null,
-          conversation_name: null,
-          created_by: currentUserId
-        })
-        .select()
-        .single();
+      // Use RPC function to find or create conversation (bypasses RLS issues)
+      const { data: convId, error } = await supabase.rpc('find_or_create_direct_conversation', {
+        other_user_id: targetUserId
+      });
 
-      if (convError) throw convError;
-
-      // Add participants
-      await supabase.from('internal_conversation_participants').insert([
-        { conversation_id: conv.id, user_id: currentUserId },
-        { conversation_id: conv.id, user_id: targetUserId }
-      ]);
+      if (error) throw error;
 
       await fetchConversations(currentUserId);
       
-      // Select the newly created conversation
+      // Find and select the conversation
       const targetUser = users.find(u => u.user_id === targetUserId);
       const newConvo: Conversation = {
-        id: conv.id,
+        id: convId,
         is_group: false,
         group_id: null,
         conversation_name: null,
-        created_at: conv.created_at,
+        created_at: new Date().toISOString(),
         participants: [
           users.find(u => u.user_id === currentUserId)!,
           targetUser!
@@ -474,7 +449,7 @@ const AsusTawasoul = () => {
         unread_count: 0
       };
       setSelectedConversation(newConvo);
-      setMessages([]);
+      await fetchMessages(convId);
     } catch (error) {
       console.error('Create chat error:', error);
       toast({

@@ -3181,6 +3181,10 @@ export type Database = {
         }[]
       }
       exec_sql: { Args: { sql: string }; Returns: undefined }
+      find_or_create_direct_conversation: {
+        Args: { other_user_id: string }
+        Returns: string
+      }
       format_date_to_int: { Args: { d: string }; Returns: number }
       generate_ludo_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
@@ -3204,10 +3208,6 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
-        Returns: boolean
-      }
-      is_conversation_member: {
-        Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
       revenue_by_brand_type: {
