@@ -169,7 +169,10 @@ const EmailManager = () => {
   // clear emails
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
-  
+
+  // delete email
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingEmail, setDeletingEmail] = useState(false);
   // Compose dialog
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState({
@@ -446,8 +449,12 @@ const EmailManager = () => {
         .limit(1)
         .maybeSingle();
 
-      if (error || !data) return null;
-      return data.email_date;
+      if (error || !data?.email_date) return null;
+
+      // IMAP SEARCH SINCE is day-based (no time), so we go back 1 day to avoid missing same-day emails.
+      const latest = new Date(data.email_date);
+      const safeSince = new Date(latest.getTime() - 24 * 60 * 60 * 1000);
+      return safeSince.toISOString();
     } catch (error) {
       console.error("Error getting latest email date:", error);
       return null;
@@ -669,6 +676,35 @@ const EmailManager = () => {
       }
     } catch (error) {
       console.error("Error toggling star:", error);
+    }
+  };
+
+  const handleDeleteSelectedEmail = async () => {
+    if (!selectedEmail || deletingEmail) return;
+
+    setDeletingEmail(true);
+    try {
+      // delete attachments first
+      const { error: attError } = await supabase
+        .from("email_attachments")
+        .delete()
+        .eq("email_id", selectedEmail.id);
+      if (attError) throw attError;
+
+      const { error } = await supabase.from("emails").delete().eq("id", selectedEmail.id);
+      if (error) throw error;
+
+      setIsDeleteDialogOpen(false);
+      setSelectedEmail(null);
+      await fetchEmails();
+      await fetchEmailCounts();
+
+      toast.success(isArabic ? "تم حذف الرسالة" : "Email deleted");
+    } catch (error: any) {
+      console.error("Error deleting email:", error);
+      toast.error(isArabic ? "خطأ في حذف الرسالة" : "Error deleting email");
+    } finally {
+      setDeletingEmail(false);
     }
   };
 
@@ -1154,6 +1190,37 @@ const EmailManager = () => {
                       <Button variant="ghost" size="icon" onClick={openCreateTask} title={isArabic ? "إنشاء مهمة" : "Create Task"}>
                         <ListTodo className="h-4 w-4" />
                       </Button>
+
+                      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setIsDeleteDialogOpen(true)}
+                          title={isArabic ? "حذف" : "Delete"}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <AlertDialogContent dir={isArabic ? "rtl" : "ltr"}>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              {isArabic ? "حذف الرسالة؟" : "Delete email?"}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {isArabic
+                                ? "سيتم حذف الرسالة من النظام (لا يتم حذفها من صندوق البريد الخارجي)."
+                                : "This will delete the email from the app (it will not remove it from the external mailbox)."}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={deletingEmail}>
+                              {isArabic ? "إلغاء" : "Cancel"}
+                            </AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteSelectedEmail} disabled={deletingEmail}>
+                              {deletingEmail ? (isArabic ? "جارٍ الحذف..." : "Deleting...") : (isArabic ? "حذف" : "Delete")}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </CardHeader>
