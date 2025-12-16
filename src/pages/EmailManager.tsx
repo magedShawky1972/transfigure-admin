@@ -79,11 +79,47 @@ interface Email {
   linked_ticket_id: string | null;
   linked_task_id: string | null;
 }
-
 interface Department {
   id: string;
   department_name: string;
 }
+
+// Client-side MIME decoder for fallback
+const decodeMimeWord = (text: string): string => {
+  if (!text) return text;
+  
+  // Check if it's MIME encoded
+  if (!text.includes('=?')) return text;
+  
+  const mimePattern = /=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi;
+  
+  return text.replace(mimePattern, (match, charset, encoding, encodedText) => {
+    try {
+      let decoded = '';
+      
+      if (encoding.toUpperCase() === 'Q') {
+        // Quoted-Printable decoding
+        decoded = encodedText
+          .replace(/_/g, ' ')
+          .replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) => 
+            String.fromCharCode(parseInt(hex, 16))
+          );
+      } else if (encoding.toUpperCase() === 'B') {
+        // Base64 decoding
+        decoded = atob(encodedText);
+      } else {
+        return match;
+      }
+      
+      // Convert bytes to proper charset
+      const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
+      return new TextDecoder(charset.toLowerCase()).decode(bytes);
+    } catch (e) {
+      console.error('MIME decode error:', e);
+      return match;
+    }
+  });
+};
 
 const EmailManager = () => {
   const { language } = useLanguage();
@@ -662,18 +698,18 @@ const EmailManager = () => {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate">
-                            {email.from_name || email.from_address}
+                            {decodeMimeWord(email.from_name || '') || email.from_address}
                           </p>
                           <p className="text-sm truncate font-medium">
-                            {email.subject || (isArabic ? "(بدون موضوع)" : "(No subject)")}
+                            {decodeMimeWord(email.subject || '') || (isArabic ? "(بدون موضوع)" : "(No subject)")}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {email.body_text?.substring(0, 50)}...
+                            {decodeMimeWord(email.body_text || '')?.substring(0, 50) || '...'}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(email.email_date), "MMM d")}
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(email.email_date), "MMM d, h:mm a")}
                           </span>
                           <button
                             onClick={(e) => {
@@ -704,12 +740,15 @@ const EmailManager = () => {
               <>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       <CardTitle className="text-lg">
-                        {selectedEmail.subject || (isArabic ? "(بدون موضوع)" : "(No subject)")}
+                        {decodeMimeWord(selectedEmail.subject || '') || (isArabic ? "(بدون موضوع)" : "(No subject)")}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        {isArabic ? "من:" : "From:"} {selectedEmail.from_name || selectedEmail.from_address}
+                        {isArabic ? "من:" : "From:"} {decodeMimeWord(selectedEmail.from_name || '') || selectedEmail.from_address}
+                        {selectedEmail.from_name && (
+                          <span className="text-xs ml-1">&lt;{selectedEmail.from_address}&gt;</span>
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(selectedEmail.email_date), "PPpp")}
@@ -739,10 +778,14 @@ const EmailManager = () => {
                         className="prose prose-sm dark:prose-invert max-w-none"
                         dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
                       />
-                    ) : (
-                      <pre className="whitespace-pre-wrap text-sm">
-                        {selectedEmail.body_text}
+                    ) : selectedEmail.body_text ? (
+                      <pre className="whitespace-pre-wrap text-sm font-sans">
+                        {decodeMimeWord(selectedEmail.body_text)}
                       </pre>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        {isArabic ? "لا يوجد محتوى" : "No content available"}
+                      </p>
                     )}
                   </ScrollArea>
                 </CardContent>
