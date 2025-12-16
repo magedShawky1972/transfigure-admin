@@ -315,7 +315,8 @@ const EmailManager = () => {
     }
 
     const loadOlder = options?.loadOlder ?? false;
-    const nextOffset = loadOlder ? syncOffset + syncLimit : 0;
+    const loadedCount = activeTab === "sent" ? sentCount : inboxCount;
+    const nextOffset = loadOlder ? loadedCount : 0;
 
     setSyncing(true);
     setSyncStatus(isArabic ? "جاري الاتصال بالخادم..." : "Connecting to server...");
@@ -488,9 +489,43 @@ const EmailManager = () => {
     }
   };
 
-  const handleSelectEmail = (email: Email) => {
+  const handleSelectEmail = async (email: Email) => {
     setSelectedEmail(email);
     handleMarkAsRead(email);
+
+    // Lazy-load body from server when missing
+    if (!userConfig?.mail_type || !userConfig.email_password) return;
+    if (email.body_html || email.body_text) return;
+
+    try {
+      const folder = activeTab === "sent" ? "INBOX.Sent" : "INBOX";
+      await supabase.functions.invoke("fetch-email-body-imap", {
+        body: {
+          imapHost: userConfig.mail_type.imap_host,
+          imapPort: userConfig.mail_type.imap_port,
+          imapSecure: userConfig.mail_type.imap_secure,
+          email: userConfig.email,
+          emailPassword: userConfig.email_password,
+          folder,
+          messageId: email.message_id,
+        },
+      });
+
+      // Refresh selected email from DB
+      const { data: refreshed } = await supabase
+        .from("emails")
+        .select("*")
+        .eq("id", email.id)
+        .maybeSingle();
+
+      if (refreshed) {
+        setSelectedEmail(refreshed as any);
+        setEmails((prev) => prev.map((e) => (e.id === email.id ? (refreshed as any) : e)));
+      }
+    } catch (e) {
+      // keep silent; user still can open email subject etc.
+      console.error("Body lazy-load failed:", e);
+    }
   };
 
   const openCreateTicket = () => {
