@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -40,8 +40,10 @@ import {
   Search,
   ChevronLeft,
   AlertCircle,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 interface UserEmailConfig {
   email: string;
@@ -152,6 +154,8 @@ const EmailManager = () => {
     subject: "",
     body: "",
   });
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
 
   // Create ticket/task dialogs
@@ -381,6 +385,21 @@ const EmailManager = () => {
 
     setSending(true);
     try {
+      // Convert attachments to base64
+      const attachmentData = await Promise.all(
+        attachments.map(async (file) => {
+          const buffer = await file.arrayBuffer();
+          const base64 = btoa(
+            new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+          );
+          return {
+            filename: file.name,
+            content: base64,
+            contentType: file.type,
+          };
+        })
+      );
+
       const { data, error } = await supabase.functions.invoke("send-email-smtp", {
         body: {
           to: composeData.to.split(",").map(e => e.trim()),
@@ -393,6 +412,8 @@ const EmailManager = () => {
           smtpPort: userConfig.mail_type.smtp_port,
           smtpSecure: userConfig.mail_type.smtp_secure,
           emailPassword: userConfig.email_password,
+          isHtml: true,
+          attachments: attachmentData,
         },
       });
 
@@ -401,12 +422,27 @@ const EmailManager = () => {
       toast.success(isArabic ? "تم إرسال البريد بنجاح" : "Email sent successfully");
       setIsComposeOpen(false);
       setComposeData({ to: "", cc: "", subject: "", body: "" });
+      setAttachments([]);
     } catch (error: any) {
       console.error("Error sending email:", error);
       toast.error(isArabic ? "خطأ في إرسال البريد" : "Error sending email");
     } finally {
       setSending(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      setAttachments(prev => [...prev, ...Array.from(files)]);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleToggleStar = async (email: Email) => {
@@ -874,11 +910,44 @@ const EmailManager = () => {
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "الرسالة" : "Message"}</Label>
-              <Textarea
-                value={composeData.body}
-                onChange={(e) => setComposeData({ ...composeData, body: e.target.value })}
-                rows={10}
+              <RichTextEditor
+                content={composeData.body}
+                onChange={(html) => setComposeData({ ...composeData, body: html })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>{isArabic ? "المرفقات" : "Attachments"}</Label>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((file, index) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                    <Paperclip className="h-3 w-3" />
+                    {file.name}
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(index)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                multiple
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+                {isArabic ? "إضافة مرفق" : "Add Attachment"}
+              </Button>
             </div>
           </div>
           <DialogFooter>
