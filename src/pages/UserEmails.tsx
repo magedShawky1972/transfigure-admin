@@ -225,37 +225,53 @@ const UserEmails = () => {
     }
   };
 
-  const handleUpdateUserSetup = async (userEmail: UserEmail) => {
-    if (!userEmail.email || !userEmail.password) {
-      toast.error(language === "ar" ? "البريد وكلمة المرور مطلوبان" : "Email and password are required");
-      return;
+  const handleUpdateAllUserSetup = async () => {
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const userEmail of userEmails) {
+      if (!userEmail.email || !userEmail.password) continue;
+
+      try {
+        const { data: profile, error: findError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", userEmail.email)
+          .single();
+
+        if (findError || !profile) {
+          errorCount++;
+          continue;
+        }
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ email_password: userEmail.password })
+          .eq("id", profile.id);
+
+        if (updateError) {
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      } catch {
+        errorCount++;
+      }
     }
 
-    try {
-      // Find profile by email
-      const { data: profile, error: findError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", userEmail.email)
-        .single();
-
-      if (findError || !profile) {
-        toast.error(language === "ar" ? "لم يتم العثور على المستخدم" : "User not found");
-        return;
-      }
-
-      // Update email_password in profiles
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ email_password: userEmail.password })
-        .eq("id", profile.id);
-
-      if (updateError) throw updateError;
-
-      toast.success(language === "ar" ? "تم تحديث كلمة مرور البريد في إعدادات المستخدم" : "Email password updated in User Setup");
-    } catch (error) {
-      console.error("Error updating user setup:", error);
-      toast.error(language === "ar" ? "خطأ في التحديث" : "Error updating");
+    if (successCount > 0) {
+      toast.success(
+        language === "ar" 
+          ? `تم تحديث ${successCount} مستخدم بنجاح` 
+          : `Updated ${successCount} users successfully`
+      );
+    }
+    if (errorCount > 0) {
+      toast.error(
+        language === "ar" 
+          ? `فشل تحديث ${errorCount} مستخدم` 
+          : `Failed to update ${errorCount} users`
+      );
     }
   };
 
@@ -274,10 +290,16 @@ const UserEmails = () => {
         <h1 className="text-2xl font-bold">
           {language === "ar" ? "المستخدمين والبريد" : "Users & Mails"}
         </h1>
-        <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          {language === "ar" ? "إضافة" : "Add"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={handleUpdateAllUserSetup}>
+            <Upload className="h-4 w-4 mr-2" />
+            {language === "ar" ? "تحديث إعدادات المستخدمين" : "Update User Setup"}
+          </Button>
+          <Button onClick={handleAdd}>
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "ar" ? "إضافة" : "Add"}
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -350,14 +372,6 @@ const UserEmails = () => {
                       </Button>
                       <Button variant="destructive" size="icon" onClick={() => handleDelete(item.id)}>
                         <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        onClick={() => handleUpdateUserSetup(item)}
-                        title={language === "ar" ? "تحديث إعدادات المستخدم" : "Update User Setup"}
-                      >
-                        <Upload className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
