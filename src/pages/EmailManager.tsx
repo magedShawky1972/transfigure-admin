@@ -500,7 +500,7 @@ const EmailManager = () => {
 
     try {
       const folder = activeTab === "sent" ? "INBOX.Sent" : "INBOX";
-      await supabase.functions.invoke("fetch-email-body-imap", {
+      const { data, error } = await supabase.functions.invoke("fetch-email-body-imap", {
         body: {
           imapHost: userConfig.mail_type.imap_host,
           imapPort: userConfig.mail_type.imap_port,
@@ -511,6 +511,16 @@ const EmailManager = () => {
           messageId: email.message_id,
         },
       });
+
+      if (error) throw error;
+
+      if (data?.success && data?.hasBody === false) {
+        toast.error(
+          isArabic
+            ? "لم يتم العثور على محتوى داخل البريد (Body فارغ أو غير قابل للاستخراج)."
+            : "No email body found (empty or could not be parsed)."
+        );
+      }
 
       // Refresh selected email from DB
       const { data: refreshed } = await supabase
@@ -524,7 +534,6 @@ const EmailManager = () => {
         setEmails((prev) => prev.map((e) => (e.id === email.id ? (refreshed as any) : e)));
       }
     } catch (e) {
-      // keep silent; user still can open email subject etc.
       console.error("Body lazy-load failed:", e);
     }
   };
