@@ -51,6 +51,7 @@ export function AppSidebar() {
   const { t, language } = useLanguage();
   const [userPermissions, setUserPermissions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [asusTawasoulUnread, setAsusTawasoulUnread] = useState(0);
 
   const URL_TO_PERMISSION: Record<string, string> = {
     "/": "dashboard",
@@ -102,9 +103,10 @@ export function AppSidebar() {
 
   useEffect(() => {
     fetchUserPermissions();
+    fetchAsusTawasoulUnread();
 
     // Set up real-time subscription for permission changes
-    const channel = supabase
+    const permChannel = supabase
       .channel('user-permissions-changes')
       .on(
         'postgres_changes',
@@ -115,14 +117,30 @@ export function AppSidebar() {
         },
         (payload) => {
           console.log('Permission change detected:', payload);
-          // Refetch permissions when any change occurs
           fetchUserPermissions();
         }
       )
       .subscribe();
 
+    // Set up real-time subscription for internal messages
+    const msgChannel = supabase
+      .channel('sidebar-internal-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'internal_messages',
+        },
+        () => {
+          fetchAsusTawasoulUnread();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(permChannel);
+      supabase.removeChannel(msgChannel);
     };
   }, []);
 
@@ -163,6 +181,38 @@ export function AppSidebar() {
       console.error("Error fetching permissions:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAsusTawasoulUnread = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's conversation IDs
+      const { data: participations } = await supabase
+        .from('internal_conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', user.id);
+
+      if (!participations || participations.length === 0) {
+        setAsusTawasoulUnread(0);
+        return;
+      }
+
+      const conversationIds = participations.map(p => p.conversation_id);
+
+      // Count unread messages not sent by current user
+      const { count } = await supabase
+        .from('internal_messages')
+        .select('*', { count: 'exact', head: true })
+        .in('conversation_id', conversationIds)
+        .eq('is_read', false)
+        .neq('sender_id', user.id);
+
+      setAsusTawasoulUnread(count || 0);
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
     }
   };
 
@@ -276,6 +326,11 @@ export function AppSidebar() {
                         >
                           <item.icon className="h-5 w-5 shrink-0" />
                           <span>{item.title}</span>
+                          {item.url === "/asus-tawasoul" && asusTawasoulUnread > 0 && (
+                            <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+                              {asusTawasoulUnread}
+                            </span>
+                          )}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

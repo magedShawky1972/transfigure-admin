@@ -405,10 +405,34 @@ const AsusTawasoul = () => {
     });
   };
 
-  const filteredUsers = users.filter(u => 
-    u.user_id !== currentUserId &&
-    u.user_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Sort users by most recent conversation activity
+  const filteredUsers = users
+    .filter(u => 
+      u.user_id !== currentUserId &&
+      u.user_name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Find existing conversations for each user
+      const convoA = conversations.find(
+        c => !c.is_group && c.participants.some(p => p.user_id === a.user_id)
+      );
+      const convoB = conversations.find(
+        c => !c.is_group && c.participants.some(p => p.user_id === b.user_id)
+      );
+      
+      // Users with conversations come first, sorted by last message time
+      const timeA = convoA?.last_message?.created_at || convoA?.created_at;
+      const timeB = convoB?.last_message?.created_at || convoB?.created_at;
+      
+      if (timeA && timeB) {
+        return new Date(timeB).getTime() - new Date(timeA).getTime();
+      }
+      if (timeA) return -1;
+      if (timeB) return 1;
+      
+      // Users without conversations sorted by name
+      return a.user_name.localeCompare(b.user_name);
+    });
 
   const filteredConversations = conversations.filter(c => {
     const name = getConversationName(c);
