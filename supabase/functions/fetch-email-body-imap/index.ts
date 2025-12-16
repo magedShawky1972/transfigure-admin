@@ -42,57 +42,69 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
     /\bfilename\*?=|\bname\*?=/i.test(rawBody) ||
     (/Content-Type:\s*image\//i.test(rawBody) && /Content-ID:\s*<[^>]+>/i.test(rawBody));
 
-  const decodePartBody = (part: string): string => {
-    const partEncoding = part.match(/Content-Transfer-Encoding:\s*(\S+)/i);
-    const contentStart = part.search(/\r?\n\r?\n/);
-    if (contentStart === -1) return "";
-
-    // Skip the blank line itself
-    let content = part.substring(contentStart).replace(/^\r?\n\r?\n/, "");
-
-    if (partEncoding) {
-      const enc = partEncoding[1].toLowerCase();
-      if (enc === "base64") content = decodeBase64(content.trim());
-      else if (enc === "quoted-printable") content = decodeQuotedPrintable(content);
-      // 7bit/8bit/binary => leave as-is
-    }
-
-    return content.trim();
+  const splitHeadersAndBody = (part: string): { headers: string; body: string } => {
+    const idx = part.search(/\r?\n\r?\n/);
+    if (idx === -1) return { headers: part, body: "" };
+    const headers = part.slice(0, idx);
+    const body = part.slice(idx).replace(/^\r?\n\r?\n/, "");
+    return { headers, body };
   };
 
-  const splitByBoundary = (body: string, boundary: string): string[] => {
+  const headerValue = (headers: string, name: string): string | null => {
+    // Match only real header lines (start-of-line), with simple folded header support.
+    const re = new RegExp(`(?:^|\\r?\\n)${name}:\\s*([^\\r\\n]+(?:\\r?\\n[\\t ].+)*)`, "i");
+    const m = headers.match(re);
+    if (!m) return null;
+    return m[1].replace(/\r?\n[\t ]+/g, " ").trim();
+  };
+
+  const decodeBodyByEncoding = (headers: string, body: string): string => {
+    const enc = (headerValue(headers, "Content-Transfer-Encoding") || "").toLowerCase();
+    if (enc === "base64") return decodeBase64(body.trim()).trim();
+    if (enc === "quoted-printable") return decodeQuotedPrintable(body).trim();
+    return body.trim();
+  };
+
+  const splitMultipartBody = (body: string, boundary: string): string[] => {
     const esc = boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // IMAP bodies often separate parts by CRLF + --boundary
-    return body.split(new RegExp(`\r?\n--${esc}(?:--)?\r?\n`, "g"));
+    // Split on boundary lines. This is intentionally permissive about whitespace/newlines.
+    const re = new RegExp(`\\r?\\n--${esc}(?:--)?\\s*\\r?\\n`, "g");
+    const parts = ("\r\n" + body).split(re);
+    return parts.map((p) => p.trim()).filter(Boolean);
   };
 
-  const parseMimeRecursive = (body: string): { text: string; html: string } => {
-    let textContent = "";
-    let htmlContent = "";
+  const parseMimeRecursive = (part: string): { text: string; html: string } => {
+    const { headers, body } = splitHeadersAndBody(part);
 
-    const boundaryMatch = body.match(/boundary="?([^"\r\n;]+)"?/i);
-    const contentType = body.match(/Content-Type:\s*([^;\r\n]+)/i)?.[1]?.toLowerCase() ?? "";
+    const contentTypeFull = (headerValue(headers, "Content-Type") || "").toLowerCase();
+    const contentType = contentTypeFull.split(";")[0].trim();
+    const boundary = (() => {
+      const m = contentTypeFull.match(/boundary\s*=\s*"?([^";\r\n]+)"?/i);
+      return m?.[1] ?? null;
+    })();
 
     // Multipart: split and recurse
-    if (contentType.startsWith("multipart/") && boundaryMatch) {
-      const boundary = boundaryMatch[1];
-      const parts = splitByBoundary(body, boundary);
+    if (contentType.startsWith("multipart/") && boundary) {
+      let textContent = "";
+      let htmlContent = "";
 
-      for (const part of parts) {
-        const p = part.trim();
-        if (!p || p === "--") continue;
+      const parts = splitMultipartBody(body, boundary);
+      for (const p of parts) {
+        const pTrim = p.trim();
+        if (!pTrim || pTrim === "--") continue;
 
-        const pType = p.match(/Content-Type:\s*([^;\r\n]+)/i)?.[1]?.toLowerCase() ?? "";
+        const { headers: ph, body: pb } = splitHeadersAndBody(pTrim);
+        const pTypeFull = (headerValue(ph, "Content-Type") || "").toLowerCase();
+        const pType = pTypeFull.split(";")[0].trim();
 
         if (pType.startsWith("multipart/")) {
-          const nested = parseMimeRecursive(p);
+          const nested = parseMimeRecursive(pTrim);
           if (!textContent && nested.text) textContent = nested.text;
           if (!htmlContent && nested.html) htmlContent = nested.html;
-        } else {
-          const content = decodePartBody(p);
-          if (!content) continue;
-          if (pType.includes("text/plain") && !textContent) textContent = content;
-          if (pType.includes("text/html") && !htmlContent) htmlContent = content;
+        } else if (pType.includes("text/plain")) {
+          if (!textContent) textContent = decodeBodyByEncoding(ph, pb);
+        } else if (pType.includes("text/html")) {
+          if (!htmlContent) htmlContent = decodeBodyByEncoding(ph, pb);
         }
 
         if (textContent && htmlContent) break;
@@ -101,8 +113,8 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
       return { text: textContent, html: htmlContent };
     }
 
-    // Not multipart: decode whole message body
-    const decoded = decodePartBody(body) || "";
+    // Not multipart
+    const decoded = decodeBodyByEncoding(headers, body);
     if (contentType.includes("text/html")) return { text: "", html: decoded };
     return { text: decoded, html: "" };
   };
@@ -362,11 +374,12 @@ serve(async (req) => {
      const { text, html, hasAttachments } = extractBodyFromMime(raw);
 
      // Basic diagnostics (trimmed) to help debug "hasBody=false"
-     const headerEndIdx = raw.search(/\r?\n\r?\n/);
-     const headerPreview = raw.substring(0, Math.min(raw.length, headerEndIdx === -1 ? 800 : Math.min(800, headerEndIdx)));
-     const contentTypeTop = raw.match(/Content-Type:\s*([^;\r\n]+)/i)?.[1] ?? null;
-     const transferEncTop = raw.match(/Content-Transfer-Encoding:\s*(\S+)/i)?.[1] ?? null;
-     const boundaryTop = raw.match(/boundary="?([^"\r\n;]+)"?/i)?.[1] ?? null;
+      const headerEndIdx = raw.search(/\r?\n\r?\n/);
+      const headerPreview = raw.substring(0, Math.min(raw.length, headerEndIdx === -1 ? 800 : Math.min(800, headerEndIdx)));
+      const headersOnly = headerEndIdx === -1 ? raw : raw.slice(0, headerEndIdx);
+      const contentTypeTop = headersOnly.match(/(?:^|\r?\n)Content-Type:\s*([^;\r\n]+)/i)?.[1] ?? null;
+      const transferEncTop = headersOnly.match(/(?:^|\r?\n)Content-Transfer-Encoding:\s*(\S+)/i)?.[1] ?? null;
+      const boundaryTop = headersOnly.match(/boundary="?([^"\r\n;]+)"?/i)?.[1] ?? null;
 
      await client.logout();
 
