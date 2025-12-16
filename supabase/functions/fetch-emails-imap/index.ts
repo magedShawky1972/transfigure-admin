@@ -358,11 +358,11 @@ class IMAPClient {
         email.size = parseInt(sizeMatch[1]);
       }
 
-      // Parse BODY[] literal size, then slice exact bytes from the full response (not the segment)
-      const bodyLiteralMatch = segment.match(/BODY\[\]\s+\{(\d+)\}\r?\n/i);
+      // Parse BODY[] literal size (supports partial fetch like BODY[]<0.65536>)
+      const bodyLiteralMatch = segment.match(/BODY(?:\.PEEK)?\[\](?:<[^>]+>)?\s+\{(\d+)\}\r?\n/i);
       if (bodyLiteralMatch) {
         const bodyLength = parseInt(bodyLiteralMatch[1]);
-        const bodyHeaderIdxInSeg = segment.search(/BODY\[\]\s+\{\d+\}\r?\n/i);
+        const bodyHeaderIdxInSeg = segment.search(/BODY(?:\.PEEK)?\[\](?:<[^>]+>)?\s+\{\d+\}\r?\n/i);
         const bodyContentAbsStart = segStart + bodyHeaderIdxInSeg + bodyLiteralMatch[0].length;
         const rawMessage = response.substring(bodyContentAbsStart, bodyContentAbsStart + bodyLength);
 
