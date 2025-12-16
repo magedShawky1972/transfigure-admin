@@ -194,9 +194,7 @@ const EmailManager = () => {
       if (!user) return;
 
       let folder = "INBOX";
-      if (activeTab === "sent") folder = "SENT";
-      if (activeTab === "starred") folder = "STARRED";
-      if (activeTab === "drafts") folder = "DRAFTS";
+      if (activeTab === "sent") folder = "Sent";
 
       let query = supabase
         .from("emails")
@@ -218,6 +216,48 @@ const EmailManager = () => {
       setEmails(data || []);
     } catch (error) {
       console.error("Error fetching emails:", error);
+    }
+  };
+
+  const syncEmailsFromServer = async () => {
+    if (!userConfig?.mail_type || !userConfig.email_password) {
+      toast.error(isArabic ? "إعدادات البريد غير مكتملة" : "Email settings incomplete");
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const folder = activeTab === "sent" ? "Sent" : "INBOX";
+      
+      const { data, error } = await supabase.functions.invoke("fetch-emails-imap", {
+        body: {
+          imapHost: userConfig.mail_type.imap_host,
+          imapPort: userConfig.mail_type.imap_port,
+          imapSecure: userConfig.mail_type.imap_secure,
+          email: userConfig.email,
+          emailPassword: userConfig.email_password,
+          folder: folder,
+          limit: 50,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(
+          isArabic 
+            ? `تم جلب ${data.fetched} رسالة (${data.saved} جديدة)` 
+            : `Fetched ${data.fetched} emails (${data.saved} new)`
+        );
+        await fetchEmails();
+      } else {
+        throw new Error(data?.error || "Unknown error");
+      }
+    } catch (error: any) {
+      console.error("Error syncing emails:", error);
+      toast.error(isArabic ? "خطأ في مزامنة البريد" : "Error syncing emails");
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -482,9 +522,9 @@ const EmailManager = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => fetchEmails()} disabled={syncing}>
+          <Button variant="outline" onClick={syncEmailsFromServer} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${syncing ? "animate-spin" : ""}`} />
-            {isArabic ? "تحديث" : "Refresh"}
+            {isArabic ? "مزامنة" : "Sync"}
           </Button>
           <Button onClick={() => setIsComposeOpen(true)}>
             <Plus className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
