@@ -1288,6 +1288,7 @@ export type Database = {
           created_at: string
           default_department_id: string | null
           email: string
+          email_password: string | null
           id: string
           is_active: boolean
           job_position_id: string | null
@@ -1305,6 +1306,7 @@ export type Database = {
           created_at?: string
           default_department_id?: string | null
           email: string
+          email_password?: string | null
           id?: string
           is_active?: boolean
           job_position_id?: string | null
@@ -1322,6 +1324,7 @@ export type Database = {
           created_at?: string
           default_department_id?: string | null
           email?: string
+          email_password?: string | null
           id?: string
           is_active?: boolean
           job_position_id?: string | null

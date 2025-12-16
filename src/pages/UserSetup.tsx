@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy } from "lucide-react";
 import AvatarSelector from "@/components/AvatarSelector";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -50,6 +50,7 @@ interface Profile {
   default_department_id?: string | null;
   default_department_name?: string | null;
   avatar_url?: string | null;
+  email_password?: string | null;
 }
 
 interface JobPosition {
@@ -189,12 +190,18 @@ const UserSetup = () => {
     job_position_id: null as string | null,
     default_department_id: null as string | null,
     avatar_url: null as string | null,
+    email_password: "",
   });
 
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [jobPositionOpen, setJobPositionOpen] = useState(false);
   const [newJobPosition, setNewJobPosition] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [showEmailPassword, setShowEmailPassword] = useState(false);
+  const [emailPasswordVerifyOpen, setEmailPasswordVerifyOpen] = useState(false);
+  const [verifyPassword, setVerifyPassword] = useState("");
+  const [verifyingForUserId, setVerifyingForUserId] = useState<string | null>(null);
+  const [visibleEmailPasswords, setVisibleEmailPasswords] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchProfiles();
@@ -351,6 +358,7 @@ const UserSetup = () => {
             job_position_id: formData.job_position_id,
             default_department_id: formData.default_department_id,
             avatar_url: formData.avatar_url,
+            email_password: formData.email_password || null,
           })
           .eq("id", editingProfile.id);
 
@@ -440,7 +448,9 @@ const UserSetup = () => {
       job_position_id: profile.job_position_id || null,
       default_department_id: profile.default_department_id || null,
       avatar_url: profile.avatar_url || null,
+      email_password: profile.email_password || "",
     });
+    setShowEmailPassword(false);
     setDialogOpen(true);
   };
 
@@ -524,8 +534,10 @@ const UserSetup = () => {
       job_position_id: null,
       default_department_id: null,
       avatar_url: null,
+      email_password: "",
     });
     setEditingProfile(null);
+    setShowEmailPassword(false);
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -786,6 +798,35 @@ const UserSetup = () => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  const handleShowEmailPassword = (profileId: string) => {
+    setVerifyingForUserId(profileId);
+    setVerifyPassword("");
+    setEmailPasswordVerifyOpen(true);
+  };
+
+  const handleVerifyEmailPassword = () => {
+    if (verifyPassword === "159753" && verifyingForUserId) {
+      setVisibleEmailPasswords(prev => new Set([...prev, verifyingForUserId]));
+      setEmailPasswordVerifyOpen(false);
+      setVerifyPassword("");
+      setVerifyingForUserId(null);
+    } else {
+      toast({
+        title: "Error",
+        description: "Invalid password",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const copyEmailPassword = (password: string) => {
+    navigator.clipboard.writeText(password);
+    toast({
+      title: "Copied",
+      description: "Email password copied to clipboard",
+    });
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -952,6 +993,31 @@ const UserSetup = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {editingProfile && (
+                <div className="space-y-2">
+                  <Label htmlFor="email_password">Email Password</Label>
+                  <div className="relative flex gap-2">
+                    <Input
+                      id="email_password"
+                      type={showEmailPassword ? "text" : "password"}
+                      value={formData.email_password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email_password: e.target.value })
+                      }
+                      placeholder="Enter email password..."
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowEmailPassword(!showEmailPassword)}
+                    >
+                      {showEmailPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
               
               <div className="flex items-center space-x-2">
                 <Switch
@@ -1080,6 +1146,36 @@ const UserSetup = () => {
               )}
               {canViewPasswords && (
                 <p className="text-xs font-mono text-muted-foreground">Pass: 123456</p>
+              )}
+              {/* Email Password Display */}
+              {isCurrentUserAdmin && profile.email_password && (
+                <div className="flex items-center justify-center gap-1 mt-1">
+                  {visibleEmailPasswords.has(profile.id) ? (
+                    <>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        Email Pass: {profile.email_password}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={() => copyEmailPassword(profile.email_password!)}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-6"
+                      onClick={() => handleShowEmailPassword(profile.id)}
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      Email Pass
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1264,6 +1360,36 @@ const UserSetup = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Password Verification Dialog */}
+      <Dialog open={emailPasswordVerifyOpen} onOpenChange={setEmailPasswordVerifyOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Enter Password to View</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Enter verification password..."
+              value={verifyPassword}
+              onChange={(e) => setVerifyPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleVerifyEmailPassword();
+                }
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEmailPasswordVerifyOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleVerifyEmailPassword}>
+                Verify
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
