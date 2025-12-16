@@ -999,7 +999,7 @@ const EmailManager = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Sidebar */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2">
           <Card>
             <CardContent className="p-4 space-y-4">
               {/* Email Account Info */}
@@ -1121,7 +1121,7 @@ const EmailManager = () => {
         </div>
 
         {/* Email View */}
-        <div className="lg:col-span-5">
+        <div className="lg:col-span-6">
           <Card className="h-[calc(100vh-200px)] flex flex-col">
             {selectedEmail ? (
               <>
