@@ -20,33 +20,44 @@ interface FetchEmailsRequest {
 function decodeMimeWord(text: string): string {
   if (!text) return text;
   
+  // Handle multiple consecutive encoded words
+  let result = text;
+  
   // Pattern for encoded words: =?charset?encoding?encoded_text?=
   const mimePattern = /=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi;
   
-  return text.replace(mimePattern, (match, charset, encoding, encodedText) => {
+  result = result.replace(mimePattern, (match, charset, encoding, encodedText) => {
     try {
+      let decoded = '';
+      
       if (encoding.toUpperCase() === 'Q') {
         // Quoted-Printable decoding
-        const decoded = encodedText
+        decoded = encodedText
           .replace(/_/g, ' ')
           .replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) => 
             String.fromCharCode(parseInt(hex, 16))
           );
-        
-        // Convert bytes to proper charset
-        const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
-        return new TextDecoder(charset.toLowerCase()).decode(bytes);
       } else if (encoding.toUpperCase() === 'B') {
         // Base64 decoding
-        const decoded = atob(encodedText);
-        const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
-        return new TextDecoder(charset.toLowerCase()).decode(bytes);
+        decoded = atob(encodedText);
+      } else {
+        return match;
       }
+      
+      // Convert bytes to proper charset
+      const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
+      const charsetLower = charset.toLowerCase().replace('utf-8', 'utf-8').replace('iso-8859-1', 'iso-8859-1');
+      return new TextDecoder(charsetLower).decode(bytes);
     } catch (e) {
-      console.error('MIME decode error:', e);
+      console.error('MIME decode error:', e, 'for text:', match);
+      return match;
     }
-    return match; // Return original if decoding fails
   });
+  
+  // Remove whitespace between consecutive encoded words
+  result = result.replace(/\?=\s+=\?/g, '?==?');
+  
+  return result;
 }
 
 // Improved IMAP client implementation for Deno
@@ -178,22 +189,21 @@ class IMAPClient {
   async fetchEmails(start: number, end: number): Promise<any[]> {
     const emails: any[] = [];
 
-    // Fetch envelope data for emails
+    // Fetch envelope and body for emails
     const res = await this.sendCommand(
-      `FETCH ${start}:${end} (FLAGS ENVELOPE RFC822.SIZE)`
+      `FETCH ${start}:${end} (FLAGS ENVELOPE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (SUBJECT FROM DATE)] BODY.PEEK[TEXT])`
     );
     const response = res.response;
 
     console.log(`Fetch response length: ${response.length}`);
 
-    // Parse FETCH responses - each email starts with * N FETCH
-    const fetchPattern = /\*\s+(\d+)\s+FETCH\s+\((.*?)\)\r?\n/gs;
-    let match;
-
-    while ((match = fetchPattern.exec(response)) !== null) {
-      const seq = parseInt(match[1]);
-      const data = match[2];
-
+    // Split response by email boundaries
+    const emailChunks = response.split(/\*\s+(\d+)\s+FETCH/);
+    
+    for (let i = 1; i < emailChunks.length; i += 2) {
+      const seq = parseInt(emailChunks[i]);
+      const data = emailChunks[i + 1] || '';
+      
       const email: any = { seq };
 
       // Parse FLAGS
@@ -204,34 +214,83 @@ class IMAPClient {
         email.is_starred = email.flags.includes('\\Flagged');
       }
 
-      // Parse ENVELOPE - format: (date subject from sender reply-to to cc bcc in-reply-to message-id)
-      const envelopeMatch = data.match(/ENVELOPE\s+\((.+)\)/i);
-      if (envelopeMatch) {
-        const envData = envelopeMatch[1];
-
-        // Extract date (first quoted or NIL value)
-        const dateMatch = envData.match(/^"([^"]+)"/);
-        if (dateMatch) {
-          email.date = dateMatch[1];
+      // Parse HEADER fields for subject, from, date
+      const headerMatch = data.match(/BODY\[HEADER\.FIELDS.*?\]\s+\{(\d+)\}\r?\n([\s\S]*?)(?=\s*(?:BODY|FLAGS|ENVELOPE|\)|$))/i);
+      if (headerMatch) {
+        const headerContent = headerMatch[2];
+        
+        // Extract Subject from header
+        const subjectHeaderMatch = headerContent.match(/Subject:\s*(.+?)(?:\r?\n(?!\s)|$)/is);
+        if (subjectHeaderMatch) {
+          email.subject = subjectHeaderMatch[1].replace(/\r?\n\s*/g, ' ').trim();
         }
-
-        // Extract subject (second quoted value after date)
-        const subjectMatch = envData.match(/^"[^"]*"\s+"([^"]*)"/);
-        if (subjectMatch) {
-          email.subject = subjectMatch[1];
-        } else {
-          // Try NIL subject
-          const nilSubjectMatch = envData.match(/^"[^"]*"\s+NIL/);
-          if (nilSubjectMatch) {
-            email.subject = "(No Subject)";
+        
+        // Extract From from header
+        const fromHeaderMatch = headerContent.match(/From:\s*(.+?)(?:\r?\n(?!\s)|$)/is);
+        if (fromHeaderMatch) {
+          const fromRaw = fromHeaderMatch[1].replace(/\r?\n\s*/g, ' ').trim();
+          // Parse "Name <email>" or just "email"
+          const nameEmailMatch = fromRaw.match(/^"?([^"<]*)"?\s*<([^>]+)>/);
+          if (nameEmailMatch) {
+            email.from_name = nameEmailMatch[1].trim();
+            email.from_address = nameEmailMatch[2].trim();
+          } else {
+            email.from_address = fromRaw.replace(/[<>]/g, '').trim();
+            email.from_name = '';
           }
         }
+        
+        // Extract Date from header
+        const dateHeaderMatch = headerContent.match(/Date:\s*(.+?)(?:\r?\n(?!\s)|$)/is);
+        if (dateHeaderMatch) {
+          email.date = dateHeaderMatch[1].trim();
+        }
+      }
 
-        // Extract from address - look for ((name NIL user host)) pattern
-        const fromMatch = envData.match(/\(\("?([^"]*)"?\s+NIL\s+"([^"]+)"\s+"([^"]+)"\)\)/);
-        if (fromMatch) {
-          email.from_name = fromMatch[1] || "";
-          email.from_address = `${fromMatch[2]}@${fromMatch[3]}`;
+      // Parse BODY[TEXT] for email body
+      const bodyMatch = data.match(/BODY\[TEXT\]\s+(?:\{(\d+)\}\r?\n)?([\s\S]*?)(?=\s*(?:\)\r?\n|FLAGS|ENVELOPE|$))/i);
+      if (bodyMatch) {
+        let bodyContent = bodyMatch[2] || '';
+        // Clean up body - remove trailing ) and whitespace
+        bodyContent = bodyContent.replace(/\)\s*$/, '').trim();
+        email.body_text = bodyContent;
+      }
+
+      // Fallback: Parse ENVELOPE if header parsing failed
+      if (!email.subject || !email.from_address) {
+        const envelopeMatch = data.match(/ENVELOPE\s+\((.+)\)/i);
+        if (envelopeMatch) {
+          const envData = envelopeMatch[1];
+
+          // Extract date (first quoted or NIL value)
+          if (!email.date) {
+            const dateMatch = envData.match(/^"([^"]+)"/);
+            if (dateMatch) {
+              email.date = dateMatch[1];
+            }
+          }
+
+          // Extract subject (second quoted value after date)
+          if (!email.subject) {
+            const subjectMatch = envData.match(/^"[^"]*"\s+"([^"]*)"/);
+            if (subjectMatch) {
+              email.subject = subjectMatch[1];
+            } else {
+              const nilSubjectMatch = envData.match(/^"[^"]*"\s+NIL/);
+              if (nilSubjectMatch) {
+                email.subject = "(No Subject)";
+              }
+            }
+          }
+
+          // Extract from address - look for ((name NIL user host)) pattern
+          if (!email.from_address) {
+            const fromMatch = envData.match(/\(\("?([^"]*)"?\s+NIL\s+"([^"]+)"\s+"([^"]+)"\)\)/);
+            if (fromMatch) {
+              email.from_name = fromMatch[1] || "";
+              email.from_address = `${fromMatch[2]}@${fromMatch[3]}`;
+            }
+          }
         }
       }
 
@@ -376,9 +435,23 @@ serve(async (req) => {
       const fetchedEmails = await client.fetchEmails(startSeq, mailbox.exists);
       
       for (const fetchedEmail of fetchedEmails) {
-        // Decode MIME encoded subject and from_name
+        // Decode MIME encoded subject, from_name, and body
         const decodedSubject = decodeMimeWord(fetchedEmail.subject || '');
         const decodedFromName = decodeMimeWord(fetchedEmail.from_name || '');
+        const decodedBody = decodeMimeWord(fetchedEmail.body_text || '');
+        
+        // Parse date safely
+        let emailDate = new Date().toISOString();
+        try {
+          if (fetchedEmail.date) {
+            const parsed = new Date(fetchedEmail.date);
+            if (!isNaN(parsed.getTime())) {
+              emailDate = parsed.toISOString();
+            }
+          }
+        } catch (e) {
+          console.log('Date parse error:', e);
+        }
         
         const emailData = {
           message_id: `${email}-${fetchedEmail.seq}-${Date.now()}`,
@@ -386,8 +459,8 @@ serve(async (req) => {
           from_address: fetchedEmail.from_address || 'unknown@email.com',
           from_name: decodedFromName,
           to_addresses: [{ address: email }],
-          email_date: fetchedEmail.date ? new Date(fetchedEmail.date).toISOString() : new Date().toISOString(),
-          body_text: '',
+          email_date: emailDate,
+          body_text: decodedBody,
           body_html: '',
           is_read: fetchedEmail.is_read || false,
           is_starred: fetchedEmail.is_starred || false,
