@@ -7,6 +7,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface Attachment {
+  filename: string;
+  content: string; // base64 encoded
+  contentType: string;
+}
+
 interface SendEmailRequest {
   to: string[];
   cc?: string[];
@@ -20,6 +26,7 @@ interface SendEmailRequest {
   smtpSecure: boolean;
   emailPassword: string;
   isHtml?: boolean;
+  attachments?: Attachment[];
 }
 
 serve(async (req) => {
@@ -60,10 +67,12 @@ serve(async (req) => {
       smtpSecure,
       emailPassword,
       isHtml = false,
+      attachments = [],
     }: SendEmailRequest = await req.json();
 
     console.log(`Sending email from ${fromEmail} to ${to.join(", ")}`);
     console.log(`Using SMTP: ${smtpHost}:${smtpPort}`);
+    console.log(`Attachments: ${attachments.length}`);
 
     // Create SMTP client
     const client = new SMTPClient({
@@ -78,8 +87,16 @@ serve(async (req) => {
       },
     });
 
-    // Send email
-    await client.send({
+    // Convert base64 attachments to format for denomailer
+    const emailAttachments = attachments.map((att) => ({
+      filename: att.filename,
+      content: Uint8Array.from(atob(att.content), c => c.charCodeAt(0)),
+      contentType: att.contentType,
+      encoding: "binary" as const,
+    }));
+
+    // Build send config
+    const sendConfig: any = {
       from: `${fromName} <${fromEmail}>`,
       to: to,
       cc: cc || [],
@@ -87,7 +104,14 @@ serve(async (req) => {
       subject: subject,
       content: isHtml ? undefined : body,
       html: isHtml ? body : undefined,
-    });
+    };
+
+    if (emailAttachments.length > 0) {
+      sendConfig.attachments = emailAttachments;
+    }
+
+    // Send email
+    await client.send(sendConfig);
 
     await client.close();
 
@@ -108,6 +132,7 @@ serve(async (req) => {
         body_text: isHtml ? null : body,
         body_html: isHtml ? body : null,
         is_read: true,
+        has_attachments: attachments.length > 0,
         email_date: new Date().toISOString(),
       });
 
