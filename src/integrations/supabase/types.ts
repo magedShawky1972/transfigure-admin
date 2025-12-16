@@ -3206,6 +3206,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_conversation_member: {
+        Args: { _conversation_id: string; _user_id: string }
+        Returns: boolean
+      }
       revenue_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }
         Returns: {
