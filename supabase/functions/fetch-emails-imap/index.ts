@@ -734,15 +734,45 @@ serve(async (req) => {
     }
     console.log(`Fetched ${emails.length} emails from ${mailbox.exists} total`);
 
-    // Fetch deleted message IDs to skip
-    const { data: deletedRows } = await supabase
-      .from("deleted_email_ids")
-      .select("message_id")
-      .eq("user_id", user.id);
-    const deletedSet = new Set((deletedRows ?? []).map((r) => r.message_id));
+    // Close IMAP connection early to prevent timeout
+    try {
+      await client.logout();
+    } catch (e) {
+      console.log("Logout during save (ignored):", e);
+    }
 
-    // Save emails to database (update if exists)
+    // Batch fetch: deleted IDs and existing emails in parallel
+    const [deletedRes, existingRes] = await Promise.all([
+      supabase
+        .from("deleted_email_ids")
+        .select("message_id")
+        .eq("user_id", user.id),
+      supabase
+        .from("emails")
+        .select("id, message_id, from_address, email_date, subject, folder, body_text, body_html")
+        .eq("user_id", user.id)
+    ]);
+
+    const deletedSet = new Set((deletedRes.data ?? []).map((r) => r.message_id));
+    
+    // Create lookup maps for existing emails
+    const existingByMessageId = new Map<string, any>();
+    const existingByKey = new Map<string, any>();
+    
+    for (const existing of existingRes.data ?? []) {
+      if (existing.message_id) {
+        existingByMessageId.set(existing.message_id, existing);
+      }
+      // Composite key for fallback matching
+      const key = `${existing.folder}|${existing.from_address}|${existing.email_date}|${existing.subject}`;
+      existingByKey.set(key, existing);
+    }
+
+    // Process emails in batches
     let savedCount = 0;
+    const newEmails: any[] = [];
+    const updates: { id: string; data: any }[] = [];
+
     for (const emailData of emails) {
       // Skip if user previously deleted this email
       if (deletedSet.has(emailData.message_id)) {
@@ -750,19 +780,12 @@ serve(async (req) => {
         continue;
       }
 
-      // 1) Try by message_id
-      const { data: existingById } = await supabase
-        .from("emails")
-        .select("id")
-        .eq("message_id", emailData.message_id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (existingById?.id) {
-        // Only update content fields, preserve user-controlled fields (is_read, is_starred)
-        const { error: updateError } = await supabase
-          .from("emails")
-          .update({
+      // 1) Check by message_id
+      const existingById = existingByMessageId.get(emailData.message_id);
+      if (existingById) {
+        updates.push({
+          id: existingById.id,
+          data: {
             subject: emailData.subject,
             from_address: emailData.from_address,
             from_name: emailData.from_name,
@@ -772,51 +795,57 @@ serve(async (req) => {
             body_html: emailData.body_html,
             has_attachments: emailData.has_attachments,
             folder: emailData.folder,
-            // DO NOT update is_read or is_starred - preserve user's local settings
-          })
-          .eq("id", existingById.id);
-
-        if (updateError) console.error("Error updating email:", updateError);
+          }
+        });
         continue;
       }
 
-      // 2) Fallback match: same sender+date+subject in same folder (helps older rows that had random message_id)
-      const { data: existingFallback } = await supabase
-        .from("emails")
-        .select("id, body_text, body_html")
-        .eq("user_id", user.id)
-        .eq("folder", emailData.folder)
-        .eq("from_address", emailData.from_address)
-        .eq("email_date", emailData.email_date)
-        .eq("subject", emailData.subject)
-        .maybeSingle();
-
-      if (existingFallback?.id) {
-        // Only patch if content is missing
+      // 2) Fallback match
+      const fallbackKey = `${emailData.folder}|${emailData.from_address}|${emailData.email_date}|${emailData.subject}`;
+      const existingFallback = existingByKey.get(fallbackKey);
+      if (existingFallback) {
         if (!existingFallback.body_text && !existingFallback.body_html) {
-          const { error: patchError } = await supabase
-            .from("emails")
-            .update({
+          updates.push({
+            id: existingFallback.id,
+            data: {
               body_text: emailData.body_text,
               body_html: emailData.body_html,
               has_attachments: emailData.has_attachments,
-            })
-            .eq("id", existingFallback.id);
-          if (patchError) console.error("Error patching email body:", patchError);
+            }
+          });
         }
         continue;
       }
 
-      // 3) Insert new
-      const { error: saveError } = await supabase.from("emails").insert({
+      // 3) New email
+      newEmails.push({
         ...emailData,
         user_id: user.id,
       });
+    }
 
-      if (saveError) {
-        console.error("Error saving email:", saveError);
+    // Batch update existing emails (in chunks of 10 to avoid timeout)
+    for (let i = 0; i < updates.length; i += 10) {
+      const chunk = updates.slice(i, i + 10);
+      await Promise.all(
+        chunk.map(({ id, data }) =>
+          supabase.from("emails").update(data).eq("id", id)
+        )
+      );
+    }
+
+    // Batch insert new emails (in chunks of 20)
+    for (let i = 0; i < newEmails.length; i += 20) {
+      const chunk = newEmails.slice(i, i + 20);
+      const { error: insertError, data: insertedData } = await supabase
+        .from("emails")
+        .insert(chunk)
+        .select("id");
+      
+      if (insertError) {
+        console.error("Batch insert error:", insertError);
       } else {
-        savedCount++;
+        savedCount += insertedData?.length || 0;
       }
     }
 
