@@ -95,6 +95,7 @@ const EmailManager = () => {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [configError, setConfigError] = useState<string | null>(null);
@@ -226,8 +227,12 @@ const EmailManager = () => {
     }
 
     setSyncing(true);
+    setSyncStatus(isArabic ? "جاري الاتصال بالخادم..." : "Connecting to server...");
+    
     try {
       const folder = activeTab === "sent" ? "Sent" : "INBOX";
+      
+      setSyncStatus(isArabic ? "جاري جلب الرسائل..." : "Fetching emails...");
       
       const { data, error } = await supabase.functions.invoke("fetch-emails-imap", {
         body: {
@@ -244,6 +249,7 @@ const EmailManager = () => {
       if (error) throw error;
 
       if (data?.success) {
+        setSyncStatus(isArabic ? "جاري حفظ الرسائل..." : "Saving emails...");
         toast.success(
           isArabic 
             ? `تم جلب ${data.fetched} رسالة (${data.saved} جديدة)` 
@@ -258,6 +264,7 @@ const EmailManager = () => {
       toast.error(isArabic ? "خطأ في مزامنة البريد" : "Error syncing emails");
     } finally {
       setSyncing(false);
+      setSyncStatus("");
     }
   };
 
@@ -521,7 +528,13 @@ const EmailManager = () => {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {syncing && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-md">
+              <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm text-primary">{syncStatus}</span>
+            </div>
+          )}
           <Button variant="outline" onClick={syncEmailsFromServer} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${syncing ? "animate-spin" : ""}`} />
             {isArabic ? "مزامنة" : "Sync"}
