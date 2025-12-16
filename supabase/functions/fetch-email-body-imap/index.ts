@@ -200,20 +200,60 @@ class IMAPClient {
   }
 
   async fetchFullRaw(seq: number): Promise<string> {
-    const res = await this.sendCommand(`FETCH ${seq} (BODY.PEEK[])`);
-    if (!res.ok) throw new Error("IMAP FETCH failed");
+    // IMPORTANT: IMAP literals may be larger than a single read() chunk.
+    // We must read until we see the literal size, then read EXACTLY that many bytes.
+    const tag = this.nextTag();
+    await this.conn!.write(this.encoder.encode(`${tag} FETCH ${seq} (BODY.PEEK[])\r\n`));
 
-    // Extract literal
-    const litMatch = res.response.match(/BODY(?:\.PEEK)?\[\]\s+\{(\d+)\}\r?\n/i);
+    const literalHeaderRe = /BODY(?:\.PEEK)?\[\]\s+\{(\d+)\}\r?\n/i;
+
+    let acc = "";
+    const started = Date.now();
+
+    // 1) Read until we see the literal header
+    while (Date.now() - started < 30000) {
+      const chunk = await this.readWithTimeout(5000);
+      if (chunk === null) break;
+      acc += this.decoder.decode(chunk);
+      if (literalHeaderRe.test(acc)) break;
+    }
+
+    const litMatch = acc.match(literalHeaderRe);
     if (!litMatch) throw new Error("Could not find BODY literal");
+
     const len = parseInt(litMatch[1], 10);
+    const headerIdx = acc.search(literalHeaderRe);
+    const headerMatchText = acc.match(literalHeaderRe)![0];
+    const bodyStartIdx = headerIdx + headerMatchText.length;
 
-    // Find where literal begins
-    const headerIdx = res.response.search(/BODY(?:\.PEEK)?\[\]\s+\{\d+\}\r?\n/i);
-    const bodyStart = headerIdx + litMatch[0].length;
+    // Everything after bodyStartIdx may already contain part of the literal
+    let bodyBuf = acc.substring(bodyStartIdx);
 
-    return res.response.substring(bodyStart, bodyStart + len);
+    // 2) Read until we have the full literal
+    const bodyStartedAt = Date.now();
+    while (bodyBuf.length < len && Date.now() - bodyStartedAt < 60000) {
+      const chunk = await this.readWithTimeout(8000);
+      if (chunk === null) break;
+      bodyBuf += this.decoder.decode(chunk);
+    }
+
+    const raw = bodyBuf.substring(0, len);
+
+    // 3) Drain remaining response until tagged OK/NO/BAD (keeps connection in sync)
+    let tail = bodyBuf.substring(len);
+    let full = acc.substring(0, bodyStartIdx) + raw + tail;
+
+    const doneRe = new RegExp(`(?:^|\\r\\n)${tag}\\s+(OK|NO|BAD)\\b`, "i");
+    const drainStartedAt = Date.now();
+    while (!doneRe.test(full) && Date.now() - drainStartedAt < 30000) {
+      const chunk = await this.readWithTimeout(5000);
+      if (chunk === null) break;
+      full += this.decoder.decode(chunk);
+    }
+
+    return raw;
   }
+
 
   async logout(): Promise<void> {
     try {

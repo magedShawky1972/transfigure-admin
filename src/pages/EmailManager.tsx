@@ -315,8 +315,7 @@ const EmailManager = () => {
     }
 
     const loadOlder = options?.loadOlder ?? false;
-    const loadedCount = activeTab === "sent" ? sentCount : inboxCount;
-    const nextOffset = loadOlder ? loadedCount : 0;
+    const nextOffset = loadOlder ? syncOffset + syncLimit : 0;
 
     setSyncing(true);
     setSyncStatus(isArabic ? "جاري الاتصال بالخادم..." : "Connecting to server...");
@@ -348,8 +347,10 @@ const EmailManager = () => {
             ? `تم جلب ${data.fetched} رسالة (${data.saved} جديدة)`
             : `Fetched ${data.fetched} emails (${data.saved} new)`
         );
+
         setSyncOffset(nextOffset);
         setServerTotal(data.total ?? null);
+
         await fetchEmails();
         await fetchEmailCounts();
       } else {
