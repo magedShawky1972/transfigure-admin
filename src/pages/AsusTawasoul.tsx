@@ -366,7 +366,7 @@ const AsusTawasoul = () => {
 
       const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
         body: {
-          file: base64,
+          imageBase64: base64,
           folder,
           resourceType
         }
