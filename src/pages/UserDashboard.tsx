@@ -16,7 +16,8 @@ import {
   Circle,
   MessageSquare,
   ShoppingCart,
-  FileText
+  FileText,
+  Newspaper
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -77,6 +78,15 @@ interface UserTicket {
   department_name?: string;
 }
 
+interface CompanyNewsItem {
+  id: string;
+  title: string;
+  content: string;
+  image_url: string | null;
+  published_at: string | null;
+  created_at: string;
+}
+
 const UserDashboard = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -89,6 +99,7 @@ const UserDashboard = () => {
   const [shifts, setShifts] = useState<ShiftAssignment[]>([]);
   const [unreadEmails, setUnreadEmails] = useState<UnreadEmail[]>([]);
   const [unreadMessages, setUnreadMessages] = useState<UnreadInternalMessage[]>([]);
+  const [companyNews, setCompanyNews] = useState<CompanyNewsItem[]>([]);
 
   useEffect(() => {
     fetchUserData();
@@ -118,7 +129,8 @@ const UserDashboard = () => {
         fetchNormalTickets(user.id),
         fetchShifts(user.id),
         fetchUnreadEmails(user.id),
-        fetchUnreadMessages(user.id)
+        fetchUnreadMessages(user.id),
+        fetchCompanyNews()
       ]);
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -336,6 +348,19 @@ const UserDashboard = () => {
     }
   };
 
+  const fetchCompanyNews = async () => {
+    const { data } = await supabase
+      .from("company_news")
+      .select("id, title, content, image_url, published_at, created_at")
+      .eq("is_published", true)
+      .order("published_at", { ascending: false })
+      .limit(5);
+
+    if (data) {
+      setCompanyNews(data);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string }> = {
       todo: { variant: "outline", label: language === "ar" ? "للتنفيذ" : "To Do" },
@@ -366,6 +391,7 @@ const UserDashboard = () => {
     return (
       <div className="p-6 space-y-6" dir={language === "ar" ? "rtl" : "ltr"}>
         <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-48 w-full" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[1, 2, 3, 4, 5, 6, 7].map(i => (
             <Skeleton key={i} className="h-80" />
@@ -382,6 +408,52 @@ const UserDashboard = () => {
           {language === "ar" ? `لوحة المستخدم - ${userName}` : `User Dashboard - ${userName}`}
         </h1>
       </div>
+
+      {/* Company News Banner - Full Width at Top */}
+      {companyNews.length > 0 && (
+        <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Newspaper className="h-5 w-5 text-primary" />
+              {language === "ar" ? "أخبار الشركة" : "Company News"}
+            </CardTitle>
+            <Badge variant="secondary">{companyNews.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-40">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {companyNews.map(news => (
+                  <div
+                    key={news.id}
+                    className="p-3 bg-background rounded-lg border hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => navigate("/company-news")}
+                  >
+                    <div className="flex gap-3">
+                      {news.image_url && (
+                        <img 
+                          src={news.image_url} 
+                          alt={news.title}
+                          className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium truncate">{news.title}</h4>
+                        <div 
+                          className="text-sm text-muted-foreground line-clamp-2 mt-1"
+                          dangerouslySetInnerHTML={{ __html: news.content.replace(/<[^>]*>/g, '').substring(0, 80) + '...' }}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {news.published_at && format(new Date(news.published_at), "dd/MM/yyyy")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-6">
         {/* Left Sidebar - Tawasoul Messages */}

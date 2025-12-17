@@ -67,6 +67,7 @@ import UserEmails from "./pages/UserEmails";
 import AsusTawasoul from "./pages/AsusTawasoul";
 import EmailManager from "./pages/EmailManager";
 import MailSetup from "./pages/MailSetup";
+import CompanyNews from "./pages/CompanyNews";
 
 const queryClient = new QueryClient();
 
@@ -140,6 +141,7 @@ const App = () => (
               <Route path="/asus-tawasoul" element={<AsusTawasoul />} />
               <Route path="/email-manager" element={<EmailManager />} />
               <Route path="/mail-setup" element={<MailSetup />} />
+              <Route path="/company-news" element={<CompanyNews />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
