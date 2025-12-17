@@ -74,10 +74,21 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
   };
 
   const splitMultipartBody = (body: string, boundary: string): string[] => {
+    // MIME delimiter line is: "--" + boundary
+    // Boundary closing line may end without a trailing newline, so we must support (\n|$)
     const esc = boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Split on boundary lines. This is intentionally permissive about whitespace/newlines.
-    const re = new RegExp(`\\r?\\n--${esc}(?:--)?\\s*\\r?\\n`, "g");
-    const parts = ("\r\n" + body).split(re);
+
+    // Match boundary delimiter lines at start-of-string or after a newline.
+    // Examples:
+    //   --BOUNDARY\r\n
+    //   --BOUNDARY--\r\n
+    //   --BOUNDARY-- (end of body)
+    const re = new RegExp(`(?:^|\\r?\\n)--${esc}(?:--)?[\\t ]*(?:\\r?\\n|$)`, "g");
+
+    // Ensure the first boundary at the start is matchable by prefixing a newline.
+    const normalized = body.startsWith("--") ? body : "\n" + body;
+    const parts = normalized.split(re);
+
     return parts.map((p) => p.trim()).filter(Boolean);
   };
 
