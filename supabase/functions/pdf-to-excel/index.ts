@@ -47,9 +47,9 @@ Focus ONLY on the content within this region:
 Ignore any content outside this selected area.`;
     }
 
-    // Use Lovable AI to extract tabular data from the PDF - using fastest model for quick processing
-    const systemPrompt = `Extract table data from PDF as JSON array. Format: {"tableData": [["H1","H2"],["V1","V2"]]}
-Rules: JSON only, no markdown, Arabic OK, empty string for nulls.${areaInstruction ? ` Focus on area: left ${Math.round(selectionArea.x)}%-${Math.round(selectionArea.x + selectionArea.width)}%, top ${Math.round(selectionArea.y)}%-${Math.round(selectionArea.y + selectionArea.height)}%` : ''}`;
+    // Use Lovable AI to extract tabular data - using flash model for better accuracy
+    const systemPrompt = `Extract table data from this image as JSON. Return ONLY: {"tableData": [["Header1","Header2"],["Val1","Val2"]]}
+Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells.${areaInstruction ? ` Extract only from area: left ${Math.round(selectionArea.x)}% to ${Math.round(selectionArea.x + selectionArea.width)}%, top ${Math.round(selectionArea.y)}% to ${Math.round(selectionArea.y + selectionArea.height)}%` : ''}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -58,7 +58,7 @@ Rules: JSON only, no markdown, Arabic OK, empty string for nulls.${areaInstructi
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "user",
@@ -76,7 +76,7 @@ Rules: JSON only, no markdown, Arabic OK, empty string for nulls.${areaInstructi
             ]
           }
         ],
-        max_tokens: 8192,
+        max_tokens: 16384,
       }),
     });
 
@@ -106,105 +106,77 @@ Rules: JSON only, no markdown, Arabic OK, empty string for nulls.${areaInstructi
     console.log("AI response length:", content.length);
     console.log("AI response preview:", content.substring(0, 500));
 
-    // Parse the JSON response with multiple fallback strategies
+    // Parse the JSON response
     let tableData: any[][] = [];
     let jsonContent = content;
     
     // Remove markdown code blocks if present
-    if (jsonContent.includes("```json")) {
-      jsonContent = jsonContent.replace(/```json\s*/g, "").replace(/```\s*/g, "");
-    } else if (jsonContent.includes("```")) {
-      jsonContent = jsonContent.replace(/```\s*/g, "");
-    }
+    jsonContent = jsonContent.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     
-    jsonContent = jsonContent.trim();
-    
-    // Try to find and parse the JSON object
+    // Strategy 1: Direct parse
     try {
-      // Strategy 1: Direct parse
       const parsed = JSON.parse(jsonContent);
-      tableData = parsed.tableData || parsed;
+      tableData = parsed.tableData || (Array.isArray(parsed) ? parsed : []);
+      console.log("Direct parse succeeded");
     } catch (e1) {
-      console.log("Direct parse failed, trying extraction...");
+      console.log("Direct parse failed, trying repair...");
       
+      // Strategy 2: Find last complete row and close JSON
       try {
-        // Strategy 2: Extract JSON object containing tableData
-        const jsonMatch = jsonContent.match(/\{[\s\S]*"tableData"\s*:\s*\[[\s\S]*\]\s*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          tableData = parsed.tableData;
+        // Find the position of tableData array
+        const tableDataStart = jsonContent.indexOf('"tableData"');
+        if (tableDataStart === -1) throw new Error("No tableData found");
+        
+        const arrayStart = jsonContent.indexOf('[', tableDataStart);
+        if (arrayStart === -1) throw new Error("No array found");
+        
+        // Find all complete rows (ending with ])
+        let lastCompleteRowEnd = -1;
+        let depth = 0;
+        let inStr = false;
+        
+        for (let i = arrayStart; i < jsonContent.length; i++) {
+          const c = jsonContent[i];
+          const prev = i > 0 ? jsonContent[i-1] : '';
+          
+          if (c === '"' && prev !== '\\') inStr = !inStr;
+          if (inStr) continue;
+          
+          if (c === '[') depth++;
+          if (c === ']') {
+            depth--;
+            if (depth === 1) { // End of a row (depth 1 = inside outer array)
+              lastCompleteRowEnd = i;
+            }
+          }
+        }
+        
+        if (lastCompleteRowEnd > arrayStart) {
+          // Truncate at last complete row and close the JSON
+          const truncated = jsonContent.substring(0, lastCompleteRowEnd + 1) + ']}';
+          console.log("Attempting to parse truncated JSON ending at:", lastCompleteRowEnd);
+          const parsed = JSON.parse(truncated);
+          tableData = parsed.tableData || [];
+          console.log("Truncated parse succeeded with", tableData.length, "rows");
         } else {
-          throw new Error("No tableData object found");
+          throw new Error("No complete rows found");
         }
       } catch (e2) {
-        console.log("JSON extraction failed, trying array extraction...");
+        console.error("All parsing strategies failed:", e2);
         
-        try {
-          // Strategy 3: Extract just the array
-          const arrayMatch = jsonContent.match(/\[\s*\[[\s\S]*?\]\s*(?:,\s*\[[\s\S]*?\]\s*)*\]/);
-          if (arrayMatch) {
-            tableData = JSON.parse(arrayMatch[0]);
-          } else {
-            throw new Error("No array found");
+        // Strategy 3: Extract any arrays we can find
+        const rowMatches = jsonContent.match(/\["[^"]*"(?:,"[^"]*")*\]/g);
+        if (rowMatches && rowMatches.length > 0) {
+          const parsedRows: any[][] = [];
+          for (const row of rowMatches) {
+            try { parsedRows.push(JSON.parse(row)); } catch { /* skip invalid */ }
           }
-        } catch (e3) {
-          console.log("Array extraction failed, trying to repair truncated JSON...");
-          
-          // Strategy 4: Try to repair truncated JSON
-          let repaired = jsonContent;
-          
-          // If it starts with { and contains tableData, try to close it
-          if (repaired.includes('"tableData"') && repaired.includes('[')) {
-            // Find all unclosed brackets and quotes
-            let openBrackets = 0;
-            let openBraces = 0;
-            let inString = false;
-            let lastGoodIndex = 0;
-            
-            for (let i = 0; i < repaired.length; i++) {
-              const char = repaired[i];
-              const prevChar = i > 0 ? repaired[i-1] : '';
-              
-              if (char === '"' && prevChar !== '\\') {
-                inString = !inString;
-              }
-              
-              if (!inString) {
-                if (char === '[') openBrackets++;
-                if (char === ']') {
-                  openBrackets--;
-                  if (openBrackets >= 0) lastGoodIndex = i;
-                }
-                if (char === '{') openBraces++;
-                if (char === '}') {
-                  openBraces--;
-                  if (openBraces >= 0) lastGoodIndex = i;
-                }
-              }
-            }
-            
-            // Try to close any open structures
-            if (inString) repaired += '"';
-            while (openBrackets > 0) {
-              repaired += ']';
-              openBrackets--;
-            }
-            while (openBraces > 0) {
-              repaired += '}';
-              openBraces--;
-            }
-            
-            try {
-              const parsed = JSON.parse(repaired);
-              tableData = parsed.tableData || parsed;
-              console.log("Repaired JSON successfully");
-            } catch (e4) {
-              console.error("All parsing strategies failed");
-              throw new Error("Could not parse table data from AI response");
-            }
-          } else {
-            throw new Error("Could not parse table data from AI response");
-          }
+          tableData = parsedRows;
+          console.log("Extracted", tableData.length, "rows via regex");
+        }
+        
+        if (tableData.length === 0) {
+          throw new Error("Could not parse table data from AI response");
         }
       }
     }
