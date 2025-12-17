@@ -782,29 +782,52 @@ const UserDashboard = () => {
 
     const conversationIds = participations?.map(p => p.conversation_id) || [];
 
-    // Get last message time for each conversation
+    // Get last message time for each conversation (same approach as AsusTawasoul)
     const conversationLastMessages: Record<string, string> = {};
     if (conversationIds.length > 0) {
+      // Fetch non-group conversations only
       const { data: conversations } = await supabase
         .from("internal_conversations")
-        .select("id, updated_at")
+        .select("id")
         .in("id", conversationIds)
         .eq("is_group", false);
 
-      // Get other participants for each conversation
-      const { data: allParticipants } = await supabase
-        .from("internal_conversation_participants")
-        .select("conversation_id, user_id")
-        .in("conversation_id", conversationIds);
+      const directConvIds = conversations?.map(c => c.id) || [];
 
-      // Map other user to last message time
-      if (conversations && allParticipants) {
-        for (const conv of conversations) {
-          const otherParticipant = allParticipants.find(
-            p => p.conversation_id === conv.id && p.user_id !== userId
-          );
-          if (otherParticipant) {
-            conversationLastMessages[otherParticipant.user_id] = conv.updated_at;
+      if (directConvIds.length > 0) {
+        // Get all participants for these conversations
+        const { data: allParticipants } = await supabase
+          .from("internal_conversation_participants")
+          .select("conversation_id, user_id")
+          .in("conversation_id", directConvIds);
+
+        // Get last messages for each conversation
+        const { data: lastMessages } = await supabase
+          .from("internal_messages")
+          .select("conversation_id, created_at")
+          .in("conversation_id", directConvIds)
+          .order("created_at", { ascending: false });
+
+        // Build map of conversation to last message time
+        const lastMessageMap = new Map<string, string>();
+        lastMessages?.forEach(msg => {
+          if (!lastMessageMap.has(msg.conversation_id)) {
+            lastMessageMap.set(msg.conversation_id, msg.created_at);
+          }
+        });
+
+        // Map other user to last message time
+        if (allParticipants) {
+          for (const convId of directConvIds) {
+            const otherParticipant = allParticipants.find(
+              p => p.conversation_id === convId && p.user_id !== userId
+            );
+            if (otherParticipant) {
+              const lastMsgTime = lastMessageMap.get(convId);
+              if (lastMsgTime) {
+                conversationLastMessages[otherParticipant.user_id] = lastMsgTime;
+              }
+            }
           }
         }
       }
