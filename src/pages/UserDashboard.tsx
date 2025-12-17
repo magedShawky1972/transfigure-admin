@@ -383,301 +383,22 @@ const UserDashboard = () => {
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Tasks Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CheckSquare className="h-5 w-5 text-primary" />
-              {language === "ar" ? "المهام" : "Tasks"}
-            </CardTitle>
-            <Badge variant="secondary">{tasks.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              {tasks.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <CheckCircle2 className="h-8 w-8 mr-2" />
-                  {language === "ar" ? "لا توجد مهام معلقة" : "No pending tasks"}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {tasks.map(task => (
-                    <div
-                      key={task.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate("/projects-tasks")}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {getPriorityIcon(task.priority)}
-                          <span className="font-medium truncate">{task.title}</span>
-                        </div>
-                        {getStatusBadge(task.status)}
-                      </div>
-                      {task.deadline && (
-                        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(task.deadline), "dd/MM/yyyy")}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Assigned Tickets Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Ticket className="h-5 w-5 text-primary" />
-              {language === "ar" ? "التذاكر المعينة" : "Assigned Tickets"}
-            </CardTitle>
-            <Badge variant="secondary">{tickets.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              {tickets.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <CheckCircle2 className="h-8 w-8 mr-2" />
-                  {language === "ar" ? "لا توجد تذاكر معينة" : "No assigned tickets"}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {tickets.map(ticket => (
-                    <div
-                      key={ticket.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/ticket/${ticket.id}`)}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            {getPriorityIcon(ticket.priority)}
-                            <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
-                          </div>
-                          <p className="font-medium truncate mt-1">{ticket.subject}</p>
-                        </div>
-                        {getStatusBadge(ticket.status)}
-                      </div>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(ticket.created_at), "dd/MM/yyyy")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Purchase Tickets Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-primary" />
-              {language === "ar" ? "طلبات الشراء" : "Purchase Requests"}
-            </CardTitle>
-            <Badge variant="secondary">{purchaseTickets.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              {purchaseTickets.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <CheckCircle2 className="h-8 w-8 mr-2" />
-                  {language === "ar" ? "لا توجد طلبات شراء" : "No purchase requests"}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {purchaseTickets.map(ticket => (
-                    <div
-                      key={ticket.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/ticket/${ticket.id}`)}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            {getPriorityIcon(ticket.priority)}
-                            <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
-                          </div>
-                          <p className="font-medium truncate mt-1">{ticket.subject}</p>
-                        </div>
-                        {getStatusBadge(ticket.status)}
-                      </div>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(ticket.created_at), "dd/MM/yyyy")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Normal Tickets Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              {language === "ar" ? "طلبات الدعم" : "Support Requests"}
-            </CardTitle>
-            <Badge variant="secondary">{normalTickets.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              {normalTickets.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <CheckCircle2 className="h-8 w-8 mr-2" />
-                  {language === "ar" ? "لا توجد طلبات دعم" : "No support requests"}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {normalTickets.map(ticket => (
-                    <div
-                      key={ticket.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/ticket/${ticket.id}`)}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            {getPriorityIcon(ticket.priority)}
-                            <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
-                          </div>
-                          <p className="font-medium truncate mt-1">{ticket.subject}</p>
-                        </div>
-                        {getStatusBadge(ticket.status)}
-                      </div>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(ticket.created_at), "dd/MM/yyyy")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Shift Assignments Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              {language === "ar" ? "الورديات القادمة" : "Upcoming Shifts"}
-            </CardTitle>
-            <Badge variant="secondary">{shifts.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              {shifts.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <Calendar className="h-8 w-8 mr-2" />
-                  {language === "ar" ? "لا توجد ورديات قادمة" : "No upcoming shifts"}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {shifts.map(shift => (
-                    <div
-                      key={shift.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate("/my-shifts")}
-                      style={{ borderLeftColor: shift.color, borderLeftWidth: 4 }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium">{shift.shift_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(shift.assignment_date), "dd/MM/yyyy")}
-                          </p>
-                        </div>
-                        <Badge variant={shift.has_session ? (shift.session_status === "closed" ? "secondary" : "default") : "outline"}>
-                          {shift.has_session 
-                            ? (shift.session_status === "closed" 
-                              ? (language === "ar" ? "مغلقة" : "Closed")
-                              : (language === "ar" ? "مفتوحة" : "Open"))
-                            : (language === "ar" ? "معلقة" : "Pending")}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {shift.shift_start_time?.slice(0, 5)} - {shift.shift_end_time?.slice(0, 5)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Unread Emails Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Mail className="h-5 w-5 text-primary" />
-              {language === "ar" ? "رسائل غير مقروءة" : "Unread Emails"}
-            </CardTitle>
-            <Badge variant="secondary">{unreadEmails.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              {unreadEmails.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <CheckCircle2 className="h-8 w-8 mr-2" />
-                  {language === "ar" ? "لا توجد رسائل غير مقروءة" : "No unread emails"}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {unreadEmails.map(email => (
-                    <div
-                      key={email.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate("/email-manager")}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{email.subject || (language === "ar" ? "بدون موضوع" : "No Subject")}</p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {email.from_name || email.from_address}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(email.email_date), "dd/MM/yyyy HH:mm")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Unread Internal Messages Card */}
-        <Card>
+      <div className="flex gap-6">
+        {/* Left Sidebar - Tawasoul Messages */}
+        <Card className="w-80 flex-shrink-0 h-fit">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-primary" />
-              {language === "ar" ? "رسائل تواصل غير مقروءة" : "Unread Tawasoul Messages"}
+              {language === "ar" ? "رسائل تواصل" : "Tawasoul"}
             </CardTitle>
             <Badge variant="secondary">{unreadMessages.length}</Badge>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-64">
+            <ScrollArea className="h-[calc(100vh-320px)]">
               {unreadMessages.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <CheckCircle2 className="h-8 w-8 mr-2" />
-                  {language === "ar" ? "لا توجد رسائل غير مقروءة" : "No unread messages"}
+                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8 mb-2" />
+                  {language === "ar" ? "لا توجد رسائل" : "No messages"}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -687,17 +408,13 @@ const UserDashboard = () => {
                       className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => navigate("/asus-tawasoul")}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{message.sender_name}</p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {message.message_text || (language === "ar" ? "مرفق وسائط" : "Media attachment")}
-                          </p>
-                        </div>
-                      </div>
+                      <p className="font-medium truncate">{message.sender_name}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {message.message_text || (language === "ar" ? "مرفق وسائط" : "Media")}
+                      </p>
                       <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {format(new Date(message.created_at), "dd/MM/yyyy HH:mm")}
+                        {format(new Date(message.created_at), "dd/MM HH:mm")}
                       </div>
                     </div>
                   ))}
@@ -706,6 +423,266 @@ const UserDashboard = () => {
             </ScrollArea>
           </CardContent>
         </Card>
+
+        {/* Main Content Area */}
+        <div className="flex-1 space-y-6">
+          {/* Top Grid - 6 Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Tasks Card */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                  {language === "ar" ? "المهام" : "Tasks"}
+                </CardTitle>
+                <Badge variant="secondary">{tasks.length}</Badge>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48">
+                  {tasks.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      <CheckCircle2 className="h-6 w-6 mr-2" />
+                      {language === "ar" ? "لا توجد مهام" : "No tasks"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {tasks.map(task => (
+                        <div
+                          key={task.id}
+                          className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => navigate("/projects-tasks")}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {getPriorityIcon(task.priority)}
+                              <span className="text-sm font-medium truncate">{task.title}</span>
+                            </div>
+                            {getStatusBadge(task.status)}
+                          </div>
+                          {task.deadline && (
+                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(task.deadline), "dd/MM/yyyy")}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Assigned Tickets Card */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-primary" />
+                  {language === "ar" ? "التذاكر المعينة" : "Assigned Tickets"}
+                </CardTitle>
+                <Badge variant="secondary">{tickets.length}</Badge>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48">
+                  {tickets.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      <CheckCircle2 className="h-6 w-6 mr-2" />
+                      {language === "ar" ? "لا توجد تذاكر" : "No tickets"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {tickets.map(ticket => (
+                        <div
+                          key={ticket.id}
+                          className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => navigate(`/ticket/${ticket.id}`)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
+                              <p className="text-sm font-medium truncate">{ticket.subject}</p>
+                            </div>
+                            {getStatusBadge(ticket.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Purchase Tickets Card */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                  {language === "ar" ? "طلبات الشراء" : "Purchase Requests"}
+                </CardTitle>
+                <Badge variant="secondary">{purchaseTickets.length}</Badge>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48">
+                  {purchaseTickets.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      <CheckCircle2 className="h-6 w-6 mr-2" />
+                      {language === "ar" ? "لا توجد طلبات" : "No requests"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {purchaseTickets.map(ticket => (
+                        <div
+                          key={ticket.id}
+                          className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => navigate(`/ticket/${ticket.id}`)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
+                              <p className="text-sm font-medium truncate">{ticket.subject}</p>
+                            </div>
+                            {getStatusBadge(ticket.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Normal Tickets Card */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  {language === "ar" ? "طلبات الدعم" : "Support Requests"}
+                </CardTitle>
+                <Badge variant="secondary">{normalTickets.length}</Badge>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48">
+                  {normalTickets.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      <CheckCircle2 className="h-6 w-6 mr-2" />
+                      {language === "ar" ? "لا توجد طلبات" : "No requests"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {normalTickets.map(ticket => (
+                        <div
+                          key={ticket.id}
+                          className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => navigate(`/ticket/${ticket.id}`)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
+                              <p className="text-sm font-medium truncate">{ticket.subject}</p>
+                            </div>
+                            {getStatusBadge(ticket.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Shift Assignments Card */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  {language === "ar" ? "الورديات" : "Shifts"}
+                </CardTitle>
+                <Badge variant="secondary">{shifts.length}</Badge>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48">
+                  {shifts.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      <Calendar className="h-6 w-6 mr-2" />
+                      {language === "ar" ? "لا توجد ورديات" : "No shifts"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {shifts.map(shift => (
+                        <div
+                          key={shift.id}
+                          className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => navigate("/my-shifts")}
+                          style={{ borderLeftColor: shift.color, borderLeftWidth: 3 }}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">{shift.shift_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(shift.assignment_date), "dd/MM")}
+                              </p>
+                            </div>
+                            <Badge variant={shift.has_session ? (shift.session_status === "closed" ? "secondary" : "default") : "outline"} className="text-xs">
+                              {shift.has_session 
+                                ? (shift.session_status === "closed" 
+                                  ? (language === "ar" ? "مغلقة" : "Closed")
+                                  : (language === "ar" ? "مفتوحة" : "Open"))
+                                : (language === "ar" ? "معلقة" : "Pending")}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Bottom - Unread Emails Full Width */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                {language === "ar" ? "رسائل البريد غير المقروءة" : "Unread Emails"}
+              </CardTitle>
+              <Badge variant="secondary">{unreadEmails.length}</Badge>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-48">
+                {unreadEmails.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 mr-2" />
+                    {language === "ar" ? "لا توجد رسائل غير مقروءة" : "No unread emails"}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {unreadEmails.map(email => (
+                      <div
+                        key={email.id}
+                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => navigate("/email-manager")}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{email.subject || (language === "ar" ? "بدون موضوع" : "No Subject")}</p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {email.from_name || email.from_address}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(email.email_date), "dd/MM/yyyy HH:mm")}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
