@@ -28,22 +28,15 @@ serve(async (req) => {
     console.log("Processing PDF file:", fileName);
 
     // Use Lovable AI to extract tabular data from the PDF
-    const systemPrompt = `You are an expert at extracting tabular data from PDF documents. Your task is to analyze the provided PDF content and extract ALL data into a structured table format.
+    const systemPrompt = `You are an expert at extracting tabular data from PDF documents. Extract ALL data into a 2D array format.
 
-Instructions:
-1. Identify all tabular data, lists, or structured information in the document
-2. Convert the data into a 2D array format suitable for Excel
-3. The first row should be headers/column names
-4. Each subsequent row should contain the data
-5. If the PDF contains multiple tables, combine them if they have similar structure, or use the most comprehensive one
-6. Handle Arabic text properly - preserve RTL text as-is
-7. Clean up any formatting issues, extra spaces, or special characters
-8. If no clear table exists, extract key-value pairs as a two-column table
-
-IMPORTANT: Return ONLY a valid JSON object with a "tableData" key containing a 2D array. No explanations, no markdown, just the JSON.
-
-Example output format:
-{"tableData": [["Column1", "Column2", "Column3"], ["Value1", "Value2", "Value3"], ["Value4", "Value5", "Value6"]]}`;
+CRITICAL RULES:
+1. Return ONLY valid JSON - no markdown, no code blocks, no explanations
+2. Output format: {"tableData": [["Header1", "Header2"], ["Val1", "Val2"]]}
+3. First row = headers, subsequent rows = data
+4. Handle Arabic text properly
+5. Replace null/empty with empty string ""
+6. Keep response compact - no extra whitespace`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -63,7 +56,7 @@ Example output format:
             content: [
               {
                 type: "text",
-                text: `Extract all tabular data from this PDF document and return it as a JSON object with a "tableData" key containing a 2D array. The file name is: ${fileName}`
+                text: `Extract tabular data from this PDF as JSON: {"tableData": [[headers], [row1], [row2]...]}`
               },
               {
                 type: "image_url",
@@ -74,7 +67,7 @@ Example output format:
             ]
           }
         ],
-        max_tokens: 8192,
+        max_tokens: 16384,
       }),
     });
 
@@ -102,39 +95,108 @@ Example output format:
     const content = data.choices?.[0]?.message?.content?.trim() || "";
     
     console.log("AI response length:", content.length);
+    console.log("AI response preview:", content.substring(0, 500));
 
-    // Parse the JSON response
+    // Parse the JSON response with multiple fallback strategies
     let tableData: any[][] = [];
+    let jsonContent = content;
+    
+    // Remove markdown code blocks if present
+    if (jsonContent.includes("```json")) {
+      jsonContent = jsonContent.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+    } else if (jsonContent.includes("```")) {
+      jsonContent = jsonContent.replace(/```\s*/g, "");
+    }
+    
+    jsonContent = jsonContent.trim();
+    
+    // Try to find and parse the JSON object
     try {
-      // Try to extract JSON from the response - handle markdown code blocks
-      let jsonContent = content;
+      // Strategy 1: Direct parse
+      const parsed = JSON.parse(jsonContent);
+      tableData = parsed.tableData || parsed;
+    } catch (e1) {
+      console.log("Direct parse failed, trying extraction...");
       
-      // Remove markdown code blocks if present
-      if (jsonContent.includes("```json")) {
-        jsonContent = jsonContent.replace(/```json\s*/g, "").replace(/```\s*/g, "");
-      } else if (jsonContent.includes("```")) {
-        jsonContent = jsonContent.replace(/```\s*/g, "");
-      }
-      
-      jsonContent = jsonContent.trim();
-      
-      const jsonMatch = jsonContent.match(/\{[\s\S]*"tableData"[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        tableData = parsed.tableData;
-      } else {
-        // Try direct parse
-        const parsed = JSON.parse(jsonContent);
-        tableData = parsed.tableData || parsed;
-      }
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      // Fallback: try to extract any array-like structure
-      const arrayMatch = content.match(/\[\s*\[[\s\S]*\]\s*\]/);
-      if (arrayMatch) {
-        tableData = JSON.parse(arrayMatch[0]);
-      } else {
-        throw new Error("Could not parse table data from AI response");
+      try {
+        // Strategy 2: Extract JSON object containing tableData
+        const jsonMatch = jsonContent.match(/\{[\s\S]*"tableData"\s*:\s*\[[\s\S]*\]\s*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          tableData = parsed.tableData;
+        } else {
+          throw new Error("No tableData object found");
+        }
+      } catch (e2) {
+        console.log("JSON extraction failed, trying array extraction...");
+        
+        try {
+          // Strategy 3: Extract just the array
+          const arrayMatch = jsonContent.match(/\[\s*\[[\s\S]*?\]\s*(?:,\s*\[[\s\S]*?\]\s*)*\]/);
+          if (arrayMatch) {
+            tableData = JSON.parse(arrayMatch[0]);
+          } else {
+            throw new Error("No array found");
+          }
+        } catch (e3) {
+          console.log("Array extraction failed, trying to repair truncated JSON...");
+          
+          // Strategy 4: Try to repair truncated JSON
+          let repaired = jsonContent;
+          
+          // If it starts with { and contains tableData, try to close it
+          if (repaired.includes('"tableData"') && repaired.includes('[')) {
+            // Find all unclosed brackets and quotes
+            let openBrackets = 0;
+            let openBraces = 0;
+            let inString = false;
+            let lastGoodIndex = 0;
+            
+            for (let i = 0; i < repaired.length; i++) {
+              const char = repaired[i];
+              const prevChar = i > 0 ? repaired[i-1] : '';
+              
+              if (char === '"' && prevChar !== '\\') {
+                inString = !inString;
+              }
+              
+              if (!inString) {
+                if (char === '[') openBrackets++;
+                if (char === ']') {
+                  openBrackets--;
+                  if (openBrackets >= 0) lastGoodIndex = i;
+                }
+                if (char === '{') openBraces++;
+                if (char === '}') {
+                  openBraces--;
+                  if (openBraces >= 0) lastGoodIndex = i;
+                }
+              }
+            }
+            
+            // Try to close any open structures
+            if (inString) repaired += '"';
+            while (openBrackets > 0) {
+              repaired += ']';
+              openBrackets--;
+            }
+            while (openBraces > 0) {
+              repaired += '}';
+              openBraces--;
+            }
+            
+            try {
+              const parsed = JSON.parse(repaired);
+              tableData = parsed.tableData || parsed;
+              console.log("Repaired JSON successfully");
+            } catch (e4) {
+              console.error("All parsing strategies failed");
+              throw new Error("Could not parse table data from AI response");
+            }
+          } else {
+            throw new Error("Could not parse table data from AI response");
+          }
+        }
       }
     }
 
