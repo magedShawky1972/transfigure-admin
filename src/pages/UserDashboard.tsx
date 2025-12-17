@@ -14,7 +14,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
-  MessageSquare
+  MessageSquare,
+  ShoppingCart,
+  FileText
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -65,6 +67,16 @@ interface UnreadInternalMessage {
   conversation_id: string;
 }
 
+interface UserTicket {
+  id: string;
+  ticket_number: string;
+  subject: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  department_name?: string;
+}
+
 const UserDashboard = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -72,6 +84,8 @@ const UserDashboard = () => {
   const [userName, setUserName] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tickets, setTickets] = useState<AssignedTicket[]>([]);
+  const [purchaseTickets, setPurchaseTickets] = useState<UserTicket[]>([]);
+  const [normalTickets, setNormalTickets] = useState<UserTicket[]>([]);
   const [shifts, setShifts] = useState<ShiftAssignment[]>([]);
   const [unreadEmails, setUnreadEmails] = useState<UnreadEmail[]>([]);
   const [unreadMessages, setUnreadMessages] = useState<UnreadInternalMessage[]>([]);
@@ -100,6 +114,8 @@ const UserDashboard = () => {
       await Promise.all([
         fetchTasks(user.id),
         fetchTickets(user.id),
+        fetchPurchaseTickets(user.id),
+        fetchNormalTickets(user.id),
         fetchShifts(user.id),
         fetchUnreadEmails(user.id),
         fetchUnreadMessages(user.id)
@@ -155,6 +171,58 @@ const UserDashboard = () => {
 
     if (data) {
       setTickets(data.map(t => ({
+        ...t,
+        department_name: (t.departments as any)?.department_name
+      })));
+    }
+  };
+
+  const fetchPurchaseTickets = async (userId: string) => {
+    const { data } = await supabase
+      .from("tickets")
+      .select(`
+        id,
+        ticket_number,
+        subject,
+        status,
+        priority,
+        created_at,
+        departments:department_id (department_name)
+      `)
+      .eq("user_id", userId)
+      .eq("is_purchase_ticket", true)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (data) {
+      setPurchaseTickets(data.map(t => ({
+        ...t,
+        department_name: (t.departments as any)?.department_name
+      })));
+    }
+  };
+
+  const fetchNormalTickets = async (userId: string) => {
+    const { data } = await supabase
+      .from("tickets")
+      .select(`
+        id,
+        ticket_number,
+        subject,
+        status,
+        priority,
+        created_at,
+        departments:department_id (department_name)
+      `)
+      .eq("user_id", userId)
+      .eq("is_purchase_ticket", false)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (data) {
+      setNormalTickets(data.map(t => ({
         ...t,
         department_name: (t.departments as any)?.department_name
       })));
@@ -299,7 +367,7 @@ const UserDashboard = () => {
       <div className="p-6 space-y-6" dir={language === "ar" ? "rtl" : "ltr"}>
         <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2, 3, 4, 5].map(i => (
+          {[1, 2, 3, 4, 5, 6, 7].map(i => (
             <Skeleton key={i} className="h-80" />
           ))}
         </div>
@@ -380,6 +448,98 @@ const UserDashboard = () => {
               ) : (
                 <div className="space-y-3">
                   {tickets.map(ticket => (
+                    <div
+                      key={ticket.id}
+                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/ticket/${ticket.id}`)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {getPriorityIcon(ticket.priority)}
+                            <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
+                          </div>
+                          <p className="font-medium truncate mt-1">{ticket.subject}</p>
+                        </div>
+                        {getStatusBadge(ticket.status)}
+                      </div>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {format(new Date(ticket.created_at), "dd/MM/yyyy")}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Purchase Tickets Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              {language === "ar" ? "طلبات الشراء" : "Purchase Requests"}
+            </CardTitle>
+            <Badge variant="secondary">{purchaseTickets.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-64">
+              {purchaseTickets.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8 mr-2" />
+                  {language === "ar" ? "لا توجد طلبات شراء" : "No purchase requests"}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {purchaseTickets.map(ticket => (
+                    <div
+                      key={ticket.id}
+                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/ticket/${ticket.id}`)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {getPriorityIcon(ticket.priority)}
+                            <span className="text-xs text-muted-foreground">#{ticket.ticket_number}</span>
+                          </div>
+                          <p className="font-medium truncate mt-1">{ticket.subject}</p>
+                        </div>
+                        {getStatusBadge(ticket.status)}
+                      </div>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {format(new Date(ticket.created_at), "dd/MM/yyyy")}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Normal Tickets Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {language === "ar" ? "طلبات الدعم" : "Support Requests"}
+            </CardTitle>
+            <Badge variant="secondary">{normalTickets.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-64">
+              {normalTickets.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8 mr-2" />
+                  {language === "ar" ? "لا توجد طلبات دعم" : "No support requests"}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {normalTickets.map(ticket => (
                     <div
                       key={ticket.id}
                       className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
