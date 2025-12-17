@@ -587,7 +587,7 @@ const UserDashboard = () => {
       .select("id, subject, from_address, from_name, email_date")
       .eq("user_id", userId)
       .eq("is_read", false)
-      .eq("folder", "inbox")
+      .eq("folder", "INBOX")
       .order("email_date", { ascending: false })
       .limit(10);
 
