@@ -103,6 +103,7 @@ export function AppSidebar() {
     "/email-manager": "emailManager",
     "/mail-setup": "mailSetup",
     "/company-news": "companyNews",
+    "/pdf-to-excel": "pdfToExcel",
   };
 
   useEffect(() => {
@@ -292,6 +293,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد Odoo' : 'Odoo Setup', url: "/odoo-setup", icon: Link2 },
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
+        { title: language === 'ar' ? 'تحويل PDF إلى Excel' : 'PDF to Excel', url: "/pdf-to-excel", icon: FileSpreadsheet },
       ]
     }
   ];
