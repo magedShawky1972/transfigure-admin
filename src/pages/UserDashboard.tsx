@@ -421,36 +421,34 @@ const UserDashboard = () => {
             <Badge variant="secondary">{companyNews.length}</Badge>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <div className="flex gap-4 pb-2">
-                {companyNews.map(news => (
-                  <div
-                    key={news.id}
-                    className="p-3 bg-background rounded-lg border hover:shadow-md transition-shadow cursor-pointer w-72 flex-shrink-0"
-                    onClick={() => navigate("/company-news")}
-                  >
-                    <div className="flex gap-3">
-                      {news.image_url && (
-                        <img 
-                          src={news.image_url} 
-                          alt={news.title}
-                          className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate">{news.title}</h4>
-                        <div 
-                          className="text-sm text-muted-foreground line-clamp-2 mt-1"
-                          dangerouslySetInnerHTML={{ __html: news.content.replace(/<[^>]*>/g, '').substring(0, 80) + '...' }}
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {news.published_at && format(new Date(news.published_at), "dd/MM/yyyy")}
-                        </p>
-                      </div>
+            <div className="space-y-3">
+              {companyNews.map(news => (
+                <div
+                  key={news.id}
+                  className="p-3 bg-background rounded-lg border hover:shadow-md transition-shadow cursor-pointer w-full"
+                  onClick={() => navigate("/company-news")}
+                >
+                  <div className="flex gap-3">
+                    {news.image_url && (
+                      <img 
+                        src={news.image_url} 
+                        alt={news.title}
+                        className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium">{news.title}</h4>
+                      <div 
+                        className="text-sm text-muted-foreground line-clamp-2 mt-1"
+                        dangerouslySetInnerHTML={{ __html: news.content.replace(/<[^>]*>/g, '').substring(0, 150) + '...' }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {news.published_at && format(new Date(news.published_at), "dd/MM/yyyy")}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
