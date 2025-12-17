@@ -550,13 +550,32 @@ const EmailManager = () => {
     }
   };
 
-  // Auto-sync every 5 seconds
+  // Auto-sync: trigger immediately on first load if no emails, then every 30 seconds
   useEffect(() => {
     if (userConfig?.mail_type && userConfig?.email_password) {
       // Clear any existing interval
       if (autoSyncIntervalRef.current) {
         clearInterval(autoSyncIntervalRef.current);
       }
+
+      // Check if this is first time load (no emails synced)
+      const checkAndAutoSync = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const { count } = await supabase
+          .from("emails")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
+        
+        // If no emails exist, trigger initial sync immediately
+        if (count === 0) {
+          console.log("First time load - starting initial sync");
+          syncEmailsFromServer(false); // Show progress dialog for first sync
+        }
+      };
+      
+      checkAndAutoSync();
 
       // Set up auto-sync every 30 seconds (30000ms)
       autoSyncIntervalRef.current = setInterval(() => {
