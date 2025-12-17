@@ -397,21 +397,18 @@ const UserDashboard = () => {
   };
 
   const fetchPurchaseTickets = async (userId: string) => {
-    // Get departments where user is a purchase admin
-    const { data: purchaseAdminDepts } = await supabase
+    // Get ALL departments where user is an admin (regular or purchase)
+    const { data: adminDepts } = await supabase
       .from("department_admins")
       .select("department_id")
-      .eq("user_id", userId)
-      .eq("is_purchase_admin", true);
+      .eq("user_id", userId);
 
-    const purchaseAdminDeptIds = purchaseAdminDepts?.map(d => d.department_id) || [];
+    const adminDeptIds = adminDepts?.map(d => d.department_id) || [];
 
-    // Fetch: 1) Tickets awaiting user's approval (user is purchase admin for that dept)
-    //        2) Tickets approved by user but not closed
     let allTickets: any[] = [];
 
-    // Query 1: Tickets in departments where user is purchase admin, pending approval
-    if (purchaseAdminDeptIds.length > 0) {
+    // Query 1: Tickets in departments where user is admin, pending approval (not closed)
+    if (adminDeptIds.length > 0) {
       const { data: pendingApproval } = await supabase
         .from("tickets")
         .select(`
@@ -423,12 +420,13 @@ const UserDashboard = () => {
           created_at,
           departments:department_id (department_name)
         `)
-        .in("department_id", purchaseAdminDeptIds)
+        .in("department_id", adminDeptIds)
         .eq("is_purchase_ticket", true)
         .eq("is_deleted", false)
-        .in("status", ["Open", "In Progress"])
+        .neq("status", "Closed")
+        .neq("status", "Rejected")
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(20);
 
       if (pendingApproval) {
         allTickets = [...allTickets, ...pendingApproval];
@@ -451,11 +449,11 @@ const UserDashboard = () => {
       .eq("is_purchase_ticket", true)
       .eq("is_deleted", false)
       .neq("status", "Closed")
+      .neq("status", "Rejected")
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(20);
 
     if (approvedByUser) {
-      // Merge and deduplicate by id
       const existingIds = new Set(allTickets.map(t => t.id));
       approvedByUser.forEach(t => {
         if (!existingIds.has(t.id)) {
@@ -464,9 +462,38 @@ const UserDashboard = () => {
       });
     }
 
+    // Query 3: User's own purchase tickets (created by them) not closed
+    const { data: myRequests } = await supabase
+      .from("tickets")
+      .select(`
+        id,
+        ticket_number,
+        subject,
+        status,
+        priority,
+        created_at,
+        departments:department_id (department_name)
+      `)
+      .eq("user_id", userId)
+      .eq("is_purchase_ticket", true)
+      .eq("is_deleted", false)
+      .neq("status", "Closed")
+      .neq("status", "Rejected")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (myRequests) {
+      const existingIds = new Set(allTickets.map(t => t.id));
+      myRequests.forEach(t => {
+        if (!existingIds.has(t.id)) {
+          allTickets.push(t);
+        }
+      });
+    }
+
     // Sort by created_at descending and limit
     allTickets.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    allTickets = allTickets.slice(0, 10);
+    allTickets = allTickets.slice(0, 15);
 
     setPurchaseTickets(allTickets.map(t => ({
       ...t,
