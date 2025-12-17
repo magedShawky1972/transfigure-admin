@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Download, Loader2, FileSpreadsheet, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileUp, Download, Loader2, FileSpreadsheet, Trash2, ChevronLeft, ChevronRight, Crop, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+interface SelectionArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 const PdfToExcel = () => {
   const { language } = useLanguage();
@@ -21,6 +30,15 @@ const PdfToExcel = () => {
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  
+  // Area selection state
+  const [selectionArea, setSelectionArea] = useState<SelectionArea | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionStart, setSelectionStart] = useState({ x: 0, y: 0 });
+  const [applyToAllPages, setApplyToAllPages] = useState(true);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const renderPdf = async (file: File) => {
     try {
@@ -48,6 +66,7 @@ const PdfToExcel = () => {
       }
       setPdfPages(pages);
       setCurrentPage(0);
+      setSelectionArea(null);
     } catch (error) {
       console.error('Error rendering PDF:', error);
     }
@@ -73,6 +92,12 @@ const PdfToExcel = () => {
     aiProcessing: isArabic ? 'الذكاء الاصطناعي يعالج الملف...' : 'AI is processing the file...',
     pdfPreview: isArabic ? 'معاينة الملف' : 'PDF Preview',
     uploadToPreview: isArabic ? 'قم برفع ملف PDF لعرض المعاينة' : 'Upload a PDF file to preview',
+    selectArea: isArabic ? 'تحديد المنطقة' : 'Select Area',
+    clearSelection: isArabic ? 'مسح التحديد' : 'Clear Selection',
+    applyToAllPages: isArabic ? 'تطبيق على جميع الصفحات' : 'Apply to all pages',
+    dragToSelect: isArabic ? 'اسحب لتحديد المنطقة المراد تحويلها' : 'Drag to select the area to convert',
+    areaSelected: isArabic ? 'تم تحديد المنطقة' : 'Area selected',
+    noSelection: isArabic ? 'الرجاء تحديد منطقة للتحويل' : 'Please select an area to convert',
   };
 
   const MAX_FILE_SIZE_MB = 2;
@@ -102,6 +127,8 @@ const PdfToExcel = () => {
       setSelectedFile(file);
       setFileName(file.name.replace('.pdf', ''));
       setExtractedData(null);
+      setSelectionArea(null);
+      setSelectionMode(false);
       renderPdf(file);
     }
   };
@@ -132,6 +159,8 @@ const PdfToExcel = () => {
       setSelectedFile(file);
       setFileName(file.name.replace('.pdf', ''));
       setExtractedData(null);
+      setSelectionArea(null);
+      setSelectionMode(false);
       renderPdf(file);
     }
   };
@@ -149,11 +178,67 @@ const PdfToExcel = () => {
     });
   };
 
+  // Area selection handlers
+  const getRelativeCoordinates = useCallback((e: React.MouseEvent) => {
+    if (!imageRef.current) return { x: 0, y: 0 };
+    const rect = imageRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!selectionMode) return;
+    e.preventDefault();
+    const coords = getRelativeCoordinates(e);
+    setSelectionStart(coords);
+    setIsSelecting(true);
+    setSelectionArea({ x: coords.x, y: coords.y, width: 0, height: 0 });
+  }, [selectionMode, getRelativeCoordinates]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isSelecting || !selectionMode) return;
+    e.preventDefault();
+    const coords = getRelativeCoordinates(e);
+    const x = Math.min(selectionStart.x, coords.x);
+    const y = Math.min(selectionStart.y, coords.y);
+    const width = Math.abs(coords.x - selectionStart.x);
+    const height = Math.abs(coords.y - selectionStart.y);
+    setSelectionArea({ x, y, width, height });
+  }, [isSelecting, selectionMode, selectionStart, getRelativeCoordinates]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isSelecting && selectionArea && selectionArea.width > 2 && selectionArea.height > 2) {
+      setSelectionMode(false);
+      toast({
+        title: translations.areaSelected,
+        description: isArabic 
+          ? `تم تحديد المنطقة. ${totalPages > 1 ? (applyToAllPages ? 'سيتم التطبيق على جميع الصفحات.' : 'سيتم التطبيق على الصفحة الحالية فقط.') : ''}`
+          : `Area selected. ${totalPages > 1 ? (applyToAllPages ? 'Will apply to all pages.' : 'Will apply to current page only.') : ''}`,
+      });
+    }
+    setIsSelecting(false);
+  }, [isSelecting, selectionArea, applyToAllPages, totalPages, isArabic, translations.areaSelected, toast]);
+
+  const clearSelection = () => {
+    setSelectionArea(null);
+    setSelectionMode(false);
+  };
+
   const handleConvert = async () => {
     if (!selectedFile) {
       toast({
         title: isArabic ? 'خطأ' : 'Error',
         description: translations.noFile,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!selectionArea || selectionArea.width < 2 || selectionArea.height < 2) {
+      toast({
+        title: isArabic ? 'خطأ' : 'Error',
+        description: translations.noSelection,
         variant: 'destructive',
       });
       return;
@@ -177,6 +262,10 @@ const PdfToExcel = () => {
           body: JSON.stringify({
             fileData: base64Data,
             fileName: selectedFile.name,
+            selectionArea: selectionArea,
+            applyToAllPages: totalPages > 1 ? applyToAllPages : true,
+            currentPage: currentPage + 1,
+            totalPages: totalPages,
           }),
         }
       );
@@ -230,6 +319,8 @@ const PdfToExcel = () => {
     setPdfPages([]);
     setCurrentPage(0);
     setTotalPages(0);
+    setSelectionArea(null);
+    setSelectionMode(false);
   };
 
   return (
@@ -278,7 +369,7 @@ const PdfToExcel = () => {
             <div className="flex gap-2">
               <Button
                 onClick={handleConvert}
-                disabled={!selectedFile || isProcessing}
+                disabled={!selectedFile || isProcessing || !selectionArea}
                 className="flex-1"
               >
                 {isProcessing ? (
@@ -304,7 +395,27 @@ const PdfToExcel = () => {
         {/* Preview Section */}
         <Card>
           <CardHeader>
-            <CardTitle>{extractedData ? translations.preview : translations.pdfPreview}</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>{extractedData ? translations.preview : translations.pdfPreview}</CardTitle>
+              {pdfPages.length > 0 && !extractedData && (
+                <div className="flex items-center gap-2">
+                  {selectionArea && (
+                    <Button variant="ghost" size="sm" onClick={clearSelection}>
+                      <X className="h-4 w-4 mr-1" />
+                      {translations.clearSelection}
+                    </Button>
+                  )}
+                  <Button 
+                    variant={selectionMode ? "default" : "outline"} 
+                    size="sm" 
+                    onClick={() => setSelectionMode(!selectionMode)}
+                  >
+                    <Crop className="h-4 w-4 mr-1" />
+                    {translations.selectArea}
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {extractedData ? (
@@ -333,38 +444,81 @@ const PdfToExcel = () => {
                 </table>
               </div>
             ) : pdfPages.length > 0 ? (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="relative bg-muted/30">
-                  <img 
-                    src={pdfPages[currentPage]} 
-                    alt={`Page ${currentPage + 1}`}
-                    className="w-full h-auto max-h-[500px] object-contain mx-auto"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2 p-2 border-t bg-muted">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                      disabled={currentPage === 0}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      {currentPage + 1} / {totalPages}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setCurrentPage(p => Math.min(pdfPages.length - 1, p + 1))}
-                      disabled={currentPage >= pdfPages.length - 1}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+              <div className="space-y-3">
+                {selectionMode && (
+                  <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg text-sm text-center">
+                    {translations.dragToSelect}
                   </div>
-                  <span className="text-xs text-muted-foreground truncate">{selectedFile?.name}</span>
+                )}
+                
+                <div className="border rounded-lg overflow-hidden">
+                  <div 
+                    ref={containerRef}
+                    className={`relative bg-muted/30 ${selectionMode ? 'cursor-crosshair' : ''}`}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                  >
+                    <img 
+                      ref={imageRef}
+                      src={pdfPages[currentPage]} 
+                      alt={`Page ${currentPage + 1}`}
+                      className="w-full h-auto max-h-[500px] object-contain mx-auto select-none"
+                      draggable={false}
+                    />
+                    {/* Selection overlay */}
+                    {selectionArea && (
+                      <div
+                        className="absolute border-2 border-primary bg-primary/20 pointer-events-none"
+                        style={{
+                          left: `${selectionArea.x}%`,
+                          top: `${selectionArea.y}%`,
+                          width: `${selectionArea.width}%`,
+                          height: `${selectionArea.height}%`,
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 p-2 border-t bg-muted">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        {currentPage + 1} / {totalPages}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentPage(p => Math.min(pdfPages.length - 1, p + 1))}
+                        disabled={currentPage >= pdfPages.length - 1}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <span className="text-xs text-muted-foreground truncate">{selectedFile?.name}</span>
+                  </div>
                 </div>
+
+                {/* Apply to all pages option */}
+                {totalPages > 1 && selectionArea && (
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                    <Checkbox
+                      id="applyToAll"
+                      checked={applyToAllPages}
+                      onCheckedChange={(checked) => setApplyToAllPages(checked === true)}
+                    />
+                    <Label htmlFor="applyToAll" className="text-sm cursor-pointer">
+                      {translations.applyToAllPages} ({totalPages} {isArabic ? 'صفحات' : 'pages'})
+                    </Label>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">

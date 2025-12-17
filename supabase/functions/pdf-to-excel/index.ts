@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { fileData, fileName } = await req.json();
+    const { fileData, fileName, selectionArea, applyToAllPages, currentPage, totalPages } = await req.json();
 
     if (!fileData) {
       return new Response(
@@ -42,6 +42,27 @@ serve(async (req) => {
     }
 
     console.log("Processing PDF file:", fileName);
+    console.log("Selection area:", selectionArea);
+    console.log("Apply to all pages:", applyToAllPages);
+
+    // Build area selection instruction for the AI
+    let areaInstruction = "";
+    if (selectionArea && selectionArea.width > 0 && selectionArea.height > 0) {
+      const leftPercent = Math.round(selectionArea.x);
+      const topPercent = Math.round(selectionArea.y);
+      const rightPercent = Math.round(selectionArea.x + selectionArea.width);
+      const bottomPercent = Math.round(selectionArea.y + selectionArea.height);
+      
+      areaInstruction = `
+IMPORTANT: The user has selected a specific area of the document to extract. 
+Focus ONLY on the content within this region:
+- Left edge: ${leftPercent}% from left
+- Top edge: ${topPercent}% from top  
+- Right edge: ${rightPercent}% from left
+- Bottom edge: ${bottomPercent}% from top
+
+Ignore any content outside this selected area.`;
+    }
 
     // Use Lovable AI to extract tabular data from the PDF
     const systemPrompt = `You are an expert at extracting tabular data from PDF documents. Extract ALL data into a 2D array format.
@@ -52,7 +73,8 @@ CRITICAL RULES:
 3. First row = headers, subsequent rows = data
 4. Handle Arabic text properly
 5. Replace null/empty with empty string ""
-6. Keep response compact - no extra whitespace`;
+6. Keep response compact - no extra whitespace
+${areaInstruction}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -72,7 +94,7 @@ CRITICAL RULES:
             content: [
               {
                 type: "text",
-                text: `Extract tabular data from this PDF as JSON: {"tableData": [[headers], [row1], [row2]...]}`
+                text: `Extract tabular data from this PDF as JSON: {"tableData": [[headers], [row1], [row2]...]}${areaInstruction ? " Focus only on the selected area described in the system prompt." : ""}`
               },
               {
                 type: "image_url",
