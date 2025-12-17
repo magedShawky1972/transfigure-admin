@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
+import Image from '@tiptap/extension-image';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import {
@@ -18,8 +19,12 @@ import {
   Link as LinkIcon,
   Undo,
   Redo,
+  Image as ImageIcon,
+  Loader2,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface RichTextEditorProps {
   content: string;
@@ -29,6 +34,9 @@ interface RichTextEditorProps {
 }
 
 export const RichTextEditor = ({ content, onChange, placeholder, className }: RichTextEditorProps) => {
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -41,6 +49,13 @@ export const RichTextEditor = ({ content, onChange, placeholder, className }: Ri
       }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
+      }),
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded-md',
+        },
       }),
     ],
     content: content,
@@ -71,8 +86,58 @@ export const RichTextEditor = ({ content, onChange, placeholder, className }: Ri
     }
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        
+        const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
+          body: {
+            imageBase64: base64,
+            folder: 'company-news-content',
+            resourceType: 'image'
+          }
+        });
+
+        if (error) throw error;
+        if (!data?.url) throw new Error('No URL returned');
+
+        editor.chain().focus().setImage({ src: data.url }).run();
+        toast.success('Image inserted');
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <div className={`border rounded-md bg-background ${className}`}>
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImageUpload}
+        accept="image/*"
+        className="hidden"
+      />
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-muted/30">
         <Toggle
@@ -164,6 +229,21 @@ export const RichTextEditor = ({ content, onChange, placeholder, className }: Ri
         >
           <LinkIcon className="h-4 w-4" />
         </Toggle>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingImage}
+          title="Insert Image"
+        >
+          {uploadingImage ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4" />
+          )}
+        </Button>
 
         <div className="w-px h-6 bg-border mx-1" />
 
