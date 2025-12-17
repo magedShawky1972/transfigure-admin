@@ -16,6 +16,7 @@ const PdfToExcel = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any[][] | null>(null);
   const [fileName, setFileName] = useState('');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const isArabic = language === 'ar';
 
@@ -35,6 +36,8 @@ const PdfToExcel = () => {
     dragDrop: isArabic ? 'اسحب وأفلت ملف PDF هنا أو انقر للاختيار' : 'Drag and drop PDF file here or click to select',
     selectedFile: isArabic ? 'الملف المختار' : 'Selected File',
     aiProcessing: isArabic ? 'الذكاء الاصطناعي يعالج الملف...' : 'AI is processing the file...',
+    pdfPreview: isArabic ? 'معاينة الملف' : 'PDF Preview',
+    uploadToPreview: isArabic ? 'قم برفع ملف PDF لعرض المعاينة' : 'Upload a PDF file to preview',
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,6 +51,11 @@ const PdfToExcel = () => {
         });
         return;
       }
+      // Revoke previous URL if exists
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+      
+      const url = URL.createObjectURL(file);
+      setPdfUrl(url);
       setSelectedFile(file);
       setFileName(file.name.replace('.pdf', ''));
       setExtractedData(null);
@@ -66,6 +74,11 @@ const PdfToExcel = () => {
         });
         return;
       }
+      // Revoke previous URL if exists
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+      
+      const url = URL.createObjectURL(file);
+      setPdfUrl(url);
       setSelectedFile(file);
       setFileName(file.name.replace('.pdf', ''));
       setExtractedData(null);
@@ -160,6 +173,8 @@ const PdfToExcel = () => {
   };
 
   const handleClear = () => {
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    setPdfUrl(null);
     setSelectedFile(null);
     setExtractedData(null);
     setFileName('');
@@ -237,7 +252,7 @@ const PdfToExcel = () => {
         {/* Preview Section */}
         <Card>
           <CardHeader>
-            <CardTitle>{translations.preview}</CardTitle>
+            <CardTitle>{extractedData ? translations.preview : translations.pdfPreview}</CardTitle>
           </CardHeader>
           <CardContent>
             {extractedData ? (
@@ -265,9 +280,15 @@ const PdfToExcel = () => {
                   </tbody>
                 </table>
               </div>
+            ) : pdfUrl ? (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-[500px] border rounded-lg"
+                title="PDF Preview"
+              />
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                {isArabic ? 'قم برفع ملف PDF لعرض البيانات' : 'Upload a PDF file to preview data'}
+                {translations.uploadToPreview}
               </div>
             )}
           </CardContent>
