@@ -304,6 +304,20 @@ const UserDashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [currentUserId]);
+
+  // Poll unread emails every 30 seconds to keep the widget up-to-date
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // immediate refresh when user id becomes available
+    fetchUnreadEmails(currentUserId);
+
+    const intervalId = window.setInterval(() => {
+      fetchUnreadEmails(currentUserId);
+    }, 30_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [currentUserId]);
   
   useEffect(() => {
     if (currentUserId) {
