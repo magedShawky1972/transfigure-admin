@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Languages, LogOut, Home, Clock } from "lucide-react";
+import { Moon, Sun, Languages, LogOut, Home, Clock, User, Key, Camera, Building2, Briefcase } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -11,6 +11,24 @@ import { useToast } from "@/hooks/use-toast";
 import edaraLogo from "@/assets/edara-logo.png";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import { getKSAGregorianDate, getKSADate } from "@/lib/ksaTime";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AvatarSelector from "@/components/AvatarSelector";
 
 const getKSADateTime = () => {
   const ksaDate = getKSADate();
@@ -27,12 +45,28 @@ const getKSADateTime = () => {
   };
 };
 
+interface UserProfile {
+  user_name: string;
+  email: string;
+  avatar_url: string | null;
+  department_name: string | null;
+  job_position_name: string | null;
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>("");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [ksaDateTime, setKsaDateTime] = useState(getKSADateTime());
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -95,7 +129,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_name")
+        .select(`
+          user_name,
+          email,
+          avatar_url,
+          default_department:departments(department_name),
+          job_position:job_positions(position_name)
+        `)
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -103,6 +143,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       if (data) {
         setUserName(data.user_name);
+        setUserProfile({
+          user_name: data.user_name,
+          email: data.email,
+          avatar_url: data.avatar_url,
+          department_name: (data.default_department as any)?.department_name || null,
+          job_position_name: (data.job_position as any)?.position_name || null,
+        });
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -132,6 +179,78 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "كلمة المرور يجب أن تكون 6 أحرف على الأقل" : "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "كلمات المرور غير متطابقة" : "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === "ar" ? "تم" : "Success",
+        description: language === "ar" ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully",
+      });
+      setPasswordDialogOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleAvatarSelect = async (avatarUrl: string) => {
+    setSavingAvatar(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setUserProfile(prev => prev ? { ...prev, avatar_url: avatarUrl } : null);
+      toast({
+        title: language === "ar" ? "تم" : "Success",
+        description: language === "ar" ? "تم تحديث الصورة بنجاح" : "Avatar updated successfully",
+      });
+      setAvatarDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingAvatar(false);
     }
   };
 
@@ -180,16 +299,44 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       </div>
                       <span className="text-[10px] text-muted-foreground">KSA</span>
                     </div>
+                    
+                    {/* User Profile Dropdown */}
                     {userName && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                          {userName.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-sm font-medium text-foreground hidden sm:inline">
-                          {userName}
-                        </span>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border hover:bg-muted transition-colors cursor-pointer">
+                            <Avatar className="w-8 h-8">
+                              <AvatarImage src={userProfile?.avatar_url || ""} />
+                              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+                                {userName.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium text-foreground hidden sm:inline">
+                              {userName}
+                            </span>
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuLabel>
+                            {language === "ar" ? "حسابي" : "My Account"}
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
+                            <User className="h-4 w-4 me-2" />
+                            {language === "ar" ? "الملف الشخصي" : "Profile"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setAvatarDialogOpen(true)}>
+                            <Camera className="h-4 w-4 me-2" />
+                            {language === "ar" ? "تغيير الصورة" : "Change Picture"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)}>
+                            <Key className="h-4 w-4 me-2" />
+                            {language === "ar" ? "تغيير كلمة المرور" : "Change Password"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
+                    
                     <NotificationBell />
                     <Button
                       variant="ghost"
@@ -252,6 +399,108 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* Profile Dialog */}
+      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
+        <DialogContent dir={language === "ar" ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "الملف الشخصي" : "Profile"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex justify-center">
+              <Avatar className="w-20 h-20">
+                <AvatarImage src={userProfile?.avatar_url || ""} />
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-2xl">
+                  {userName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <User className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{language === "ar" ? "الاسم" : "Name"}</p>
+                  <p className="font-medium">{userProfile?.user_name || "-"}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Building2 className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{language === "ar" ? "القسم" : "Department"}</p>
+                  <p className="font-medium">{userProfile?.department_name || (language === "ar" ? "غير محدد" : "Not assigned")}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Briefcase className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{language === "ar" ? "المسمى الوظيفي" : "Job Position"}</p>
+                  <p className="font-medium">{userProfile?.job_position_name || (language === "ar" ? "غير محدد" : "Not assigned")}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent dir={language === "ar" ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "تغيير كلمة المرور" : "Change Password"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "كلمة المرور الجديدة" : "New Password"}</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={language === "ar" ? "أدخل كلمة المرور الجديدة" : "Enter new password"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "تأكيد كلمة المرور" : "Confirm Password"}</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={language === "ar" ? "أعد إدخال كلمة المرور" : "Re-enter password"}
+              />
+            </div>
+            <Button 
+              onClick={handleChangePassword} 
+              disabled={changingPassword}
+              className="w-full"
+            >
+              {changingPassword 
+                ? (language === "ar" ? "جاري التغيير..." : "Changing...") 
+                : (language === "ar" ? "تغيير كلمة المرور" : "Change Password")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Avatar Dialog */}
+      <Dialog open={avatarDialogOpen} onOpenChange={setAvatarDialogOpen}>
+        <DialogContent dir={language === "ar" ? "rtl" : "ltr"} className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "تغيير الصورة" : "Change Picture"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <AvatarSelector
+              currentAvatar={userProfile?.avatar_url || null}
+              onAvatarChange={(url) => {
+                if (url) handleAvatarSelect(url);
+              }}
+              userName={userName}
+              language={language}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
