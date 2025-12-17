@@ -43,7 +43,8 @@ import {
   Reply,
   ReplyAll,
   Forward,
-  Loader2
+  Loader2,
+  Send
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -163,6 +164,28 @@ interface UserProfile {
   user_name: string;
 }
 
+interface ChatUser {
+  user_id: string;
+  user_name: string;
+  avatar_url: string | null;
+  email: string;
+}
+
+interface ChatMessage {
+  id: string;
+  sender_id: string;
+  message_text: string | null;
+  media_url: string | null;
+  media_type: string | null;
+  created_at: string;
+  sender_name?: string;
+}
+
+interface ChatConversation {
+  id: string;
+  participants: ChatUser[];
+}
+
 // Default widget names
 const DEFAULT_WIDGET_NAMES: Record<string, { ar: string; en: string }> = {
   news: { ar: "أخبار الشركة", en: "Company News" },
@@ -233,6 +256,16 @@ const UserDashboard = () => {
   const [selectedFullEmail, setSelectedFullEmail] = useState<FullEmail | null>(null);
   const [emailLoading, setEmailLoading] = useState(false);
   const [departments, setDepartments] = useState<{ id: string; department_name: string }[]>([]);
+
+  // Chat dialog state
+  const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
+  const [chatDialogOpen, setChatDialogOpen] = useState(false);
+  const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatConversation, setChatConversation] = useState<ChatConversation | null>(null);
+  const [chatMessageText, setChatMessageText] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [chatUserSearch, setChatUserSearch] = useState("");
 
   // Load saved layout, hidden widgets, and names on mount
   useEffect(() => {
@@ -375,7 +408,8 @@ const UserDashboard = () => {
         fetchUnreadEmails(user.id),
         fetchUnreadMessages(user.id),
         fetchCompanyNews(),
-        fetchShiftFollowUp(shiftFollowUpDate)
+        fetchShiftFollowUp(shiftFollowUpDate),
+        fetchChatUsers(user.id)
       ]);
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -728,6 +762,150 @@ const UserDashboard = () => {
       setShiftFollowUpData([]);
     }
   };
+
+  // Chat functions
+  const fetchChatUsers = async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id, user_name, avatar_url, email")
+      .eq("is_active", true)
+      .order("user_name");
+    
+    if (data) {
+      setChatUsers(data.filter(u => u.user_id !== userId));
+    }
+  };
+
+  const handleChatUserClick = async (user: ChatUser) => {
+    if (isEditMode || !currentUserId) return;
+    
+    setSelectedChatUser(user);
+    setChatDialogOpen(true);
+    setChatMessages([]);
+    setChatConversation(null);
+    
+    try {
+      // Find or create conversation using RPC
+      const { data: convId, error } = await supabase.rpc('find_or_create_direct_conversation', {
+        other_user_id: user.user_id
+      });
+
+      if (error) throw error;
+
+      // Fetch current user profile
+      const currentUser = chatUsers.find(u => u.user_id === currentUserId) || {
+        user_id: currentUserId,
+        user_name: userName,
+        avatar_url: null,
+        email: ""
+      };
+
+      setChatConversation({
+        id: convId,
+        participants: [currentUser, user]
+      });
+
+      // Fetch messages
+      const { data: messages } = await supabase
+        .from("internal_messages")
+        .select("id, sender_id, message_text, media_url, media_type, created_at")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: true });
+
+      if (messages) {
+        const messagesWithSenders = messages.map(msg => ({
+          ...msg,
+          sender_name: msg.sender_id === currentUserId ? userName : user.user_name
+        }));
+        setChatMessages(messagesWithSenders);
+      }
+
+      // Mark messages as read
+      await supabase.functions.invoke('mark-internal-messages-read', {
+        body: { conversationId: convId }
+      });
+
+      // Refresh unread messages count
+      fetchUnreadMessages(currentUserId);
+    } catch (error) {
+      console.error("Error opening chat:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في فتح المحادثة" : "Failed to open chat",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSendChatMessage = async () => {
+    if (!chatMessageText.trim() || !chatConversation || !currentUserId || chatSending) return;
+
+    setChatSending(true);
+    try {
+      const { error } = await supabase.from("internal_messages").insert({
+        conversation_id: chatConversation.id,
+        sender_id: currentUserId,
+        message_text: chatMessageText.trim()
+      });
+
+      if (error) throw error;
+
+      // Add message to local state
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        sender_id: currentUserId,
+        message_text: chatMessageText.trim(),
+        media_url: null,
+        media_type: null,
+        created_at: new Date().toISOString(),
+        sender_name: userName
+      };
+      setChatMessages(prev => [...prev, newMessage]);
+      setChatMessageText("");
+
+      // Send notification to other participant
+      if (selectedChatUser) {
+        await supabase.from("notifications").insert({
+          user_id: selectedChatUser.user_id,
+          title: language === "ar" ? "رسالة جديدة" : "New Message",
+          message: `${userName}: ${chatMessageText.slice(0, 50)}${chatMessageText.length > 50 ? "..." : ""}`,
+          type: "custom",
+          sender_id: currentUserId,
+          sender_name: userName
+        });
+
+        await supabase.functions.invoke("send-push-notification", {
+          body: {
+            userId: selectedChatUser.user_id,
+            title: language === "ar" ? "رسالة جديدة من أسس تواصل" : "New Message from Asus Tawasoul",
+            body: `${userName}: ${chatMessageText.slice(0, 50)}${chatMessageText.length > 50 ? "..." : ""}`
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في إرسال الرسالة" : "Failed to send message",
+        variant: "destructive"
+      });
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  const closeChatDialog = () => {
+    setChatDialogOpen(false);
+    setSelectedChatUser(null);
+    setChatMessages([]);
+    setChatConversation(null);
+    setChatMessageText("");
+    setChatUserSearch("");
+  };
+
+  const filteredChatUsers = chatUsers.filter(u => 
+    u.user_name.toLowerCase().includes(chatUserSearch.toLowerCase())
+  );
   
   const fetchAllUsers = async () => {
     const { data } = await supabase
@@ -1113,31 +1291,40 @@ const UserDashboard = () => {
           <MessageSquare className="h-4 w-4 text-primary" />
           {getWidgetName("messages")}
         </CardTitle>
-        <Badge variant="secondary">{unreadMessages.length}</Badge>
+        <Badge variant="secondary">{chatUsers.length}</Badge>
       </CardHeader>
-      <CardContent className="h-[calc(100%-60px)]">
-        <ScrollArea className="h-full">
-          {unreadMessages.length === 0 ? (
+      <CardContent className="h-[calc(100%-60px)] flex flex-col">
+        <Input
+          placeholder={language === "ar" ? "بحث..." : "Search..."}
+          value={chatUserSearch}
+          onChange={(e) => setChatUserSearch(e.target.value)}
+          className="mb-2"
+          disabled={isEditMode}
+        />
+        <ScrollArea className="flex-1">
+          {filteredChatUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-              <CheckCircle2 className="h-8 w-8 mb-2" />
-              {language === "ar" ? "لا توجد رسائل" : "No messages"}
+              <Users className="h-8 w-8 mb-2" />
+              {language === "ar" ? "لا يوجد مستخدمين" : "No users"}
             </div>
           ) : (
-            <div className="space-y-3">
-              {unreadMessages.map(message => (
+            <div className="space-y-2">
+              {filteredChatUsers.map(user => (
                 <div
-                  key={message.id}
-                  className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => !isEditMode && navigate("/asus-tawasoul")}
+                  key={user.user_id}
+                  className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors flex items-center gap-2"
+                  onClick={() => handleChatUserClick(user)}
                 >
-                  <p className="font-medium truncate">{message.sender_name}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {message.message_text || (language === "ar" ? "مرفق وسائط" : "Media")}
-                  </p>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {format(new Date(message.created_at), "dd/MM HH:mm")}
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    {user.avatar_url ? (
+                      <img src={user.avatar_url} alt={user.user_name} className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-medium text-primary">
+                        {user.user_name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
+                  <span className="text-sm font-medium truncate">{user.user_name}</span>
                 </div>
               ))}
             </div>
@@ -1868,6 +2055,79 @@ const UserDashboard = () => {
               {language === "ar" ? "إغلاق" : "Close"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chat Dialog */}
+      <Dialog open={chatDialogOpen} onOpenChange={(open) => !open && closeChatDialog()}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col" dir={language === "ar" ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              {selectedChatUser?.user_name || (language === "ar" ? "محادثة" : "Chat")}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Messages Area */}
+            <ScrollArea className="flex-1 min-h-[300px] p-3 border rounded-lg bg-muted/20">
+              {chatMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mb-2 opacity-50" />
+                  <span className="text-sm">{language === "ar" ? "لا توجد رسائل بعد" : "No messages yet"}</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {chatMessages.map(msg => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender_id === currentUserId ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[80%] p-3 rounded-lg ${
+                          msg.sender_id === currentUserId
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        {msg.message_text && (
+                          <p className="text-sm whitespace-pre-wrap break-words">{msg.message_text}</p>
+                        )}
+                        {msg.media_url && (
+                          <div className="mt-2">
+                            {msg.media_type === "image" ? (
+                              <img src={msg.media_url} alt="attachment" className="max-w-full rounded" />
+                            ) : (
+                              <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="text-xs underline">
+                                {language === "ar" ? "عرض المرفق" : "View attachment"}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        <p className={`text-xs mt-1 ${msg.sender_id === currentUserId ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                          {format(new Date(msg.created_at), "HH:mm")}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+
+            {/* Message Input */}
+            <div className="flex gap-2 mt-3">
+              <Input
+                placeholder={language === "ar" ? "اكتب رسالة..." : "Type a message..."}
+                value={chatMessageText}
+                onChange={(e) => setChatMessageText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendChatMessage()}
+                disabled={chatSending}
+              />
+              <Button onClick={handleSendChatMessage} disabled={chatSending || !chatMessageText.trim()}>
+                {chatSending ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === "ar" ? "إرسال" : "Send")}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
