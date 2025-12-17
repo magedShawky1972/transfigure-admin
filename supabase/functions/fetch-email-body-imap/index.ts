@@ -339,34 +339,41 @@ serve(async (req) => {
 
     // Determine seq
     let seq: number | null = null;
+    const parts = messageId.split("|");
 
-    // 1) Most of our stored message_id values are NOT real RFC Message-ID headers.
-    // They often follow patterns like:
-    // - "email@domain.com|INBOX|438"   (explicit seq)
-    // - "email@domain.com-438-<timestamp>" (implicit seq)
-    // So we first try to extract a seq number directly.
+    // Our stored message_id format is:
+    // - "${email}|${message_id_header}" (if message_id header exists)
+    // - "${email}|${folder}|${seq}" (fallback)
 
-    // Pattern: "...-<seq>-<timestamp>" (very common in our sync)
-    const dashSeqMatch = messageId.match(/-(\d+)-(\d+)$/);
-    if (dashSeqMatch) {
-      const maybeSeq = parseInt(dashSeqMatch[1], 10);
-      if (!Number.isNaN(maybeSeq) && maybeSeq > 0) seq = maybeSeq;
+    // 1) Try "${email}|${folder}|${seq}" pattern first
+    if (parts.length >= 3) {
+      const last = parts[parts.length - 1];
+      if (/^\d+$/.test(last)) {
+        seq = parseInt(last, 10);
+      }
     }
 
-    // 2) Fallback: "${email}|${folder}|${seq}"
-    if (!seq) {
-      const parts = messageId.split("|");
-      const last = parts[parts.length - 1];
-      if (parts.length >= 3 && /^\d+$/.test(last)) {
-        seq = parseInt(last, 10);
-      } else {
-        // 3) Last resort: try searching by real Message-ID header.
-        // Some providers store header values like: "<abc@host>".
-        const headerValue = parts.length >= 2 ? parts[1] : messageId;
-        const normalized = headerValue.replace(/[<>]/g, "").trim();
+    // 2) If not found, try searching by Message-ID header
+    // Format: "${email}|${message_id_header}"
+    if (!seq && parts.length >= 2) {
+      const headerValue = parts.slice(1).join("|"); // Everything after the first pipe
+      // Try with angle brackets variations
+      const normalized = headerValue.replace(/[<>]/g, "").trim();
+      
+      // Try different search variations
+      seq = await client.searchMessageId(`<${normalized}>`);
+      if (!seq) seq = await client.searchMessageId(normalized);
+      if (!seq && !headerValue.startsWith("<")) {
+        seq = await client.searchMessageId(headerValue);
+      }
+    }
 
-        seq = await client.searchMessageId(`<${normalized}>`);
-        if (!seq) seq = await client.searchMessageId(normalized);
+    // 3) Legacy fallback: "...-<seq>-<timestamp>" pattern
+    if (!seq) {
+      const dashSeqMatch = messageId.match(/-(\d+)-(\d+)$/);
+      if (dashSeqMatch) {
+        const maybeSeq = parseInt(dashSeqMatch[1], 10);
+        if (!Number.isNaN(maybeSeq) && maybeSeq > 0) seq = maybeSeq;
       }
     }
 
