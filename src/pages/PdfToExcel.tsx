@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,12 @@ const PdfToExcel = () => {
   const [extractedData, setExtractedData] = useState<any[][] | null>(null);
   const [fileName, setFileName] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+  }, [pdfUrl]);
 
   const isArabic = language === 'ar';
 
@@ -281,11 +287,22 @@ const PdfToExcel = () => {
                 </table>
               </div>
             ) : pdfUrl ? (
-              <iframe
-                src={pdfUrl}
-                className="w-full h-[500px] border rounded-lg"
-                title="PDF Preview"
-              />
+              <div className="border rounded-lg overflow-hidden">
+                <object data={pdfUrl} type="application/pdf" className="w-full h-[500px]">
+                  <embed src={pdfUrl} type="application/pdf" className="w-full h-[500px]" />
+                </object>
+                <div className="flex items-center justify-between gap-2 p-2 border-t bg-muted">
+                  <span className="text-xs text-muted-foreground truncate">{selectedFile?.name}</span>
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-primary underline"
+                  >
+                    {isArabic ? 'فتح في نافذة جديدة' : 'Open in new tab'}
+                  </a>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                 {translations.uploadToPreview}
