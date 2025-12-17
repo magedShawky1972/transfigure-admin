@@ -100,15 +100,29 @@ const PdfToExcel = () => {
       // Convert file to base64
       const base64Data = await convertToBase64(selectedFile);
 
-      // Call edge function to process PDF with AI
-      const { data, error } = await supabase.functions.invoke('pdf-to-excel', {
-        body: {
-          fileData: base64Data,
-          fileName: selectedFile.name,
-        },
-      });
+      // Call edge function using fetch with extended timeout
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-to-excel`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            fileData: base64Data,
+            fileName: selectedFile.name,
+          }),
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
 
       if (data?.tableData && data.tableData.length > 0) {
         setExtractedData(data.tableData);
