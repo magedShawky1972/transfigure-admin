@@ -267,6 +267,43 @@ const UserDashboard = () => {
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  // Real-time subscription for internal messages
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const channel = supabase
+      .channel('dashboard-internal-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'internal_messages'
+        },
+        () => {
+          // Refresh unread messages when new message arrives
+          fetchUnreadMessages(currentUserId);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'internal_messages'
+        },
+        () => {
+          // Refresh when messages are marked as read
+          fetchUnreadMessages(currentUserId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
   
   useEffect(() => {
     if (currentUserId) {
