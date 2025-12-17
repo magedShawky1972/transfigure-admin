@@ -204,6 +204,7 @@ const UserDashboard = () => {
       .eq("user_id", userId)
       .eq("is_purchase_ticket", true)
       .eq("is_deleted", false)
+      .neq("status", "Closed")
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -420,12 +421,12 @@ const UserDashboard = () => {
             <Badge variant="secondary">{companyNews.length}</Badge>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-40">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="overflow-x-auto">
+              <div className="flex gap-4 pb-2">
                 {companyNews.map(news => (
                   <div
                     key={news.id}
-                    className="p-3 bg-background rounded-lg border hover:shadow-md transition-shadow cursor-pointer"
+                    className="p-3 bg-background rounded-lg border hover:shadow-md transition-shadow cursor-pointer w-72 flex-shrink-0"
                     onClick={() => navigate("/company-news")}
                   >
                     <div className="flex gap-3">
@@ -450,7 +451,7 @@ const UserDashboard = () => {
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </CardContent>
         </Card>
       )}
