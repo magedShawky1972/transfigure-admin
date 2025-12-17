@@ -39,7 +39,11 @@ import {
   Users,
   Eye,
   EyeOff,
-  ClipboardList
+  ClipboardList,
+  Reply,
+  ReplyAll,
+  Forward,
+  Loader2
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -100,6 +104,20 @@ interface UnreadEmail {
   from_address: string;
   from_name: string | null;
   email_date: string;
+}
+
+interface FullEmail {
+  id: string;
+  subject: string | null;
+  from_address: string;
+  from_name: string | null;
+  to_addresses: any;
+  cc_addresses: any;
+  body_text: string | null;
+  body_html: string | null;
+  email_date: string;
+  is_read: boolean;
+  is_starred: boolean;
 }
 
 interface UnreadInternalMessage {
@@ -209,6 +227,12 @@ const UserDashboard = () => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [copyLoading, setCopyLoading] = useState(false);
+  
+  // Email detail dialog state
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedFullEmail, setSelectedFullEmail] = useState<FullEmail | null>(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [departments, setDepartments] = useState<{ id: string; department_name: string }[]>([]);
 
   // Load saved layout, hidden widgets, and names on mount
   useEffect(() => {
@@ -715,6 +739,151 @@ const UserDashboard = () => {
     if (data) {
       setAllUsers(data.filter(u => u.user_id !== currentUserId));
     }
+  };
+  
+  const fetchDepartments = async () => {
+    const { data } = await supabase
+      .from("departments")
+      .select("id, department_name")
+      .eq("is_active", true)
+      .order("department_name");
+    if (data) {
+      setDepartments(data);
+    }
+  };
+  
+  const handleEmailClick = async (emailId: string) => {
+    if (isEditMode) return;
+    
+    setEmailLoading(true);
+    setEmailDialogOpen(true);
+    
+    try {
+      // Fetch full email details
+      const { data, error } = await supabase
+        .from("emails")
+        .select("id, subject, from_address, from_name, to_addresses, cc_addresses, body_text, body_html, email_date, is_read, is_starred")
+        .eq("id", emailId)
+        .single();
+        
+      if (error) throw error;
+      
+      setSelectedFullEmail(data);
+      
+      // Mark email as read
+      if (!data.is_read) {
+        await supabase
+          .from("emails")
+          .update({ is_read: true })
+          .eq("id", emailId);
+        
+        // Update local state
+        setUnreadEmails(prev => prev.filter(e => e.id !== emailId));
+      }
+      
+      // Fetch departments for create ticket
+      await fetchDepartments();
+    } catch (error) {
+      console.error("Error fetching email:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في تحميل البريد" : "Failed to load email",
+        variant: "destructive"
+      });
+      setEmailDialogOpen(false);
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+  
+  const handleDeleteEmail = async () => {
+    if (!selectedFullEmail || !currentUserId) return;
+    
+    try {
+      // Track deleted email
+      await supabase
+        .from("deleted_email_ids")
+        .insert({
+          message_id: selectedFullEmail.id,
+          user_id: currentUserId
+        });
+      
+      // Delete email
+      await supabase
+        .from("emails")
+        .delete()
+        .eq("id", selectedFullEmail.id);
+      
+      setUnreadEmails(prev => prev.filter(e => e.id !== selectedFullEmail.id));
+      setEmailDialogOpen(false);
+      setSelectedFullEmail(null);
+      
+      toast({
+        title: language === "ar" ? "تم الحذف" : "Deleted",
+        description: language === "ar" ? "تم حذف البريد بنجاح" : "Email deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting email:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في حذف البريد" : "Failed to delete email",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handleCreateTicketFromEmail = () => {
+    if (!selectedFullEmail) return;
+    // Navigate to tickets with email data
+    navigate("/tickets", { 
+      state: { 
+        fromEmail: true,
+        emailSubject: selectedFullEmail.subject,
+        emailBody: selectedFullEmail.body_text || selectedFullEmail.body_html,
+        emailFrom: selectedFullEmail.from_address
+      } 
+    });
+    setEmailDialogOpen(false);
+  };
+  
+  const handleReplyEmail = () => {
+    if (!selectedFullEmail) return;
+    navigate("/email-manager", {
+      state: {
+        replyTo: selectedFullEmail.from_address,
+        subject: `Re: ${selectedFullEmail.subject || ""}`,
+        mode: "reply"
+      }
+    });
+    setEmailDialogOpen(false);
+  };
+  
+  const handleReplyAllEmail = () => {
+    if (!selectedFullEmail) return;
+    const toAddresses = Array.isArray(selectedFullEmail.to_addresses) 
+      ? selectedFullEmail.to_addresses.join(", ") 
+      : selectedFullEmail.to_addresses || "";
+    navigate("/email-manager", {
+      state: {
+        replyTo: selectedFullEmail.from_address,
+        cc: toAddresses,
+        subject: `Re: ${selectedFullEmail.subject || ""}`,
+        mode: "replyAll"
+      }
+    });
+    setEmailDialogOpen(false);
+  };
+  
+  const handleForwardEmail = () => {
+    if (!selectedFullEmail) return;
+    navigate("/email-manager", {
+      state: {
+        subject: `Fwd: ${selectedFullEmail.subject || ""}`,
+        body: selectedFullEmail.body_html || selectedFullEmail.body_text,
+        mode: "forward"
+      }
+    });
+    setEmailDialogOpen(false);
   };
 
   const handleLayoutChange = useCallback((newLayout: LayoutItem[]) => {
@@ -1280,7 +1449,7 @@ const UserDashboard = () => {
                 <div
                   key={email.id}
                   className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => !isEditMode && navigate("/email-manager")}
+                  onClick={() => handleEmailClick(email.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -1583,6 +1752,120 @@ const UserDashboard = () => {
                   {language === "ar" ? "نسخ" : "Copy"}
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Detail Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              {language === "ar" ? "تفاصيل البريد" : "Email Details"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {emailLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : selectedFullEmail ? (
+            <div className="flex-1 overflow-hidden flex flex-col gap-4">
+              {/* Email Header Info */}
+              <div className="space-y-2 border-b pb-4">
+                <h3 className="text-lg font-semibold">
+                  {selectedFullEmail.subject || (language === "ar" ? "بدون موضوع" : "No Subject")}
+                </h3>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <div>
+                    <span className="font-medium">{language === "ar" ? "من:" : "From:"}</span>{" "}
+                    {selectedFullEmail.from_name || selectedFullEmail.from_address}
+                    {selectedFullEmail.from_name && (
+                      <span className="text-xs ml-1">({selectedFullEmail.from_address})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium">{language === "ar" ? "التاريخ:" : "Date:"}</span>{" "}
+                    {format(new Date(selectedFullEmail.email_date), "dd/MM/yyyy HH:mm")}
+                  </div>
+                </div>
+                {selectedFullEmail.to_addresses && (
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">{language === "ar" ? "إلى:" : "To:"}</span>{" "}
+                    {Array.isArray(selectedFullEmail.to_addresses) 
+                      ? selectedFullEmail.to_addresses.join(", ")
+                      : selectedFullEmail.to_addresses}
+                  </div>
+                )}
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={handleReplyEmail}>
+                  <Reply className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "رد" : "Reply"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleReplyAllEmail}>
+                  <ReplyAll className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "رد للكل" : "Reply All"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleForwardEmail}>
+                  <Forward className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "إعادة توجيه" : "Forward"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCreateTicketFromEmail}>
+                  <Ticket className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "إنشاء تذكرة" : "Create Ticket"}
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleDeleteEmail}>
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "حذف" : "Delete"}
+                </Button>
+              </div>
+              
+              {/* Email Body */}
+              <ScrollArea className="flex-1 min-h-[200px] border rounded-lg bg-background">
+                {selectedFullEmail.body_html ? (
+                  <iframe
+                    srcDoc={`
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <meta charset="utf-8">
+                        <style>
+                          body { 
+                            font-family: system-ui, -apple-system, sans-serif;
+                            font-size: 14px;
+                            line-height: 1.5;
+                            padding: 16px;
+                            margin: 0;
+                            background: #ffffff;
+                            color: #1a1a1a;
+                          }
+                          img { max-width: 100%; height: auto; }
+                          a { color: #0066cc; }
+                        </style>
+                      </head>
+                      <body>${selectedFullEmail.body_html}</body>
+                      </html>
+                    `}
+                    className="w-full h-full min-h-[300px] border-0"
+                    title="Email content"
+                  />
+                ) : (
+                  <div className="p-4 whitespace-pre-wrap text-sm">
+                    {selectedFullEmail.body_text || (language === "ar" ? "لا يوجد محتوى" : "No content available")}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          ) : null}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+              {language === "ar" ? "إغلاق" : "Close"}
             </Button>
           </DialogFooter>
         </DialogContent>
