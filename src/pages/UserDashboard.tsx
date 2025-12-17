@@ -169,6 +169,7 @@ interface ChatUser {
   user_name: string;
   avatar_url: string | null;
   email: string;
+  last_message_at?: string | null;
 }
 
 interface ChatMessage {
@@ -765,15 +766,69 @@ const UserDashboard = () => {
 
   // Chat functions
   const fetchChatUsers = async (userId: string) => {
-    const { data } = await supabase
+    // Fetch all active users
+    const { data: users } = await supabase
       .from("profiles")
       .select("user_id, user_name, avatar_url, email")
-      .eq("is_active", true)
-      .order("user_name");
+      .eq("is_active", true);
     
-    if (data) {
-      setChatUsers(data.filter(u => u.user_id !== userId));
+    if (!users) return;
+
+    // Fetch conversations the current user is part of
+    const { data: participations } = await supabase
+      .from("internal_conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", userId);
+
+    const conversationIds = participations?.map(p => p.conversation_id) || [];
+
+    // Get last message time for each conversation
+    const conversationLastMessages: Record<string, string> = {};
+    if (conversationIds.length > 0) {
+      const { data: conversations } = await supabase
+        .from("internal_conversations")
+        .select("id, updated_at")
+        .in("id", conversationIds)
+        .eq("is_group", false);
+
+      // Get other participants for each conversation
+      const { data: allParticipants } = await supabase
+        .from("internal_conversation_participants")
+        .select("conversation_id, user_id")
+        .in("conversation_id", conversationIds);
+
+      // Map other user to last message time
+      if (conversations && allParticipants) {
+        for (const conv of conversations) {
+          const otherParticipant = allParticipants.find(
+            p => p.conversation_id === conv.id && p.user_id !== userId
+          );
+          if (otherParticipant) {
+            conversationLastMessages[otherParticipant.user_id] = conv.updated_at;
+          }
+        }
+      }
     }
+
+    // Add last message time to users and sort
+    const usersWithLastMessage = users
+      .filter(u => u.user_id !== userId)
+      .map(u => ({
+        ...u,
+        last_message_at: conversationLastMessages[u.user_id] || null
+      }))
+      .sort((a, b) => {
+        // Users with messages first, sorted by most recent
+        if (a.last_message_at && b.last_message_at) {
+          return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+        }
+        if (a.last_message_at) return -1;
+        if (b.last_message_at) return 1;
+        // Then alphabetically by name
+        return a.user_name.localeCompare(b.user_name);
+      });
+
+    setChatUsers(usersWithLastMessage);
   };
 
   const handleChatUserClick = async (user: ChatUser) => {
