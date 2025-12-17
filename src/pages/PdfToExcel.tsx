@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Download, Loader2, FileSpreadsheet, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { FileUp, Download, Loader2, FileSpreadsheet, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const PdfToExcel = () => {
   const { language } = useLanguage();
@@ -16,13 +18,40 @@ const PdfToExcel = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any[][] | null>(null);
   const [fileName, setFileName] = useState('');
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  useEffect(() => {
-    return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    };
-  }, [pdfUrl]);
+  const renderPdf = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      setTotalPages(pdf.numPages);
+      
+      const pages: string[] = [];
+      for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) { // Render up to 10 pages
+        const page = await pdf.getPage(i);
+        const scale = 1.5;
+        const viewport = page.getViewport({ scale });
+        
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({
+          canvasContext: context!,
+          viewport: viewport,
+        }).promise;
+        
+        pages.push(canvas.toDataURL('image/png'));
+      }
+      setPdfPages(pages);
+      setCurrentPage(0);
+    } catch (error) {
+      console.error('Error rendering PDF:', error);
+    }
+  };
 
   const isArabic = language === 'ar';
 
@@ -57,14 +86,10 @@ const PdfToExcel = () => {
         });
         return;
       }
-      // Revoke previous URL if exists
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      
-      const url = URL.createObjectURL(file);
-      setPdfUrl(url);
       setSelectedFile(file);
       setFileName(file.name.replace('.pdf', ''));
       setExtractedData(null);
+      renderPdf(file);
     }
   };
 
@@ -80,14 +105,10 @@ const PdfToExcel = () => {
         });
         return;
       }
-      // Revoke previous URL if exists
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      
-      const url = URL.createObjectURL(file);
-      setPdfUrl(url);
       setSelectedFile(file);
       setFileName(file.name.replace('.pdf', ''));
       setExtractedData(null);
+      renderPdf(file);
     }
   };
 
@@ -179,11 +200,12 @@ const PdfToExcel = () => {
   };
 
   const handleClear = () => {
-    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    setPdfUrl(null);
     setSelectedFile(null);
     setExtractedData(null);
     setFileName('');
+    setPdfPages([]);
+    setCurrentPage(0);
+    setTotalPages(0);
   };
 
   return (
@@ -286,21 +308,38 @@ const PdfToExcel = () => {
                   </tbody>
                 </table>
               </div>
-            ) : pdfUrl ? (
+            ) : pdfPages.length > 0 ? (
               <div className="border rounded-lg overflow-hidden">
-                <object data={pdfUrl} type="application/pdf" className="w-full h-[500px]">
-                  <embed src={pdfUrl} type="application/pdf" className="w-full h-[500px]" />
-                </object>
+                <div className="relative bg-muted/30">
+                  <img 
+                    src={pdfPages[currentPage]} 
+                    alt={`Page ${currentPage + 1}`}
+                    className="w-full h-auto max-h-[500px] object-contain mx-auto"
+                  />
+                </div>
                 <div className="flex items-center justify-between gap-2 p-2 border-t bg-muted">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                      disabled={currentPage === 0}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {currentPage + 1} / {totalPages}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setCurrentPage(p => Math.min(pdfPages.length - 1, p + 1))}
+                      disabled={currentPage >= pdfPages.length - 1}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <span className="text-xs text-muted-foreground truncate">{selectedFile?.name}</span>
-                  <a
-                    href={pdfUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-primary underline"
-                  >
-                    {isArabic ? 'فتح في نافذة جديدة' : 'Open in new tab'}
-                  </a>
                 </div>
               </div>
             ) : (
