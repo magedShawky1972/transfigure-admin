@@ -27,7 +27,7 @@ serve(async (req) => {
 
     console.log("Processing PDF file:", fileName);
 
-    // Use AI to extract tabular data from the PDF
+    // Use Lovable AI to extract tabular data from the PDF
     const systemPrompt = `You are an expert at extracting tabular data from PDF documents. Your task is to analyze the provided PDF content and extract ALL data into a structured table format.
 
 Instructions:
@@ -74,6 +74,7 @@ Example output format:
             ]
           }
         ],
+        max_tokens: 8192,
       }),
     });
 
@@ -100,19 +101,30 @@ Example output format:
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim() || "";
     
-    console.log("AI response:", content.substring(0, 500));
+    console.log("AI response length:", content.length);
 
     // Parse the JSON response
     let tableData: any[][] = [];
     try {
-      // Try to extract JSON from the response
-      const jsonMatch = content.match(/\{[\s\S]*"tableData"[\s\S]*\}/);
+      // Try to extract JSON from the response - handle markdown code blocks
+      let jsonContent = content;
+      
+      // Remove markdown code blocks if present
+      if (jsonContent.includes("```json")) {
+        jsonContent = jsonContent.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+      } else if (jsonContent.includes("```")) {
+        jsonContent = jsonContent.replace(/```\s*/g, "");
+      }
+      
+      jsonContent = jsonContent.trim();
+      
+      const jsonMatch = jsonContent.match(/\{[\s\S]*"tableData"[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         tableData = parsed.tableData;
       } else {
         // Try direct parse
-        const parsed = JSON.parse(content);
+        const parsed = JSON.parse(jsonContent);
         tableData = parsed.tableData || parsed;
       }
     } catch (parseError) {
