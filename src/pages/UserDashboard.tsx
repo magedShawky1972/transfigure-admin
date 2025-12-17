@@ -13,7 +13,8 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
-  Circle
+  Circle,
+  MessageSquare
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -56,6 +57,14 @@ interface UnreadEmail {
   email_date: string;
 }
 
+interface UnreadInternalMessage {
+  id: string;
+  message_text: string | null;
+  created_at: string;
+  sender_name: string;
+  conversation_id: string;
+}
+
 const UserDashboard = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -65,6 +74,7 @@ const UserDashboard = () => {
   const [tickets, setTickets] = useState<AssignedTicket[]>([]);
   const [shifts, setShifts] = useState<ShiftAssignment[]>([]);
   const [unreadEmails, setUnreadEmails] = useState<UnreadEmail[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState<UnreadInternalMessage[]>([]);
 
   useEffect(() => {
     fetchUserData();
@@ -91,7 +101,8 @@ const UserDashboard = () => {
         fetchTasks(user.id),
         fetchTickets(user.id),
         fetchShifts(user.id),
-        fetchUnreadEmails(user.id)
+        fetchUnreadEmails(user.id),
+        fetchUnreadMessages(user.id)
       ]);
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -205,6 +216,58 @@ const UserDashboard = () => {
     }
   };
 
+  const fetchUnreadMessages = async (userId: string) => {
+    // Get conversations user is participating in
+    const { data: participations } = await supabase
+      .from("internal_conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", userId);
+
+    if (!participations || participations.length === 0) {
+      setUnreadMessages([]);
+      return;
+    }
+
+    const conversationIds = participations.map(p => p.conversation_id);
+
+    // Get unread messages from those conversations (not sent by current user)
+    const { data: messages } = await supabase
+      .from("internal_messages")
+      .select(`
+        id,
+        message_text,
+        created_at,
+        conversation_id,
+        sender_id
+      `)
+      .in("conversation_id", conversationIds)
+      .eq("is_read", false)
+      .neq("sender_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (messages && messages.length > 0) {
+      // Get sender names
+      const senderIds = [...new Set(messages.map(m => m.sender_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, user_name")
+        .in("user_id", senderIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.user_name]) || []);
+
+      setUnreadMessages(messages.map(m => ({
+        id: m.id,
+        message_text: m.message_text,
+        created_at: m.created_at,
+        sender_name: profileMap.get(m.sender_id) || "Unknown",
+        conversation_id: m.conversation_id
+      })));
+    } else {
+      setUnreadMessages([]);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string }> = {
       todo: { variant: "outline", label: language === "ar" ? "للتنفيذ" : "To Do" },
@@ -236,7 +299,7 @@ const UserDashboard = () => {
       <div className="p-6 space-y-6" dir={language === "ar" ? "rtl" : "ltr"}>
         <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map(i => (
+          {[1, 2, 3, 4, 5].map(i => (
             <Skeleton key={i} className="h-80" />
           ))}
         </div>
@@ -431,6 +494,50 @@ const UserDashboard = () => {
                       <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {format(new Date(email.email_date), "dd/MM/yyyy HH:mm")}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Unread Internal Messages Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              {language === "ar" ? "رسائل تواصل غير مقروءة" : "Unread Tawasoul Messages"}
+            </CardTitle>
+            <Badge variant="secondary">{unreadMessages.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-64">
+              {unreadMessages.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8 mr-2" />
+                  {language === "ar" ? "لا توجد رسائل غير مقروءة" : "No unread messages"}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {unreadMessages.map(message => (
+                    <div
+                      key={message.id}
+                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => navigate("/asus-tawasoul")}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{message.sender_name}</p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {message.message_text || (language === "ar" ? "مرفق وسائط" : "Media attachment")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {format(new Date(message.created_at), "dd/MM/yyyy HH:mm")}
                       </div>
                     </div>
                   ))}
