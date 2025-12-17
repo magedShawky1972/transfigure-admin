@@ -75,6 +75,8 @@ const PdfToExcel = () => {
     uploadToPreview: isArabic ? 'قم برفع ملف PDF لعرض المعاينة' : 'Upload a PDF file to preview',
   };
 
+  const MAX_FILE_SIZE_MB = 2;
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -82,6 +84,17 @@ const PdfToExcel = () => {
         toast({
           title: isArabic ? 'خطأ' : 'Error',
           description: isArabic ? 'الرجاء اختيار ملف PDF فقط' : 'Please select a PDF file only',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > MAX_FILE_SIZE_MB) {
+        toast({
+          title: isArabic ? 'خطأ' : 'Error',
+          description: isArabic 
+            ? `حجم الملف كبير جداً (${fileSizeMB.toFixed(1)} ميجابايت). الحد الأقصى هو ${MAX_FILE_SIZE_MB} ميجابايت.` 
+            : `File is too large (${fileSizeMB.toFixed(1)}MB). Maximum size is ${MAX_FILE_SIZE_MB}MB.`,
           variant: 'destructive',
         });
         return;
@@ -101,6 +114,17 @@ const PdfToExcel = () => {
         toast({
           title: isArabic ? 'خطأ' : 'Error',
           description: isArabic ? 'الرجاء اختيار ملف PDF فقط' : 'Please select a PDF file only',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > MAX_FILE_SIZE_MB) {
+        toast({
+          title: isArabic ? 'خطأ' : 'Error',
+          description: isArabic 
+            ? `حجم الملف كبير جداً (${fileSizeMB.toFixed(1)} ميجابايت). الحد الأقصى هو ${MAX_FILE_SIZE_MB} ميجابايت.` 
+            : `File is too large (${fileSizeMB.toFixed(1)}MB). Maximum size is ${MAX_FILE_SIZE_MB}MB.`,
           variant: 'destructive',
         });
         return;
