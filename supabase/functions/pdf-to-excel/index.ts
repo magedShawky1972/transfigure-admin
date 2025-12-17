@@ -64,17 +64,9 @@ Focus ONLY on the content within this region:
 Ignore any content outside this selected area.`;
     }
 
-    // Use Lovable AI to extract tabular data from the PDF
-    const systemPrompt = `You are an expert at extracting tabular data from PDF documents. Extract ALL data into a 2D array format.
-
-CRITICAL RULES:
-1. Return ONLY valid JSON - no markdown, no code blocks, no explanations
-2. Output format: {"tableData": [["Header1", "Header2"], ["Val1", "Val2"]]}
-3. First row = headers, subsequent rows = data
-4. Handle Arabic text properly
-5. Replace null/empty with empty string ""
-6. Keep response compact - no extra whitespace
-${areaInstruction}`;
+    // Use Lovable AI to extract tabular data from the PDF - using fastest model for quick processing
+    const systemPrompt = `Extract table data from PDF as JSON array. Format: {"tableData": [["H1","H2"],["V1","V2"]]}
+Rules: JSON only, no markdown, Arabic OK, empty string for nulls.${areaInstruction ? ` Focus on area: left ${Math.round(selectionArea.x)}%-${Math.round(selectionArea.x + selectionArea.width)}%, top ${Math.round(selectionArea.y)}%-${Math.round(selectionArea.y + selectionArea.height)}%` : ''}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -83,18 +75,14 @@ ${areaInstruction}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Extract tabular data from this PDF as JSON: {"tableData": [[headers], [row1], [row2]...]}${areaInstruction ? " Focus only on the selected area described in the system prompt." : ""}`
+                text: systemPrompt
               },
               {
                 type: "image_url",
@@ -105,7 +93,7 @@ ${areaInstruction}`;
             ]
           }
         ],
-        max_tokens: 16384,
+        max_tokens: 8192,
       }),
     });
 
