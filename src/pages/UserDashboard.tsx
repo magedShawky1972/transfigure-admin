@@ -397,7 +397,46 @@ const UserDashboard = () => {
   };
 
   const fetchPurchaseTickets = async (userId: string) => {
-    const { data } = await supabase
+    // Get departments where user is a purchase admin
+    const { data: purchaseAdminDepts } = await supabase
+      .from("department_admins")
+      .select("department_id")
+      .eq("user_id", userId)
+      .eq("is_purchase_admin", true);
+
+    const purchaseAdminDeptIds = purchaseAdminDepts?.map(d => d.department_id) || [];
+
+    // Fetch: 1) Tickets awaiting user's approval (user is purchase admin for that dept)
+    //        2) Tickets approved by user but not closed
+    let allTickets: any[] = [];
+
+    // Query 1: Tickets in departments where user is purchase admin, pending approval
+    if (purchaseAdminDeptIds.length > 0) {
+      const { data: pendingApproval } = await supabase
+        .from("tickets")
+        .select(`
+          id,
+          ticket_number,
+          subject,
+          status,
+          priority,
+          created_at,
+          departments:department_id (department_name)
+        `)
+        .in("department_id", purchaseAdminDeptIds)
+        .eq("is_purchase_ticket", true)
+        .eq("is_deleted", false)
+        .in("status", ["Open", "In Progress"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (pendingApproval) {
+        allTickets = [...allTickets, ...pendingApproval];
+      }
+    }
+
+    // Query 2: Tickets approved by this user but not closed
+    const { data: approvedByUser } = await supabase
       .from("tickets")
       .select(`
         id,
@@ -408,19 +447,31 @@ const UserDashboard = () => {
         created_at,
         departments:department_id (department_name)
       `)
-      .eq("user_id", userId)
+      .eq("approved_by", userId)
       .eq("is_purchase_ticket", true)
       .eq("is_deleted", false)
       .neq("status", "Closed")
       .order("created_at", { ascending: false })
       .limit(10);
 
-    if (data) {
-      setPurchaseTickets(data.map(t => ({
-        ...t,
-        department_name: (t.departments as any)?.department_name
-      })));
+    if (approvedByUser) {
+      // Merge and deduplicate by id
+      const existingIds = new Set(allTickets.map(t => t.id));
+      approvedByUser.forEach(t => {
+        if (!existingIds.has(t.id)) {
+          allTickets.push(t);
+        }
+      });
     }
+
+    // Sort by created_at descending and limit
+    allTickets.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    allTickets = allTickets.slice(0, 10);
+
+    setPurchaseTickets(allTickets.map(t => ({
+      ...t,
+      department_name: (t.departments as any)?.department_name
+    })));
   };
 
   const fetchNormalTickets = async (userId: string) => {
@@ -1223,7 +1274,13 @@ const UserDashboard = () => {
     emails: renderEmailsWidget,
   };
   
-  const visibleLayout = layout.filter(item => !hiddenWidgets.includes(item.i));
+  // Filter layout: exclude hidden widgets, and in live mode hide empty news widget
+  const visibleLayout = layout.filter(item => {
+    if (hiddenWidgets.includes(item.i)) return false;
+    // In live mode, hide news widget if empty
+    if (!isEditMode && item.i === "news" && companyNews.length === 0) return false;
+    return true;
+  });
 
   if (loading) {
     return (
