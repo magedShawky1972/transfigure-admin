@@ -85,6 +85,7 @@ interface UserPermission {
     { key: "ticket_dashboard", label: "Ticket Dashboard" },
     { key: "shift_dashboard", label: "Shift Dashboard" },
     { key: "task_dashboard", label: "Task Dashboard" },
+    { key: "user_dashboard", label: "User Dashboard" },
     { key: "api_documentation", label: "API Documentation" },
     { key: "softwareLicenses", label: "Software Licenses" },
     { key: "reports", label: "Reports" },
