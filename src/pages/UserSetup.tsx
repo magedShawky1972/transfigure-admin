@@ -129,6 +129,7 @@ interface UserPermission {
   { key: "odooSetup", label: "Odoo Setup" },
   { key: "excelSetup", label: "Excel Setup" },
   { key: "tableConfig", label: "Table Config" },
+  { key: "pdfToExcel", label: "PDF to Excel (تحويل PDF إلى Excel)" },
 ];
 
 const DASHBOARD_COMPONENTS = [
