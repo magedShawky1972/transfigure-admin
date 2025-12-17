@@ -6,10 +6,21 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { 
   CheckSquare, 
   Ticket, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Mail, 
   Clock,
   AlertCircle,
@@ -21,7 +32,14 @@ import {
   Newspaper,
   Settings,
   X,
-  Save
+  Save,
+  Trash2,
+  Edit2,
+  Copy,
+  Users,
+  Eye,
+  EyeOff,
+  ClipboardList
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -111,6 +129,35 @@ interface CompanyNewsItem {
   created_at: string;
 }
 
+interface ShiftFollowUpItem {
+  id: string;
+  user_name: string;
+  shift_name: string;
+  assignment_date: string;
+  color: string;
+  session_status: string | null;
+  opened_at: string | null;
+  closed_at: string | null;
+}
+
+interface UserProfile {
+  user_id: string;
+  user_name: string;
+}
+
+// Default widget names
+const DEFAULT_WIDGET_NAMES: Record<string, { ar: string; en: string }> = {
+  news: { ar: "أخبار الشركة", en: "Company News" },
+  messages: { ar: "رسائل تواصل", en: "Tawasoul" },
+  tasks: { ar: "المهام", en: "Tasks" },
+  assignedTickets: { ar: "التذاكر المعينة", en: "Assigned Tickets" },
+  purchaseTickets: { ar: "طلبات الشراء", en: "Purchase Requests" },
+  normalTickets: { ar: "طلبات الدعم", en: "Support Requests" },
+  shifts: { ar: "الورديات", en: "Shifts" },
+  emails: { ar: "رسائل البريد غير المقروءة", en: "Unread Emails" },
+  shiftFollowUp: { ar: "متابعة الورديات", en: "Shift Follow Up" },
+};
+
 // Default layout configuration
 const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "news", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
@@ -120,16 +167,20 @@ const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "purchaseTickets", x: 9, y: 3, w: 3, h: 3, minW: 2, minH: 2 },
   { i: "normalTickets", x: 3, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
   { i: "shifts", x: 6, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "shiftFollowUp", x: 9, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
   { i: "emails", x: 0, y: 9, w: 12, h: 3, minW: 4, minH: 2 },
 ];
 
 const LAYOUT_STORAGE_KEY = "user-dashboard-layout";
+const HIDDEN_WIDGETS_STORAGE_KEY = "user-dashboard-hidden-widgets";
+const WIDGET_NAMES_STORAGE_KEY = "user-dashboard-widget-names";
 
 const UserDashboard = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tickets, setTickets] = useState<AssignedTicket[]>([]);
   const [purchaseTickets, setPurchaseTickets] = useState<UserTicket[]>([]);
@@ -138,20 +189,63 @@ const UserDashboard = () => {
   const [unreadEmails, setUnreadEmails] = useState<UnreadEmail[]>([]);
   const [unreadMessages, setUnreadMessages] = useState<UnreadInternalMessage[]>([]);
   const [companyNews, setCompanyNews] = useState<CompanyNewsItem[]>([]);
+  const [shiftFollowUpData, setShiftFollowUpData] = useState<ShiftFollowUpItem[]>([]);
+  const [shiftFollowUpDate, setShiftFollowUpDate] = useState<Date>(new Date());
   
   // Layout customization state
   const [isEditMode, setIsEditMode] = useState(false);
   const [layout, setLayout] = useState<LayoutItem[]>(DEFAULT_LAYOUT);
+  const [hiddenWidgets, setHiddenWidgets] = useState<string[]>([]);
+  const [widgetNames, setWidgetNames] = useState<Record<string, string>>({});
   const [containerWidth, setContainerWidth] = useState(1200);
+  
+  // Rename dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameWidgetId, setRenameWidgetId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  
+  // Copy to users dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [copyLoading, setCopyLoading] = useState(false);
 
-  // Load saved layout on mount
+  // Load saved layout, hidden widgets, and names on mount
   useEffect(() => {
     const savedLayout = localStorage.getItem(LAYOUT_STORAGE_KEY);
     if (savedLayout) {
       try {
-        setLayout(JSON.parse(savedLayout));
+        const parsed = JSON.parse(savedLayout);
+        // Merge with default to ensure new widgets are included
+        const defaultIds = DEFAULT_LAYOUT.map(l => l.i);
+        const savedIds = parsed.map((l: LayoutItem) => l.i);
+        const mergedLayout = [...parsed];
+        DEFAULT_LAYOUT.forEach(defaultItem => {
+          if (!savedIds.includes(defaultItem.i)) {
+            mergedLayout.push(defaultItem);
+          }
+        });
+        setLayout(mergedLayout);
       } catch (e) {
         console.error("Failed to parse saved layout:", e);
+      }
+    }
+    
+    const savedHidden = localStorage.getItem(HIDDEN_WIDGETS_STORAGE_KEY);
+    if (savedHidden) {
+      try {
+        setHiddenWidgets(JSON.parse(savedHidden));
+      } catch (e) {
+        console.error("Failed to parse hidden widgets:", e);
+      }
+    }
+    
+    const savedNames = localStorage.getItem(WIDGET_NAMES_STORAGE_KEY);
+    if (savedNames) {
+      try {
+        setWidgetNames(JSON.parse(savedNames));
+      } catch (e) {
+        console.error("Failed to parse widget names:", e);
       }
     }
   }, []);
@@ -161,7 +255,7 @@ const UserDashboard = () => {
     const updateWidth = () => {
       const container = document.getElementById("dashboard-container");
       if (container) {
-        setContainerWidth(container.offsetWidth - 48); // Subtract padding
+        setContainerWidth(container.offsetWidth - 48);
       }
     };
     
@@ -173,11 +267,19 @@ const UserDashboard = () => {
   useEffect(() => {
     fetchUserData();
   }, []);
+  
+  useEffect(() => {
+    if (currentUserId) {
+      fetchShiftFollowUp(shiftFollowUpDate);
+    }
+  }, [shiftFollowUpDate, currentUserId]);
 
   const fetchUserData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
+      setCurrentUserId(user.id);
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -197,7 +299,8 @@ const UserDashboard = () => {
         fetchShifts(user.id),
         fetchUnreadEmails(user.id),
         fetchUnreadMessages(user.id),
-        fetchCompanyNews()
+        fetchCompanyNews(),
+        fetchShiftFollowUp(shiftFollowUpDate)
       ]);
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -425,6 +528,65 @@ const UserDashboard = () => {
       setCompanyNews(data);
     }
   };
+  
+  const fetchShiftFollowUp = async (date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    
+    const { data: assignments } = await supabase
+      .from("shift_assignments")
+      .select(`
+        id,
+        assignment_date,
+        user_id,
+        shifts:shift_id (
+          shift_name,
+          color
+        ),
+        shift_sessions (
+          id,
+          status,
+          opened_at,
+          closed_at
+        )
+      `)
+      .eq("assignment_date", dateStr)
+      .order("created_at", { ascending: true });
+      
+    if (assignments && assignments.length > 0) {
+      const userIds = [...new Set(assignments.map(a => a.user_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, user_name")
+        .in("user_id", userIds);
+        
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.user_name]) || []);
+      
+      setShiftFollowUpData(assignments.map(a => ({
+        id: a.id,
+        user_name: profileMap.get(a.user_id) || "Unknown",
+        shift_name: (a.shifts as any)?.shift_name || "",
+        assignment_date: a.assignment_date,
+        color: (a.shifts as any)?.color || "#3b82f6",
+        session_status: (a.shift_sessions as any[])?.[0]?.status || null,
+        opened_at: (a.shift_sessions as any[])?.[0]?.opened_at || null,
+        closed_at: (a.shift_sessions as any[])?.[0]?.closed_at || null,
+      })));
+    } else {
+      setShiftFollowUpData([]);
+    }
+  };
+  
+  const fetchAllUsers = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id, user_name")
+      .eq("is_active", true)
+      .order("user_name");
+      
+    if (data) {
+      setAllUsers(data.filter(u => u.user_id !== currentUserId));
+    }
+  };
 
   const handleLayoutChange = useCallback((newLayout: LayoutItem[]) => {
     setLayout(newLayout);
@@ -432,6 +594,8 @@ const UserDashboard = () => {
 
   const handleSaveLayout = () => {
     localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+    localStorage.setItem(HIDDEN_WIDGETS_STORAGE_KEY, JSON.stringify(hiddenWidgets));
+    localStorage.setItem(WIDGET_NAMES_STORAGE_KEY, JSON.stringify(widgetNames));
     setIsEditMode(false);
     toast({
       title: language === "ar" ? "تم الحفظ" : "Layout Saved",
@@ -441,11 +605,116 @@ const UserDashboard = () => {
 
   const handleResetLayout = () => {
     setLayout(DEFAULT_LAYOUT);
+    setHiddenWidgets([]);
+    setWidgetNames({});
     localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    localStorage.removeItem(HIDDEN_WIDGETS_STORAGE_KEY);
+    localStorage.removeItem(WIDGET_NAMES_STORAGE_KEY);
     toast({
       title: language === "ar" ? "تم إعادة التعيين" : "Layout Reset",
       description: language === "ar" ? "تم إعادة تعيين التخطيط للوضع الافتراضي" : "Layout reset to default",
     });
+  };
+  
+  const handleDeleteWidget = (widgetId: string) => {
+    setHiddenWidgets(prev => [...prev, widgetId]);
+  };
+  
+  const handleRestoreWidget = (widgetId: string) => {
+    setHiddenWidgets(prev => prev.filter(id => id !== widgetId));
+  };
+  
+  const handleOpenRenameDialog = (widgetId: string) => {
+    setRenameWidgetId(widgetId);
+    setRenameValue(getWidgetName(widgetId));
+    setRenameDialogOpen(true);
+  };
+  
+  const handleRenameWidget = () => {
+    if (renameWidgetId && renameValue.trim()) {
+      setWidgetNames(prev => ({
+        ...prev,
+        [renameWidgetId]: renameValue.trim()
+      }));
+      setRenameDialogOpen(false);
+      setRenameWidgetId(null);
+      setRenameValue("");
+    }
+  };
+  
+  const handleOpenCopyDialog = async () => {
+    await fetchAllUsers();
+    setSelectedUsers([]);
+    setCopyDialogOpen(true);
+  };
+  
+  const handleCopyToUsers = async () => {
+    if (selectedUsers.length === 0) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "الرجاء اختيار مستخدم واحد على الأقل" : "Please select at least one user",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setCopyLoading(true);
+    try {
+      // Store in system_settings with user_id prefix for each selected user
+      for (const userId of selectedUsers) {
+        const layoutKey = `dashboard_layout_${userId}`;
+        
+        // Check if setting exists
+        const { data: existing } = await supabase
+          .from("system_settings")
+          .select("id")
+          .eq("setting_key", layoutKey)
+          .single();
+          
+        if (existing) {
+          // Update existing
+          await supabase
+            .from("system_settings")
+            .update({
+              setting_value: { layout, hiddenWidgets, widgetNames } as any
+            })
+            .eq("setting_key", layoutKey);
+        } else {
+          // Insert new
+          await supabase
+            .from("system_settings")
+            .insert({
+              setting_key: layoutKey,
+              setting_value: { layout, hiddenWidgets, widgetNames } as any
+            });
+        }
+      }
+      
+      toast({
+        title: language === "ar" ? "تم النسخ" : "Copied Successfully",
+        description: language === "ar" 
+          ? `تم نسخ التصميم إلى ${selectedUsers.length} مستخدم`
+          : `Design copied to ${selectedUsers.length} user(s)`,
+      });
+      setCopyDialogOpen(false);
+    } catch (error) {
+      console.error("Error copying layout:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل نسخ التصميم" : "Failed to copy design",
+        variant: "destructive"
+      });
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+  
+  const getWidgetName = (widgetId: string): string => {
+    if (widgetNames[widgetId]) {
+      return widgetNames[widgetId];
+    }
+    const defaultName = DEFAULT_WIDGET_NAMES[widgetId];
+    return defaultName ? (language === "ar" ? defaultName.ar : defaultName.en) : widgetId;
   };
 
   const getStatusBadge = (status: string) => {
@@ -473,6 +742,21 @@ const UserDashboard = () => {
         return <Circle className="h-4 w-4 text-muted-foreground" />;
     }
   };
+  
+  const getWidgetIcon = (widgetId: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      news: <Newspaper className="h-4 w-4 text-primary" />,
+      messages: <MessageSquare className="h-4 w-4 text-primary" />,
+      tasks: <CheckSquare className="h-4 w-4 text-primary" />,
+      assignedTickets: <Ticket className="h-4 w-4 text-primary" />,
+      purchaseTickets: <ShoppingCart className="h-4 w-4 text-primary" />,
+      normalTickets: <FileText className="h-4 w-4 text-primary" />,
+      shifts: <CalendarIcon className="h-4 w-4 text-primary" />,
+      emails: <Mail className="h-4 w-4 text-primary" />,
+      shiftFollowUp: <ClipboardList className="h-4 w-4 text-primary" />,
+    };
+    return icons[widgetId] || <Circle className="h-4 w-4 text-primary" />;
+  };
 
   // Widget renderers
   const renderNewsWidget = () => (
@@ -480,7 +764,7 @@ const UserDashboard = () => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-lg flex items-center gap-2">
           <Newspaper className="h-5 w-5 text-primary" />
-          {language === "ar" ? "أخبار الشركة" : "Company News"}
+          {getWidgetName("news")}
         </CardTitle>
         <Badge variant="secondary">{companyNews.length}</Badge>
       </CardHeader>
@@ -529,7 +813,7 @@ const UserDashboard = () => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-primary" />
-          {language === "ar" ? "رسائل تواصل" : "Tawasoul"}
+          {getWidgetName("messages")}
         </CardTitle>
         <Badge variant="secondary">{unreadMessages.length}</Badge>
       </CardHeader>
@@ -570,7 +854,7 @@ const UserDashboard = () => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <CheckSquare className="h-4 w-4 text-primary" />
-          {language === "ar" ? "المهام" : "Tasks"}
+          {getWidgetName("tasks")}
         </CardTitle>
         <Badge variant="secondary">{tasks.length}</Badge>
       </CardHeader>
@@ -616,7 +900,7 @@ const UserDashboard = () => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Ticket className="h-4 w-4 text-primary" />
-          {language === "ar" ? "التذاكر المعينة" : "Assigned Tickets"}
+          {getWidgetName("assignedTickets")}
         </CardTitle>
         <Badge variant="secondary">{tickets.length}</Badge>
       </CardHeader>
@@ -656,7 +940,7 @@ const UserDashboard = () => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <ShoppingCart className="h-4 w-4 text-primary" />
-          {language === "ar" ? "طلبات الشراء" : "Purchase Requests"}
+          {getWidgetName("purchaseTickets")}
         </CardTitle>
         <Badge variant="secondary">{purchaseTickets.length}</Badge>
       </CardHeader>
@@ -696,7 +980,7 @@ const UserDashboard = () => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <FileText className="h-4 w-4 text-primary" />
-          {language === "ar" ? "طلبات الدعم" : "Support Requests"}
+          {getWidgetName("normalTickets")}
         </CardTitle>
         <Badge variant="secondary">{normalTickets.length}</Badge>
       </CardHeader>
@@ -735,8 +1019,8 @@ const UserDashboard = () => {
     <Card className="h-full overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-primary" />
-          {language === "ar" ? "الورديات" : "Shifts"}
+          <CalendarIcon className="h-4 w-4 text-primary" />
+          {getWidgetName("shifts")}
         </CardTitle>
         <Badge variant="secondary">{shifts.length}</Badge>
       </CardHeader>
@@ -744,7 +1028,7 @@ const UserDashboard = () => {
         <ScrollArea className="h-full">
           {shifts.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-              <Calendar className="h-6 w-6 mr-2" />
+              <CalendarIcon className="h-6 w-6 mr-2" />
               {language === "ar" ? "لا توجد ورديات" : "No shifts"}
             </div>
           ) : (
@@ -779,13 +1063,78 @@ const UserDashboard = () => {
       </CardContent>
     </Card>
   );
+  
+  const renderShiftFollowUpWidget = () => (
+    <Card className="h-full overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-primary" />
+          {getWidgetName("shiftFollowUp")}
+        </CardTitle>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 text-xs" disabled={isEditMode}>
+              <CalendarIcon className="h-3 w-3 mr-1" />
+              {format(shiftFollowUpDate, "dd/MM")}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={shiftFollowUpDate}
+              onSelect={(date) => date && setShiftFollowUpDate(date)}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </CardHeader>
+      <CardContent className="h-[calc(100%-60px)]">
+        <ScrollArea className="h-full">
+          {shiftFollowUpData.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+              <ClipboardList className="h-6 w-6 mr-2" />
+              {language === "ar" ? "لا توجد ورديات" : "No shifts"}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {shiftFollowUpData.map(item => (
+                <div
+                  key={item.id}
+                  className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => !isEditMode && navigate("/shift-follow-up")}
+                  style={{ borderLeftColor: item.color, borderLeftWidth: 3 }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium">{item.user_name}</p>
+                      <p className="text-xs text-muted-foreground">{item.shift_name}</p>
+                    </div>
+                    <Badge 
+                      variant={item.session_status === "closed" ? "secondary" : item.session_status === "open" ? "default" : "outline"} 
+                      className="text-xs"
+                    >
+                      {item.session_status === "closed" 
+                        ? (language === "ar" ? "مغلقة" : "Closed")
+                        : item.session_status === "open"
+                          ? (language === "ar" ? "مفتوحة" : "Open")
+                          : (language === "ar" ? "معلقة" : "Pending")}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
 
   const renderEmailsWidget = () => (
     <Card className="h-full overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Mail className="h-4 w-4 text-primary" />
-          {language === "ar" ? "رسائل البريد غير المقروءة" : "Unread Emails"}
+          {getWidgetName("emails")}
         </CardTitle>
         <Badge variant="secondary">{unreadEmails.length}</Badge>
       </CardHeader>
@@ -833,8 +1182,11 @@ const UserDashboard = () => {
     purchaseTickets: renderPurchaseTicketsWidget,
     normalTickets: renderNormalTicketsWidget,
     shifts: renderShiftsWidget,
+    shiftFollowUp: renderShiftFollowUpWidget,
     emails: renderEmailsWidget,
   };
+  
+  const visibleLayout = layout.filter(item => !hiddenWidgets.includes(item.i));
 
   if (loading) {
     return (
@@ -860,6 +1212,10 @@ const UserDashboard = () => {
         <div className="flex items-center gap-2">
           {isEditMode ? (
             <>
+              <Button variant="outline" size="sm" onClick={handleOpenCopyDialog}>
+                <Copy className="h-4 w-4 mr-1" />
+                {language === "ar" ? "نسخ للمستخدمين" : "Copy to Users"}
+              </Button>
               <Button variant="outline" size="sm" onClick={handleResetLayout}>
                 {language === "ar" ? "إعادة تعيين" : "Reset"}
               </Button>
@@ -882,12 +1238,33 @@ const UserDashboard = () => {
 
       {/* Edit Mode Instructions */}
       {isEditMode && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm">
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm space-y-2">
           <p className="font-medium text-primary">
             {language === "ar" 
               ? "وضع التعديل: يمكنك سحب ونقل العناصر أو تغيير حجمها من الزوايا"
               : "Edit Mode: Drag widgets to move them, or resize from corners"}
           </p>
+          
+          {/* Hidden Widgets */}
+          {hiddenWidgets.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-primary/20">
+              <span className="text-muted-foreground text-xs">
+                {language === "ar" ? "العناصر المخفية:" : "Hidden widgets:"}
+              </span>
+              {hiddenWidgets.map(widgetId => (
+                <Button
+                  key={widgetId}
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-xs"
+                  onClick={() => handleRestoreWidget(widgetId)}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  {getWidgetName(widgetId)}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -912,7 +1289,7 @@ const UserDashboard = () => {
 
         <ReactGridLayout
           className="layout"
-          layout={layout}
+          layout={visibleLayout}
           cols={12}
           rowHeight={80}
           width={containerWidth}
@@ -924,16 +1301,41 @@ const UserDashboard = () => {
           margin={[16, 16]}
           containerPadding={[0, 0]}
         >
-          {layout.map((item) => (
+          {visibleLayout.map((item) => (
             <div 
               key={item.i} 
               className={`relative ${isEditMode ? "ring-2 ring-primary/30 ring-dashed rounded-lg" : ""}`}
             >
               {isEditMode && (
-                <div className="drag-handle absolute top-0 left-0 right-0 h-8 bg-primary/10 rounded-t-lg cursor-move flex items-center justify-center z-10">
-                  <span className="text-xs font-medium text-primary">
-                    {language === "ar" ? "اسحب للتحريك" : "Drag to move"}
+                <div className="drag-handle absolute top-0 left-0 right-0 h-8 bg-primary/10 rounded-t-lg cursor-move flex items-center justify-between px-2 z-10">
+                  <span className="text-xs font-medium text-primary flex items-center gap-1">
+                    {getWidgetIcon(item.i)}
+                    {getWidgetName(item.i)}
                   </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenRenameDialog(item.i);
+                      }}
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteWidget(item.i);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               )}
               <div className={`h-full ${isEditMode ? "pt-8" : ""}`}>
@@ -943,6 +1345,113 @@ const UserDashboard = () => {
           ))}
         </ReactGridLayout>
       </div>
+      
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === "ar" ? "إعادة تسمية العنصر" : "Rename Widget"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder={language === "ar" ? "أدخل الاسم الجديد" : "Enter new name"}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleRenameWidget}>
+              {language === "ar" ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Copy to Users Dialog */}
+      <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              {language === "ar" ? "نسخ التصميم للمستخدمين" : "Copy Design to Users"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              {language === "ar" 
+                ? "اختر المستخدمين لنسخ تصميم لوحة التحكم إليهم"
+                : "Select users to copy your dashboard design to"}
+            </p>
+            <ScrollArea className="h-64 border rounded-lg p-2">
+              <div className="space-y-2">
+                {allUsers.map(user => (
+                  <div
+                    key={user.user_id}
+                    className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded-md"
+                  >
+                    <Checkbox
+                      checked={selectedUsers.includes(user.user_id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedUsers(prev => [...prev, user.user_id]);
+                        } else {
+                          setSelectedUsers(prev => prev.filter(id => id !== user.user_id));
+                        }
+                      }}
+                    />
+                    <span>{user.user_name}</span>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="flex items-center justify-between mt-4 text-sm">
+              <span className="text-muted-foreground">
+                {language === "ar" 
+                  ? `تم اختيار ${selectedUsers.length} مستخدم`
+                  : `${selectedUsers.length} user(s) selected`}
+              </span>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => {
+                  if (selectedUsers.length === allUsers.length) {
+                    setSelectedUsers([]);
+                  } else {
+                    setSelectedUsers(allUsers.map(u => u.user_id));
+                  }
+                }}
+              >
+                {selectedUsers.length === allUsers.length 
+                  ? (language === "ar" ? "إلغاء الكل" : "Deselect All")
+                  : (language === "ar" ? "اختيار الكل" : "Select All")}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleCopyToUsers} disabled={copyLoading || selectedUsers.length === 0}>
+              {copyLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                  {language === "ar" ? "جاري النسخ..." : "Copying..."}
+                </span>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "نسخ" : "Copy"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Custom Styles */}
       <style>{`
