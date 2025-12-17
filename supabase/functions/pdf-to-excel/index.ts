@@ -108,78 +108,133 @@ Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells. IMPO
 
     // Parse the JSON response
     let tableData: any[][] = [];
-    let jsonContent = content;
-    
-    // Remove markdown code blocks if present
-    jsonContent = jsonContent.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    
-    // Strategy 1: Direct parse
+
+    const sanitize = (s: string) =>
+      s
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+    let jsonContent = sanitize(content);
+
+    const tryParse = (s: string) => {
+      const parsed = JSON.parse(s);
+      const td = parsed?.tableData ?? (Array.isArray(parsed) ? parsed : []);
+      return td as any[][];
+    };
+
+    const extractJsonObject = (s: string) => {
+      const start = s.indexOf("{");
+      const end = s.lastIndexOf("}");
+      if (start === -1 || end === -1 || end <= start) return null;
+      return s.slice(start, end + 1);
+    };
+
+    const extractTableDataArray = (s: string) => {
+      const keyPos = s.indexOf('"tableData"');
+      if (keyPos === -1) return null;
+      const arrayStart = s.indexOf("[", keyPos);
+      if (arrayStart === -1) return null;
+
+      // Bracket-match the tableData array (tolerant to trailing junk after it)
+      let depth = 0;
+      let inStr = false;
+      for (let i = arrayStart; i < s.length; i++) {
+        const c = s[i];
+        const prev = i > 0 ? s[i - 1] : "";
+        if (c === '"' && prev !== "\\") inStr = !inStr;
+        if (inStr) continue;
+        if (c === "[") depth++;
+        if (c === "]") {
+          depth--;
+          if (depth === 0) {
+            return s.slice(arrayStart, i + 1);
+          }
+        }
+      }
+
+      // Truncated: return whatever we got (we'll attempt row-based repair next)
+      return s.slice(arrayStart);
+    };
+
+    // Strategy 1: direct parse
     try {
-      const parsed = JSON.parse(jsonContent);
-      tableData = parsed.tableData || (Array.isArray(parsed) ? parsed : []);
+      tableData = tryParse(jsonContent);
       console.log("Direct parse succeeded");
-    } catch (e1) {
-      console.log("Direct parse failed, trying repair...");
-      
-      // Strategy 2: Find last complete row and close JSON
+    } catch {
+      console.log("Direct parse failed, trying extraction...");
+
+      // Strategy 2: extract the JSON object portion and parse
       try {
-        // Find the position of tableData array
-        const tableDataStart = jsonContent.indexOf('"tableData"');
-        if (tableDataStart === -1) throw new Error("No tableData found");
-        
-        const arrayStart = jsonContent.indexOf('[', tableDataStart);
-        if (arrayStart === -1) throw new Error("No array found");
-        
-        // Find all complete rows (ending with ])
-        let lastCompleteRowEnd = -1;
-        let depth = 0;
-        let inStr = false;
-        
-        for (let i = arrayStart; i < jsonContent.length; i++) {
-          const c = jsonContent[i];
-          const prev = i > 0 ? jsonContent[i-1] : '';
-          
-          if (c === '"' && prev !== '\\') inStr = !inStr;
-          if (inStr) continue;
-          
-          if (c === '[') depth++;
-          if (c === ']') {
-            depth--;
-            if (depth === 1) { // End of a row (depth 1 = inside outer array)
-              lastCompleteRowEnd = i;
+        const obj = extractJsonObject(jsonContent);
+        if (!obj) throw new Error("No JSON object found");
+        tableData = tryParse(obj);
+        console.log("Object extraction parse succeeded");
+      } catch {
+        console.log("Object extraction failed, trying tableData array repair...");
+
+        // Strategy 3: extract tableData array; if truncated, keep only complete rows
+        try {
+          const arr = extractTableDataArray(jsonContent);
+          if (!arr) throw new Error("No tableData array found");
+
+          // If it's complete, this will work
+          try {
+            const wrapped = `{"tableData": ${arr}}`;
+            tableData = tryParse(wrapped);
+            console.log("Array wrapped parse succeeded");
+          } catch {
+            // Truncated: keep only complete rows and close the structure
+            let lastCompleteRowEnd = -1;
+            let depth = 0;
+            let inStr = false;
+            for (let i = 0; i < arr.length; i++) {
+              const c = arr[i];
+              const prev = i > 0 ? arr[i - 1] : "";
+              if (c === '"' && prev !== "\\") inStr = !inStr;
+              if (inStr) continue;
+              if (c === "[") depth++;
+              if (c === "]") {
+                depth--;
+                // depth === 1 means we just closed a row inside the outer array
+                if (depth === 1) lastCompleteRowEnd = i;
+              }
             }
+
+            if (lastCompleteRowEnd <= 0) throw new Error("No complete rows found");
+            const repairedArr = arr.slice(0, lastCompleteRowEnd + 1) + "]";
+            const wrapped = `{"tableData": ${repairedArr}}`;
+            tableData = tryParse(wrapped);
+            console.log("Repaired truncated parse succeeded with", tableData.length, "rows");
           }
-        }
-        
-        if (lastCompleteRowEnd > arrayStart) {
-          // Truncate at last complete row and close the JSON
-          const truncated = jsonContent.substring(0, lastCompleteRowEnd + 1) + ']}';
-          console.log("Attempting to parse truncated JSON ending at:", lastCompleteRowEnd);
-          const parsed = JSON.parse(truncated);
-          tableData = parsed.tableData || [];
-          console.log("Truncated parse succeeded with", tableData.length, "rows");
-        } else {
-          throw new Error("No complete rows found");
-        }
-      } catch (e2) {
-        console.error("All parsing strategies failed:", e2);
-        
-        // Strategy 3: Extract any arrays we can find
-        const rowMatches = jsonContent.match(/\["[^"]*"(?:,"[^"]*")*\]/g);
-        if (rowMatches && rowMatches.length > 0) {
-          const parsedRows: any[][] = [];
-          for (const row of rowMatches) {
-            try { parsedRows.push(JSON.parse(row)); } catch { /* skip invalid */ }
+        } catch (e) {
+          console.error("All parsing strategies failed:", e);
+
+          // Strategy 4: regex row extraction (supports strings + numbers + null/bool)
+          const token = '(?:"(?:\\\\.|[^"\\\\])*"|null|true|false|-?\\d+(?:\\.\\d+)?)';
+          const rowRe = new RegExp(`\\[(?:\\s*${token}\\s*)(?:,\\s*${token}\\s*)*\\]`, "g");
+          const rowMatches = jsonContent.match(rowRe);
+
+          if (rowMatches && rowMatches.length > 0) {
+            const parsedRows: any[][] = [];
+            for (const row of rowMatches) {
+              try {
+                parsedRows.push(JSON.parse(row));
+              } catch {
+                /* skip invalid */
+              }
+            }
+            tableData = parsedRows;
+            console.log("Extracted", tableData.length, "rows via regex");
           }
-          tableData = parsedRows;
-          console.log("Extracted", tableData.length, "rows via regex");
-        }
-        
-        if (tableData.length === 0) {
-          throw new Error("Could not parse table data from AI response");
+
+          if (tableData.length === 0) {
+            throw new Error("Could not parse table data from AI response");
+          }
         }
       }
     }
+
 
     // Convert Arabic numerals to English numerals in all cells
     const arabicToEnglishNumerals = (str: string): string => {
