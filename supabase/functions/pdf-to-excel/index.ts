@@ -49,7 +49,7 @@ Ignore any content outside this selected area.`;
 
     // Use Lovable AI to extract tabular data - using flash model for better accuracy
     const systemPrompt = `Extract table data from this image as JSON. Return ONLY: {"tableData": [["Header1","Header2"],["Val1","Val2"]]}
-Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells.${areaInstruction ? ` Extract only from area: left ${Math.round(selectionArea.x)}% to ${Math.round(selectionArea.x + selectionArea.width)}%, top ${Math.round(selectionArea.y)}% to ${Math.round(selectionArea.y + selectionArea.height)}%` : ''}`;
+Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells. IMPORTANT: Convert ALL Arabic numerals (٠١٢٣٤٥٦٧٨٩) to English numerals (0123456789).${areaInstruction ? ` Extract only from area: left ${Math.round(selectionArea.x)}% to ${Math.round(selectionArea.x + selectionArea.width)}%, top ${Math.round(selectionArea.y)}% to ${Math.round(selectionArea.y + selectionArea.height)}%` : ''}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -180,6 +180,23 @@ Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells.${are
         }
       }
     }
+
+    // Convert Arabic numerals to English numerals in all cells
+    const arabicToEnglishNumerals = (str: string): string => {
+      const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+      let result = str;
+      arabicNumerals.forEach((arabic, index) => {
+        result = result.replace(new RegExp(arabic, 'g'), index.toString());
+      });
+      return result;
+    };
+
+    // Apply conversion to all table cells
+    tableData = tableData.map(row => 
+      row.map((cell: any) => 
+        typeof cell === 'string' ? arabicToEnglishNumerals(cell) : cell
+      )
+    );
 
     if (!Array.isArray(tableData) || tableData.length === 0) {
       throw new Error("No valid table data extracted from PDF");
