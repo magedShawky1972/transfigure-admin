@@ -101,6 +101,7 @@ interface UserPermission {
   { key: "myShifts", label: "My Shifts Calendar" },
   { key: "shiftFollowUp", label: "Shift Follow-Up" },
   { key: "tawasoul", label: "Tawasoul (تواصل)" },
+  { key: "companyNews", label: "Company News (أخبار الشركة)" },
   { key: "reportsSetup", label: "Reports Setup" },
   { key: "customerSetup", label: "Customer Setup" },
   { key: "customerProfile", label: "Customer Profile" },
