@@ -246,39 +246,59 @@ const PdfToExcel = () => {
 
     setIsProcessing(true);
     try {
-      // Convert file to base64
-      const base64Data = await convertToBase64(selectedFile);
+      // Process pages - either current page only or all pages
+      const pagesToProcess = applyToAllPages && totalPages > 1 
+        ? Array.from({ length: Math.min(pdfPages.length, 10) }, (_, i) => i) 
+        : [currentPage];
+      
+      let allTableData: any[][] = [];
+      
+      for (let i = 0; i < pagesToProcess.length; i++) {
+        const pageIndex = pagesToProcess[i];
+        const pageImage = pdfPages[pageIndex];
+        
+        if (!pageImage) continue;
 
-      // Call edge function using fetch with extended timeout
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-to-excel`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            fileData: base64Data,
-            fileName: selectedFile.name,
-            selectionArea: selectionArea,
-            applyToAllPages: totalPages > 1 ? applyToAllPages : true,
-            currentPage: currentPage + 1,
-            totalPages: totalPages,
-          }),
+        // Call edge function with page image (PNG) instead of full PDF
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-to-excel`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              fileData: pageImage, // Send PNG image of the page
+              fileName: selectedFile.name,
+              selectionArea: selectionArea,
+              pageNumber: pageIndex + 1,
+              totalPages: totalPages,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error ${response.status}`);
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error ${response.status}`);
+        const data = await response.json();
+
+        if (data?.tableData && data.tableData.length > 0) {
+          if (allTableData.length === 0) {
+            // First page - include headers
+            allTableData = data.tableData;
+          } else {
+            // Subsequent pages - skip header row
+            allTableData = [...allTableData, ...data.tableData.slice(1)];
+          }
+        }
       }
 
-      const data = await response.json();
-
-      if (data?.tableData && data.tableData.length > 0) {
-        setExtractedData(data.tableData);
+      if (allTableData.length > 0) {
+        setExtractedData(allTableData);
         toast({
           title: isArabic ? 'نجاح' : 'Success',
           description: translations.success,

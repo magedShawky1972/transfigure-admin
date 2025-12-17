@@ -11,27 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const { fileData, fileName, selectionArea, applyToAllPages, currentPage, totalPages } = await req.json();
+    const { fileData, fileName, selectionArea, pageNumber, totalPages } = await req.json();
 
     if (!fileData) {
       return new Response(
         JSON.stringify({ error: "No file data provided" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check file size - base64 is ~33% larger than binary, so 4MB base64 ≈ 3MB file
-    // Limit to ~2MB PDF files to avoid CPU timeout
-    const base64Size = fileData.length;
-    const estimatedFileSizeMB = (base64Size * 0.75) / (1024 * 1024);
-    
-    console.log("File size estimate:", estimatedFileSizeMB.toFixed(2), "MB");
-    
-    if (estimatedFileSizeMB > 2) {
-      return new Response(
-        JSON.stringify({ 
-          error: `PDF file is too large (${estimatedFileSizeMB.toFixed(1)}MB). Maximum size is 2MB. Please use a smaller PDF or split into multiple files.` 
-        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -41,9 +25,8 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Processing PDF file:", fileName);
+    console.log("Processing page:", pageNumber, "of", totalPages, "from file:", fileName);
     console.log("Selection area:", selectionArea);
-    console.log("Apply to all pages:", applyToAllPages);
 
     // Build area selection instruction for the AI
     let areaInstruction = "";
