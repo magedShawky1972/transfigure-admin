@@ -47,7 +47,9 @@ const PdfToExcel = () => {
       setTotalPages(pdf.numPages);
       
       const pages: string[] = [];
-      for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) { // Render up to 10 pages
+      // Render all pages (up to 50 max for performance)
+      const maxPages = Math.min(pdf.numPages, 50);
+      for (let i = 1; i <= maxPages; i++) {
         const page = await pdf.getPage(i);
         const scale = 1.5;
         const viewport = page.getViewport({ scale });
@@ -248,7 +250,7 @@ const PdfToExcel = () => {
     try {
       // Process pages - either current page only or all pages
       const pagesToProcess = applyToAllPages && totalPages > 1 
-        ? Array.from({ length: Math.min(pdfPages.length, 10) }, (_, i) => i) 
+        ? Array.from({ length: pdfPages.length }, (_, i) => i) 
         : [currentPage];
       
       let allTableData: any[][] = [];
