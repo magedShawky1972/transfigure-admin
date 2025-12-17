@@ -57,6 +57,7 @@ import UserGroupSetup from "./pages/UserGroupSetup";
 import Notifications from "./pages/Notifications";
 import ProjectsTasks from "./pages/ProjectsTasks";
 import TaskDashboard from "./pages/TaskDashboard";
+import UserDashboard from "./pages/UserDashboard";
 import CompanyHierarchy from "./pages/CompanyHierarchy";
 import TransactionStatistics from "./pages/TransactionStatistics";
 import Index from "./pages/Index";
@@ -131,6 +132,7 @@ const App = () => (
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/projects-tasks" element={<ProjectsTasks />} />
               <Route path="/task-dashboard" element={<TaskDashboard />} />
+              <Route path="/user-dashboard" element={<UserDashboard />} />
               <Route path="/company-hierarchy" element={<CompanyHierarchy />} />
               <Route path="/user-logins" element={<UserLogins />} />
               <Route path="/supplier-setup" element={<SupplierSetup />} />
