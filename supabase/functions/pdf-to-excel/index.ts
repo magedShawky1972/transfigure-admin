@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { fileData, fileName, selectionArea, pageNumber, totalPages } = await req.json();
+    const { fileData, fileName, selectionArea, autoDetectTable, pageNumber, totalPages } = await req.json();
 
     if (!fileData) {
       return new Response(
@@ -27,29 +27,32 @@ serve(async (req) => {
 
     console.log("Processing page:", pageNumber, "of", totalPages, "from file:", fileName);
     console.log("Selection area:", selectionArea);
+    console.log("Auto-detect table:", autoDetectTable);
 
-    // Build area selection instruction for the AI
-    let areaInstruction = "";
-    if (selectionArea && selectionArea.width > 0 && selectionArea.height > 0) {
+    // Build the prompt based on mode
+    let systemPrompt = "";
+    
+    if (autoDetectTable) {
+      // Auto-detect mode: AI finds and extracts table areas automatically
+      systemPrompt = `Analyze this image and automatically detect any TABLE areas. Extract ONLY the tabular data (rows and columns) from the detected table(s).
+IGNORE all non-table content such as: headers, footers, logos, titles, paragraphs, watermarks, page numbers.
+Return ONLY: {"tableData": [["Header1","Header2"],["Val1","Val2"]]}
+Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells. IMPORTANT: Convert ALL Arabic numerals (٠١٢٣٤٥٦٧٨٩) to English numerals (0123456789).`;
+    } else if (selectionArea && selectionArea.width > 0 && selectionArea.height > 0) {
+      // Manual selection mode
       const leftPercent = Math.round(selectionArea.x);
       const topPercent = Math.round(selectionArea.y);
       const rightPercent = Math.round(selectionArea.x + selectionArea.width);
       const bottomPercent = Math.round(selectionArea.y + selectionArea.height);
       
-      areaInstruction = `
-IMPORTANT: The user has selected a specific area of the document to extract. 
-Focus ONLY on the content within this region:
-- Left edge: ${leftPercent}% from left
-- Top edge: ${topPercent}% from top  
-- Right edge: ${rightPercent}% from left
-- Bottom edge: ${bottomPercent}% from top
-
-Ignore any content outside this selected area.`;
+      systemPrompt = `Extract table data from this image as JSON. Return ONLY: {"tableData": [["Header1","Header2"],["Val1","Val2"]]}
+Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells. IMPORTANT: Convert ALL Arabic numerals (٠١٢٣٤٥٦٧٨٩) to English numerals (0123456789).
+Extract only from area: left ${leftPercent}% to ${rightPercent}%, top ${topPercent}% to ${bottomPercent}%`;
+    } else {
+      // Fallback: extract all table data from the page
+      systemPrompt = `Extract table data from this image as JSON. Return ONLY: {"tableData": [["Header1","Header2"],["Val1","Val2"]]}
+Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells. IMPORTANT: Convert ALL Arabic numerals (٠١٢٣٤٥٦٧٨٩) to English numerals (0123456789).`;
     }
-
-    // Use Lovable AI to extract tabular data - using flash model for better accuracy
-    const systemPrompt = `Extract table data from this image as JSON. Return ONLY: {"tableData": [["Header1","Header2"],["Val1","Val2"]]}
-Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells. IMPORTANT: Convert ALL Arabic numerals (٠١٢٣٤٥٦٧٨٩) to English numerals (0123456789).${areaInstruction ? ` Extract only from area: left ${Math.round(selectionArea.x)}% to ${Math.round(selectionArea.x + selectionArea.width)}%, top ${Math.round(selectionArea.y)}% to ${Math.round(selectionArea.y + selectionArea.height)}%` : ''}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

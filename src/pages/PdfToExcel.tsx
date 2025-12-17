@@ -37,6 +37,7 @@ const PdfToExcel = () => {
   const [selectionStart, setSelectionStart] = useState({ x: 0, y: 0 });
   const [applyToAllPages, setApplyToAllPages] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
+  const [autoDetectTable, setAutoDetectTable] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +100,8 @@ const PdfToExcel = () => {
     applyToAllPages: isArabic ? 'تطبيق على جميع الصفحات' : 'Apply to all pages',
     dragToSelect: isArabic ? 'اسحب لتحديد المنطقة المراد تحويلها' : 'Drag to select the area to convert',
     areaSelected: isArabic ? 'تم تحديد المنطقة' : 'Area selected',
-    noSelection: isArabic ? 'الرجاء تحديد منطقة للتحويل' : 'Please select an area to convert',
+    noSelection: isArabic ? 'الرجاء تحديد منطقة للتحويل أو تفعيل الكشف التلقائي' : 'Please select an area or enable auto-detect',
+    autoDetectTable: isArabic ? 'كشف الجدول تلقائياً' : 'Auto-detect table area',
   };
 
   const MAX_FILE_SIZE_MB = 2;
@@ -237,7 +239,8 @@ const PdfToExcel = () => {
       return;
     }
 
-    if (!selectionArea || selectionArea.width < 2 || selectionArea.height < 2) {
+    // Require either manual selection OR auto-detect enabled
+    if (!autoDetectTable && (!selectionArea || selectionArea.width < 2 || selectionArea.height < 2)) {
       toast({
         title: isArabic ? 'خطأ' : 'Error',
         description: translations.noSelection,
@@ -274,7 +277,8 @@ const PdfToExcel = () => {
             body: JSON.stringify({
               fileData: pageImage, // Send PNG image of the page
               fileName: selectedFile.name,
-              selectionArea: selectionArea,
+              selectionArea: autoDetectTable ? null : selectionArea,
+              autoDetectTable: autoDetectTable,
               pageNumber: pageIndex + 1,
               totalPages: totalPages,
             }),
@@ -391,7 +395,7 @@ const PdfToExcel = () => {
             <div className="flex gap-2">
               <Button
                 onClick={handleConvert}
-                disabled={!selectedFile || isProcessing || !selectionArea}
+                disabled={!selectedFile || isProcessing || (!autoDetectTable && !selectionArea)}
                 className="flex-1"
               >
                 {isProcessing ? (
@@ -528,8 +532,26 @@ const PdfToExcel = () => {
                   </div>
                 </div>
 
+                {/* Auto-detect table option */}
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <Checkbox
+                    id="autoDetectTable"
+                    checked={autoDetectTable}
+                    onCheckedChange={(checked) => {
+                      setAutoDetectTable(checked === true);
+                      if (checked) {
+                        setSelectionArea(null);
+                        setSelectionMode(false);
+                      }
+                    }}
+                  />
+                  <Label htmlFor="autoDetectTable" className="text-sm cursor-pointer">
+                    {translations.autoDetectTable}
+                  </Label>
+                </div>
+
                 {/* Apply to all pages option */}
-                {totalPages > 1 && selectionArea && (
+                {totalPages > 1 && (selectionArea || autoDetectTable) && (
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                     <Checkbox
                       id="applyToAll"
