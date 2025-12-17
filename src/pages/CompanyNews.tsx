@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -20,7 +19,9 @@ import {
   Image as ImageIcon,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  Upload,
+  X
 } from "lucide-react";
 
 interface NewsItem {
@@ -42,6 +43,8 @@ const CompanyNews = () => {
   const [editingNews, setEditingNews] = useState<NewsItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [title, setTitle] = useState("");
@@ -86,6 +89,47 @@ const CompanyNews = () => {
     setImageUrl(item.image_url || "");
     setIsPublished(item.is_published);
     setDialogOpen(true);
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error(language === "ar" ? "يرجى اختيار ملف صورة" : "Please select an image file");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        
+        const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
+          body: {
+            imageBase64: base64,
+            folder: 'company-news',
+            resourceType: 'image'
+          }
+        });
+
+        if (error) throw error;
+        if (!data?.url) throw new Error('No URL returned');
+
+        setImageUrl(data.url);
+        toast.success(language === "ar" ? "تم رفع الصورة" : "Image uploaded successfully");
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error(language === "ar" ? "خطأ في رفع الصورة" : "Failed to upload image");
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -297,16 +341,45 @@ const CompanyNews = () => {
             </div>
 
             <div>
-              <Label>{language === "ar" ? "رابط الصورة" : "Image URL"}</Label>
+              <Label>{language === "ar" ? "صورة الخبر" : "News Image"}</Label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
               <div className="flex gap-2 mt-1">
-                <Input
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder={language === "ar" ? "أدخل رابط الصورة (اختياري)" : "Enter image URL (optional)"}
-                />
-                <Button variant="outline" size="icon" disabled>
-                  <ImageIcon className="h-4 w-4" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="flex-1"
+                >
+                  {uploadingImage ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {language === "ar" ? "جاري الرفع..." : "Uploading..."}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      {language === "ar" ? "رفع صورة" : "Upload Image"}
+                    </>
+                  )}
                 </Button>
+                {imageUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setImageUrl("")}
+                    title={language === "ar" ? "إزالة الصورة" : "Remove image"}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               {imageUrl && (
                 <img 
