@@ -249,11 +249,47 @@ Rules: Pure JSON only, no markdown, Arabic text OK, use "" for empty cells. IMPO
       return result;
     };
 
-    // Apply conversion to all table cells
+    // Convert Arabic number format where first comma from right is decimal, second is thousands
+    // Example: "1,234,56" -> "1234.56"
+    const convertArabicNumberFormat = (str: string): string => {
+      // Check if the string looks like a number with commas (digits and commas only, possibly with minus)
+      const numberPattern = /^-?[\d,]+$/;
+      if (!numberPattern.test(str.trim())) {
+        return str;
+      }
+      
+      const trimmed = str.trim();
+      const commas = (trimmed.match(/,/g) || []).length;
+      
+      if (commas === 0) {
+        return str;
+      }
+      
+      if (commas === 1) {
+        // Single comma = decimal separator
+        return trimmed.replace(',', '.');
+      }
+      
+      // Multiple commas: first from right is decimal, rest are thousands
+      const lastCommaIndex = trimmed.lastIndexOf(',');
+      const beforeLastComma = trimmed.substring(0, lastCommaIndex);
+      const afterLastComma = trimmed.substring(lastCommaIndex + 1);
+      
+      // Remove all remaining commas (thousands separators) and add decimal point
+      const cleanedNumber = beforeLastComma.replace(/,/g, '') + '.' + afterLastComma;
+      return cleanedNumber;
+    };
+
+    // Apply conversions to all table cells
     tableData = tableData.map(row => 
-      row.map((cell: any) => 
-        typeof cell === 'string' ? arabicToEnglishNumerals(cell) : cell
-      )
+      row.map((cell: any) => {
+        if (typeof cell === 'string') {
+          let result = arabicToEnglishNumerals(cell);
+          result = convertArabicNumberFormat(result);
+          return result;
+        }
+        return cell;
+      })
     );
 
     if (!Array.isArray(tableData) || tableData.length === 0) {
