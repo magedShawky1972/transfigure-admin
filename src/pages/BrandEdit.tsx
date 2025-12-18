@@ -32,6 +32,7 @@ const BrandEdit = () => {
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialBrandTypeId, setInitialBrandTypeId] = useState<string | null>(null);
+  const [currentBalance, setCurrentBalance] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     brand_name: "",
     brand_code: "",
@@ -171,6 +172,19 @@ const BrandEdit = () => {
           status: data.status,
           odoo_category_id: data.odoo_category_id?.toString() || "",
         });
+
+        // Fetch the latest closing balance from shift_brand_balances
+        const { data: balanceData, error: balanceError } = await supabase
+          .from("shift_brand_balances")
+          .select("closing_balance, updated_at")
+          .eq("brand_id", brandId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!balanceError && balanceData) {
+          setCurrentBalance(balanceData.closing_balance);
+        }
       }
     } catch (error: any) {
       toast({
@@ -489,6 +503,17 @@ const BrandEdit = () => {
                   setFormData({ ...formData, average_consumption_per_day: newAvgDaily, safety_stock: safetyStock, reorder_point: reorderPoint });
                 }}
                 placeholder="Enter average consumption per day"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="current_balance">Current Balance (Last Shift Close)</Label>
+              <Input
+                id="current_balance"
+                type="text"
+                value={currentBalance !== null ? formatNumber(currentBalance) : "N/A"}
+                disabled
+                className="bg-muted"
               />
             </div>
 
