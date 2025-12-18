@@ -168,6 +168,7 @@ const REPORTS = [
   { key: "brand-balance", label: "Brand Balance Report" },
   { key: "api-documentation", label: "API Documentation" },
   { key: "transaction-statistics", label: "Transaction Statistics" },
+  { key: "order-payment", label: "Order Payment Report (تقرير مدفوعات الطلبات)" },
 ];
 
 const UserSetup = () => {
