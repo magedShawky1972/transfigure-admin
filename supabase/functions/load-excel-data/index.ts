@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { sheetId, data, brandTypeSelections } = await req.json();
+    const { sheetId, data, brandTypeSelections, checkBrand = true, checkProduct = true } = await req.json();
 
     if (!sheetId || !data || !Array.isArray(data)) {
       return new Response(
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${data.length} rows for sheet ${sheetId}`);
+    console.log(`Processing ${data.length} rows for sheet ${sheetId}, checkBrand=${checkBrand}, checkProduct=${checkProduct}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -152,222 +152,230 @@ Deno.serve(async (req) => {
     }
 
     // For purpletransaction table, ensure brands and products exist BEFORE inserting transactions
+    // Only if the respective check flags are enabled
     let productsUpserted = 0;
     let brandsUpserted = 0;
     
-    if (tableName === 'purpletransaction') {
+    if (tableName === 'purpletransaction' && (checkBrand || checkProduct)) {
       console.log('Pre-processing: Creating/updating brands and products before transaction insertion...');
       
-      // Step 1: Extract and create brands FIRST
-      console.log('Step 1: Processing brands...');
-      
-      const brandsToUpsert = validData
-        .filter((row: any) => row.brand_name && row.brand_name.trim())
-        .map((row: any) => ({
-          brand_name: row.brand_name.trim(),
-          brand_code: row.brand_code || null,
-          status: 'active'
-        }))
-        .filter((brand: any, index: number, self: any[]) => 
-          // Remove duplicates by brand_name
-          index === self.findIndex((b: any) => b.brand_name === brand.brand_name)
-        );
-
-      if (brandsToUpsert.length > 0) {
-        // Check which brands already exist
-        const brandNames = brandsToUpsert.map(b => b.brand_name);
-        const { data: existingBrands } = await supabase
-          .from('brands')
-          .select('brand_name, brand_code')
-          .in('brand_name', brandNames);
-
-        const existingBrandMap = new Map(
-          (existingBrands || []).map(b => [b.brand_name, b])
-        );
-        
-        // Separate new brands from existing ones that need updates
-        const newBrands = brandsToUpsert.filter(b => !existingBrandMap.has(b.brand_name));
-        
-        // If there are new brands and no brand type selections provided, return them for user selection
-        if (newBrands.length > 0 && !brandTypeSelections) {
-          console.log(`Found ${newBrands.length} new brands, requiring brand type selection`);
-          return new Response(
-            JSON.stringify({ 
-              requiresBrandTypeSelection: true,
-              newBrands: newBrands.map(b => ({ brand_name: b.brand_name }))
-            }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      // Step 1: Extract and create brands FIRST (only if checkBrand is true)
+      if (checkBrand) {
+        console.log('Step 1: Processing brands...');
+        const brandsToUpsert = validData
+          .filter((row: any) => row.brand_name && row.brand_name.trim())
+          .map((row: any) => ({
+            brand_name: row.brand_name.trim(),
+            brand_code: row.brand_code || null,
+            status: 'active'
+          }))
+          .filter((brand: any, index: number, self: any[]) => 
+            // Remove duplicates by brand_name
+            index === self.findIndex((b: any) => b.brand_name === brand.brand_name)
           );
-        }
-        
-        // If brand type selections are provided, generate brand codes
-        if (brandTypeSelections && Array.isArray(brandTypeSelections)) {
-          console.log('Processing brand type selections and generating brand codes...');
-          
-          // Fetch brand types
-          const brandTypeIds = [...new Set(brandTypeSelections.map(s => s.brand_type_id))];
-          const { data: brandTypesData } = await supabase
-            .from('brand_type')
-            .select('id, type_code')
-            .in('id', brandTypeIds);
-          
-          const brandTypeMap = new Map(
-            (brandTypesData || []).map(bt => [bt.id, bt])
-          );
-          
-          // Generate brand codes for new brands
-          for (const newBrand of newBrands) {
-            const selection = brandTypeSelections.find(s => s.brand_name === newBrand.brand_name);
-            if (selection) {
-              const brandType = brandTypeMap.get(selection.brand_type_id);
-              if (brandType) {
-                // Count existing brands with this type_code
-                const { count } = await supabase
-                  .from('brands')
-                  .select('*', { count: 'exact', head: true })
-                  .ilike('brand_code', `${brandType.type_code}%`);
-                
-                const nextNumber = (count || 0) + 1;
-                newBrand.brand_code = `${brandType.type_code}-${String(nextNumber).padStart(3, '0')}`;
-                
-                // Also update the brand_type_id
-                (newBrand as any).brand_type_id = selection.brand_type_id;
-                
-                console.log(`Generated brand_code: ${newBrand.brand_code} for ${newBrand.brand_name}`);
-              }
-            }
-          }
-        }
-        
-        const brandsToUpdate = brandsToUpsert.filter(b => {
-          const existing = existingBrandMap.get(b.brand_name);
-          // Update if brand exists but brand_code is missing and we have one
-          return existing && !existing.brand_code && b.brand_code;
-        });
 
-        // Insert new brands
-        if (newBrands.length > 0) {
-          const { error: brandError } = await supabase
+        if (brandsToUpsert.length > 0) {
+          // Check which brands already exist
+          const brandNames = brandsToUpsert.map(b => b.brand_name);
+          const { data: existingBrands } = await supabase
             .from('brands')
-            .insert(newBrands);
+            .select('brand_name, brand_code')
+            .in('brand_name', brandNames);
 
-        if (brandError) {
-          console.error('Brand insert error:', brandError);
-        } else {
-          brandsUpserted = newBrands.length;
-          console.log(`Successfully inserted ${newBrands.length} new brands with generated brand codes`);
-        }
-      }
-      
-      // Update existing brands with missing brand_codes
-      if (brandsToUpdate.length > 0) {
-          for (const brand of brandsToUpdate) {
-            const { error: updateError } = await supabase
-              .from('brands')
-              .update({ brand_code: brand.brand_code })
-              .eq('brand_name', brand.brand_name);
-            
-            if (updateError) {
-              console.error(`Error updating brand_code for ${brand.brand_name}:`, updateError);
-            }
-          }
-          console.log(`Updated ${brandsToUpdate.length} existing brands with brand_codes`);
-        }
-      }
-
-      // Step 2: Now look up and fill in missing brand_codes in transaction data
-      console.log('Step 2: Filling in missing brand_codes in transaction data...');
-      
-      const missingBrandCodes = validData
-        .filter((row: any) => row.brand_name && !row.brand_code)
-        .map((row: any) => row.brand_name);
-      
-      if (missingBrandCodes.length > 0) {
-        const uniqueBrandNames = [...new Set(missingBrandCodes)];
-        console.log(`Found ${missingBrandCodes.length} transactions with missing brand_code for ${uniqueBrandNames.length} brands`);
-        
-        // Lookup brand_codes from brands table (after we just created/updated them)
-        const { data: brandData, error: brandLookupError } = await supabase
-          .from('brands')
-          .select('brand_name, brand_code')
-          .in('brand_name', uniqueBrandNames);
-        
-        if (brandLookupError) {
-          console.error('Error looking up brand codes:', brandLookupError);
-        } else if (brandData && brandData.length > 0) {
-          // Create a map of brand_name -> brand_code
-          const brandCodeMap = new Map(
-            brandData.map(b => [b.brand_name, b.brand_code])
+          const existingBrandMap = new Map(
+            (existingBrands || []).map(b => [b.brand_name, b])
           );
           
-          // Update validData with the brand_codes
-          let updatedCount = 0;
-          for (const record of validData) {
-            if (record.brand_name && !record.brand_code) {
-              const foundCode = brandCodeMap.get(record.brand_name);
-              if (foundCode) {
-                record.brand_code = foundCode;
-                updatedCount++;
+          // Separate new brands from existing ones that need updates
+          const newBrands = brandsToUpsert.filter(b => !existingBrandMap.has(b.brand_name));
+          
+          // If there are new brands and no brand type selections provided, return them for user selection
+          if (newBrands.length > 0 && !brandTypeSelections) {
+            console.log(`Found ${newBrands.length} new brands, requiring brand type selection`);
+            return new Response(
+              JSON.stringify({ 
+                requiresBrandTypeSelection: true,
+                newBrands: newBrands.map(b => ({ brand_name: b.brand_name }))
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // If brand type selections are provided, generate brand codes
+          if (brandTypeSelections && Array.isArray(brandTypeSelections)) {
+            console.log('Processing brand type selections and generating brand codes...');
+            
+            // Fetch brand types
+            const brandTypeIds = [...new Set(brandTypeSelections.map(s => s.brand_type_id))];
+            const { data: brandTypesData } = await supabase
+              .from('brand_type')
+              .select('id, type_code')
+              .in('id', brandTypeIds);
+            
+            const brandTypeMap = new Map(
+              (brandTypesData || []).map(bt => [bt.id, bt])
+            );
+            
+            // Generate brand codes for new brands
+            for (const newBrand of newBrands) {
+              const selection = brandTypeSelections.find(s => s.brand_name === newBrand.brand_name);
+              if (selection) {
+                const brandType = brandTypeMap.get(selection.brand_type_id);
+                if (brandType) {
+                  // Count existing brands with this type_code
+                  const { count } = await supabase
+                    .from('brands')
+                    .select('*', { count: 'exact', head: true })
+                    .ilike('brand_code', `${brandType.type_code}%`);
+                  
+                  const nextNumber = (count || 0) + 1;
+                  newBrand.brand_code = `${brandType.type_code}-${String(nextNumber).padStart(3, '0')}`;
+                  
+                  // Also update the brand_type_id
+                  (newBrand as any).brand_type_id = selection.brand_type_id;
+                  
+                  console.log(`Generated brand_code: ${newBrand.brand_code} for ${newBrand.brand_name}`);
+                }
               }
             }
           }
-          console.log(`Filled in ${updatedCount} missing brand_codes from brands table`);
-        }
-      }
-
-      // Step 3: Extract and create products
-      console.log('Step 3: Processing products...');
-      
-      const productsToUpsert = validData
-        .filter((row: any) => row.product_name)
-        .map((row: any) => ({
-          product_id: row.product_id || null,
-          product_name: row.product_name,
-          product_price: row.unit_price || null,
-          product_cost: row.cost_price || null,
-          brand_name: row.brand_name || null,
-          brand_code: row.brand_code || null,
-          status: 'active'
-        }))
-        .filter((product: any, index: number, self: any[]) => 
-          // Remove duplicates by product_id or product_name
-          index === self.findIndex((p: any) => 
-            (product.product_id && p.product_id === product.product_id) ||
-            (!product.product_id && p.product_name === product.product_name)
-          )
-        );
-
-      if (productsToUpsert.length > 0) {
-        // Check which products already exist
-        const productIds = productsToUpsert.map(p => p.product_id).filter(id => id);
-        const { data: existingProducts } = await supabase
-          .from('products')
-          .select('product_id')
-          .in('product_id', productIds.length > 0 ? productIds : ['']);
-
-        const existingProductIds = new Set(existingProducts?.map(p => p.product_id) || []);
-        
-        // Count only new products (not existing ones)
-        const newProducts = productsToUpsert.filter(p => 
-          p.product_id ? !existingProductIds.has(p.product_id) : true
-        );
-
-        const { error: productError } = await supabase
-          .from('products')
-          .upsert(productsToUpsert, {
-            onConflict: 'product_id',
-            ignoreDuplicates: false
+          
+          const brandsToUpdate = brandsToUpsert.filter(b => {
+            const existing = existingBrandMap.get(b.brand_name);
+            // Update if brand exists but brand_code is missing and we have one
+            return existing && !existing.brand_code && b.brand_code;
           });
 
-        if (productError) {
-          console.error('Product upsert error:', productError);
-        } else {
-          productsUpserted = newProducts.length;
-          console.log(`Successfully processed ${productsToUpsert.length} products (${productsUpserted} new)`);
+          // Insert new brands
+          if (newBrands.length > 0) {
+            const { error: brandError } = await supabase
+              .from('brands')
+              .insert(newBrands);
+
+            if (brandError) {
+              console.error('Brand insert error:', brandError);
+            } else {
+              brandsUpserted = newBrands.length;
+              console.log(`Successfully inserted ${newBrands.length} new brands with generated brand codes`);
+            }
+          }
+          
+          // Update existing brands with missing brand_codes
+          if (brandsToUpdate.length > 0) {
+            for (const brand of brandsToUpdate) {
+              const { error: updateError } = await supabase
+                .from('brands')
+                .update({ brand_code: brand.brand_code })
+                .eq('brand_name', brand.brand_name);
+              
+              if (updateError) {
+                console.error(`Error updating brand_code for ${brand.brand_name}:`, updateError);
+              }
+            }
+            console.log(`Updated ${brandsToUpdate.length} existing brands with brand_codes`);
+          }
         }
+
+        // Step 2: Now look up and fill in missing brand_codes in transaction data
+        console.log('Step 2: Filling in missing brand_codes in transaction data...');
+        
+        const missingBrandCodes = validData
+          .filter((row: any) => row.brand_name && !row.brand_code)
+          .map((row: any) => row.brand_name);
+        
+        if (missingBrandCodes.length > 0) {
+          const uniqueBrandNames = [...new Set(missingBrandCodes)];
+          console.log(`Found ${missingBrandCodes.length} transactions with missing brand_code for ${uniqueBrandNames.length} brands`);
+          
+          // Lookup brand_codes from brands table (after we just created/updated them)
+          const { data: brandData, error: brandLookupError } = await supabase
+            .from('brands')
+            .select('brand_name, brand_code')
+            .in('brand_name', uniqueBrandNames);
+          
+          if (brandLookupError) {
+            console.error('Error looking up brand codes:', brandLookupError);
+          } else if (brandData && brandData.length > 0) {
+            // Create a map of brand_name -> brand_code
+            const brandCodeMap = new Map(
+              brandData.map(b => [b.brand_name, b.brand_code])
+            );
+            
+            // Update validData with the brand_codes
+            let updatedCount = 0;
+            for (const record of validData) {
+              if (record.brand_name && !record.brand_code) {
+                const foundCode = brandCodeMap.get(record.brand_name);
+                if (foundCode) {
+                  record.brand_code = foundCode;
+                  updatedCount++;
+                }
+              }
+            }
+            console.log(`Filled in ${updatedCount} missing brand_codes from brands table`);
+          }
+        }
+      } else {
+        console.log('Step 1 & 2: Skipping brand processing (checkBrand=false)');
+      }
+
+      // Step 3: Extract and create products (only if checkProduct is true)
+      if (checkProduct) {
+        console.log('Step 3: Processing products...');
+        
+        const productsToUpsert = validData
+          .filter((row: any) => row.product_name)
+          .map((row: any) => ({
+            product_id: row.product_id || null,
+            product_name: row.product_name,
+            product_price: row.unit_price || null,
+            product_cost: row.cost_price || null,
+            brand_name: row.brand_name || null,
+            brand_code: row.brand_code || null,
+            status: 'active'
+          }))
+          .filter((product: any, index: number, self: any[]) => 
+            // Remove duplicates by product_id or product_name
+            index === self.findIndex((p: any) => 
+              (product.product_id && p.product_id === product.product_id) ||
+              (!product.product_id && p.product_name === product.product_name)
+            )
+          );
+
+        if (productsToUpsert.length > 0) {
+          // Check which products already exist
+          const productIds = productsToUpsert.map(p => p.product_id).filter(id => id);
+          const { data: existingProducts } = await supabase
+            .from('products')
+            .select('product_id')
+            .in('product_id', productIds.length > 0 ? productIds : ['']);
+
+          const existingProductIds = new Set(existingProducts?.map(p => p.product_id) || []);
+          
+          // Count only new products (not existing ones)
+          const newProducts = productsToUpsert.filter(p => 
+            p.product_id ? !existingProductIds.has(p.product_id) : true
+          );
+
+          const { error: productError } = await supabase
+            .from('products')
+            .upsert(productsToUpsert, {
+              onConflict: 'product_id',
+              ignoreDuplicates: false
+            });
+
+          if (productError) {
+            console.error('Product upsert error:', productError);
+          } else {
+            productsUpserted = newProducts.length;
+            console.log(`Successfully processed ${productsToUpsert.length} products (${productsUpserted} new)`);
+          }
+        }
+      } else {
+        console.log('Step 3: Skipping product processing (checkProduct=false)');
       }
       
-      console.log('Pre-processing complete. All brands and products are now ready.');
+      console.log('Pre-processing complete.');
     }
 
     console.log(`Inserting ${validData.length} rows into ${tableName}`);
