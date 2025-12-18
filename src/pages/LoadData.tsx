@@ -35,6 +35,9 @@ interface ExcelSheet {
   sheet_name: string;
   sheet_code: string;
   target_table: string;
+  check_customer: boolean;
+  check_brand: boolean;
+  check_product: boolean;
 }
 
 const LoadData = () => {
@@ -108,7 +111,7 @@ const LoadData = () => {
   const loadAvailableSheets = async () => {
     const { data, error } = await supabase
       .from("excel_sheets")
-      .select("id, sheet_name, sheet_code, target_table")
+      .select("id, sheet_name, sheet_code, target_table, check_customer, check_brand, check_product")
       .eq("status", "active");
 
     if (error) {
@@ -304,6 +307,12 @@ const LoadData = () => {
     setTotalRows(jsonData.length);
     setProcessedRows(0);
     
+    // Get selected sheet config for validation flags
+    const sheetConfig = availableSheets.find(s => s.id === selectedSheet);
+    const shouldCheckCustomer = sheetConfig?.check_customer ?? true;
+    const shouldCheckBrand = sheetConfig?.check_brand ?? true;
+    const shouldCheckProduct = sheetConfig?.check_product ?? true;
+    
     // Start keep-alive to prevent session timeout
     startKeepAlive();
 
@@ -365,116 +374,125 @@ const LoadData = () => {
       setUploadStatus(`Preparing ${jsonData.length.toLocaleString()} rows... (creating upload log)`);
       setProgress(25);
 
-      // Extract unique customers from the data
-      const uniqueCustomers = new Map();
-      jsonData.forEach((row: any) => {
-        if (row.customer_phone && row.customer_name) {
-          if (!uniqueCustomers.has(row.customer_phone)) {
-            uniqueCustomers.set(row.customer_phone, {
-              phone: row.customer_phone,
-              name: row.customer_name,
-              creationDate: row.created_at_date || new Date()
-            });
-          }
-        }
-      });
-
-      setUploadStatus("Preparing... (checking existing customers)");
-      setProgress(30);
-
-      // Check which customers already exist
-      const customerPhones = Array.from(uniqueCustomers.keys());
-      const { data: existingCustomers } = await supabase
-        .from("customers")
-        .select("customer_phone")
-        .in("customer_phone", customerPhones);
-
-      const existingPhones = new Set(existingCustomers?.map(c => c.customer_phone) || []);
-      
-      // Create new customers
-      const newCustomers = Array.from(uniqueCustomers.values())
-        .filter(c => !existingPhones.has(c.phone))
-        .map(c => ({
-          customer_phone: c.phone,
-          customer_name: c.name,
-          creation_date: c.creationDate,
-          status: 'active',
-        }));
-
+      // Extract unique customers from the data (only if check_customer is enabled)
       let newCustomersCount = 0;
-      if (newCustomers.length > 0) {
-        setUploadStatus(`Preparing... (creating ${newCustomers.length.toLocaleString()} new customers)`);
-        setProgress(35);
-
-        const { error: customerError } = await supabase
-          .from("customers")
-          .insert(newCustomers);
-
-        if (customerError) {
-          console.error("Error creating customers:", customerError);
-        } else {
-          newCustomersCount = newCustomers.length;
-        }
-      }
-
-      // After upload completes, sync ALL customers from purpletransaction table
-      setUploadStatus("Preparing... (syncing customers from transaction history)");
-      setProgress(40);
-      
-      // Get all unique customers from purpletransaction table
-      const { data: allTransactions } = await supabase
-        .from("purpletransaction")
-        .select("customer_phone, customer_name, created_at_date")
-        .not("customer_phone", "is", null)
-        .not("customer_name", "is", null);
-
-      if (allTransactions && allTransactions.length > 0) {
-        // Group by phone to get earliest transaction date per customer
-        const transactionCustomers = new Map();
-        allTransactions.forEach((txn: any) => {
-          if (!transactionCustomers.has(txn.customer_phone)) {
-            transactionCustomers.set(txn.customer_phone, {
-              phone: txn.customer_phone,
-              name: txn.customer_name,
-              creationDate: txn.created_at_date
-            });
-          } else {
-            // Keep the earliest date
-            const existing = transactionCustomers.get(txn.customer_phone);
-            if (txn.created_at_date && (!existing.creationDate || new Date(txn.created_at_date) < new Date(existing.creationDate))) {
-              existing.creationDate = txn.created_at_date;
+      if (shouldCheckCustomer) {
+        const uniqueCustomers = new Map();
+        jsonData.forEach((row: any) => {
+          if (row.customer_phone && row.customer_name) {
+            if (!uniqueCustomers.has(row.customer_phone)) {
+              uniqueCustomers.set(row.customer_phone, {
+                phone: row.customer_phone,
+                name: row.customer_name,
+                creationDate: row.created_at_date || new Date()
+              });
             }
           }
         });
 
-        // Get all existing customers
-        const { data: allExistingCustomers } = await supabase
+        setUploadStatus("Preparing... (checking existing customers)");
+        setProgress(30);
+
+        // Check which customers already exist
+        const customerPhones = Array.from(uniqueCustomers.keys());
+        const { data: existingCustomers } = await supabase
           .from("customers")
-          .select("customer_phone");
+          .select("customer_phone")
+          .in("customer_phone", customerPhones);
 
-        const allExistingPhones = new Set(allExistingCustomers?.map(c => c.customer_phone) || []);
-
-        // Find customers that exist in transactions but not in customers table
-        const missingCustomers = Array.from(transactionCustomers.values())
-          .filter(c => !allExistingPhones.has(c.phone))
+        const existingPhones = new Set(existingCustomers?.map(c => c.customer_phone) || []);
+        
+        // Create new customers
+        const newCustomers = Array.from(uniqueCustomers.values())
+          .filter(c => !existingPhones.has(c.phone))
           .map(c => ({
             customer_phone: c.phone,
             customer_name: c.name,
-            creation_date: c.creationDate || new Date(),
+            creation_date: c.creationDate,
             status: 'active',
           }));
 
-        if (missingCustomers.length > 0) {
-          const { error: syncError } = await supabase
-            .from("customers")
-            .insert(missingCustomers);
+        if (newCustomers.length > 0) {
+          setUploadStatus(`Preparing... (creating ${newCustomers.length.toLocaleString()} new customers)`);
+          setProgress(35);
 
-          if (syncError) {
-            console.error("Error syncing missing customers:", syncError);
+          const { error: customerError } = await supabase
+            .from("customers")
+            .insert(newCustomers);
+
+          if (customerError) {
+            console.error("Error creating customers:", customerError);
           } else {
-            console.log(`Synced ${missingCustomers.length} missing customers from transaction history (not counted in new customers for this upload)`);
+            newCustomersCount = newCustomers.length;
           }
         }
+      } else {
+        setUploadStatus("Preparing... (skipping customer validation)");
+        setProgress(35);
+      }
+
+      // After upload completes, sync ALL customers from purpletransaction table (only if check_customer is enabled)
+      if (shouldCheckCustomer) {
+        setUploadStatus("Preparing... (syncing customers from transaction history)");
+        setProgress(40);
+        
+        // Get all unique customers from purpletransaction table
+        const { data: allTransactions } = await supabase
+          .from("purpletransaction")
+          .select("customer_phone, customer_name, created_at_date")
+          .not("customer_phone", "is", null)
+          .not("customer_name", "is", null);
+
+        if (allTransactions && allTransactions.length > 0) {
+          // Group by phone to get earliest transaction date per customer
+          const transactionCustomers = new Map();
+          allTransactions.forEach((txn: any) => {
+            if (!transactionCustomers.has(txn.customer_phone)) {
+              transactionCustomers.set(txn.customer_phone, {
+                phone: txn.customer_phone,
+                name: txn.customer_name,
+                creationDate: txn.created_at_date
+              });
+            } else {
+              // Keep the earliest date
+              const existing = transactionCustomers.get(txn.customer_phone);
+              if (txn.created_at_date && (!existing.creationDate || new Date(txn.created_at_date) < new Date(existing.creationDate))) {
+                existing.creationDate = txn.created_at_date;
+              }
+            }
+          });
+
+          // Get all existing customers
+          const { data: allExistingCustomers } = await supabase
+            .from("customers")
+            .select("customer_phone");
+
+          const allExistingPhones = new Set(allExistingCustomers?.map(c => c.customer_phone) || []);
+
+          // Find customers that exist in transactions but not in customers table
+          const missingCustomers = Array.from(transactionCustomers.values())
+            .filter(c => !allExistingPhones.has(c.phone))
+            .map(c => ({
+              customer_phone: c.phone,
+              customer_name: c.name,
+              creation_date: c.creationDate || new Date(),
+              status: 'active',
+            }));
+
+          if (missingCustomers.length > 0) {
+            const { error: syncError } = await supabase
+              .from("customers")
+              .insert(missingCustomers);
+
+            if (syncError) {
+              console.error("Error syncing missing customers:", syncError);
+            } else {
+              console.log(`Synced ${missingCustomers.length} missing customers from transaction history (not counted in new customers for this upload)`);
+            }
+          }
+        }
+      } else {
+        setProgress(40);
       }
 
       // Split data into chunks of 1000 rows to avoid timeout
@@ -508,6 +526,8 @@ const LoadData = () => {
             sheetId: selectedSheet,
             data: batches[i],
             brandTypeSelections: brandTypeSelections.length > 0 ? brandTypeSelections : undefined,
+            checkBrand: shouldCheckBrand,
+            checkProduct: shouldCheckProduct,
           },
         });
 

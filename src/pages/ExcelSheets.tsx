@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Settings, Trash2, FileSpreadsheet, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
@@ -34,6 +35,12 @@ const ExcelSheets = () => {
   const [selectedSheetForEdit, setSelectedSheetForEdit] = useState<any>(null);
   const [editSheetCode, setEditSheetCode] = useState("");
   const [editSheetName, setEditSheetName] = useState("");
+  const [checkCustomer, setCheckCustomer] = useState(true);
+  const [checkBrand, setCheckBrand] = useState(true);
+  const [checkProduct, setCheckProduct] = useState(true);
+  const [editCheckCustomer, setEditCheckCustomer] = useState(true);
+  const [editCheckBrand, setEditCheckBrand] = useState(true);
+  const [editCheckProduct, setEditCheckProduct] = useState(true);
 
   useEffect(() => {
     loadSheets();
@@ -150,6 +157,9 @@ const ExcelSheets = () => {
           sheet_name: sheetName,
           file_name: file.name,
           target_table: selectedTable,
+          check_customer: checkCustomer,
+          check_brand: checkBrand,
+          check_product: checkProduct,
         })
         .select()
         .single();
@@ -184,6 +194,9 @@ const ExcelSheets = () => {
       setExcelColumns([]);
       setColumnMappings({});
       setSelectedTable("");
+      setCheckCustomer(true);
+      setCheckBrand(true);
+      setCheckProduct(true);
       loadSheets();
     } catch (error: any) {
       toast({
@@ -352,6 +365,9 @@ const ExcelSheets = () => {
     setSelectedSheetForEdit(sheet);
     setEditSheetCode(sheet.sheet_code);
     setEditSheetName(sheet.sheet_name);
+    setEditCheckCustomer(sheet.check_customer ?? true);
+    setEditCheckBrand(sheet.check_brand ?? true);
+    setEditCheckProduct(sheet.check_product ?? true);
     setEditDialogOpen(true);
   };
 
@@ -371,6 +387,9 @@ const ExcelSheets = () => {
         .update({
           sheet_code: editSheetCode,
           sheet_name: editSheetName,
+          check_customer: editCheckCustomer,
+          check_brand: editCheckBrand,
+          check_product: editCheckProduct,
         })
         .eq("id", selectedSheetForEdit.id);
 
@@ -447,6 +466,37 @@ const ExcelSheets = () => {
                 Selected: {file.name}
               </p>
             )}
+          </div>
+
+          <div className="space-y-3">
+            <Label>Validation Options</Label>
+            <p className="text-sm text-muted-foreground">Select which validations to perform during data loading</p>
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="check-customer" 
+                  checked={checkCustomer}
+                  onCheckedChange={(checked) => setCheckCustomer(checked === true)}
+                />
+                <Label htmlFor="check-customer" className="text-sm font-normal cursor-pointer">Check Customer</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="check-brand" 
+                  checked={checkBrand}
+                  onCheckedChange={(checked) => setCheckBrand(checked === true)}
+                />
+                <Label htmlFor="check-brand" className="text-sm font-normal cursor-pointer">Check Brand</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="check-product" 
+                  checked={checkProduct}
+                  onCheckedChange={(checked) => setCheckProduct(checked === true)}
+                />
+                <Label htmlFor="check-product" className="text-sm font-normal cursor-pointer">Check Product</Label>
+              </div>
+            </div>
           </div>
 
           {excelColumns.length > 0 && (
@@ -753,6 +803,36 @@ const ExcelSheets = () => {
                 value={editSheetName}
                 onChange={(e) => setEditSheetName(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-3">
+              <Label>Validation Options</Label>
+              <div className="flex flex-wrap gap-6">
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="edit-check-customer" 
+                    checked={editCheckCustomer}
+                    onCheckedChange={(checked) => setEditCheckCustomer(checked === true)}
+                  />
+                  <Label htmlFor="edit-check-customer" className="text-sm font-normal cursor-pointer">Check Customer</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="edit-check-brand" 
+                    checked={editCheckBrand}
+                    onCheckedChange={(checked) => setEditCheckBrand(checked === true)}
+                  />
+                  <Label htmlFor="edit-check-brand" className="text-sm font-normal cursor-pointer">Check Brand</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="edit-check-product" 
+                    checked={editCheckProduct}
+                    onCheckedChange={(checked) => setEditCheckProduct(checked === true)}
+                  />
+                  <Label htmlFor="edit-check-product" className="text-sm font-normal cursor-pointer">Check Product</Label>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">

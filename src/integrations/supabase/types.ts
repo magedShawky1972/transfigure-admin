@@ -839,6 +839,9 @@ export type Database = {
       }
       excel_sheets: {
         Row: {
+          check_brand: boolean
+          check_customer: boolean
+          check_product: boolean
           created_at: string
           file_name: string
           id: string
@@ -849,6 +852,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          check_brand?: boolean
+          check_customer?: boolean
+          check_product?: boolean
           created_at?: string
           file_name: string
           id?: string
@@ -859,6 +865,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          check_brand?: boolean
+          check_customer?: boolean
+          check_product?: boolean
           created_at?: string
           file_name?: string
           id?: string
