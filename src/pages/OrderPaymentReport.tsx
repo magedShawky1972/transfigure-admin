@@ -100,7 +100,7 @@ const OrderPaymentReport = () => {
         .not('order_status', 'is', null);
 
       if (methods) {
-        const uniqueMethods = [...new Set(methods.map(m => m.payment_method).filter(Boolean))];
+        const uniqueMethods = [...new Set(methods.map(m => m.payment_method).filter(Boolean))].filter(m => m !== 'point');
         setPaymentMethods(uniqueMethods as string[]);
       }
       if (types) {
@@ -125,7 +125,8 @@ const OrderPaymentReport = () => {
         .select('order_number, created_at_date, total, payment_method, payment_type, order_status, is_deleted')
         .gte('created_at_date', startDate)
         .lte('created_at_date', endDate)
-        .not('order_number', 'is', null);
+        .not('order_number', 'is', null)
+        .neq('payment_method', 'point');
 
       const { data: transactions, error } = await query;
 
