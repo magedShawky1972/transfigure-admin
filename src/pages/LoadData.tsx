@@ -66,6 +66,7 @@ const LoadData = () => {
   const [newBrandsDetected, setNewBrandsDetected] = useState<{ brand_name: string }[]>([]);
   const [brandTypeSelections, setBrandTypeSelections] = useState<{ brand_name: string; brand_type_id: string }[]>([]);
   const keepAliveRef = useRef<NodeJS.Timeout | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
   // Keep session alive during long processing
   const startKeepAlive = () => {
@@ -84,6 +85,21 @@ const LoadData = () => {
       keepAliveRef.current = null;
     }
   };
+
+  useEffect(() => {
+    if (!isLoading) {
+      setElapsedMs(0);
+      return;
+    }
+
+    const startedAt = Date.now();
+    setElapsedMs(0);
+    const id = setInterval(() => {
+      setElapsedMs(Date.now() - startedAt);
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [isLoading]);
 
   useEffect(() => {
     loadAvailableSheets();
@@ -193,15 +209,20 @@ const LoadData = () => {
     }
 
     setIsLoading(true);
-    setProgress(0);
+    setProgress(1);
     setUploadStatus("Reading Excel file...");
 
     try {
       // Read the Excel file
       const data = await selectedFile.arrayBuffer();
+      setProgress(5);
+      setUploadStatus("Parsing worksheet...");
+
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      setProgress(12);
+      setUploadStatus(`Validated file: ${jsonData.length.toLocaleString()} rows found`);
 
       if (jsonData.length === 0) {
         toast({
@@ -212,6 +233,9 @@ const LoadData = () => {
         setIsLoading(false);
         return;
       }
+
+      setProgress(15);
+      setUploadStatus("Validating columns... (loading mappings)");
 
       // Get column mappings for the selected sheet
       const { data: mappings, error: mappingsError } = await supabase
@@ -228,6 +252,8 @@ const LoadData = () => {
         setIsLoading(false);
         return;
       }
+      setProgress(18);
+      setUploadStatus("Validating columns... (checking file headers)");
 
       const mappedColumns = mappings?.map(m => m.excel_column.trim()) || [];
       const fileColumns = Object.keys(jsonData[0] as object).map(col => col.trim());
@@ -257,6 +283,8 @@ const LoadData = () => {
       }
 
       // Proceed with upload
+      setProgress(20);
+      setUploadStatus("Starting upload... (preparing rows)");
       await processUpload(jsonData);
     } catch (error: any) {
       toast({
@@ -270,8 +298,9 @@ const LoadData = () => {
 
   const processUpload = async (jsonData: any[]) => {
     setIsLoading(true);
-    setProgress(0);
-    setUploadStatus("Processing data...");
+    // 0-50% = preparing, 50-100% = uploading batches
+    setProgress(20);
+    setUploadStatus(`Preparing ${jsonData.length.toLocaleString()} rows...`);
     setTotalRows(jsonData.length);
     setProcessedRows(0);
     
@@ -333,7 +362,8 @@ const LoadData = () => {
         uploadLogId = logData.id;
       }
 
-      setUploadStatus(`Preparing ${jsonData.length} rows...`);
+      setUploadStatus(`Preparing ${jsonData.length.toLocaleString()} rows... (creating upload log)`);
+      setProgress(25);
 
       // Extract unique customers from the data
       const uniqueCustomers = new Map();
@@ -348,6 +378,9 @@ const LoadData = () => {
           }
         }
       });
+
+      setUploadStatus("Preparing... (checking existing customers)");
+      setProgress(30);
 
       // Check which customers already exist
       const customerPhones = Array.from(uniqueCustomers.keys());
@@ -370,6 +403,9 @@ const LoadData = () => {
 
       let newCustomersCount = 0;
       if (newCustomers.length > 0) {
+        setUploadStatus(`Preparing... (creating ${newCustomers.length.toLocaleString()} new customers)`);
+        setProgress(35);
+
         const { error: customerError } = await supabase
           .from("customers")
           .insert(newCustomers);
@@ -382,7 +418,8 @@ const LoadData = () => {
       }
 
       // After upload completes, sync ALL customers from purpletransaction table
-      setUploadStatus("Syncing customers from transaction history...");
+      setUploadStatus("Preparing... (syncing customers from transaction history)");
+      setProgress(40);
       
       // Get all unique customers from purpletransaction table
       const { data: allTransactions } = await supabase
@@ -441,6 +478,9 @@ const LoadData = () => {
       }
 
       // Split data into chunks of 1000 rows to avoid timeout
+      setUploadStatus("Preparing... (creating upload batches)");
+      setProgress(45);
+
       const BATCH_SIZE = 1000;
       const batches = [];
       for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
@@ -456,6 +496,7 @@ const LoadData = () => {
       let allDates: string[] = [];
 
       // Process each batch
+      setProgress(50);
       for (let i = 0; i < batches.length; i++) {
         setCurrentBatch(i + 1);
         const batchStartRow = i * BATCH_SIZE + 1;
@@ -490,7 +531,7 @@ const LoadData = () => {
         if (result.dateRange?.from) allDates.push(result.dateRange.from);
         if (result.dateRange?.to) allDates.push(result.dateRange.to);
         
-        const progressPercent = ((i + 1) / batches.length) * 100;
+        const progressPercent = 50 + ((i + 1) / batches.length) * 50;
         setProgress(progressPercent);
       }
 
@@ -662,14 +703,19 @@ const LoadData = () => {
                     {uploadStatus}
                   </p>
                 )}
+                {elapsedMs > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Elapsed: {Math.floor(elapsedMs / 60000).toString().padStart(2, '0')}:{Math.floor((elapsedMs % 60000) / 1000).toString().padStart(2, '0')}
+                  </p>
+                )}
                 {totalBatches > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Batch {currentBatch} of {totalBatches} • {processedRows.toLocaleString()} of {totalRows.toLocaleString()} rows processed
                   </p>
                 )}
                 {totalRows > 0 && progress < 100 && (
-                  <p className="text-xs text-green-500 animate-pulse">
-                    Processing... Session kept active
+                  <p className="text-xs text-primary animate-pulse">
+                    Working... Session kept active
                   </p>
                 )}
               </div>
