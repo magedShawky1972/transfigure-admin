@@ -35,9 +35,10 @@ const PdfToExcel = () => {
   const [selectionArea, setSelectionArea] = useState<SelectionArea | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState({ x: 0, y: 0 });
-  const [applyToAllPages, setApplyToAllPages] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
   const [autoDetectTable, setAutoDetectTable] = useState(false);
+  const [fromPage, setFromPage] = useState(1);
+  const [toPage, setToPage] = useState(1);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -46,6 +47,8 @@ const PdfToExcel = () => {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       setTotalPages(pdf.numPages);
+      setFromPage(1);
+      setToPage(pdf.numPages);
       
       const pages: string[] = [];
       // Render all pages (up to 50 max for performance)
@@ -97,11 +100,12 @@ const PdfToExcel = () => {
     uploadToPreview: isArabic ? 'قم برفع ملف PDF لعرض المعاينة' : 'Upload a PDF file to preview',
     selectArea: isArabic ? 'تحديد المنطقة' : 'Select Area',
     clearSelection: isArabic ? 'مسح التحديد' : 'Clear Selection',
-    applyToAllPages: isArabic ? 'تطبيق على جميع الصفحات' : 'Apply to all pages',
     dragToSelect: isArabic ? 'اسحب لتحديد المنطقة المراد تحويلها' : 'Drag to select the area to convert',
     areaSelected: isArabic ? 'تم تحديد المنطقة' : 'Area selected',
     noSelection: isArabic ? 'الرجاء تحديد منطقة للتحويل أو تفعيل الكشف التلقائي' : 'Please select an area or enable auto-detect',
     autoDetectTable: isArabic ? 'كشف الجدول تلقائياً' : 'Auto-detect table area',
+    pageFrom: isArabic ? 'من صفحة' : 'From Page',
+    pageTo: isArabic ? 'إلى صفحة' : 'To Page',
   };
 
   const MAX_FILE_SIZE_MB = 2;
@@ -217,12 +221,12 @@ const PdfToExcel = () => {
       toast({
         title: translations.areaSelected,
         description: isArabic 
-          ? `تم تحديد المنطقة. ${totalPages > 1 ? (applyToAllPages ? 'سيتم التطبيق على جميع الصفحات.' : 'سيتم التطبيق على الصفحة الحالية فقط.') : ''}`
-          : `Area selected. ${totalPages > 1 ? (applyToAllPages ? 'Will apply to all pages.' : 'Will apply to current page only.') : ''}`,
+          ? 'تم تحديد المنطقة.'
+          : 'Area selected.',
       });
     }
     setIsSelecting(false);
-  }, [isSelecting, selectionArea, applyToAllPages, totalPages, isArabic, translations.areaSelected, toast]);
+  }, [isSelecting, selectionArea, isArabic, translations.areaSelected, toast]);
 
   const clearSelection = () => {
     setSelectionArea(null);
@@ -251,10 +255,13 @@ const PdfToExcel = () => {
 
     setIsProcessing(true);
     try {
-      // Process pages - either current page only or all pages
-      const pagesToProcess = applyToAllPages && totalPages > 1 
-        ? Array.from({ length: pdfPages.length }, (_, i) => i) 
-        : [currentPage];
+      // Process pages based on fromPage and toPage range
+      const startPage = Math.max(1, Math.min(fromPage, totalPages)) - 1;
+      const endPage = Math.max(1, Math.min(toPage, pdfPages.length)) - 1;
+      const pagesToProcess = Array.from(
+        { length: endPage - startPage + 1 }, 
+        (_, i) => startPage + i
+      ).filter(i => i < pdfPages.length);
       
       let allTableData: any[][] = [];
       
@@ -389,6 +396,43 @@ const PdfToExcel = () => {
                 <Button variant="ghost" size="icon" onClick={handleClear}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
+              </div>
+            )}
+
+            {/* Page Range Selection */}
+            {totalPages > 0 && (
+              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="fromPage" className="text-sm whitespace-nowrap">
+                    {translations.pageFrom}
+                  </Label>
+                  <Input
+                    id="fromPage"
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={fromPage}
+                    onChange={(e) => setFromPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
+                    className="w-20 h-8"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="toPage" className="text-sm whitespace-nowrap">
+                    {translations.pageTo}
+                  </Label>
+                  <Input
+                    id="toPage"
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={toPage}
+                    onChange={(e) => setToPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
+                    className="w-20 h-8"
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  / {totalPages}
+                </span>
               </div>
             )}
 
@@ -549,20 +593,6 @@ const PdfToExcel = () => {
                     {translations.autoDetectTable}
                   </Label>
                 </div>
-
-                {/* Apply to all pages option */}
-                {totalPages > 1 && (selectionArea || autoDetectTable) && (
-                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                    <Checkbox
-                      id="applyToAll"
-                      checked={applyToAllPages}
-                      onCheckedChange={(checked) => setApplyToAllPages(checked === true)}
-                    />
-                    <Label htmlFor="applyToAll" className="text-sm cursor-pointer">
-                      {translations.applyToAllPages} ({totalPages} {isArabic ? 'صفحات' : 'pages'})
-                    </Label>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">
