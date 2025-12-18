@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,10 @@ const LoadData = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
+  const [processedRows, setProcessedRows] = useState(0);
+  const [totalRows, setTotalRows] = useState(0);
   const [showExtraColumnsDialog, setShowExtraColumnsDialog] = useState(false);
   const [extraColumns, setExtraColumns] = useState<string[]>([]);
   const [pendingUploadData, setPendingUploadData] = useState<any>(null);
@@ -61,6 +65,25 @@ const LoadData = () => {
   const [showBrandTypeDialog, setShowBrandTypeDialog] = useState(false);
   const [newBrandsDetected, setNewBrandsDetected] = useState<{ brand_name: string }[]>([]);
   const [brandTypeSelections, setBrandTypeSelections] = useState<{ brand_name: string; brand_type_id: string }[]>([]);
+  const keepAliveRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep session alive during long processing
+  const startKeepAlive = () => {
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+    }
+    // Dispatch activity event every 30 seconds to prevent session timeout
+    keepAliveRef.current = setInterval(() => {
+      document.dispatchEvent(new MouseEvent('mousemove'));
+    }, 30000);
+  };
+
+  const stopKeepAlive = () => {
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+      keepAliveRef.current = null;
+    }
+  };
 
   useEffect(() => {
     loadAvailableSheets();
@@ -249,6 +272,11 @@ const LoadData = () => {
     setIsLoading(true);
     setProgress(0);
     setUploadStatus("Processing data...");
+    setTotalRows(jsonData.length);
+    setProcessedRows(0);
+    
+    // Start keep-alive to prevent session timeout
+    startKeepAlive();
 
     let uploadLogId: string | null = null;
     
@@ -305,7 +333,7 @@ const LoadData = () => {
         uploadLogId = logData.id;
       }
 
-      setUploadStatus(`Processing ${jsonData.length} rows...`);
+      setUploadStatus(`Preparing ${jsonData.length} rows...`);
 
       // Extract unique customers from the data
       const uniqueCustomers = new Map();
@@ -419,6 +447,8 @@ const LoadData = () => {
         batches.push(jsonData.slice(i, i + BATCH_SIZE));
       }
 
+      setTotalBatches(batches.length);
+      
       let totalProcessed = 0;
       let totalValue = 0;
       let totalProductsUpserted = 0;
@@ -427,7 +457,10 @@ const LoadData = () => {
 
       // Process each batch
       for (let i = 0; i < batches.length; i++) {
-        setUploadStatus(`Uploading batch ${i + 1} of ${batches.length}...`);
+        setCurrentBatch(i + 1);
+        const batchStartRow = i * BATCH_SIZE + 1;
+        const batchEndRow = Math.min((i + 1) * BATCH_SIZE, jsonData.length);
+        setUploadStatus(`Uploading batch ${i + 1} of ${batches.length} (rows ${batchStartRow}-${batchEndRow})...`);
         
         const { data: result, error } = await supabase.functions.invoke("load-excel-data", {
           body: {
@@ -444,10 +477,12 @@ const LoadData = () => {
           setNewBrandsDetected(result.newBrands);
           setShowBrandTypeDialog(true);
           setIsLoading(false);
+          stopKeepAlive();
           return; // Stop processing until user selects brand types
         }
 
         totalProcessed += result.count;
+        setProcessedRows(totalProcessed);
         totalValue += result.totalValue || 0;
         totalProductsUpserted += result.productsUpserted || 0;
         totalBrandsUpserted += result.brandsUpserted || 0;
@@ -535,9 +570,14 @@ const LoadData = () => {
       });
       setUploadStatus("");
     } finally {
+      stopKeepAlive();
       setIsLoading(false);
+      setCurrentBatch(0);
+      setTotalBatches(0);
       setTimeout(() => {
         setProgress(0);
+        setProcessedRows(0);
+        setTotalRows(0);
       }, 2000);
     }
   };
@@ -616,11 +656,23 @@ const LoadData = () => {
           {isLoading && (
             <div className="space-y-3">
               <Progress value={progress} className="w-full" />
-              {uploadStatus && (
-                <p className="text-sm text-muted-foreground text-center">
-                  {uploadStatus}
-                </p>
-              )}
+              <div className="flex flex-col items-center gap-1">
+                {uploadStatus && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    {uploadStatus}
+                  </p>
+                )}
+                {totalBatches > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Batch {currentBatch} of {totalBatches} • {processedRows.toLocaleString()} of {totalRows.toLocaleString()} rows processed
+                  </p>
+                )}
+                {totalRows > 0 && progress < 100 && (
+                  <p className="text-xs text-green-500 animate-pulse">
+                    Processing... Session kept active
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
