@@ -524,6 +524,42 @@ const OrderPaymentReport = () => {
     }
   };
 
+  // Handle NOK (rejected) transaction click - fetch Hyberpay details directly by transactionid
+  const handleNokTransactionClick = async (transactionId: string) => {
+    try {
+      // Clear order-specific data since NOK transactions don't have orders
+      setSelectedOrder(null);
+      setOrderLines([]);
+      setPaymentRefrence(transactionId);
+      setRiyadBankInfo(null);
+
+      // Fetch Hyberpay info directly by transactionid
+      const { data: hyberpayData } = await supabase
+        .from('hyberpaystatement')
+        .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid, response_acquirermessage, riskfraudstatuscode, transaction_receipt, clearinginstitutename, transaction_acquirer_settlementdate, acquirerresponse, riskfrauddescription')
+        .eq('transactionid', transactionId)
+        .maybeSingle();
+
+      setHyberpayInfo(hyberpayData || null);
+
+      setDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching NOK transaction details:', error);
+      toast.error(isRTL ? 'خطأ في جلب تفاصيل المعاملة' : 'Error fetching transaction details');
+    }
+  };
+
+  // Combined click handler for rows
+  const handleRowClick = (order: OrderGridItem) => {
+    if (order.order_number) {
+      // Has order number - use normal flow
+      handleOrderClick(order.order_number);
+    } else if (order.result === 'NOK' && order.transactionid) {
+      // NOK transaction without order - show Hyberpay details
+      handleNokTransactionClick(order.transactionid);
+    }
+  };
+
   const handleSearch = () => {
     fetchOrders();
   };
@@ -775,8 +811,8 @@ const OrderPaymentReport = () => {
                   orders.map((order) => (
                     <TableRow 
                       key={order.transactionid}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => order.order_number && handleOrderClick(order.order_number)}
+                      className={`hover:bg-muted/50 ${order.order_number || order.result === 'NOK' ? 'cursor-pointer' : ''}`}
+                      onClick={() => handleRowClick(order)}
                     >
                       <TableCell className="font-medium text-xs">{order.transactionid}</TableCell>
                       <TableCell>{order.order_number || '-'}</TableCell>
@@ -811,10 +847,148 @@ const OrderPaymentReport = () => {
         <DialogContent className="w-[90vw] max-w-[90vw] max-h-[90vh] overflow-auto" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
             <DialogTitle>
-              {isRTL ? "تفاصيل الطلب" : "Order Details"}: {selectedOrder?.order_number}
+              {selectedOrder 
+                ? `${isRTL ? "تفاصيل الطلب" : "Order Details"}: ${selectedOrder.order_number}`
+                : isRTL ? "تفاصيل المعاملة المرفوضة" : "Rejected Transaction Details"
+              }
             </DialogTitle>
           </DialogHeader>
 
+          {/* Show Hyberpay info for NOK transactions without order */}
+          {!selectedOrder && hyberpayInfo && (
+            <div className="space-y-6">
+              {/* Transaction Reference */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    {isRTL ? "معلومات المعاملة" : "Transaction Information"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "معرف المعاملة" : "Transaction ID"}
+                      </Label>
+                      <p className="font-medium break-all">{paymentRefrence || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "النتيجة" : "Result"}
+                      </Label>
+                      <Badge variant="destructive">NOK</Badge>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "الحالة" : "Status"}
+                      </Label>
+                      <p className="font-medium text-destructive">{isRTL ? "مرفوض من البنك" : "Rejected by Bank"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Hyberpay Information - Always Expanded for NOK */}
+              <Card className="border-destructive/50">
+                <CardHeader className="bg-destructive/10">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    {isRTL ? "تفاصيل سبب الرفض" : "Rejection Details"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "وقت الطلب" : "Request Timestamp"}
+                      </Label>
+                      <p className="font-medium">{hyberpayInfo.requesttimestamp || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "آخر 4 أرقام البطاقة" : "Card Last 4 Digits"}
+                      </Label>
+                      <p className="font-medium">{hyberpayInfo.accountnumberlast4 || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "كود الإرجاع" : "Return Code"}
+                      </Label>
+                      <p className="font-medium font-mono bg-muted px-2 py-1 rounded">{hyberpayInfo.returncode || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "المبلغ" : "Amount"}
+                      </Label>
+                      <p className="font-medium">{hyberpayInfo.credit || '-'} {hyberpayInfo.currency || ''}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "كود الحالة" : "Status Code"}
+                      </Label>
+                      <p className="font-medium font-mono bg-muted px-2 py-1 rounded">{hyberpayInfo.statuscode || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "كود السبب" : "Reason Code"}
+                      </Label>
+                      <p className="font-medium font-mono bg-destructive/20 px-2 py-1 rounded">{hyberpayInfo.reasoncode || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "رسالة المستحوذ" : "Acquirer Message"}
+                      </Label>
+                      <p className="font-medium break-all bg-destructive/10 p-2 rounded border border-destructive/30">{hyberpayInfo.response_acquirermessage || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "استجابة المستحوذ" : "Acquirer Response"}
+                      </Label>
+                      <p className="font-medium break-all">{hyberpayInfo.acquirerresponse || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "عنوان IP" : "IP Address"}
+                      </Label>
+                      <p className="font-medium font-mono">{hyberpayInfo.ip || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "البريد الإلكتروني" : "Email"}
+                      </Label>
+                      <p className="font-medium break-all">{hyberpayInfo.email || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "حالة مخاطر الاحتيال" : "Risk Fraud Status"}
+                      </Label>
+                      <p className="font-medium">{hyberpayInfo.riskfraudstatuscode || '-'}</p>
+                    </div>
+                    <div className="md:col-span-3">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "وصف مخاطر الاحتيال" : "Risk Fraud Description"}
+                      </Label>
+                      <p className="font-medium break-all">{hyberpayInfo.riskfrauddescription || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "معرف الموصل" : "Connector ID"}
+                      </Label>
+                      <p className="font-medium break-all">{hyberpayInfo.connectorid || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "اسم مؤسسة المقاصة" : "Clearing Institute"}
+                      </Label>
+                      <p className="font-medium break-all">{hyberpayInfo.clearinginstitutename || '-'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Show full order details for orders with order_number */}
           {selectedOrder && (
             <div className="space-y-6">
               {/* Header Info */}
