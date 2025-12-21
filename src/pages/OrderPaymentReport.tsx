@@ -95,6 +95,7 @@ const OrderPaymentReport = () => {
   const [hyberpayExpanded, setHyberpayExpanded] = useState(true);
   const [riyadBankInfo, setRiyadBankInfo] = useState<RiyadBankInfo | null>(null);
   const [riyadBankExpanded, setRiyadBankExpanded] = useState(true);
+  const [paymentRefrence, setPaymentRefrence] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   
   // Filters
@@ -305,6 +306,7 @@ const OrderPaymentReport = () => {
         .maybeSingle();
 
       if (paymentData?.paymentrefrence) {
+        setPaymentRefrence(paymentData.paymentrefrence);
         const { data: hyberpayData } = await supabase
           .from('hyberpaystatement')
           .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid')
@@ -322,6 +324,7 @@ const OrderPaymentReport = () => {
 
         setRiyadBankInfo(riyadBankData || null);
       } else {
+        setPaymentRefrence(null);
         setHyberpayInfo(null);
         setRiyadBankInfo(null);
       }
@@ -667,6 +670,12 @@ const OrderPaymentReport = () => {
                         {isRTL ? "علامة الدفع" : "Payment Brand"}
                       </Label>
                       <p className="font-medium">{selectedOrder.payment_brand || '-'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-muted-foreground">
+                        {isRTL ? "مرجع الدفع" : "Payment Ref"}
+                      </Label>
+                      <p className="font-medium break-all">{paymentRefrence || '-'}</p>
                     </div>
                   </div>
                 </CardContent>
