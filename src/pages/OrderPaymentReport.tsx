@@ -620,7 +620,7 @@ const OrderPaymentReport = () => {
 
       {/* Order Details Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto" dir={isRTL ? "rtl" : "ltr"}>
+        <DialogContent className="w-[90vw] max-w-[90vw] max-h-[90vh] overflow-auto" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
             <DialogTitle>
               {isRTL ? "تفاصيل الطلب" : "Order Details"}: {selectedOrder?.order_number}
