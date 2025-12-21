@@ -171,26 +171,41 @@ const ExcelSheets = () => {
       setIsCreatingTable(true);
       try {
         // Prepare columns for table creation - convert Excel column names to valid DB column names
-        const tableColumns = excelColumns.map((colName, index) => {
-          // Convert column name to snake_case and remove special characters
-          let cleanName = String(colName)
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9_]/g, '_')
-            .replace(/_+/g, '_')
-            .replace(/^_|_$/g, '');
-          
-          // Ensure column name doesn't start with a number (invalid in PostgreSQL)
-          if (cleanName && /^[0-9]/.test(cleanName)) {
-            cleanName = 'col_' + cleanName;
-          }
-          
-          return {
-            name: cleanName || `column_${index + 1}`,
-            type: 'text',
-            nullable: true,
-          };
-        });
+        const usedNames = new Map<string, number>();
+        const columnPairs = excelColumns
+          .map((colName) => String(colName ?? "").trim())
+          .filter((colName) => colName.length > 0)
+          .map((colName, index) => {
+            // Convert column name to snake_case and remove special characters
+            let cleanName = colName
+              .toLowerCase()
+              .replace(/[^a-z0-9_]/g, "_")
+              .replace(/_+/g, "_")
+              .replace(/^_|_$/g, "");
+
+            // Ensure column name doesn't start with a number (invalid in PostgreSQL)
+            if (cleanName && /^[0-9]/.test(cleanName)) {
+              cleanName = "col_" + cleanName;
+            }
+
+            // Fallback when the header becomes empty after cleaning
+            if (!cleanName) {
+              cleanName = `column_${index + 1}`;
+            }
+
+            // Ensure uniqueness (Postgres disallows duplicate column names)
+            const count = (usedNames.get(cleanName) ?? 0) + 1;
+            usedNames.set(cleanName, count);
+            const uniqueName = count === 1 ? cleanName : `${cleanName}_${count}`;
+
+            return { excelCol: colName, name: uniqueName, type: "text", nullable: true };
+          });
+
+        const tableColumns = columnPairs.map(({ name, type, nullable }) => ({ name, type, nullable }));
+
+        if (tableColumns.length === 0) {
+          throw new Error("No valid columns found (check your header row / Skip First Row setting)");
+        }
 
         // Use sheet_code as table name (cleaned)
         const tableName = sheetCode
@@ -211,8 +226,8 @@ const ExcelSheets = () => {
 
         // Auto-map columns - Excel column to cleaned DB column
         const autoMappings: Record<string, string> = {};
-        excelColumns.forEach((excelCol, index) => {
-          autoMappings[excelCol] = tableColumns[index].name;
+        columnPairs.forEach(({ excelCol, name }) => {
+          autoMappings[excelCol] = name;
         });
         setColumnMappings(autoMappings);
 
