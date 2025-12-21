@@ -808,6 +808,8 @@ export type Database = {
           data_type: string
           excel_column: string
           id: string
+          is_json_column: boolean
+          json_split_keys: string[] | null
           sheet_id: string
           table_column: string
         }
@@ -816,6 +818,8 @@ export type Database = {
           data_type: string
           excel_column: string
           id?: string
+          is_json_column?: boolean
+          json_split_keys?: string[] | null
           sheet_id: string
           table_column: string
         }
@@ -824,6 +828,8 @@ export type Database = {
           data_type?: string
           excel_column?: string
           id?: string
+          is_json_column?: boolean
+          json_split_keys?: string[] | null
           sheet_id?: string
           table_column?: string
         }

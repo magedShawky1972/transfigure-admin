@@ -7,10 +7,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings, Trash2, FileSpreadsheet, Edit } from "lucide-react";
+import { Settings, Trash2, FileSpreadsheet, Edit, Braces, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
+// Type for JSON column configuration
+interface JsonColumnConfig {
+  isJson: boolean;
+  splitKeys: string[];
+}
 
 const ExcelSheets = () => {
   const { toast } = useToast();
@@ -46,6 +53,10 @@ const ExcelSheets = () => {
   const [isCreatingTable, setIsCreatingTable] = useState(false);
   const [skipFirstRow, setSkipFirstRow] = useState(false);
   const [editSkipFirstRow, setEditSkipFirstRow] = useState(false);
+  // JSON column configuration state
+  const [jsonColumnConfigs, setJsonColumnConfigs] = useState<Record<string, JsonColumnConfig>>({});
+  const [sheetJsonConfigs, setSheetJsonConfigs] = useState<Record<string, JsonColumnConfig>>({});
+  const [detectedJsonKeys, setDetectedJsonKeys] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     loadSheets();
@@ -103,6 +114,9 @@ const ExcelSheets = () => {
         const headers = jsonData[headerRowIndex] as string[];
         setExcelColumns(headers);
         
+        // Detect JSON columns by analyzing first few data rows
+        detectJsonColumns(headers, jsonData, headerRowIndex);
+        
         toast({
           title: "File loaded",
           description: `Found ${headers.length} columns`,
@@ -117,12 +131,61 @@ const ExcelSheets = () => {
     }
   };
 
+  // Detect JSON columns and extract available keys
+  const detectJsonColumns = (headers: string[], jsonData: string[][], headerRowIndex: number) => {
+    const dataStartIndex = headerRowIndex + 1;
+    const sampleRows = jsonData.slice(dataStartIndex, dataStartIndex + 10); // Sample first 10 rows
+    const detectedKeys: Record<string, string[]> = {};
+    const newJsonConfigs: Record<string, JsonColumnConfig> = {};
+
+    headers.forEach((header, colIndex) => {
+      if (!header) return;
+      const headerStr = String(header).trim();
+      
+      // Check sample values to see if they look like JSON
+      const jsonKeys = new Set<string>();
+      let looksLikeJson = false;
+
+      for (const row of sampleRows) {
+        const cellValue = row[colIndex];
+        if (cellValue && typeof cellValue === 'string') {
+          const trimmed = cellValue.trim();
+          // Check if it starts with { or [ (JSON object or array)
+          if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+              (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              looksLikeJson = true;
+              // Extract keys from JSON object
+              if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                Object.keys(parsed).forEach(key => jsonKeys.add(key));
+              }
+            } catch {
+              // Not valid JSON, skip
+            }
+          }
+        }
+      }
+
+      if (looksLikeJson) {
+        detectedKeys[headerStr] = Array.from(jsonKeys);
+        newJsonConfigs[headerStr] = { isJson: true, splitKeys: Array.from(jsonKeys) };
+      }
+    });
+
+    setDetectedJsonKeys(detectedKeys);
+    setJsonColumnConfigs(newJsonConfigs);
+  };
+
   // Update columns when skipFirstRow changes
   useEffect(() => {
     if (allExcelRows.length > 0) {
       const headerRowIndex = skipFirstRow && allExcelRows.length > 1 ? 1 : 0;
       const headers = allExcelRows[headerRowIndex] as string[];
       setExcelColumns(headers);
+      
+      // Re-detect JSON columns
+      detectJsonColumns(headers, allExcelRows, headerRowIndex);
     }
   }, [skipFirstRow, allExcelRows]);
 
@@ -173,36 +236,69 @@ const ExcelSheets = () => {
       try {
         // Prepare columns for table creation - convert Excel column names to valid DB column names
         const usedNames = new Map<string, number>();
-        const columnPairs = excelColumns
+        const allColumnPairs: { excelCol: string; name: string; type: string; nullable: boolean; isFromJson?: boolean; parentCol?: string }[] = [];
+        
+        excelColumns
           .map((colName) => String(colName ?? "").trim())
           .filter((colName) => colName.length > 0)
-          .map((colName, index) => {
-            // Convert column name to snake_case and remove special characters
-            let cleanName = colName
-              .toLowerCase()
-              .replace(/[^a-z0-9_]/g, "_")
-              .replace(/_+/g, "_")
-              .replace(/^_|_$/g, "");
+          .forEach((colName, index) => {
+            const jsonConfig = jsonColumnConfigs[colName];
+            
+            // Check if this is a JSON column that should be split
+            if (jsonConfig?.isJson && jsonConfig.splitKeys.length > 0) {
+              // Create columns for each JSON key
+              jsonConfig.splitKeys.forEach((jsonKey) => {
+                let cleanName = jsonKey
+                  .toLowerCase()
+                  .replace(/[^a-z0-9_]/g, "_")
+                  .replace(/_+/g, "_")
+                  .replace(/^_|_$/g, "");
+                
+                if (cleanName && /^[0-9]/.test(cleanName)) {
+                  cleanName = "col_" + cleanName;
+                }
+                if (!cleanName) {
+                  cleanName = `json_field_${index}`;
+                }
+                
+                // Ensure uniqueness
+                const count = (usedNames.get(cleanName) ?? 0) + 1;
+                usedNames.set(cleanName, count);
+                const uniqueName = count === 1 ? cleanName : `${cleanName}_${count}`;
+                
+                allColumnPairs.push({ 
+                  excelCol: colName, 
+                  name: uniqueName, 
+                  type: "text", 
+                  nullable: true,
+                  isFromJson: true,
+                  parentCol: colName
+                });
+              });
+            } else {
+              // Regular column
+              let cleanName = colName
+                .toLowerCase()
+                .replace(/[^a-z0-9_]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_|_$/g, "");
 
-            // Ensure column name doesn't start with a number (invalid in PostgreSQL)
-            if (cleanName && /^[0-9]/.test(cleanName)) {
-              cleanName = "col_" + cleanName;
+              if (cleanName && /^[0-9]/.test(cleanName)) {
+                cleanName = "col_" + cleanName;
+              }
+              if (!cleanName) {
+                cleanName = `column_${index + 1}`;
+              }
+
+              const count = (usedNames.get(cleanName) ?? 0) + 1;
+              usedNames.set(cleanName, count);
+              const uniqueName = count === 1 ? cleanName : `${cleanName}_${count}`;
+
+              allColumnPairs.push({ excelCol: colName, name: uniqueName, type: "text", nullable: true });
             }
-
-            // Fallback when the header becomes empty after cleaning
-            if (!cleanName) {
-              cleanName = `column_${index + 1}`;
-            }
-
-            // Ensure uniqueness (Postgres disallows duplicate column names)
-            const count = (usedNames.get(cleanName) ?? 0) + 1;
-            usedNames.set(cleanName, count);
-            const uniqueName = count === 1 ? cleanName : `${cleanName}_${count}`;
-
-            return { excelCol: colName, name: uniqueName, type: "text", nullable: true };
           });
 
-        const tableColumns = columnPairs.map(({ name, type, nullable }) => ({ name, type, nullable }));
+        const tableColumns = allColumnPairs.map(({ name, type, nullable }) => ({ name, type, nullable }));
 
         if (tableColumns.length === 0) {
           throw new Error("No valid columns found (check your header row / Skip First Row setting)");
@@ -226,8 +322,11 @@ const ExcelSheets = () => {
         targetTableName = tableName;
 
         // Auto-map columns - Excel column to cleaned DB column
-        columnPairs.forEach(({ excelCol, name }) => {
-          autoMappings[excelCol] = name;
+        allColumnPairs.forEach(({ excelCol, name }) => {
+          // For non-JSON columns, create regular mapping
+          if (!allColumnPairs.find(p => p.excelCol === excelCol && p.isFromJson)) {
+            autoMappings[excelCol] = name;
+          }
         });
         setColumnMappings(autoMappings);
 
@@ -273,14 +372,19 @@ const ExcelSheets = () => {
 
       if (sheetError) throw sheetError;
 
-      // Save column mappings if any exist
+      // Save column mappings if any exist (including JSON config)
       if (Object.keys(mappingsToSave).length > 0 && targetTableName) {
-        const mappings = Object.entries(mappingsToSave).map(([excelCol, tableCol]) => ({
-          sheet_id: sheetData.id,
-          excel_column: excelCol,
-          table_column: tableCol,
-          data_type: "text",
-        }));
+        const mappings = Object.entries(mappingsToSave).map(([excelCol, tableCol]) => {
+          const jsonConfig = jsonColumnConfigs[excelCol];
+          return {
+            sheet_id: sheetData.id,
+            excel_column: excelCol,
+            table_column: tableCol,
+            data_type: "text",
+            is_json_column: jsonConfig?.isJson || false,
+            json_split_keys: jsonConfig?.isJson && jsonConfig.splitKeys.length > 0 ? jsonConfig.splitKeys : null,
+          };
+        });
 
         const { error: mappingError } = await supabase
           .from("excel_column_mappings")
@@ -307,6 +411,8 @@ const ExcelSheets = () => {
       setCheckProduct(true);
       setAutoCreateTable(false);
       setSkipFirstRow(false);
+      setJsonColumnConfigs({});
+      setDetectedJsonKeys({});
       loadSheets();
     } catch (error: any) {
       toast({
@@ -349,6 +455,7 @@ const ExcelSheets = () => {
     setSheetExcelColumns([]);
     setSheetTargetTable("");
     setSheetTableColumns([]);
+    setSheetJsonConfigs({});
     
     // Load the target table if it exists
     if (sheet.target_table) {
@@ -360,7 +467,7 @@ const ExcelSheets = () => {
       }
     }
     
-    // Load existing mappings
+    // Load existing mappings (including JSON config)
     const { data: mappings, error } = await supabase
       .from("excel_column_mappings")
       .select("*")
@@ -372,16 +479,25 @@ const ExcelSheets = () => {
       return;
     }
 
-    // Load existing column mappings
+    // Load existing column mappings and JSON configs
     const mappingsMap: Record<string, string> = {};
+    const jsonConfigsMap: Record<string, JsonColumnConfig> = {};
+    
     if (mappings && mappings.length > 0) {
-      mappings.forEach((m) => {
+      mappings.forEach((m: any) => {
         mappingsMap[m.excel_column] = m.table_column;
+        if (m.is_json_column) {
+          jsonConfigsMap[m.excel_column] = {
+            isJson: true,
+            splitKeys: m.json_split_keys || []
+          };
+        }
       });
       setSheetMappings(mappingsMap);
+      setSheetJsonConfigs(jsonConfigsMap);
       
       // Extract unique excel columns
-      const excelCols = mappings.map(m => m.excel_column);
+      const excelCols = mappings.map((m: any) => m.excel_column);
       setSheetExcelColumns(excelCols);
     }
     
@@ -429,11 +545,15 @@ const ExcelSheets = () => {
           const tableCol = sheetMappings[excelCol] ?? sheetMappings[colName];
           const tableColTrim = tableCol ? String(tableCol).trim() : "";
           if (!colName || !tableColTrim) return null;
+          
+          const jsonConfig = sheetJsonConfigs[colName];
           return {
             sheet_id: selectedSheetForMapping.id,
             excel_column: colName,
             table_column: tableColTrim,
             data_type: "text",
+            is_json_column: jsonConfig?.isJson || false,
+            json_split_keys: jsonConfig?.isJson && jsonConfig.splitKeys.length > 0 ? jsonConfig.splitKeys : null,
           };
         })
         .filter(Boolean) as any[];
@@ -705,21 +825,127 @@ const ExcelSheets = () => {
           )}
 
           {excelColumns.length > 0 && autoCreateTable && (
-            <div className="p-4 border rounded-lg bg-primary/5 border-primary/20">
-              <p className="text-sm font-medium text-primary mb-2">Auto Create Table Preview</p>
-              <p className="text-sm text-muted-foreground mb-2">
+            <div className="p-4 border rounded-lg bg-primary/5 border-primary/20 space-y-4">
+              <p className="text-sm font-medium text-primary">Auto Create Table Preview</p>
+              <p className="text-sm text-muted-foreground">
                 Table name: <span className="font-mono font-medium">{sheetCode.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')}</span>
               </p>
-              <p className="text-sm text-muted-foreground mb-2">Columns to create ({excelColumns.length}):</p>
-              <div className="flex flex-wrap gap-2">
-                {excelColumns.map((col) => {
-                  const cleanName = String(col).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-                  return (
-                    <span key={col} className="px-2 py-1 bg-muted rounded text-xs font-mono">
-                      {cleanName}
-                    </span>
-                  );
-                })}
+              
+              {/* JSON Column Detection Notice */}
+              {Object.keys(detectedJsonKeys).length > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Braces className="h-4 w-4 text-amber-600" />
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      JSON Columns Detected
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    The following columns contain JSON data. You can split them into separate columns.
+                  </p>
+                  
+                  <div className="space-y-3">
+                    {Object.entries(detectedJsonKeys).map(([colName, keys]) => (
+                      <Collapsible key={colName}>
+                        <div className="flex items-center justify-between p-2 bg-background rounded border">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`json-${colName}`}
+                              checked={jsonColumnConfigs[colName]?.isJson || false}
+                              onCheckedChange={(checked) => {
+                                setJsonColumnConfigs(prev => ({
+                                  ...prev,
+                                  [colName]: {
+                                    isJson: checked === true,
+                                    splitKeys: checked === true ? keys : []
+                                  }
+                                }));
+                              }}
+                            />
+                            <Label htmlFor={`json-${colName}`} className="text-sm font-mono cursor-pointer">
+                              {colName}
+                            </Label>
+                            <span className="text-xs text-muted-foreground">
+                              ({keys.length} keys found)
+                            </span>
+                          </div>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                          </CollapsibleTrigger>
+                        </div>
+                        <CollapsibleContent className="p-2 border-x border-b rounded-b">
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Select which keys to split into columns:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {keys.map((key) => (
+                              <div key={key} className="flex items-center gap-1">
+                                <Checkbox
+                                  id={`key-${colName}-${key}`}
+                                  checked={jsonColumnConfigs[colName]?.splitKeys.includes(key) || false}
+                                  disabled={!jsonColumnConfigs[colName]?.isJson}
+                                  onCheckedChange={(checked) => {
+                                    setJsonColumnConfigs(prev => {
+                                      const current = prev[colName] || { isJson: true, splitKeys: [] };
+                                      const newKeys = checked 
+                                        ? [...current.splitKeys, key]
+                                        : current.splitKeys.filter(k => k !== key);
+                                      return {
+                                        ...prev,
+                                        [colName]: { ...current, splitKeys: newKeys }
+                                      };
+                                    });
+                                  }}
+                                />
+                                <Label 
+                                  htmlFor={`key-${colName}-${key}`} 
+                                  className="text-xs font-mono cursor-pointer"
+                                >
+                                  {key}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Columns to create ({excelColumns.length + Object.values(jsonColumnConfigs).reduce((acc, cfg) => acc + (cfg.isJson ? cfg.splitKeys.length - 1 : 0), 0)}):
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {excelColumns.map((col) => {
+                    const colStr = String(col).trim();
+                    const jsonConfig = jsonColumnConfigs[colStr];
+                    
+                    // If this is a JSON column being split, show the split keys
+                    if (jsonConfig?.isJson && jsonConfig.splitKeys.length > 0) {
+                      return jsonConfig.splitKeys.map((key) => {
+                        const cleanName = key.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+                        return (
+                          <span key={`${col}-${key}`} className="px-2 py-1 bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded text-xs font-mono flex items-center gap-1">
+                            <Braces className="h-3 w-3" />
+                            {cleanName}
+                          </span>
+                        );
+                      });
+                    }
+                    
+                    // Regular column
+                    const cleanName = colStr.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+                    return (
+                      <span key={col} className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                        {cleanName}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
