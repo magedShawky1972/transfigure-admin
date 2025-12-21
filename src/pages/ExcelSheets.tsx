@@ -1153,14 +1153,45 @@ const ExcelSheets = () => {
                                   }}
                                   placeholder="Excel column name"
                                 />
-                                {isJsonWithSplit && (
-                                  <span title="JSON Column">
-                                    <Braces className="h-4 w-4 text-amber-500 shrink-0" />
-                                  </span>
-                                )}
+                                {/* JSON Column Toggle */}
+                                <Button
+                                  variant={jsonConfig?.isJson ? "default" : "outline"}
+                                  size="sm"
+                                  className="shrink-0"
+                                  title={jsonConfig?.isJson ? "JSON Column - Click to disable" : "Mark as JSON Column"}
+                                  onClick={() => {
+                                    setSheetJsonConfigs(prev => {
+                                      const current = prev[excelCol] || { isJson: false, splitKeys: [] };
+                                      if (current.isJson) {
+                                        // Disable JSON - remove config
+                                        const newConfigs = { ...prev };
+                                        delete newConfigs[excelCol];
+                                        // Clear JSON key mappings
+                                        setSheetMappings(prevMappings => {
+                                          const newMappings = { ...prevMappings };
+                                          Object.keys(newMappings).forEach(key => {
+                                            if (key.startsWith(`${excelCol}.`)) {
+                                              delete newMappings[key];
+                                            }
+                                          });
+                                          return newMappings;
+                                        });
+                                        return newConfigs;
+                                      } else {
+                                        // Enable JSON
+                                        return {
+                                          ...prev,
+                                          [excelCol]: { isJson: true, splitKeys: [] }
+                                        };
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <Braces className="h-4 w-4" />
+                                </Button>
                               </div>
                               <p className="text-xs text-muted-foreground mt-1">
-                                Excel Column {isJsonWithSplit && "(JSON - keys mapped below)"}
+                                Excel Column {jsonConfig?.isJson && "(JSON Column)"}
                               </p>
                             </div>
                             <span className="text-muted-foreground">→</span>
@@ -1214,9 +1245,80 @@ const ExcelSheets = () => {
                             </Button>
                           </div>
                           
+                          {/* JSON Keys Input when JSON is enabled but no keys yet */}
+                          {jsonConfig?.isJson && !isJsonWithSplit && (
+                            <div className="ml-6 pl-4 border-l-2 border-amber-500/30">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  placeholder="Enter JSON keys (comma separated, e.g.: key1, key2, key3)"
+                                  className="text-sm"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const input = e.currentTarget;
+                                      const keys = input.value.split(',').map(k => k.trim()).filter(k => k.length > 0);
+                                      if (keys.length > 0) {
+                                        setSheetJsonConfigs(prev => ({
+                                          ...prev,
+                                          [excelCol]: { isJson: true, splitKeys: keys }
+                                        }));
+                                        input.value = '';
+                                      }
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                                    const keys = input.value.split(',').map(k => k.trim()).filter(k => k.length > 0);
+                                    if (keys.length > 0) {
+                                      setSheetJsonConfigs(prev => ({
+                                        ...prev,
+                                        [excelCol]: { isJson: true, splitKeys: keys }
+                                      }));
+                                      input.value = '';
+                                    }
+                                  }}
+                                >
+                                  Add Keys
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Enter the JSON keys to extract and map to table columns
+                              </p>
+                            </div>
+                          )}
+                          
                           {/* JSON Split Keys Mapping */}
                           {isJsonWithSplit && (
                             <div className="ml-6 pl-4 border-l-2 border-amber-500/30 space-y-2">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs text-muted-foreground">JSON Keys to extract:</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => {
+                                    setSheetJsonConfigs(prev => ({
+                                      ...prev,
+                                      [excelCol]: { isJson: true, splitKeys: [] }
+                                    }));
+                                    // Clear existing key mappings
+                                    setSheetMappings(prevMappings => {
+                                      const newMappings = { ...prevMappings };
+                                      Object.keys(newMappings).forEach(key => {
+                                        if (key.startsWith(`${excelCol}.`)) {
+                                          delete newMappings[key];
+                                        }
+                                      });
+                                      return newMappings;
+                                    });
+                                  }}
+                                >
+                                  Clear Keys
+                                </Button>
+                              </div>
                               {jsonConfig.splitKeys.map((key) => {
                                 const mappingKey = `${excelCol}.${key}`;
                                 return (
@@ -1250,10 +1352,68 @@ const ExcelSheets = () => {
                                         </SelectContent>
                                       </Select>
                                     </div>
-                                    <div className="w-8" /> {/* Spacer for alignment */}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        // Remove this specific key
+                                        setSheetJsonConfigs(prev => ({
+                                          ...prev,
+                                          [excelCol]: {
+                                            isJson: true,
+                                            splitKeys: jsonConfig.splitKeys.filter(k => k !== key)
+                                          }
+                                        }));
+                                        // Remove the mapping for this key
+                                        setSheetMappings(prevMappings => {
+                                          const newMappings = { ...prevMappings };
+                                          delete newMappings[mappingKey];
+                                          return newMappings;
+                                        });
+                                      }}
+                                    >
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
                                   </div>
                                 );
                               })}
+                              {/* Add more keys */}
+                              <div className="flex items-center gap-2 mt-2">
+                                <Input
+                                  placeholder="Add more keys (comma separated)"
+                                  className="text-sm"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const input = e.currentTarget;
+                                      const newKeys = input.value.split(',').map(k => k.trim()).filter(k => k.length > 0 && !jsonConfig.splitKeys.includes(k));
+                                      if (newKeys.length > 0) {
+                                        setSheetJsonConfigs(prev => ({
+                                          ...prev,
+                                          [excelCol]: { isJson: true, splitKeys: [...jsonConfig.splitKeys, ...newKeys] }
+                                        }));
+                                        input.value = '';
+                                      }
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                                    const newKeys = input.value.split(',').map(k => k.trim()).filter(k => k.length > 0 && !jsonConfig.splitKeys.includes(k));
+                                    if (newKeys.length > 0) {
+                                      setSheetJsonConfigs(prev => ({
+                                        ...prev,
+                                        [excelCol]: { isJson: true, splitKeys: [...jsonConfig.splitKeys, ...newKeys] }
+                                      }));
+                                      input.value = '';
+                                    }
+                                  }}
+                                >
+                                  Add
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </div>
