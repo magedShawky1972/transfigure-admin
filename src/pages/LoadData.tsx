@@ -229,8 +229,16 @@ const LoadData = () => {
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       // Use range option to skip first row if configured
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: shouldSkipFirstRow ? 1 : 0 });
+      // When skipFirstRow is true, we need to tell xlsx that headers start at row 2 (index 1)
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, shouldSkipFirstRow ? { range: 1 } : {});
       setProgress(12);
+      
+      // Debug log to see what columns were detected
+      if (jsonData.length > 0) {
+        console.log('Detected columns:', Object.keys(jsonData[0] as object));
+        console.log('Skip first row:', shouldSkipFirstRow);
+      }
+      
       setUploadStatus(`Validated file: ${jsonData.length.toLocaleString()} rows found${shouldSkipFirstRow ? ' (skipped first row)' : ''}`);
 
       if (jsonData.length === 0) {
