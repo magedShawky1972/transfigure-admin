@@ -173,17 +173,17 @@ const BrandEdit = () => {
           odoo_category_id: data.odoo_category_id?.toString() || "",
         });
 
-        // Fetch the latest closing balance from shift_brand_balances
+        // Fetch the latest closing balance from shift_brand_balances for closed shifts only
         const { data: balanceData, error: balanceError } = await supabase
           .from("shift_brand_balances")
-          .select("closing_balance, updated_at")
+          .select("closing_balance, shift_session_id, shift_sessions!inner(status, closed_at)")
           .eq("brand_id", brandId)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .single();
+          .eq("shift_sessions.status", "closed")
+          .order("shift_sessions(closed_at)", { ascending: false })
+          .limit(1);
 
-        if (!balanceError && balanceData) {
-          setCurrentBalance(balanceData.closing_balance);
+        if (!balanceError && balanceData && balanceData.length > 0) {
+          setCurrentBalance(balanceData[0].closing_balance);
         }
       }
     } catch (error: any) {
