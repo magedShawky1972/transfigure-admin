@@ -165,6 +165,7 @@ const ExcelSheets = () => {
 
     setIsUploading(true);
     let targetTableName = selectedTable;
+    const autoMappings: Record<string, string> = {};
 
     // If auto create table is enabled, create the table first
     if (autoCreateTable && excelColumns.length > 0) {
@@ -225,7 +226,6 @@ const ExcelSheets = () => {
         targetTableName = tableName;
 
         // Auto-map columns - Excel column to cleaned DB column
-        const autoMappings: Record<string, string> = {};
         columnPairs.forEach(({ excelCol, name }) => {
           autoMappings[excelCol] = name;
         });
@@ -251,6 +251,9 @@ const ExcelSheets = () => {
       setIsCreatingTable(false);
     }
 
+    // Build mappings to save - use autoMappings if auto-created, otherwise use state
+    const mappingsToSave = autoCreateTable ? autoMappings : columnMappings;
+
     try {
       // Save sheet configuration
       const { data: sheetData, error: sheetError } = await supabase
@@ -271,8 +274,8 @@ const ExcelSheets = () => {
       if (sheetError) throw sheetError;
 
       // Save column mappings if any exist
-      if (Object.keys(columnMappings).length > 0 && targetTableName) {
-        const mappings = Object.entries(columnMappings).map(([excelCol, tableCol]) => ({
+      if (Object.keys(mappingsToSave).length > 0 && targetTableName) {
+        const mappings = Object.entries(mappingsToSave).map(([excelCol, tableCol]) => ({
           sheet_id: sheetData.id,
           excel_column: excelCol,
           table_column: tableCol,
