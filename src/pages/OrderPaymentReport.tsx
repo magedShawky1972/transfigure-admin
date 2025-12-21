@@ -66,6 +66,23 @@ interface HyberpayInfo {
   connectorid: string | null;
 }
 
+interface RiyadBankInfo {
+  txn_date: string | null;
+  payment_date: string | null;
+  posting_date: string | null;
+  card_number: string | null;
+  txn_amount: string | null;
+  fee: string | null;
+  vat: string | null;
+  net_amount: string | null;
+  auth_code: string | null;
+  card_type: string | null;
+  txn_number: string | null;
+  payment_number: string | null;
+  acquirer_private_data: string | null;
+  payment_reference: string | null;
+}
+
 const OrderPaymentReport = () => {
   const { language } = useLanguage();
   const isRTL = language === "ar";
@@ -76,6 +93,8 @@ const OrderPaymentReport = () => {
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
   const [hyberpayInfo, setHyberpayInfo] = useState<HyberpayInfo | null>(null);
   const [hyberpayExpanded, setHyberpayExpanded] = useState(true);
+  const [riyadBankInfo, setRiyadBankInfo] = useState<RiyadBankInfo | null>(null);
+  const [riyadBankExpanded, setRiyadBankExpanded] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   
   // Filters
@@ -293,8 +312,18 @@ const OrderPaymentReport = () => {
           .maybeSingle();
 
         setHyberpayInfo(hyberpayData || null);
+
+        // Fetch Riyad Bank info by joining order_payment.paymentrefrence with riyadbankstatement.acquirer_private_data
+        const { data: riyadBankData } = await supabase
+          .from('riyadbankstatement')
+          .select('txn_date, payment_date, posting_date, card_number, txn_amount, fee, vat, net_amount, auth_code, card_type, txn_number, payment_number, acquirer_private_data, payment_reference')
+          .eq('acquirer_private_data', paymentData.paymentrefrence)
+          .maybeSingle();
+
+        setRiyadBankInfo(riyadBankData || null);
       } else {
         setHyberpayInfo(null);
+        setRiyadBankInfo(null);
       }
 
       setDialogOpen(true);
@@ -735,6 +764,121 @@ const OrderPaymentReport = () => {
                       ) : (
                         <p className="text-muted-foreground text-center py-4">
                           {isRTL ? "لا توجد بيانات Hyberpay لهذا الطلب" : "No Hyberpay data available for this order"}
+                        </p>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+
+              {/* Riyad Bank Information */}
+              <Card>
+                <Collapsible open={riyadBankExpanded} onOpenChange={setRiyadBankExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {riyadBankExpanded ? (
+                          <ChevronDown className="h-5 w-5" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5" />
+                        )}
+                        <CreditCard className="h-5 w-5" />
+                        {isRTL ? "معلومات بنك الرياض" : "Riyad Bank Information"}
+                      </CardTitle>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent>
+                      {riyadBankInfo ? (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "تاريخ العملية" : "Txn. Date"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.txn_date || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "تاريخ الدفع" : "Payment Date"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.payment_date || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "تاريخ الترحيل" : "Posting Date"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.posting_date || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "رقم البطاقة" : "Card Number"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.card_number || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "مبلغ العملية" : "Txn. Amount"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.txn_amount || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "الرسوم" : "Fee"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.fee || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "ضريبة القيمة المضافة" : "VAT"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.vat || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "المبلغ الصافي" : "Net Amount"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.net_amount || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "كود التفويض" : "Auth Code"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.auth_code || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "نوع البطاقة" : "Card Type"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.card_type || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "رقم العملية" : "Txn. Number"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.txn_number || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "رقم الدفع" : "Payment Number"}
+                            </Label>
+                            <p className="font-medium">{riyadBankInfo.payment_number || '-'}</p>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "بيانات المستحوذ الخاصة" : "Acquirer Private Data"}
+                            </Label>
+                            <p className="font-medium break-all">{riyadBankInfo.acquirer_private_data || '-'}</p>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "مرجع الدفع" : "Payment Reference"}
+                            </Label>
+                            <p className="font-medium break-all">{riyadBankInfo.payment_reference || '-'}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4">
+                          {isRTL ? "لا توجد بيانات بنك الرياض لهذا الطلب" : "No Riyad Bank data available for this order"}
                         </p>
                       )}
                     </CardContent>
