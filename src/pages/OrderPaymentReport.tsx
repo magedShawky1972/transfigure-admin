@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, X, Printer, FileSpreadsheet } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Search, Filter, X, Printer, FileSpreadsheet, ChevronDown, ChevronRight, CreditCard } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -51,6 +52,20 @@ interface OrderLine {
   cost_sold: number | null;
 }
 
+interface HyberpayInfo {
+  requesttimestamp: string | null;
+  accountnumberlast4: string | null;
+  returncode: string | null;
+  credit: string | null;
+  currency: string | null;
+  result: string | null;
+  statuscode: string | null;
+  reasoncode: string | null;
+  ip: string | null;
+  email: string | null;
+  connectorid: string | null;
+}
+
 const OrderPaymentReport = () => {
   const { language } = useLanguage();
   const isRTL = language === "ar";
@@ -59,6 +74,8 @@ const OrderPaymentReport = () => {
   const [orders, setOrders] = useState<OrderGridItem[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
+  const [hyberpayInfo, setHyberpayInfo] = useState<HyberpayInfo | null>(null);
+  const [hyberpayExpanded, setHyberpayExpanded] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   
   // Filters
@@ -260,6 +277,26 @@ const OrderPaymentReport = () => {
       })) || [];
 
       setOrderLines(lines);
+
+      // Fetch Hyberpay info by joining order_payment.paymentrefrence with hyberpaystatement.transactionid
+      const { data: paymentData } = await supabase
+        .from('order_payment')
+        .select('paymentrefrence')
+        .eq('ordernumber', orderNumber)
+        .maybeSingle();
+
+      if (paymentData?.paymentrefrence) {
+        const { data: hyberpayData } = await supabase
+          .from('hyberpaystatement')
+          .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid')
+          .eq('transactionid', paymentData.paymentrefrence)
+          .maybeSingle();
+
+        setHyberpayInfo(hyberpayData || null);
+      } else {
+        setHyberpayInfo(null);
+      }
+
       setDialogOpen(true);
     } catch (error) {
       console.error('Error fetching order details:', error);
@@ -604,6 +641,105 @@ const OrderPaymentReport = () => {
                     </div>
                   </div>
                 </CardContent>
+              </Card>
+
+              {/* Hyberpay Information - Collapsible */}
+              <Card>
+                <Collapsible open={hyberpayExpanded} onOpenChange={setHyberpayExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {hyberpayExpanded ? (
+                          <ChevronDown className="h-5 w-5" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5" />
+                        )}
+                        <CreditCard className="h-5 w-5" />
+                        {isRTL ? "معلومات Hyberpay" : "Hyberpay Information"}
+                      </CardTitle>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent>
+                      {hyberpayInfo ? (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "وقت الطلب" : "Request Timestamp"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.requesttimestamp || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "آخر 4 أرقام البطاقة" : "Card Last 4 Digits"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.accountnumberlast4 || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "كود الإرجاع" : "Return Code"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.returncode || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "المبلغ" : "Payment"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.credit || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "العملة" : "Currency"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.currency || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "النتيجة" : "Result"}
+                            </Label>
+                            <Badge variant={hyberpayInfo.result === 'ACK' ? 'default' : 'secondary'}>
+                              {hyberpayInfo.result || '-'}
+                            </Badge>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "كود الحالة" : "Status Code"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.statuscode || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "كود السبب" : "Reason Code"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.reasoncode || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "عنوان IP" : "IP"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.ip || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "البريد الإلكتروني" : "Email"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.email || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "معرف الموصل" : "Connector ID"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.connectorid || '-'}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4">
+                          {isRTL ? "لا توجد بيانات Hyberpay لهذا الطلب" : "No Hyberpay data available for this order"}
+                        </p>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
               </Card>
 
               {/* Order Lines */}
