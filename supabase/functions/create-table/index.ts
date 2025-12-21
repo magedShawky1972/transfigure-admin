@@ -84,13 +84,16 @@ Deno.serve(async (req) => {
     });
     if (triggerError) throw triggerError;
 
-    // Save table metadata
+    // Save table metadata (upsert to avoid unique constraint errors)
     const { error: metaError } = await supabase
       .from('generated_tables')
-      .insert({
-        table_name: tableName,
-        columns: columns,
-      });
+      .upsert(
+        {
+          table_name: tableName,
+          columns: columns,
+        },
+        { onConflict: 'table_name' }
+      );
 
     if (metaError) throw metaError;
 
