@@ -290,15 +290,13 @@ const LoadData = () => {
         !normalizedFileColumns.includes(normalizeCol(col))
       );
       
+      // Show info toast for missing columns but continue with NULL values
       if (missingColumns.length > 0) {
-        console.log('Missing columns:', missingColumns);
+        console.log('Missing columns (will be set to NULL):', missingColumns);
         toast({
-          title: "Missing Columns",
-          description: `The following columns are missing in the Excel file: ${missingColumns.join(", ")}`,
-          variant: "destructive",
+          title: "Note: Some columns not found in file",
+          description: `The following columns will be set to NULL: ${missingColumns.join(", ")}`,
         });
-        setIsLoading(false);
-        return;
       }
 
       // Check for extra columns (columns in file but not in mapping)
