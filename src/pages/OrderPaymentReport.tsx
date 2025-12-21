@@ -13,6 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { AdvancedOrderPaymentFilter, FilterCondition } from "@/components/AdvancedOrderPaymentFilter";
 
 interface OrderGridItem {
   order_number: string;
@@ -115,6 +116,7 @@ const OrderPaymentReport = () => {
   const [isDeletedFilter, setIsDeletedFilter] = useState("all");
   const [paymentReferenceFilter, setPaymentReferenceFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<FilterCondition[]>([]);
   
   // Unique values for filters
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
@@ -163,7 +165,88 @@ const OrderPaymentReport = () => {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      // Fetch from purpletransaction grouped by order_number
+      // Check if we have advanced filters for other tables
+      const riyadFilters = advancedFilters.filter(f => f.table === "riyadbankstatement");
+      const hyberpayFilters = advancedFilters.filter(f => f.table === "hyberpaystatement");
+      const purpleFilters = advancedFilters.filter(f => f.table === "purpletransaction");
+
+      let matchingOrderNumbers: Set<string> | null = null;
+
+      // If we have hyberpay filters, get matching transaction IDs first
+      if (hyberpayFilters.length > 0) {
+        let hyberpayQuery = supabase.from('hyberpaystatement').select('transactionid');
+        
+        hyberpayFilters.forEach(filter => {
+          hyberpayQuery = applyFilterToQuery(hyberpayQuery, filter);
+        });
+
+        const { data: hyberpayData } = await hyberpayQuery;
+        const hyberpayTransactionIds = new Set(hyberpayData?.map(h => h.transactionid).filter(Boolean) || []);
+
+        // Get order numbers from order_payment that match these transaction IDs
+        if (hyberpayTransactionIds.size > 0) {
+          const { data: paymentData } = await supabase
+            .from('order_payment')
+            .select('ordernumber, paymentrefrence')
+            .in('paymentrefrence', Array.from(hyberpayTransactionIds));
+
+          matchingOrderNumbers = new Set(paymentData?.map(p => p.ordernumber) || []);
+        } else {
+          matchingOrderNumbers = new Set();
+        }
+      }
+
+      // If we have riyad bank filters, get matching order numbers
+      if (riyadFilters.length > 0) {
+        let riyadQuery = supabase.from('riyadbankstatement').select('txn_number');
+        
+        riyadFilters.forEach(filter => {
+          riyadQuery = applyFilterToQuery(riyadQuery, filter);
+        });
+
+        const { data: riyadData } = await riyadQuery;
+        const riyadTxnNumbers = new Set(riyadData?.map(r => r.txn_number).filter(Boolean) || []);
+
+        // Get transaction receipts from hyberpay that match these txn numbers
+        if (riyadTxnNumbers.size > 0) {
+          const { data: hyberpayReceipts } = await supabase
+            .from('hyberpaystatement')
+            .select('transactionid, transaction_receipt')
+            .in('transaction_receipt', Array.from(riyadTxnNumbers));
+
+          const transactionIds = new Set(hyberpayReceipts?.map(h => h.transactionid).filter(Boolean) || []);
+
+          // Get order numbers from order_payment
+          if (transactionIds.size > 0) {
+            const { data: paymentData } = await supabase
+              .from('order_payment')
+              .select('ordernumber')
+              .in('paymentrefrence', Array.from(transactionIds));
+
+            const riyadOrderNumbers = new Set(paymentData?.map(p => p.ordernumber) || []);
+            
+            if (matchingOrderNumbers) {
+              // Intersection with existing matches
+              matchingOrderNumbers = new Set([...matchingOrderNumbers].filter(x => riyadOrderNumbers.has(x)));
+            } else {
+              matchingOrderNumbers = riyadOrderNumbers;
+            }
+          } else {
+            matchingOrderNumbers = new Set();
+          }
+        } else {
+          matchingOrderNumbers = new Set();
+        }
+      }
+
+      // If we have filters and no matching orders, return empty
+      if (matchingOrderNumbers !== null && matchingOrderNumbers.size === 0) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch from purpletransaction
       let query = supabase
         .from('purpletransaction')
         .select('order_number, created_at_date, total, payment_method, payment_type, order_status, is_deleted')
@@ -171,6 +254,16 @@ const OrderPaymentReport = () => {
         .lte('created_at_date', endDate)
         .not('order_number', 'is', null)
         .neq('payment_method', 'point');
+
+      // Apply purple transaction advanced filters
+      purpleFilters.forEach(filter => {
+        query = applyFilterToQuery(query, filter);
+      });
+
+      // If we have matching order numbers from other tables, filter by them
+      if (matchingOrderNumbers !== null) {
+        query = query.in('order_number', Array.from(matchingOrderNumbers));
+      }
 
       const { data: transactions, error } = await query;
 
@@ -216,7 +309,7 @@ const OrderPaymentReport = () => {
 
       let ordersArray = Array.from(orderMap.values());
 
-      // Apply filters
+      // Apply basic filters
       if (orderNumberFilter) {
         ordersArray = ordersArray.filter(o => o.order_number.toLowerCase().includes(orderNumberFilter.toLowerCase()));
       }
@@ -253,6 +346,41 @@ const OrderPaymentReport = () => {
       toast.error(isRTL ? 'خطأ في جلب البيانات' : 'Error fetching data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyFilterToQuery = (query: any, filter: FilterCondition) => {
+    const { field, operator, value } = filter;
+    
+    switch (operator) {
+      case "eq":
+        return query.eq(field, value);
+      case "neq":
+        return query.neq(field, value);
+      case "gt":
+        return query.gt(field, parseFloat(value) || 0);
+      case "gte":
+        return query.gte(field, parseFloat(value) || 0);
+      case "lt":
+        return query.lt(field, parseFloat(value) || 0);
+      case "lte":
+        return query.lte(field, parseFloat(value) || 0);
+      case "ilike":
+        return query.ilike(field, `%${value}%`);
+      case "starts":
+        return query.ilike(field, `${value}%`);
+      case "ends":
+        return query.ilike(field, `%${value}`);
+      case "is_null":
+        return query.is(field, null);
+      case "not_null":
+        return query.not(field, 'is', null);
+      case "is_true":
+        return query.eq(field, true);
+      case "is_false":
+        return query.eq(field, false);
+      default:
+        return query;
     }
   };
 
@@ -464,6 +592,15 @@ const OrderPaymentReport = () => {
               <Filter className="h-4 w-4 mr-2" />
               {isRTL ? "فلاتر" : "Filters"}
             </Button>
+            <AdvancedOrderPaymentFilter
+              filters={advancedFilters}
+              onFiltersChange={setAdvancedFilters}
+              onApply={fetchOrders}
+              onClear={() => {
+                setAdvancedFilters([]);
+                fetchOrders();
+              }}
+            />
             {showFilters && (
               <Button variant="ghost" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-2" />
