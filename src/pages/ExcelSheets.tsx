@@ -372,25 +372,85 @@ const ExcelSheets = () => {
 
       if (sheetError) throw sheetError;
 
-      // Save column mappings if any exist (including JSON config)
-      if (Object.keys(mappingsToSave).length > 0 && targetTableName) {
-        const mappings = Object.entries(mappingsToSave).map(([excelCol, tableCol]) => {
-          const jsonConfig = jsonColumnConfigs[excelCol];
-          return {
+      // Save column mappings (including JSON split config)
+      if (targetTableName) {
+        const mappings: any[] = [];
+
+        // Regular column mappings
+        Object.entries(mappingsToSave).forEach(([excelCol, tableCol]) => {
+          const colName = String(excelCol).trim();
+          const tableColTrim = String(tableCol ?? "").trim();
+          if (!colName || !tableColTrim) return;
+
+          const jsonConfig = jsonColumnConfigs[colName];
+
+          // If it's a JSON column with split keys, store key->column mapping JSON
+          if (jsonConfig?.isJson && jsonConfig.splitKeys.length > 0) {
+            const keyToColumnMap: Record<string, string> = {};
+            jsonConfig.splitKeys.forEach((key) => {
+              const cleanName = key
+                .toLowerCase()
+                .replace(/[^a-z0-9_]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_|_$/g, "");
+              keyToColumnMap[key] = cleanName;
+            });
+
+            mappings.push({
+              sheet_id: sheetData.id,
+              excel_column: colName,
+              table_column: JSON.stringify(keyToColumnMap),
+              data_type: "text",
+              is_json_column: true,
+              json_split_keys: jsonConfig.splitKeys,
+            });
+            return;
+          }
+
+          // Regular mapping
+          mappings.push({
             sheet_id: sheetData.id,
-            excel_column: excelCol,
-            table_column: tableCol,
+            excel_column: colName,
+            table_column: tableColTrim,
             data_type: "text",
-            is_json_column: jsonConfig?.isJson || false,
-            json_split_keys: jsonConfig?.isJson && jsonConfig.splitKeys.length > 0 ? jsonConfig.splitKeys : null,
-          };
+            is_json_column: false,
+            json_split_keys: null,
+          });
         });
 
-        const { error: mappingError } = await supabase
-          .from("excel_column_mappings")
-          .insert(mappings);
+        // JSON columns may not be present in mappingsToSave (auto-create flow), so ensure they're saved
+        Object.entries(jsonColumnConfigs).forEach(([excelCol, cfg]) => {
+          const colName = String(excelCol).trim();
+          if (!cfg?.isJson || cfg.splitKeys.length === 0) return;
+          if (mappings.some((m) => m.excel_column === colName && m.is_json_column)) return;
 
-        if (mappingError) throw mappingError;
+          const keyToColumnMap: Record<string, string> = {};
+          cfg.splitKeys.forEach((key) => {
+            const cleanName = key
+              .toLowerCase()
+              .replace(/[^a-z0-9_]/g, "_")
+              .replace(/_+/g, "_")
+              .replace(/^_|_$/g, "");
+            keyToColumnMap[key] = cleanName;
+          });
+
+          mappings.push({
+            sheet_id: sheetData.id,
+            excel_column: colName,
+            table_column: JSON.stringify(keyToColumnMap),
+            data_type: "text",
+            is_json_column: true,
+            json_split_keys: cfg.splitKeys,
+          });
+        });
+
+        if (mappings.length > 0) {
+          const { error: mappingError } = await supabase
+            .from("excel_column_mappings")
+            .insert(mappings);
+
+          if (mappingError) throw mappingError;
+        }
       }
 
       toast({
