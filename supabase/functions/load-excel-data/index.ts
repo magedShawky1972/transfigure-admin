@@ -41,10 +41,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the column mappings
+    // Get the column mappings (including JSON config)
     const { data: mappings, error: mappingsError } = await supabase
       .from('excel_column_mappings')
-      .select('excel_column, table_column, data_type')
+      .select('excel_column, table_column, data_type, is_json_column, json_split_keys')
       .eq('sheet_id', sheetId);
 
     if (mappingsError || !mappings || mappings.length === 0) {
@@ -67,9 +67,15 @@ Deno.serve(async (req) => {
         excel_column: m.excel_column,
         table_column: (m.table_column || '').toLowerCase().trim(),
         data_type: (m.data_type || '').toLowerCase().trim(),
+        is_json_column: m.is_json_column || false,
+        json_split_keys: m.json_split_keys || [],
       }));
 
-    console.log(`Prepared ${validMappings.length} column mappings (schema validation skipped)`);
+    // Find JSON columns that need to be split
+    const jsonMappings = mappings
+      .filter((m) => m.is_json_column && m.json_split_keys && m.json_split_keys.length > 0);
+    
+    console.log(`Prepared ${validMappings.length} column mappings, ${jsonMappings.length} JSON columns to split`);
 
     // Transform the data based on valid mappings
     const transformedData = data.map((row: any) => {
@@ -92,6 +98,41 @@ Deno.serve(async (req) => {
             transformedRow[targetColumn] = excelValue;
           } else {
             transformedRow[targetColumn] = typeof excelValue === 'string' ? excelValue : String(excelValue);
+          }
+        }
+      });
+      
+      // Process JSON columns - split them into separate columns
+      jsonMappings.forEach((jsonMapping) => {
+        const excelValue = row[jsonMapping.excel_column];
+        if (excelValue && typeof excelValue === 'string') {
+          try {
+            const trimmed = excelValue.trim();
+            if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+                (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+              const parsed = JSON.parse(trimmed);
+              
+              // Extract each specified key into its own column
+              if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) && jsonMapping.json_split_keys) {
+                jsonMapping.json_split_keys.forEach((key: string) => {
+                  // Convert JSON key to clean column name
+                  const cleanColName = key
+                    .toLowerCase()
+                    .replace(/[^a-z0-9_]/g, '_')
+                    .replace(/_+/g, '_')
+                    .replace(/^_|_$/g, '');
+                  
+                  if (parsed[key] !== undefined) {
+                    // Store the value as string (or original type if needed)
+                    const value = parsed[key];
+                    transformedRow[cleanColName] = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                  }
+                });
+              }
+            }
+          } catch (e) {
+            // Not valid JSON, skip
+            console.warn(`Failed to parse JSON from column ${jsonMapping.excel_column}:`, e);
           }
         }
       });
