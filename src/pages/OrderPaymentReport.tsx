@@ -423,7 +423,7 @@ const OrderPaymentReport = () => {
     }
   };
 
-  const handleOrderClick = async (orderNumber: string) => {
+  const handleOrderClick = async (orderNumber: string, transactionId?: string) => {
     try {
       // Fetch order header details
       const { data: headerData, error: headerError } = await supabase
@@ -472,42 +472,37 @@ const OrderPaymentReport = () => {
 
       setOrderLines(lines);
 
-      // Fetch Hyberpay info by joining order_payment.paymentrefrence with hyberpaystatement.transactionid
-      const { data: paymentData } = await supabase
-        .from('order_payment')
-        .select('paymentrefrence')
-        .eq('ordernumber', orderNumber)
-        .maybeSingle();
+      // Use transactionId directly if available, otherwise lookup from order_payment
+      let paymentRef = transactionId || null;
+      
+      if (!paymentRef) {
+        const { data: paymentData } = await supabase
+          .from('order_payment')
+          .select('paymentrefrence')
+          .eq('ordernumber', orderNumber)
+          .maybeSingle();
+        paymentRef = paymentData?.paymentrefrence || null;
+      }
 
-      if (paymentData?.paymentrefrence) {
-        setPaymentRefrence(paymentData.paymentrefrence);
+      if (paymentRef) {
+        setPaymentRefrence(paymentRef);
         const { data: hyberpayData } = await supabase
           .from('hyberpaystatement')
           .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid, response_acquirermessage, riskfraudstatuscode, transaction_receipt, clearinginstitutename, transaction_acquirer_settlementdate, acquirerresponse, riskfrauddescription')
-          .eq('transactionid', paymentData.paymentrefrence)
+          .eq('transactionid', paymentRef)
           .maybeSingle();
 
         setHyberpayInfo(hyberpayData || null);
 
-        // Fetch Riyad Bank info by joining hyberpaystatement.transaction_receipt with riyadbankstatement.txn_number
-        if (hyberpayData) {
-          const { data: hyberpayWithReceipt } = await supabase
-            .from('hyberpaystatement')
-            .select('transaction_receipt')
-            .eq('transactionid', paymentData.paymentrefrence)
+        // Fetch Riyad Bank info using transaction_receipt from hyberpayData
+        if (hyberpayData?.transaction_receipt) {
+          const { data: riyadBankData } = await supabase
+            .from('riyadbankstatement')
+            .select('txn_date, payment_date, posting_date, card_number, txn_amount, fee, vat, net_amount, auth_code, card_type, txn_number, payment_number, acquirer_private_data, payment_reference')
+            .eq('txn_number', hyberpayData.transaction_receipt)
             .maybeSingle();
 
-          if (hyberpayWithReceipt?.transaction_receipt) {
-            const { data: riyadBankData } = await supabase
-              .from('riyadbankstatement')
-              .select('txn_date, payment_date, posting_date, card_number, txn_amount, fee, vat, net_amount, auth_code, card_type, txn_number, payment_number, acquirer_private_data, payment_reference')
-              .eq('txn_number', hyberpayWithReceipt.transaction_receipt)
-              .maybeSingle();
-
-            setRiyadBankInfo(riyadBankData || null);
-          } else {
-            setRiyadBankInfo(null);
-          }
+          setRiyadBankInfo(riyadBankData || null);
         } else {
           setRiyadBankInfo(null);
         }
@@ -552,8 +547,8 @@ const OrderPaymentReport = () => {
   // Combined click handler for rows
   const handleRowClick = (order: OrderGridItem) => {
     if (order.order_number) {
-      // Has order number - use normal flow
-      handleOrderClick(order.order_number);
+      // Has order number - pass transactionid for direct Hyberpay lookup
+      handleOrderClick(order.order_number, order.transactionid);
     } else if (order.result === 'NOK' && order.transactionid) {
       // NOK transaction without order - show Hyberpay details
       handleNokTransactionClick(order.transactionid);
