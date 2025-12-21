@@ -5,6 +5,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Convert Excel serial date to ISO timestamp string
+function convertExcelDate(value: any): string | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  
+  // If it's already a valid date string, return as-is
+  if (typeof value === 'string') {
+    // Check if it looks like an ISO date or common date format
+    const datePattern = /^\d{4}-\d{2}-\d{2}|^\d{2}[\/\-]\d{2}[\/\-]\d{4}/;
+    if (datePattern.test(value)) {
+      return value;
+    }
+    // Try to parse as number (Excel serial)
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      return value; // Return original if not a number
+    }
+    value = num;
+  }
+  
+  if (typeof value === 'number') {
+    // Excel serial date: days since 1899-12-30 (Excel incorrectly treats 1900 as leap year)
+    // Serial number 1 = January 1, 1900
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // December 30, 1899
+    const days = Math.floor(value);
+    const fraction = value - days;
+    
+    // Calculate the date
+    const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+    
+    // Add the time portion (fraction of day)
+    const totalSeconds = Math.round(fraction * 24 * 60 * 60);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    date.setUTCHours(hours, minutes, seconds);
+    
+    return date.toISOString();
+  }
+  
+  return String(value);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -124,8 +169,8 @@ Deno.serve(async (req) => {
             const num = typeof excelValue === 'string' ? parseFloat(excelValue.replace(/[,\s]/g, '')) : Number(excelValue);
             transformedRow[targetColumn] = isNaN(num) ? null : num;
           } else if (dtype.includes('timestamp') || dtype.includes('date')) {
-            // Keep as provided; Edge Function relies on database to parse string timestamps
-            transformedRow[targetColumn] = excelValue;
+            // Convert Excel serial date numbers to proper ISO timestamps
+            transformedRow[targetColumn] = convertExcelDate(excelValue);
           } else {
             transformedRow[targetColumn] = typeof excelValue === 'string' ? excelValue : String(excelValue);
           }
