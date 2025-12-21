@@ -486,23 +486,24 @@ const OrderPaymentReport = () => {
 
       if (paymentRef) {
         setPaymentRefrence(paymentRef);
-        const { data: hyberpayData } = await supabase
+        const { data: hyberpayDataArr } = await supabase
           .from('hyberpaystatement')
           .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid, response_acquirermessage, riskfraudstatuscode, transaction_receipt, clearinginstitutename, transaction_acquirer_settlementdate, acquirerresponse, riskfrauddescription')
           .eq('transactionid', paymentRef)
-          .maybeSingle();
+          .limit(1);
 
-        setHyberpayInfo(hyberpayData || null);
+        const hyberpayData = hyberpayDataArr?.[0] || null;
+        setHyberpayInfo(hyberpayData);
 
-        // Fetch Riyad Bank info using transaction_receipt from hyberpayData
+        // Fetch Riyad Bank info using transaction_receipt from hyberpayData (join: riyadbankstatement.txn_number = hyberpaystatement.transaction_receipt)
         if (hyberpayData?.transaction_receipt) {
-          const { data: riyadBankData } = await supabase
+          const { data: riyadBankDataArr } = await supabase
             .from('riyadbankstatement')
             .select('txn_date, payment_date, posting_date, card_number, txn_amount, fee, vat, net_amount, auth_code, card_type, txn_number, payment_number, acquirer_private_data, payment_reference')
             .eq('txn_number', hyberpayData.transaction_receipt)
-            .maybeSingle();
+            .limit(1);
 
-          setRiyadBankInfo(riyadBankData || null);
+          setRiyadBankInfo(riyadBankDataArr?.[0] || null);
         } else {
           setRiyadBankInfo(null);
         }
@@ -529,13 +530,13 @@ const OrderPaymentReport = () => {
       setRiyadBankInfo(null);
 
       // Fetch Hyberpay info directly by transactionid
-      const { data: hyberpayData } = await supabase
+      const { data: hyberpayDataArr } = await supabase
         .from('hyberpaystatement')
         .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid, response_acquirermessage, riskfraudstatuscode, transaction_receipt, clearinginstitutename, transaction_acquirer_settlementdate, acquirerresponse, riskfrauddescription')
         .eq('transactionid', transactionId)
-        .maybeSingle();
+        .limit(1);
 
-      setHyberpayInfo(hyberpayData || null);
+      setHyberpayInfo(hyberpayDataArr?.[0] || null);
 
       setDialogOpen(true);
     } catch (error) {
