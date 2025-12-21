@@ -19,6 +19,7 @@ const ExcelSheets = () => {
   const [sheetName, setSheetName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [excelColumns, setExcelColumns] = useState<string[]>([]);
+  const [allExcelRows, setAllExcelRows] = useState<string[][]>([]);
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({});
   const [availableTables, setAvailableTables] = useState<any[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>("");
@@ -93,10 +94,13 @@ const ExcelSheets = () => {
       const arrayBuffer = await selectedFile.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer);
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as string[][];
       
       if (jsonData.length > 0) {
-        const headers = jsonData[0] as string[];
+        setAllExcelRows(jsonData);
+        // Use skipFirstRow to determine which row to use as headers
+        const headerRowIndex = skipFirstRow && jsonData.length > 1 ? 1 : 0;
+        const headers = jsonData[headerRowIndex] as string[];
         setExcelColumns(headers);
         
         toast({
@@ -112,6 +116,15 @@ const ExcelSheets = () => {
       });
     }
   };
+
+  // Update columns when skipFirstRow changes
+  useEffect(() => {
+    if (allExcelRows.length > 0) {
+      const headerRowIndex = skipFirstRow && allExcelRows.length > 1 ? 1 : 0;
+      const headers = allExcelRows[headerRowIndex] as string[];
+      setExcelColumns(headers);
+    }
+  }, [skipFirstRow, allExcelRows]);
 
   const handleTableSelect = (tableName: string) => {
     setSelectedTable(tableName);
@@ -268,6 +281,7 @@ const ExcelSheets = () => {
       setSheetName("");
       setFile(null);
       setExcelColumns([]);
+      setAllExcelRows([]);
       setColumnMappings({});
       setSelectedTable("");
       setCheckCustomer(true);
