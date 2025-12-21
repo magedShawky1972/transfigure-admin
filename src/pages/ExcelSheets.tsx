@@ -41,6 +41,8 @@ const ExcelSheets = () => {
   const [editCheckCustomer, setEditCheckCustomer] = useState(true);
   const [editCheckBrand, setEditCheckBrand] = useState(true);
   const [editCheckProduct, setEditCheckProduct] = useState(true);
+  const [autoCreateTable, setAutoCreateTable] = useState(false);
+  const [isCreatingTable, setIsCreatingTable] = useState(false);
 
   useEffect(() => {
     loadSheets();
@@ -128,25 +130,91 @@ const ExcelSheets = () => {
       return;
     }
 
-    if (availableTables.length === 0) {
+    if (!autoCreateTable && availableTables.length === 0) {
       toast({
         title: "No Tables Available",
-        description: "Please create a database table first using the Table Generator",
+        description: "Please create a database table first using the Table Generator or enable 'Auto Create Table'",
         variant: "destructive",
       });
       return;
     }
 
-    if (!selectedTable) {
+    if (!autoCreateTable && !selectedTable) {
       toast({
         title: "Validation Error",
-        description: "Please select a target table for mapping",
+        description: "Please select a target table for mapping or enable 'Auto Create Table'",
         variant: "destructive",
       });
       return;
     }
 
     setIsUploading(true);
+    let targetTableName = selectedTable;
+
+    // If auto create table is enabled, create the table first
+    if (autoCreateTable && excelColumns.length > 0) {
+      setIsCreatingTable(true);
+      try {
+        // Prepare columns for table creation - convert Excel column names to valid DB column names
+        const tableColumns = excelColumns.map((colName) => {
+          // Convert column name to snake_case and remove special characters
+          const cleanName = String(colName)
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
+          
+          return {
+            name: cleanName || `column_${Math.random().toString(36).substr(2, 5)}`,
+            type: 'text',
+            nullable: true,
+          };
+        });
+
+        // Use sheet_code as table name (cleaned)
+        const tableName = sheetCode
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_|_$/g, '');
+
+        // Call the create-table edge function
+        const { data: createResult, error: createError } = await supabase.functions.invoke('create-table', {
+          body: { tableName, columns: tableColumns }
+        });
+
+        if (createError) throw createError;
+        if (createResult?.error) throw new Error(createResult.error);
+
+        targetTableName = tableName;
+
+        // Auto-map columns - Excel column to cleaned DB column
+        const autoMappings: Record<string, string> = {};
+        excelColumns.forEach((excelCol, index) => {
+          autoMappings[excelCol] = tableColumns[index].name;
+        });
+        setColumnMappings(autoMappings);
+
+        // Refresh available tables
+        await loadAvailableTables();
+
+        toast({
+          title: "Table Created",
+          description: `Table '${tableName}' created with ${tableColumns.length} columns`,
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error Creating Table",
+          description: error.message,
+          variant: "destructive",
+        });
+        setIsCreatingTable(false);
+        setIsUploading(false);
+        return;
+      }
+      setIsCreatingTable(false);
+    }
 
     try {
       // Save sheet configuration
@@ -156,7 +224,7 @@ const ExcelSheets = () => {
           sheet_code: sheetCode,
           sheet_name: sheetName,
           file_name: file.name,
-          target_table: selectedTable,
+          target_table: targetTableName,
           check_customer: checkCustomer,
           check_brand: checkBrand,
           check_product: checkProduct,
@@ -167,7 +235,7 @@ const ExcelSheets = () => {
       if (sheetError) throw sheetError;
 
       // Save column mappings if any exist
-      if (Object.keys(columnMappings).length > 0 && selectedTable) {
+      if (Object.keys(columnMappings).length > 0 && targetTableName) {
         const mappings = Object.entries(columnMappings).map(([excelCol, tableCol]) => ({
           sheet_id: sheetData.id,
           excel_column: excelCol,
@@ -197,6 +265,7 @@ const ExcelSheets = () => {
       setCheckCustomer(true);
       setCheckBrand(true);
       setCheckProduct(true);
+      setAutoCreateTable(false);
       loadSheets();
     } catch (error: any) {
       toast({
@@ -500,13 +569,36 @@ const ExcelSheets = () => {
           </div>
 
           {excelColumns.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="auto-create-table" 
+                  checked={autoCreateTable}
+                  onCheckedChange={(checked) => {
+                    setAutoCreateTable(checked === true);
+                    if (checked === true) {
+                      setSelectedTable("");
+                    }
+                  }}
+                />
+                <Label htmlFor="auto-create-table" className="text-sm font-medium cursor-pointer">
+                  Auto Create Table
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground ml-6">
+                Automatically create a new database table using the sheet code as the table name and auto-map all Excel columns
+              </p>
+            </div>
+          )}
+
+          {excelColumns.length > 0 && !autoCreateTable && (
             <>
               <div className="space-y-2">
                 <Label>Select Target Table</Label>
                 {availableTables.length === 0 ? (
                   <div className="p-4 border rounded-lg bg-muted/50">
                     <p className="text-sm text-muted-foreground">
-                      No database tables available. Please create a table first using the Table Generator page.
+                      No database tables available. Please create a table first using the Table Generator page or enable 'Auto Create Table'.
                     </p>
                   </div>
                 ) : (
@@ -563,13 +655,33 @@ const ExcelSheets = () => {
             </>
           )}
 
+          {excelColumns.length > 0 && autoCreateTable && (
+            <div className="p-4 border rounded-lg bg-primary/5 border-primary/20">
+              <p className="text-sm font-medium text-primary mb-2">Auto Create Table Preview</p>
+              <p className="text-sm text-muted-foreground mb-2">
+                Table name: <span className="font-mono font-medium">{sheetCode.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')}</span>
+              </p>
+              <p className="text-sm text-muted-foreground mb-2">Columns to create ({excelColumns.length}):</p>
+              <div className="flex flex-wrap gap-2">
+                {excelColumns.map((col) => {
+                  const cleanName = String(col).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+                  return (
+                    <span key={col} className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                      {cleanName}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="pt-4">
             <Button 
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
               onClick={handleSaveConfiguration}
-              disabled={isUploading}
+              disabled={isUploading || isCreatingTable}
             >
-              {isUploading ? "Saving..." : "Save Configuration"}
+              {isCreatingTable ? "Creating Table..." : isUploading ? "Saving..." : "Save Configuration"}
             </Button>
           </div>
         </CardContent>
