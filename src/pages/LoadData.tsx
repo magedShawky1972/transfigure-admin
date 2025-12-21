@@ -38,6 +38,7 @@ interface ExcelSheet {
   check_customer: boolean;
   check_brand: boolean;
   check_product: boolean;
+  skip_first_row: boolean;
 }
 
 const LoadData = () => {
@@ -111,7 +112,7 @@ const LoadData = () => {
   const loadAvailableSheets = async () => {
     const { data, error } = await supabase
       .from("excel_sheets")
-      .select("id, sheet_name, sheet_code, target_table, check_customer, check_brand, check_product")
+      .select("id, sheet_name, sheet_code, target_table, check_customer, check_brand, check_product, skip_first_row")
       .eq("status", "active");
 
     if (error) {
@@ -216,6 +217,10 @@ const LoadData = () => {
     setUploadStatus("Reading Excel file...");
 
     try {
+      // Get selected sheet config for skip_first_row setting
+      const sheetConfig = availableSheets.find(s => s.id === selectedSheet);
+      const shouldSkipFirstRow = sheetConfig?.skip_first_row ?? false;
+
       // Read the Excel file
       const data = await selectedFile.arrayBuffer();
       setProgress(5);
@@ -223,9 +228,10 @@ const LoadData = () => {
 
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      // Use range option to skip first row if configured
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: shouldSkipFirstRow ? 1 : 0 });
       setProgress(12);
-      setUploadStatus(`Validated file: ${jsonData.length.toLocaleString()} rows found`);
+      setUploadStatus(`Validated file: ${jsonData.length.toLocaleString()} rows found${shouldSkipFirstRow ? ' (skipped first row)' : ''}`);
 
       if (jsonData.length === 0) {
         toast({
