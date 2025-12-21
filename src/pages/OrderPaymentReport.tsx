@@ -315,14 +315,28 @@ const OrderPaymentReport = () => {
 
         setHyberpayInfo(hyberpayData || null);
 
-        // Fetch Riyad Bank info by joining order_payment.paymentrefrence with riyadbankstatement.acquirer_private_data
-        const { data: riyadBankData } = await supabase
-          .from('riyadbankstatement')
-          .select('txn_date, payment_date, posting_date, card_number, txn_amount, fee, vat, net_amount, auth_code, card_type, txn_number, payment_number, acquirer_private_data, payment_reference')
-          .eq('acquirer_private_data', paymentData.paymentrefrence)
-          .maybeSingle();
+        // Fetch Riyad Bank info by joining hyberpaystatement.transaction_receipt with riyadbankstatement.txn_number
+        if (hyberpayData) {
+          const { data: hyberpayWithReceipt } = await supabase
+            .from('hyberpaystatement')
+            .select('transaction_receipt')
+            .eq('transactionid', paymentData.paymentrefrence)
+            .maybeSingle();
 
-        setRiyadBankInfo(riyadBankData || null);
+          if (hyberpayWithReceipt?.transaction_receipt) {
+            const { data: riyadBankData } = await supabase
+              .from('riyadbankstatement')
+              .select('txn_date, payment_date, posting_date, card_number, txn_amount, fee, vat, net_amount, auth_code, card_type, txn_number, payment_number, acquirer_private_data, payment_reference')
+              .eq('txn_number', hyberpayWithReceipt.transaction_receipt)
+              .maybeSingle();
+
+            setRiyadBankInfo(riyadBankData || null);
+          } else {
+            setRiyadBankInfo(null);
+          }
+        } else {
+          setRiyadBankInfo(null);
+        }
       } else {
         setPaymentRefrence(null);
         setHyberpayInfo(null);
