@@ -538,6 +538,27 @@ const ExcelSheets = () => {
           </div>
 
           <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                id="auto-create-table" 
+                checked={autoCreateTable}
+                onCheckedChange={(checked) => {
+                  setAutoCreateTable(checked === true);
+                  if (checked === true) {
+                    setSelectedTable("");
+                  }
+                }}
+              />
+              <Label htmlFor="auto-create-table" className="text-sm font-medium cursor-pointer">
+                Auto Create Table
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground ml-6">
+              Automatically create a new database table using the sheet code as the table name and auto-map all Excel columns
+            </p>
+          </div>
+
+          <div className="space-y-3">
             <Label>Validation Options</Label>
             <p className="text-sm text-muted-foreground">Select which validations to perform during data loading</p>
             <div className="flex flex-wrap gap-6">
@@ -567,29 +588,6 @@ const ExcelSheets = () => {
               </div>
             </div>
           </div>
-
-          {excelColumns.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  id="auto-create-table" 
-                  checked={autoCreateTable}
-                  onCheckedChange={(checked) => {
-                    setAutoCreateTable(checked === true);
-                    if (checked === true) {
-                      setSelectedTable("");
-                    }
-                  }}
-                />
-                <Label htmlFor="auto-create-table" className="text-sm font-medium cursor-pointer">
-                  Auto Create Table
-                </Label>
-              </div>
-              <p className="text-sm text-muted-foreground ml-6">
-                Automatically create a new database table using the sheet code as the table name and auto-map all Excel columns
-              </p>
-            </div>
-          )}
 
           {excelColumns.length > 0 && !autoCreateTable && (
             <>
