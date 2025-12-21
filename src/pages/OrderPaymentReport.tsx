@@ -713,23 +713,23 @@ const OrderPaymentReport = () => {
                             </Label>
                             <p className="font-medium">{hyberpayInfo.reasoncode || '-'}</p>
                           </div>
-                          <div>
+                          <div className="md:col-span-2">
                             <Label className="text-muted-foreground">
                               {isRTL ? "عنوان IP" : "IP"}
                             </Label>
-                            <p className="font-medium">{hyberpayInfo.ip || '-'}</p>
+                            <p className="font-medium break-all">{hyberpayInfo.ip || '-'}</p>
                           </div>
-                          <div>
+                          <div className="md:col-span-2">
                             <Label className="text-muted-foreground">
                               {isRTL ? "البريد الإلكتروني" : "Email"}
                             </Label>
-                            <p className="font-medium">{hyberpayInfo.email || '-'}</p>
+                            <p className="font-medium break-all">{hyberpayInfo.email || '-'}</p>
                           </div>
-                          <div>
+                          <div className="md:col-span-2">
                             <Label className="text-muted-foreground">
                               {isRTL ? "معرف الموصل" : "Connector ID"}
                             </Label>
-                            <p className="font-medium">{hyberpayInfo.connectorid || '-'}</p>
+                            <p className="font-medium break-all">{hyberpayInfo.connectorid || '-'}</p>
                           </div>
                         </div>
                       ) : (
