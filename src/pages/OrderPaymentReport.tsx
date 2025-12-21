@@ -24,6 +24,8 @@ interface OrderGridItem {
   order_status: string | null;
   is_deleted: boolean;
   payment_reference: string | null;
+  card_number: string | null;
+  transaction_receipt: string | null;
 }
 
 interface OrderDetail {
@@ -282,7 +284,9 @@ const OrderPaymentReport = () => {
             payment_type: t.payment_type,
             order_status: t.order_status,
             is_deleted: t.is_deleted,
-            payment_reference: null
+            payment_reference: null,
+            card_number: null,
+            transaction_receipt: null
           });
         }
         const existing = orderMap.get(t.order_number!);
@@ -291,7 +295,7 @@ const OrderPaymentReport = () => {
         }
       });
 
-      // Get payment references
+      // Get payment references and hyberpay/riyad data
       const orderNumbers = Array.from(orderMap.keys());
       if (orderNumbers.length > 0) {
         const { data: payments } = await supabase
@@ -299,12 +303,64 @@ const OrderPaymentReport = () => {
           .select('ordernumber, paymentrefrence')
           .in('ordernumber', orderNumbers);
 
+        const paymentRefs: string[] = [];
         payments?.forEach(p => {
           const order = orderMap.get(p.ordernumber);
           if (order) {
             order.payment_reference = p.paymentrefrence;
+            if (p.paymentrefrence) {
+              paymentRefs.push(p.paymentrefrence);
+            }
           }
         });
+
+        // Fetch hyberpay data for transaction_receipt
+        if (paymentRefs.length > 0) {
+          const { data: hyberpayData } = await supabase
+            .from('hyberpaystatement')
+            .select('transactionid, transaction_receipt')
+            .in('transactionid', paymentRefs);
+
+          const hyberpayMap = new Map<string, string>();
+          const receiptToTransactionMap = new Map<string, string>();
+          hyberpayData?.forEach(h => {
+            if (h.transactionid && h.transaction_receipt) {
+              hyberpayMap.set(h.transactionid, h.transaction_receipt);
+              receiptToTransactionMap.set(h.transaction_receipt, h.transactionid);
+            }
+          });
+
+          // Update orders with transaction_receipt
+          payments?.forEach(p => {
+            const order = orderMap.get(p.ordernumber);
+            if (order && p.paymentrefrence) {
+              order.transaction_receipt = hyberpayMap.get(p.paymentrefrence) || null;
+            }
+          });
+
+          // Fetch riyad bank data for card_number using transaction_receipt -> txn_number
+          const transactionReceipts = Array.from(hyberpayMap.values()).filter(Boolean);
+          if (transactionReceipts.length > 0) {
+            const { data: riyadData } = await supabase
+              .from('riyadbankstatement')
+              .select('txn_number, card_number')
+              .in('txn_number', transactionReceipts);
+
+            const riyadMap = new Map<string, string>();
+            riyadData?.forEach(r => {
+              if (r.txn_number && r.card_number) {
+                riyadMap.set(r.txn_number, r.card_number);
+              }
+            });
+
+            // Update orders with card_number
+            orderMap.forEach(order => {
+              if (order.transaction_receipt) {
+                order.card_number = riyadMap.get(order.transaction_receipt) || null;
+              }
+            });
+          }
+        }
       }
 
       let ordersArray = Array.from(orderMap.values());
@@ -512,7 +568,9 @@ const OrderPaymentReport = () => {
       isRTL ? 'نوع الدفع' : 'Payment Type',
       isRTL ? 'الحالة' : 'Status',
       isRTL ? 'محذوف' : 'Deleted',
-      isRTL ? 'مرجع الدفع' : 'Payment Reference'
+      isRTL ? 'مرجع الدفع' : 'Payment Reference',
+      isRTL ? 'رقم البطاقة' : 'Card Number',
+      isRTL ? 'إيصال المعاملة' : 'Transaction Receipt'
     ];
 
     const rows = orders.map(o => [
@@ -523,7 +581,9 @@ const OrderPaymentReport = () => {
       o.payment_type || '',
       o.order_status || '',
       o.is_deleted ? (isRTL ? 'نعم' : 'Yes') : (isRTL ? 'لا' : 'No'),
-      o.payment_reference || ''
+      o.payment_reference || '',
+      o.card_number || '',
+      o.transaction_receipt || ''
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -708,18 +768,20 @@ const OrderPaymentReport = () => {
                   <TableHead>{isRTL ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{isRTL ? "محذوف" : "Deleted"}</TableHead>
                   <TableHead>{isRTL ? "مرجع الدفع" : "Payment Ref"}</TableHead>
+                  <TableHead>{isRTL ? "رقم البطاقة" : "Card Number"}</TableHead>
+                  <TableHead>{isRTL ? "إيصال المعاملة" : "Transaction Receipt"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       {isRTL ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       {isRTL ? "لا توجد بيانات" : "No data found"}
                     </TableCell>
                   </TableRow>
@@ -746,6 +808,8 @@ const OrderPaymentReport = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>{order.payment_reference || '-'}</TableCell>
+                      <TableCell>{order.card_number || '-'}</TableCell>
+                      <TableCell>{order.transaction_receipt || '-'}</TableCell>
                     </TableRow>
                   ))
                 )}
