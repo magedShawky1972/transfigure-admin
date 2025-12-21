@@ -485,12 +485,33 @@ const ExcelSheets = () => {
     
     if (mappings && mappings.length > 0) {
       mappings.forEach((m: any) => {
-        mappingsMap[m.excel_column] = m.table_column;
-        if (m.is_json_column) {
+        if (m.is_json_column && m.json_split_keys && m.json_split_keys.length > 0) {
+          // JSON column with split keys
           jsonConfigsMap[m.excel_column] = {
             isJson: true,
             splitKeys: m.json_split_keys || []
           };
+          // Parse the key mappings from table_column (stored as JSON)
+          try {
+            const keyMappings = JSON.parse(m.table_column);
+            if (typeof keyMappings === 'object' && keyMappings !== null) {
+              Object.entries(keyMappings).forEach(([key, tableCol]) => {
+                mappingsMap[`${m.excel_column}.${key}`] = tableCol as string;
+              });
+            }
+          } catch {
+            // Not JSON, probably old format - treat as regular mapping
+            mappingsMap[m.excel_column] = m.table_column;
+          }
+        } else {
+          // Regular column
+          mappingsMap[m.excel_column] = m.table_column;
+          if (m.is_json_column) {
+            jsonConfigsMap[m.excel_column] = {
+              isJson: true,
+              splitKeys: m.json_split_keys || []
+            };
+          }
         }
       });
       setSheetMappings(mappingsMap);
@@ -539,24 +560,50 @@ const ExcelSheets = () => {
         .eq("id", selectedSheetForMapping.id);
 
       // Insert new mappings from the current rows, trim names and skip empties
-      const mappings = sheetExcelColumns
-        .map((excelCol) => {
-          const colName = String(excelCol).trim();
+      const mappings: any[] = [];
+      
+      sheetExcelColumns.forEach((excelCol) => {
+        const colName = String(excelCol).trim();
+        if (!colName) return;
+        
+        const jsonConfig = sheetJsonConfigs[colName];
+        const isJsonWithSplit = jsonConfig?.isJson && jsonConfig.splitKeys.length > 0;
+        
+        if (isJsonWithSplit) {
+          // For JSON columns with split keys, get the key mappings from sheetMappings
+          const keyMappings: Record<string, string> = {};
+          jsonConfig.splitKeys.forEach((key) => {
+            const mappingKey = `${colName}.${key}`;
+            const tableCol = sheetMappings[mappingKey];
+            if (tableCol) {
+              keyMappings[key] = String(tableCol).trim();
+            }
+          });
+          
+          mappings.push({
+            sheet_id: selectedSheetForMapping.id,
+            excel_column: colName,
+            table_column: JSON.stringify(keyMappings), // Store key->column mappings as JSON
+            data_type: "text",
+            is_json_column: true,
+            json_split_keys: jsonConfig.splitKeys,
+          });
+        } else {
+          // Regular column mapping
           const tableCol = sheetMappings[excelCol] ?? sheetMappings[colName];
           const tableColTrim = tableCol ? String(tableCol).trim() : "";
-          if (!colName || !tableColTrim) return null;
+          if (!tableColTrim) return;
           
-          const jsonConfig = sheetJsonConfigs[colName];
-          return {
+          mappings.push({
             sheet_id: selectedSheetForMapping.id,
             excel_column: colName,
             table_column: tableColTrim,
             data_type: "text",
-            is_json_column: jsonConfig?.isJson || false,
-            json_split_keys: jsonConfig?.isJson && jsonConfig.splitKeys.length > 0 ? jsonConfig.splitKeys : null,
-          };
-        })
-        .filter(Boolean) as any[];
+            is_json_column: false,
+            json_split_keys: null,
+          });
+        }
+      });
 
       if (mappings.length > 0) {
         const { error } = await supabase
@@ -1078,67 +1125,140 @@ const ExcelSheets = () => {
                     </Button>
                   </div>
                   <div className="border rounded-lg p-4 space-y-3">
-                    {sheetExcelColumns.map((excelCol, index) => (
-                      <div key={index} className="flex items-center gap-4">
-                        <div className="flex-1">
-                          <Input
-                            value={excelCol}
-                            onChange={(e) => {
-                              const newColName = e.target.value;
-                              const oldColName = sheetExcelColumns[index]; // Get the actual old value
-                              
-                              // Update the excel columns array
-                              const newCols = [...sheetExcelColumns];
-                              newCols[index] = newColName;
-                              setSheetExcelColumns(newCols);
-                              
-                              // If there was a mapping for the old column name, transfer it to the new name
-                              if (oldColName !== newColName && sheetMappings[oldColName]) {
+                    {sheetExcelColumns.map((excelCol, index) => {
+                      const jsonConfig = sheetJsonConfigs[excelCol];
+                      const isJsonWithSplit = jsonConfig?.isJson && jsonConfig.splitKeys.length > 0;
+                      
+                      return (
+                        <div key={index} className="space-y-2">
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={excelCol}
+                                  onChange={(e) => {
+                                    const newColName = e.target.value;
+                                    const oldColName = sheetExcelColumns[index];
+                                    
+                                    const newCols = [...sheetExcelColumns];
+                                    newCols[index] = newColName;
+                                    setSheetExcelColumns(newCols);
+                                    
+                                    if (oldColName !== newColName && sheetMappings[oldColName]) {
+                                      const newMappings = { ...sheetMappings };
+                                      newMappings[newColName] = newMappings[oldColName];
+                                      delete newMappings[oldColName];
+                                      setSheetMappings(newMappings);
+                                    }
+                                  }}
+                                  placeholder="Excel column name"
+                                />
+                                {isJsonWithSplit && (
+                                  <span title="JSON Column">
+                                    <Braces className="h-4 w-4 text-amber-500 shrink-0" />
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Excel Column {isJsonWithSplit && "(JSON - keys mapped below)"}
+                              </p>
+                            </div>
+                            <span className="text-muted-foreground">→</span>
+                            <div className="flex-1">
+                              {!isJsonWithSplit ? (
+                                <Select
+                                  value={sheetMappings[excelCol] || ""}
+                                  onValueChange={(value) =>
+                                    setSheetMappings({ ...sheetMappings, [excelCol]: value.trim() })
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Map to table column" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {sheetTableColumns.map((col) => (
+                                      <SelectItem key={col} value={col}>
+                                        {col}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <div className="text-sm text-muted-foreground italic">
+                                  JSON keys mapped below
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const colToDelete = sheetExcelColumns[index];
+                                setSheetExcelColumns(sheetExcelColumns.filter((_, i) => i !== index));
                                 const newMappings = { ...sheetMappings };
-                                newMappings[newColName] = newMappings[oldColName];
-                                delete newMappings[oldColName];
+                                delete newMappings[colToDelete];
+                                // Also delete JSON key mappings
+                                Object.keys(newMappings).forEach(key => {
+                                  if (key.startsWith(`${colToDelete}.`)) {
+                                    delete newMappings[key];
+                                  }
+                                });
                                 setSheetMappings(newMappings);
-                              }
-                            }}
-                            placeholder="Excel column name"
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">Excel Column</p>
+                                // Remove JSON config
+                                const newJsonConfigs = { ...sheetJsonConfigs };
+                                delete newJsonConfigs[colToDelete];
+                                setSheetJsonConfigs(newJsonConfigs);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                          
+                          {/* JSON Split Keys Mapping */}
+                          {isJsonWithSplit && (
+                            <div className="ml-6 pl-4 border-l-2 border-amber-500/30 space-y-2">
+                              {jsonConfig.splitKeys.map((key) => {
+                                const mappingKey = `${excelCol}.${key}`;
+                                return (
+                                  <div key={key} className="flex items-center gap-4">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">↳</span>
+                                        <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                                          {key}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground mt-1 ml-5">JSON Key</p>
+                                    </div>
+                                    <span className="text-muted-foreground">→</span>
+                                    <div className="flex-1">
+                                      <Select
+                                        value={sheetMappings[mappingKey] || ""}
+                                        onValueChange={(value) =>
+                                          setSheetMappings({ ...sheetMappings, [mappingKey]: value.trim() })
+                                        }
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Map to table column" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {sheetTableColumns.map((col) => (
+                                            <SelectItem key={col} value={col}>
+                                              {col}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="w-8" /> {/* Spacer for alignment */}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                        <span className="text-muted-foreground">→</span>
-                        <div className="flex-1">
-                          <Select
-                            value={sheetMappings[excelCol] || ""}
-                            onValueChange={(value) =>
-                              setSheetMappings({ ...sheetMappings, [excelCol]: value.trim() })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Map to table column" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {sheetTableColumns.map((col) => (
-                                <SelectItem key={col} value={col}>
-                                  {col}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            const colToDelete = sheetExcelColumns[index];
-                            setSheetExcelColumns(sheetExcelColumns.filter((_, i) => i !== index));
-                            const newMappings = { ...sheetMappings };
-                            delete newMappings[colToDelete];
-                            setSheetMappings(newMappings);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
