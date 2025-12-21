@@ -163,6 +163,16 @@ Deno.serve(async (req) => {
         if (!targetColumn) return;
         
         if (excelValue !== undefined && excelValue !== null && excelValue !== '') {
+          // If the destination column is a timestamp/date-like column, ensure Excel serial numbers are converted
+          const targetLooksDateTime = targetColumn.includes('timestamp') || targetColumn.endsWith('_date') || targetColumn.endsWith('date');
+          const valueIsNumericString = typeof excelValue === 'string' && /^\d+(\.\d+)?$/.test(excelValue.trim());
+          const valueIsNumber = typeof excelValue === 'number' || valueIsNumericString;
+
+          if (targetLooksDateTime && valueIsNumber) {
+            transformedRow[targetColumn] = convertExcelDate(excelValue);
+            return;
+          }
+
           // Convert data types if needed
           const dtype = (mapping.data_type || '').toLowerCase();
           if (dtype.includes('numeric') || dtype.includes('integer') || dtype.includes('decimal') || dtype.includes('float')) {
