@@ -64,6 +64,13 @@ interface HyberpayInfo {
   ip: string | null;
   email: string | null;
   connectorid: string | null;
+  response_acquirermessage: string | null;
+  riskfraudstatuscode: string | null;
+  transaction_receipt: string | null;
+  clearinginstitutename: string | null;
+  transaction_acquirer_settlementdate: string | null;
+  acquirerresponse: string | null;
+  riskfrauddescription: string | null;
 }
 
 interface RiyadBankInfo {
@@ -309,7 +316,7 @@ const OrderPaymentReport = () => {
         setPaymentRefrence(paymentData.paymentrefrence);
         const { data: hyberpayData } = await supabase
           .from('hyberpaystatement')
-          .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid')
+          .select('requesttimestamp, accountnumberlast4, returncode, credit, currency, result, statuscode, reasoncode, ip, email, connectorid, response_acquirermessage, riskfraudstatuscode, transaction_receipt, clearinginstitutename, transaction_acquirer_settlementdate, acquirerresponse, riskfrauddescription')
           .eq('transactionid', paymentData.paymentrefrence)
           .maybeSingle();
 
@@ -782,6 +789,48 @@ const OrderPaymentReport = () => {
                               {isRTL ? "معرف الموصل" : "Connector ID"}
                             </Label>
                             <p className="font-medium break-all">{hyberpayInfo.connectorid || '-'}</p>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "رسالة المستحوذ" : "Acquirer Message"}
+                            </Label>
+                            <p className="font-medium break-all">{hyberpayInfo.response_acquirermessage || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "حالة مخاطر الاحتيال" : "Risk Fraud Status Code"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.riskfraudstatuscode || '-'}</p>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "إيصال المعاملة" : "Transaction Receipt"}
+                            </Label>
+                            <p className="font-medium break-all">{hyberpayInfo.transaction_receipt || '-'}</p>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "اسم مؤسسة المقاصة" : "Clearing Institute Name"}
+                            </Label>
+                            <p className="font-medium break-all">{hyberpayInfo.clearinginstitutename || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "تاريخ تسوية المستحوذ" : "Acquirer Settlement Date"}
+                            </Label>
+                            <p className="font-medium">{hyberpayInfo.transaction_acquirer_settlementdate || '-'}</p>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "استجابة المستحوذ" : "Acquirer Response"}
+                            </Label>
+                            <p className="font-medium break-all">{hyberpayInfo.acquirerresponse || '-'}</p>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-muted-foreground">
+                              {isRTL ? "وصف مخاطر الاحتيال" : "Risk Fraud Description"}
+                            </Label>
+                            <p className="font-medium break-all">{hyberpayInfo.riskfrauddescription || '-'}</p>
                           </div>
                         </div>
                       ) : (
