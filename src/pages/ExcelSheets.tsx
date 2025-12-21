@@ -43,6 +43,8 @@ const ExcelSheets = () => {
   const [editCheckProduct, setEditCheckProduct] = useState(true);
   const [autoCreateTable, setAutoCreateTable] = useState(false);
   const [isCreatingTable, setIsCreatingTable] = useState(false);
+  const [skipFirstRow, setSkipFirstRow] = useState(false);
+  const [editSkipFirstRow, setEditSkipFirstRow] = useState(false);
 
   useEffect(() => {
     loadSheets();
@@ -233,6 +235,7 @@ const ExcelSheets = () => {
           check_customer: checkCustomer,
           check_brand: checkBrand,
           check_product: checkProduct,
+          skip_first_row: skipFirstRow,
         })
         .select()
         .single();
@@ -271,6 +274,7 @@ const ExcelSheets = () => {
       setCheckBrand(true);
       setCheckProduct(true);
       setAutoCreateTable(false);
+      setSkipFirstRow(false);
       loadSheets();
     } catch (error: any) {
       toast({
@@ -442,6 +446,7 @@ const ExcelSheets = () => {
     setEditCheckCustomer(sheet.check_customer ?? true);
     setEditCheckBrand(sheet.check_brand ?? true);
     setEditCheckProduct(sheet.check_product ?? true);
+    setEditSkipFirstRow(sheet.skip_first_row ?? false);
     setEditDialogOpen(true);
   };
 
@@ -464,6 +469,7 @@ const ExcelSheets = () => {
           check_customer: editCheckCustomer,
           check_brand: editCheckBrand,
           check_product: editCheckProduct,
+          skip_first_row: editSkipFirstRow,
         })
         .eq("id", selectedSheetForEdit.id);
 
@@ -590,6 +596,14 @@ const ExcelSheets = () => {
                   onCheckedChange={(checked) => setCheckProduct(checked === true)}
                 />
                 <Label htmlFor="check-product" className="text-sm font-normal cursor-pointer">Check Product</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="skip-first-row" 
+                  checked={skipFirstRow}
+                  onCheckedChange={(checked) => setSkipFirstRow(checked === true)}
+                />
+                <Label htmlFor="skip-first-row" className="text-sm font-normal cursor-pointer">Skip First Row</Label>
               </div>
             </div>
           </div>
@@ -946,6 +960,14 @@ const ExcelSheets = () => {
                     onCheckedChange={(checked) => setEditCheckProduct(checked === true)}
                   />
                   <Label htmlFor="edit-check-product" className="text-sm font-normal cursor-pointer">Check Product</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="edit-skip-first-row" 
+                    checked={editSkipFirstRow}
+                    onCheckedChange={(checked) => setEditSkipFirstRow(checked === true)}
+                  />
+                  <Label htmlFor="edit-skip-first-row" className="text-sm font-normal cursor-pointer">Skip First Row</Label>
                 </div>
               </div>
             </div>

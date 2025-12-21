@@ -847,6 +847,7 @@ export type Database = {
           id: string
           sheet_code: string
           sheet_name: string
+          skip_first_row: boolean
           status: string | null
           target_table: string | null
           updated_at: string
@@ -860,6 +861,7 @@ export type Database = {
           id?: string
           sheet_code: string
           sheet_name: string
+          skip_first_row?: boolean
           status?: string | null
           target_table?: string | null
           updated_at?: string
@@ -873,6 +875,7 @@ export type Database = {
           id?: string
           sheet_code?: string
           sheet_name?: string
+          skip_first_row?: boolean
           status?: string | null
           target_table?: string | null
           updated_at?: string
