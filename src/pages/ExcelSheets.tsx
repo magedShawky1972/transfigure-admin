@@ -426,6 +426,29 @@ const ExcelSheets = () => {
   };
 
   const handleDeleteSheet = async (id: string) => {
+    // First, delete related upload_logs records
+    const { error: logsError } = await supabase
+      .from("upload_logs")
+      .delete()
+      .eq("sheet_id", id);
+
+    if (logsError) {
+      console.error("Error deleting upload logs:", logsError);
+      // Continue anyway, the main delete might still work
+    }
+
+    // Then, delete related column mappings
+    const { error: mappingsError } = await supabase
+      .from("excel_column_mappings")
+      .delete()
+      .eq("sheet_id", id);
+
+    if (mappingsError) {
+      console.error("Error deleting column mappings:", mappingsError);
+      // Continue anyway
+    }
+
+    // Finally, delete the sheet itself
     const { error } = await supabase
       .from("excel_sheets")
       .delete()
@@ -434,7 +457,7 @@ const ExcelSheets = () => {
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to delete sheet",
+        description: "Failed to delete sheet: " + error.message,
         variant: "destructive",
       });
       return;
