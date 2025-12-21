@@ -156,17 +156,22 @@ const ExcelSheets = () => {
       setIsCreatingTable(true);
       try {
         // Prepare columns for table creation - convert Excel column names to valid DB column names
-        const tableColumns = excelColumns.map((colName) => {
+        const tableColumns = excelColumns.map((colName, index) => {
           // Convert column name to snake_case and remove special characters
-          const cleanName = String(colName)
+          let cleanName = String(colName)
             .trim()
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, '_')
             .replace(/_+/g, '_')
             .replace(/^_|_$/g, '');
           
+          // Ensure column name doesn't start with a number (invalid in PostgreSQL)
+          if (cleanName && /^[0-9]/.test(cleanName)) {
+            cleanName = 'col_' + cleanName;
+          }
+          
           return {
-            name: cleanName || `column_${Math.random().toString(36).substr(2, 5)}`,
+            name: cleanName || `column_${index + 1}`,
             type: 'text',
             nullable: true,
           };
