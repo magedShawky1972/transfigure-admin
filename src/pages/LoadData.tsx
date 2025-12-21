@@ -272,13 +272,26 @@ const LoadData = () => {
       setProgress(18);
       setUploadStatus("Validating columns... (checking file headers)");
 
+      // Normalize column names: trim, collapse multiple spaces, case-insensitive comparison
+      const normalizeCol = (col: string) => col.trim().replace(/\s+/g, ' ').toLowerCase();
+      
       const mappedColumns = mappings?.map(m => m.excel_column.trim()) || [];
       const fileColumns = Object.keys(jsonData[0] as object).map(col => col.trim());
+      
+      // Create normalized versions for comparison
+      const normalizedFileColumns = fileColumns.map(normalizeCol);
+      
+      console.log('Mapped columns:', mappedColumns);
+      console.log('File columns:', fileColumns);
+      console.log('Normalized file columns:', normalizedFileColumns);
 
-      // Check for missing columns (columns in mapping but not in file)
-      const missingColumns = mappedColumns.filter(col => !fileColumns.includes(col));
+      // Check for missing columns using normalized comparison
+      const missingColumns = mappedColumns.filter(col => 
+        !normalizedFileColumns.includes(normalizeCol(col))
+      );
       
       if (missingColumns.length > 0) {
+        console.log('Missing columns:', missingColumns);
         toast({
           title: "Missing Columns",
           description: `The following columns are missing in the Excel file: ${missingColumns.join(", ")}`,
@@ -289,7 +302,9 @@ const LoadData = () => {
       }
 
       // Check for extra columns (columns in file but not in mapping)
-      const extraCols = fileColumns.filter(col => !mappedColumns.includes(col));
+      // Use normalized comparison for extra columns too
+      const normalizedMappedColumns = mappedColumns.map(normalizeCol);
+      const extraCols = fileColumns.filter(col => !normalizedMappedColumns.includes(normalizeCol(col)));
       
       if (extraCols.length > 0) {
         setExtraColumns(extraCols);
