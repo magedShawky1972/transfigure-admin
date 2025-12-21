@@ -21,8 +21,12 @@ Deno.serve(async (req) => {
     // Build column definitions, filtering out standard fields that are added automatically
     const standardFields = ['id', 'created_at', 'updated_at'];
     const userColumns = columns.filter((col: any) => 
-      !standardFields.includes(col.name.toLowerCase())
+      col && col.name && !standardFields.includes(col.name.toLowerCase())
     );
+    
+    if (userColumns.length === 0) {
+      throw new Error('No valid columns provided for table creation');
+    }
     
     const columnDefs = userColumns.map((col: any) => {
       const nullable = col.nullable ? '' : 'NOT NULL';
