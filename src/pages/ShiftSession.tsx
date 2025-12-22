@@ -41,6 +41,7 @@ interface ShiftSession {
   opened_at: string;
   status: string;
   user_id: string;
+  first_order_number: string | null;
 }
 
 interface BrandBalance {
@@ -148,6 +149,7 @@ const ShiftSession = () => {
       if (anyOpenSession) {
         // User has an open shift - show it regardless of date
         setShiftSession(anyOpenSession);
+        setFirstOrderNumber(anyOpenSession.first_order_number || "");
         setHasActiveAssignment(true);
         await loadBrandBalances(anyOpenSession.id);
         
@@ -1460,6 +1462,17 @@ const ShiftSession = () => {
                   return `${day}/${month}/${year} ${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
                 })()}</p>
               </div>
+
+              {/* First Order Number - Read Only Display */}
+              {firstOrderNumber && (
+                <div className="p-4 rounded-lg border-2 bg-blue-50 dark:bg-blue-900/20 border-blue-300">
+                  <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
+                    <span className="text-blue-600">📋</span>
+                    رقم أول طلب
+                  </h3>
+                  <p className="text-lg font-mono bg-background p-2 rounded border">{firstOrderNumber}</p>
+                </div>
+              )}
 
 
               {/* Closing Balances */}
