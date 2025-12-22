@@ -11,6 +11,7 @@ import { FileDown, Calendar as CalendarIcon, Printer, ArrowLeft } from "lucide-r
 import { format } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useNavigate } from "react-router-dom";
+import { convertToKSA, formatKSADateTime } from "@/lib/ksaTime";
 
 interface ShiftSession {
   id: string;
@@ -109,8 +110,32 @@ const CoinsLedgerReport = () => {
   const fetchLedgerData = async () => {
     setLoading(true);
     try {
-      // Get shift sessions for the selected date
-      let sessionsQuery = supabase
+      // First get shift assignments for the selected date
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from("shift_assignments")
+        .select(`
+          id,
+          assignment_date,
+          user_id,
+          shifts (
+            shift_name
+          )
+        `)
+        .eq("assignment_date", selectedDate);
+
+      if (assignmentsError) throw assignmentsError;
+
+      if (!assignmentsData || assignmentsData.length === 0) {
+        setShiftLedgers([]);
+        toast.info(language === "ar" ? "لا توجد مناوبات في هذا التاريخ" : "No shifts found for this date");
+        setLoading(false);
+        return;
+      }
+
+      const assignmentIds = assignmentsData.map(a => a.id);
+
+      // Get shift sessions for these assignments
+      const { data: sessionsData, error: sessionsError } = await supabase
         .from("shift_sessions")
         .select(`
           id,
@@ -118,19 +143,10 @@ const CoinsLedgerReport = () => {
           opened_at,
           closed_at,
           status,
-          shift_assignment_id,
-          shift_assignments (
-            assignment_date,
-            shifts (
-              shift_name
-            )
-          )
+          shift_assignment_id
         `)
         .eq("status", "closed")
-        .gte("opened_at", `${selectedDate}T00:00:00`)
-        .lte("opened_at", `${selectedDate}T23:59:59`);
-
-      const { data: sessionsData, error: sessionsError } = await sessionsQuery;
+        .in("shift_assignment_id", assignmentIds);
 
       if (sessionsError) throw sessionsError;
 
@@ -140,6 +156,9 @@ const CoinsLedgerReport = () => {
         setLoading(false);
         return;
       }
+
+      // Create a map from assignment_id to assignment data
+      const assignmentMap = new Map(assignmentsData.map(a => [a.id, a]));
 
       // Get user profiles
       const userIds = [...new Set(sessionsData.map(s => s.user_id))];
@@ -195,8 +214,9 @@ const CoinsLedgerReport = () => {
 
       for (const session of filteredSessions) {
         const userName = profilesMap.get(session.user_id) || "Unknown";
-        const shiftName = (session.shift_assignments as any)?.shifts?.shift_name || "";
-        const assignmentDate = (session.shift_assignments as any)?.assignment_date || selectedDate;
+        const assignment = assignmentMap.get(session.shift_assignment_id);
+        const shiftName = (assignment?.shifts as any)?.shift_name || "";
+        const assignmentDate = assignment?.assignment_date || selectedDate;
 
         const shiftSession: ShiftSession = {
           id: session.id,
@@ -293,7 +313,8 @@ const CoinsLedgerReport = () => {
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return "-";
     try {
-      return format(new Date(dateStr), "MM/dd/yy hh:mm a");
+      const ksaDate = convertToKSA(dateStr);
+      return format(ksaDate, "MM/dd/yy hh:mm a");
     } catch {
       return dateStr;
     }
@@ -302,7 +323,12 @@ const CoinsLedgerReport = () => {
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "-";
     try {
-      return format(new Date(dateStr), "HH:mm");
+      const ksaDate = convertToKSA(dateStr);
+      const hours = ksaDate.getHours();
+      const minutes = ksaDate.getMinutes().toString().padStart(2, '0');
+      const hour12 = hours % 12 || 12;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      return `${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
     } catch {
       return "-";
     }
