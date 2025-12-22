@@ -171,6 +171,7 @@ const REPORTS = [
   { key: "transaction-statistics", label: "Transaction Statistics" },
   { key: "order-payment", label: "Order Payment Report (تقرير مدفوعات الطلبات)" },
   { key: "data-loading-status", label: "Data Loading Status (حالة تحميل البيانات)" },
+  { key: "coins-ledger", label: "Coins Ledger Report (تقرير دفتر الكوينز)" },
 ];
 
 const UserSetup = () => {

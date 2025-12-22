@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger']);
         return;
       }
 
@@ -141,6 +141,15 @@ const Reports = () => {
         : "Check which dates have data loaded to identify missing days",
       icon: Database,
       route: "/reports/data-loading-status",
+    },
+    {
+      id: "coins-ledger",
+      name: language === "ar" ? "تقرير دفتر الكوينز" : "Coins Ledger Report",
+      description: language === "ar" 
+        ? "عرض حركة الكوينز لكل مناوبة مع الرصيد الافتتاحي والختامي والفرق" 
+        : "View coins movement per shift with opening, closing balances and variance",
+      icon: Coins,
+      route: "/reports/coins-ledger",
     },
   ];
 
