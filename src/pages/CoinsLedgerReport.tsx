@@ -146,7 +146,8 @@ const CoinsLedgerReport = () => {
           shift_assignment_id
         `)
         .eq("status", "closed")
-        .in("shift_assignment_id", assignmentIds);
+        .in("shift_assignment_id", assignmentIds)
+        .order("opened_at", { ascending: true });
 
       if (sessionsError) throw sessionsError;
 
@@ -337,8 +338,8 @@ const CoinsLedgerReport = () => {
   const calculateShiftDuration = (opened: string, closed: string | null) => {
     if (!closed) return "-";
     try {
-      const start = new Date(opened);
-      const end = new Date(closed);
+      const start = convertToKSA(opened);
+      const end = convertToKSA(closed);
       const diffMs = end.getTime() - start.getTime();
       const diffMins = Math.floor(diffMs / 60000);
       const hours = Math.floor(diffMins / 60);
@@ -551,18 +552,22 @@ const CoinsLedgerReport = () => {
                       {ledger.session.user_name}
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell className="text-center font-medium">
-                      {ledger.session.shift_name}
-                    </TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-center font-medium">
-                      {formatTime(ledger.session.opened_at)}
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      {calculateShiftDuration(ledger.session.opened_at, ledger.session.closed_at)}
-                    </TableCell>
-                  </TableRow>
+                    <TableRow>
+                      <TableCell className="text-center font-medium">
+                        {ledger.session.shift_name}
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {language === "ar" ? "بداية" : "Open"}: {formatTime(ledger.session.opened_at)}
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {language === "ar" ? "نهاية" : "Close"}: {formatTime(ledger.session.closed_at)}
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {language === "ar" ? "المدة" : "Duration"}: {calculateShiftDuration(ledger.session.opened_at, ledger.session.closed_at)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
                 </TableBody>
               </Table>
             </div>
