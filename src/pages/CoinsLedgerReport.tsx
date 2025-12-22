@@ -654,12 +654,18 @@ const CoinsLedgerReport = () => {
                         </TableRow>
                       ))
                     )}
+                    <TableRow className="bg-primary/10 font-bold">
+                      <TableCell colSpan={2}>{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</TableCell>
+                      <TableCell className="text-center">{brand.transactions.reduce((sum, t) => sum + t.qty, 0)}</TableCell>
+                      <TableCell className="text-right font-bold text-lg">{brand.total_coins_sold.toLocaleString()}</TableCell>
+                      <TableCell colSpan={4}></TableCell>
+                    </TableRow>
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell colSpan={2}>{language === "ar" ? "براند:" : "Brand:"}</TableCell>
                       <TableCell>{brand.brand_name}</TableCell>
                       <TableCell className="text-center">{language === "ar" ? "رصيد الإغلاق" : "Close Balance Coins"}</TableCell>
                       <TableCell className="text-right font-bold text-lg">{brand.closing_balance.toLocaleString()}</TableCell>
-                      <TableCell className="text-center">{language === "ar" ? "الفرق" : "Deference"}</TableCell>
+                      <TableCell className="text-center">{language === "ar" ? "الفرق" : "Variance"}</TableCell>
                       <TableCell className={`text-right font-bold ${brand.variance !== 0 ? 'text-destructive' : 'text-green-600'}`}>
                         {brand.variance !== 0 ? `(${Math.abs(brand.variance).toLocaleString()})` : "0"}
                       </TableCell>
