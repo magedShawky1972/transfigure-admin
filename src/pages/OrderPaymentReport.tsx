@@ -197,12 +197,12 @@ const OrderPaymentReport = () => {
 
       // Fetch based on data source filter
       if (dataSourceFilter === "all" || dataSourceFilter === "hyberpay") {
-        // Start from hyberpaystatement
+        // Start from hyberpaystatement - use request_date for date filtering
         let hyberpayQuery = supabase
           .from('hyberpaystatement')
-          .select('transactionid, requesttimestamp, transaction_receipt, credit, result, statuscode, paymenttype')
-          .gte('requesttimestamp', `${startDate}T00:00:00`)
-          .lte('requesttimestamp', `${endDate}T23:59:59`);
+          .select('transactionid, requesttimestamp, transaction_receipt, credit, result, statuscode, paymenttype, request_date')
+          .gte('request_date', startDate)
+          .lte('request_date', endDate);
 
         // Apply hyberpay advanced filters
         hyberpayFilters.forEach(filter => {
@@ -363,17 +363,13 @@ const OrderPaymentReport = () => {
         }
       }
 
-      // Fetch from riyadbankstatement only
+      // Fetch from riyadbankstatement only - use txn_date_only for date filtering
       if (dataSourceFilter === "riyadbank") {
-        // Convert YYYY-MM-DD to DD/MM/YYYY for comparison
-        const startDateParts = startDate.split('-');
-        const endDateParts = endDate.split('-');
-        const startDateFormatted = `${startDateParts[2]}/${startDateParts[1]}/${startDateParts[0]}`;
-        const endDateFormatted = `${endDateParts[2]}/${endDateParts[1]}/${endDateParts[0]}`;
-
         let riyadQuery = supabase
           .from('riyadbankstatement')
-          .select('txn_number, txn_date, card_number, txn_amount, card_type, auth_code, payment_reference');
+          .select('txn_number, txn_date, txn_date_only, card_number, txn_amount, card_type, auth_code, payment_reference')
+          .gte('txn_date_only', startDate)
+          .lte('txn_date_only', endDate);
 
         // Apply riyad filters
         riyadFilters.forEach(filter => {
@@ -384,25 +380,13 @@ const OrderPaymentReport = () => {
 
         if (riyadError) throw riyadError;
 
-        // Filter by date client-side since txn_date format is DD/MM/YYYY HH:mm:ss
-        const filteredRiyadData = riyadData?.filter(r => {
-          if (!r.txn_date) return false;
-          // Extract date part (DD/MM/YYYY) from txn_date
-          const datePart = r.txn_date.split(' ')[0];
-          const [day, month, year] = datePart.split('/');
-          const txnDateObj = new Date(`${year}-${month}-${day}`);
-          const startDateObj = new Date(startDate);
-          const endDateObj = new Date(endDate);
-          return txnDateObj >= startDateObj && txnDateObj <= endDateObj;
-        }) || [];
-
-        filteredRiyadData.forEach(r => {
+        riyadData?.forEach(r => {
           if (r.txn_number) {
             orderMap.set(r.txn_number, {
               transactionid: r.txn_number,
               order_number: null,
               request_timestamp: r.txn_date,
-              created_at_date: r.txn_date,
+              created_at_date: r.txn_date_only || r.txn_date,
               total: parseFloat(r.txn_amount || '0'),
               payment_method: r.card_type,
               payment_type: 'RiyadBank',
