@@ -678,6 +678,8 @@ const CoinsLedgerReport = () => {
                         <TableHead className="text-right font-bold text-lg">{brand.opening_balance.toLocaleString()}</TableHead>
                         <TableHead className="text-center">{language === "ar" ? "رصيد الإغلاق" : "Close Balance"}</TableHead>
                         <TableHead className="text-right font-bold text-lg">{brand.closing_balance.toLocaleString()}</TableHead>
+                        <TableHead className="text-center">{language === "ar" ? "عدد العمليات" : "Trans Count"}</TableHead>
+                        <TableHead className="text-right font-bold text-lg">{brand.transactions.length}</TableHead>
                         <TableHead className="text-center">{language === "ar" ? "الفرق" : "Variance"}</TableHead>
                         <TableHead className={`text-right font-bold ${brand.variance !== 0 ? 'text-destructive' : 'text-green-600'}`}>
                           {brand.variance !== 0 ? `(${Math.abs(brand.variance).toLocaleString()})` : "0"}
