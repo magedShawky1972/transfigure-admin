@@ -955,6 +955,7 @@ export type Database = {
           paymenttype: string | null
           reasoncode: string | null
           reconciliationid: string | null
+          request_date: string | null
           requesttimestamp: string | null
           response_acquirercode: string | null
           response_acquirermessage: string | null
@@ -1018,6 +1019,7 @@ export type Database = {
           paymenttype?: string | null
           reasoncode?: string | null
           reconciliationid?: string | null
+          request_date?: string | null
           requesttimestamp?: string | null
           response_acquirercode?: string | null
           response_acquirermessage?: string | null
@@ -1081,6 +1083,7 @@ export type Database = {
           paymenttype?: string | null
           reasoncode?: string | null
           reconciliationid?: string | null
+          request_date?: string | null
           requesttimestamp?: string | null
           response_acquirercode?: string | null
           response_acquirermessage?: string | null
@@ -2122,6 +2125,7 @@ export type Database = {
           txn_amount: string | null
           txn_certificate: string | null
           txn_date: string | null
+          txn_date_only: string | null
           txn_number: string | null
           txn_type: string | null
           updated_at: string
@@ -2151,6 +2155,7 @@ export type Database = {
           txn_amount?: string | null
           txn_certificate?: string | null
           txn_date?: string | null
+          txn_date_only?: string | null
           txn_number?: string | null
           txn_type?: string | null
           updated_at?: string
@@ -2180,6 +2185,7 @@ export type Database = {
           txn_amount?: string | null
           txn_certificate?: string | null
           txn_date?: string | null
+          txn_date_only?: string | null
           txn_number?: string | null
           txn_type?: string | null
           updated_at?: string
