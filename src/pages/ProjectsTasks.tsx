@@ -25,6 +25,14 @@ import {
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
+interface ProjectMember {
+  id: string;
+  project_id: string;
+  user_id: string;
+  role: string;
+  created_at: string;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -36,6 +44,7 @@ interface Project {
   created_by: string;
   created_at: string;
   departments?: { department_name: string };
+  members?: ProjectMember[];
 }
 
 interface FileAttachment {
@@ -109,6 +118,7 @@ interface UserDepartmentAccess {
   adminDepartments: string[];
   memberDepartments: string[];
   isSystemAdmin: boolean;
+  managedProjectIds: string[]; // Projects where user is a manager
 }
 
 // Draggable Task Component
@@ -151,7 +161,7 @@ const ProjectsTasks = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [taskPhases, setTaskPhases] = useState<TaskPhase[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false });
+  const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false, managedProjectIds: [] });
   const [loading, setLoading] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [runningTimers, setRunningTimers] = useState<Record<string, number>>({});
@@ -175,7 +185,9 @@ const ProjectsTasks = () => {
     department_id: '',
     status: 'active',
     start_date: null as Date | null,
-    end_date: null as Date | null
+    end_date: null as Date | null,
+    manager_id: '' as string,
+    member_ids: [] as string[]
   });
   
   const [taskForm, setTaskForm] = useState({
@@ -253,7 +265,11 @@ const ProjectsTasks = () => {
       allProjects: 'كل المشاريع',
       allUsers: 'كل المستخدمين',
       filterByProject: 'تصفية حسب المشروع',
-      filterByUser: 'تصفية حسب المستخدم'
+      filterByUser: 'تصفية حسب المستخدم',
+      projectManager: 'مدير المشروع',
+      projectMembers: 'أعضاء المشروع',
+      selectManager: 'اختر مدير المشروع',
+      noManager: 'بدون مدير'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -311,7 +327,11 @@ const ProjectsTasks = () => {
       allProjects: 'All Projects',
       allUsers: 'All Users',
       filterByProject: 'Filter by Project',
-      filterByUser: 'Filter by User'
+      filterByUser: 'Filter by User',
+      projectManager: 'Project Manager',
+      projectMembers: 'Project Members',
+      selectManager: 'Select Manager',
+      noManager: 'No Manager'
     }
   };
 
@@ -369,26 +389,34 @@ const ProjectsTasks = () => {
       // Check if user is a system admin
       const isAdmin = (userRolesRes.data || []).some(r => r.role === 'admin');
 
-      setUserAccess({
-        adminDepartments: adminDeptIds,
-        memberDepartments: allMemberDepts,
-        isSystemAdmin: isAdmin
-      });
-
       // Get all accessible department IDs - admins get all departments
       const accessibleDeptIds = isAdmin 
         ? allDepartments.map(d => d.id)
         : [...new Set([...adminDeptIds, ...allMemberDepts])];
 
       // Fetch users with job positions to determine department from organizational chart
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
-        supabase.from('job_positions').select('id, department_id').eq('is_active', true)
+        supabase.from('job_positions').select('id, department_id').eq('is_active', true),
+        supabase.from('project_members').select('*')
       ]);
+
+      // Get project IDs where user is a manager
+      const projectMembers = projectMembersRes.data || [];
+      const managedProjectIds = projectMembers
+        .filter(pm => pm.user_id === user.id && pm.role === 'manager')
+        .map(pm => pm.project_id);
+
+      setUserAccess({
+        adminDepartments: adminDeptIds,
+        memberDepartments: allMemberDepts,
+        isSystemAdmin: isAdmin,
+        managedProjectIds
+      });
 
       // Use allDepartments from the initial fetch
       setDepartments(allDepartments as Department[]);
@@ -404,9 +432,22 @@ const ProjectsTasks = () => {
       }
 
       if (projectsRes.data) {
-        // Admins see all projects, others see filtered
-        const filteredProjects = isAdmin ? projectsRes.data : projectsRes.data.filter(p => accessibleDeptIds.includes(p.department_id));
-        setProjects(filteredProjects);
+        // Admins see all projects, others see filtered (including projects where user is a member)
+        const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
+        const filteredProjects = isAdmin 
+          ? projectsRes.data 
+          : projectsRes.data.filter(p => 
+              accessibleDeptIds.includes(p.department_id) || 
+              projectMemberProjectIds.includes(p.id)
+            );
+        
+        // Attach members to projects
+        const projectsWithMembers = filteredProjects.map(p => ({
+          ...p,
+          members: projectMembers.filter(pm => pm.project_id === p.id)
+        }));
+        
+        setProjects(projectsWithMembers);
       }
       
       // Build job position to department map from organizational chart
@@ -584,23 +625,32 @@ const ProjectsTasks = () => {
   
   const activePhases = departmentPhases.length > 0 ? departmentPhases : defaultPhases;
 
-  // Check if user is admin of selected department
+  // Check if user is admin of selected department or project manager
   const isAdminOfSelectedDepartment = userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
+  
+  // Check if user is a project manager for any project in this department
+  const isProjectManagerInDepartment = projects.some(p => 
+    p.department_id === selectedDepartment && 
+    p.members?.some(m => m.user_id === currentUserId && m.role === 'manager')
+  );
+  
+  // Can assign tasks if admin, dept admin, or project manager
+  const canAssignTasks = isAdminOfSelectedDepartment || isProjectManagerInDepartment;
 
   // Filter users based on selected department (users in that department)
   const departmentUsers = users.filter(u => {
-    // If system admin or department admin, show all users in the department
-    if (isAdminOfSelectedDepartment) {
+    // If system admin, department admin, or project manager, show all users in the department
+    if (canAssignTasks) {
       return u.default_department_id === selectedDepartment || 
-             userAccess.adminDepartments.includes(selectedDepartment);
+             (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment));
     }
     // Regular users only see themselves
     return u.user_id === currentUserId;
   });
 
-  // For task assignment, department admins can assign to any user in their departments
-  const assignableUsers = isAdminOfSelectedDepartment 
-    ? users.filter(u => u.default_department_id === selectedDepartment)
+  // For task assignment, admins and project managers can assign to any user in their departments
+  const assignableUsers = canAssignTasks 
+    ? users.filter(u => u.default_department_id === selectedDepartment || (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment)))
     : users.filter(u => u.user_id === currentUserId);
 
   // Filter tasks
@@ -674,10 +724,41 @@ const ProjectsTasks = () => {
         created_by: currentUserId!
       };
 
+      let projectId: string;
+
       if (editingProject) {
         await supabase.from('projects').update(payload).eq('id', editingProject.id);
+        projectId = editingProject.id;
+
+        // Delete existing project members
+        await supabase.from('project_members').delete().eq('project_id', projectId);
       } else {
-        await supabase.from('projects').insert(payload);
+        const { data: newProject, error } = await supabase.from('projects').insert(payload).select().single();
+        if (error) throw error;
+        projectId = newProject.id;
+      }
+
+      // Add project manager
+      if (projectForm.manager_id) {
+        await supabase.from('project_members').insert({
+          project_id: projectId,
+          user_id: projectForm.manager_id,
+          role: 'manager'
+        });
+      }
+
+      // Add project members
+      if (projectForm.member_ids.length > 0) {
+        const memberInserts = projectForm.member_ids
+          .filter(id => id !== projectForm.manager_id) // Don't duplicate manager
+          .map(userId => ({
+            project_id: projectId,
+            user_id: userId,
+            role: 'member'
+          }));
+        if (memberInserts.length > 0) {
+          await supabase.from('project_members').insert(memberInserts);
+        }
       }
 
       toast({ title: language === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully' });
@@ -856,20 +937,24 @@ const ProjectsTasks = () => {
 
   const handleEditProject = (project: Project) => {
     setEditingProject(project);
+    const manager = project.members?.find(m => m.role === 'manager');
+    const memberIds = project.members?.filter(m => m.role === 'member').map(m => m.user_id) || [];
     setProjectForm({
       name: project.name,
       description: project.description || '',
       department_id: project.department_id,
       status: project.status,
       start_date: project.start_date ? new Date(project.start_date) : null,
-      end_date: project.end_date ? new Date(project.end_date) : null
+      end_date: project.end_date ? new Date(project.end_date) : null,
+      manager_id: manager?.user_id || '',
+      member_ids: memberIds
     });
     setProjectDialogOpen(true);
   };
 
   const resetProjectForm = () => {
     setEditingProject(null);
-    setProjectForm({ name: '', description: '', department_id: selectedDepartment, status: 'active', start_date: null, end_date: null });
+    setProjectForm({ name: '', description: '', department_id: selectedDepartment, status: 'active', start_date: null, end_date: null, manager_id: '', member_ids: [] });
   };
 
   const resetTaskForm = () => {
@@ -956,7 +1041,7 @@ const ProjectsTasks = () => {
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t.addProject}</Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingProject ? t.edit : t.addProject}</DialogTitle>
                   </DialogHeader>
@@ -971,13 +1056,103 @@ const ProjectsTasks = () => {
                     </div>
                     <div>
                       <label className="text-sm font-medium">{t.department} *</label>
-                      <Select value={projectForm.department_id} onValueChange={(v) => setProjectForm({ ...projectForm, department_id: v })}>
+                      <Select value={projectForm.department_id} onValueChange={(v) => setProjectForm({ ...projectForm, department_id: v, manager_id: '', member_ids: [] })}>
                         <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
                         <SelectContent>
                           {accessibleDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
+                    
+                    {/* Start and End Date */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">{t.startDate}</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              {projectForm.start_date ? format(projectForm.start_date, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={projectForm.start_date || undefined} onSelect={(d) => setProjectForm({ ...projectForm, start_date: d || null })} />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">{t.endDate}</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              {projectForm.end_date ? format(projectForm.end_date, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={projectForm.end_date || undefined} onSelect={(d) => setProjectForm({ ...projectForm, end_date: d || null })} />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    {/* Project Manager */}
+                    <div>
+                      <label className="text-sm font-medium">{t.projectManager}</label>
+                      <Select value={projectForm.manager_id || 'none'} onValueChange={(v) => setProjectForm({ ...projectForm, manager_id: v === 'none' ? '' : v })}>
+                        <SelectTrigger><SelectValue placeholder={t.selectManager} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t.noManager}</SelectItem>
+                          {users.filter(u => 
+                            u.default_department_id === projectForm.department_id || 
+                            (u.departmentMemberships && u.departmentMemberships.includes(projectForm.department_id))
+                          ).map(u => (
+                            <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Project Members */}
+                    <div>
+                      <label className="text-sm font-medium">{t.projectMembers}</label>
+                      <div className="border rounded-md p-2 max-h-[150px] overflow-y-auto">
+                        {users.filter(u => 
+                          (u.default_department_id === projectForm.department_id || 
+                           (u.departmentMemberships && u.departmentMemberships.includes(projectForm.department_id))) &&
+                          u.user_id !== projectForm.manager_id
+                        ).map(u => (
+                          <div key={u.user_id} className="flex items-center gap-2 py-1">
+                            <Checkbox 
+                              id={`project-member-${u.user_id}`}
+                              checked={projectForm.member_ids.includes(u.user_id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setProjectForm({ ...projectForm, member_ids: [...projectForm.member_ids, u.user_id] });
+                                } else {
+                                  setProjectForm({ ...projectForm, member_ids: projectForm.member_ids.filter(id => id !== u.user_id) });
+                                }
+                              }}
+                            />
+                            <label htmlFor={`project-member-${u.user_id}`} className="text-sm cursor-pointer">{u.user_name}</label>
+                          </div>
+                        ))}
+                        {projectForm.member_ids.length > 0 && (
+                          <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
+                            {projectForm.member_ids.map(userId => {
+                              const user = users.find(u => u.user_id === userId);
+                              return user ? (
+                                <Badge key={userId} variant="secondary" className="text-xs">
+                                  {user.user_name}
+                                  <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setProjectForm({ ...projectForm, member_ids: projectForm.member_ids.filter(id => id !== userId) })} />
+                                </Badge>
+                              ) : null;
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="flex gap-2 justify-between">
                       {editingProject && (
                         <Button 
