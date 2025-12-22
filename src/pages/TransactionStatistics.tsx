@@ -167,6 +167,9 @@ const TransactionStatistics = () => {
       {/* Print Styles */}
       <style>{`
         @media print {
+          @page {
+            margin: 20mm;
+          }
           body * {
             visibility: hidden;
           }
@@ -190,6 +193,14 @@ const TransactionStatistics = () => {
           }
           a[href]::after {
             content: none !important;
+          }
+          /* Hide Lovable badge and any footer links */
+          [data-lovable-badge],
+          [class*="lovable"],
+          footer,
+          .footer {
+            display: none !important;
+            visibility: hidden !important;
           }
         }
       `}</style>
