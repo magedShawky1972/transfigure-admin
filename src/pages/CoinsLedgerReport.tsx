@@ -351,8 +351,19 @@ const CoinsLedgerReport = () => {
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return "-";
     try {
-      const ksaDate = convertToKSA(dateStr);
-      return format(ksaDate, "MM/dd/yy hh:mm a");
+      // created_at_date is already stored in KSA time, so parse directly without timezone conversion
+      const date = new Date(dateStr.replace(' ', 'T'));
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const year = date.getFullYear().toString().slice(-2);
+      const hours = date.getHours();
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const hour12 = hours % 12 || 12;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      
+      return `${month}/${day}/${year} ${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
     } catch {
       return dateStr;
     }
