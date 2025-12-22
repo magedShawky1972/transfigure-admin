@@ -42,18 +42,21 @@ const PdfToExcel = () => {
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const pdfDocRef = useRef<any>(null);
+
   const renderPdf = async (file: File) => {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      pdfDocRef.current = pdf;
       setTotalPages(pdf.numPages);
       setFromPage(1);
       setToPage(pdf.numPages);
       
-      const pages: string[] = [];
-      // Render all pages (up to 50 max for performance)
-      const maxPages = Math.min(pdf.numPages, 50);
-      for (let i = 1; i <= maxPages; i++) {
+      // Only render first few pages for preview initially
+      const previewPages: string[] = [];
+      const previewCount = Math.min(pdf.numPages, 10);
+      for (let i = 1; i <= previewCount; i++) {
         const page = await pdf.getPage(i);
         const scale = 1.5;
         const viewport = page.getViewport({ scale });
@@ -68,13 +71,38 @@ const PdfToExcel = () => {
           viewport: viewport,
         }).promise;
         
-        pages.push(canvas.toDataURL('image/png'));
+        previewPages.push(canvas.toDataURL('image/png'));
       }
-      setPdfPages(pages);
+      setPdfPages(previewPages);
       setCurrentPage(0);
       setSelectionArea(null);
     } catch (error) {
       console.error('Error rendering PDF:', error);
+    }
+  };
+
+  // Render specific page on demand
+  const renderPage = async (pageNum: number): Promise<string | null> => {
+    if (!pdfDocRef.current) return null;
+    try {
+      const page = await pdfDocRef.current.getPage(pageNum);
+      const scale = 1.5;
+      const viewport = page.getViewport({ scale });
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({
+        canvasContext: context!,
+        viewport: viewport,
+      }).promise;
+      
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('Error rendering page:', pageNum, error);
+      return null;
     }
   };
 
@@ -256,20 +284,31 @@ const PdfToExcel = () => {
     setIsProcessing(true);
     try {
       // Process pages based on fromPage and toPage range
-      const startPage = Math.max(1, Math.min(fromPage, totalPages)) - 1;
-      const endPage = Math.max(1, Math.min(toPage, pdfPages.length)) - 1;
+      const startPage = Math.max(1, Math.min(fromPage, totalPages));
+      const endPage = Math.max(1, Math.min(toPage, totalPages));
       const pagesToProcess = Array.from(
         { length: endPage - startPage + 1 }, 
         (_, i) => startPage + i
-      ).filter(i => i < pdfPages.length);
+      );
       
       let allTableData: any[][] = [];
       
       for (let i = 0; i < pagesToProcess.length; i++) {
-        const pageIndex = pagesToProcess[i];
-        const pageImage = pdfPages[pageIndex];
+        const pageNum = pagesToProcess[i]; // 1-indexed page number
         
-        if (!pageImage) continue;
+        // Render page on demand if not already available
+        let pageImage: string | null = pdfPages[pageNum - 1] || null;
+        if (!pageImage) {
+          console.log(`Rendering page ${pageNum} on demand...`);
+          pageImage = await renderPage(pageNum);
+        }
+        
+        if (!pageImage) {
+          console.error(`Failed to render page ${pageNum}`);
+          continue;
+        }
+
+        console.log(`Processing page ${pageNum} of ${totalPages}...`);
 
         // Call edge function with page image (PNG) instead of full PDF
         const response = await fetch(
@@ -286,7 +325,7 @@ const PdfToExcel = () => {
               fileName: selectedFile.name,
               selectionArea: autoDetectTable ? null : selectionArea,
               autoDetectTable: autoDetectTable,
-              pageNumber: pageIndex + 1,
+              pageNumber: pageNum,
               totalPages: totalPages,
             }),
           }
@@ -298,6 +337,7 @@ const PdfToExcel = () => {
         }
 
         const data = await response.json();
+        console.log(`Page ${pageNum} result:`, data?.tableData?.length || 0, 'rows');
 
         if (data?.tableData && data.tableData.length > 0) {
           if (allTableData.length === 0) {
@@ -555,7 +595,21 @@ const PdfToExcel = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        onClick={async () => {
+                          const newPage = Math.max(0, currentPage - 1);
+                          setCurrentPage(newPage);
+                          // Render page on demand if not available
+                          if (!pdfPages[newPage]) {
+                            const pageImage = await renderPage(newPage + 1);
+                            if (pageImage) {
+                              setPdfPages(prev => {
+                                const updated = [...prev];
+                                updated[newPage] = pageImage;
+                                return updated;
+                              });
+                            }
+                          }
+                        }}
                         disabled={currentPage === 0}
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -566,8 +620,22 @@ const PdfToExcel = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setCurrentPage(p => Math.min(pdfPages.length - 1, p + 1))}
-                        disabled={currentPage >= pdfPages.length - 1}
+                        onClick={async () => {
+                          const newPage = Math.min(totalPages - 1, currentPage + 1);
+                          setCurrentPage(newPage);
+                          // Render page on demand if not available
+                          if (!pdfPages[newPage]) {
+                            const pageImage = await renderPage(newPage + 1);
+                            if (pageImage) {
+                              setPdfPages(prev => {
+                                const updated = [...prev];
+                                updated[newPage] = pageImage;
+                                return updated;
+                              });
+                            }
+                          }
+                        }}
+                        disabled={currentPage >= totalPages - 1}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
