@@ -39,18 +39,23 @@ const DataLoadingStatus = () => {
       let loadedDates = new Set<string>();
 
       if (dataSource === "hyberpay") {
+        // Fetch all data and filter client-side since requesttimestamp format is "YYYY-MM-DD HH:mm:ss+00"
         const { data, error } = await supabase
           .from('hyberpaystatement')
-          .select('requesttimestamp')
-          .gte('requesttimestamp', `${startDate}T00:00:00`)
-          .lte('requesttimestamp', `${endDate}T23:59:59`);
+          .select('requesttimestamp');
 
         if (error) throw error;
 
         data?.forEach(row => {
           if (row.requesttimestamp) {
-            const dateOnly = row.requesttimestamp.split('T')[0];
-            loadedDates.add(dateOnly);
+            // Extract date only from "2025-11-02 00:20:41+00" format
+            const dateOnly = row.requesttimestamp.split(' ')[0];
+            const dateObj = new Date(dateOnly);
+            const startDateObj = new Date(startDate);
+            const endDateObj = new Date(endDate);
+            if (dateObj >= startDateObj && dateObj <= endDateObj) {
+              loadedDates.add(dateOnly);
+            }
           }
         });
       } else if (dataSource === "riyadbank") {
