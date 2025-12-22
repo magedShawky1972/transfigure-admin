@@ -20,6 +20,7 @@ import {
 import LudoTransactionsSection from "@/components/LudoTransactionsSection";
 import { 
   getKSADateString, 
+  getKSAYesterdayDateString,
   getKSATimeInMinutes, 
   getKSAHijriDate, 
   getKSAGregorianDate, 
@@ -161,13 +162,15 @@ const ShiftSession = () => {
         return;
       }
 
-      // No open session - check for today's assignment
+      // No open session - check for today's assignment (and yesterday for overnight shifts)
       const today = getKSADateString();
+      const yesterday = getKSAYesterdayDateString();
       const { data: assignments } = await supabase
         .from("shift_assignments")
-        .select("id, shift_id, shifts(shift_name, shift_start_time, shift_end_time, shift_order)")
+        .select("id, shift_id, assignment_date, shifts(shift_name, shift_start_time, shift_end_time, shift_order)")
         .eq("user_id", user.id)
-        .eq("assignment_date", today)
+        .in("assignment_date", [today, yesterday])
+        .order("assignment_date", { ascending: false })
         .order("shifts(shift_order)", { ascending: true });
 
       if (!assignments || assignments.length === 0) {
@@ -182,6 +185,8 @@ const ShiftSession = () => {
       }
 
       // Check if user has a valid shift for current time
+      // IMPORTANT: overnight shifts belong to their assignment_date (start day).
+      // If it's after midnight, the valid assignment might be yesterday.
       const currentTimeInMinutes = getKSATimeInMinutes();
       let hasValidShiftForCurrentTime = false;
 
@@ -191,18 +196,27 @@ const ShiftSession = () => {
 
         const [startHours, startMinutes] = shiftData.shift_start_time.split(':').map(Number);
         const startTimeInMinutes = startHours * 60 + startMinutes;
-        
+
         const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
         const endTimeInMinutes = endHours * 60 + endMinutes;
-        
-        // Check if this is an overnight shift (end time < start time)
+
         const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
-        
+
         if (isOvernightShift) {
-          // For overnight shifts: valid if current time >= start OR current time <= end
-          if (currentTimeInMinutes >= startTimeInMinutes || currentTimeInMinutes <= endTimeInMinutes) {
-            hasValidShiftForCurrentTime = true;
-            break;
+          // If assignment is for TODAY, overnight shift is only valid from start time (evening) onward.
+          if (assignment.assignment_date === today) {
+            if (currentTimeInMinutes >= startTimeInMinutes) {
+              hasValidShiftForCurrentTime = true;
+              break;
+            }
+          }
+
+          // If assignment is for YESTERDAY, overnight shift is valid after midnight up to end time.
+          if (assignment.assignment_date === yesterday) {
+            if (currentTimeInMinutes <= endTimeInMinutes) {
+              hasValidShiftForCurrentTime = true;
+              break;
+            }
           }
         } else {
           // For regular shifts: valid if current time is between start and end
