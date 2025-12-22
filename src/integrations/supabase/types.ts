@@ -2577,7 +2577,9 @@ export type Database = {
         Row: {
           closed_at: string | null
           created_at: string
+          first_order_number: string | null
           id: string
+          last_order_number: string | null
           opened_at: string
           shift_assignment_id: string
           status: string
@@ -2587,7 +2589,9 @@ export type Database = {
         Insert: {
           closed_at?: string | null
           created_at?: string
+          first_order_number?: string | null
           id?: string
+          last_order_number?: string | null
           opened_at?: string
           shift_assignment_id: string
           status?: string
@@ -2597,7 +2601,9 @@ export type Database = {
         Update: {
           closed_at?: string | null
           created_at?: string
+          first_order_number?: string | null
           id?: string
+          last_order_number?: string | null
           opened_at?: string
           shift_assignment_id?: string
           status?: string

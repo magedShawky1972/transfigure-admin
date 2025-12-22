@@ -75,6 +75,8 @@ const ShiftSession = () => {
   const [openingBrandErrors, setOpeningBrandErrors] = useState<Record<string, string | null>>({});
   const [openingImageUrls, setOpeningImageUrls] = useState<Record<string, string | null>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
+  const [firstOrderNumber, setFirstOrderNumber] = useState("");
+  const [lastOrderNumber, setLastOrderNumber] = useState("");
   
   // Zero value confirmation dialog state
   const [zeroValueDialog, setZeroValueDialog] = useState<{
@@ -701,20 +703,21 @@ const ShiftSession = () => {
           user_id: user.id,
           shift_assignment_id: assignment.id,
           status: "open",
+          first_order_number: firstOrderNumber || null,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Save opening balances for all brands
+      // Save opening balances for all brands (save if there's a balance value, image is optional now)
       const openingBalanceRecords = Object.values(openingBalances)
-        .filter(b => b.opening_image_path)
+        .filter(b => b.opening_balance !== undefined && b.opening_balance !== null)
         .map((balance) => ({
           shift_session_id: newSession.id,
           brand_id: balance.brand_id,
-          opening_balance: balance.opening_balance,
-          opening_image_path: balance.opening_image_path,
+          opening_balance: balance.opening_balance || 0,
+          opening_image_path: balance.opening_image_path || null,
           closing_balance: 0,
           receipt_image_path: null,
         }));
@@ -1260,7 +1263,11 @@ const ShiftSession = () => {
       // Close the shift session
       const { error: sessionError } = await supabase
         .from("shift_sessions")
-        .update({ status: "closed", closed_at: new Date().toISOString() })
+        .update({ 
+          status: "closed", 
+          closed_at: new Date().toISOString(),
+          last_order_number: lastOrderNumber || null,
+        })
         .eq("id", shiftSession.id);
 
       if (sessionError) throw sessionError;
@@ -1436,54 +1443,34 @@ const ShiftSession = () => {
 
             {!shiftSession ? (
             <div className="space-y-4">
-              {/* Opening Balance Section - Before Opening Shift */}
-              {(() => {
-                const requiredBrands = brands.filter((brand) => {
-                  const brandNameLower = brand.brand_name.toLowerCase();
-                  return !brandNameLower.includes("yalla ludo") && 
-                         !brandNameLower.includes("يلا لودو") && 
-                         !brandNameLower.includes("ludo");
-                });
-                const uploadedCount = requiredBrands.filter((brand) => 
-                  openingBalances[brand.id]?.opening_image_path
-                ).length;
-                const totalRequired = requiredBrands.length;
-                const progressPercent = totalRequired > 0 ? Math.round((uploadedCount / totalRequired) * 100) : 0;
-                const allUploaded = uploadedCount === totalRequired && totalRequired > 0;
+              {/* First Order Number Input */}
+              <div className="p-4 rounded-lg border-2 bg-blue-50 dark:bg-blue-900/20 border-blue-300">
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                  <span className="text-blue-600">📋</span>
+                  رقم أول طلب
+                </h3>
+                <Input
+                  type="text"
+                  value={firstOrderNumber}
+                  onChange={(e) => setFirstOrderNumber(e.target.value)}
+                  placeholder="أدخل رقم أول طلب (اختياري)"
+                  className="bg-background"
+                />
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
+                </p>
+              </div>
 
-                return (
-                  <div className={`p-4 rounded-lg border-2 ${allUploaded ? 'bg-green-50 dark:bg-green-900/20 border-green-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-lg flex items-center gap-2">
-                        {allUploaded ? (
-                          <span className="text-green-600">✓</span>
-                        ) : (
-                          <span className="text-amber-600">⚠️</span>
-                        )}
-                        {t("openingBalance") || "رصيد الفتح"}
-                      </h3>
-                      <Badge variant={allUploaded ? "default" : "secondary"} className={allUploaded ? "bg-green-600" : "bg-amber-500"}>
-                        {uploadedCount} / {totalRequired}
-                      </Badge>
-                    </div>
-                    
-                    {/* Progress bar */}
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
-                      <div 
-                        className={`h-2.5 rounded-full transition-all duration-300 ${allUploaded ? 'bg-green-600' : 'bg-amber-500'}`}
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                    
-                    <p className={`text-sm ${allUploaded ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'}`}>
-                      {allUploaded 
-                        ? "✓ تم رفع جميع صور الفتح - يمكنك الآن فتح الوردية" 
-                        : `⚠️ يجب رفع صور الفتح لجميع العلامات التجارية (${totalRequired - uploadedCount} متبقية) قبل فتح الوردية`
-                      }
-                    </p>
-                  </div>
-                );
-              })()}
+              {/* Opening Balance Section - Before Opening Shift */}
+              <div className="p-4 rounded-lg border-2 bg-green-50 dark:bg-green-900/20 border-green-300">
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
+                  <span className="text-green-600">💰</span>
+                  {t("openingBalance") || "رصيد الفتح"}
+                </h3>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  أدخل أرصدة الفتح لكل علامة تجارية
+                </p>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {brands.filter((brand) => {
@@ -1492,104 +1479,21 @@ const ShiftSession = () => {
                          !brandNameLower.includes("يلا لودو") && 
                          !brandNameLower.includes("ludo");
                 }).map((brand) => (
-                  <Card 
-                    key={brand.id}
-                    className={openingBrandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
-                  >
+                  <Card key={brand.id}>
                     <CardHeader className="p-3 sm:p-4">
-                      <CardTitle className="text-base sm:text-lg flex items-center justify-between">
+                      <CardTitle className="text-base sm:text-lg">
                         <span className="truncate">{brand.short_name || brand.brand_name}</span>
-                        {openingBrandErrors[brand.id] && (
-                          <span className="text-xs font-normal text-destructive">⚠️</span>
-                        )}
                       </CardTitle>
-                      {openingBrandErrors[brand.id] && (
-                        <p className="text-xs text-destructive">{openingBrandErrors[brand.id]}</p>
-                      )}
                     </CardHeader>
-                    <CardContent className="p-3 sm:p-4 space-y-3">
+                    <CardContent className="p-3 sm:p-4 pt-0">
                       <div>
                         <Label>{t("openingBalance") || "رصيد الفتح"}</Label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            value={openingBalances[brand.id]?.opening_balance || ""}
-                            onChange={(e) => handleOpeningBalanceChange(brand.id, e.target.value)}
-                            placeholder="0.00"
-                            disabled={extractingOpeningBrands[brand.id]}
-                          />
-                          {extractingOpeningBrands[brand.id] && (
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                            </div>
-                          )}
-                        </div>
-                        {extractingOpeningBrands[brand.id] && (
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Sparkles className="h-3 w-3" />
-                            جاري قراءة الرقم...
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label>{t("receiptImage") || "صورة الإيصال"}</Label>
-                        
-                        {/* Image Preview */}
-                        {openingBalances[brand.id]?.opening_image_path && openingImageUrls[brand.id] && (
-                          <div className="relative rounded-lg overflow-hidden border bg-muted">
-                            <img
-                              src={openingImageUrls[brand.id] || ""}
-                              alt={brand.brand_name}
-                              className="w-full h-32 object-cover cursor-pointer"
-                              onClick={() => setSelectedImage(openingImageUrls[brand.id] || null)}
-                            />
-                            <div className="absolute top-2 right-2 flex gap-1">
-                              <Button
-                                size="icon"
-                                variant="secondary"
-                                className="h-7 w-7 bg-background/80 hover:bg-background"
-                                onClick={() => setSelectedImage(openingImageUrls[brand.id] || null)}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="destructive"
-                                className="h-7 w-7"
-                                onClick={() => handleDeleteOpeningImage(brand.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Upload Button */}
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleOpeningImageUpload(brand.id, file);
-                              e.target.value = '';
-                            }}
-                            className="hidden"
-                            id={`opening-file-${brand.id}`}
-                            disabled={extractingOpeningBrands[brand.id]}
-                          />
-                          <Label
-                            htmlFor={`opening-file-${brand.id}`}
-                            className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent w-full justify-center ${extractingOpeningBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
-                          >
-                            {extractingOpeningBrands[brand.id] ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Upload className="h-4 w-4" />
-                            )}
-                            {openingBalances[brand.id]?.opening_image_path ? t("changeImage") : t("uploadImage")}
-                          </Label>
-                        </div>
+                        <Input
+                          type="number"
+                          value={openingBalances[brand.id]?.opening_balance || ""}
+                          onChange={(e) => handleOpeningBalanceChange(brand.id, e.target.value)}
+                          placeholder="0.00"
+                        />
                       </div>
                     </CardContent>
                   </Card>
@@ -1768,6 +1672,24 @@ const ShiftSession = () => {
                 shiftSessionId={shiftSession.id} 
                 userId={shiftSession.user_id} 
               />
+
+              {/* Last Order Number Input */}
+              <div className="p-4 rounded-lg border-2 bg-orange-50 dark:bg-orange-900/20 border-orange-300">
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                  <span className="text-orange-600">📋</span>
+                  رقم آخر طلب
+                </h3>
+                <Input
+                  type="text"
+                  value={lastOrderNumber}
+                  onChange={(e) => setLastOrderNumber(e.target.value)}
+                  placeholder="أدخل رقم آخر طلب (اختياري)"
+                  className="bg-background"
+                />
+                <p className="text-sm text-orange-700 dark:text-orange-300 mt-2">
+                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
+                </p>
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button 
