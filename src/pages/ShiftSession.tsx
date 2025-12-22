@@ -1461,45 +1461,6 @@ const ShiftSession = () => {
                 </p>
               </div>
 
-              {/* Opening Balance Section - Before Opening Shift */}
-              <div className="p-4 rounded-lg border-2 bg-green-50 dark:bg-green-900/20 border-green-300">
-                <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                  <span className="text-green-600">💰</span>
-                  {t("openingBalance") || "رصيد الفتح"}
-                </h3>
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  أدخل أرصدة الفتح لكل علامة تجارية
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {brands.filter((brand) => {
-                  const brandNameLower = brand.brand_name.toLowerCase();
-                  return !brandNameLower.includes("yalla ludo") && 
-                         !brandNameLower.includes("يلا لودو") && 
-                         !brandNameLower.includes("ludo");
-                }).map((brand) => (
-                  <Card key={brand.id}>
-                    <CardHeader className="p-3 sm:p-4">
-                      <CardTitle className="text-base sm:text-lg">
-                        <span className="truncate">{brand.short_name || brand.brand_name}</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-4 pt-0">
-                      <div>
-                        <Label>{t("openingBalance") || "رصيد الفتح"}</Label>
-                        <Input
-                          type="number"
-                          value={openingBalances[brand.id]?.opening_balance || ""}
-                          onChange={(e) => handleOpeningBalanceChange(brand.id, e.target.value)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
               <Button onClick={handleOpenShift} className="w-full">
                 {t("openShift")}
               </Button>
@@ -1522,30 +1483,6 @@ const ShiftSession = () => {
                 })()}</p>
               </div>
 
-              {/* Opening Balances - Read Only */}
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">{t("openingBalance") || "أرصدة الفتح"}</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {brands.filter((brand) => {
-                    const brandNameLower = brand.brand_name.toLowerCase();
-                    return !brandNameLower.includes("yalla ludo") && 
-                           !brandNameLower.includes("يلا لودو") && 
-                           !brandNameLower.includes("ludo");
-                  }).map((brand) => (
-                    <Card key={`opening-${brand.id}`} className="bg-muted/30">
-                      <CardHeader className="p-3 sm:p-4 pb-2">
-                        <CardTitle className="text-sm font-medium">{brand.short_name || brand.brand_name}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-3 sm:p-4 pt-0">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">{t("openingBalance") || "رصيد الفتح"}:</span>
-                          <span className="font-semibold">{balances[brand.id]?.opening_balance?.toFixed(2) || "0.00"}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
 
               {/* Closing Balances */}
               <div className="space-y-2">
