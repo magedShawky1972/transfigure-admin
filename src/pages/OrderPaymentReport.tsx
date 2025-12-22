@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Search, Filter, X, Printer, FileSpreadsheet, ChevronDown, ChevronRight, CreditCard } from "lucide-react";
+import { Search, Filter, X, Printer, FileSpreadsheet, ChevronDown, ChevronRight, CreditCard, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+type SortDirection = "asc" | "desc" | null;
+type SortConfig = {
+  column: keyof OrderGridItem | null;
+  direction: SortDirection;
+};
+
+type ColumnFilters = {
+  [K in keyof OrderGridItem]?: string;
+};
 import { format } from "date-fns";
 import { AdvancedOrderPaymentFilter, FilterCondition } from "@/components/AdvancedOrderPaymentFilter";
 
@@ -124,6 +134,11 @@ const OrderPaymentReport = () => {
   const [paymentReferenceFilter, setPaymentReferenceFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<FilterCondition[]>([]);
+  
+  // Column filters and sorting
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ column: null, direction: null });
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
   
   // Unique values for filters
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
@@ -372,7 +387,7 @@ const OrderPaymentReport = () => {
         );
       }
 
-      // Sort by request_timestamp descending
+      // Initial sort by request_timestamp descending (will be overridden by sortConfig if set)
       ordersArray.sort((a, b) => {
         if (!a.request_timestamp) return 1;
         if (!b.request_timestamp) return -1;
@@ -386,6 +401,95 @@ const OrderPaymentReport = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle column filter change
+  const handleColumnFilterChange = (column: keyof OrderGridItem, value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  };
+
+  // Handle sort
+  const handleSort = (column: keyof OrderGridItem) => {
+    setSortConfig(prev => {
+      if (prev.column === column) {
+        if (prev.direction === "asc") {
+          return { column, direction: "desc" };
+        } else if (prev.direction === "desc") {
+          return { column: null, direction: null };
+        }
+      }
+      return { column, direction: "asc" };
+    });
+  };
+
+  // Get sort icon
+  const getSortIcon = (column: keyof OrderGridItem) => {
+    if (sortConfig.column !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    if (sortConfig.direction === "asc") {
+      return <ArrowUp className="h-3 w-3 ml-1 text-primary" />;
+    }
+    return <ArrowDown className="h-3 w-3 ml-1 text-primary" />;
+  };
+
+  // Filtered and sorted orders
+  const filteredAndSortedOrders = useMemo(() => {
+    let result = [...orders];
+
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([column, filterValue]) => {
+      if (filterValue && filterValue.trim()) {
+        result = result.filter(order => {
+          const cellValue = order[column as keyof OrderGridItem];
+          if (cellValue === null || cellValue === undefined) {
+            return false;
+          }
+          return String(cellValue).toLowerCase().includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
+    // Apply sorting
+    if (sortConfig.column && sortConfig.direction) {
+      result.sort((a, b) => {
+        const aValue = a[sortConfig.column!];
+        const bValue = b[sortConfig.column!];
+
+        if (aValue === null || aValue === undefined) return sortConfig.direction === "asc" ? 1 : -1;
+        if (bValue === null || bValue === undefined) return sortConfig.direction === "asc" ? -1 : 1;
+
+        // Handle numeric values
+        if (typeof aValue === "number" && typeof bValue === "number") {
+          return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue;
+        }
+
+        // Handle boolean values
+        if (typeof aValue === "boolean" && typeof bValue === "boolean") {
+          return sortConfig.direction === "asc" 
+            ? (aValue === bValue ? 0 : aValue ? 1 : -1)
+            : (aValue === bValue ? 0 : aValue ? -1 : 1);
+        }
+
+        // Handle string values
+        const aStr = String(aValue);
+        const bStr = String(bValue);
+        return sortConfig.direction === "asc" 
+          ? aStr.localeCompare(bStr)
+          : bStr.localeCompare(aStr);
+      });
+    }
+
+    return result;
+  }, [orders, columnFilters, sortConfig]);
+
+  // Clear column filters
+  const clearColumnFilters = () => {
+    setColumnFilters({});
+    setSortConfig({ column: null, direction: null });
   };
 
   const applyFilterToQuery = (query: any, filter: FilterCondition) => {
@@ -767,28 +871,228 @@ const OrderPaymentReport = () => {
 
       {/* Orders Grid */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>
-            {isRTL ? `الطلبات (${orders.length})` : `Orders (${orders.length})`}
+            {isRTL ? `الطلبات (${filteredAndSortedOrders.length})` : `Orders (${filteredAndSortedOrders.length})`}
           </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant={showColumnFilters ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowColumnFilters(!showColumnFilters)}
+            >
+              <Filter className="h-4 w-4 mr-1" />
+              {isRTL ? "فلترة الأعمدة" : "Column Filters"}
+            </Button>
+            {(Object.keys(columnFilters).some(k => columnFilters[k as keyof OrderGridItem]) || sortConfig.column) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearColumnFilters}
+              >
+                <X className="h-4 w-4 mr-1" />
+                {isRTL ? "مسح" : "Clear"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{isRTL ? "معرف المعاملة" : "Transaction ID"}</TableHead>
-                  <TableHead>{isRTL ? "رقم الطلب" : "Order Number"}</TableHead>
-                  <TableHead>{isRTL ? "وقت الطلب" : "Request Time"}</TableHead>
-                  <TableHead>{isRTL ? "المبلغ" : "Credit"}</TableHead>
-                  <TableHead>{isRTL ? "النتيجة" : "Result"}</TableHead>
-                  <TableHead>{isRTL ? "كود الحالة" : "Status Code"}</TableHead>
-                  <TableHead>{isRTL ? "الإجمالي" : "Total"}</TableHead>
-                  <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
-                  <TableHead>{isRTL ? "حالة الطلب" : "Order Status"}</TableHead>
-                  <TableHead>{isRTL ? "رقم البطاقة" : "Card Number"}</TableHead>
-                  <TableHead>{isRTL ? "إيصال المعاملة" : "Transaction Receipt"}</TableHead>
+                  <TableHead className="min-w-[200px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("transactionid")}
+                    >
+                      {isRTL ? "معرف المعاملة" : "Transaction ID"}
+                      {getSortIcon("transactionid")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[120px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("order_number")}
+                    >
+                      {isRTL ? "رقم الطلب" : "Order Number"}
+                      {getSortIcon("order_number")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[160px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("request_timestamp")}
+                    >
+                      {isRTL ? "وقت الطلب" : "Request Time"}
+                      {getSortIcon("request_timestamp")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[100px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("credit")}
+                    >
+                      {isRTL ? "المبلغ" : "Credit"}
+                      {getSortIcon("credit")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[80px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("result")}
+                    >
+                      {isRTL ? "النتيجة" : "Result"}
+                      {getSortIcon("result")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[100px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("statuscode")}
+                    >
+                      {isRTL ? "كود الحالة" : "Status Code"}
+                      {getSortIcon("statuscode")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[100px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("total")}
+                    >
+                      {isRTL ? "الإجمالي" : "Total"}
+                      {getSortIcon("total")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[130px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("payment_method")}
+                    >
+                      {isRTL ? "طريقة الدفع" : "Payment Method"}
+                      {getSortIcon("payment_method")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[120px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("order_status")}
+                    >
+                      {isRTL ? "حالة الطلب" : "Order Status"}
+                      {getSortIcon("order_status")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[130px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("card_number")}
+                    >
+                      {isRTL ? "رقم البطاقة" : "Card Number"}
+                      {getSortIcon("card_number")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-[160px]">
+                    <div 
+                      className="flex items-center cursor-pointer select-none hover:text-primary"
+                      onClick={() => handleSort("transaction_receipt")}
+                    >
+                      {isRTL ? "إيصال المعاملة" : "Transaction Receipt"}
+                      {getSortIcon("transaction_receipt")}
+                    </div>
+                  </TableHead>
                 </TableRow>
+                {showColumnFilters && (
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.transactionid || ""}
+                        onChange={(e) => handleColumnFilterChange("transactionid", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.order_number || ""}
+                        onChange={(e) => handleColumnFilterChange("order_number", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.request_timestamp || ""}
+                        onChange={(e) => handleColumnFilterChange("request_timestamp", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.credit || ""}
+                        onChange={(e) => handleColumnFilterChange("credit", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.result || ""}
+                        onChange={(e) => handleColumnFilterChange("result", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.statuscode || ""}
+                        onChange={(e) => handleColumnFilterChange("statuscode", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.total || ""}
+                        onChange={(e) => handleColumnFilterChange("total", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.payment_method || ""}
+                        onChange={(e) => handleColumnFilterChange("payment_method", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.order_status || ""}
+                        onChange={(e) => handleColumnFilterChange("order_status", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.card_number || ""}
+                        onChange={(e) => handleColumnFilterChange("card_number", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <Input
+                        placeholder={isRTL ? "فلتر..." : "Filter..."}
+                        value={columnFilters.transaction_receipt || ""}
+                        onChange={(e) => handleColumnFilterChange("transaction_receipt", e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
+                  </TableRow>
+                )}
               </TableHeader>
               <TableBody>
                 {loading ? (
@@ -797,14 +1101,14 @@ const OrderPaymentReport = () => {
                       {isRTL ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
-                ) : orders.length === 0 ? (
+                ) : filteredAndSortedOrders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={11} className="text-center py-8">
                       {isRTL ? "لا توجد بيانات" : "No data found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  orders.map((order) => (
+                  filteredAndSortedOrders.map((order) => (
                     <TableRow 
                       key={order.transactionid}
                       className={`hover:bg-muted/50 ${order.order_number || order.result === 'NOK' ? 'cursor-pointer' : ''}`}
