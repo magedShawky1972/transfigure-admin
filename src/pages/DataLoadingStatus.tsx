@@ -1,0 +1,349 @@
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Search, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { format, eachDayOfInterval, parseISO } from "date-fns";
+
+interface DateStatus {
+  date: string;
+  loaded: boolean;
+}
+
+const DataLoadingStatus = () => {
+  const { language } = useLanguage();
+  const isRTL = language === "ar";
+  
+  const [loading, setLoading] = useState(false);
+  const [dataSource, setDataSource] = useState<"riyadbank" | "hyberpay" | "purpletransaction">("hyberpay");
+  const [startDate, setStartDate] = useState(format(new Date(new Date().setDate(1)), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
+  const [showOnlyMissing, setShowOnlyMissing] = useState(false);
+
+  const fetchDateStatuses = async () => {
+    setLoading(true);
+    try {
+      // Generate all dates in range
+      const start = parseISO(startDate);
+      const end = parseISO(endDate);
+      const allDates = eachDayOfInterval({ start, end });
+      
+      let loadedDates = new Set<string>();
+
+      if (dataSource === "hyberpay") {
+        const { data, error } = await supabase
+          .from('hyberpaystatement')
+          .select('requesttimestamp')
+          .gte('requesttimestamp', `${startDate}T00:00:00`)
+          .lte('requesttimestamp', `${endDate}T23:59:59`);
+
+        if (error) throw error;
+
+        data?.forEach(row => {
+          if (row.requesttimestamp) {
+            const dateOnly = row.requesttimestamp.split('T')[0];
+            loadedDates.add(dateOnly);
+          }
+        });
+      } else if (dataSource === "riyadbank") {
+        const { data, error } = await supabase
+          .from('riyadbankstatement')
+          .select('txn_date');
+
+        if (error) throw error;
+
+        // Filter by date client-side since txn_date format is DD/MM/YYYY HH:mm:ss
+        data?.forEach(row => {
+          if (row.txn_date) {
+            const datePart = row.txn_date.split(' ')[0];
+            const [day, month, year] = datePart.split('/');
+            const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            const txnDateObj = new Date(dateStr);
+            const startDateObj = new Date(startDate);
+            const endDateObj = new Date(endDate);
+            if (txnDateObj >= startDateObj && txnDateObj <= endDateObj) {
+              loadedDates.add(dateStr);
+            }
+          }
+        });
+      } else if (dataSource === "purpletransaction") {
+        const { data, error } = await supabase
+          .from('purpletransaction')
+          .select('created_at_date')
+          .gte('created_at_date', startDate)
+          .lte('created_at_date', endDate);
+
+        if (error) throw error;
+
+        data?.forEach(row => {
+          if (row.created_at_date) {
+            loadedDates.add(row.created_at_date);
+          }
+        });
+      }
+
+      // Build status array
+      const statuses: DateStatus[] = allDates.map(date => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        return {
+          date: dateStr,
+          loaded: loadedDates.has(dateStr)
+        };
+      });
+
+      setDateStatuses(statuses);
+      
+      const missingCount = statuses.filter(s => !s.loaded).length;
+      const loadedCount = statuses.filter(s => s.loaded).length;
+      
+      toast.success(
+        isRTL 
+          ? `تم العثور على ${loadedCount} تاريخ محمل و ${missingCount} تاريخ مفقود`
+          : `Found ${loadedCount} loaded dates and ${missingCount} missing dates`
+      );
+    } catch (error) {
+      console.error('Error fetching date statuses:', error);
+      toast.error(isRTL ? 'خطأ في جلب البيانات' : 'Error fetching data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredStatuses = useMemo(() => {
+    if (showOnlyMissing) {
+      return dateStatuses.filter(s => !s.loaded);
+    }
+    return dateStatuses;
+  }, [dateStatuses, showOnlyMissing]);
+
+  const summary = useMemo(() => {
+    const total = dateStatuses.length;
+    const loaded = dateStatuses.filter(s => s.loaded).length;
+    const missing = dateStatuses.filter(s => !s.loaded).length;
+    return { total, loaded, missing };
+  }, [dateStatuses]);
+
+  const handleExportExcel = () => {
+    if (dateStatuses.length === 0) {
+      toast.error(isRTL ? 'لا توجد بيانات للتصدير' : 'No data to export');
+      return;
+    }
+
+    const headers = ['Date', 'Status'];
+    const rows = filteredStatuses.map(s => [s.date, s.loaded ? 'Loaded' : 'Missing']);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `data-loading-status-${dataSource}-${startDate}-to-${endDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getDataSourceLabel = (source: string) => {
+    switch (source) {
+      case 'hyberpay':
+        return isRTL ? 'هايبرباي' : 'Hyberpay';
+      case 'riyadbank':
+        return isRTL ? 'بنك الرياض' : 'Riyad Bank';
+      case 'purpletransaction':
+        return isRTL ? 'المعاملات' : 'Transactions';
+      default:
+        return source;
+    }
+  };
+
+  return (
+    <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">
+            {isRTL ? "حالة تحميل البيانات" : "Data Loading Status"}
+          </h1>
+          <p className="text-muted-foreground">
+            {isRTL ? "التحقق من التواريخ المحملة في النظام" : "Check which dates have data loaded in the system"}
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleExportExcel} disabled={dateStatuses.length === 0}>
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+          {isRTL ? "تصدير Excel" : "Export Excel"}
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-2">
+              <Label>{isRTL ? "مصدر البيانات" : "Data Source"}</Label>
+              <Select value={dataSource} onValueChange={(value: "riyadbank" | "hyberpay" | "purpletransaction") => setDataSource(value)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hyberpay">{isRTL ? "هايبرباي" : "Hyberpay"}</SelectItem>
+                  <SelectItem value="riyadbank">{isRTL ? "بنك الرياض" : "Riyad Bank"}</SelectItem>
+                  <SelectItem value="purpletransaction">{isRTL ? "المعاملات" : "Transactions"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "إلى تاريخ" : "To Date"}</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <Button onClick={fetchDateStatuses} disabled={loading}>
+              <Search className="h-4 w-4 mr-2" />
+              {loading ? (isRTL ? "جاري البحث..." : "Searching...") : (isRTL ? "بحث" : "Search")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      {dateStatuses.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{isRTL ? "إجمالي الأيام" : "Total Days"}</p>
+                  <p className="text-2xl font-bold">{summary.total}</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <Search className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-500/50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{isRTL ? "الأيام المحملة" : "Loaded Days"}</p>
+                  <p className="text-2xl font-bold text-green-600">{summary.loaded}</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-red-500/50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{isRTL ? "الأيام المفقودة" : "Missing Days"}</p>
+                  <p className="text-2xl font-bold text-red-600">{summary.missing}</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <XCircle className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Results Table */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>
+            {isRTL 
+              ? `النتائج - ${getDataSourceLabel(dataSource)} (${filteredStatuses.length})` 
+              : `Results - ${getDataSourceLabel(dataSource)} (${filteredStatuses.length})`}
+          </CardTitle>
+          {dateStatuses.length > 0 && (
+            <Button
+              variant={showOnlyMissing ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowOnlyMissing(!showOnlyMissing)}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              {isRTL ? "عرض المفقود فقط" : "Show Missing Only"}
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border overflow-auto max-h-[500px]">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background">
+                <TableRow>
+                  <TableHead className="w-16">#</TableHead>
+                  <TableHead>{isRTL ? "التاريخ" : "Date"}</TableHead>
+                  <TableHead>{isRTL ? "اليوم" : "Day"}</TableHead>
+                  <TableHead>{isRTL ? "الحالة" : "Status"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8">
+                      {isRTL ? "جاري التحميل..." : "Loading..."}
+                    </TableCell>
+                  </TableRow>
+                ) : filteredStatuses.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8">
+                      {isRTL ? "لا توجد بيانات - اضغط بحث للبدء" : "No data - Click Search to start"}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredStatuses.map((status, index) => {
+                    const dateObj = parseISO(status.date);
+                    const dayName = format(dateObj, 'EEEE');
+                    return (
+                      <TableRow key={status.date} className={!status.loaded ? 'bg-red-500/5' : ''}>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell>{status.date}</TableCell>
+                        <TableCell>{dayName}</TableCell>
+                        <TableCell>
+                          {status.loaded ? (
+                            <Badge variant="default" className="bg-green-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              {isRTL ? "محمل" : "Loaded"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              {isRTL ? "مفقود" : "Missing"}
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default DataLoadingStatus;

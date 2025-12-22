@@ -70,6 +70,7 @@ import MailSetup from "./pages/MailSetup";
 import CompanyNews from "./pages/CompanyNews";
 import PdfToExcel from "./pages/PdfToExcel";
 import OrderPaymentReport from "./pages/OrderPaymentReport";
+import DataLoadingStatus from "./pages/DataLoadingStatus";
 
 const queryClient = new QueryClient();
 
@@ -129,6 +130,7 @@ const App = () => (
               <Route path="/reports/brand-balance" element={<BrandBalanceReport />} />
               <Route path="/reports/transaction-statistics" element={<TransactionStatistics />} />
               <Route path="/reports/order-payment" element={<OrderPaymentReport />} />
+              <Route path="/reports/data-loading-status" element={<DataLoadingStatus />} />
               <Route path="/tawasoul" element={<Tawasoul />} />
               <Route path="/closing-training" element={<ClosingTraining />} />
               <Route path="/currency-setup" element={<CurrencySetup />} />
