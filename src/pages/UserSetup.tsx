@@ -170,6 +170,7 @@ const REPORTS = [
   { key: "api-documentation", label: "API Documentation" },
   { key: "transaction-statistics", label: "Transaction Statistics" },
   { key: "order-payment", label: "Order Payment Report (تقرير مدفوعات الطلبات)" },
+  { key: "data-loading-status", label: "Data Loading Status (حالة تحميل البيانات)" },
 ];
 
 const UserSetup = () => {
