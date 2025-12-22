@@ -194,6 +194,7 @@ const OrderPaymentReport = () => {
       const purpleFilters = advancedFilters.filter(f => f.table === "purpletransaction");
 
       const orderMap = new Map<string, OrderGridItem>();
+      const MAX_ROWS = 2000; // Limit rows for performance
 
       // Fetch based on data source filter
       if (dataSourceFilter === "all" || dataSourceFilter === "hyberpay") {
@@ -202,7 +203,9 @@ const OrderPaymentReport = () => {
           .from('hyberpaystatement')
           .select('transactionid, requesttimestamp, transaction_receipt, credit, result, statuscode, paymenttype, request_date')
           .gte('request_date', startDate)
-          .lte('request_date', endDate);
+          .lte('request_date', endDate)
+          .order('requesttimestamp', { ascending: false })
+          .limit(MAX_ROWS);
 
         // Apply hyberpay advanced filters
         hyberpayFilters.forEach(filter => {
@@ -215,6 +218,7 @@ const OrderPaymentReport = () => {
 
         if (hyberpayData && hyberpayData.length > 0) {
           const transactionIds = hyberpayData.map(h => h.transactionid).filter(Boolean);
+          const transactionReceipts = hyberpayData.map(h => h.transaction_receipt).filter(Boolean) as string[];
 
           hyberpayData.forEach(h => {
             if (h.transactionid) {
@@ -238,19 +242,56 @@ const OrderPaymentReport = () => {
             }
           });
 
-          // LEFT JOIN: Get order_payment data to link transactionid to order_number
-          if (transactionIds.length > 0 && (dataSourceFilter === "all" || dataSourceFilter === "hyberpay")) {
-            const { data: paymentData } = await supabase
-              .from('order_payment')
-              .select('ordernumber, paymentrefrence')
-              .in('paymentrefrence', transactionIds);
+          // Run order_payment and riyadbank queries in parallel
+          if (transactionIds.length > 0) {
+            const [paymentResult, riyadResult] = await Promise.all([
+              supabase
+                .from('order_payment')
+                .select('ordernumber, paymentrefrence')
+                .in('paymentrefrence', transactionIds),
+              dataSourceFilter === "all" && transactionReceipts.length > 0
+                ? supabase
+                    .from('riyadbankstatement')
+                    .select('txn_number, card_number')
+                    .in('txn_number', transactionReceipts)
+                : Promise.resolve({ data: null })
+            ]);
 
+            const paymentData = paymentResult.data;
+            const riyadData = riyadResult.data;
+
+            // Process payment data
             paymentData?.forEach(p => {
               const order = orderMap.get(p.paymentrefrence || '');
               if (order) {
                 order.order_number = p.ordernumber;
               }
             });
+
+            // Process riyad bank data
+            if (riyadData) {
+              const riyadMap = new Map<string, string>();
+              riyadData.forEach(r => {
+                if (r.txn_number && r.card_number) {
+                  riyadMap.set(r.txn_number, r.card_number);
+                }
+              });
+              orderMap.forEach(order => {
+                if (order.transaction_receipt) {
+                  order.card_number = riyadMap.get(order.transaction_receipt) || null;
+                }
+              });
+
+              // Apply riyad filters to remove non-matching entries if filters exist
+              if (riyadFilters.length > 0) {
+                const matchingReceipts = new Set(riyadData.map(r => r.txn_number).filter(Boolean));
+                orderMap.forEach((order, key) => {
+                  if (order.transaction_receipt && !matchingReceipts.has(order.transaction_receipt)) {
+                    orderMap.delete(key);
+                  }
+                });
+              }
+            }
 
             // Get order numbers that have payment data
             const orderNumbers = paymentData?.map(p => p.ordernumber).filter(Boolean) || [];
@@ -314,51 +355,6 @@ const OrderPaymentReport = () => {
                 });
               }
             }
-
-            // LEFT JOIN: Get riyadbankstatement data (if not filtering by hyberpay only)
-            if (dataSourceFilter === "all") {
-              const transactionReceipts = Array.from(orderMap.values())
-                .map(o => o.transaction_receipt)
-                .filter(Boolean) as string[];
-
-              if (transactionReceipts.length > 0) {
-                let riyadQuery = supabase
-                  .from('riyadbankstatement')
-                  .select('txn_number, card_number')
-                  .in('txn_number', transactionReceipts);
-
-                // Apply riyad filters
-                riyadFilters.forEach(filter => {
-                  riyadQuery = applyFilterToQuery(riyadQuery, filter);
-                });
-
-                const { data: riyadData } = await riyadQuery;
-
-                const riyadMap = new Map<string, string>();
-                riyadData?.forEach(r => {
-                  if (r.txn_number && r.card_number) {
-                    riyadMap.set(r.txn_number, r.card_number);
-                  }
-                });
-
-                // Update orders with card_number
-                orderMap.forEach(order => {
-                  if (order.transaction_receipt) {
-                    order.card_number = riyadMap.get(order.transaction_receipt) || null;
-                  }
-                });
-
-                // Apply riyad filters to remove non-matching entries if filters exist
-                if (riyadFilters.length > 0) {
-                  const matchingReceipts = new Set(riyadData?.map(r => r.txn_number).filter(Boolean) || []);
-                  orderMap.forEach((order, key) => {
-                    if (order.transaction_receipt && !matchingReceipts.has(order.transaction_receipt)) {
-                      orderMap.delete(key);
-                    }
-                  });
-                }
-              }
-            }
           }
         }
       }
@@ -369,7 +365,9 @@ const OrderPaymentReport = () => {
           .from('riyadbankstatement')
           .select('txn_number, txn_date, txn_date_only, card_number, txn_amount, card_type, auth_code, payment_reference')
           .gte('txn_date_only', startDate)
-          .lte('txn_date_only', endDate);
+          .lte('txn_date_only', endDate)
+          .order('txn_date', { ascending: false })
+          .limit(MAX_ROWS);
 
         // Apply riyad filters
         riyadFilters.forEach(filter => {
@@ -410,7 +408,9 @@ const OrderPaymentReport = () => {
           .select('order_number, created_at_date, total, payment_method, payment_type, order_status, is_deleted, payment_brand')
           .gte('created_at_date', startDate)
           .lte('created_at_date', endDate)
-          .neq('payment_method', 'point');
+          .neq('payment_method', 'point')
+          .order('created_at_date', { ascending: false })
+          .limit(MAX_ROWS);
 
         // Apply purple filters
         purpleFilters.forEach(filter => {
