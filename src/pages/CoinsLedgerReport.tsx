@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FileDown, Calendar as CalendarIcon, Printer, ArrowLeft } from "lucide-react";
+import { FileDown, Calendar as CalendarIcon, Printer, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useNavigate } from "react-router-dom";
@@ -70,6 +70,33 @@ const CoinsLedgerReport = () => {
   const [users, setUsers] = useState<{ user_id: string; user_name: string }[]>([]);
   const [brands, setBrands] = useState<{ id: string; brand_name: string; brand_code: string | null }[]>([]);
   const [shiftLedgers, setShiftLedgers] = useState<ShiftLedger[]>([]);
+  const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set());
+
+  const toggleBrandExpand = (brandKey: string) => {
+    setExpandedBrands(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(brandKey)) {
+        newSet.delete(brandKey);
+      } else {
+        newSet.add(brandKey);
+      }
+      return newSet;
+    });
+  };
+
+  const expandAllBrands = () => {
+    const allKeys = new Set<string>();
+    shiftLedgers.forEach(ledger => {
+      ledger.brandLedgers.forEach(brand => {
+        allKeys.add(`${ledger.session.id}-${brand.brand_id}`);
+      });
+    });
+    setExpandedBrands(allKeys);
+  };
+
+  const collapseAllBrands = () => {
+    setExpandedBrands(new Set());
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -572,7 +599,7 @@ const CoinsLedgerReport = () => {
       </Card>
 
       {shiftLedgers.length > 0 && (
-        <div className="flex gap-2 print:hidden">
+        <div className="flex gap-2 print:hidden flex-wrap">
           <Button onClick={handlePrint} variant="outline">
             <Printer className="mr-2 h-4 w-4" />
             {language === "ar" ? "طباعة" : "Print"}
@@ -580,6 +607,14 @@ const CoinsLedgerReport = () => {
           <Button onClick={exportToCSV} variant="outline">
             <FileDown className="mr-2 h-4 w-4" />
             {language === "ar" ? "تصدير إلى CSV" : "Export to CSV"}
+          </Button>
+          <Button onClick={expandAllBrands} variant="outline" size="sm">
+            <ChevronDown className="mr-2 h-4 w-4" />
+            {language === "ar" ? "توسيع الكل" : "Expand All"}
+          </Button>
+          <Button onClick={collapseAllBrands} variant="outline" size="sm">
+            <ChevronUp className="mr-2 h-4 w-4" />
+            {language === "ar" ? "طي الكل" : "Collapse All"}
           </Button>
         </div>
       )}
@@ -621,71 +656,82 @@ const CoinsLedgerReport = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {ledger.brandLedgers.map((brand) => (
-              <div key={brand.brand_id} className="mb-6 border border-border rounded-lg overflow-hidden print:border-none print:rounded-none print:mb-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-16">{language === "ar" ? "براند:" : "Brand:"}</TableHead>
-                      <TableHead className="font-bold">{brand.brand_name}</TableHead>
-                      <TableHead className="text-center">{language === "ar" ? "رصيد الفتح" : "Open Balance Coins"}</TableHead>
-                      <TableHead className="text-right font-bold text-lg">{brand.opening_balance.toLocaleString()}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{language === "ar" ? "المنتج" : "Product Name"}</TableHead>
-                      <TableHead className="text-center">{language === "ar" ? "الكمية" : "QTY"}</TableHead>
-                      <TableHead className="text-right">{language === "ar" ? "الكوينز" : "Coins"}</TableHead>
-                      <TableHead className="text-right">{language === "ar" ? "الرصيد" : "Balance"}</TableHead>
-                      <TableHead className="text-center">{language === "ar" ? "التاريخ والوقت" : "Date Time"}</TableHead>
-                      <TableHead className="text-center">{language === "ar" ? "رقم الطلب" : "Order Number"}</TableHead>
-                      <TableHead className="text-center">{language === "ar" ? "النوع" : "Type"}</TableHead>
-                      <TableHead>{language === "ar" ? "المستخدم" : "User"}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {brand.transactions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-4">
-                          {language === "ar" ? "لا توجد معاملات" : "No transactions"}
-                        </TableCell>
+            {ledger.brandLedgers.map((brand) => {
+              const brandKey = `${ledger.session.id}-${brand.brand_id}`;
+              const isExpanded = expandedBrands.has(brandKey);
+              
+              return (
+                <div key={brand.brand_id} className="mb-6 border border-border rounded-lg overflow-hidden print:border-none print:rounded-none print:mb-2">
+                  <Table>
+                    <TableHeader>
+                      <TableRow 
+                        className="bg-muted/50 cursor-pointer hover:bg-muted/70 transition-colors print:cursor-default"
+                        onClick={() => toggleBrandExpand(brandKey)}
+                      >
+                        <TableHead className="w-12">
+                          <span className="print:hidden">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </span>
+                        </TableHead>
+                        <TableHead className="font-bold">{brand.brand_name}</TableHead>
+                        <TableHead className="text-center">{language === "ar" ? "رصيد الفتح" : "Open Balance Coins"}</TableHead>
+                        <TableHead className="text-right font-bold text-lg">{brand.opening_balance.toLocaleString()}</TableHead>
+                        <TableHead className="text-center">{language === "ar" ? "رصيد الإغلاق" : "Close Balance"}</TableHead>
+                        <TableHead className="text-right font-bold text-lg">{brand.closing_balance.toLocaleString()}</TableHead>
+                        <TableHead className="text-center">{language === "ar" ? "الفرق" : "Variance"}</TableHead>
+                        <TableHead className={`text-right font-bold ${brand.variance !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          {brand.variance !== 0 ? `(${Math.abs(brand.variance).toLocaleString()})` : "0"}
+                        </TableHead>
                       </TableRow>
-                    ) : (
-                      brand.transactions.map((tx) => (
-                        <TableRow key={tx.id}>
-                          <TableCell className="font-medium">{tx.product_name}</TableCell>
-                          <TableCell className="text-center">{tx.qty}</TableCell>
-                          <TableCell className="text-right">{tx.coins_number.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-medium">{tx.running_balance.toLocaleString()}</TableCell>
-                          <TableCell className="text-center text-sm">{formatDateTime(tx.created_at_date)}</TableCell>
-                          <TableCell className="text-center">{tx.order_number}</TableCell>
-                          <TableCell className="text-center capitalize">{tx.trans_type}</TableCell>
-                          <TableCell>{tx.user_name || "-"}</TableCell>
-                        </TableRow>
-                      ))
+                    </TableHeader>
+                    {(isExpanded || window.matchMedia('print').matches) && (
+                      <>
+                        <TableHeader className="print:table-header-group">
+                          <TableRow>
+                            <TableHead>{language === "ar" ? "المنتج" : "Product Name"}</TableHead>
+                            <TableHead className="text-center">{language === "ar" ? "الكمية" : "QTY"}</TableHead>
+                            <TableHead className="text-right">{language === "ar" ? "الكوينز" : "Coins"}</TableHead>
+                            <TableHead className="text-right">{language === "ar" ? "الرصيد" : "Balance"}</TableHead>
+                            <TableHead className="text-center">{language === "ar" ? "التاريخ والوقت" : "Date Time"}</TableHead>
+                            <TableHead className="text-center">{language === "ar" ? "رقم الطلب" : "Order Number"}</TableHead>
+                            <TableHead className="text-center">{language === "ar" ? "النوع" : "Type"}</TableHead>
+                            <TableHead>{language === "ar" ? "المستخدم" : "User"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody className="print:table-row-group">
+                          {brand.transactions.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center text-muted-foreground py-4">
+                                {language === "ar" ? "لا توجد معاملات" : "No transactions"}
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            brand.transactions.map((tx) => (
+                              <TableRow key={tx.id}>
+                                <TableCell className="font-medium">{tx.product_name}</TableCell>
+                                <TableCell className="text-center">{tx.qty}</TableCell>
+                                <TableCell className="text-right">{tx.coins_number.toLocaleString()}</TableCell>
+                                <TableCell className="text-right font-medium">{tx.running_balance.toLocaleString()}</TableCell>
+                                <TableCell className="text-center text-sm">{formatDateTime(tx.created_at_date)}</TableCell>
+                                <TableCell className="text-center">{tx.order_number}</TableCell>
+                                <TableCell className="text-center capitalize">{tx.trans_type}</TableCell>
+                                <TableCell>{tx.user_name || "-"}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                          <TableRow className="bg-primary/10 font-bold">
+                            <TableCell colSpan={2}>{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</TableCell>
+                            <TableCell className="text-center">{brand.transactions.reduce((sum, t) => sum + t.qty, 0)}</TableCell>
+                            <TableCell className="text-right font-bold text-lg">{brand.total_coins_sold.toLocaleString()}</TableCell>
+                            <TableCell colSpan={4}></TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </>
                     )}
-                    <TableRow className="bg-primary/10 font-bold">
-                      <TableCell colSpan={2}>{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</TableCell>
-                      <TableCell className="text-center">{brand.transactions.reduce((sum, t) => sum + t.qty, 0)}</TableCell>
-                      <TableCell className="text-right font-bold text-lg">{brand.total_coins_sold.toLocaleString()}</TableCell>
-                      <TableCell colSpan={4}></TableCell>
-                    </TableRow>
-                    <TableRow className="bg-muted/50 font-bold">
-                      <TableCell colSpan={2}>{language === "ar" ? "براند:" : "Brand:"}</TableCell>
-                      <TableCell>{brand.brand_name}</TableCell>
-                      <TableCell className="text-center">{language === "ar" ? "رصيد الإغلاق" : "Close Balance Coins"}</TableCell>
-                      <TableCell className="text-right font-bold text-lg">{brand.closing_balance.toLocaleString()}</TableCell>
-                      <TableCell className="text-center">{language === "ar" ? "الفرق" : "Variance"}</TableCell>
-                      <TableCell className={`text-right font-bold ${brand.variance !== 0 ? 'text-destructive' : 'text-green-600'}`}>
-                        {brand.variance !== 0 ? `(${Math.abs(brand.variance).toLocaleString()})` : "0"}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
-            ))}
+                  </Table>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       ))}
