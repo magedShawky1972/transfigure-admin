@@ -720,8 +720,9 @@ const CoinsLedgerReport = () => {
                             ))
                           )}
                           <TableRow className="bg-primary/10 font-bold">
-                            <TableCell colSpan={2}>{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</TableCell>
-                            <TableCell className="text-center">{brand.transactions.reduce((sum, t) => sum + t.qty, 0)}</TableCell>
+                            <TableCell>{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</TableCell>
+                            <TableCell className="text-center">{language === "ar" ? "عدد العمليات" : "Trans Count"}: {brand.transactions.length}</TableCell>
+                            <TableCell className="text-right">{language === "ar" ? "الكمية" : "QTY"}: {brand.transactions.reduce((sum, t) => sum + t.qty, 0)}</TableCell>
                             <TableCell className="text-right font-bold text-lg">{brand.total_coins_sold.toLocaleString()}</TableCell>
                             <TableCell colSpan={4}></TableCell>
                           </TableRow>
