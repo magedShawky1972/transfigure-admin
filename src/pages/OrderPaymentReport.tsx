@@ -8,10 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Search, Filter, X, Printer, FileSpreadsheet, ChevronDown, ChevronRight, CreditCard, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Search, Filter, X, Printer, FileSpreadsheet, ChevronDown, ChevronRight, CreditCard, ArrowUp, ArrowDown, ArrowUpDown, FileText } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OrderInvoicePrint } from "@/components/OrderInvoicePrint";
 
 type SortDirection = "asc" | "desc" | null;
 type SortConfig = {
@@ -122,6 +123,7 @@ const OrderPaymentReport = () => {
   const [riyadBankExpanded, setRiyadBankExpanded] = useState(true);
   const [paymentRefrence, setPaymentRefrence] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   
   // Filters
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -1487,10 +1489,21 @@ const OrderPaymentReport = () => {
             <div className="space-y-6">
               {/* Header Info */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">
                     {isRTL ? "معلومات الطلب" : "Order Information"}
                   </CardTitle>
+                  {selectedOrder.order_status?.toLowerCase() === 'complete' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setInvoiceDialogOpen(true)}
+                      className="gap-2"
+                    >
+                      <FileText className="h-4 w-4" />
+                      {isRTL ? "طباعة الفاتورة" : "Print Invoice"}
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1872,6 +1885,25 @@ const OrderPaymentReport = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Print Dialog */}
+      {selectedOrder && (
+        <OrderInvoicePrint
+          open={invoiceDialogOpen}
+          onOpenChange={setInvoiceDialogOpen}
+          orderNumber={selectedOrder.order_number}
+          customerName={selectedOrder.customer_name}
+          customerPhone={selectedOrder.customer_phone}
+          orderDate={selectedOrder.created_at_date}
+          paymentMethod={selectedOrder.payment_method}
+          paymentBrand={selectedOrder.payment_brand}
+          paymentRef={paymentRefrence}
+          orderLines={orderLines}
+          hyberpayInfo={hyberpayInfo}
+          riyadBankInfo={riyadBankInfo}
+          isRTL={isRTL}
+        />
+      )}
     </div>
   );
 };
