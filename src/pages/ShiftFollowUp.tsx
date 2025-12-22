@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -60,6 +61,8 @@ interface ShiftAssignment {
     status: string;
     opened_at: string;
     closed_at: string | null;
+    closing_notes: string | null;
+    admin_notes: string | null;
   }>;
   shift_job_positions?: string[];
 }
@@ -90,6 +93,8 @@ export default function ShiftFollowUp() {
   const [openShiftDialogOpen, setOpenShiftDialogOpen] = useState(false);
   const [assignmentToOpen, setAssignmentToOpen] = useState<ShiftAssignment | null>(null);
   const [openingShift, setOpeningShift] = useState(false);
+  const [editingNoteSessionId, setEditingNoteSessionId] = useState<string | null>(null);
+  const [adminNoteValue, setAdminNoteValue] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -138,7 +143,9 @@ export default function ShiftFollowUp() {
             id,
             status,
             opened_at,
-            closed_at
+            closed_at,
+            closing_notes,
+            admin_notes
           )
         `)
         .eq("assignment_date", selectedDate);
@@ -554,6 +561,35 @@ export default function ShiftFollowUp() {
     }
   };
 
+  const handleSaveAdminNote = async (sessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from("shift_sessions")
+        .update({ admin_notes: adminNoteValue || null })
+        .eq("id", sessionId);
+
+      if (error) throw error;
+
+      toast.success(t("Note saved successfully") || "تم حفظ الملاحظة بنجاح");
+      setEditingNoteSessionId(null);
+      setAdminNoteValue("");
+      fetchAssignments();
+    } catch (error: any) {
+      console.error("Error saving admin note:", error);
+      toast.error(t("Failed to save note") || "فشل في حفظ الملاحظة");
+    }
+  };
+
+  const handleEditNoteClick = (sessionId: string, currentNote: string | null) => {
+    setEditingNoteSessionId(sessionId);
+    setAdminNoteValue(currentNote || "");
+  };
+
+  const handleCancelNoteEdit = () => {
+    setEditingNoteSessionId(null);
+    setAdminNoteValue("");
+  };
+
   const getStatusBadge = (session: ShiftAssignment["shift_sessions"][0] | null) => {
     if (!session) {
       return <Badge variant="secondary">{t("Not Started")}</Badge>;
@@ -632,7 +668,8 @@ export default function ShiftFollowUp() {
                     <TableHead className="text-right">{t("Status")}</TableHead>
                     <TableHead className="text-right">{t("Opened At")}</TableHead>
                     <TableHead className="text-right">{t("Closed At")}</TableHead>
-                    <TableHead className="text-right">{t("Notes")}</TableHead>
+                    <TableHead className="text-right">{t("User Notes") || "ملاحظات الموظف"}</TableHead>
+                    <TableHead className="text-right">{t("Admin Notes") || "ملاحظات المشرف"}</TableHead>
                     <TableHead className="text-right">{t("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -701,8 +738,62 @@ export default function ShiftFollowUp() {
                       <TableCell className="text-sm">
                         {formatKSADateTime(latestSession?.closed_at || null, false)}
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {assignment.notes || "-"}
+                      <TableCell className="max-w-[200px]">
+                        {latestSession?.closing_notes ? (
+                          <div className="text-sm text-muted-foreground" title={latestSession.closing_notes}>
+                            {latestSession.closing_notes.length > 30 
+                              ? latestSession.closing_notes.substring(0, 30) + "..." 
+                              : latestSession.closing_notes}
+                          </div>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell className="max-w-[250px]">
+                        {latestSession ? (
+                          editingNoteSessionId === latestSession.id ? (
+                            <div className="flex flex-col gap-2">
+                              <Textarea
+                                value={adminNoteValue}
+                                onChange={(e) => setAdminNoteValue(e.target.value)}
+                                placeholder="أدخل ملاحظات المشرف..."
+                                className="min-h-[60px] text-sm"
+                                rows={2}
+                              />
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSaveAdminNote(latestSession.id)}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleCancelNoteEdit}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm truncate" title={latestSession.admin_notes || ""}>
+                                {latestSession.admin_notes 
+                                  ? (latestSession.admin_notes.length > 30 
+                                      ? latestSession.admin_notes.substring(0, 30) + "..." 
+                                      : latestSession.admin_notes)
+                                  : "-"}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleEditNoteClick(latestSession.id, latestSession.admin_notes)}
+                              >
+                                <MessageSquare className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )
+                        ) : "-"}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">

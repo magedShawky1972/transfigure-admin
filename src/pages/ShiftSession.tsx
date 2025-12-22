@@ -77,6 +77,7 @@ const ShiftSession = () => {
   const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
   const [firstOrderNumber, setFirstOrderNumber] = useState("");
   const [lastOrderNumber, setLastOrderNumber] = useState("");
+  const [closingNotes, setClosingNotes] = useState("");
   
   // Zero value confirmation dialog state
   const [zeroValueDialog, setZeroValueDialog] = useState<{
@@ -1243,6 +1244,7 @@ const ShiftSession = () => {
           status: "closed", 
           closed_at: new Date().toISOString(),
           last_order_number: lastOrderNumber || null,
+          closing_notes: closingNotes || null,
         })
         .eq("id", shiftSession.id);
 
@@ -1592,6 +1594,24 @@ const ShiftSession = () => {
                 />
                 <p className="text-sm text-orange-700 dark:text-orange-300 mt-2">
                   يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
+                </p>
+              </div>
+
+              {/* Closing Notes Input */}
+              <div className="p-4 rounded-lg border-2 bg-blue-50 dark:bg-blue-900/20 border-blue-300">
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                  <span className="text-blue-600">📝</span>
+                  ملاحظات الإغلاق
+                </h3>
+                <textarea
+                  value={closingNotes}
+                  onChange={(e) => setClosingNotes(e.target.value)}
+                  placeholder="أدخل أي ملاحظات عن الوردية (مثل: توقف التطبيق لفترة، مشاكل تقنية، إلخ)"
+                  className="w-full min-h-[100px] p-3 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  rows={3}
+                />
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                  سيتم إرسال هذه الملاحظات للمشرف مع تقرير الإغلاق
                 </p>
               </div>
 

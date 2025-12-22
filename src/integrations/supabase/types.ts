@@ -2575,7 +2575,9 @@ export type Database = {
       }
       shift_sessions: {
         Row: {
+          admin_notes: string | null
           closed_at: string | null
+          closing_notes: string | null
           created_at: string
           first_order_number: string | null
           id: string
@@ -2587,7 +2589,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_notes?: string | null
           closed_at?: string | null
+          closing_notes?: string | null
           created_at?: string
           first_order_number?: string | null
           id?: string
@@ -2599,7 +2603,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_notes?: string | null
           closed_at?: string | null
+          closing_notes?: string | null
           created_at?: string
           first_order_number?: string | null
           id?: string
