@@ -35,80 +35,67 @@ const DataLoadingStatus = () => {
       const start = parseISO(startDate);
       const end = parseISO(endDate);
       const allDates = eachDayOfInterval({ start, end });
-      
+
       const loadedDates = new Set<string>();
 
+      const PAGE_SIZE = 1000;
+      const fetchDateValuesPaged = async (opts: {
+        table: "hyberpaystatement" | "riyadbankstatement" | "purpletransaction";
+        column: "request_date" | "txn_date_only" | "created_at_date";
+      }) => {
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from(opts.table)
+            .select(opts.column)
+            .gte(opts.column, startDate)
+            .lte(opts.column, endDate)
+            .order(opts.column, { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+
+          if (error) throw error;
+
+          data?.forEach((row) => {
+            const value = (row as any)[opts.column];
+            if (!value) return;
+            loadedDates.add(String(value).slice(0, 10));
+          });
+
+          if (!data || data.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+      };
+
       if (dataSource === "hyberpay") {
-        // Use the pre-computed request_date column
-        const { data, error } = await supabase
-          .from("hyberpaystatement")
-          .select("request_date")
-          .gte("request_date", startDate)
-          .lte("request_date", endDate);
-
-        if (error) throw error;
-
-        data?.forEach((row) => {
-          if (row.request_date) {
-            loadedDates.add(row.request_date);
-          }
-        });
+        await fetchDateValuesPaged({ table: "hyberpaystatement", column: "request_date" });
       } else if (dataSource === "riyadbank") {
-        // Use the pre-computed txn_date_only column
-        const { data, error } = await supabase
-          .from("riyadbankstatement")
-          .select("txn_date_only")
-          .gte("txn_date_only", startDate)
-          .lte("txn_date_only", endDate);
-
-        if (error) throw error;
-
-        data?.forEach((row) => {
-          if (row.txn_date_only) {
-            loadedDates.add(row.txn_date_only);
-          }
-        });
+        await fetchDateValuesPaged({ table: "riyadbankstatement", column: "txn_date_only" });
       } else if (dataSource === "purpletransaction") {
-        // created_at_date is already date-only format
-        const { data, error } = await supabase
-          .from("purpletransaction")
-          .select("created_at_date")
-          .gte("created_at_date", startDate)
-          .lte("created_at_date", endDate);
-
-        if (error) throw error;
-
-        data?.forEach((row) => {
-          if (row.created_at_date) {
-            // Extract only date portion in case time is present
-            const dateOnly = String(row.created_at_date).slice(0, 10);
-            loadedDates.add(dateOnly);
-          }
-        });
+        await fetchDateValuesPaged({ table: "purpletransaction", column: "created_at_date" });
       }
 
       // Build status array
-      const statuses: DateStatus[] = allDates.map(date => {
-        const dateStr = format(date, 'yyyy-MM-dd');
+      const statuses: DateStatus[] = allDates.map((date) => {
+        const dateStr = format(date, "yyyy-MM-dd");
         return {
           date: dateStr,
-          loaded: loadedDates.has(dateStr)
+          loaded: loadedDates.has(dateStr),
         };
       });
 
       setDateStatuses(statuses);
-      
-      const missingCount = statuses.filter(s => !s.loaded).length;
-      const loadedCount = statuses.filter(s => s.loaded).length;
-      
+
+      const missingCount = statuses.filter((s) => !s.loaded).length;
+      const loadedCount = statuses.filter((s) => s.loaded).length;
+
       toast.success(
-        isRTL 
+        isRTL
           ? `تم العثور على ${loadedCount} تاريخ محمل و ${missingCount} تاريخ مفقود`
           : `Found ${loadedCount} loaded dates and ${missingCount} missing dates`
       );
     } catch (error) {
-      console.error('Error fetching date statuses:', error);
-      toast.error(isRTL ? 'خطأ في جلب البيانات' : 'Error fetching data');
+      console.error("Error fetching date statuses:", error);
+      toast.error(isRTL ? "خطأ في جلب البيانات" : "Error fetching data");
     } finally {
       setLoading(false);
     }
