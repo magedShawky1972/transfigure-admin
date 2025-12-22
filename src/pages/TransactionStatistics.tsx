@@ -36,6 +36,16 @@ const TransactionStatistics = () => {
       const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
       const startDate = threeMonthsAgo.toISOString().split('T')[0];
 
+      // Get brands with ABC class "A"
+      const { data: classABrands, error: brandsError } = await supabase
+        .from("brands")
+        .select("brand_code")
+        .eq("abc_analysis", "A");
+
+      if (brandsError) throw brandsError;
+
+      const classABrandCodes = classABrands?.map(b => b.brand_code).filter(Boolean) || [];
+
       // Get total count
       const { count: totalCount, error: countError } = await supabase
         .from("purpletransaction")
@@ -56,7 +66,7 @@ const TransactionStatistics = () => {
       }
 
       // Fetch aggregated data in batches to calculate totals
-      let allTransactions: { total: number | null; created_at_date: string | null }[] = [];
+      let allTransactions: { total: number | null; created_at_date: string | null; brand_code: string | null }[] = [];
       const batchSize = 1000;
       let offset = 0;
       let hasMore = true;
@@ -64,7 +74,7 @@ const TransactionStatistics = () => {
       while (hasMore) {
         const { data: batch, error: batchError } = await supabase
           .from("purpletransaction")
-          .select("total, created_at_date")
+          .select("total, created_at_date, brand_code")
           .neq("payment_method", "point")
           .eq("is_deleted", false)
           .gte("created_at_date", startDate)
@@ -81,11 +91,18 @@ const TransactionStatistics = () => {
         }
       }
 
-      // Calculate average order size
-      const totalAmount = allTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
-      const averageOrderSize = totalAmount / allTransactions.length;
+      // Filter transactions for Class A brands (for average order size only)
+      const classATransactions = allTransactions.filter(t => 
+        t.brand_code && classABrandCodes.includes(t.brand_code)
+      );
 
-      // Calculate average daily transactions (avg count per day)
+      // Calculate average order size (Class A brands only)
+      const classATotalAmount = classATransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
+      const averageOrderSize = classATransactions.length > 0 
+        ? classATotalAmount / classATransactions.length 
+        : 0;
+
+      // Calculate average daily transactions (all transactions)
       const uniqueDates = new Set(
         allTransactions
           .filter(t => t.created_at_date)
@@ -94,7 +111,8 @@ const TransactionStatistics = () => {
       const numberOfDays = uniqueDates.size || 1;
       const averageDailyTransactions = allTransactions.length / numberOfDays;
 
-      // Calculate average monthly amount (total sales avg per month)
+      // Calculate average monthly amount (all transactions)
+      const totalAmount = allTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
       const monthlyTotals: { [key: string]: number } = {};
       allTransactions.forEach(t => {
         if (t.created_at_date) {
@@ -212,14 +230,14 @@ const TransactionStatistics = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                {language === "ar" ? "متوسط حجم الطلب" : "Average Order Size"}
+                {language === "ar" ? "متوسط حجم الطلب (فئة A)" : "Average Order Size (Class A)"}
               </CardTitle>
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(stats.averageOrderSize)}</div>
               <p className="text-xs text-muted-foreground">
-                {language === "ar" ? "متوسط قيمة كل طلب" : "Average value per order"}
+                {language === "ar" ? "متوسط قيمة الطلب للعلامات التجارية فئة A" : "Average order value for Class A brands"}
               </p>
             </CardContent>
           </Card>
