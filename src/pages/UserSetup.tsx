@@ -53,6 +53,7 @@ interface Profile {
   email_password?: string | null;
   mail_type_id?: string | null;
   mail_type_name?: string | null;
+  salesman_code?: string | null;
 }
 
 interface MailType {
@@ -206,6 +207,7 @@ const UserSetup = () => {
     avatar_url: null as string | null,
     email_password: "",
     mail_type_id: null as string | null,
+    salesman_code: "",
   });
 
   const [mailTypes, setMailTypes] = useState<MailType[]>([]);
@@ -431,6 +433,7 @@ const UserSetup = () => {
             avatar_url: formData.avatar_url,
             email_password: formData.email_password || null,
             mail_type_id: formData.mail_type_id,
+            salesman_code: formData.salesman_code || null,
           })
           .eq("id", editingProfile.id);
 
@@ -522,6 +525,7 @@ const UserSetup = () => {
       avatar_url: profile.avatar_url || null,
       email_password: profile.email_password || "",
       mail_type_id: profile.mail_type_id || null,
+      salesman_code: profile.salesman_code || "",
     });
     setShowEmailPassword(false);
     setDialogOpen(true);
@@ -609,6 +613,7 @@ const UserSetup = () => {
       avatar_url: null,
       email_password: "",
       mail_type_id: null,
+      salesman_code: "",
     });
     setEditingProfile(null);
     setShowEmailPassword(false);
@@ -1066,6 +1071,18 @@ const UserSetup = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="salesman_code">Sales Man Code</Label>
+                <Input
+                  id="salesman_code"
+                  value={formData.salesman_code}
+                  onChange={(e) =>
+                    setFormData({ ...formData, salesman_code: e.target.value })
+                  }
+                  placeholder="Enter sales man code..."
+                />
               </div>
 
               <div className="space-y-2">

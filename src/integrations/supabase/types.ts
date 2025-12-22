@@ -1799,6 +1799,7 @@ export type Database = {
           mail_type_id: string | null
           mobile_number: string | null
           must_change_password: boolean
+          salesman_code: string | null
           transaction_column_order: Json | null
           transaction_column_visibility: Json | null
           transaction_group_by: Json | null
@@ -1818,6 +1819,7 @@ export type Database = {
           mail_type_id?: string | null
           mobile_number?: string | null
           must_change_password?: boolean
+          salesman_code?: string | null
           transaction_column_order?: Json | null
           transaction_column_visibility?: Json | null
           transaction_group_by?: Json | null
@@ -1837,6 +1839,7 @@ export type Database = {
           mail_type_id?: string | null
           mobile_number?: string | null
           must_change_password?: boolean
+          salesman_code?: string | null
           transaction_column_order?: Json | null
           transaction_column_visibility?: Json | null
           transaction_group_by?: Json | null
