@@ -510,9 +510,9 @@ const CoinsLedgerReport = () => {
       )}
 
       {shiftLedgers.map((ledger) => (
-        <Card key={ledger.session.id} className="print:break-inside-avoid">
+        <Card key={ledger.session.id} className="print:break-inside-avoid print-no-border print-black-text print:shadow-none">
           <CardHeader className="pb-2 print:pb-1">
-            <div className="border border-border rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-hidden print:border-none print:rounded-none">
               <Table>
                 <TableBody>
                   <TableRow className="bg-muted/50">
@@ -543,7 +543,7 @@ const CoinsLedgerReport = () => {
           </CardHeader>
           <CardContent>
             {ledger.brandLedgers.map((brand) => (
-              <div key={brand.brand_id} className="mb-6 border border-border rounded-lg overflow-hidden">
+              <div key={brand.brand_id} className="mb-6 border border-border rounded-lg overflow-hidden print:border-none print:rounded-none print:mb-2">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">

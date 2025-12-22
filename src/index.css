@@ -137,3 +137,17 @@ All colors MUST be HSL.
     filter: invert(1);
   }
 }
+
+/* Print styles for Coins Ledger Report */
+@media print {
+  .print-no-border,
+  .print-no-border * {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  .print-black-text,
+  .print-black-text * {
+    color: black !important;
+  }
+}
