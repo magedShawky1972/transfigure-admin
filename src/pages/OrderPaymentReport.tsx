@@ -438,6 +438,23 @@ const OrderPaymentReport = () => {
           }
         });
 
+        // Fetch payment references from order_payment table
+        const orderNumbers = Array.from(purpleGrouped.keys());
+        const paymentRefMap = new Map<string, string>();
+        
+        if (orderNumbers.length > 0) {
+          const { data: paymentData } = await supabase
+            .from('order_payment')
+            .select('ordernumber, paymentrefrence')
+            .in('ordernumber', orderNumbers);
+          
+          paymentData?.forEach(p => {
+            if (p.ordernumber && p.paymentrefrence) {
+              paymentRefMap.set(p.ordernumber, p.paymentrefrence);
+            }
+          });
+        }
+
         purpleGrouped.forEach((value, orderNum) => {
           const p = value.item;
           orderMap.set(orderNum, {
@@ -450,7 +467,7 @@ const OrderPaymentReport = () => {
             payment_type: p.payment_type,
             order_status: p.order_status,
             is_deleted: p.is_deleted,
-            payment_reference: null,
+            payment_reference: paymentRefMap.get(orderNum) || null,
             card_number: null,
             transaction_receipt: null,
             credit: value.total?.toString(),
@@ -626,7 +643,7 @@ const OrderPaymentReport = () => {
     }
   };
 
-  const handleOrderClick = async (orderNumber: string, transactionId?: string) => {
+  const handleOrderClick = async (orderNumber: string, transactionId?: string, paymentReference?: string | null) => {
     try {
       // Fetch order header details
       const { data: headerData, error: headerError } = await supabase
@@ -675,8 +692,8 @@ const OrderPaymentReport = () => {
 
       setOrderLines(lines);
 
-      // Use transactionId directly if available, otherwise lookup from order_payment
-      let paymentRef = transactionId || null;
+      // Use paymentReference if provided, otherwise use transactionId, otherwise lookup from order_payment
+      let paymentRef = paymentReference || transactionId || null;
       
       if (!paymentRef) {
         const { data: paymentData } = await supabase
@@ -751,8 +768,8 @@ const OrderPaymentReport = () => {
   // Combined click handler for rows
   const handleRowClick = (order: OrderGridItem) => {
     if (order.order_number) {
-      // Has order number - pass transactionid for direct Hyberpay lookup
-      handleOrderClick(order.order_number, order.transactionid);
+      // Has order number - pass transactionid and payment_reference for direct lookup
+      handleOrderClick(order.order_number, order.transactionid, order.payment_reference);
     } else if (order.result === 'NOK' && order.transactionid) {
       // NOK transaction without order - show Hyberpay details
       handleNokTransactionClick(order.transactionid);
