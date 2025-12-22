@@ -562,30 +562,6 @@ const ShiftSession = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Filter only non-Ludo brands for validation
-      const requiredBrands = brands.filter((brand) => {
-        const brandNameLower = brand.brand_name.toLowerCase();
-        return !brandNameLower.includes("yalla ludo") && 
-               !brandNameLower.includes("يلا لودو") && 
-               !brandNameLower.includes("ludo");
-      });
-
-      // Check if all required brands have uploaded opening images
-      const missingOpeningBrands = requiredBrands.filter((brand) => {
-        const balance = openingBalances[brand.id];
-        return !balance?.opening_image_path;
-      });
-
-      if (missingOpeningBrands.length > 0) {
-        const missingNames = missingOpeningBrands.map((b) => b.brand_name).join("، ");
-        toast({
-          title: t("error") || "خطأ",
-          description: `يجب رفع صور الفتح لجميع العلامات التجارية التالية: ${missingNames}`,
-          variant: "destructive",
-        });
-        return;
-      }
-
       // CRITICAL: Check if user has ANY open shift session (from any day) before opening a new one
       const { data: anyOpenSession } = await supabase
         .from("shift_sessions")
