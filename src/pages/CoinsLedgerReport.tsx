@@ -195,11 +195,44 @@ const CoinsLedgerReport = () => {
 
       const sessionIds = filteredSessions.map(s => s.id);
 
-      // Get brand balances
+      // Get brand balances for current sessions
       const { data: balancesData } = await supabase
         .from("shift_brand_balances")
         .select("shift_session_id, brand_id, opening_balance, closing_balance")
         .in("shift_session_id", sessionIds);
+
+      // Get all brand IDs from current balances
+      const brandIdsInBalances = [...new Set((balancesData || []).map(b => b.brand_id))];
+
+      // For each session+brand, get the previous shift's closing balance
+      // We need to find the most recent closed session before each current session for each brand
+      const previousClosingBalances = new Map<string, number>(); // key: `${sessionId}_${brandId}`
+      
+      for (const session of filteredSessions) {
+        for (const brandId of brandIdsInBalances) {
+          // Find the previous shift session that has a closing balance for this brand
+          const { data: prevBalance } = await supabase
+            .from("shift_brand_balances")
+            .select(`
+              closing_balance,
+              shift_sessions!inner (
+                id,
+                opened_at,
+                status
+              )
+            `)
+            .eq("brand_id", brandId)
+            .eq("shift_sessions.status", "closed")
+            .lt("shift_sessions.opened_at", session.opened_at)
+            .order("shift_sessions(opened_at)", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (prevBalance) {
+            previousClosingBalances.set(`${session.id}_${brandId}`, prevBalance.closing_balance);
+          }
+        }
+      }
 
       // Get transactions for the selected date
       const { data: transactionsData } = await supabase
@@ -260,8 +293,12 @@ const CoinsLedgerReport = () => {
               running_balance: 0
             }));
 
-          // Calculate running balance
-          let runningBalance = balance.opening_balance || 0;
+          // Get opening balance from previous shift's closing balance
+          const prevClosingKey = `${session.id}_${balance.brand_id}`;
+          const openingFromPrevShift = previousClosingBalances.get(prevClosingKey) ?? balance.opening_balance ?? 0;
+
+          // Calculate running balance using previous shift's closing as opening
+          let runningBalance = openingFromPrevShift;
           const transactionsWithBalance: Transaction[] = brandTransactions.map(t => {
             runningBalance -= (t.coins_number || 0) * (t.qty || 1);
             return {
@@ -278,14 +315,14 @@ const CoinsLedgerReport = () => {
           });
 
           const totalCoinsSold = transactionsWithBalance.reduce((sum, t) => sum + (t.coins_number * t.qty), 0);
-          const expectedClosing = (balance.opening_balance || 0) - totalCoinsSold;
+          const expectedClosing = openingFromPrevShift - totalCoinsSold;
           const variance = (balance.closing_balance || 0) - expectedClosing;
 
           brandLedgers.push({
             brand_id: balance.brand_id,
             brand_name: brandInfo.name,
             brand_code: brandInfo.code,
-            opening_balance: balance.opening_balance || 0,
+            opening_balance: openingFromPrevShift,
             closing_balance: balance.closing_balance || 0,
             transactions: transactionsWithBalance,
             variance,
