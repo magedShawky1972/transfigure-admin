@@ -185,6 +185,12 @@ const TransactionStatistics = () => {
           .print-area h1, .print-area h2, .print-area h3, .print-area p, .print-area span, .print-area div {
             color: #000000 !important;
           }
+          a, a::after {
+            display: none !important;
+          }
+          a[href]::after {
+            content: none !important;
+          }
         }
       `}</style>
 
