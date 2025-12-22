@@ -134,6 +134,7 @@ const OrderPaymentReport = () => {
   const [paymentReferenceFilter, setPaymentReferenceFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<FilterCondition[]>([]);
+  const [dataSourceFilter, setDataSourceFilter] = useState<"all" | "hyberpay" | "riyadbank" | "purpletransaction">("all");
   
   // Column filters and sorting
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
@@ -192,173 +193,271 @@ const OrderPaymentReport = () => {
       const hyberpayFilters = advancedFilters.filter(f => f.table === "hyberpaystatement");
       const purpleFilters = advancedFilters.filter(f => f.table === "purpletransaction");
 
-      // Start from hyberpaystatement as main table
-      let hyberpayQuery = supabase
-        .from('hyberpaystatement')
-        .select('transactionid, requesttimestamp, transaction_receipt, credit, result, statuscode, paymenttype')
-        .gte('requesttimestamp', `${startDate}T00:00:00`)
-        .lte('requesttimestamp', `${endDate}T23:59:59`);
-
-      // Apply hyberpay advanced filters
-      hyberpayFilters.forEach(filter => {
-        hyberpayQuery = applyFilterToQuery(hyberpayQuery, filter);
-      });
-
-      const { data: hyberpayData, error: hyberpayError } = await hyberpayQuery;
-
-      if (hyberpayError) throw hyberpayError;
-
-      if (!hyberpayData || hyberpayData.length === 0) {
-        setOrders([]);
-        setLoading(false);
-        return;
-      }
-
-      // Build the order map from hyberpay data
       const orderMap = new Map<string, OrderGridItem>();
-      const transactionIds = hyberpayData.map(h => h.transactionid).filter(Boolean);
 
-      hyberpayData.forEach(h => {
-        if (h.transactionid) {
-          orderMap.set(h.transactionid, {
-            transactionid: h.transactionid,
-            order_number: null,
-            request_timestamp: h.requesttimestamp,
-            created_at_date: null,
-            total: null,
-            payment_method: null,
-            payment_type: h.paymenttype,
-            order_status: null,
-            is_deleted: false,
-            payment_reference: h.transactionid,
-            card_number: null,
-            transaction_receipt: h.transaction_receipt,
-            credit: h.credit,
-            result: h.result,
-            statuscode: h.statuscode
-          });
-        }
-      });
+      // Fetch based on data source filter
+      if (dataSourceFilter === "all" || dataSourceFilter === "hyberpay") {
+        // Start from hyberpaystatement
+        let hyberpayQuery = supabase
+          .from('hyberpaystatement')
+          .select('transactionid, requesttimestamp, transaction_receipt, credit, result, statuscode, paymenttype')
+          .gte('requesttimestamp', `${startDate}T00:00:00`)
+          .lte('requesttimestamp', `${endDate}T23:59:59`);
 
-      // LEFT JOIN: Get order_payment data to link transactionid to order_number
-      if (transactionIds.length > 0) {
-        const { data: paymentData } = await supabase
-          .from('order_payment')
-          .select('ordernumber, paymentrefrence')
-          .in('paymentrefrence', transactionIds);
-
-        paymentData?.forEach(p => {
-          const order = orderMap.get(p.paymentrefrence || '');
-          if (order) {
-            order.order_number = p.ordernumber;
-          }
+        // Apply hyberpay advanced filters
+        hyberpayFilters.forEach(filter => {
+          hyberpayQuery = applyFilterToQuery(hyberpayQuery, filter);
         });
 
-        // Get order numbers that have payment data
-        const orderNumbers = paymentData?.map(p => p.ordernumber).filter(Boolean) || [];
+        const { data: hyberpayData, error: hyberpayError } = await hyberpayQuery;
 
-        // LEFT JOIN: Get purpletransaction data
-        if (orderNumbers.length > 0) {
-          let purpleQuery = supabase
-            .from('purpletransaction')
-            .select('order_number, created_at_date, total, payment_method, order_status, is_deleted')
-            .in('order_number', orderNumbers)
-            .neq('payment_method', 'point');
+        if (hyberpayError) throw hyberpayError;
 
-          // Apply purple filters
-          purpleFilters.forEach(filter => {
-            purpleQuery = applyFilterToQuery(purpleQuery, filter);
+        if (hyberpayData && hyberpayData.length > 0) {
+          const transactionIds = hyberpayData.map(h => h.transactionid).filter(Boolean);
+
+          hyberpayData.forEach(h => {
+            if (h.transactionid) {
+              orderMap.set(h.transactionid, {
+                transactionid: h.transactionid,
+                order_number: null,
+                request_timestamp: h.requesttimestamp,
+                created_at_date: null,
+                total: null,
+                payment_method: null,
+                payment_type: h.paymenttype,
+                order_status: null,
+                is_deleted: false,
+                payment_reference: h.transactionid,
+                card_number: null,
+                transaction_receipt: h.transaction_receipt,
+                credit: h.credit,
+                result: h.result,
+                statuscode: h.statuscode
+              });
+            }
           });
 
-          const { data: purpleData } = await purpleQuery;
+          // LEFT JOIN: Get order_payment data to link transactionid to order_number
+          if (transactionIds.length > 0 && (dataSourceFilter === "all" || dataSourceFilter === "hyberpay")) {
+            const { data: paymentData } = await supabase
+              .from('order_payment')
+              .select('ordernumber, paymentrefrence')
+              .in('paymentrefrence', transactionIds);
 
-          // Group purple data by order_number
-          const purpleMap = new Map<string, { total: number; created_at_date: string | null; payment_method: string | null; order_status: string | null; is_deleted: boolean }>();
-          
-          purpleData?.forEach(p => {
-            if (p.order_number) {
-              const existing = purpleMap.get(p.order_number);
-              if (existing) {
-                existing.total += (p.total || 0);
-              } else {
-                purpleMap.set(p.order_number, {
-                  total: p.total || 0,
-                  created_at_date: p.created_at_date,
-                  payment_method: p.payment_method,
-                  order_status: p.order_status,
-                  is_deleted: p.is_deleted
+            paymentData?.forEach(p => {
+              const order = orderMap.get(p.paymentrefrence || '');
+              if (order) {
+                order.order_number = p.ordernumber;
+              }
+            });
+
+            // Get order numbers that have payment data
+            const orderNumbers = paymentData?.map(p => p.ordernumber).filter(Boolean) || [];
+
+            // LEFT JOIN: Get purpletransaction data (if not filtering by hyberpay only)
+            if (orderNumbers.length > 0 && dataSourceFilter === "all") {
+              let purpleQuery = supabase
+                .from('purpletransaction')
+                .select('order_number, created_at_date, total, payment_method, order_status, is_deleted')
+                .in('order_number', orderNumbers)
+                .neq('payment_method', 'point');
+
+              // Apply purple filters
+              purpleFilters.forEach(filter => {
+                purpleQuery = applyFilterToQuery(purpleQuery, filter);
+              });
+
+              const { data: purpleData } = await purpleQuery;
+
+              // Group purple data by order_number
+              const purpleMap = new Map<string, { total: number; created_at_date: string | null; payment_method: string | null; order_status: string | null; is_deleted: boolean }>();
+              
+              purpleData?.forEach(p => {
+                if (p.order_number) {
+                  const existing = purpleMap.get(p.order_number);
+                  if (existing) {
+                    existing.total += (p.total || 0);
+                  } else {
+                    purpleMap.set(p.order_number, {
+                      total: p.total || 0,
+                      created_at_date: p.created_at_date,
+                      payment_method: p.payment_method,
+                      order_status: p.order_status,
+                      is_deleted: p.is_deleted
+                    });
+                  }
+                }
+              });
+
+              // Update order map with purple data
+              orderMap.forEach(order => {
+                if (order.order_number) {
+                  const purpleInfo = purpleMap.get(order.order_number);
+                  if (purpleInfo) {
+                    order.total = purpleInfo.total;
+                    order.created_at_date = purpleInfo.created_at_date;
+                    order.payment_method = purpleInfo.payment_method;
+                    order.order_status = purpleInfo.order_status;
+                    order.is_deleted = purpleInfo.is_deleted;
+                  }
+                }
+              });
+
+              // Apply purple filters to remove non-matching entries if filters exist
+              if (purpleFilters.length > 0) {
+                const matchingOrderNumbers = new Set(purpleData?.map(p => p.order_number).filter(Boolean) || []);
+                orderMap.forEach((order, key) => {
+                  if (order.order_number && !matchingOrderNumbers.has(order.order_number)) {
+                    orderMap.delete(key);
+                  }
                 });
               }
             }
-          });
 
-          // Update order map with purple data
-          orderMap.forEach(order => {
-            if (order.order_number) {
-              const purpleInfo = purpleMap.get(order.order_number);
-              if (purpleInfo) {
-                order.total = purpleInfo.total;
-                order.created_at_date = purpleInfo.created_at_date;
-                order.payment_method = purpleInfo.payment_method;
-                order.order_status = purpleInfo.order_status;
-                order.is_deleted = purpleInfo.is_deleted;
+            // LEFT JOIN: Get riyadbankstatement data (if not filtering by hyberpay only)
+            if (dataSourceFilter === "all") {
+              const transactionReceipts = Array.from(orderMap.values())
+                .map(o => o.transaction_receipt)
+                .filter(Boolean) as string[];
+
+              if (transactionReceipts.length > 0) {
+                let riyadQuery = supabase
+                  .from('riyadbankstatement')
+                  .select('txn_number, card_number')
+                  .in('txn_number', transactionReceipts);
+
+                // Apply riyad filters
+                riyadFilters.forEach(filter => {
+                  riyadQuery = applyFilterToQuery(riyadQuery, filter);
+                });
+
+                const { data: riyadData } = await riyadQuery;
+
+                const riyadMap = new Map<string, string>();
+                riyadData?.forEach(r => {
+                  if (r.txn_number && r.card_number) {
+                    riyadMap.set(r.txn_number, r.card_number);
+                  }
+                });
+
+                // Update orders with card_number
+                orderMap.forEach(order => {
+                  if (order.transaction_receipt) {
+                    order.card_number = riyadMap.get(order.transaction_receipt) || null;
+                  }
+                });
+
+                // Apply riyad filters to remove non-matching entries if filters exist
+                if (riyadFilters.length > 0) {
+                  const matchingReceipts = new Set(riyadData?.map(r => r.txn_number).filter(Boolean) || []);
+                  orderMap.forEach((order, key) => {
+                    if (order.transaction_receipt && !matchingReceipts.has(order.transaction_receipt)) {
+                      orderMap.delete(key);
+                    }
+                  });
+                }
               }
             }
-          });
-
-          // Apply purple filters to remove non-matching entries if filters exist
-          if (purpleFilters.length > 0) {
-            const matchingOrderNumbers = new Set(purpleData?.map(p => p.order_number).filter(Boolean) || []);
-            orderMap.forEach((order, key) => {
-              if (order.order_number && !matchingOrderNumbers.has(order.order_number)) {
-                orderMap.delete(key);
-              }
-            });
           }
         }
+      }
 
-        // LEFT JOIN: Get riyadbankstatement data using transaction_receipt -> txn_number
-        const transactionReceipts = Array.from(orderMap.values())
-          .map(o => o.transaction_receipt)
-          .filter(Boolean) as string[];
+      // Fetch from riyadbankstatement only
+      if (dataSourceFilter === "riyadbank") {
+        let riyadQuery = supabase
+          .from('riyadbankstatement')
+          .select('txn_number, txn_date, card_number, txn_amount, card_type, auth_code, payment_reference')
+          .gte('txn_date', `${startDate}`)
+          .lte('txn_date', `${endDate}`);
 
-        if (transactionReceipts.length > 0) {
-          let riyadQuery = supabase
-            .from('riyadbankstatement')
-            .select('txn_number, card_number')
-            .in('txn_number', transactionReceipts);
+        // Apply riyad filters
+        riyadFilters.forEach(filter => {
+          riyadQuery = applyFilterToQuery(riyadQuery, filter);
+        });
 
-          // Apply riyad filters
-          riyadFilters.forEach(filter => {
-            riyadQuery = applyFilterToQuery(riyadQuery, filter);
-          });
+        const { data: riyadData, error: riyadError } = await riyadQuery;
 
-          const { data: riyadData } = await riyadQuery;
+        if (riyadError) throw riyadError;
 
-          const riyadMap = new Map<string, string>();
-          riyadData?.forEach(r => {
-            if (r.txn_number && r.card_number) {
-              riyadMap.set(r.txn_number, r.card_number);
-            }
-          });
-
-          // Update orders with card_number
-          orderMap.forEach(order => {
-            if (order.transaction_receipt) {
-              order.card_number = riyadMap.get(order.transaction_receipt) || null;
-            }
-          });
-
-          // Apply riyad filters to remove non-matching entries if filters exist
-          if (riyadFilters.length > 0) {
-            const matchingReceipts = new Set(riyadData?.map(r => r.txn_number).filter(Boolean) || []);
-            orderMap.forEach((order, key) => {
-              if (order.transaction_receipt && !matchingReceipts.has(order.transaction_receipt)) {
-                orderMap.delete(key);
-              }
+        riyadData?.forEach(r => {
+          if (r.txn_number) {
+            orderMap.set(r.txn_number, {
+              transactionid: r.txn_number,
+              order_number: null,
+              request_timestamp: r.txn_date,
+              created_at_date: r.txn_date,
+              total: parseFloat(r.txn_amount || '0'),
+              payment_method: r.card_type,
+              payment_type: 'RiyadBank',
+              order_status: null,
+              is_deleted: false,
+              payment_reference: r.payment_reference,
+              card_number: r.card_number,
+              transaction_receipt: r.txn_number,
+              credit: r.txn_amount,
+              result: 'ACK',
+              statuscode: r.auth_code
             });
           }
-        }
+        });
+      }
+
+      // Fetch from purpletransaction only
+      if (dataSourceFilter === "purpletransaction") {
+        let purpleQuery = supabase
+          .from('purpletransaction')
+          .select('order_number, created_at_date, total, payment_method, payment_type, order_status, is_deleted, payment_brand')
+          .gte('created_at_date', startDate)
+          .lte('created_at_date', endDate)
+          .neq('payment_method', 'point');
+
+        // Apply purple filters
+        purpleFilters.forEach(filter => {
+          purpleQuery = applyFilterToQuery(purpleQuery, filter);
+        });
+
+        const { data: purpleData, error: purpleError } = await purpleQuery;
+
+        if (purpleError) throw purpleError;
+
+        // Group by order_number
+        const purpleGrouped = new Map<string, { total: number; item: typeof purpleData[0] }>();
+        
+        purpleData?.forEach(p => {
+          if (p.order_number) {
+            const existing = purpleGrouped.get(p.order_number);
+            if (existing) {
+              existing.total += (p.total || 0);
+            } else {
+              purpleGrouped.set(p.order_number, {
+                total: p.total || 0,
+                item: p
+              });
+            }
+          }
+        });
+
+        purpleGrouped.forEach((value, orderNum) => {
+          const p = value.item;
+          orderMap.set(orderNum, {
+            transactionid: orderNum,
+            order_number: p.order_number,
+            request_timestamp: p.created_at_date,
+            created_at_date: p.created_at_date,
+            total: value.total,
+            payment_method: p.payment_method,
+            payment_type: p.payment_type,
+            order_status: p.order_status,
+            is_deleted: p.is_deleted,
+            payment_reference: null,
+            card_number: null,
+            transaction_receipt: null,
+            credit: value.total?.toString(),
+            result: p.order_status === 'Complete' ? 'ACK' : 'NOK',
+            statuscode: p.order_status
+          });
+        });
       }
 
       let ordersArray = Array.from(orderMap.values());
@@ -744,6 +843,20 @@ const OrderPaymentReport = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-2">
+              <Label>{isRTL ? "مصدر البيانات" : "Data Source"}</Label>
+              <Select value={dataSourceFilter} onValueChange={(value: "all" | "hyberpay" | "riyadbank" | "purpletransaction") => setDataSourceFilter(value)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isRTL ? "جميع الجداول" : "All Tables"}</SelectItem>
+                  <SelectItem value="hyberpay">{isRTL ? "هايبرباي فقط" : "Hyberpay Only"}</SelectItem>
+                  <SelectItem value="riyadbank">{isRTL ? "بنك الرياض فقط" : "Riyad Bank Only"}</SelectItem>
+                  <SelectItem value="purpletransaction">{isRTL ? "المعاملات فقط" : "Transactions Only"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
               <Input
