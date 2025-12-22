@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { format } from "date-fns";
+import purpleCardLogo from "@/assets/purple-card-logo.png";
 
 interface OrderLine {
   brand_code: string | null;
@@ -120,7 +121,7 @@ export const OrderInvoicePrint = ({
           body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: white;
-            color: #333;
+            color: #000;
             direction: ${isRTL ? 'rtl' : 'ltr'};
             padding: 20px;
           }
@@ -128,6 +129,7 @@ export const OrderInvoicePrint = ({
             max-width: 800px;
             margin: 0 auto;
             background: white;
+            color: #000;
           }
           .header {
             display: flex;
@@ -142,31 +144,14 @@ export const OrderInvoicePrint = ({
             align-items: center;
             gap: 15px;
           }
-          .logo {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #7c3aed, #a855f7);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 14px;
-          }
-          .company-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #7c3aed;
-          }
-          .company-name-ar {
-            font-size: 20px;
-            color: #666;
+          .logo-img {
+            height: 50px;
+            object-fit: contain;
           }
           .payment-info {
             text-align: ${isRTL ? 'left' : 'right'};
             font-size: 13px;
-            color: #666;
+            color: #000;
           }
           .payment-info-row {
             display: flex;
@@ -175,10 +160,10 @@ export const OrderInvoicePrint = ({
             margin-bottom: 5px;
           }
           .payment-label {
-            color: #888;
+            color: #666;
           }
           .payment-value {
-            color: #333;
+            color: #000;
             font-weight: 500;
           }
           .company-address {
@@ -190,14 +175,14 @@ export const OrderInvoicePrint = ({
           .invoice-meta {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            background: #f8f9fa;
+            background: #ede9fe;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
             text-align: center;
           }
           .meta-item {
-            border-left: 1px solid #ddd;
+            border-left: 1px solid #c4b5fd;
             padding: 0 10px;
           }
           .meta-item:last-child {
@@ -205,13 +190,13 @@ export const OrderInvoicePrint = ({
           }
           .meta-label {
             font-size: 11px;
-            color: #888;
+            color: #666;
             margin-bottom: 5px;
           }
           .meta-value {
             font-size: 13px;
             font-weight: 600;
-            color: #333;
+            color: #000;
           }
           .section-title {
             font-size: 14px;
@@ -311,11 +296,7 @@ export const OrderInvoicePrint = ({
           <!-- Header -->
           <div class="header">
             <div class="logo-section">
-              <div class="logo">PURPLE</div>
-              <div>
-                <div class="company-name">PURPLE CARD</div>
-                <div class="company-name-ar">بيربل كارد</div>
-              </div>
+              <img src="${purpleCardLogo}" class="logo-img" alt="Purple Card Logo" />
             </div>
             <div class="payment-info">
               <div class="payment-info-row">
@@ -460,96 +441,90 @@ export const OrderInvoicePrint = ({
         </DialogHeader>
 
         {/* Preview Content */}
-        <div ref={printRef} className="bg-white p-6 rounded-lg border" dir={isRTL ? 'rtl' : 'ltr'}>
+        <div ref={printRef} className="bg-white p-6 rounded-lg border text-black" dir={isRTL ? 'rtl' : 'ltr'}>
           {/* Header */}
           <div className="flex justify-between items-start pb-4 border-b-2 mb-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-400 rounded-xl flex items-center justify-center text-white font-bold text-xs">
-                PURPLE
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-purple-600">PURPLE CARD</div>
-                <div className="text-lg text-muted-foreground">بيربل كارد</div>
-              </div>
+              <img src={purpleCardLogo} alt="Purple Card Logo" className="h-12 object-contain" />
             </div>
             <div className="text-sm text-right space-y-1">
               <div className="flex justify-end gap-2">
-                <span className="text-muted-foreground">Reference Number:</span>
-                <span className="font-medium">{paymentRef || '-'}</span>
+                <span className="text-gray-500">Reference Number:</span>
+                <span className="font-medium text-black">{paymentRef || '-'}</span>
               </div>
               <div className="flex justify-end gap-2">
-                <span className="text-muted-foreground">Payment brand:</span>
-                <span className="font-medium">{paymentBrand || '-'}</span>
+                <span className="text-gray-500">Payment brand:</span>
+                <span className="font-medium text-black">{paymentBrand || '-'}</span>
               </div>
               <div className="flex justify-end gap-2">
-                <span className="text-muted-foreground">Payment method:</span>
-                <span className="font-medium">{paymentMethod || '-'}</span>
+                <span className="text-gray-500">Payment method:</span>
+                <span className="font-medium text-black">{paymentMethod || '-'}</span>
               </div>
               <div className="flex justify-end gap-2">
-                <span className="text-muted-foreground">Card number:</span>
-                <span className="font-medium">xxxx xxxx xxxx {hyberpayInfo?.accountnumberlast4 || riyadBankInfo?.card_number?.slice(-4) || 'XXXX'}</span>
+                <span className="text-gray-500">Card number:</span>
+                <span className="font-medium text-black">xxxx xxxx xxxx {hyberpayInfo?.accountnumberlast4 || riyadBankInfo?.card_number?.slice(-4) || 'XXXX'}</span>
               </div>
               <div className="flex justify-end gap-2">
-                <span className="text-muted-foreground">Total:</span>
-                <span className="font-medium">SAR {hyberpayInfo?.credit || totalAmount.toFixed(2)}</span>
+                <span className="text-gray-500">Total:</span>
+                <span className="font-medium text-black">SAR {hyberpayInfo?.credit || totalAmount.toFixed(2)}</span>
               </div>
             </div>
           </div>
 
           {/* Invoice Meta */}
-          <div className="grid grid-cols-4 bg-muted/50 p-4 rounded-lg mb-4 text-center">
-            <div className="border-l px-2">
-              <div className="text-xs text-muted-foreground">VAT No الرقم الضريبي</div>
-              <div className="font-semibold">1111</div>
+          <div className="grid grid-cols-4 bg-purple-100 p-4 rounded-lg mb-4 text-center">
+            <div className="border-l border-purple-200 px-2">
+              <div className="text-xs text-gray-600">VAT No الرقم الضريبي</div>
+              <div className="font-semibold text-black">1111</div>
             </div>
-            <div className="border-l px-2">
-              <div className="text-xs text-muted-foreground">Invoice No رقم الفاتورة</div>
-              <div className="font-semibold">{orderNumber}</div>
+            <div className="border-l border-purple-200 px-2">
+              <div className="text-xs text-gray-600">Invoice No رقم الفاتورة</div>
+              <div className="font-semibold text-black">{orderNumber}</div>
             </div>
-            <div className="border-l px-2">
-              <div className="text-xs text-muted-foreground">Invoice Date تاريخ الفاتورة</div>
-              <div className="font-semibold text-sm">{orderDate ? format(new Date(orderDate), 'dd MMM yyyy HH:mm') : '-'}</div>
+            <div className="border-l border-purple-200 px-2">
+              <div className="text-xs text-gray-600">Invoice Date تاريخ الفاتورة</div>
+              <div className="font-semibold text-sm text-black">{orderDate ? format(new Date(orderDate), 'dd MMM yyyy HH:mm') : '-'}</div>
             </div>
             <div className="px-2">
-              <div className="text-xs text-muted-foreground">Invoice Currency عملة الفاتورة</div>
-              <div className="font-semibold">{hyberpayInfo?.currency || 'SAR'}</div>
+              <div className="text-xs text-gray-600">Invoice Currency عملة الفاتورة</div>
+              <div className="font-semibold text-black">{hyberpayInfo?.currency || 'SAR'}</div>
             </div>
           </div>
 
           {/* Customer Info */}
           <div className="text-sm font-semibold text-purple-600 mb-2 text-right">Customer Info بيانات العميل</div>
-          <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg mb-4">
+          <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg mb-4">
             <div>
-              <div className="text-xs text-muted-foreground">Customer Name بيانات العميل</div>
-              <div className="font-medium">{customerName || '-'}</div>
+              <div className="text-xs text-gray-500">Customer Name بيانات العميل</div>
+              <div className="font-medium text-black">{customerName || '-'}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Customer Phone بيانات الجوال</div>
-              <div className="font-medium">{customerPhone || '-'}</div>
+              <div className="text-xs text-gray-500">Customer Phone بيانات الجوال</div>
+              <div className="font-medium text-black">{customerPhone || '-'}</div>
             </div>
           </div>
 
           {/* Items Table */}
           <table className="w-full border-collapse mb-4">
             <thead>
-              <tr className="bg-muted/50">
-                <th className="p-3 text-center text-xs border-b-2">#</th>
-                <th className="p-3 text-center text-xs border-b-2">وصف المنتج<br/>Item description</th>
-                <th className="p-3 text-center text-xs border-b-2">الكمية<br/>Quantity</th>
-                <th className="p-3 text-center text-xs border-b-2">سعر الوحدة<br/>Unit price</th>
-                <th className="p-3 text-center text-xs border-b-2">قيمة الضريبة<br/>VAT Amount</th>
-                <th className="p-3 text-center text-xs border-b-2">إجمالي المبلغ<br/>Total Amount</th>
+              <tr className="bg-purple-100">
+                <th className="p-3 text-center text-xs border-b-2 text-gray-700">#</th>
+                <th className="p-3 text-center text-xs border-b-2 text-gray-700">وصف المنتج<br/>Item description</th>
+                <th className="p-3 text-center text-xs border-b-2 text-gray-700">الكمية<br/>Quantity</th>
+                <th className="p-3 text-center text-xs border-b-2 text-gray-700">سعر الوحدة<br/>Unit price</th>
+                <th className="p-3 text-center text-xs border-b-2 text-gray-700">قيمة الضريبة<br/>VAT Amount</th>
+                <th className="p-3 text-center text-xs border-b-2 text-gray-700">إجمالي المبلغ<br/>Total Amount</th>
               </tr>
             </thead>
             <tbody>
               {orderLines.map((line, idx) => (
                 <tr key={idx} className="border-b">
-                  <td className="p-3 text-center">{idx + 1}</td>
-                  <td className="p-3 text-center">{line.coins_number ? `${line.coins_number.toLocaleString()} كوينز - ` : ''}{line.product_name || line.brand_name || '-'}</td>
-                  <td className="p-3 text-center">{line.qty || 1}</td>
-                  <td className="p-3 text-center">{line.unit_price?.toFixed(3) || line.total?.toFixed(3) || '0.000'}</td>
-                  <td className="p-3 text-center">0</td>
-                  <td className="p-3 text-center">{line.total?.toFixed(3) || '0.000'}</td>
+                  <td className="p-3 text-center text-black">{idx + 1}</td>
+                  <td className="p-3 text-center text-black">{line.coins_number ? `${line.coins_number.toLocaleString()} كوينز - ` : ''}{line.product_name || line.brand_name || '-'}</td>
+                  <td className="p-3 text-center text-black">{line.qty || 1}</td>
+                  <td className="p-3 text-center text-black">{line.unit_price?.toFixed(3) || line.total?.toFixed(3) || '0.000'}</td>
+                  <td className="p-3 text-center text-black">0</td>
+                  <td className="p-3 text-center text-black">{line.total?.toFixed(3) || '0.000'}</td>
                 </tr>
               ))}
             </tbody>
@@ -557,11 +532,11 @@ export const OrderInvoicePrint = ({
 
           {/* Totals */}
           <div className="w-1/2 ml-auto mb-6">
-            <div className="flex justify-between p-3">
+            <div className="flex justify-between p-3 text-black">
               <span>Total Without VAT المجموع بدون الضريبة</span>
               <span>{totalAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between p-3 bg-muted/50 rounded-lg font-semibold">
+            <div className="flex justify-between p-3 bg-purple-100 rounded-lg font-semibold text-black">
               <span>Total With VAT المجموع مع الضريبة</span>
               <span>{totalAmount.toFixed(2)}</span>
             </div>
