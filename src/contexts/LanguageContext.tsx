@@ -592,6 +592,7 @@ const translations = {
     "openShift": "Open Shift",
     "closeShift": "Close Shift",
     "shiftOpenedAt": "Shift Opened At",
+    "openingBalance": "Opening Balance",
     "closingBalance": "Closing Balance",
     "receiptImage": "Receipt Image",
     "uploadImage": "Upload Image",
