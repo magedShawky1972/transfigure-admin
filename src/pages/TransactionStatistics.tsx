@@ -31,16 +31,17 @@ const TransactionStatistics = () => {
   const fetchStatistics = async () => {
     setLoading(true);
     try {
-      // Fetch all transactions (excluding point transactions)
-      const { data: transactions, error } = await supabase
+      // Use RPC or direct aggregation to handle large datasets
+      // Get total count and sum
+      const { count: totalCount, error: countError } = await supabase
         .from("purpletransaction")
-        .select("total, created_at_date")
+        .select("*", { count: "exact", head: true })
         .neq("payment_method", "point")
         .eq("is_deleted", false);
 
-      if (error) throw error;
+      if (countError) throw countError;
 
-      if (!transactions || transactions.length === 0) {
+      if (!totalCount || totalCount === 0) {
         setStats({
           averageOrderSize: 0,
           averageDailyTransactions: 0,
@@ -49,25 +50,49 @@ const TransactionStatistics = () => {
         return;
       }
 
-      // Calculate average order size
-      const totalAmount = transactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
-      const averageOrderSize = totalAmount / transactions.length;
+      // Fetch aggregated data in batches to calculate totals
+      let allTransactions: { total: number | null; created_at_date: string | null }[] = [];
+      const batchSize = 1000;
+      let offset = 0;
+      let hasMore = true;
 
-      // Calculate average daily transactions
+      while (hasMore) {
+        const { data: batch, error: batchError } = await supabase
+          .from("purpletransaction")
+          .select("total, created_at_date")
+          .neq("payment_method", "point")
+          .eq("is_deleted", false)
+          .range(offset, offset + batchSize - 1);
+
+        if (batchError) throw batchError;
+
+        if (batch && batch.length > 0) {
+          allTransactions = [...allTransactions, ...batch];
+          offset += batchSize;
+          hasMore = batch.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Calculate average order size
+      const totalAmount = allTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
+      const averageOrderSize = totalAmount / allTransactions.length;
+
+      // Calculate average daily transactions (avg count per day)
       const uniqueDates = new Set(
-        transactions
+        allTransactions
           .filter(t => t.created_at_date)
-          .map(t => new Date(t.created_at_date!).toDateString())
+          .map(t => t.created_at_date!.split('T')[0])
       );
       const numberOfDays = uniqueDates.size || 1;
-      const averageDailyTransactions = transactions.length / numberOfDays;
+      const averageDailyTransactions = allTransactions.length / numberOfDays;
 
-      // Calculate average monthly amount
+      // Calculate average monthly amount (total sales avg per month)
       const monthlyTotals: { [key: string]: number } = {};
-      transactions.forEach(t => {
+      allTransactions.forEach(t => {
         if (t.created_at_date) {
-          const date = new Date(t.created_at_date);
-          const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+          const monthKey = t.created_at_date.substring(0, 7); // YYYY-MM format
           monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + (Number(t.total) || 0);
         }
       });
