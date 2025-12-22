@@ -36,62 +36,56 @@ const DataLoadingStatus = () => {
       const end = parseISO(endDate);
       const allDates = eachDayOfInterval({ start, end });
       
-      let loadedDates = new Set<string>();
+      const loadedDates = new Set<string>();
+
+      const toISODateOnly = (value: string) => {
+        // Works for:
+        // - "2025-11-02T00:20:41+00:00"
+        // - "2025-11-02 00:20:41+00"
+        // - "2025-11-02" 
+        return value.slice(0, 10);
+      };
 
       if (dataSource === "hyberpay") {
-        // Fetch all data and filter client-side since requesttimestamp format is "YYYY-MM-DD HH:mm:ss+00"
+        // requesttimestamp contains time (and sometimes timezone), so we normalize to date-only.
         const { data, error } = await supabase
-          .from('hyberpaystatement')
-          .select('requesttimestamp');
+          .from("hyberpaystatement")
+          .select("requesttimestamp");
 
         if (error) throw error;
 
-        data?.forEach(row => {
-          if (row.requesttimestamp) {
-            // Extract date only from "2025-11-02 00:20:41+00" format
-            const dateOnly = row.requesttimestamp.split(' ')[0];
-            const dateObj = new Date(dateOnly);
-            const startDateObj = new Date(startDate);
-            const endDateObj = new Date(endDate);
-            if (dateObj >= startDateObj && dateObj <= endDateObj) {
-              loadedDates.add(dateOnly);
-            }
-          }
+        data?.forEach((row) => {
+          if (!row.requesttimestamp) return;
+          const dateOnly = toISODateOnly(String(row.requesttimestamp));
+          if (dateOnly >= startDate && dateOnly <= endDate) loadedDates.add(dateOnly);
         });
       } else if (dataSource === "riyadbank") {
         const { data, error } = await supabase
-          .from('riyadbankstatement')
-          .select('txn_date');
+          .from("riyadbankstatement")
+          .select("txn_date");
 
         if (error) throw error;
 
-        // Filter by date client-side since txn_date format is DD/MM/YYYY HH:mm:ss
-        data?.forEach(row => {
-          if (row.txn_date) {
-            const datePart = row.txn_date.split(' ')[0];
-            const [day, month, year] = datePart.split('/');
-            const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-            const txnDateObj = new Date(dateStr);
-            const startDateObj = new Date(startDate);
-            const endDateObj = new Date(endDate);
-            if (txnDateObj >= startDateObj && txnDateObj <= endDateObj) {
-              loadedDates.add(dateStr);
-            }
-          }
+        // txn_date format is "DD/MM/YYYY HH:mm:ss"
+        data?.forEach((row) => {
+          if (!row.txn_date) return;
+          const datePart = String(row.txn_date).split(" ")[0];
+          const [day, month, year] = datePart.split("/");
+          const dateOnly = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+          if (dateOnly >= startDate && dateOnly <= endDate) loadedDates.add(dateOnly);
         });
       } else if (dataSource === "purpletransaction") {
+        // created_at_date appears to include time in some rows, so we normalize to date-only.
         const { data, error } = await supabase
-          .from('purpletransaction')
-          .select('created_at_date')
-          .gte('created_at_date', startDate)
-          .lte('created_at_date', endDate);
+          .from("purpletransaction")
+          .select("created_at_date");
 
         if (error) throw error;
 
-        data?.forEach(row => {
-          if (row.created_at_date) {
-            loadedDates.add(row.created_at_date);
-          }
+        data?.forEach((row) => {
+          if (!row.created_at_date) return;
+          const dateOnly = toISODateOnly(String(row.created_at_date));
+          if (dateOnly >= startDate && dateOnly <= endDate) loadedDates.add(dateOnly);
         });
       }
 
