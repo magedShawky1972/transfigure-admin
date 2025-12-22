@@ -31,10 +31,12 @@ const TransactionStatistics = () => {
   const fetchStatistics = async () => {
     setLoading(true);
     try {
-      // Calculate date 3 months ago from today
+      // Calculate date 3 months ago as integer (YYYYMMDD format)
       const today = new Date();
       const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-      const startDate = threeMonthsAgo.toISOString().split('T')[0];
+      const startDateInt = parseInt(
+        `${threeMonthsAgo.getFullYear()}${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}${String(threeMonthsAgo.getDate()).padStart(2, '0')}`
+      );
 
       // Get brands with ABC class "A"
       const { data: classABrands, error: brandsError } = await supabase
@@ -46,13 +48,13 @@ const TransactionStatistics = () => {
 
       const classABrandCodes = classABrands?.map(b => b.brand_code).filter(Boolean) || [];
 
-      // Get total count
+      // Get total count using created_at_date_int for faster filtering
       const { count: totalCount, error: countError } = await supabase
         .from("purpletransaction")
         .select("*", { count: "exact", head: true })
         .neq("payment_method", "point")
         .eq("is_deleted", false)
-        .gte("created_at_date", startDate);
+        .gte("created_at_date_int", startDateInt);
 
       if (countError) throw countError;
 
@@ -65,8 +67,8 @@ const TransactionStatistics = () => {
         return;
       }
 
-      // Fetch aggregated data in batches to calculate totals
-      let allTransactions: { total: number | null; created_at_date: string | null; brand_code: string | null }[] = [];
+      // Fetch aggregated data in batches using created_at_date_int for faster filtering
+      let allTransactions: { total: number | null; created_at_date_int: number | null; brand_code: string | null }[] = [];
       const batchSize = 1000;
       let offset = 0;
       let hasMore = true;
@@ -74,10 +76,10 @@ const TransactionStatistics = () => {
       while (hasMore) {
         const { data: batch, error: batchError } = await supabase
           .from("purpletransaction")
-          .select("total, created_at_date, brand_code")
+          .select("total, created_at_date_int, brand_code")
           .neq("payment_method", "point")
           .eq("is_deleted", false)
-          .gte("created_at_date", startDate)
+          .gte("created_at_date_int", startDateInt)
           .range(offset, offset + batchSize - 1);
 
         if (batchError) throw batchError;
@@ -103,10 +105,11 @@ const TransactionStatistics = () => {
         : 0;
 
       // Calculate average daily transactions (all transactions)
+      // created_at_date_int is in YYYYMMDD format
       const uniqueDates = new Set(
         allTransactions
-          .filter(t => t.created_at_date)
-          .map(t => t.created_at_date!.split('T')[0])
+          .filter(t => t.created_at_date_int)
+          .map(t => t.created_at_date_int)
       );
       const numberOfDays = uniqueDates.size || 1;
       const averageDailyTransactions = allTransactions.length / numberOfDays;
@@ -115,8 +118,9 @@ const TransactionStatistics = () => {
       const totalAmount = allTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
       const monthlyTotals: { [key: string]: number } = {};
       allTransactions.forEach(t => {
-        if (t.created_at_date) {
-          const monthKey = t.created_at_date.substring(0, 7); // YYYY-MM format
+        if (t.created_at_date_int) {
+          // Extract YYYYMM from YYYYMMDD
+          const monthKey = String(t.created_at_date_int).substring(0, 6);
           monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + (Number(t.total) || 0);
         }
       });
