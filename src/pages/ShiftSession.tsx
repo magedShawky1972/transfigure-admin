@@ -1536,20 +1536,11 @@ const ShiftSession = () => {
                       <CardHeader className="p-3 sm:p-4 pb-2">
                         <CardTitle className="text-sm font-medium">{brand.short_name || brand.brand_name}</CardTitle>
                       </CardHeader>
-                      <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
+                      <CardContent className="p-3 sm:p-4 pt-0">
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">{t("openingBalance") || "رصيد الفتح"}:</span>
                           <span className="font-semibold">{balances[brand.id]?.opening_balance?.toFixed(2) || "0.00"}</span>
                         </div>
-                        {balances[brand.id]?.opening_image_path && openingImageUrls[brand.id] && (
-                          <div className="relative rounded-lg overflow-hidden border h-20 cursor-pointer" onClick={() => setSelectedImage(openingImageUrls[brand.id] || null)}>
-                            <img
-                              src={openingImageUrls[brand.id] || ""}
-                              alt={brand.brand_name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
                   ))}
