@@ -31,13 +31,18 @@ const TransactionStatistics = () => {
   const fetchStatistics = async () => {
     setLoading(true);
     try {
-      // Use RPC or direct aggregation to handle large datasets
-      // Get total count and sum
+      // Calculate date 3 months ago from today
+      const today = new Date();
+      const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+      const startDate = threeMonthsAgo.toISOString().split('T')[0];
+
+      // Get total count
       const { count: totalCount, error: countError } = await supabase
         .from("purpletransaction")
         .select("*", { count: "exact", head: true })
         .neq("payment_method", "point")
-        .eq("is_deleted", false);
+        .eq("is_deleted", false)
+        .gte("created_at_date", startDate);
 
       if (countError) throw countError;
 
@@ -62,6 +67,7 @@ const TransactionStatistics = () => {
           .select("total, created_at_date")
           .neq("payment_method", "point")
           .eq("is_deleted", false)
+          .gte("created_at_date", startDate)
           .range(offset, offset + batchSize - 1);
 
         if (batchError) throw batchError;
@@ -173,8 +179,8 @@ const TransactionStatistics = () => {
             </h1>
             <p className="text-muted-foreground">
               {language === "ar"
-                ? "متوسط حجم الطلب ومعاملات اليومية والشهرية"
-                : "Average order size, daily transactions, and monthly amounts"}
+                ? "إحصائيات آخر 4 أشهر (الشهر الحالي + 3 أشهر سابقة)"
+                : "Statistics for the last 4 months (current + previous 3 months)"}
             </p>
           </div>
         </div>
