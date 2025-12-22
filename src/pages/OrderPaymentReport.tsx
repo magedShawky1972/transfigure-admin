@@ -196,6 +196,50 @@ const OrderPaymentReport = () => {
       const orderMap = new Map<string, OrderGridItem>();
       const MAX_ROWS = 2000; // Limit rows for performance
 
+      // Check if we have column filter for order_number - if so, get matching payment references first
+      const orderNumberColumnFilter = columnFilters.order_number?.trim();
+      let targetPaymentRefs: string[] | null = null;
+      let targetTransactionReceipts: string[] | null = null;
+
+      if (orderNumberColumnFilter) {
+        const { data: matchingPayments } = await supabase
+          .from('order_payment')
+          .select('paymentrefrence')
+          .ilike('ordernumber', `%${orderNumberColumnFilter}%`);
+        
+        if (matchingPayments && matchingPayments.length > 0) {
+          targetPaymentRefs = matchingPayments.map(p => p.paymentrefrence).filter(Boolean) as string[];
+        } else {
+          // No matching orders found - return empty result
+          setOrders([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // If we have riyadbank advanced filters, query riyadbank first to get matching transaction_receipts
+      if (riyadFilters.length > 0 && (dataSourceFilter === "all" || dataSourceFilter === "hyberpay")) {
+        let riyadPreQuery = supabase
+          .from('riyadbankstatement')
+          .select('txn_number')
+          .gte('txn_date_only', startDate)
+          .lte('txn_date_only', endDate);
+        
+        riyadFilters.forEach(filter => {
+          riyadPreQuery = applyFilterToQuery(riyadPreQuery, filter);
+        });
+
+        const { data: riyadPreData } = await riyadPreQuery;
+        if (riyadPreData && riyadPreData.length > 0) {
+          targetTransactionReceipts = riyadPreData.map(r => r.txn_number).filter(Boolean) as string[];
+        } else {
+          // No matching riyadbank data found with the filters
+          setOrders([]);
+          setLoading(false);
+          return;
+        }
+      }
+
       // Fetch based on data source filter
       if (dataSourceFilter === "all" || dataSourceFilter === "hyberpay") {
         // Start from hyberpaystatement - use request_date for date filtering
@@ -204,8 +248,18 @@ const OrderPaymentReport = () => {
           .select('transactionid, requesttimestamp, transaction_receipt, credit, result, statuscode, paymenttype, request_date')
           .gte('request_date', startDate)
           .lte('request_date', endDate)
-          .order('requesttimestamp', { ascending: false })
-          .limit(MAX_ROWS);
+          .order('requesttimestamp', { ascending: false });
+
+        // If we have specific payment refs from order filter, use them (no limit needed)
+        if (targetPaymentRefs && targetPaymentRefs.length > 0) {
+          hyberpayQuery = hyberpayQuery.in('transactionid', targetPaymentRefs);
+        } else if (targetTransactionReceipts && targetTransactionReceipts.length > 0) {
+          // If we have transaction receipts from riyadbank filter, use them
+          hyberpayQuery = hyberpayQuery.in('transaction_receipt', targetTransactionReceipts);
+        } else {
+          // Apply limit only when no specific filter
+          hyberpayQuery = hyberpayQuery.limit(MAX_ROWS);
+        }
 
         // Apply hyberpay advanced filters
         hyberpayFilters.forEach(filter => {
@@ -244,17 +298,27 @@ const OrderPaymentReport = () => {
 
           // Run order_payment and riyadbank queries in parallel
           if (transactionIds.length > 0) {
+            // Build riyadbank query with proper filters
+            let riyadQuery = dataSourceFilter === "all" && transactionReceipts.length > 0
+              ? supabase
+                  .from('riyadbankstatement')
+                  .select('txn_number, card_number')
+                  .in('txn_number', transactionReceipts)
+              : null;
+
+            // Apply riyad filters to the query
+            if (riyadQuery && riyadFilters.length > 0) {
+              riyadFilters.forEach(filter => {
+                riyadQuery = applyFilterToQuery(riyadQuery, filter);
+              });
+            }
+
             const [paymentResult, riyadResult] = await Promise.all([
               supabase
                 .from('order_payment')
                 .select('ordernumber, paymentrefrence')
                 .in('paymentrefrence', transactionIds),
-              dataSourceFilter === "all" && transactionReceipts.length > 0
-                ? supabase
-                    .from('riyadbankstatement')
-                    .select('txn_number, card_number')
-                    .in('txn_number', transactionReceipts)
-                : Promise.resolve({ data: null })
+              riyadQuery || Promise.resolve({ data: null })
             ]);
 
             const paymentData = paymentResult.data;
