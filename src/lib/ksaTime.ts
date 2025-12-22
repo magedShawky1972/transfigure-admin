@@ -30,6 +30,18 @@ export const getKSADateString = (): string => {
 };
 
 /**
+ * Get yesterday's KSA date as YYYY-MM-DD string
+ */
+export const getKSAYesterdayDateString = (): string => {
+  const ksaDate = getKSADate();
+  ksaDate.setDate(ksaDate.getDate() - 1);
+  const year = ksaDate.getFullYear();
+  const month = (ksaDate.getMonth() + 1).toString().padStart(2, '0');
+  const day = ksaDate.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Get current KSA time in minutes from midnight
  */
 export const getKSATimeInMinutes = (): number => {
