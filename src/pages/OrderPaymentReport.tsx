@@ -1493,7 +1493,7 @@ const OrderPaymentReport = () => {
                   <CardTitle className="text-lg">
                     {isRTL ? "معلومات الطلب" : "Order Information"}
                   </CardTitle>
-                  {selectedOrder.order_status?.toLowerCase() === 'complete' && (
+                  {(selectedOrder.order_status?.toLowerCase() === 'complete' || selectedOrder.order_status?.toLowerCase() === 'completed') && (
                     <Button 
                       variant="outline" 
                       size="sm" 
