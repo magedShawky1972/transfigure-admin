@@ -7,7 +7,23 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe, Copy, Check, ChevronDown, ChevronUp, RotateCcw, Truck } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
+  ArrowRight,
+  User,
+  Tag,
+  Package,
+  ShoppingCart,
+  Globe,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
+  Truck,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +45,22 @@ interface StepResult {
   method?: string;
   fullUrl?: string;
 }
+
+const normalizeKey = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const splitVendorCandidates = (vendorName: unknown) => {
+  const raw = String(vendorName ?? "").trim();
+  if (!raw) return [] as string[];
+  const parts = raw
+    .split(/-|–|—/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return [raw, ...parts];
+};
 
 const steps = [
   { id: "customer", label: "Check/Create Customer", icon: User },
@@ -128,8 +160,13 @@ export function OdooSyncStepDialog({
       payment_method: firstTransaction?.payment_method || "",
       payment_brand: firstTransaction?.payment_brand || "",
       lines: nonStockProducts.map((t: any, index: number) => {
-        const vendorName = t.vendor_name?.toLowerCase() || "";
-        const supplierCode = supplierCodeMap[vendorName] || t.vendor_name || "";
+        const rawVendor = t.vendor_name;
+        const candidates = splitVendorCandidates(rawVendor);
+        const matched =
+          candidates
+            .map((c) => supplierCodeMap[normalizeKey(c)])
+            .find((v) => Boolean(v)) || "";
+
         return {
           line_number: index + 1,
           product_sku: productSkuMap[t.product_id] || t.product_id,
@@ -137,7 +174,7 @@ export function OdooSyncStepDialog({
           quantity: parseFloat(String(t.qty)) || 1,
           unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
           total: parseFloat(String(t.cost_sold || t.total)) || 0,
-          supplier_code: supplierCode,
+          supplier_code: matched || String(rawVendor ?? ""),
         };
       }),
     } : null;
@@ -188,44 +225,56 @@ export function OdooSyncStepDialog({
       .from("products")
       .select("product_id, sku, non_stock")
       .in("product_id", productIds);
-    
+
     if (data) {
       const map: Record<string, string> = {};
       const nonStock: any[] = [];
-      const vendorNames: string[] = [];
-      
+      const vendorCandidates: string[] = [];
+
       data.forEach((p: any) => {
         map[p.product_id] = p.sku || p.product_id;
         if (p.non_stock) {
           const transaction = transactions.find((t: any) => t.product_id === p.product_id);
           if (transaction) {
             nonStock.push(transaction);
-            // Get vendor_name from transaction data
-            if (transaction.vendor_name) {
-              vendorNames.push(transaction.vendor_name);
-            }
+            splitVendorCandidates(transaction.vendor_name).forEach((c) => vendorCandidates.push(c));
           }
         }
       });
-      
+
       setProductSkuMap(map);
       setNonStockProducts(nonStock);
-      
-      // Fetch supplier codes for vendor names
-      if (vendorNames.length > 0) {
-        const uniqueVendors = [...new Set(vendorNames)];
-        const { data: suppliersData } = await supabase
-          .from("suppliers")
-          .select("supplier_name, supplier_code")
-          .in("supplier_name", uniqueVendors);
-        
-        if (suppliersData) {
+
+      // Fetch supplier codes for vendor names (try both supplier_name and supplier_code)
+      const uniqueCandidates = [...new Set(vendorCandidates.map((v) => v.trim()).filter(Boolean))];
+      if (uniqueCandidates.length > 0) {
+        const [byName, byCode] = await Promise.all([
+          supabase
+            .from("suppliers")
+            .select("supplier_name, supplier_code")
+            .in("supplier_name", uniqueCandidates),
+          supabase
+            .from("suppliers")
+            .select("supplier_name, supplier_code")
+            .in("supplier_code", uniqueCandidates),
+        ]);
+
+        const suppliersData = [...(byName.data || []), ...(byCode.data || [])];
+
+        if (suppliersData.length > 0) {
           const codeMap: Record<string, string> = {};
           suppliersData.forEach((s: any) => {
-            codeMap[s.supplier_name?.toLowerCase()] = s.supplier_code;
+            const nameKey = normalizeKey(s.supplier_name);
+            const codeKey = normalizeKey(s.supplier_code);
+            if (nameKey) codeMap[nameKey] = s.supplier_code;
+            if (codeKey) codeMap[codeKey] = s.supplier_code;
           });
           setSupplierCodeMap(codeMap);
+        } else {
+          setSupplierCodeMap({});
         }
+      } else {
+        setSupplierCodeMap({});
       }
     }
   };

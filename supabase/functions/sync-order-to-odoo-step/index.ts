@@ -25,6 +25,22 @@ interface Transaction {
   vendor_name?: string;
 }
 
+const normalizeKey = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const splitVendorCandidates = (vendorName: unknown) => {
+  const raw = String(vendorName ?? "").trim();
+  if (!raw) return [] as string[];
+  const parts = raw
+    .split(/-|–|—/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return [raw, ...parts];
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -441,7 +457,7 @@ Deno.serve(async (req) => {
         const nonStockProductIds = [...new Set(nonStockProducts.map((t: Transaction) => t.product_id))];
         const { data: productsData } = await supabase
           .from("products")
-          .select("product_id, sku, supplier")
+          .select("product_id, sku")
           .in("product_id", nonStockProductIds);
 
         const skuMap = new Map();
@@ -449,18 +465,33 @@ Deno.serve(async (req) => {
           skuMap.set(p.product_id, p.sku);
         });
 
-        // Get unique vendor names from non-stock products to lookup supplier codes
-        const vendorNames = [...new Set(nonStockProducts.map((t: Transaction) => t.vendor_name).filter(Boolean))];
+        // Collect vendor candidates and lookup supplier codes by name/code
+        const vendorCandidates: string[] = [];
+        nonStockProducts.forEach((t: Transaction) => {
+          splitVendorCandidates(t.vendor_name).forEach((c) => vendorCandidates.push(c));
+        });
+
+        const uniqueCandidates = [...new Set(vendorCandidates.map((v) => v.trim()).filter(Boolean))];
         const supplierCodeMap = new Map<string, string>();
-        
-        if (vendorNames.length > 0) {
-          const { data: suppliersData } = await supabase
-            .from("suppliers")
-            .select("supplier_name, supplier_code")
-            .in("supplier_name", vendorNames);
-          
-          suppliersData?.forEach((s: any) => {
-            supplierCodeMap.set(s.supplier_name?.toLowerCase(), s.supplier_code);
+
+        if (uniqueCandidates.length > 0) {
+          const [byName, byCode] = await Promise.all([
+            supabase
+              .from("suppliers")
+              .select("supplier_name, supplier_code")
+              .in("supplier_name", uniqueCandidates),
+            supabase
+              .from("suppliers")
+              .select("supplier_name, supplier_code")
+              .in("supplier_code", uniqueCandidates),
+          ]);
+
+          const suppliersData = [...(byName.data || []), ...(byCode.data || [])];
+          suppliersData.forEach((s: any) => {
+            const nameKey = normalizeKey(s.supplier_name);
+            const codeKey = normalizeKey(s.supplier_code);
+            if (nameKey) supplierCodeMap.set(nameKey, s.supplier_code);
+            if (codeKey) supplierCodeMap.set(codeKey, s.supplier_code);
           });
         }
 
@@ -489,9 +520,11 @@ Deno.serve(async (req) => {
           payment_method: firstTransaction.payment_method || "",
           payment_brand: firstTransaction.payment_brand || "",
           lines: nonStockProducts.map((t: Transaction, index: number) => {
-            const vendorName = t.vendor_name?.toLowerCase() || "";
-            const supplierCode = supplierCodeMap.get(vendorName) || t.vendor_name || "";
-            
+            const candidates = splitVendorCandidates(t.vendor_name);
+            const matched = candidates
+              .map((c) => supplierCodeMap.get(normalizeKey(c)))
+              .find((v) => Boolean(v));
+
             return {
               line_number: index + 1,
               product_sku: skuMap.get(t.product_id) || t.product_id,
@@ -500,7 +533,7 @@ Deno.serve(async (req) => {
               uom: "Unit",
               unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
               total: parseFloat(String(t.cost_sold || t.total)) || 0,
-              supplier_code: supplierCode,
+              supplier_code: matched || String(t.vendor_name ?? ""),
             };
           }),
         };
