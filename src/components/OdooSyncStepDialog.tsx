@@ -102,7 +102,7 @@ export function OdooSyncStepDialog({
     const orderBody = {
       order_number: firstTransaction?.order_number,
       customer_phone: firstTransaction?.customer_phone,
-      order_date: firstTransaction?.created_at_date,
+      order_date: firstTransaction?.created_at_date?.replace('T', ' ') || '',
       payment_method: firstTransaction?.payment_method,
       payment_brand: firstTransaction?.payment_brand || "",
       sales_person: firstTransaction?.user_name || "",
