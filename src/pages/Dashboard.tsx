@@ -20,6 +20,7 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { TransactionTypeChart } from "@/components/TransactionTypeChart";
 import { UserTransactionCountChart } from "@/components/UserTransactionCountChart";
 import { UserTransactionValueChart } from "@/components/UserTransactionValueChart";
+import { BrandGrossRateChart } from "@/components/BrandGrossRateChart";
 
 interface Transaction {
   id: string;
@@ -2432,6 +2433,11 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+      )}
+
+      {/* Brand Gross Rate Chart - Last 3 Months */}
+      {hasAccess("brand_gross_rate") && (
+        <BrandGrossRateChart />
       )}
 
       {/* Coins by Brand Grid */}
