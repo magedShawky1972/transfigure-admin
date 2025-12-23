@@ -2618,6 +2618,8 @@ export type Database = {
           id: string
           last_order_number: string | null
           opened_at: string
+          salla_first_order_number: string | null
+          salla_last_order_number: string | null
           shift_assignment_id: string
           status: string
           updated_at: string
@@ -2632,6 +2634,8 @@ export type Database = {
           id?: string
           last_order_number?: string | null
           opened_at?: string
+          salla_first_order_number?: string | null
+          salla_last_order_number?: string | null
           shift_assignment_id: string
           status?: string
           updated_at?: string
@@ -2646,6 +2650,8 @@ export type Database = {
           id?: string
           last_order_number?: string | null
           opened_at?: string
+          salla_first_order_number?: string | null
+          salla_last_order_number?: string | null
           shift_assignment_id?: string
           status?: string
           updated_at?: string
