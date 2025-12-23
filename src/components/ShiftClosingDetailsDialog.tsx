@@ -240,8 +240,8 @@ export default function ShiftClosingDetailsDialog({
       noLudoTransactions: "لا توجد معاملات لودو",
       openingTab: "صور الافتتاح",
       closingTab: "صور الإغلاق",
-      firstOrderNumber: "رقم أول طلب",
-      lastOrderNumber: "رقم آخر طلب",
+      firstOrderNumber: "Purple أول طلب",
+      lastOrderNumber: "Purple آخر طلب",
     },
     en: {
       shiftDetails: "Shift Details",
@@ -266,8 +266,8 @@ export default function ShiftClosingDetailsDialog({
       noLudoTransactions: "No Ludo transactions",
       openingTab: "Opening Images",
       closingTab: "Closing Images",
-      firstOrderNumber: "First Order Number",
-      lastOrderNumber: "Last Order Number",
+      firstOrderNumber: "Purple First Order",
+      lastOrderNumber: "Purple Last Order",
     },
   };
 

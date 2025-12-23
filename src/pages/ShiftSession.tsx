@@ -562,6 +562,16 @@ const ShiftSession = () => {
 
   const handleOpenShift = async () => {
     try {
+      // Validate Purple First Order Number is mandatory
+      if (!firstOrderNumber.trim()) {
+        toast({
+          title: t("error") || "خطأ",
+          description: "يجب إدخال رقم أول طلب Purple قبل فتح الوردية",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -1172,6 +1182,16 @@ const ShiftSession = () => {
     try {
       if (!shiftSession) return;
 
+      // Validate Purple Last Order Number is mandatory
+      if (!lastOrderNumber.trim()) {
+        toast({
+          title: t("error") || "خطأ",
+          description: "يجب إدخال رقم آخر طلب Purple قبل إغلاق الوردية",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // CRITICAL: Ensure brands are loaded before allowing close
       if (brands.length === 0) {
         toast({
@@ -1423,25 +1443,26 @@ const ShiftSession = () => {
 
             {!shiftSession ? (
             <div className="space-y-4">
-              {/* First Order Number Input */}
-              <div className="p-4 rounded-lg border-2 bg-blue-50 dark:bg-blue-900/20 border-blue-300">
+              {/* Purple First Order Number Input */}
+              <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <span className="text-blue-600">📋</span>
-                  رقم أول طلب
+                  <span className="text-purple-600">📋</span>
+                  Purple أول طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
                   type="text"
                   value={firstOrderNumber}
                   onChange={(e) => setFirstOrderNumber(e.target.value)}
-                  placeholder="أدخل رقم أول طلب (اختياري)"
+                  placeholder="أدخل رقم أول طلب Purple (إلزامي)"
                   className="bg-background"
+                  required
                 />
-                <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
                   يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
                 </p>
               </div>
 
-              <Button onClick={handleOpenShift} className="w-full">
+              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim()}>
                 {t("openShift")}
               </Button>
             </div>
@@ -1463,12 +1484,12 @@ const ShiftSession = () => {
                 })()}</p>
               </div>
 
-              {/* First Order Number - Read Only Display */}
+              {/* Purple First Order Number - Read Only Display */}
               {firstOrderNumber && (
-                <div className="p-4 rounded-lg border-2 bg-blue-50 dark:bg-blue-900/20 border-blue-300">
+                <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                   <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                    <span className="text-blue-600">📋</span>
-                    رقم أول طلب
+                    <span className="text-purple-600">📋</span>
+                    Purple أول طلب
                   </h3>
                   <p className="text-lg font-mono bg-background p-2 rounded border">{firstOrderNumber}</p>
                 </div>
@@ -1592,20 +1613,21 @@ const ShiftSession = () => {
                 userId={shiftSession.user_id} 
               />
 
-              {/* Last Order Number Input */}
-              <div className="p-4 rounded-lg border-2 bg-orange-50 dark:bg-orange-900/20 border-orange-300">
+              {/* Purple Last Order Number Input */}
+              <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <span className="text-orange-600">📋</span>
-                  رقم آخر طلب
+                  <span className="text-purple-600">📋</span>
+                  Purple آخر طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
                   type="text"
                   value={lastOrderNumber}
                   onChange={(e) => setLastOrderNumber(e.target.value)}
-                  placeholder="أدخل رقم آخر طلب (اختياري)"
+                  placeholder="أدخل رقم آخر طلب Purple (إلزامي)"
                   className="bg-background"
+                  required
                 />
-                <p className="text-sm text-orange-700 dark:text-orange-300 mt-2">
+                <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
                   يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
                 </p>
               </div>
