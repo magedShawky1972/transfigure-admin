@@ -22,6 +22,7 @@ interface Transaction {
   user_name?: string;
   cost_price?: number;
   cost_sold?: number;
+  vendor_name?: string;
 }
 
 Deno.serve(async (req) => {
@@ -444,11 +445,24 @@ Deno.serve(async (req) => {
           .in("product_id", nonStockProductIds);
 
         const skuMap = new Map();
-        const supplierMap = new Map();
         productsData?.forEach((p: any) => {
           skuMap.set(p.product_id, p.sku);
-          supplierMap.set(p.product_id, p.supplier);
         });
+
+        // Get unique vendor names from non-stock products to lookup supplier codes
+        const vendorNames = [...new Set(nonStockProducts.map((t: Transaction) => t.vendor_name).filter(Boolean))];
+        const supplierCodeMap = new Map<string, string>();
+        
+        if (vendorNames.length > 0) {
+          const { data: suppliersData } = await supabase
+            .from("suppliers")
+            .select("supplier_name, supplier_code")
+            .in("supplier_name", vendorNames);
+          
+          suppliersData?.forEach((s: any) => {
+            supplierCodeMap.set(s.supplier_name?.toLowerCase(), s.supplier_code);
+          });
+        }
 
         // Format order_date to YYYY-MM-DD HH:mm:ss format
         const formatPurchaseDate = (dateStr: string): string => {
@@ -472,16 +486,23 @@ Deno.serve(async (req) => {
         const purchasePayload = {
           sales_order_number: firstTransaction.order_number,
           order_date: formatPurchaseDate(firstTransaction.created_at_date),
-          lines: nonStockProducts.map((t: Transaction, index: number) => ({
-            line_number: index + 1,
-            product_sku: skuMap.get(t.product_id) || t.product_id,
-            product_name: t.product_name,
-            quantity: parseFloat(String(t.qty)) || 1,
-            uom: "Unit",
-            unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
-            total: parseFloat(String(t.cost_sold || t.total)) || 0,
-            supplier_code: supplierMap.get(t.product_id) || "",
-          })),
+          payment_method: firstTransaction.payment_method || "",
+          payment_brand: firstTransaction.payment_brand || "",
+          lines: nonStockProducts.map((t: Transaction, index: number) => {
+            const vendorName = t.vendor_name?.toLowerCase() || "";
+            const supplierCode = supplierCodeMap.get(vendorName) || t.vendor_name || "";
+            
+            return {
+              line_number: index + 1,
+              product_sku: skuMap.get(t.product_id) || t.product_id,
+              product_name: t.product_name,
+              quantity: parseFloat(String(t.qty)) || 1,
+              uom: "Unit",
+              unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
+              total: parseFloat(String(t.cost_sold || t.total)) || 0,
+              supplier_code: supplierCode,
+            };
+          }),
         };
 
         result = {

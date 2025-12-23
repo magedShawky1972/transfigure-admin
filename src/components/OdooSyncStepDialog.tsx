@@ -123,6 +123,9 @@ export function OdooSyncStepDialog({
     // Purchase body for non-stock products
     const purchaseBody = nonStockProducts.length > 0 ? {
       order_number: firstTransaction?.order_number,
+      order_date: firstTransaction?.created_at_date?.replace('T', ' ') || '',
+      payment_method: firstTransaction?.payment_method || "",
+      payment_brand: firstTransaction?.payment_brand || "",
       lines: nonStockProducts.map((t: any, index: number) => ({
         line_number: index + 1,
         product_sku: productSkuMap[t.product_id] || t.product_id,
@@ -130,6 +133,7 @@ export function OdooSyncStepDialog({
         quantity: parseFloat(String(t.qty)) || 1,
         unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
         total: parseFloat(String(t.cost_sold || t.total)) || 0,
+        supplier_code: t.vendor_name || "",
       })),
     } : null;
 
