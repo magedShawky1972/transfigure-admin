@@ -50,6 +50,7 @@ const ProjectGantt = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const projectId = searchParams.get('projectId');
+  const departmentId = searchParams.get('departmentId');
   
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -236,7 +237,7 @@ const ProjectGantt = () => {
   if (!projectId || !project) {
     return (
       <div className={`min-h-screen bg-background p-6 ${language === 'ar' ? 'rtl' : 'ltr'}`}>
-        <Button variant="outline" onClick={() => navigate('/projects-tasks')}>
+        <Button variant="outline" onClick={() => navigate(`/projects-tasks${departmentId ? `?departmentId=${departmentId}` : ''}${projectId ? `${departmentId ? '&' : '?'}projectId=${projectId}` : ''}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t.back}
         </Button>
@@ -253,7 +254,7 @@ const ProjectGantt = () => {
       <div className="border-b bg-card/50 backdrop-blur sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/projects-tasks')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/projects-tasks?departmentId=${departmentId}&projectId=${projectId}`)}>
               <ArrowLeft className={cn("h-4 w-4", language === 'ar' ? 'ml-2 rotate-180' : 'mr-2')} />
               {t.back}
             </Button>
