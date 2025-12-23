@@ -27,6 +27,8 @@ import {
   getKSAWeekdayArabic, 
   getKSATimeFormatted 
 } from "@/lib/ksaTime";
+import purpleCardLogo from "@/assets/purple-card-logo.png";
+import sallaLogo from "@/assets/salla-logo.png";
 
 interface Brand {
   id: string;
@@ -1462,8 +1464,8 @@ const ShiftSession = () => {
               {/* Purple First Order Number Input */}
               <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <span className="text-purple-600">📋</span>
-                  Purple أول طلب <span className="text-destructive">*</span>
+                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto" />
+                  أول طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
                   type="text"
@@ -1481,8 +1483,8 @@ const ShiftSession = () => {
               {/* Salla First Order Number Input */}
               <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <span style={{ color: '#2AB090' }}>📋</span>
-                  Salla أول طلب <span className="text-destructive">*</span>
+                  <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                  أول طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
                   type="text"
@@ -1523,8 +1525,8 @@ const ShiftSession = () => {
               {firstOrderNumber && (
                 <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                   <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                    <span className="text-purple-600">📋</span>
-                    Purple أول طلب
+                    <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto" />
+                    أول طلب
                   </h3>
                   <p className="text-lg font-mono bg-background p-2 rounded border">{firstOrderNumber}</p>
                 </div>
@@ -1534,8 +1536,8 @@ const ShiftSession = () => {
               {sallaFirstOrderNumber && (
                 <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
                   <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                    <span style={{ color: '#2AB090' }}>📋</span>
-                    Salla أول طلب
+                    <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                    أول طلب
                   </h3>
                   <p className="text-lg font-mono bg-background p-2 rounded border">{sallaFirstOrderNumber}</p>
                 </div>
@@ -1661,8 +1663,8 @@ const ShiftSession = () => {
               {/* Purple Last Order Number Input */}
               <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <span className="text-purple-600">📋</span>
-                  Purple آخر طلب <span className="text-destructive">*</span>
+                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto" />
+                  آخر طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
                   type="text"
@@ -1680,8 +1682,8 @@ const ShiftSession = () => {
               {/* Salla Last Order Number Input */}
               <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <span style={{ color: '#2AB090' }}>📋</span>
-                  Salla آخر طلب <span className="text-destructive">*</span>
+                  <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                  آخر طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
                   type="text"
