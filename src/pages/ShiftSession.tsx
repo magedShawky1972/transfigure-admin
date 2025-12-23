@@ -1464,7 +1464,7 @@ const ShiftSession = () => {
               {/* Purple First Order Number Input */}
               <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto mix-blend-multiply dark:mix-blend-screen dark:brightness-150" />
+                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto mix-blend-multiply dark:invert dark:brightness-0 dark:sepia dark:saturate-[10000%] dark:hue-rotate-[260deg]" />
                   أول طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
@@ -1525,7 +1525,7 @@ const ShiftSession = () => {
               {firstOrderNumber && (
                 <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                   <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                    <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto mix-blend-multiply dark:mix-blend-screen dark:brightness-150" />
+                    <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto mix-blend-multiply dark:invert dark:brightness-0 dark:sepia dark:saturate-[10000%] dark:hue-rotate-[260deg]" />
                     أول طلب
                   </h3>
                   <p className="text-lg font-mono bg-background p-2 rounded border">{firstOrderNumber}</p>
@@ -1663,7 +1663,7 @@ const ShiftSession = () => {
               {/* Purple Last Order Number Input */}
               <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto mix-blend-multiply dark:mix-blend-screen dark:brightness-150" />
+                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto mix-blend-multiply dark:invert dark:brightness-0 dark:sepia dark:saturate-[10000%] dark:hue-rotate-[260deg]" />
                   آخر طلب <span className="text-destructive">*</span>
                 </h3>
                 <Input
