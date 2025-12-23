@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -158,6 +159,7 @@ const DroppableColumn = ({ id, children, className }: { id: string; children: Re
 
 const ProjectsTasks = () => {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -1534,7 +1536,19 @@ const ProjectsTasks = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-4 w-4 ml-1 hover:bg-destructive/20 hover:text-destructive"
+                        className="h-4 w-4 ml-1 hover:bg-primary/20 hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/project-gantt?projectId=${project.id}`);
+                        }}
+                        title={language === 'ar' ? 'مخطط جانت' : 'Gantt Chart'}
+                      >
+                        <CalendarIcon className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 hover:bg-destructive/20 hover:text-destructive"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteProject(project.id);
