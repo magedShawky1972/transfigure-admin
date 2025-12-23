@@ -18,6 +18,8 @@ interface Transaction {
   qty: number;
   created_at_date: string;
   payment_method: string;
+  payment_brand?: string;
+  user_name?: string;
 }
 
 Deno.serve(async (req) => {
@@ -359,6 +361,9 @@ Deno.serve(async (req) => {
           customer_phone: firstTransaction.customer_phone,
           order_date: formatOrderDate(firstTransaction.created_at_date),
           payment_method: firstTransaction.payment_method,
+          payment_brand: firstTransaction.payment_brand || "",
+          sales_person: firstTransaction.user_name || "",
+          online_payment: "true",
           lines: transactions.map((t: Transaction, index: number) => ({
             line_number: index + 1,
             product_sku: skuMap.get(t.product_id) || t.product_id,
