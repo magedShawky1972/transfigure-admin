@@ -21,6 +21,7 @@ import { TransactionTypeChart } from "@/components/TransactionTypeChart";
 import { UserTransactionCountChart } from "@/components/UserTransactionCountChart";
 import { UserTransactionValueChart } from "@/components/UserTransactionValueChart";
 import { BrandGrossRateChart } from "@/components/BrandGrossRateChart";
+import { BrandGrossRateWeeklyChart } from "@/components/BrandGrossRateWeeklyChart";
 
 interface Transaction {
   id: string;
@@ -2438,6 +2439,11 @@ const Dashboard = () => {
       {/* Brand Gross Rate Chart - Last 3 Months */}
       {hasAccess("brand_gross_rate") && (
         <BrandGrossRateChart />
+      )}
+
+      {/* Brand Gross Rate Chart - Last 7 Days */}
+      {hasAccess("brand_gross_rate_weekly") && (
+        <BrandGrossRateWeeklyChart />
       )}
 
       {/* Coins by Brand Grid */}
