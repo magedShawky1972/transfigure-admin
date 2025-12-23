@@ -20,6 +20,8 @@ interface Transaction {
   payment_method: string;
   payment_brand?: string;
   user_name?: string;
+  cost_price?: number;
+  cost_sold?: number;
 }
 
 Deno.serve(async (req) => {
@@ -28,7 +30,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { step, transactions } = await req.json();
+    const { step, transactions, nonStockProducts } = await req.json();
 
     if (!step || !transactions || transactions.length === 0) {
       return new Response(
@@ -405,6 +407,116 @@ Deno.serve(async (req) => {
         } catch (err: any) {
           result.success = false;
           result.error = `Order API error: ${err.message}`;
+        }
+        break;
+      }
+
+      case "purchase": {
+        // Check if there are non-stock products
+        if (!nonStockProducts || nonStockProducts.length === 0) {
+          result = {
+            step: "purchase",
+            mode: isProduction ? "Production" : "Test",
+            skipped: true,
+            success: true,
+            message: "No non-stock products - purchase order step skipped",
+          };
+          break;
+        }
+
+        const purchaseApiUrl = isProduction ? config.purchase_order_api_url : config.purchase_order_api_url_test;
+
+        if (!purchaseApiUrl) {
+          result = {
+            step: "purchase",
+            mode: isProduction ? "Production" : "Test",
+            success: false,
+            error: "Purchase order API URL not configured",
+          };
+          break;
+        }
+
+        // Fetch actual SKUs from products table for purchase lines
+        const nonStockProductIds = [...new Set(nonStockProducts.map((t: Transaction) => t.product_id))];
+        const { data: productsData } = await supabase
+          .from("products")
+          .select("product_id, sku, supplier")
+          .in("product_id", nonStockProductIds);
+
+        const skuMap = new Map();
+        const supplierMap = new Map();
+        productsData?.forEach((p: any) => {
+          skuMap.set(p.product_id, p.sku);
+          supplierMap.set(p.product_id, p.supplier);
+        });
+
+        // Format order_date to YYYY-MM-DD HH:mm:ss format
+        const formatPurchaseDate = (dateStr: string): string => {
+          try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) {
+              return dateStr;
+            }
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+          } catch {
+            return dateStr;
+          }
+        };
+
+        const purchasePayload = {
+          sales_order_number: firstTransaction.order_number,
+          order_date: formatPurchaseDate(firstTransaction.created_at_date),
+          lines: nonStockProducts.map((t: Transaction, index: number) => ({
+            line_number: index + 1,
+            product_sku: skuMap.get(t.product_id) || t.product_id,
+            product_name: t.product_name,
+            quantity: parseFloat(String(t.qty)) || 1,
+            uom: "Unit",
+            unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
+            total: parseFloat(String(t.cost_sold || t.total)) || 0,
+            supplier_code: supplierMap.get(t.product_id) || "",
+          })),
+        };
+
+        result = {
+          step: "purchase",
+          mode: isProduction ? "Production" : "Test",
+          apiUrl: purchaseApiUrl,
+          requestBody: purchasePayload,
+          method: "POST",
+        };
+
+        try {
+          console.log("Creating purchase order with payload:", JSON.stringify(purchasePayload));
+          
+          const purchaseResponse = await fetch(purchaseApiUrl, {
+            method: "POST",
+            headers: {
+              Authorization: apiKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(purchasePayload),
+          });
+
+          if (purchaseResponse.ok) {
+            const data = await purchaseResponse.json();
+            result.success = true;
+            result.message = `Purchase order created for ${nonStockProducts.length} non-stock product(s)`;
+            result.details = data;
+          } else {
+            const errorText = await purchaseResponse.text();
+            result.success = false;
+            result.error = `Failed to create purchase order: ${errorText}`;
+          }
+        } catch (err: any) {
+          result.success = false;
+          result.error = `Purchase order API error: ${err.message}`;
         }
         break;
       }
