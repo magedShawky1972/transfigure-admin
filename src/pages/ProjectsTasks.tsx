@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -161,6 +161,7 @@ const DroppableColumn = ({ id, children, className }: { id: string; children: Re
 const ProjectsTasks = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -172,9 +173,9 @@ const ProjectsTasks = () => {
   const [loading, setLoading] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [runningTimers, setRunningTimers] = useState<Record<string, number>>({});
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedDepartment, setSelectedDepartment] = useState<string>(searchParams.get('departmentId') || "");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedProject, setSelectedProject] = useState<string>(searchParams.get('projectId') || "all");
   const [selectedUser, setSelectedUser] = useState<string>("all");
   
   // Dialog states
@@ -444,10 +445,15 @@ const ProjectsTasks = () => {
       const filteredDeps = isAdmin ? allDepartments : allDepartments.filter(d => accessibleDeptIds.includes(d.id));
       setAccessibleDepartments(filteredDeps as Department[]);
 
-      // Set default department
+      // Set default department (only if not already set from URL params)
+      const urlDeptId = searchParams.get('departmentId');
       if (filteredDeps.length > 0 && !selectedDepartment) {
-        const defaultDep = defaultDeptId && filteredDeps.find(d => d.id === defaultDeptId);
-        setSelectedDepartment(defaultDep ? defaultDep.id : filteredDeps[0].id);
+        if (urlDeptId && filteredDeps.find(d => d.id === urlDeptId)) {
+          setSelectedDepartment(urlDeptId);
+        } else {
+          const defaultDep = defaultDeptId && filteredDeps.find(d => d.id === defaultDeptId);
+          setSelectedDepartment(defaultDep ? defaultDep.id : filteredDeps[0].id);
+        }
       }
 
       if (projectsRes.data) {
@@ -650,11 +656,22 @@ const ProjectsTasks = () => {
     fetchData();
   }, [fetchData]);
 
-  // Reset filters when department changes
+  // Reset filters when department changes (but respect URL params on first load)
   useEffect(() => {
-    setSelectedUser('all');
-    setSelectedProject('all');
-    setSearchTerm('');
+    const urlProjectId = searchParams.get('projectId');
+    const urlDeptId = searchParams.get('departmentId');
+    
+    // Only reset if not from URL params
+    if (!urlProjectId && !urlDeptId) {
+      setSelectedUser('all');
+      setSelectedProject('all');
+      setSearchTerm('');
+    }
+    
+    // Clear URL params after first use
+    if (urlProjectId || urlDeptId) {
+      setSearchParams({}, { replace: true });
+    }
   }, [selectedDepartment]);
 
   // Get phases for selected department
@@ -1540,7 +1557,7 @@ const ProjectsTasks = () => {
                         className="h-5 w-5 ml-1 text-primary hover:bg-primary/20"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/project-gantt?projectId=${project.id}`);
+                          navigate(`/project-gantt?projectId=${project.id}&departmentId=${selectedDepartment}`);
                         }}
                         title={language === 'ar' ? 'مخطط جانت' : 'Gantt Chart'}
                       >
