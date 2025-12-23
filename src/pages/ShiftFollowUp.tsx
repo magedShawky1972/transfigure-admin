@@ -36,6 +36,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import ShiftClosingDetailsDialog from "@/components/ShiftClosingDetailsDialog";
 import { getKSADateString, formatKSADateTime, isOnKSADate, getKSATimeInMinutes } from "@/lib/ksaTime";
 
@@ -93,8 +100,10 @@ export default function ShiftFollowUp() {
   const [openShiftDialogOpen, setOpenShiftDialogOpen] = useState(false);
   const [assignmentToOpen, setAssignmentToOpen] = useState<ShiftAssignment | null>(null);
   const [openingShift, setOpeningShift] = useState(false);
+  const [adminNoteDialogOpen, setAdminNoteDialogOpen] = useState(false);
   const [editingNoteSessionId, setEditingNoteSessionId] = useState<string | null>(null);
   const [adminNoteValue, setAdminNoteValue] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -561,31 +570,39 @@ export default function ShiftFollowUp() {
     }
   };
 
-  const handleSaveAdminNote = async (sessionId: string) => {
+  const handleSaveAdminNote = async () => {
+    if (!editingNoteSessionId) return;
+    
+    setSavingNote(true);
     try {
       const { error } = await supabase
         .from("shift_sessions")
         .update({ admin_notes: adminNoteValue || null })
-        .eq("id", sessionId);
+        .eq("id", editingNoteSessionId);
 
       if (error) throw error;
 
       toast.success(t("Note saved successfully") || "تم حفظ الملاحظة بنجاح");
+      setAdminNoteDialogOpen(false);
       setEditingNoteSessionId(null);
       setAdminNoteValue("");
       fetchAssignments();
     } catch (error: any) {
       console.error("Error saving admin note:", error);
       toast.error(t("Failed to save note") || "فشل في حفظ الملاحظة");
+    } finally {
+      setSavingNote(false);
     }
   };
 
   const handleEditNoteClick = (sessionId: string, currentNote: string | null) => {
     setEditingNoteSessionId(sessionId);
     setAdminNoteValue(currentNote || "");
+    setAdminNoteDialogOpen(true);
   };
 
   const handleCancelNoteEdit = () => {
+    setAdminNoteDialogOpen(false);
     setEditingNoteSessionId(null);
     setAdminNoteValue("");
   };
@@ -749,50 +766,23 @@ export default function ShiftFollowUp() {
                       </TableCell>
                       <TableCell className="max-w-[250px]">
                         {latestSession ? (
-                          editingNoteSessionId === latestSession.id ? (
-                            <div className="flex flex-col gap-2">
-                              <Textarea
-                                value={adminNoteValue}
-                                onChange={(e) => setAdminNoteValue(e.target.value)}
-                                placeholder="أدخل ملاحظات المشرف..."
-                                className="min-h-[60px] text-sm"
-                                rows={2}
-                              />
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSaveAdminNote(latestSession.id)}
-                                >
-                                  <Check className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={handleCancelNoteEdit}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm truncate" title={latestSession.admin_notes || ""}>
-                                {latestSession.admin_notes 
-                                  ? (latestSession.admin_notes.length > 30 
-                                      ? latestSession.admin_notes.substring(0, 30) + "..." 
-                                      : latestSession.admin_notes)
-                                  : "-"}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0"
-                                onClick={() => handleEditNoteClick(latestSession.id, latestSession.admin_notes)}
-                              >
-                                <MessageSquare className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm truncate" title={latestSession.admin_notes || ""}>
+                              {latestSession.admin_notes 
+                                ? (latestSession.admin_notes.length > 30 
+                                    ? latestSession.admin_notes.substring(0, 30) + "..." 
+                                    : latestSession.admin_notes)
+                                : "-"}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleEditNoteClick(latestSession.id, latestSession.admin_notes)}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                            </Button>
+                          </div>
                         ) : "-"}
                       </TableCell>
                       <TableCell>
@@ -1014,6 +1004,49 @@ export default function ShiftFollowUp() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Admin Notes Dialog */}
+      <Dialog open={adminNoteDialogOpen} onOpenChange={(open) => {
+        if (!open) handleCancelNoteEdit();
+      }}>
+        <DialogContent dir="rtl" className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("Admin Notes") || "ملاحظات المشرف"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Textarea
+              value={adminNoteValue}
+              onChange={(e) => setAdminNoteValue(e.target.value)}
+              placeholder={t("Enter admin notes...") || "أدخل ملاحظات المشرف..."}
+              className="min-h-[120px]"
+              rows={5}
+            />
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:justify-start">
+            <Button
+              variant="outline"
+              onClick={handleCancelNoteEdit}
+              disabled={savingNote}
+            >
+              <X className="h-4 w-4 mr-2" />
+              {t("Cancel") || "إلغاء"}
+            </Button>
+            <Button
+              onClick={handleSaveAdminNote}
+              disabled={savingNote}
+            >
+              {savingNote ? (
+                <>{t("Saving...") || "جاري الحفظ..."}</>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  {t("Save") || "حفظ"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
