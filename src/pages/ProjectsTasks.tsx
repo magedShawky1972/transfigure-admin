@@ -21,7 +21,8 @@ import { ar } from "date-fns/locale";
 import { 
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
-  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users, Milestone
+  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
+  GanttChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
@@ -1536,14 +1537,14 @@ const ProjectsTasks = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-4 w-4 ml-1 hover:bg-primary/20 hover:text-primary"
+                        className="h-5 w-5 ml-1 text-primary hover:bg-primary/20"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/project-gantt?projectId=${project.id}`);
                         }}
                         title={language === 'ar' ? 'مخطط جانت' : 'Gantt Chart'}
                       >
-                        <CalendarIcon className="h-3 w-3" />
+                        <GanttChart className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
