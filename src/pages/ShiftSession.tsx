@@ -42,6 +42,7 @@ interface ShiftSession {
   status: string;
   user_id: string;
   first_order_number: string | null;
+  salla_first_order_number: string | null;
 }
 
 interface BrandBalance {
@@ -78,6 +79,8 @@ const ShiftSession = () => {
   const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
   const [firstOrderNumber, setFirstOrderNumber] = useState("");
   const [lastOrderNumber, setLastOrderNumber] = useState("");
+  const [sallaFirstOrderNumber, setSallaFirstOrderNumber] = useState("");
+  const [sallaLastOrderNumber, setSallaLastOrderNumber] = useState("");
   const [closingNotes, setClosingNotes] = useState("");
   
   // Zero value confirmation dialog state
@@ -150,6 +153,7 @@ const ShiftSession = () => {
         // User has an open shift - show it regardless of date
         setShiftSession(anyOpenSession);
         setFirstOrderNumber(anyOpenSession.first_order_number || "");
+        setSallaFirstOrderNumber(anyOpenSession.salla_first_order_number || "");
         setHasActiveAssignment(true);
         await loadBrandBalances(anyOpenSession.id);
         
@@ -693,6 +697,7 @@ const ShiftSession = () => {
           shift_assignment_id: assignment.id,
           status: "open",
           first_order_number: firstOrderNumber || null,
+          salla_first_order_number: sallaFirstOrderNumber || null,
         })
         .select()
         .single();
@@ -1192,6 +1197,16 @@ const ShiftSession = () => {
         return;
       }
 
+      // Validate Salla Last Order Number is mandatory
+      if (!sallaLastOrderNumber.trim()) {
+        toast({
+          title: t("error") || "خطأ",
+          description: "يجب إدخال رقم آخر طلب Salla قبل إغلاق الوردية",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // CRITICAL: Ensure brands are loaded before allowing close
       if (brands.length === 0) {
         toast({
@@ -1266,6 +1281,7 @@ const ShiftSession = () => {
           status: "closed", 
           closed_at: new Date().toISOString(),
           last_order_number: lastOrderNumber || null,
+          salla_last_order_number: sallaLastOrderNumber || null,
           closing_notes: closingNotes || null,
         })
         .eq("id", shiftSession.id);
@@ -1462,7 +1478,26 @@ const ShiftSession = () => {
                 </p>
               </div>
 
-              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim()}>
+              {/* Salla First Order Number Input */}
+              <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                  <span style={{ color: '#2AB090' }}>📋</span>
+                  Salla أول طلب <span className="text-destructive">*</span>
+                </h3>
+                <Input
+                  type="text"
+                  value={sallaFirstOrderNumber}
+                  onChange={(e) => setSallaFirstOrderNumber(e.target.value)}
+                  placeholder="أدخل رقم أول طلب Salla (إلزامي)"
+                  className="bg-background"
+                  required
+                />
+                <p className="text-sm mt-2" style={{ color: '#2AB090' }}>
+                  يستخدم هذا الرقم لتتبع طلبات سلة
+                </p>
+              </div>
+
+              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim() || !sallaFirstOrderNumber.trim()}>
                 {t("openShift")}
               </Button>
             </div>
@@ -1495,6 +1530,16 @@ const ShiftSession = () => {
                 </div>
               )}
 
+              {/* Salla First Order Number - Read Only Display */}
+              {sallaFirstOrderNumber && (
+                <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
+                  <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
+                    <span style={{ color: '#2AB090' }}>📋</span>
+                    Salla أول طلب
+                  </h3>
+                  <p className="text-lg font-mono bg-background p-2 rounded border">{sallaFirstOrderNumber}</p>
+                </div>
+              )}
 
               {/* Closing Balances */}
               <div className="space-y-2">
@@ -1629,6 +1674,25 @@ const ShiftSession = () => {
                 />
                 <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
                   يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
+                </p>
+              </div>
+
+              {/* Salla Last Order Number Input */}
+              <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                  <span style={{ color: '#2AB090' }}>📋</span>
+                  Salla آخر طلب <span className="text-destructive">*</span>
+                </h3>
+                <Input
+                  type="text"
+                  value={sallaLastOrderNumber}
+                  onChange={(e) => setSallaLastOrderNumber(e.target.value)}
+                  placeholder="أدخل رقم آخر طلب Salla (إلزامي)"
+                  className="bg-background"
+                  required
+                />
+                <p className="text-sm mt-2" style={{ color: '#2AB090' }}>
+                  يستخدم هذا الرقم لتتبع طلبات سلة
                 </p>
               </div>
 
