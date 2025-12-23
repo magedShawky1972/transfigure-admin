@@ -2971,6 +2971,7 @@ export type Database = {
           is_milestone: boolean
           priority: string
           project_id: string | null
+          start_date: string | null
           start_time: string | null
           status: string
           ticket_id: string | null
@@ -2993,6 +2994,7 @@ export type Database = {
           is_milestone?: boolean
           priority?: string
           project_id?: string | null
+          start_date?: string | null
           start_time?: string | null
           status?: string
           ticket_id?: string | null
@@ -3015,6 +3017,7 @@ export type Database = {
           is_milestone?: boolean
           priority?: string
           project_id?: string | null
+          start_date?: string | null
           start_time?: string | null
           status?: string
           ticket_id?: string | null

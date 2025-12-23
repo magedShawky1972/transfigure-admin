@@ -86,6 +86,7 @@ interface Task {
   status: string;
   priority: string;
   deadline: string | null;
+  start_date: string | null;
   start_time: string | null;
   end_time: string | null;
   ticket_id: string | null;
@@ -203,6 +204,7 @@ const ProjectsTasks = () => {
     priority: 'medium',
     dependency_task_id: '' as string,
     is_milestone: false,
+    start_date: null as Date | null,
     deadline: null as Date | null,
     start_time: '',
     end_time: '',
@@ -828,6 +830,7 @@ const ProjectsTasks = () => {
           priority: taskForm.priority,
           dependency_task_id: taskForm.project_id && taskForm.dependency_task_id ? taskForm.dependency_task_id : null,
           is_milestone: taskForm.project_id ? taskForm.is_milestone : false,
+          start_date: taskForm.start_date ? format(taskForm.start_date, 'yyyy-MM-dd') : null,
           deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
           start_time: taskForm.start_time || null,
           end_time: taskForm.end_time || null,
@@ -868,6 +871,7 @@ const ProjectsTasks = () => {
           priority: taskForm.priority,
           dependency_task_id: taskForm.project_id && taskForm.dependency_task_id ? taskForm.dependency_task_id : null,
           is_milestone: taskForm.project_id ? taskForm.is_milestone : false,
+          start_date: taskForm.start_date ? format(taskForm.start_date, 'yyyy-MM-dd') : null,
           deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
           start_time: taskForm.start_time || null,
           end_time: taskForm.end_time || null,
@@ -969,6 +973,7 @@ const ProjectsTasks = () => {
       priority: task.priority,
       dependency_task_id: task.dependency_task_id || '',
       is_milestone: task.is_milestone || false,
+      start_date: task.start_date ? new Date(task.start_date) : null,
       deadline: task.deadline ? new Date(task.deadline) : null,
       start_time: task.start_time || '',
       end_time: task.end_time || '',
@@ -1006,7 +1011,7 @@ const ProjectsTasks = () => {
     setTaskForm({
       title: '', description: '', project_id: '', department_id: selectedDepartment, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
-      deadline: null, start_time: '', end_time: '',
+      start_date: null, deadline: null, start_time: '', end_time: '',
       external_links: [], file_attachments: [], video_attachments: []
     });
   };
@@ -1339,17 +1344,31 @@ const ProjectsTasks = () => {
                         </Select>
                       </div>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">{t.deadline}</label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start">
-                            <CalendarIcon className="h-4 w-4 mr-2" />
-                            {taskForm.deadline ? format(taskForm.deadline, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={taskForm.deadline || undefined} onSelect={(d) => setTaskForm({ ...taskForm, deadline: d || null })} /></PopoverContent>
-                      </Popover>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">{t.startDate}</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              {taskForm.start_date ? format(taskForm.start_date, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={taskForm.start_date || undefined} onSelect={(d) => setTaskForm({ ...taskForm, start_date: d || null })} /></PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">{t.deadline}</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              {taskForm.deadline ? format(taskForm.deadline, 'PPP', { locale: language === 'ar' ? ar : undefined }) : t.selectDate}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={taskForm.deadline || undefined} onSelect={(d) => setTaskForm({ ...taskForm, deadline: d || null })} /></PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                     
                     {/* Dependency and Milestone - only show when project is selected */}
