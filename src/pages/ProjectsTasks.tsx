@@ -412,7 +412,7 @@ const ProjectsTasks = () => {
       // Fetch users with job positions to determine department from organizational chart
       const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*, projects(name), departments(department_name), dependency_task:tasks!tasks_dependency_task_id_fkey(title)').order('created_at', { ascending: false }),
+        supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
