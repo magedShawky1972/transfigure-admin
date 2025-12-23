@@ -20,7 +20,7 @@ import { ar } from "date-fns/locale";
 import { 
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
-  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users
+  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users, Milestone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
@@ -93,12 +93,15 @@ interface Task {
   external_links?: string[] | null;
   file_attachments?: FileAttachment[] | null;
   video_attachments?: FileAttachment[] | null;
+  dependency_task_id?: string | null;
+  is_milestone?: boolean;
   projects?: { name: string } | null;
   departments?: { department_name: string };
   profiles?: { user_name: string };
   time_entries?: TimeEntry[];
   total_time_minutes?: number;
   active_timer?: TimeEntry | null;
+  dependency_task?: { title: string } | null;
 }
 
 interface Department {
@@ -198,6 +201,8 @@ const ProjectsTasks = () => {
     assigned_to: [] as string[], // Changed to array for multi-user
     status: 'todo',
     priority: 'medium',
+    dependency_task_id: '' as string,
+    is_milestone: false,
     deadline: null as Date | null,
     start_time: '',
     end_time: '',
@@ -269,7 +274,11 @@ const ProjectsTasks = () => {
       projectManager: 'مدير المشروع',
       projectMembers: 'أعضاء المشروع',
       selectManager: 'اختر مدير المشروع',
-      noManager: 'بدون مدير'
+      noManager: 'بدون مدير',
+      dependency: 'المهمة المعتمد عليها',
+      noDependency: 'بدون تبعية',
+      milestone: 'علامة فارقة',
+      selectDependency: 'اختر المهمة المعتمد عليها'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -331,7 +340,11 @@ const ProjectsTasks = () => {
       projectManager: 'Project Manager',
       projectMembers: 'Project Members',
       selectManager: 'Select Manager',
-      noManager: 'No Manager'
+      noManager: 'No Manager',
+      dependency: 'Dependency',
+      noDependency: 'No Dependency',
+      milestone: 'Milestone',
+      selectDependency: 'Select dependency task'
     }
   };
 
@@ -397,7 +410,7 @@ const ProjectsTasks = () => {
       // Fetch users with job positions to determine department from organizational chart
       const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
+        supabase.from('tasks').select('*, projects(name), departments(department_name), dependency_task:tasks!tasks_dependency_task_id_fkey(title)').order('created_at', { ascending: false }),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
@@ -813,6 +826,8 @@ const ProjectsTasks = () => {
           assigned_to: taskForm.assigned_to[0],
           status: taskForm.status,
           priority: taskForm.priority,
+          dependency_task_id: taskForm.project_id && taskForm.dependency_task_id ? taskForm.dependency_task_id : null,
+          is_milestone: taskForm.project_id ? taskForm.is_milestone : false,
           deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
           start_time: taskForm.start_time || null,
           end_time: taskForm.end_time || null,
@@ -851,6 +866,8 @@ const ProjectsTasks = () => {
           assigned_to: userId,
           status: taskForm.status,
           priority: taskForm.priority,
+          dependency_task_id: taskForm.project_id && taskForm.dependency_task_id ? taskForm.dependency_task_id : null,
+          is_milestone: taskForm.project_id ? taskForm.is_milestone : false,
           deadline: taskForm.deadline ? taskForm.deadline.toISOString() : null,
           start_time: taskForm.start_time || null,
           end_time: taskForm.end_time || null,
@@ -950,6 +967,8 @@ const ProjectsTasks = () => {
       assigned_to: [task.assigned_to], // Wrap in array for editing
       status: task.status,
       priority: task.priority,
+      dependency_task_id: task.dependency_task_id || '',
+      is_milestone: task.is_milestone || false,
       deadline: task.deadline ? new Date(task.deadline) : null,
       start_time: task.start_time || '',
       end_time: task.end_time || '',
@@ -986,7 +1005,8 @@ const ProjectsTasks = () => {
     setEditingTask(null);
     setTaskForm({
       title: '', description: '', project_id: '', department_id: selectedDepartment, assigned_to: [],
-      status: activePhases[0]?.phase_key || 'todo', priority: 'medium', deadline: null, start_time: '', end_time: '',
+      status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
+      deadline: null, start_time: '', end_time: '',
       external_links: [], file_attachments: [], video_attachments: []
     });
   };
@@ -1226,7 +1246,7 @@ const ProjectsTasks = () => {
                       </div>
                       <div>
                         <label className="text-sm font-medium">{t.projects}</label>
-                        <Select value={taskForm.project_id || 'none'} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === 'none' ? '' : v })}>
+                        <Select value={taskForm.project_id || 'none'} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === 'none' ? '' : v, dependency_task_id: '', is_milestone: false })}>
                           <SelectTrigger><SelectValue placeholder={t.selectProject} /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">{t.noProject}</SelectItem>
@@ -1331,6 +1351,47 @@ const ProjectsTasks = () => {
                         <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={taskForm.deadline || undefined} onSelect={(d) => setTaskForm({ ...taskForm, deadline: d || null })} /></PopoverContent>
                       </Popover>
                     </div>
+                    
+                    {/* Dependency and Milestone - only show when project is selected */}
+                    {taskForm.project_id && (
+                      <>
+                        <div>
+                          <label className="text-sm font-medium">{t.dependency}</label>
+                          <Select 
+                            value={taskForm.dependency_task_id || 'none'} 
+                            onValueChange={(v) => setTaskForm({ ...taskForm, dependency_task_id: v === 'none' ? '' : v })}
+                          >
+                            <SelectTrigger><SelectValue placeholder={t.selectDependency} /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">{t.noDependency}</SelectItem>
+                              {tasks
+                                .filter(task => 
+                                  task.project_id === taskForm.project_id && 
+                                  task.id !== editingTask?.id
+                                )
+                                .map(task => (
+                                  <SelectItem key={task.id} value={task.id}>
+                                    {task.is_milestone && <Milestone className="h-3 w-3 inline mr-1 text-primary" />}
+                                    {task.title}
+                                  </SelectItem>
+                                ))
+                              }
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                          <Checkbox 
+                            id="is_milestone" 
+                            checked={taskForm.is_milestone}
+                            onCheckedChange={(checked) => setTaskForm({ ...taskForm, is_milestone: checked === true })}
+                          />
+                          <label htmlFor="is_milestone" className="text-sm font-medium cursor-pointer flex items-center gap-1">
+                            <Milestone className="h-4 w-4 text-primary" />
+                            {t.milestone}
+                          </label>
+                        </div>
+                      </>
+                    )}
                     
                     {/* External Links */}
                     <div>

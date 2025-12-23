@@ -2962,11 +2962,13 @@ export type Database = {
           created_by: string
           deadline: string | null
           department_id: string
+          dependency_task_id: string | null
           description: string | null
           end_time: string | null
           external_links: string[] | null
           file_attachments: Json | null
           id: string
+          is_milestone: boolean
           priority: string
           project_id: string | null
           start_time: string | null
@@ -2982,11 +2984,13 @@ export type Database = {
           created_by: string
           deadline?: string | null
           department_id: string
+          dependency_task_id?: string | null
           description?: string | null
           end_time?: string | null
           external_links?: string[] | null
           file_attachments?: Json | null
           id?: string
+          is_milestone?: boolean
           priority?: string
           project_id?: string | null
           start_time?: string | null
@@ -3002,11 +3006,13 @@ export type Database = {
           created_by?: string
           deadline?: string | null
           department_id?: string
+          dependency_task_id?: string | null
           description?: string | null
           end_time?: string | null
           external_links?: string[] | null
           file_attachments?: Json | null
           id?: string
+          is_milestone?: boolean
           priority?: string
           project_id?: string | null
           start_time?: string | null
@@ -3022,6 +3028,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_dependency_task_id_fkey"
+            columns: ["dependency_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
