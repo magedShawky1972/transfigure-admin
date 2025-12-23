@@ -514,28 +514,27 @@ Deno.serve(async (req) => {
           }
         };
 
+        const headerSupplierCode =
+          nonStockProducts
+            .flatMap((t: Transaction) => splitVendorCandidates(t.vendor_name))
+            .map((c: string) => supplierCodeMap.get(normalizeKey(c)))
+            .find((v: string | undefined) => Boolean(v)) || "";
+
         const purchasePayload = {
           sales_order_number: firstTransaction.order_number,
           order_date: formatPurchaseDate(firstTransaction.created_at_date),
           payment_method: firstTransaction.payment_method || "",
           payment_brand: firstTransaction.payment_brand || "",
-          lines: nonStockProducts.map((t: Transaction, index: number) => {
-            const candidates = splitVendorCandidates(t.vendor_name);
-            const matched = candidates
-              .map((c) => supplierCodeMap.get(normalizeKey(c)))
-              .find((v) => Boolean(v));
-
-            return {
-              line_number: index + 1,
-              product_sku: skuMap.get(t.product_id) || t.product_id,
-              product_name: t.product_name,
-              quantity: parseFloat(String(t.qty)) || 1,
-              uom: "Unit",
-              unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
-              total: parseFloat(String(t.cost_sold || t.total)) || 0,
-              supplier_code: matched || String(t.vendor_name ?? ""),
-            };
-          }),
+          supplier_code: headerSupplierCode || String(nonStockProducts[0]?.vendor_name ?? ""),
+          lines: nonStockProducts.map((t: Transaction, index: number) => ({
+            line_number: index + 1,
+            product_sku: skuMap.get(t.product_id) || t.product_id,
+            product_name: t.product_name,
+            quantity: parseFloat(String(t.qty)) || 1,
+            uom: "Unit",
+            unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
+            total: parseFloat(String(t.cost_sold || t.total)) || 0,
+          })),
         };
 
         result = {
