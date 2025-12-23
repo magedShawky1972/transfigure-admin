@@ -60,6 +60,7 @@ export function OdooSyncStepDialog({
   const [copiedStep, setCopiedStep] = useState<string | null>(null);
   const [productSkuMap, setProductSkuMap] = useState<Record<string, string>>({});
   const [nonStockProducts, setNonStockProducts] = useState<any[]>([]);
+  const [supplierCodeMap, setSupplierCodeMap] = useState<Record<string, string>>({});
   const [expandedBodies, setExpandedBodies] = useState<Record<string, boolean>>({});
 
   // Pre-calculate request bodies for display
@@ -126,15 +127,19 @@ export function OdooSyncStepDialog({
       order_date: firstTransaction?.created_at_date?.replace('T', ' ') || '',
       payment_method: firstTransaction?.payment_method || "",
       payment_brand: firstTransaction?.payment_brand || "",
-      lines: nonStockProducts.map((t: any, index: number) => ({
-        line_number: index + 1,
-        product_sku: productSkuMap[t.product_id] || t.product_id,
-        product_name: t.product_name,
-        quantity: parseFloat(String(t.qty)) || 1,
-        unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
-        total: parseFloat(String(t.cost_sold || t.total)) || 0,
-        supplier_code: t.vendor_name || "",
-      })),
+      lines: nonStockProducts.map((t: any, index: number) => {
+        const vendorName = t.vendor_name?.toLowerCase() || "";
+        const supplierCode = supplierCodeMap[vendorName] || t.vendor_name || "";
+        return {
+          line_number: index + 1,
+          product_sku: productSkuMap[t.product_id] || t.product_id,
+          product_name: t.product_name,
+          quantity: parseFloat(String(t.qty)) || 1,
+          unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
+          total: parseFloat(String(t.cost_sold || t.total)) || 0,
+          supplier_code: supplierCode,
+        };
+      }),
     } : null;
 
     return {
@@ -181,23 +186,47 @@ export function OdooSyncStepDialog({
     const productIds = [...new Set(transactions.map((t: any) => t.product_id))];
     const { data } = await supabase
       .from("products")
-      .select("product_id, sku, non_stock")
+      .select("product_id, sku, non_stock, supplier")
       .in("product_id", productIds);
     
     if (data) {
       const map: Record<string, string> = {};
       const nonStock: any[] = [];
+      const vendorNames: string[] = [];
+      
       data.forEach((p: any) => {
         map[p.product_id] = p.sku || p.product_id;
         if (p.non_stock) {
           const transaction = transactions.find((t: any) => t.product_id === p.product_id);
           if (transaction) {
-            nonStock.push(transaction);
+            // Add vendor_name from product's supplier field
+            nonStock.push({ ...transaction, vendor_name: p.supplier });
+            if (p.supplier) {
+              vendorNames.push(p.supplier);
+            }
           }
         }
       });
+      
       setProductSkuMap(map);
       setNonStockProducts(nonStock);
+      
+      // Fetch supplier codes for vendor names
+      if (vendorNames.length > 0) {
+        const uniqueVendors = [...new Set(vendorNames)];
+        const { data: suppliersData } = await supabase
+          .from("suppliers")
+          .select("supplier_name, supplier_code")
+          .in("supplier_name", uniqueVendors);
+        
+        if (suppliersData) {
+          const codeMap: Record<string, string> = {};
+          suppliersData.forEach((s: any) => {
+            codeMap[s.supplier_name?.toLowerCase()] = s.supplier_code;
+          });
+          setSupplierCodeMap(codeMap);
+        }
+      }
     }
   };
 
@@ -215,6 +244,7 @@ export function OdooSyncStepDialog({
     setOdooMode(null);
     setProductSkuMap({});
     setNonStockProducts([]);
+    setSupplierCodeMap({});
   };
 
   const handleClose = () => {
