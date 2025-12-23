@@ -27,6 +27,11 @@ interface ShiftClosingDetailsDialogProps {
   shiftName: string;
 }
 
+interface ShiftSession {
+  first_order_number: string | null;
+  last_order_number: string | null;
+}
+
 interface BrandBalance {
   id: string;
   brand_id: string;
@@ -60,6 +65,7 @@ export default function ShiftClosingDetailsDialog({
   const [loading, setLoading] = useState(false);
   const [brandBalances, setBrandBalances] = useState<BrandBalance[]>([]);
   const [ludoTransactions, setLudoTransactions] = useState<LudoTransaction[]>([]);
+  const [shiftSession, setShiftSession] = useState<ShiftSession | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("closing");
 
@@ -75,6 +81,16 @@ export default function ShiftClosingDetailsDialog({
 
     setLoading(true);
     try {
+      // Fetch shift session details for first/last order numbers
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("shift_sessions")
+        .select("first_order_number, last_order_number")
+        .eq("id", shiftSessionId)
+        .maybeSingle();
+
+      if (sessionError) throw sessionError;
+      setShiftSession(sessionData);
+
       // Fetch brand balances for this shift session
       const { data: balanceData, error: balanceError } = await supabase
         .from("shift_brand_balances")
@@ -224,6 +240,8 @@ export default function ShiftClosingDetailsDialog({
       noLudoTransactions: "لا توجد معاملات لودو",
       openingTab: "صور الافتتاح",
       closingTab: "صور الإغلاق",
+      firstOrderNumber: "رقم أول طلب",
+      lastOrderNumber: "رقم آخر طلب",
     },
     en: {
       shiftDetails: "Shift Details",
@@ -248,6 +266,8 @@ export default function ShiftClosingDetailsDialog({
       noLudoTransactions: "No Ludo transactions",
       openingTab: "Opening Images",
       closingTab: "Closing Images",
+      firstOrderNumber: "First Order Number",
+      lastOrderNumber: "Last Order Number",
     },
   };
 
@@ -326,9 +346,15 @@ export default function ShiftClosingDetailsDialog({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="flex gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <span><strong>{text.user}:</strong> {userName}</span>
               <span><strong>{text.shift}:</strong> {shiftName}</span>
+              {shiftSession?.first_order_number && (
+                <span><strong>{text.firstOrderNumber}:</strong> {shiftSession.first_order_number}</span>
+              )}
+              {shiftSession?.last_order_number && (
+                <span><strong>{text.lastOrderNumber}:</strong> {shiftSession.last_order_number}</span>
+              )}
             </div>
 
             {loading ? (
