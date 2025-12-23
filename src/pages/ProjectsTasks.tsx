@@ -395,14 +395,15 @@ const ProjectsTasks = () => {
         : [...new Set([...adminDeptIds, ...allMemberDepts])];
 
       // Fetch users with job positions to determine department from organizational chart
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
         supabase.from('job_positions').select('id, department_id').eq('is_active', true),
-        supabase.from('project_members').select('*')
+        supabase.from('project_members').select('*'),
+        supabase.from('department_members').select('user_id, department_id')
       ]);
 
       // Get project IDs where user is a manager
@@ -459,7 +460,17 @@ const ProjectsTasks = () => {
         }
       });
       
-      // Enhance users with department info from organizational chart (job_position or default_department)
+      // Build a map of user_id -> department_ids from department_members table
+      const deptMembersData = allDeptMembersRes.data || [];
+      const userDeptMembershipMap = new Map<string, string[]>();
+      deptMembersData.forEach((dm: { user_id: string; department_id: string }) => {
+        if (!userDeptMembershipMap.has(dm.user_id)) {
+          userDeptMembershipMap.set(dm.user_id, []);
+        }
+        userDeptMembershipMap.get(dm.user_id)!.push(dm.department_id);
+      });
+      
+      // Enhance users with department info from organizational chart (job_position, default_department, and department_members)
       if (usersRes.data) {
         const usersWithDepts = usersRes.data.map((u: any) => {
           const deptIds: string[] = [];
@@ -471,6 +482,13 @@ const ProjectsTasks = () => {
           if (u.default_department_id && !deptIds.includes(u.default_department_id)) {
             deptIds.push(u.default_department_id);
           }
+          // Add departments from department_members table
+          const memberDepts = userDeptMembershipMap.get(u.user_id) || [];
+          memberDepts.forEach(deptId => {
+            if (!deptIds.includes(deptId)) {
+              deptIds.push(deptId);
+            }
+          });
           return {
             user_id: u.user_id,
             user_name: u.user_name,
