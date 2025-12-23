@@ -632,6 +632,13 @@ const ProjectsTasks = () => {
     fetchData();
   }, [fetchData]);
 
+  // Reset filters when department changes
+  useEffect(() => {
+    setSelectedUser('all');
+    setSelectedProject('all');
+    setSearchTerm('');
+  }, [selectedDepartment]);
+
   // Get phases for selected department
   const departmentPhases = taskPhases.filter(p => p.department_id === selectedDepartment);
   const defaultPhases = [
@@ -1408,7 +1415,7 @@ const ProjectsTasks = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.allUsers}</SelectItem>
-                {users.map(u => (
+                {departmentUsers.map(u => (
                   <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>
                 ))}
               </SelectContent>
@@ -1416,16 +1423,16 @@ const ProjectsTasks = () => {
             
             {/* User avatars */}
             <div className="flex -space-x-2">
-              {users.slice(0, 5).map(u => (
+              {departmentUsers.slice(0, 5).map(u => (
                 <Avatar key={u.user_id} className="h-8 w-8 border-2 border-background cursor-pointer hover:z-10">
                   <AvatarFallback className="text-xs bg-primary/10">
                     {u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
               ))}
-              {users.length > 5 && (
+              {departmentUsers.length > 5 && (
                 <Avatar className="h-8 w-8 border-2 border-background">
-                  <AvatarFallback className="text-xs bg-muted">+{users.length - 5}</AvatarFallback>
+                  <AvatarFallback className="text-xs bg-muted">+{departmentUsers.length - 5}</AvatarFallback>
                 </Avatar>
               )}
             </div>
