@@ -186,7 +186,7 @@ export function OdooSyncStepDialog({
     const productIds = [...new Set(transactions.map((t: any) => t.product_id))];
     const { data } = await supabase
       .from("products")
-      .select("product_id, sku, non_stock, supplier")
+      .select("product_id, sku, non_stock")
       .in("product_id", productIds);
     
     if (data) {
@@ -199,10 +199,10 @@ export function OdooSyncStepDialog({
         if (p.non_stock) {
           const transaction = transactions.find((t: any) => t.product_id === p.product_id);
           if (transaction) {
-            // Add vendor_name from product's supplier field
-            nonStock.push({ ...transaction, vendor_name: p.supplier });
-            if (p.supplier) {
-              vendorNames.push(p.supplier);
+            nonStock.push(transaction);
+            // Get vendor_name from transaction data
+            if (transaction.vendor_name) {
+              vendorNames.push(transaction.vendor_name);
             }
           }
         }
