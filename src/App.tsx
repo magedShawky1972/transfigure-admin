@@ -72,6 +72,7 @@ import PdfToExcel from "./pages/PdfToExcel";
 import OrderPaymentReport from "./pages/OrderPaymentReport";
 import DataLoadingStatus from "./pages/DataLoadingStatus";
 import CoinsLedgerReport from "./pages/CoinsLedgerReport";
+import ProjectGantt from "./pages/ProjectGantt";
 
 const queryClient = new QueryClient();
 
@@ -139,6 +140,7 @@ const App = () => (
               <Route path="/user-group-setup" element={<UserGroupSetup />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/projects-tasks" element={<ProjectsTasks />} />
+              <Route path="/project-gantt" element={<ProjectGantt />} />
               <Route path="/task-dashboard" element={<TaskDashboard />} />
               <Route path="/user-dashboard" element={<UserDashboard />} />
               <Route path="/company-hierarchy" element={<CompanyHierarchy />} />
