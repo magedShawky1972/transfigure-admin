@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowRight, User, Tag, Package, ShoppingCart, Globe, Copy, Check, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -362,10 +362,26 @@ export function OdooSyncStepDialog({
                       {stepResults[step.id].message}
                     </p>
                   </div>
-                  {index === currentStep && stepResults[step.id].status !== "success" && (
+                  {index === currentStep && stepResults[step.id].status !== "success" && stepResults[step.id].status !== "error" && (
                     <Badge variant="outline" className="flex-shrink-0">
                       Current
                     </Badge>
+                  )}
+                  {stepResults[step.id].status === "error" && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 px-2 gap-1 flex-shrink-0"
+                      onClick={() => executeStep(step.id)}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing && stepResults[step.id].status === "loading" ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3 w-3" />
+                      )}
+                      Retry
+                    </Button>
                   )}
                 </div>
                 
