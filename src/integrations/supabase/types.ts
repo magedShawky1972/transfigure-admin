@@ -2977,6 +2977,7 @@ export type Database = {
           is_milestone: boolean
           priority: string
           project_id: string | null
+          seq_number: number
           start_date: string | null
           start_time: string | null
           status: string
@@ -3000,6 +3001,7 @@ export type Database = {
           is_milestone?: boolean
           priority?: string
           project_id?: string | null
+          seq_number?: number
           start_date?: string | null
           start_time?: string | null
           status?: string
@@ -3023,6 +3025,7 @@ export type Database = {
           is_milestone?: boolean
           priority?: string
           project_id?: string | null
+          seq_number?: number
           start_date?: string | null
           start_time?: string | null
           status?: string
@@ -3945,6 +3948,10 @@ export type Database = {
       }
       get_epayment_charges: {
         Args: { date_from: string; date_to: string }
+        Returns: number
+      }
+      get_next_task_seq_number: {
+        Args: { p_department_id: string }
         Returns: number
       }
       get_points_summary: {

@@ -93,6 +93,7 @@ interface Task {
   end_time: string | null;
   ticket_id: string | null;
   created_at: string;
+  seq_number?: number;
   external_links?: string[] | null;
   file_attachments?: FileAttachment[] | null;
   video_attachments?: FileAttachment[] | null;
@@ -416,7 +417,7 @@ const ProjectsTasks = () => {
       // Fetch users with job positions to determine department from organizational chart
       const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*, projects(name), departments(department_name)').order('created_at', { ascending: false }),
+        supabase.from('tasks').select('*, projects(name), departments(department_name)').order('seq_number', { ascending: true }),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
@@ -1649,9 +1650,9 @@ const ProjectsTasks = () => {
                                       {/* Priority */}
                                       <div className={cn("w-2 h-2 rounded-full", priorityConfig[task.priority]?.color)} title={priorityConfig[task.priority]?.label} />
                                       
-                                      {/* Task ID */}
-                                      <span className="text-xs text-muted-foreground font-mono">
-                                        #{task.id.slice(0, 6)}
+                                      {/* Seq Number */}
+                                      <span className="text-xs text-muted-foreground font-mono font-semibold">
+                                        #{task.seq_number || task.id.slice(0, 6)}
                                       </span>
 
                                       {/* Time */}
