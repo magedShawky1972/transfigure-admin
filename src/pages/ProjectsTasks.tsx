@@ -215,7 +215,8 @@ const ProjectsTasks = () => {
     end_time: '',
     external_links: [] as string[],
     file_attachments: [] as FileAttachment[],
-    video_attachments: [] as FileAttachment[]
+    video_attachments: [] as FileAttachment[],
+    seq_number: null as number | null
   });
   const [newLink, setNewLink] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -285,7 +286,8 @@ const ProjectsTasks = () => {
       dependency: 'المهمة المعتمد عليها',
       noDependency: 'بدون تبعية',
       milestone: 'علامة فارقة',
-      selectDependency: 'اختر المهمة المعتمد عليها'
+      selectDependency: 'اختر المهمة المعتمد عليها',
+      seqNumber: 'الرقم التسلسلي'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -351,7 +353,8 @@ const ProjectsTasks = () => {
       dependency: 'Dependency',
       noDependency: 'No Dependency',
       milestone: 'Milestone',
-      selectDependency: 'Select dependency task'
+      selectDependency: 'Select dependency task',
+      seqNumber: 'Seq. Number'
     }
   };
 
@@ -841,7 +844,7 @@ const ProjectsTasks = () => {
     try {
       if (editingTask) {
         // When editing, only update the single task (use first user if array)
-        const payload = {
+        const payload: Record<string, unknown> = {
           title: taskForm.title,
           description: taskForm.description || null,
           project_id: taskForm.project_id || null,
@@ -860,6 +863,10 @@ const ProjectsTasks = () => {
           video_attachments: taskForm.video_attachments as unknown as Json,
           created_by: currentUserId!
         };
+        // Only include seq_number if it was changed
+        if (taskForm.seq_number !== null && taskForm.seq_number !== editingTask.seq_number) {
+          payload.seq_number = taskForm.seq_number;
+        }
         await supabase.from('tasks').update(payload).eq('id', editingTask.id);
 
         // If status changed to "done", notify department admins
@@ -1000,7 +1007,8 @@ const ProjectsTasks = () => {
       end_time: task.end_time || '',
       external_links: task.external_links || [],
       file_attachments: task.file_attachments || [],
-      video_attachments: task.video_attachments || []
+      video_attachments: task.video_attachments || [],
+      seq_number: task.seq_number || null
     });
     setTaskDialogOpen(true);
   };
@@ -1033,7 +1041,7 @@ const ProjectsTasks = () => {
       title: '', description: '', project_id: '', department_id: selectedDepartment, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
       start_date: null, deadline: null, start_time: '', end_time: '',
-      external_links: [], file_attachments: [], video_attachments: []
+      external_links: [], file_attachments: [], video_attachments: [], seq_number: null
     });
   };
 
@@ -1252,9 +1260,22 @@ const ProjectsTasks = () => {
                     <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">{t.taskTitle} *</label>
-                      <Input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="col-span-3">
+                        <label className="text-sm font-medium">{t.taskTitle} *</label>
+                        <Input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
+                      </div>
+                      {editingTask && (
+                        <div className="col-span-1">
+                          <label className="text-sm font-medium">{t.seqNumber}</label>
+                          <Input 
+                            type="number" 
+                            value={taskForm.seq_number || ''} 
+                            onChange={(e) => setTaskForm({ ...taskForm, seq_number: e.target.value ? parseInt(e.target.value) : null })}
+                            min={1}
+                          />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="text-sm font-medium">{t.description}</label>
