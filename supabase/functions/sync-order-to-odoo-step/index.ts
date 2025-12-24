@@ -521,7 +521,7 @@ Deno.serve(async (req) => {
             .find((v: string | undefined) => Boolean(v)) || "";
 
         const purchasePayload = {
-          sales_order_number: firstTransaction.order_number,
+          order_number: firstTransaction.order_number,
           order_date: formatPurchaseDate(firstTransaction.created_at_date),
           payment_method: firstTransaction.payment_method || "",
           payment_brand: firstTransaction.payment_brand || "",
