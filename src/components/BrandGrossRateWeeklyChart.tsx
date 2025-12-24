@@ -160,8 +160,8 @@ export const BrandGrossRateWeeklyChart = () => {
                 data={data}
                 layout="vertical"
                 margin={isRTL 
-                  ? { top: 10, right: 120, left: 40, bottom: 10 }
-                  : { top: 10, right: 40, left: 120, bottom: 10 }
+                  ? { top: 10, right: 140, left: 40, bottom: 10 }
+                  : { top: 10, right: 40, left: 140, bottom: 10 }
                 }
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#4338ca" horizontal={true} vertical={false} />
@@ -177,7 +177,7 @@ export const BrandGrossRateWeeklyChart = () => {
                 <YAxis 
                   type="category" 
                   dataKey="brand_name" 
-                  width={110}
+                  width={130}
                   tick={{ fill: '#e0e7ff', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#6366f1' }}
                   tickLine={false}
