@@ -1995,6 +1995,7 @@ export type Database = {
           brand_code: string | null
           brand_name: string | null
           coins_number: number | null
+          company: string | null
           cost_price: number | null
           cost_sold: number | null
           created_at: string
@@ -2025,6 +2026,7 @@ export type Database = {
           brand_code?: string | null
           brand_name?: string | null
           coins_number?: number | null
+          company?: string | null
           cost_price?: number | null
           cost_sold?: number | null
           created_at?: string
@@ -2055,6 +2057,7 @@ export type Database = {
           brand_code?: string | null
           brand_name?: string | null
           coins_number?: number | null
+          company?: string | null
           cost_price?: number | null
           cost_sold?: number | null
           created_at?: string
