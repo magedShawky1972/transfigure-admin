@@ -143,6 +143,7 @@ export function OdooSyncStepDialog({
       payment_brand: firstTransaction?.payment_brand || "",
       sales_person: firstTransaction?.user_name || "",
       online_payment: "true",
+      company: firstTransaction?.company || "Purple",
       lines: transactions.map((t: any, index: number) => ({
         line_number: index + 1,
         product_sku: productSkuMap[t.product_id] || t.product_id,
@@ -168,6 +169,7 @@ export function OdooSyncStepDialog({
         payment_method: firstTransaction?.payment_method || "",
         payment_brand: firstTransaction?.payment_brand || "",
         supplier_code: headerSupplierCode || String(rawVendorNames[0] ?? ""),
+        company: firstTransaction?.company || "Purple",
         lines: nonStockProducts.map((t: any, index: number) => ({
           line_number: index + 1,
           product_sku: productSkuMap[t.product_id] || t.product_id,
