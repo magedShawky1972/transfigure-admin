@@ -70,9 +70,9 @@ const BankStatementReport = () => {
         query = query.lte("txn_date_only", txnDateTo);
       }
       
-      // Apply posting_date filters (extract date part for comparison)
+      // Apply posting_date filters - posting_date is a datetime, so we need full timestamp range
       if (postDateFrom) {
-        query = query.gte("posting_date", postDateFrom);
+        query = query.gte("posting_date", postDateFrom + "T00:00:00");
       }
       if (postDateTo) {
         query = query.lte("posting_date", postDateTo + "T23:59:59");
