@@ -103,6 +103,11 @@ export function OdooSyncStepDialog({
     hasOdooId: boolean;
     odoo_category_id?: number;
   }>>({});
+  const [productOdooInfo, setProductOdooInfo] = useState<Record<string, {
+    hasOdooId: boolean;
+    odoo_product_id?: number;
+    sku?: string;
+  }>>({});
 
   // Pre-calculate request bodies for display
   const getPreCalculatedBodies = () => {
@@ -159,16 +164,34 @@ export function OdooSyncStepDialog({
       };
     });
 
-    // Product bodies
+    // Product bodies - show check info if product has Odoo ID
     const uniqueProductIds = [...new Set(transactions.map((t: any) => t.product_id))];
     const productBodies = uniqueProductIds.map((productId: string) => {
       const transaction = transactions.find((t: any) => t.product_id === productId);
       const actualSku = productSkuMap[productId] || productId;
+      const productInfo = productOdooInfo[productId];
+      
+      if (productInfo?.hasOdooId) {
+        return {
+          _info: "Product already exists in Odoo (from local DB)",
+          product_id: productId,
+          sku: productInfo.sku || actualSku,
+          product_name: transaction?.product_name || actualSku,
+          odoo_product_id: productInfo.odoo_product_id,
+          method: "SKIP",
+        };
+      }
+      
       return {
-        default_code: actualSku,
-        name: transaction?.product_name || actualSku,
-        list_price: parseFloat(String(transaction?.unit_price)) || 0,
-        cat_code: transaction?.brand_code,
+        _info: "Will check via PUT, then POST if not found",
+        check_url: `{product_api_url}/${actualSku}`,
+        check_method: "PUT",
+        create_body: {
+          default_code: actualSku,
+          name: transaction?.product_name || actualSku,
+          list_price: parseFloat(String(transaction?.unit_price)) || 0,
+          cat_code: transaction?.brand_code,
+        },
       };
     });
 
@@ -230,7 +253,7 @@ export function OdooSyncStepDialog({
 
   const preCalculatedBodies = getPreCalculatedBodies();
 
-  // Fetch Odoo mode, product SKUs, and check customer/brand Odoo IDs when dialog opens
+  // Fetch Odoo mode, product SKUs, and check customer/brand/product Odoo IDs when dialog opens
   useEffect(() => {
     if (open) {
       if (!odooMode) {
@@ -239,6 +262,7 @@ export function OdooSyncStepDialog({
       fetchProductSkus();
       checkCustomerOdooId();
       checkBrandOdooIds();
+      checkProductOdooIds();
     }
   }, [open]);
 
@@ -312,6 +336,45 @@ export function OdooSyncStepDialog({
     } catch (err) {
       console.error("Error checking brand Odoo IDs:", err);
       setBrandOdooInfo({});
+    }
+  };
+
+  const checkProductOdooIds = async () => {
+    const uniqueProductIds = [...new Set(transactions.map((t: any) => t.product_id))].filter(Boolean);
+    if (uniqueProductIds.length === 0) {
+      setProductOdooInfo({});
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("product_id, sku, odoo_product_id")
+        .in("product_id", uniqueProductIds);
+
+      if (error) {
+        console.error("Error checking product Odoo IDs:", error);
+        setProductOdooInfo({});
+        return;
+      }
+
+      const info: Record<string, { hasOdooId: boolean; odoo_product_id?: number; sku?: string }> = {};
+      uniqueProductIds.forEach((productId: string) => {
+        const product = data?.find((p: any) => p.product_id === productId);
+        if (product?.odoo_product_id) {
+          info[productId] = {
+            hasOdooId: true,
+            odoo_product_id: product.odoo_product_id,
+            sku: product.sku,
+          };
+        } else {
+          info[productId] = { hasOdooId: false, sku: product?.sku };
+        }
+      });
+      setProductOdooInfo(info);
+    } catch (err) {
+      console.error("Error checking product Odoo IDs:", err);
+      setProductOdooInfo({});
     }
   };
 
@@ -411,6 +474,7 @@ export function OdooSyncStepDialog({
     setSupplierCodeMap({});
     setCustomerOdooInfo(null);
     setBrandOdooInfo({});
+    setProductOdooInfo({});
   };
 
   const handleClose = () => {
