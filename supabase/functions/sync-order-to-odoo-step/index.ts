@@ -23,6 +23,7 @@ interface Transaction {
   cost_price?: number;
   cost_sold?: number;
   vendor_name?: string;
+  company?: string;
 }
 
 const normalizeKey = (value: unknown) =>
@@ -383,6 +384,7 @@ Deno.serve(async (req) => {
           payment_brand: firstTransaction.payment_brand || "",
           sales_person: firstTransaction.user_name || "",
           online_payment: "true",
+          company: firstTransaction.company || "Purple",
           lines: transactions.map((t: Transaction, index: number) => ({
             line_number: index + 1,
             product_sku: skuMap.get(t.product_id) || t.product_id,
@@ -526,6 +528,7 @@ Deno.serve(async (req) => {
           payment_method: firstTransaction.payment_method || "",
           payment_brand: firstTransaction.payment_brand || "",
           supplier_code: headerSupplierCode || String(nonStockProducts[0]?.vendor_name ?? ""),
+          company: firstTransaction.company || "Purple",
           lines: nonStockProducts.map((t: Transaction, index: number) => ({
             line_number: index + 1,
             product_sku: skuMap.get(t.product_id) || t.product_id,
