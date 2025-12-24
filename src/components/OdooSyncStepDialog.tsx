@@ -742,21 +742,39 @@ export function OdooSyncStepDialog({
                             Request Body (POST)
                           </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copyToClipboard(step.id, preCalculatedBodies[step.id as keyof typeof preCalculatedBodies]);
-                          }}
-                        >
-                          {copiedStep === step.id ? (
-                            <><Check className="h-3 w-3 mr-1" /> Copied</>
-                          ) : (
-                            <><Copy className="h-3 w-3 mr-1" /> Copy</>
-                          )}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              executeStep(step.id);
+                            }}
+                            disabled={isProcessing || stepResults[step.id].status === "loading"}
+                          >
+                            {stepResults[step.id].status === "loading" ? (
+                              <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Running</>
+                            ) : (
+                              <><ArrowRight className="h-3 w-3 mr-1" /> Run Step</>
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(step.id, preCalculatedBodies[step.id as keyof typeof preCalculatedBodies]);
+                            }}
+                          >
+                            {copiedStep === step.id ? (
+                              <><Check className="h-3 w-3 mr-1" /> Copied</>
+                            ) : (
+                              <><Copy className="h-3 w-3 mr-1" /> Copy</>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                       {expandedBodies[step.id] && (
                         <div className="p-2 text-xs bg-muted/30 max-h-32 overflow-auto border-t border-primary/30">
