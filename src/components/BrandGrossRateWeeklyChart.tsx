@@ -145,7 +145,7 @@ export const BrandGrossRateWeeklyChart = () => {
           <div className="p-2 bg-cyan-500/20 rounded-lg">
             <Calendar className="h-6 w-6 text-cyan-400" />
           </div>
-          {isRTL ? 'معدل الربح الإجمالي للعلامات التجارية (أسبوع واحد)' : 'Brand Gross Rate (Last 7 Days)'}
+          {isRTL ? 'معدل النمو (آخر 7 أيام)' : 'Growth Rate (Last 7 Days)'}
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">

@@ -145,7 +145,7 @@ export const BrandGrossRateChart = () => {
           <div className="p-2 bg-emerald-500/20 rounded-lg">
             <TrendingUp className="h-6 w-6 text-emerald-400" />
           </div>
-          {isRTL ? 'معدل الربح الإجمالي للعلامات التجارية (3 أشهر)' : 'Brand Gross Rate (Last 3 Months)'}
+          {isRTL ? 'معدل النمو (آخر 3 أشهر)' : 'Growth Rate (Last 3 Months)'}
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
