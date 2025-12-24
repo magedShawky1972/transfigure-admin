@@ -87,11 +87,6 @@ Deno.serve(async (req) => {
         const customerApiUrl = isProduction ? config.customer_api_url : config.customer_api_url_test;
         
         // Prepare request bodies for display
-        const updateBody = {
-          name: firstTransaction.customer_name || "Customer",
-          phone: firstTransaction.customer_phone,
-        };
-        
         const createBody = {
           partner_type: "customer",
           name: firstTransaction.customer_name || "Customer",
@@ -107,52 +102,155 @@ Deno.serve(async (req) => {
           step: "customer",
           mode: isProduction ? "Production" : "Test",
           apiUrl: customerApiUrl,
-          requestBody: createBody, // Show the POST body by default
+          requestBody: createBody,
         };
 
         try {
-          // Try to update existing customer
+          // Step 1: Check if customer has Odoo ID in local database
+          const { data: existingCustomer, error: customerError } = await supabase
+            .from("customers")
+            .select("partner_profile_id, res_partner_id")
+            .eq("customer_phone", firstTransaction.customer_phone)
+            .maybeSingle();
+
+          if (customerError) {
+            console.log("Error checking local customer:", customerError.message);
+          }
+
+          // If customer has Odoo ID locally, skip creation
+          if (existingCustomer?.partner_profile_id) {
+            result.success = true;
+            result.message = `Customer already exists in Odoo (from local DB): ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
+            result.details = {
+              partner_profile_id: existingCustomer.partner_profile_id,
+              res_partner_id: existingCustomer.res_partner_id,
+              source: "local_database"
+            };
+            result.method = "SKIP";
+            result.fullUrl = "N/A - Customer already has Odoo ID";
+            break;
+          }
+
+          // Step 2: Check if customer exists in Odoo via PUT request
+          console.log(`Checking if customer exists in Odoo: ${customerApiUrl}/${firstTransaction.customer_phone}`);
           const checkResponse = await fetch(`${customerApiUrl}/${firstTransaction.customer_phone}`, {
             method: "PUT",
             headers: {
               Authorization: apiKey,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(updateBody),
           });
 
-          if (checkResponse.ok) {
-            const data = await checkResponse.json();
+          const checkText = await checkResponse.text();
+          console.log("Check response status:", checkResponse.status);
+          console.log("Check response:", checkText);
+
+          let checkData: any = null;
+          try {
+            checkData = JSON.parse(checkText);
+          } catch (e) {
+            checkData = null;
+          }
+
+          // If customer exists in Odoo (success: true with partner_profile_id), don't create
+          if (checkResponse.ok && checkData?.success === true && checkData?.partner_profile_id) {
             result.success = true;
-            result.message = `Customer found/updated: ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
-            result.details = data;
-            result.requestBody = updateBody;
-            result.method = "PUT";
+            result.message = `Customer already exists in Odoo: ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
+            result.details = {
+              partner_profile_id: checkData.partner_profile_id,
+              res_partner_id: checkData.res_partner_id,
+              message: checkData.message,
+              source: "odoo_api"
+            };
+            result.method = "PUT (Check)";
             result.fullUrl = `${customerApiUrl}/${firstTransaction.customer_phone}`;
-          } else {
-            // Create new customer - must include partner_type
-            const createResponse = await fetch(customerApiUrl, {
-              method: "POST",
-              headers: {
-                Authorization: apiKey,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(createBody),
-            });
 
-            result.method = "POST";
-            result.fullUrl = customerApiUrl;
+            // Update local customer record with Odoo IDs
+            const { error: updateError } = await supabase
+              .from("customers")
+              .update({
+                partner_profile_id: checkData.partner_profile_id,
+                res_partner_id: checkData.res_partner_id,
+              })
+              .eq("customer_phone", firstTransaction.customer_phone);
 
-            if (createResponse.ok) {
-              const data = await createResponse.json();
-              result.success = true;
-              result.message = `New customer created: ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
-              result.details = data;
+            if (updateError) {
+              console.log("Error updating local customer with Odoo IDs:", updateError.message);
             } else {
-              const errorText = await createResponse.text();
-              result.success = false;
-              result.error = `Failed to create customer: ${errorText}`;
+              console.log("Updated local customer with Odoo IDs");
             }
+            break;
+          }
+
+          // Step 3: Customer doesn't exist, create new customer
+          console.log("Customer not found in Odoo, creating new customer...");
+          const createResponse = await fetch(customerApiUrl, {
+            method: "POST",
+            headers: {
+              Authorization: apiKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(createBody),
+          });
+
+          result.method = "POST";
+          result.fullUrl = customerApiUrl;
+
+          if (createResponse.ok) {
+            const data = await createResponse.json();
+            result.success = true;
+            result.message = `New customer created: ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
+            result.details = data;
+
+            // Update local customer record with new Odoo IDs
+            if (data.partner_profile_id) {
+              const { error: updateError } = await supabase
+                .from("customers")
+                .update({
+                  partner_profile_id: data.partner_profile_id,
+                  res_partner_id: data.res_partner_id,
+                })
+                .eq("customer_phone", firstTransaction.customer_phone);
+
+              if (updateError) {
+                console.log("Error updating local customer with new Odoo IDs:", updateError.message);
+              }
+            }
+          } else {
+            const errorText = await createResponse.text();
+            
+            // Check if customer already exists (Odoo returns existing_partner_profile_id)
+            try {
+              const errorData = JSON.parse(errorText);
+              if (errorData.existing_partner_profile_id) {
+                result.success = true;
+                result.message = `Customer already exists in Odoo: ${firstTransaction.customer_name || firstTransaction.customer_phone}`;
+                result.details = {
+                  partner_profile_id: errorData.existing_partner_profile_id,
+                  res_partner_id: errorData.existing_res_partner_id,
+                  source: "odoo_create_response"
+                };
+
+                // Update local customer record with Odoo IDs
+                const { error: updateError } = await supabase
+                  .from("customers")
+                  .update({
+                    partner_profile_id: errorData.existing_partner_profile_id,
+                    res_partner_id: errorData.existing_res_partner_id,
+                  })
+                  .eq("customer_phone", firstTransaction.customer_phone);
+
+                if (updateError) {
+                  console.log("Error updating local customer with existing Odoo IDs:", updateError.message);
+                }
+                break;
+              }
+            } catch (e) {
+              // Not JSON, continue with error
+            }
+            
+            result.success = false;
+            result.error = `Failed to create customer: ${errorText}`;
           }
         } catch (err: any) {
           result.success = false;
