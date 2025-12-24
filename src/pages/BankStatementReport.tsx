@@ -71,46 +71,51 @@ const BankStatementReport = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from("riyadbankstatement")
-        .select("id, txn_date_only, posting_date, net_amount, txn_amount, fee, vat, card_type, merchant_name, terminal_id, auth_code")
-        .order("txn_date_only", { ascending: false })
-        .limit(10000);
+      // The backend enforces a maximum of 1000 rows per request.
+      // Fetch in pages and merge up to 10,000 rows.
+      const pageSize = 1000;
+      const maxRows = 10000;
+      const allRows: BankStatementRow[] = [];
 
-      // Apply txn_date_only filters (this column is proper DATE type)
-      if (txnDateFrom) {
-        query = query.gte("txn_date_only", txnDateFrom);
+      for (let from = 0; from < maxRows; from += pageSize) {
+        let query = supabase
+          .from("riyadbankstatement")
+          .select(
+            "id, txn_date_only, posting_date, net_amount, txn_amount, fee, vat, card_type, merchant_name, terminal_id, auth_code"
+          )
+          .order("txn_date_only", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        // Apply txn_date_only filters (this column is proper DATE type)
+        if (txnDateFrom) query = query.gte("txn_date_only", txnDateFrom);
+        if (txnDateTo) query = query.lte("txn_date_only", txnDateTo);
+
+        const { data: page, error } = await query;
+
+        if (error) {
+          console.error("Error fetching bank statement:", error);
+          toast.error(isRTL ? "خطأ في جلب البيانات" : "Error fetching data");
+          return;
+        }
+
+        const pageRows = (page || []) as BankStatementRow[];
+        allRows.push(...pageRows);
+
+        // No more data
+        if (pageRows.length < pageSize) break;
       }
-      if (txnDateTo) {
-        query = query.lte("txn_date_only", txnDateTo);
-      }
-      
-      // Note: posting_date is stored as TEXT in DD/MM/YYYY format
-      // We'll filter it client-side after fetching
 
-      const { data: result, error } = await query;
+      // Apply posting_date filters client-side (posting_date is stored as TEXT in DD/MM/YYYY)
+      let filteredResult = allRows;
 
-      if (error) {
-        console.error("Error fetching bank statement:", error);
-        toast.error(isRTL ? "خطأ في جلب البيانات" : "Error fetching data");
-        return;
-      }
-
-      // Apply posting_date filters client-side
-      let filteredResult = result || [];
-      
       if (postDateFrom || postDateTo) {
         const fromDate = postDateFrom ? parseFilterDate(postDateFrom) : null;
         const toDate = postDateTo ? parseFilterDate(postDateTo) : null;
-        // Set toDate to end of day for inclusive comparison
-        if (toDate) {
-          toDate.setHours(23, 59, 59, 999);
-        }
+        if (toDate) toDate.setHours(23, 59, 59, 999);
 
-        filteredResult = filteredResult.filter(row => {
+        filteredResult = filteredResult.filter((row) => {
           const postDate = parsePostingDate(row.posting_date);
           if (!postDate) return false;
-          
           if (fromDate && postDate < fromDate) return false;
           if (toDate && postDate > toDate) return false;
           return true;
@@ -119,9 +124,7 @@ const BankStatementReport = () => {
 
       setData(filteredResult);
       toast.success(
-        isRTL 
-          ? `تم جلب ${filteredResult.length} سجل` 
-          : `Fetched ${filteredResult.length} records`
+        isRTL ? `تم جلب ${filteredResult.length} سجل` : `Fetched ${filteredResult.length} records`
       );
     } catch (error) {
       console.error("Error:", error);
