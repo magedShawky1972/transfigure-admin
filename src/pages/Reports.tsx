@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement']);
         return;
       }
 
@@ -150,6 +150,15 @@ const Reports = () => {
         : "View coins movement per shift with opening, closing balances and variance",
       icon: Coins,
       route: "/reports/coins-ledger",
+    },
+    {
+      id: "bank-statement",
+      name: language === "ar" ? "تقرير كشف حساب البنك" : "Bank Statement Report",
+      description: language === "ar" 
+        ? "عرض كشف حساب البنك مع الفلترة حسب تاريخ المعاملة وتاريخ الترحيل" 
+        : "View bank statement with filters by transaction date and posting date",
+      icon: Landmark,
+      route: "/reports/bank-statement",
     },
   ];
 
