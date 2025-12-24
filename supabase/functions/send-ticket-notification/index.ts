@@ -142,6 +142,35 @@ async function fetchTicketAttachments(supabase: any, ticketId: string): Promise<
   return attachments;
 }
 
+// Helper function to fetch purchase details for a ticket
+async function fetchPurchaseDetails(
+  supabase: any,
+  ticket: any
+): Promise<{ itemName: string | null; currencyName: string | null }> {
+  let itemName: string | null = null;
+  let currencyName: string | null = null;
+
+  if (ticket.item_id) {
+    const { data: itemData } = await supabase
+      .from("purchase_items")
+      .select("item_name")
+      .eq("id", ticket.item_id)
+      .single();
+    itemName = itemData?.item_name || null;
+  }
+
+  if (ticket.currency_id) {
+    const { data: currencyData } = await supabase
+      .from("currencies")
+      .select("currency_code, currency_name")
+      .eq("id", ticket.currency_id)
+      .single();
+    currencyName = currencyData?.currency_code || currencyData?.currency_name || null;
+  }
+
+  return { itemName, currencyName };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -164,7 +193,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
-        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link, budget_value, qty, uom, item_id, currency_id")
         .eq("id", ticketId)
         .single();
 
@@ -234,6 +263,11 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Failed to fetch recipient profiles");
       }
 
+      // Fetch purchase details if needed
+      const purchaseDetails = ticket.is_purchase_ticket 
+        ? await fetchPurchaseDetails(supabase, ticket)
+        : { itemName: null, currencyName: null };
+
       const ticketDetails: TicketDetails = {
         ticketNumber: ticket.ticket_number,
         subject: ticket.subject,
@@ -242,7 +276,12 @@ const handler = async (req: Request): Promise<Response> => {
         createdBy: creatorProfile?.user_name || "",
         createdAt: ticket.created_at,
         isPurchaseTicket: ticket.is_purchase_ticket,
-        externalLink: ticket.external_link
+        externalLink: ticket.external_link,
+        itemName: purchaseDetails.itemName,
+        qty: ticket.qty,
+        uom: ticket.uom,
+        budgetValue: ticket.budget_value,
+        currencyName: purchaseDetails.currencyName
       };
 
       // Prepare notification data
@@ -335,7 +374,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
-        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link, budget_value, qty, uom, item_id, currency_id")
         .eq("id", ticketId)
         .single();
 
@@ -383,6 +422,11 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Failed to fetch recipient profiles");
       }
 
+      // Fetch purchase details if needed
+      const purchaseDetails = ticket.is_purchase_ticket 
+        ? await fetchPurchaseDetails(supabase, ticket)
+        : { itemName: null, currencyName: null };
+
       const ticketDetails: TicketDetails = {
         ticketNumber: ticket.ticket_number,
         subject: ticket.subject,
@@ -391,7 +435,12 @@ const handler = async (req: Request): Promise<Response> => {
         createdBy: creatorProfile?.user_name || "",
         createdAt: ticket.created_at,
         isPurchaseTicket: ticket.is_purchase_ticket,
-        externalLink: ticket.external_link
+        externalLink: ticket.external_link,
+        itemName: purchaseDetails.itemName,
+        qty: ticket.qty,
+        uom: ticket.uom,
+        budgetValue: ticket.budget_value,
+        currencyName: purchaseDetails.currencyName
       };
 
       // Prepare notification data
@@ -485,7 +534,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get ticket's full details including department and creator
       const { data: ticket, error: ticketError } = await supabase
         .from("tickets")
-        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link")
+        .select("department_id, ticket_number, subject, description, is_purchase_ticket, created_at, user_id, external_link, budget_value, qty, uom, item_id, currency_id")
         .eq("id", ticketId)
         .single();
 
@@ -519,6 +568,11 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Recipient not found");
       }
 
+      // Fetch purchase details if needed
+      const purchaseDetails = ticket.is_purchase_ticket 
+        ? await fetchPurchaseDetails(supabase, ticket)
+        : { itemName: null, currencyName: null };
+
       const ticketDetails: TicketDetails = {
         ticketNumber: ticket.ticket_number,
         subject: ticket.subject,
@@ -527,7 +581,12 @@ const handler = async (req: Request): Promise<Response> => {
         createdBy: creatorProfile?.user_name || "",
         createdAt: ticket.created_at,
         isPurchaseTicket: ticket.is_purchase_ticket,
-        externalLink: ticket.external_link
+        externalLink: ticket.external_link,
+        itemName: purchaseDetails.itemName,
+        qty: ticket.qty,
+        uom: ticket.uom,
+        budgetValue: ticket.budget_value,
+        currencyName: purchaseDetails.currencyName
       };
 
       // Get notification content
@@ -636,6 +695,12 @@ interface TicketDetails {
   createdAt: string;
   isPurchaseTicket: boolean;
   externalLink?: string | null;
+  // Purchase ticket fields
+  itemName?: string | null;
+  qty?: number | null;
+  uom?: string | null;
+  budgetValue?: number | null;
+  currencyName?: string | null;
 }
 
 function getNotificationContent(
@@ -689,6 +754,15 @@ const appUrl = "https://edaraasus.com";
     ? `<li style="margin: 10px 0;"><strong>رابط خارجي:</strong> <a href="${ticketDetails.externalLink}" target="_blank" style="color: #4F46E5;">${ticketDetails.externalLink}</a></li>`
     : '';
 
+  // Purchase details HTML (only for purchase tickets)
+  const purchaseDetailsHtml = ticketDetails.isPurchaseTicket ? `
+    ${ticketDetails.itemName ? `<li style="margin: 10px 0;"><strong>الصنف:</strong> ${ticketDetails.itemName}</li>` : ''}
+    ${ticketDetails.qty ? `<li style="margin: 10px 0;"><strong>الكمية:</strong> ${ticketDetails.qty}</li>` : ''}
+    ${ticketDetails.uom ? `<li style="margin: 10px 0;"><strong>وحدة القياس:</strong> ${ticketDetails.uom}</li>` : ''}
+    ${ticketDetails.budgetValue ? `<li style="margin: 10px 0;"><strong>المبلغ:</strong> ${ticketDetails.budgetValue}${ticketDetails.currencyName ? ` ${ticketDetails.currencyName}` : ''}</li>` : ''}
+    ${ticketDetails.budgetValue && ticketDetails.qty ? `<li style="margin: 10px 0;"><strong>الإجمالي:</strong> ${(ticketDetails.budgetValue * ticketDetails.qty).toFixed(2)}${ticketDetails.currencyName ? ` ${ticketDetails.currencyName}` : ''}</li>` : ''}
+  ` : '';
+
 switch (type) {
     case "ticket_created":
       emailSubject = ticketTypeSubject;
@@ -705,6 +779,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
             ${externalLinkHtml}
+            ${purchaseDetailsHtml}
           </ul>
           <p>يرجى المراجعة واتخاذ الإجراء المناسب.</p>
           <div style="margin: 20px 0; display: flex; gap: 10px; justify-content: flex-start;">
@@ -735,6 +810,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
             ${externalLinkHtml}
+            ${purchaseDetailsHtml}
           </ul>
           <p>جاري معالجة التذكرة الآن.</p>
           <div style="margin: 20px 0;">
@@ -761,6 +837,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
             ${externalLinkHtml}
+            ${purchaseDetailsHtml}
           </ul>
           <p>يرجى المراجعة والعمل على هذه التذكرة.</p>
           <div style="margin: 20px 0;">
@@ -787,6 +864,7 @@ switch (type) {
             <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
             <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
             ${externalLinkHtml}
+            ${purchaseDetailsHtml}
           </ul>
           <p>يرجى مراجعة التذكرة والموافقة عليها.</p>
           <div style="margin: 20px 0; display: flex; gap: 10px; justify-content: flex-start;">
