@@ -437,10 +437,10 @@ Deno.serve(async (req) => {
         const productApiUrl = isProduction ? config.product_api_url : config.product_api_url_test;
         const uniqueProductIds = [...new Set(transactions.map((t: Transaction) => t.product_id))];
         
-        // Fetch actual SKUs from products table
+        // Fetch actual SKUs and odoo_product_id from products table
         const { data: productsData, error: productsError } = await supabase
           .from("products")
-          .select("product_id, sku, product_name, product_price, product_cost, brand_code")
+          .select("product_id, sku, product_name, product_price, product_cost, brand_code, odoo_product_id")
           .in("product_id", uniqueProductIds);
 
         if (productsError) {
@@ -475,7 +475,7 @@ Deno.serve(async (req) => {
           apiUrl: productApiUrl,
           products: [],
           requestBody: productBodies,
-          method: "POST/PUT",
+          method: "PUT (Check) / POST (Create)",
         };
 
         for (const productId of uniqueProductIds) {
@@ -486,6 +486,18 @@ Deno.serve(async (req) => {
           const productResult: any = { sku: actualSku, product_name: transaction?.product_name };
 
           try {
+            // Step 1: Check if product has Odoo product_id in local database
+            if (product?.odoo_product_id) {
+              productResult.status = "exists";
+              productResult.message = `Product already exists in Odoo (from local DB): product_id=${product.odoo_product_id}`;
+              productResult.odoo_product_id = product.odoo_product_id;
+              productResult.source = "local_database";
+              result.products.push(productResult);
+              continue;
+            }
+
+            // Step 2: Check if product exists in Odoo via PUT request using SKU
+            console.log(`Checking if product exists in Odoo: ${productApiUrl}/${actualSku}`);
             const checkResponse = await fetch(`${productApiUrl}/${actualSku}`, {
               method: "PUT",
               headers: {
@@ -498,31 +510,106 @@ Deno.serve(async (req) => {
               }),
             });
 
-            if (checkResponse.ok) {
-              productResult.status = "updated";
-              productResult.message = "Product found and updated";
-            } else {
-              const createResponse = await fetch(productApiUrl, {
-                method: "POST",
-                headers: {
-                  Authorization: apiKey,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  default_code: actualSku,
-                  name: transaction?.product_name || actualSku,
-                  list_price: parseFloat(String(transaction?.unit_price)) || 0,
-                  cat_code: transaction?.brand_code,
-                }),
-              });
+            const checkText = await checkResponse.text();
+            console.log("Product check response status:", checkResponse.status);
+            console.log("Product check response:", checkText);
 
-              if (createResponse.ok) {
-                productResult.status = "created";
-                productResult.message = "New product created";
+            let checkData: any = null;
+            try {
+              checkData = JSON.parse(checkText);
+            } catch (e) {
+              checkData = null;
+            }
+
+            // If product exists in Odoo (success: true with product_id), don't create
+            if (checkResponse.ok && checkData?.success === true && checkData?.product_id) {
+              productResult.status = "exists";
+              productResult.message = `Product already exists in Odoo: ${checkData.sku || actualSku}`;
+              productResult.odoo_product_id = checkData.product_id;
+              productResult.product_master_id = checkData.product_master_id;
+              productResult.sku = checkData.sku;
+              productResult.source = "odoo_api";
+
+              // Update local product record with Odoo product_id
+              const { error: updateError } = await supabase
+                .from("products")
+                .update({ odoo_product_id: checkData.product_id })
+                .eq("product_id", productId);
+
+              if (updateError) {
+                console.log("Error updating local product with Odoo product_id:", updateError.message);
               } else {
-                productResult.status = "failed";
-                productResult.message = await createResponse.text();
+                console.log(`Updated local product ${actualSku} with Odoo product_id: ${checkData.product_id}`);
               }
+
+              result.products.push(productResult);
+              continue;
+            }
+
+            // Step 3: Product doesn't exist, create new product
+            console.log(`Product ${actualSku} not found in Odoo, creating new product...`);
+            const createResponse = await fetch(productApiUrl, {
+              method: "POST",
+              headers: {
+                Authorization: apiKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                default_code: actualSku,
+                name: transaction?.product_name || actualSku,
+                list_price: parseFloat(String(transaction?.unit_price)) || 0,
+                cat_code: transaction?.brand_code,
+              }),
+            });
+
+            if (createResponse.ok) {
+              const createData = await createResponse.json();
+              productResult.status = "created";
+              productResult.message = "New product created";
+              productResult.odoo_product_id = createData.product_id;
+              productResult.sku = createData.sku || actualSku;
+
+              // Update local product record with new Odoo product_id
+              if (createData.product_id) {
+                const { error: updateError } = await supabase
+                  .from("products")
+                  .update({ odoo_product_id: createData.product_id })
+                  .eq("product_id", productId);
+
+                if (updateError) {
+                  console.log("Error updating local product with new Odoo product_id:", updateError.message);
+                }
+              }
+            } else {
+              const errorText = await createResponse.text();
+              
+              // Check if product already exists (Odoo returns existing_product_id)
+              try {
+                const errorData = JSON.parse(errorText);
+                if (errorData.existing_product_id) {
+                  productResult.status = "exists";
+                  productResult.message = `Product already exists in Odoo: product_id=${errorData.existing_product_id}`;
+                  productResult.odoo_product_id = errorData.existing_product_id;
+                  productResult.source = "odoo_create_response";
+
+                  // Update local product record with Odoo product_id
+                  const { error: updateError } = await supabase
+                    .from("products")
+                    .update({ odoo_product_id: errorData.existing_product_id })
+                    .eq("product_id", productId);
+
+                  if (updateError) {
+                    console.log("Error updating local product with existing Odoo product_id:", updateError.message);
+                  }
+                  result.products.push(productResult);
+                  continue;
+                }
+              } catch (e) {
+                // Not JSON, continue with error
+              }
+              
+              productResult.status = "failed";
+              productResult.message = errorText;
             }
           } catch (err: any) {
             productResult.status = "error";
