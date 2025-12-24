@@ -154,12 +154,12 @@ export const BrandGrossRateChart = () => {
             {isRTL ? 'لا توجد بيانات متاحة' : 'No data available'}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={{ direction: 'ltr' }}>
             <ResponsiveContainer width="100%" height={chartHeight}>
               <BarChart
                 data={data}
                 layout="vertical"
-                margin={{ top: 10, right: 30, left: 30, bottom: 10 }}
+                margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={true} vertical={false} />
                 <XAxis 
@@ -169,7 +169,6 @@ export const BrandGrossRateChart = () => {
                   stroke="#94a3b8"
                   tick={{ fill: '#94a3b8', fontSize: 12 }}
                   axisLine={{ stroke: '#475569' }}
-                  reversed={isRTL}
                 />
                 <YAxis 
                   type="category" 
@@ -178,8 +177,6 @@ export const BrandGrossRateChart = () => {
                   tick={{ fill: '#e2e8f0', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#475569' }}
                   tickLine={false}
-                  orientation={isRTL ? 'right' : 'left'}
-                  mirror={false}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                 <Bar 
