@@ -74,7 +74,8 @@ const BankStatementReport = () => {
       let query = supabase
         .from("riyadbankstatement")
         .select("id, txn_date_only, posting_date, net_amount, txn_amount, fee, vat, card_type, merchant_name, terminal_id, auth_code")
-        .order("txn_date_only", { ascending: false });
+        .order("txn_date_only", { ascending: false })
+        .limit(10000);
 
       // Apply txn_date_only filters (this column is proper DATE type)
       if (txnDateFrom) {
