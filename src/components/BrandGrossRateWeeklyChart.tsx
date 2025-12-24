@@ -169,6 +169,7 @@ export const BrandGrossRateWeeklyChart = () => {
                   stroke="#a5b4fc"
                   tick={{ fill: '#a5b4fc', fontSize: 12 }}
                   axisLine={{ stroke: '#6366f1' }}
+                  reversed={isRTL}
                 />
                 <YAxis 
                   type="category" 
@@ -177,6 +178,7 @@ export const BrandGrossRateWeeklyChart = () => {
                   tick={{ fill: '#e0e7ff', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#6366f1' }}
                   tickLine={false}
+                  orientation={isRTL ? 'right' : 'left'}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                 <Bar 
