@@ -27,8 +27,9 @@ import { format } from "date-fns";
 import { AdvancedOrderPaymentFilter, FilterCondition } from "@/components/AdvancedOrderPaymentFilter";
 import { TableFooter } from "@/components/ui/table";
 
-// Risk Fraud Description translations
+// Risk Fraud Description translations - comprehensive list
 const riskFraudTranslations: Record<string, string> = {
+  // Common fraud descriptions
   "No fraud risk detected": "لم يتم اكتشاف مخاطر احتيال",
   "Transaction accepted": "تم قبول المعاملة",
   "Transaction declined": "تم رفض المعاملة",
@@ -56,6 +57,30 @@ const riskFraudTranslations: Record<string, string> = {
   "Transaction cancelled": "تم إلغاء المعاملة",
   "Refund processed": "تمت معالجة الاسترداد",
   "Chargeback initiated": "تم بدء رد المبالغ المدفوعة",
+  // Velocity and Rules violations
+  "Velocity or Rules Threshold Violation": "انتهاك حد السرعة أو القواعد",
+  "Velocity Threshold Violation": "انتهاك حد السرعة",
+  "Rules Threshold Violation": "انتهاك حد القواعد",
+  "An attribute associated with an Order has exceeded a pre-configured rule": "تجاوزت خاصية مرتبطة بالطلب قاعدة محددة مسبقاً",
+  "threshold": "الحد الأقصى",
+  "exceeded": "تم تجاوز",
+  "pre-configured": "محدد مسبقاً",
+  // DENY status
+  "DENY": "رفض",
+  "ACCEPT": "قبول",
+  "REVIEW": "مراجعة",
+  "PENDING": "معلق",
+  // Additional common patterns
+  "Card not supported": "البطاقة غير مدعومة",
+  "Transaction limit exceeded": "تم تجاوز حد المعاملة",
+  "Daily limit exceeded": "تم تجاوز الحد اليومي",
+  "Monthly limit exceeded": "تم تجاوز الحد الشهري",
+  "Suspicious activity": "نشاط مشبوه",
+  "Account verification required": "مطلوب التحقق من الحساب",
+  "Technical error": "خطأ تقني",
+  "Network error": "خطأ في الشبكة",
+  "Timeout": "انتهاء المهلة",
+  "Duplicate transaction": "معاملة مكررة",
 };
 
 // Function to translate risk fraud description
@@ -63,22 +88,35 @@ const translateRiskFraudDescription = (description: string | null, isRTL: boolea
   if (!description) return '-';
   if (!isRTL) return description;
   
-  // Check for exact match
+  // Check for exact match first
   if (riskFraudTranslations[description]) {
     return riskFraudTranslations[description];
   }
   
-  // Check for partial matches
+  // Try to translate parts of the description
+  let translatedDesc = description;
   for (const [eng, ar] of Object.entries(riskFraudTranslations)) {
-    if (description.toLowerCase().includes(eng.toLowerCase())) {
-      return ar;
-    }
+    const regex = new RegExp(eng.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    translatedDesc = translatedDesc.replace(regex, ar);
+  }
+  
+  // If translation changed the description, return it
+  if (translatedDesc !== description) {
+    return translatedDesc;
   }
   
   return description;
 };
 
-// IP to Country lookup using ip-api.com free service (with caching)
+// Format number with commas and 2 decimal places
+const formatNumber = (num: number): string => {
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
+// IP to Country lookup using ipapi.co (HTTPS, free tier)
 const ipCountryCache: Record<string, string> = {};
 
 const getIpCountry = async (ip: string | null): Promise<string> => {
@@ -90,11 +128,12 @@ const getIpCountry = async (ip: string | null): Promise<string> => {
   }
   
   try {
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode`);
+    // Using ipapi.co which supports HTTPS
+    const response = await fetch(`https://ipapi.co/${ip}/json/`);
     const data = await response.json();
     
-    if (data.status === 'success') {
-      const countryInfo = `${data.country} (${data.countryCode})`;
+    if (data.country_name && data.country_code) {
+      const countryInfo = `${data.country_name} (${data.country_code})`;
       ipCountryCache[ip] = countryInfo;
       return countryInfo;
     }
@@ -1451,11 +1490,11 @@ const OrderPaymentReport = () => {
                       {isRTL ? "المجموع:" : "Total:"}
                     </TableCell>
                     <TableCell className="font-bold text-primary">
-                      {totals.creditTotal.toFixed(2)}
+                      {formatNumber(totals.creditTotal)}
                     </TableCell>
                     <TableCell colSpan={2}></TableCell>
                     <TableCell className="font-bold text-primary">
-                      {totals.totalAmount.toFixed(2)}
+                      {formatNumber(totals.totalAmount)}
                     </TableCell>
                     <TableCell colSpan={4}></TableCell>
                   </TableRow>
