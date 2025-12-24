@@ -54,6 +54,20 @@ const BankStatementReport = () => {
   // Sorting
   const [sortConfig, setSortConfig] = useState<SortConfig>({ column: null, direction: null });
 
+  // Helper to parse posting_date from DD/MM/YYYY format to Date object
+  const parsePostingDate = (dateStr: string | null): Date | null => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    const [day, month, year] = parts.map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  // Helper to convert YYYY-MM-DD to Date for comparison
+  const parseFilterDate = (dateStr: string): Date => {
+    return new Date(dateStr + "T00:00:00");
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -62,7 +76,7 @@ const BankStatementReport = () => {
         .select("id, txn_date_only, posting_date, net_amount, txn_amount, fee, vat, card_type, merchant_name, terminal_id, auth_code")
         .order("txn_date_only", { ascending: false });
 
-      // Apply txn_date_only filters
+      // Apply txn_date_only filters (this column is proper DATE type)
       if (txnDateFrom) {
         query = query.gte("txn_date_only", txnDateFrom);
       }
@@ -70,13 +84,8 @@ const BankStatementReport = () => {
         query = query.lte("txn_date_only", txnDateTo);
       }
       
-      // Apply posting_date filters - posting_date is a datetime, so we need full timestamp range
-      if (postDateFrom) {
-        query = query.gte("posting_date", postDateFrom + "T00:00:00");
-      }
-      if (postDateTo) {
-        query = query.lte("posting_date", postDateTo + "T23:59:59");
-      }
+      // Note: posting_date is stored as TEXT in DD/MM/YYYY format
+      // We'll filter it client-side after fetching
 
       const { data: result, error } = await query;
 
@@ -86,11 +95,32 @@ const BankStatementReport = () => {
         return;
       }
 
-      setData(result || []);
+      // Apply posting_date filters client-side
+      let filteredResult = result || [];
+      
+      if (postDateFrom || postDateTo) {
+        const fromDate = postDateFrom ? parseFilterDate(postDateFrom) : null;
+        const toDate = postDateTo ? parseFilterDate(postDateTo) : null;
+        // Set toDate to end of day for inclusive comparison
+        if (toDate) {
+          toDate.setHours(23, 59, 59, 999);
+        }
+
+        filteredResult = filteredResult.filter(row => {
+          const postDate = parsePostingDate(row.posting_date);
+          if (!postDate) return false;
+          
+          if (fromDate && postDate < fromDate) return false;
+          if (toDate && postDate > toDate) return false;
+          return true;
+        });
+      }
+
+      setData(filteredResult);
       toast.success(
         isRTL 
-          ? `تم جلب ${result?.length || 0} سجل` 
-          : `Fetched ${result?.length || 0} records`
+          ? `تم جلب ${filteredResult.length} سجل` 
+          : `Fetched ${filteredResult.length} records`
       );
     } catch (error) {
       console.error("Error:", error);
