@@ -116,15 +116,57 @@ const formatNumber = (num: number): string => {
   });
 };
 
-// IP to Country lookup using ipapi.co (HTTPS, free tier)
-const ipCountryCache: Record<string, string> = {};
+// Arabic country names mapping
+const countryNamesArabic: Record<string, string> = {
+  "AF": "أفغانستان", "AL": "ألبانيا", "DZ": "الجزائر", "AD": "أندورا", "AO": "أنغولا",
+  "AR": "الأرجنتين", "AM": "أرمينيا", "AU": "أستراليا", "AT": "النمسا", "AZ": "أذربيجان",
+  "BH": "البحرين", "BD": "بنغلاديش", "BY": "بيلاروسيا", "BE": "بلجيكا", "BZ": "بليز",
+  "BJ": "بنين", "BT": "بوتان", "BO": "بوليفيا", "BA": "البوسنة والهرسك", "BW": "بوتسوانا",
+  "BR": "البرازيل", "BN": "بروناي", "BG": "بلغاريا", "BF": "بوركينا فاسو", "BI": "بوروندي",
+  "KH": "كمبوديا", "CM": "الكاميرون", "CA": "كندا", "CF": "جمهورية أفريقيا الوسطى", "TD": "تشاد",
+  "CL": "تشيلي", "CN": "الصين", "CO": "كولومبيا", "KM": "جزر القمر", "CG": "الكونغو",
+  "CR": "كوستاريكا", "CI": "ساحل العاج", "HR": "كرواتيا", "CU": "كوبا", "CY": "قبرص",
+  "CZ": "التشيك", "DK": "الدنمارك", "DJ": "جيبوتي", "DO": "جمهورية الدومينيكان", "EC": "الإكوادور",
+  "EG": "مصر", "SV": "السلفادور", "GQ": "غينيا الاستوائية", "ER": "إريتريا", "EE": "إستونيا",
+  "ET": "إثيوبيا", "FJ": "فيجي", "FI": "فنلندا", "FR": "فرنسا", "GA": "الغابون",
+  "GM": "غامبيا", "GE": "جورجيا", "DE": "ألمانيا", "GH": "غانا", "GR": "اليونان",
+  "GT": "غواتيمالا", "GN": "غينيا", "GW": "غينيا بيساو", "GY": "غيانا", "HT": "هايتي",
+  "HN": "هندوراس", "HK": "هونغ كونغ", "HU": "المجر", "IS": "آيسلندا", "IN": "الهند",
+  "ID": "إندونيسيا", "IR": "إيران", "IQ": "العراق", "IE": "أيرلندا", "IL": "إسرائيل",
+  "IT": "إيطاليا", "JM": "جامايكا", "JP": "اليابان", "JO": "الأردن", "KZ": "كازاخستان",
+  "KE": "كينيا", "KW": "الكويت", "KG": "قيرغيزستان", "LA": "لاوس", "LV": "لاتفيا",
+  "LB": "لبنان", "LS": "ليسوتو", "LR": "ليبيريا", "LY": "ليبيا", "LI": "ليختنشتاين",
+  "LT": "ليتوانيا", "LU": "لوكسمبورغ", "MO": "ماكاو", "MK": "مقدونيا", "MG": "مدغشقر",
+  "MW": "مالاوي", "MY": "ماليزيا", "MV": "المالديف", "ML": "مالي", "MT": "مالطا",
+  "MR": "موريتانيا", "MU": "موريشيوس", "MX": "المكسيك", "MD": "مولدوفا", "MC": "موناكو",
+  "MN": "منغوليا", "ME": "الجبل الأسود", "MA": "المغرب", "MZ": "موزمبيق", "MM": "ميانمار",
+  "NA": "ناميبيا", "NP": "نيبال", "NL": "هولندا", "NZ": "نيوزيلندا", "NI": "نيكاراغوا",
+  "NE": "النيجر", "NG": "نيجيريا", "KP": "كوريا الشمالية", "NO": "النرويج", "OM": "عمان",
+  "PK": "باكستان", "PS": "فلسطين", "PA": "بنما", "PG": "بابوا غينيا الجديدة", "PY": "باراغواي",
+  "PE": "بيرو", "PH": "الفلبين", "PL": "بولندا", "PT": "البرتغال", "QA": "قطر",
+  "RO": "رومانيا", "RU": "روسيا", "RW": "رواندا", "SA": "السعودية", "SN": "السنغال",
+  "RS": "صربيا", "SC": "سيشل", "SL": "سيراليون", "SG": "سنغافورة", "SK": "سلوفاكيا",
+  "SI": "سلوفينيا", "SO": "الصومال", "ZA": "جنوب أفريقيا", "KR": "كوريا الجنوبية", "SS": "جنوب السودان",
+  "ES": "إسبانيا", "LK": "سريلانكا", "SD": "السودان", "SR": "سورينام", "SZ": "إسواتيني",
+  "SE": "السويد", "CH": "سويسرا", "SY": "سوريا", "TW": "تايوان", "TJ": "طاجيكستان",
+  "TZ": "تنزانيا", "TH": "تايلاند", "TL": "تيمور الشرقية", "TG": "توغو", "TO": "تونغا",
+  "TT": "ترينيداد وتوباغو", "TN": "تونس", "TR": "تركيا", "TM": "تركمانستان", "UG": "أوغندا",
+  "UA": "أوكرانيا", "AE": "الإمارات", "GB": "المملكة المتحدة", "US": "الولايات المتحدة",
+  "UY": "أوروغواي", "UZ": "أوزبكستان", "VE": "فنزويلا", "VN": "فيتنام", "YE": "اليمن",
+  "ZM": "زامبيا", "ZW": "زيمبابوي"
+};
 
-const getIpCountry = async (ip: string | null): Promise<string> => {
+// IP to Country lookup using ipapi.co (HTTPS, free tier)
+const ipCountryCache: Record<string, { en: string; ar: string; code: string }> = {};
+
+const getIpCountry = async (ip: string | null, isRTL: boolean): Promise<string> => {
   if (!ip || ip === '-') return '';
   
   // Check cache first
   if (ipCountryCache[ip]) {
-    return ipCountryCache[ip];
+    const cached = ipCountryCache[ip];
+    const countryName = isRTL ? cached.ar : cached.en;
+    return `${countryName} (${cached.code})`;
   }
   
   try {
@@ -133,9 +175,14 @@ const getIpCountry = async (ip: string | null): Promise<string> => {
     const data = await response.json();
     
     if (data.country_name && data.country_code) {
-      const countryInfo = `${data.country_name} (${data.country_code})`;
-      ipCountryCache[ip] = countryInfo;
-      return countryInfo;
+      const arabicName = countryNamesArabic[data.country_code] || data.country_name;
+      ipCountryCache[ip] = {
+        en: data.country_name,
+        ar: arabicName,
+        code: data.country_code
+      };
+      const countryName = isRTL ? arabicName : data.country_name;
+      return `${countryName} (${data.country_code})`;
     }
     return '';
   } catch (error) {
@@ -918,7 +965,7 @@ const OrderPaymentReport = () => {
         
         // Fetch IP country if IP exists
         if (hyberpayData?.ip) {
-          getIpCountry(hyberpayData.ip).then(setIpCountry);
+          getIpCountry(hyberpayData.ip, isRTL).then(setIpCountry);
         } else {
           setIpCountry('');
         }
@@ -969,7 +1016,7 @@ const OrderPaymentReport = () => {
       
       // Fetch IP country if IP exists
       if (hyberpayData?.ip) {
-        getIpCountry(hyberpayData.ip).then(setIpCountry);
+        getIpCountry(hyberpayData.ip, isRTL).then(setIpCountry);
       } else {
         setIpCountry('');
       }
