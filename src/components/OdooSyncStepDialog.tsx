@@ -94,22 +94,38 @@ export function OdooSyncStepDialog({
   const [nonStockProducts, setNonStockProducts] = useState<any[]>([]);
   const [supplierCodeMap, setSupplierCodeMap] = useState<Record<string, string>>({});
   const [expandedBodies, setExpandedBodies] = useState<Record<string, boolean>>({});
-
+  const [customerOdooInfo, setCustomerOdooInfo] = useState<{
+    hasOdooId: boolean;
+    partner_profile_id?: number;
+    res_partner_id?: number;
+  } | null>(null);
   // Pre-calculate request bodies for display
   const getPreCalculatedBodies = () => {
     const firstTransaction = transactions[0];
     
-    // Customer body
-    const customerBody = {
-      partner_type: "customer",
-      name: firstTransaction?.customer_name || "Customer",
-      phone: firstTransaction?.customer_phone,
-      email: "",
-      customer_group: "Retail",
-      status: "active",
-      is_blocked: false,
-      block_reason: "",
-    };
+    // Customer body - show check info if customer has Odoo ID
+    const customerBody = customerOdooInfo?.hasOdooId
+      ? {
+          _info: "Customer already exists in Odoo (from local DB)",
+          partner_profile_id: customerOdooInfo.partner_profile_id,
+          res_partner_id: customerOdooInfo.res_partner_id,
+          method: "SKIP",
+        }
+      : {
+          _info: "Will check via PUT, then POST if not found",
+          check_url: `{customer_api_url}/${firstTransaction?.customer_phone}`,
+          check_method: "PUT",
+          create_body: {
+            partner_type: "customer",
+            name: firstTransaction?.customer_name || "Customer",
+            phone: firstTransaction?.customer_phone,
+            email: "",
+            customer_group: "Retail",
+            status: "active",
+            is_blocked: false,
+            block_reason: "",
+          },
+        };
 
     // Brand bodies
     const uniqueBrands = [...new Set(transactions.map((t: any) => t.brand_code))];
@@ -192,15 +208,51 @@ export function OdooSyncStepDialog({
 
   const preCalculatedBodies = getPreCalculatedBodies();
 
-  // Fetch Odoo mode and product SKUs when dialog opens
+  // Fetch Odoo mode, product SKUs, and check customer Odoo ID when dialog opens
   useEffect(() => {
     if (open) {
       if (!odooMode) {
         fetchOdooMode();
       }
       fetchProductSkus();
+      checkCustomerOdooId();
     }
   }, [open]);
+
+  const checkCustomerOdooId = async () => {
+    const firstTransaction = transactions[0];
+    if (!firstTransaction?.customer_phone) {
+      setCustomerOdooInfo(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("partner_profile_id, res_partner_id")
+        .eq("customer_phone", firstTransaction.customer_phone)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking customer Odoo ID:", error);
+        setCustomerOdooInfo(null);
+        return;
+      }
+
+      if (data?.partner_profile_id) {
+        setCustomerOdooInfo({
+          hasOdooId: true,
+          partner_profile_id: data.partner_profile_id,
+          res_partner_id: data.res_partner_id,
+        });
+      } else {
+        setCustomerOdooInfo({ hasOdooId: false });
+      }
+    } catch (err) {
+      console.error("Error checking customer Odoo ID:", err);
+      setCustomerOdooInfo(null);
+    }
+  };
 
   const fetchOdooMode = async () => {
     setIsLoadingMode(true);
@@ -296,6 +348,7 @@ export function OdooSyncStepDialog({
     setProductSkuMap({});
     setNonStockProducts([]);
     setSupplierCodeMap({});
+    setCustomerOdooInfo(null);
   };
 
   const handleClose = () => {
