@@ -25,6 +25,85 @@ type ColumnFilters = {
 };
 import { format } from "date-fns";
 import { AdvancedOrderPaymentFilter, FilterCondition } from "@/components/AdvancedOrderPaymentFilter";
+import { TableFooter } from "@/components/ui/table";
+
+// Risk Fraud Description translations
+const riskFraudTranslations: Record<string, string> = {
+  "No fraud risk detected": "لم يتم اكتشاف مخاطر احتيال",
+  "Transaction accepted": "تم قبول المعاملة",
+  "Transaction declined": "تم رفض المعاملة",
+  "High risk detected": "تم اكتشاف مخاطر عالية",
+  "Low risk detected": "تم اكتشاف مخاطر منخفضة",
+  "Medium risk detected": "تم اكتشاف مخاطر متوسطة",
+  "Fraud suspected": "يشتبه في احتيال",
+  "Card blocked": "البطاقة محظورة",
+  "Insufficient funds": "رصيد غير كافي",
+  "Invalid card": "بطاقة غير صالحة",
+  "Expired card": "بطاقة منتهية الصلاحية",
+  "Authentication failed": "فشل المصادقة",
+  "3DS authentication required": "مطلوب مصادقة 3DS",
+  "3DS authentication failed": "فشل مصادقة 3DS",
+  "Velocity check failed": "فشل فحص السرعة",
+  "Country mismatch": "عدم تطابق الدولة",
+  "IP country mismatch": "عدم تطابق دولة IP",
+  "BIN country mismatch": "عدم تطابق دولة BIN",
+  "Blacklisted": "مدرج في القائمة السوداء",
+  "Whitelisted": "مدرج في القائمة البيضاء",
+  "Review required": "مطلوب مراجعة",
+  "Address verification failed": "فشل التحقق من العنوان",
+  "CVV check failed": "فشل فحص CVV",
+  "Transaction pending": "المعاملة معلقة",
+  "Transaction cancelled": "تم إلغاء المعاملة",
+  "Refund processed": "تمت معالجة الاسترداد",
+  "Chargeback initiated": "تم بدء رد المبالغ المدفوعة",
+};
+
+// Function to translate risk fraud description
+const translateRiskFraudDescription = (description: string | null, isRTL: boolean): string => {
+  if (!description) return '-';
+  if (!isRTL) return description;
+  
+  // Check for exact match
+  if (riskFraudTranslations[description]) {
+    return riskFraudTranslations[description];
+  }
+  
+  // Check for partial matches
+  for (const [eng, ar] of Object.entries(riskFraudTranslations)) {
+    if (description.toLowerCase().includes(eng.toLowerCase())) {
+      return ar;
+    }
+  }
+  
+  return description;
+};
+
+// IP to Country lookup using ip-api.com free service (with caching)
+const ipCountryCache: Record<string, string> = {};
+
+const getIpCountry = async (ip: string | null): Promise<string> => {
+  if (!ip || ip === '-') return '';
+  
+  // Check cache first
+  if (ipCountryCache[ip]) {
+    return ipCountryCache[ip];
+  }
+  
+  try {
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode`);
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      const countryInfo = `${data.country} (${data.countryCode})`;
+      ipCountryCache[ip] = countryInfo;
+      return countryInfo;
+    }
+    return '';
+  } catch (error) {
+    console.error('Error fetching IP country:', error);
+    return '';
+  }
+};
 
 interface OrderGridItem {
   transactionid: string;
@@ -147,6 +226,9 @@ const OrderPaymentReport = () => {
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [paymentTypes, setPaymentTypes] = useState<string[]>([]);
   const [orderStatuses, setOrderStatuses] = useState<string[]>([]);
+  
+  // IP Country info
+  const [ipCountry, setIpCountry] = useState<string>('');
 
   useEffect(() => {
     fetchOrders();
@@ -668,6 +750,20 @@ const OrderPaymentReport = () => {
     return result;
   }, [orders, columnFilters, sortConfig]);
 
+  // Calculate totals for Credit and Total columns
+  const totals = useMemo(() => {
+    const creditTotal = filteredAndSortedOrders.reduce((sum, order) => {
+      const creditValue = order.credit ? parseFloat(order.credit) : 0;
+      return sum + (isNaN(creditValue) ? 0 : creditValue);
+    }, 0);
+    
+    const totalAmount = filteredAndSortedOrders.reduce((sum, order) => {
+      return sum + (order.total || 0);
+    }, 0);
+    
+    return { creditTotal, totalAmount };
+  }, [filteredAndSortedOrders]);
+
   // Clear column filters
   const clearColumnFilters = () => {
     setColumnFilters({});
@@ -780,6 +876,13 @@ const OrderPaymentReport = () => {
 
         const hyberpayData = hyberpayDataArr?.[0] || null;
         setHyberpayInfo(hyberpayData);
+        
+        // Fetch IP country if IP exists
+        if (hyberpayData?.ip) {
+          getIpCountry(hyberpayData.ip).then(setIpCountry);
+        } else {
+          setIpCountry('');
+        }
 
         // Fetch Riyad Bank info using transaction_receipt from hyberpayData (join: riyadbankstatement.txn_number = hyberpaystatement.transaction_receipt)
         if (hyberpayData?.transaction_receipt) {
@@ -822,7 +925,15 @@ const OrderPaymentReport = () => {
         .eq('transactionid', transactionId)
         .limit(1);
 
-      setHyberpayInfo(hyberpayDataArr?.[0] || null);
+      const hyberpayData = hyberpayDataArr?.[0] || null;
+      setHyberpayInfo(hyberpayData);
+      
+      // Fetch IP country if IP exists
+      if (hyberpayData?.ip) {
+        getIpCountry(hyberpayData.ip).then(setIpCountry);
+      } else {
+        setIpCountry('');
+      }
 
       setDialogOpen(true);
     } catch (error) {
@@ -1333,6 +1444,23 @@ const OrderPaymentReport = () => {
                   ))
                 )}
               </TableBody>
+              {filteredAndSortedOrders.length > 0 && (
+                <TableFooter className="bg-muted/50 font-semibold">
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-right">
+                      {isRTL ? "المجموع:" : "Total:"}
+                    </TableCell>
+                    <TableCell className="font-bold text-primary">
+                      {totals.creditTotal.toFixed(2)}
+                    </TableCell>
+                    <TableCell colSpan={2}></TableCell>
+                    <TableCell className="font-bold text-primary">
+                      {totals.totalAmount.toFixed(2)}
+                    </TableCell>
+                    <TableCell colSpan={4}></TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           </div>
         </CardContent>
@@ -1446,7 +1574,14 @@ const OrderPaymentReport = () => {
                       <Label className="text-muted-foreground">
                         {isRTL ? "عنوان IP" : "IP Address"}
                       </Label>
-                      <p className="font-medium font-mono">{hyberpayInfo.ip || '-'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium font-mono">{hyberpayInfo.ip || '-'}</p>
+                        {ipCountry && (
+                          <Badge variant="outline" className="text-xs">
+                            {ipCountry}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="md:col-span-2">
                       <Label className="text-muted-foreground">
@@ -1464,7 +1599,7 @@ const OrderPaymentReport = () => {
                       <Label className="text-muted-foreground">
                         {isRTL ? "وصف مخاطر الاحتيال" : "Risk Fraud Description"}
                       </Label>
-                      <p className="font-medium break-all">{hyberpayInfo.riskfrauddescription || '-'}</p>
+                      <p className="font-medium break-all">{translateRiskFraudDescription(hyberpayInfo.riskfrauddescription, isRTL)}</p>
                     </div>
                     <div className="md:col-span-2">
                       <Label className="text-muted-foreground">
@@ -1645,7 +1780,14 @@ const OrderPaymentReport = () => {
                             <Label className="text-muted-foreground">
                               {isRTL ? "عنوان IP" : "IP"}
                             </Label>
-                            <p className="font-medium break-all">{hyberpayInfo.ip || '-'}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium break-all">{hyberpayInfo.ip || '-'}</p>
+                              {ipCountry && (
+                                <Badge variant="outline" className="text-xs">
+                                  {ipCountry}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <div className="md:col-span-2">
                             <Label className="text-muted-foreground">
@@ -1699,7 +1841,7 @@ const OrderPaymentReport = () => {
                             <Label className="text-muted-foreground">
                               {isRTL ? "وصف مخاطر الاحتيال" : "Risk Fraud Description"}
                             </Label>
-                            <p className="font-medium break-all">{hyberpayInfo.riskfrauddescription || '-'}</p>
+                            <p className="font-medium break-all">{translateRiskFraudDescription(hyberpayInfo.riskfrauddescription, isRTL)}</p>
                           </div>
                         </div>
                       ) : (
