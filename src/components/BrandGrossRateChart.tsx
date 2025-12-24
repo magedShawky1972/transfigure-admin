@@ -159,7 +159,10 @@ export const BrandGrossRateChart = () => {
               <BarChart
                 data={data}
                 layout="vertical"
-                margin={{ top: 10, right: 40, left: 120, bottom: 10 }}
+                margin={isRTL 
+                  ? { top: 10, right: 120, left: 40, bottom: 10 }
+                  : { top: 10, right: 40, left: 120, bottom: 10 }
+                }
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={true} vertical={false} />
                 <XAxis 
@@ -169,6 +172,7 @@ export const BrandGrossRateChart = () => {
                   stroke="#94a3b8"
                   tick={{ fill: '#94a3b8', fontSize: 12 }}
                   axisLine={{ stroke: '#475569' }}
+                  reversed={isRTL}
                 />
                 <YAxis 
                   type="category" 
@@ -177,6 +181,7 @@ export const BrandGrossRateChart = () => {
                   tick={{ fill: '#e2e8f0', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#475569' }}
                   tickLine={false}
+                  orientation={isRTL ? 'right' : 'left'}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                 <Bar 
