@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
           apiUrl: brandApiUrl,
           brands: [],
           requestBody: brandBodies,
-          method: "POST/PUT",
+          method: "PUT (Check) / POST (Create)",
         };
 
         for (const brandCode of uniqueBrands) {
@@ -287,6 +287,29 @@ Deno.serve(async (req) => {
           const brandResult: any = { brand_code: brandCode, brand_name: transaction?.brand_name };
 
           try {
+            // Step 1: Check if brand has Odoo category_id in local database
+            const { data: existingBrand, error: brandError } = await supabase
+              .from("brands")
+              .select("odoo_category_id, brand_code")
+              .eq("brand_code", brandCode)
+              .maybeSingle();
+
+            if (brandError) {
+              console.log("Error checking local brand:", brandError.message);
+            }
+
+            // If brand has Odoo category_id locally, skip creation
+            if (existingBrand?.odoo_category_id) {
+              brandResult.status = "exists";
+              brandResult.message = `Brand already exists in Odoo (from local DB): category_id=${existingBrand.odoo_category_id}`;
+              brandResult.category_id = existingBrand.odoo_category_id;
+              brandResult.source = "local_database";
+              result.brands.push(brandResult);
+              continue;
+            }
+
+            // Step 2: Check if brand exists in Odoo via PUT request using brand_code as cat_code
+            console.log(`Checking if brand exists in Odoo: ${brandApiUrl}/${brandCode}`);
             const checkResponse = await fetch(`${brandApiUrl}/${brandCode}`, {
               method: "PUT",
               headers: {
@@ -298,29 +321,104 @@ Deno.serve(async (req) => {
               }),
             });
 
-            if (checkResponse.ok) {
-              brandResult.status = "updated";
-              brandResult.message = "Brand found and updated";
-            } else {
-              const createResponse = await fetch(brandApiUrl, {
-                method: "POST",
-                headers: {
-                  Authorization: apiKey,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  cat_code: brandCode,
-                  name: transaction?.brand_name || brandCode,
-                }),
-              });
+            const checkText = await checkResponse.text();
+            console.log("Brand check response status:", checkResponse.status);
+            console.log("Brand check response:", checkText);
 
-              if (createResponse.ok) {
-                brandResult.status = "created";
-                brandResult.message = "New brand created";
+            let checkData: any = null;
+            try {
+              checkData = JSON.parse(checkText);
+            } catch (e) {
+              checkData = null;
+            }
+
+            // If brand exists in Odoo (success: true with category_id), don't create
+            if (checkResponse.ok && checkData?.success === true && checkData?.category_id) {
+              brandResult.status = "exists";
+              brandResult.message = `Brand already exists in Odoo: ${checkData.category_name || brandCode}`;
+              brandResult.category_id = checkData.category_id;
+              brandResult.category_code = checkData.category_code;
+              brandResult.category_name = checkData.category_name;
+              brandResult.source = "odoo_api";
+
+              // Update local brand record with Odoo category_id
+              const { error: updateError } = await supabase
+                .from("brands")
+                .update({ odoo_category_id: checkData.category_id })
+                .eq("brand_code", brandCode);
+
+              if (updateError) {
+                console.log("Error updating local brand with Odoo category_id:", updateError.message);
               } else {
-                brandResult.status = "failed";
-                brandResult.message = await createResponse.text();
+                console.log(`Updated local brand ${brandCode} with Odoo category_id: ${checkData.category_id}`);
               }
+
+              result.brands.push(brandResult);
+              continue;
+            }
+
+            // Step 3: Brand doesn't exist, create new brand
+            console.log(`Brand ${brandCode} not found in Odoo, creating new brand...`);
+            const createResponse = await fetch(brandApiUrl, {
+              method: "POST",
+              headers: {
+                Authorization: apiKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                cat_code: brandCode,
+                name: transaction?.brand_name || brandCode,
+              }),
+            });
+
+            if (createResponse.ok) {
+              const createData = await createResponse.json();
+              brandResult.status = "created";
+              brandResult.message = "New brand created";
+              brandResult.category_id = createData.category_id;
+              brandResult.category_code = createData.category_code;
+
+              // Update local brand record with new Odoo category_id
+              if (createData.category_id) {
+                const { error: updateError } = await supabase
+                  .from("brands")
+                  .update({ odoo_category_id: createData.category_id })
+                  .eq("brand_code", brandCode);
+
+                if (updateError) {
+                  console.log("Error updating local brand with new Odoo category_id:", updateError.message);
+                }
+              }
+            } else {
+              const errorText = await createResponse.text();
+              
+              // Check if brand already exists (Odoo returns existing_category_id)
+              try {
+                const errorData = JSON.parse(errorText);
+                if (errorData.existing_category_id) {
+                  brandResult.status = "exists";
+                  brandResult.message = `Brand already exists in Odoo: category_id=${errorData.existing_category_id}`;
+                  brandResult.category_id = errorData.existing_category_id;
+                  brandResult.source = "odoo_create_response";
+
+                  // Update local brand record with Odoo category_id
+                  const { error: updateError } = await supabase
+                    .from("brands")
+                    .update({ odoo_category_id: errorData.existing_category_id })
+                    .eq("brand_code", brandCode);
+
+                  if (updateError) {
+                    console.log("Error updating local brand with existing Odoo category_id:", updateError.message);
+                  }
+                  result.brands.push(brandResult);
+                  continue;
+                }
+              } catch (e) {
+                // Not JSON, continue with error
+              }
+              
+              brandResult.status = "failed";
+              brandResult.message = errorText;
             }
           } catch (err: any) {
             brandResult.status = "error";

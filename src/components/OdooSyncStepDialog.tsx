@@ -99,6 +99,11 @@ export function OdooSyncStepDialog({
     partner_profile_id?: number;
     res_partner_id?: number;
   } | null>(null);
+  const [brandOdooInfo, setBrandOdooInfo] = useState<Record<string, {
+    hasOdooId: boolean;
+    odoo_category_id?: number;
+  }>>({});
+
   // Pre-calculate request bodies for display
   const getPreCalculatedBodies = () => {
     const firstTransaction = transactions[0];
@@ -127,13 +132,30 @@ export function OdooSyncStepDialog({
           },
         };
 
-    // Brand bodies
+    // Brand bodies - show check info if brand has Odoo ID
     const uniqueBrands = [...new Set(transactions.map((t: any) => t.brand_code))];
     const brandBodies = uniqueBrands.map((brandCode: string) => {
       const transaction = transactions.find((t: any) => t.brand_code === brandCode);
+      const brandInfo = brandOdooInfo[brandCode];
+      
+      if (brandInfo?.hasOdooId) {
+        return {
+          _info: "Brand already exists in Odoo (from local DB)",
+          brand_code: brandCode,
+          brand_name: transaction?.brand_name || brandCode,
+          odoo_category_id: brandInfo.odoo_category_id,
+          method: "SKIP",
+        };
+      }
+      
       return {
-        cat_code: brandCode,
-        name: transaction?.brand_name || brandCode,
+        _info: "Will check via PUT, then POST if not found",
+        check_url: `{brand_api_url}/${brandCode}`,
+        check_method: "PUT",
+        create_body: {
+          cat_code: brandCode,
+          name: transaction?.brand_name || brandCode,
+        },
       };
     });
 
@@ -208,7 +230,7 @@ export function OdooSyncStepDialog({
 
   const preCalculatedBodies = getPreCalculatedBodies();
 
-  // Fetch Odoo mode, product SKUs, and check customer Odoo ID when dialog opens
+  // Fetch Odoo mode, product SKUs, and check customer/brand Odoo IDs when dialog opens
   useEffect(() => {
     if (open) {
       if (!odooMode) {
@@ -216,6 +238,7 @@ export function OdooSyncStepDialog({
       }
       fetchProductSkus();
       checkCustomerOdooId();
+      checkBrandOdooIds();
     }
   }, [open]);
 
@@ -251,6 +274,44 @@ export function OdooSyncStepDialog({
     } catch (err) {
       console.error("Error checking customer Odoo ID:", err);
       setCustomerOdooInfo(null);
+    }
+  };
+
+  const checkBrandOdooIds = async () => {
+    const uniqueBrands = [...new Set(transactions.map((t: any) => t.brand_code))].filter(Boolean);
+    if (uniqueBrands.length === 0) {
+      setBrandOdooInfo({});
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("brands")
+        .select("brand_code, odoo_category_id")
+        .in("brand_code", uniqueBrands);
+
+      if (error) {
+        console.error("Error checking brand Odoo IDs:", error);
+        setBrandOdooInfo({});
+        return;
+      }
+
+      const info: Record<string, { hasOdooId: boolean; odoo_category_id?: number }> = {};
+      uniqueBrands.forEach((brandCode: string) => {
+        const brand = data?.find((b: any) => b.brand_code === brandCode);
+        if (brand?.odoo_category_id) {
+          info[brandCode] = {
+            hasOdooId: true,
+            odoo_category_id: brand.odoo_category_id,
+          };
+        } else {
+          info[brandCode] = { hasOdooId: false };
+        }
+      });
+      setBrandOdooInfo(info);
+    } catch (err) {
+      console.error("Error checking brand Odoo IDs:", err);
+      setBrandOdooInfo({});
     }
   };
 
@@ -349,6 +410,7 @@ export function OdooSyncStepDialog({
     setNonStockProducts([]);
     setSupplierCodeMap({});
     setCustomerOdooInfo(null);
+    setBrandOdooInfo({});
   };
 
   const handleClose = () => {
