@@ -746,11 +746,15 @@ const SystemBackup = () => {
             wroteTableHeader = true;
           }
 
-          // Write INSERTs row-by-row to avoid huge strings
+          // Build INSERTs for this chunk in-memory (chunk-sized) then write once.
+          // This is much faster than awaiting writer.write per row and allows the UI to update.
+          const insertLines: string[] = [];
           for (const row of rows) {
             const values = columns.map((col) => escapeValue(row?.[col]));
-            await writeText(`INSERT INTO public.${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`);
+            insertLines.push(`INSERT INTO public.${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`);
           }
+          insertLines.push('\n');
+          await writeText(insertLines.join(''));
 
           // Update progress
           tableRowsFetched += rows.length;
@@ -764,8 +768,8 @@ const SystemBackup = () => {
             } : item
           ));
 
-          // Table chunk separator to keep file readable
-          await writeText('\n');
+          // Yield to the browser so React can paint the progress dialog
+          await new Promise((r) => setTimeout(r, 0));
 
           if (!tableData.hasMore || rows.length < chunkSize) break;
         }
