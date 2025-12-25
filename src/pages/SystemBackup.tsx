@@ -664,6 +664,9 @@ const SystemBackup = () => {
       });
       setTableProgressList(initialProgress);
 
+      // Yield to let React paint the progress dialog with initial state
+      await new Promise((r) => setTimeout(r, 50));
+
       // Build gzip stream writer (no huge intermediate string)
       const gzip = new CompressionStream('gzip');
       const writer = gzip.writable.getWriter();
@@ -702,6 +705,9 @@ const SystemBackup = () => {
         setTableProgressList(prev => prev.map((item, idx) => 
           idx === tableIndex ? { ...item, status: 'fetching' as const } : item
         ));
+
+        // Yield so React can paint the "fetching" status
+        await new Promise((r) => setTimeout(r, 0));
 
         // Discover columns from the first non-empty chunk
         let columns: string[] | null = null;
