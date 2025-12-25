@@ -6,6 +6,8 @@ interface TableProgress {
   tableName: string;
   rowsFetched: number;
   totalRows: number;
+  chunksTotal: number;
+  chunksFetched: number;
   status: 'pending' | 'fetching' | 'done' | 'error';
 }
 
@@ -14,6 +16,8 @@ interface BackupProgressDialogProps {
   onClose: () => void;
   tables: TableProgress[];
   currentTable: string | null;
+  currentChunk: number;
+  totalChunks: number;
   totalRowsFetched: number;
   totalRowsExpected: number;
   isComplete: boolean;
@@ -24,6 +28,8 @@ export const BackupProgressDialog = ({
   isOpen,
   tables,
   currentTable,
+  currentChunk,
+  totalChunks,
   totalRowsFetched,
   totalRowsExpected,
   isComplete,
@@ -70,21 +76,26 @@ export const BackupProgressDialog = ({
             </div>
           </div>
 
-          {/* Current Table */}
+          {/* Current Table with Chunk Progress */}
           {currentTable && !isComplete && (
-            <div className="p-3 bg-primary/10 rounded-lg">
+            <div className="p-3 bg-primary/10 rounded-lg space-y-2">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 <span className="text-sm font-medium">
                   {isRTL ? 'جاري جلب:' : 'Fetching:'} <code className="bg-muted px-1 rounded">{currentTable}</code>
                 </span>
               </div>
+              {totalChunks > 1 && (
+                <div className="text-xs text-muted-foreground">
+                  {isRTL ? `الجزء ${currentChunk} من ${totalChunks}` : `Chunk ${currentChunk} of ${totalChunks}`}
+                </div>
+              )}
             </div>
           )}
 
           {/* Tables List */}
           <div className="max-h-[300px] overflow-y-auto space-y-1 pr-2">
-            {tables.map((table, index) => (
+            {tables.map((table) => (
               <div 
                 key={table.tableName}
                 className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
@@ -104,10 +115,15 @@ export const BackupProgressDialog = ({
                     <div className="h-3 w-3 rounded-full border border-muted-foreground/30 flex-shrink-0" />
                   )}
                   <span className="font-mono text-xs truncate">{table.tableName}</span>
+                  {table.chunksTotal > 1 && table.status === 'fetching' && (
+                    <span className="text-xs text-muted-foreground">
+                      ({table.chunksFetched}/{table.chunksTotal})
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
                   {table.status === 'done' ? table.rowsFetched.toLocaleString() : 
-                   table.status === 'fetching' ? '...' : 
+                   table.status === 'fetching' ? `${table.rowsFetched.toLocaleString()}...` : 
                    table.totalRows.toLocaleString()}
                 </span>
               </div>

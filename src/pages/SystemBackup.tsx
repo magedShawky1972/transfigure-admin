@@ -16,6 +16,8 @@ interface TableProgressItem {
   tableName: string;
   rowsFetched: number;
   totalRows: number;
+  chunksTotal: number;
+  chunksFetched: number;
   status: 'pending' | 'fetching' | 'done' | 'error';
 }
 
@@ -31,6 +33,8 @@ const SystemBackup = () => {
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [tableProgressList, setTableProgressList] = useState<TableProgressItem[]>([]);
   const [currentFetchingTable, setCurrentFetchingTable] = useState<string | null>(null);
+  const [currentChunk, setCurrentChunk] = useState(0);
+  const [totalChunksForCurrentTable, setTotalChunksForCurrentTable] = useState(0);
   const [totalRowsFetched, setTotalRowsFetched] = useState(0);
   const [totalRowsExpected, setTotalRowsExpected] = useState(0);
   const [isBackupComplete, setIsBackupComplete] = useState(false);
@@ -352,6 +356,8 @@ const SystemBackup = () => {
     setShowProgressDialog(true);
     setIsBackupComplete(false);
     setTotalRowsFetched(0);
+    setCurrentChunk(0);
+    setTotalChunksForCurrentTable(0);
     
     try {
       // Step 1: Get table list with row counts
@@ -365,74 +371,116 @@ const SystemBackup = () => {
       const tables: string[] = tableListData.tables;
       const rowCounts: Record<string, number> = tableListData.rowCounts;
 
-      // Calculate total expected rows (capped at 10k per table)
-      const maxRows = 10000;
+      // Chunk size for pagination (10k rows per chunk to stay within edge function limits)
+      const chunkSize = 10000;
+
+      // Calculate total expected rows (ALL rows, no truncation)
       let expectedTotal = 0;
       for (const tbl of tables) {
-        expectedTotal += Math.min(rowCounts[tbl] || 0, maxRows);
+        expectedTotal += rowCounts[tbl] || 0;
       }
       setTotalRowsExpected(expectedTotal);
 
-      // Initialize progress list
-      const initialProgress: TableProgressItem[] = tables.map(tbl => ({
-        tableName: tbl,
-        rowsFetched: 0,
-        totalRows: Math.min(rowCounts[tbl] || 0, maxRows),
-        status: 'pending' as const
-      }));
+      // Initialize progress list with chunk info
+      const initialProgress: TableProgressItem[] = tables.map(tbl => {
+        const totalRows = rowCounts[tbl] || 0;
+        const chunksTotal = Math.ceil(totalRows / chunkSize) || 1;
+        return {
+          tableName: tbl,
+          rowsFetched: 0,
+          totalRows,
+          chunksTotal,
+          chunksFetched: 0,
+          status: 'pending' as const
+        };
+      });
       setTableProgressList(initialProgress);
 
-      // Step 2: Fetch each table one by one
+      // Step 2: Fetch each table, paginating large tables in chunks
       const allTableData: Record<string, unknown[]> = {};
-      const truncatedTables: Record<string, boolean> = {};
       let accumulatedRows = 0;
 
       for (let i = 0; i < tables.length; i++) {
         const tbl = tables[i];
+        const totalRowsForTable = rowCounts[tbl] || 0;
+        const chunksTotal = Math.ceil(totalRowsForTable / chunkSize) || 1;
+        
         setCurrentFetchingTable(tbl);
+        setTotalChunksForCurrentTable(chunksTotal);
         
         // Update status to fetching
         setTableProgressList(prev => prev.map((item, idx) => 
           idx === i ? { ...item, status: 'fetching' as const } : item
         ));
 
-        const { data: tableData, error: tableError } = await supabase.functions.invoke('database-backup', {
-          body: { type: 'data-single-table', tableName: tbl, maxRows }
-        });
+        const tableRows: unknown[] = [];
+        let hasError = false;
 
-        if (tableError || !tableData.success) {
-          console.error(`Error fetching ${tbl}:`, tableError || tableData.error);
+        // Fetch table in chunks
+        for (let chunkIndex = 0; chunkIndex < chunksTotal; chunkIndex++) {
+          setCurrentChunk(chunkIndex + 1);
+          
+          // Update chunks progress
+          setTableProgressList(prev => prev.map((item, idx) => 
+            idx === i ? { ...item, chunksFetched: chunkIndex, rowsFetched: tableRows.length } : item
+          ));
+
+          const offset = chunkIndex * chunkSize;
+          
+          const { data: tableData, error: tableError } = await supabase.functions.invoke('database-backup', {
+            body: { type: 'data-single-table', tableName: tbl, chunkSize, offset }
+          });
+
+          if (tableError || !tableData.success) {
+            console.error(`Error fetching ${tbl} chunk ${chunkIndex + 1}:`, tableError || tableData.error);
+            hasError = true;
+            break;
+          }
+
+          const rows = tableData.data || [];
+          tableRows.push(...rows);
+          
+          accumulatedRows += rows.length;
+          setTotalRowsFetched(accumulatedRows);
+
+          // Update progress with current rows fetched
+          setTableProgressList(prev => prev.map((item, idx) => 
+            idx === i ? { ...item, chunksFetched: chunkIndex + 1, rowsFetched: tableRows.length } : item
+          ));
+
+          // If we got fewer rows than chunkSize, we've reached the end
+          if (!tableData.hasMore || rows.length < chunkSize) {
+            break;
+          }
+        }
+
+        if (hasError) {
           setTableProgressList(prev => prev.map((item, idx) => 
             idx === i ? { ...item, status: 'error' as const } : item
           ));
           continue;
         }
 
-        const rows = tableData.data || [];
-        if (rows.length > 0) {
-          allTableData[tbl] = rows;
+        if (tableRows.length > 0) {
+          allTableData[tbl] = tableRows;
         }
-        if (tableData.truncated) {
-          truncatedTables[tbl] = true;
-        }
-
-        accumulatedRows += rows.length;
-        setTotalRowsFetched(accumulatedRows);
 
         // Update status to done
         setTableProgressList(prev => prev.map((item, idx) => 
-          idx === i ? { ...item, status: 'done' as const, rowsFetched: rows.length } : item
+          idx === i ? { ...item, status: 'done' as const, rowsFetched: tableRows.length, chunksFetched: Math.ceil(tableRows.length / chunkSize) || 1 } : item
         ));
       }
 
       setCurrentFetchingTable(null);
+      setCurrentChunk(0);
+      setTotalChunksForCurrentTable(0);
       setIsBackupComplete(true);
 
-      // Store result
+      // Store result (no truncation anymore - all data fetched)
       setDataResult({
         tables: allTableData,
-        truncated: truncatedTables,
-        maxRowsPerTable: maxRows
+        truncated: {},
+        maxRowsPerTable: null
       });
       setProgress(prev => ({ ...prev, data: 'done' }));
       toast.success(isRTL ? 'تم جلب بيانات قاعدة البيانات بنجاح' : 'Database data fetched successfully');
@@ -664,17 +712,11 @@ const SystemBackup = () => {
                   <span>{isRTL ? 'الجداول المُصدّرة:' : 'Tables exported:'}</span>
                   <span className="font-medium">{getDataTableCount()}</span>
                 </div>
-                {getTruncatedTableCount() > 0 && (
-                  <div className="flex justify-between text-sm text-amber-500">
-                    <span>{isRTL ? 'جداول مقتطعة (أكثر من 10,000):' : 'Tables truncated (>10,000 rows):'}</span>
-                    <span className="font-medium">{getTruncatedTableCount()}</span>
-                  </div>
-                )}
 
                 <p className="text-xs text-muted-foreground">
                   {isRTL
-                    ? 'ملاحظة: الحد الأقصى 10,000 سجل لكل جدول لتجنب انتهاء الوقت.'
-                    : 'Note: max 10,000 rows per table to avoid timeout.'}
+                    ? 'ملاحظة: يتم جلب الجداول الكبيرة على دفعات لتجنب انتهاء الوقت.'
+                    : 'Note: Large tables are fetched in chunks to avoid timeout.'}
                 </p>
               </div>
             )}
@@ -769,8 +811,8 @@ const SystemBackup = () => {
             </li>
             <li>
               {isRTL 
-                ? 'ملف البيانات يحتوي على عبارات INSERT لجميع السجلات (حد أقصى 10,000 سجل لكل جدول)'
-                : 'Data file contains INSERT statements for all records (max 10,000 rows per table)'
+                ? 'ملف البيانات يحتوي على عبارات INSERT لجميع السجلات (يتم جلب الجداول الكبيرة على دفعات)'
+                : 'Data file contains INSERT statements for all records (large tables are fetched in chunks)'
               }
             </li>
           </ol>
@@ -784,6 +826,8 @@ const SystemBackup = () => {
         onClose={() => setShowProgressDialog(false)}
         tables={tableProgressList}
         currentTable={currentFetchingTable}
+        currentChunk={currentChunk}
+        totalChunks={totalChunksForCurrentTable}
         totalRowsFetched={totalRowsFetched}
         totalRowsExpected={totalRowsExpected}
         isComplete={isBackupComplete}
