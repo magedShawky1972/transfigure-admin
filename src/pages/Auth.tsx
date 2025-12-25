@@ -115,6 +115,18 @@ const Auth = () => {
             description: language === "ar" ? "تم تسجيل الدخول كمدير النظام" : "Signed in as system admin",
           });
 
+          // If database needs restore, redirect directly to restore page
+          try {
+            const { getSystemState } = await import("@/lib/systemState");
+            const state = await getSystemState();
+            if (state.needsRestore) {
+              navigate("/system-restore", { replace: true });
+              return;
+            }
+          } catch (e) {
+            console.error("Error checking system state after sysadmin login:", e);
+          }
+
           navigate("/user-setup");
           return;
         }
