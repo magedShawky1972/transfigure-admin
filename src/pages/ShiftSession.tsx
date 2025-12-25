@@ -1199,6 +1199,16 @@ const ShiftSession = () => {
         return;
       }
 
+      // Validate Salla First Order Number is mandatory at close time
+      if (!shiftSession.salla_first_order_number && !sallaFirstOrderNumber.trim()) {
+        toast({
+          title: t("error") || "خطأ",
+          description: "يجب إدخال رقم أول طلب Salla قبل إغلاق الوردية",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Validate Salla Last Order Number is mandatory
       if (!sallaLastOrderNumber.trim()) {
         toast({
