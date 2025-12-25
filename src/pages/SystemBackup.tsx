@@ -248,6 +248,60 @@ const SystemBackup = () => {
     URL.revokeObjectURL(url);
   };
 
+  const downloadCompressedFile = async (content: string, filename: string) => {
+    try {
+      // Convert string to Uint8Array
+      const encoder = new TextEncoder();
+      const data = encoder.encode(content);
+
+      // Create a readable stream from the data
+      const readableStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(data);
+          controller.close();
+        }
+      });
+
+      // Pipe through gzip compression
+      const compressedStream = readableStream.pipeThrough(new CompressionStream('gzip'));
+
+      // Read the compressed data
+      const reader = compressedStream.getReader();
+      const chunks: Uint8Array[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+
+      // Combine chunks into a single Uint8Array
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const compressedData = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        compressedData.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Create blob and download
+      const blob = new Blob([compressedData], { type: 'application/gzip' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      return true;
+    } catch (error) {
+      console.error('Compression error:', error);
+      return false;
+    }
+  };
+
   const handleBackupStructure = async () => {
     setProgress(prev => ({ ...prev, structure: 'loading' }));
     
@@ -304,12 +358,20 @@ const SystemBackup = () => {
     toast.success(isRTL ? 'تم تحميل ملف الهيكل' : 'Structure file downloaded');
   };
 
-  const handleDownloadData = () => {
+  const handleDownloadData = async () => {
     if (!dataResult) return;
     const sql = generateDataSQL(dataResult);
     const timestamp = new Date().toISOString().split('T')[0];
-    downloadFile(sql, `edara_data_${timestamp}.sql`);
-    toast.success(isRTL ? 'تم تحميل ملف البيانات' : 'Data file downloaded');
+    
+    // Try compressed download first, fallback to uncompressed
+    const compressed = await downloadCompressedFile(sql, `edara_data_${timestamp}.sql.gz`);
+    if (compressed) {
+      toast.success(isRTL ? 'تم تحميل ملف البيانات المضغوط' : 'Compressed data file downloaded');
+    } else {
+      // Fallback to uncompressed
+      downloadFile(sql, `edara_data_${timestamp}.sql`);
+      toast.success(isRTL ? 'تم تحميل ملف البيانات' : 'Data file downloaded');
+    }
   };
 
   const getStatusIcon = (status: 'idle' | 'loading' | 'done' | 'error') => {
