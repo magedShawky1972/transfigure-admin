@@ -169,9 +169,112 @@ Deno.serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    } else if (type === 'data-single-table') {
+      // Fetch a single table's data - used for progressive backup
+      const tableName = body.tableName as string;
+      const maxRowsPerTable = body.maxRows as number || 10000;
+
+      if (!tableName) {
+        return new Response(
+          JSON.stringify({ error: 'tableName is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Fetching single table: ${tableName}`);
+
+      const pageSize = 1000;
+      const allRows: unknown[] = [];
+      let from = 0;
+      let keepGoing = true;
+      let truncated = false;
+
+      while (keepGoing && allRows.length < maxRowsPerTable) {
+        const remaining = maxRowsPerTable - allRows.length;
+        const fetchSize = Math.min(pageSize, remaining);
+
+        const { data: rows, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .range(from, from + fetchSize - 1);
+
+        if (error) {
+          console.log(`Error fetching ${tableName}: ${error.message}`);
+          return new Response(
+            JSON.stringify({ success: false, error: error.message, tableName }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (!rows || rows.length === 0) {
+          keepGoing = false;
+          break;
+        }
+
+        allRows.push(...rows);
+        from += rows.length;
+
+        if (rows.length < fetchSize) {
+          keepGoing = false;
+        }
+      }
+
+      if (allRows.length >= maxRowsPerTable) {
+        truncated = true;
+      }
+
+      console.log(`Fetched ${allRows.length} rows from ${tableName}${truncated ? ' (truncated)' : ''}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type: 'data-single-table',
+          tableName,
+          data: allRows,
+          rowCount: allRows.length,
+          truncated
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+    } else if (type === 'table-list') {
+      // Get list of tables with row counts for progress tracking
+      const { data: colData } = await supabase.rpc('get_table_columns_info');
+      const columnsData = colData as Array<{ table_name: string }> || [];
+      const tableNameSet = new Set<string>();
+      for (const c of columnsData) {
+        tableNameSet.add(String(c.table_name));
+      }
+      const tableNames = Array.from(tableNameSet);
+
+      // Get row counts
+      const tableRowCounts: Record<string, number> = {};
+      for (const tbl of tableNames) {
+        try {
+          const { count } = await supabase
+            .from(tbl)
+            .select('*', { count: 'exact', head: true });
+          tableRowCounts[tbl] = count || 0;
+        } catch (e) {
+          tableRowCounts[tbl] = 0;
+        }
+      }
+
+      console.log(`Found ${tableNames.length} tables for backup`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type: 'table-list',
+          tables: tableNames,
+          rowCounts: tableRowCounts
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
     } else {
       return new Response(
-        JSON.stringify({ error: 'Invalid type. Use "structure" or "data"' }),
+        JSON.stringify({ error: 'Invalid type. Use "structure", "data", "data-single-table", or "table-list"' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
