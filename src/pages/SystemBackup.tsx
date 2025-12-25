@@ -38,6 +38,7 @@ const SystemBackup = () => {
   const [totalRowsFetched, setTotalRowsFetched] = useState(0);
   const [totalRowsExpected, setTotalRowsExpected] = useState(0);
   const [isBackupComplete, setIsBackupComplete] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   const generateStructureSQL = (data: any): string => {
     let sql = '-- Edara Database Structure Backup\n';
@@ -508,17 +509,31 @@ const SystemBackup = () => {
 
   const handleDownloadData = async () => {
     if (!dataResult) return;
-    const sql = generateDataSQL(dataResult);
-    const timestamp = new Date().toISOString().split('T')[0];
     
-    // Try compressed download first, fallback to uncompressed
-    const compressed = await downloadCompressedFile(sql, `edara_data_${timestamp}.sql.gz`);
-    if (compressed) {
-      toast.success(isRTL ? 'تم تحميل ملف البيانات المضغوط' : 'Compressed data file downloaded');
-    } else {
-      // Fallback to uncompressed
-      downloadFile(sql, `edara_data_${timestamp}.sql`);
-      toast.success(isRTL ? 'تم تحميل ملف البيانات' : 'Data file downloaded');
+    setIsCompressing(true);
+    toast.info(isRTL ? 'جاري إنشاء وضغط الملف...' : 'Generating and compressing file...');
+    
+    try {
+      // Use setTimeout to allow UI to update before heavy processing
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const sql = generateDataSQL(dataResult);
+      const timestamp = new Date().toISOString().split('T')[0];
+      
+      // Try compressed download first, fallback to uncompressed
+      const compressed = await downloadCompressedFile(sql, `edara_data_${timestamp}.sql.gz`);
+      if (compressed) {
+        toast.success(isRTL ? 'تم تحميل ملف البيانات المضغوط' : 'Compressed data file downloaded');
+      } else {
+        // Fallback to uncompressed
+        downloadFile(sql, `edara_data_${timestamp}.sql`);
+        toast.success(isRTL ? 'تم تحميل ملف البيانات' : 'Data file downloaded');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(isRTL ? 'خطأ في تحميل الملف' : 'Error downloading file');
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -738,9 +753,16 @@ const SystemBackup = () => {
               <Button
                 variant="outline"
                 onClick={handleDownloadData}
-                disabled={!dataResult}
+                disabled={!dataResult || isCompressing}
               >
-                <Download className="h-4 w-4" />
+                {isCompressing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="ml-2">{isRTL ? 'جاري الضغط...' : 'Compressing...'}</span>
+                  </>
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </CardContent>
