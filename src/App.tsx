@@ -74,6 +74,7 @@ import DataLoadingStatus from "./pages/DataLoadingStatus";
 import CoinsLedgerReport from "./pages/CoinsLedgerReport";
 import ProjectGantt from "./pages/ProjectGantt";
 import BankStatementReport from "./pages/BankStatementReport";
+import SystemBackup from "./pages/SystemBackup";
 
 const queryClient = new QueryClient();
 
@@ -154,6 +155,7 @@ const App = () => (
               <Route path="/mail-setup" element={<MailSetup />} />
               <Route path="/company-news" element={<CompanyNews />} />
               <Route path="/pdf-to-excel" element={<PdfToExcel />} />
+              <Route path="/system-backup" element={<SystemBackup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
