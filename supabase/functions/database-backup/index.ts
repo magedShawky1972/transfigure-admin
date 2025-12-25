@@ -11,7 +11,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { type } = await req.json(); // 'structure' or 'data'
+    const body = await req.json();
+    const { type } = body; // 'structure' or 'data'
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -85,6 +86,9 @@ Deno.serve(async (req) => {
       );
 
     } else if (type === 'data') {
+      const requestedTables = body.tables as string[] | undefined; // optional: export only specific tables
+      const maxRowsPerTable = body.maxRows as number || 10000; // default 10k limit to avoid timeout
+
       // Get all tables from columns info
       const { data: colData } = await supabase.rpc('get_table_columns_info');
       const columnsData = colData as Array<{ table_name: string }> || [];
@@ -92,24 +96,32 @@ Deno.serve(async (req) => {
       for (const c of columnsData) {
         tableNameSet.add(String(c.table_name));
       }
-      const tableNames = Array.from(tableNameSet);
+      let tableNames = Array.from(tableNameSet);
+
+      // If specific tables requested, filter
+      if (requestedTables && requestedTables.length > 0) {
+        tableNames = tableNames.filter(t => requestedTables.includes(t));
+      }
 
       const tableData: Record<string, unknown[]> = {};
+      const tableTruncated: Record<string, boolean> = {};
       let totalRows = 0;
 
       for (const tbl of tableNames) {
         try {
-          // Fetch ALL data by paginating without a row cap
           const pageSize = 1000;
           const allRows: unknown[] = [];
           let from = 0;
           let keepGoing = true;
 
-          while (keepGoing) {
+          while (keepGoing && allRows.length < maxRowsPerTable) {
+            const remaining = maxRowsPerTable - allRows.length;
+            const fetchSize = Math.min(pageSize, remaining);
+
             const { data: rows, error } = await supabase
               .from(tbl)
               .select('*')
-              .range(from, from + pageSize - 1);
+              .range(from, from + fetchSize - 1);
 
             if (error) {
               console.log(`Error fetching ${tbl}: ${error.message}`);
@@ -122,9 +134,9 @@ Deno.serve(async (req) => {
             }
 
             allRows.push(...rows);
-            from += pageSize;
+            from += rows.length;
 
-            if (rows.length < pageSize) {
+            if (rows.length < fetchSize) {
               keepGoing = false;
             }
           }
@@ -132,7 +144,13 @@ Deno.serve(async (req) => {
           if (allRows.length > 0) {
             tableData[tbl] = allRows;
             totalRows += allRows.length;
-            console.log(`Fetched ${allRows.length} rows from ${tbl}`);
+            
+            // Check if we hit the limit (table may have more rows)
+            if (allRows.length >= maxRowsPerTable) {
+              tableTruncated[tbl] = true;
+            }
+            
+            console.log(`Fetched ${allRows.length} rows from ${tbl}${tableTruncated[tbl] ? ' (truncated)' : ''}`);
           }
         } catch (e) {
           console.log(`Error accessing table ${tbl}:`, e);
@@ -145,7 +163,9 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: true,
           type: 'data',
-          data: tableData
+          data: tableData,
+          truncated: tableTruncated,
+          maxRowsPerTable
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

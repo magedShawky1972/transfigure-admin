@@ -204,7 +204,11 @@ const SystemBackup = () => {
     return sql;
   };
 
-  const generateDataSQL = (tableData: Record<string, any[]>): string => {
+  const generateDataSQL = (dataResultObj: any): string => {
+    // dataResultObj can be { tables, truncated, maxRowsPerTable } or raw tableData
+    const tableData: Record<string, any[]> = dataResultObj?.tables || dataResultObj || {};
+    const truncated: Record<string, boolean> = dataResultObj?.truncated || {};
+
     let sql = '-- Edara Database Data Backup\n';
     sql += `-- Generated at: ${new Date().toISOString()}\n`;
     sql += '-- ================================================\n\n';
@@ -221,7 +225,8 @@ const SystemBackup = () => {
       const rows = tableData[tableName];
       if (!rows || rows.length === 0) continue;
 
-      sql += `-- ==================== ${tableName.toUpperCase()} (${rows.length} rows) ====================\n\n`;
+      const truncatedNote = truncated[tableName] ? ' (TRUNCATED - more rows exist)' : '';
+      sql += `-- ==================== ${tableName.toUpperCase()} (${rows.length} rows)${truncatedNote} ====================\n\n`;
       
       // Get columns from first row
       const columns = Object.keys(rows[0]);
@@ -331,13 +336,17 @@ const SystemBackup = () => {
     
     try {
       const { data, error } = await supabase.functions.invoke('database-backup', {
-        body: { type: 'data' }
+        body: { type: 'data', maxRows: 10000 } // limit per table to avoid timeout
       });
 
       if (error) throw error;
       
       if (data.success) {
-        setDataResult(data.data);
+        setDataResult({
+          tables: data.data,
+          truncated: data.truncated || {},
+          maxRowsPerTable: data.maxRowsPerTable || 10000
+        });
         setProgress(prev => ({ ...prev, data: 'done' }));
         toast.success(isRTL ? 'تم جلب بيانات قاعدة البيانات بنجاح' : 'Database data fetched successfully');
       } else {
@@ -419,8 +428,8 @@ const SystemBackup = () => {
 
   const getDataRowCount = () => {
     // Rows INCLUDED in the export payload (may be truncated per table)
-    if (!dataResult) return 0;
-    return Object.values(dataResult).reduce(
+    if (!dataResult?.tables) return 0;
+    return Object.values(dataResult.tables).reduce(
       (sum: number, rows: any) => sum + (rows?.length || 0),
       0
     );
@@ -428,8 +437,13 @@ const SystemBackup = () => {
 
   const getDataTableCount = () => {
     // Tables INCLUDED in the export payload (tables with at least 1 exported row)
-    if (!dataResult) return 0;
-    return Object.values(dataResult).filter((rows: any) => rows?.length > 0).length;
+    if (!dataResult?.tables) return 0;
+    return Object.values(dataResult.tables).filter((rows: any) => rows?.length > 0).length;
+  };
+
+  const getTruncatedTableCount = () => {
+    if (!dataResult?.truncated) return 0;
+    return Object.values(dataResult.truncated).filter(Boolean).length;
   };
 
   const getDatabaseTablesWithDataCount = () => {
@@ -558,11 +572,17 @@ const SystemBackup = () => {
                   <span>{isRTL ? 'الجداول المُصدّرة:' : 'Tables exported:'}</span>
                   <span className="font-medium">{getDataTableCount()}</span>
                 </div>
+                {getTruncatedTableCount() > 0 && (
+                  <div className="flex justify-between text-sm text-amber-500">
+                    <span>{isRTL ? 'جداول مقتطعة (أكثر من 10,000):' : 'Tables truncated (>10,000 rows):'}</span>
+                    <span className="font-medium">{getTruncatedTableCount()}</span>
+                  </div>
+                )}
 
                 <p className="text-xs text-muted-foreground">
                   {isRTL
-                    ? 'ملاحظة: يتم تصدير جميع السجلات من كل جدول.'
-                    : 'Note: all rows from every table are exported.'}
+                    ? 'ملاحظة: الحد الأقصى 10,000 سجل لكل جدول لتجنب انتهاء الوقت.'
+                    : 'Note: max 10,000 rows per table to avoid timeout.'}
                 </p>
               </div>
             )}
