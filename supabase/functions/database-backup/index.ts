@@ -170,9 +170,10 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (type === 'data-single-table') {
-      // Fetch a single table's data - used for progressive backup
+      // Fetch a single table's data chunk - used for progressive backup with pagination
       const tableName = body.tableName as string;
-      const maxRowsPerTable = body.maxRows as number || 10000;
+      const chunkSize = body.chunkSize as number || 10000; // rows per chunk
+      const offset = body.offset as number || 0; // starting offset for pagination
 
       if (!tableName) {
         return new Response(
@@ -181,16 +182,15 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log(`Fetching single table: ${tableName}`);
+      console.log(`Fetching table: ${tableName}, offset: ${offset}, chunkSize: ${chunkSize}`);
 
       const pageSize = 1000;
       const allRows: unknown[] = [];
-      let from = 0;
+      let from = offset;
       let keepGoing = true;
-      let truncated = false;
 
-      while (keepGoing && allRows.length < maxRowsPerTable) {
-        const remaining = maxRowsPerTable - allRows.length;
+      while (keepGoing && allRows.length < chunkSize) {
+        const remaining = chunkSize - allRows.length;
         const fetchSize = Math.min(pageSize, remaining);
 
         const { data: rows, error } = await supabase
@@ -219,11 +219,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (allRows.length >= maxRowsPerTable) {
-        truncated = true;
-      }
+      // Check if there might be more rows after this chunk
+      const hasMore = allRows.length === chunkSize;
 
-      console.log(`Fetched ${allRows.length} rows from ${tableName}${truncated ? ' (truncated)' : ''}`);
+      console.log(`Fetched ${allRows.length} rows from ${tableName} (offset: ${offset}, hasMore: ${hasMore})`);
 
       return new Response(
         JSON.stringify({
@@ -232,7 +231,8 @@ Deno.serve(async (req) => {
           tableName,
           data: allRows,
           rowCount: allRows.length,
-          truncated
+          offset,
+          hasMore
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
