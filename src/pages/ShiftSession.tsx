@@ -1490,26 +1490,28 @@ const ShiftSession = () => {
                 </p>
               </div>
 
-              {/* Salla First Order Number Input */}
-              <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
+              {/* Salla First Order Number Input (optional at open) */}
+              <div
+                className="p-4 rounded-lg border-2"
+                style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
+              >
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
                   <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
-                  أول طلب <span className="text-destructive">*</span>
+                  أول طلب
                 </h3>
                 <Input
                   type="text"
                   value={sallaFirstOrderNumber}
                   onChange={(e) => setSallaFirstOrderNumber(e.target.value)}
-                  placeholder="أدخل رقم أول طلب Salla (إلزامي)"
+                  placeholder="أدخل رقم أول طلب Salla (اختياري عند فتح الوردية)"
                   className="bg-background"
-                  required
                 />
-                <p className="text-sm mt-2" style={{ color: '#2AB090' }}>
-                  يستخدم هذا الرقم لتتبع طلبات سلة
+                <p className="text-sm mt-2" style={{ color: "#2AB090" }}>
+                  يمكنك تركه فارغاً الآن وإدخاله عند إغلاق الوردية
                 </p>
               </div>
 
-              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim() || !sallaFirstOrderNumber.trim()}>
+              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim()}>
                 {t("openShift")}
               </Button>
             </div>
@@ -1542,14 +1544,38 @@ const ShiftSession = () => {
                 </div>
               )}
 
-              {/* Salla First Order Number - Read Only Display */}
-              {sallaFirstOrderNumber && (
-                <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
+              {/* Salla First Order Number */}
+              {sallaFirstOrderNumber ? (
+                <div
+                  className="p-4 rounded-lg border-2"
+                  style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
+                >
                   <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
                     <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
                     أول طلب
                   </h3>
                   <p className="text-lg font-mono bg-background p-2 rounded border">{sallaFirstOrderNumber}</p>
+                </div>
+              ) : (
+                <div
+                  className="p-4 rounded-lg border-2"
+                  style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
+                >
+                  <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                    <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                    أول طلب <span className="text-destructive">*</span>
+                  </h3>
+                  <Input
+                    type="text"
+                    value={sallaFirstOrderNumber}
+                    onChange={(e) => setSallaFirstOrderNumber(e.target.value)}
+                    placeholder="أدخل رقم أول طلب Salla (إلزامي قبل الإغلاق)"
+                    className="bg-background"
+                    required
+                  />
+                  <p className="text-sm mt-2" style={{ color: "#2AB090" }}>
+                    يجب إدخاله قبل إغلاق الوردية
+                  </p>
                 </div>
               )}
 
