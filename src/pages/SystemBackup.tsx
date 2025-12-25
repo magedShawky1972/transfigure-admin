@@ -667,10 +667,20 @@ const SystemBackup = () => {
       // Yield to let React paint the progress dialog with initial state
       await new Promise((r) => setTimeout(r, 50));
 
-      // Build gzip stream writer (no huge intermediate string)
+      // Build gzip stream (we must read while writing to avoid backpressure blocking progress)
       const gzip = new CompressionStream('gzip');
       const writer = gzip.writable.getWriter();
       const encoder = new TextEncoder();
+
+      const compressedChunks: Uint8Array[] = [];
+      const reader = gzip.readable.getReader();
+      const consumeCompressed = (async () => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) compressedChunks.push(value);
+        }
+      })();
 
       const writeText = async (text: string) => {
         await writer.write(encoder.encode(text));
@@ -790,15 +800,10 @@ const SystemBackup = () => {
       }
 
       await writer.close();
+      await consumeCompressed;
 
-      // Read compressed bytes
-      const reader = gzip.readable.getReader();
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
+      // Combine compressed bytes
+      const chunks = compressedChunks;
 
       const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
       const compressedData = new Uint8Array(totalLength);
