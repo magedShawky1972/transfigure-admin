@@ -131,6 +131,7 @@ interface UserPermission {
   { key: "excelSetup", label: "Excel Setup" },
   { key: "tableConfig", label: "Table Config" },
   { key: "pdfToExcel", label: "PDF to Excel (تحويل PDF إلى Excel)" },
+  { key: "systemBackup", label: "System Backup (نسخ احتياطي)" },
 ];
 
 const DASHBOARD_COMPONENTS = [
