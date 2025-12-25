@@ -5,9 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Use a connection string to query system tables directly
-const SUPABASE_DB_URL = Deno.env.get('SUPABASE_DB_URL');
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -23,148 +20,98 @@ Deno.serve(async (req) => {
     console.log(`Starting database backup: ${type}`);
 
     if (type === 'structure') {
-      // Get all public tables from generated_tables
-      const { data: generatedTables, error: genTablesError } = await supabase
-        .from('generated_tables')
-        .select('table_name, columns, status');
-      
-      if (genTablesError) {
-        console.error('Error fetching generated_tables:', genTablesError);
+      // Get all schema information using RPC functions
+      const [
+        columnsRes,
+        primaryKeysRes,
+        foreignKeysRes,
+        indexesRes,
+        policiesRes,
+        functionsRes,
+        triggersRes
+      ] = await Promise.all([
+        supabase.rpc('get_table_columns_info'),
+        supabase.rpc('get_primary_keys_info'),
+        supabase.rpc('get_foreign_keys_info'),
+        supabase.rpc('get_indexes_info'),
+        supabase.rpc('get_rls_policies_info'),
+        supabase.rpc('get_db_functions_info'),
+        supabase.rpc('get_triggers_info')
+      ]);
+
+      if (columnsRes.error) {
+        console.error('Error fetching columns:', columnsRes.error);
       }
 
-      // Get all known public tables by querying each one
-      const knownTables = [
-        'api_field_configs', 'api_keys', 'brand_closing_training', 'brand_type', 'brands',
-        'company_news', 'crm_customer_followup', 'currencies', 'currency_rates', 'customers',
-        'deleted_email_ids', 'department_admins', 'department_members', 'department_task_phases',
-        'departments', 'email_attachments', 'email_contacts', 'emails', 'excel_column_mappings',
-        'excel_sheets', 'generated_tables', 'hyberpaystatement', 'internal_conversation_participants',
-        'internal_conversations', 'internal_messages', 'job_positions', 'ludo_training',
-        'ludo_transactions', 'mail_types', 'notifications', 'odoo_api_config', 'order_payment',
-        'ordertotals', 'payment_methods', 'payment_transactions', 'products', 'profiles',
-        'project_members', 'projects', 'purchase_items', 'purpletransaction', 'push_subscriptions',
-        'query_cache', 'riyadbankstatement', 'shift_closing_images', 'shift_closing_numbers',
-        'shift_plans', 'shift_sessions', 'shifts', 'software_licenses', 'supplier_products',
-        'suppliers', 'system_config', 'task_attachments', 'task_time_entries', 'tasks',
-        'ticket_actions', 'ticket_attachments', 'tickets', 'upload_logs', 'user_groups',
-        'user_permissions', 'user_roles', 'user_email_configs', 'whatsapp_messages'
-      ];
+      // Get row counts for each table
+      const columnsData = columnsRes.data as Array<{ table_name: string }> || [];
+      const tableNameSet = new Set<string>();
+      for (const c of columnsData) {
+        tableNameSet.add(String(c.table_name));
+      }
+      const tableNames = Array.from(tableNameSet);
+      
+      const tableRowCounts: Record<string, number> = {};
 
-      // Build table info by checking each table
-      const tableInfo: any[] = [];
-      for (const tableName of knownTables) {
+      for (const tbl of tableNames) {
         try {
           const { count } = await supabase
-            .from(tableName)
+            .from(tbl)
             .select('*', { count: 'exact', head: true });
-          
-          tableInfo.push({
-            table_name: tableName,
-            row_count: count || 0
-          });
+          tableRowCounts[tbl] = count || 0;
         } catch (e) {
-          // Table might not exist, skip it
-          console.log(`Table ${tableName} not accessible`);
+          tableRowCounts[tbl] = 0;
         }
       }
 
-      // Add generated tables
-      if (generatedTables) {
-        for (const gt of generatedTables) {
-          if (!knownTables.includes(gt.table_name.toLowerCase())) {
-            try {
-              const { count } = await supabase
-                .from(gt.table_name.toLowerCase())
-                .select('*', { count: 'exact', head: true });
-              
-              tableInfo.push({
-                table_name: gt.table_name,
-                row_count: count || 0,
-                columns: gt.columns
-              });
-            } catch (e) {
-              console.log(`Generated table ${gt.table_name} not accessible`);
-            }
-          }
-        }
-      }
-
-      // Get database functions using information_schema approach via RPC
-      // Since exec_sql returns void, we need a different approach
-      // We'll return the structure info we can gather
-      
-      const structureData = {
-        tables: tableInfo,
-        generatedTables: generatedTables || [],
-        // Note: Functions, triggers, policies require direct DB access
-        // We'll provide what we can from the client
-        functionsNote: 'Database functions are stored in pg_proc system table',
-        triggersNote: 'Triggers are stored in information_schema.triggers',
-        policiesNote: 'RLS policies are stored in pg_policies'
-      };
-
-      console.log(`Found ${tableInfo.length} tables`);
+      console.log(`Found ${tableNames.length} tables, ${(functionsRes.data || []).length} functions, ${(triggersRes.data || []).length} triggers, ${(policiesRes.data || []).length} policies`);
 
       return new Response(
         JSON.stringify({
           success: true,
           type: 'structure',
-          data: structureData
+          data: {
+            columns: columnsRes.data || [],
+            primaryKeys: primaryKeysRes.data || [],
+            foreignKeys: foreignKeysRes.data || [],
+            indexes: indexesRes.data || [],
+            policies: policiesRes.data || [],
+            functions: functionsRes.data || [],
+            triggers: triggersRes.data || [],
+            tableRowCounts
+          }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
     } else if (type === 'data') {
-      // Get all tables from generated_tables first
-      const { data: generatedTables } = await supabase
-        .from('generated_tables')
-        .select('table_name');
-
-      const knownTables = [
-        'api_field_configs', 'api_keys', 'brand_closing_training', 'brand_type', 'brands',
-        'company_news', 'crm_customer_followup', 'currencies', 'currency_rates', 'customers',
-        'deleted_email_ids', 'department_admins', 'department_members', 'department_task_phases',
-        'departments', 'email_attachments', 'email_contacts', 'emails', 'excel_column_mappings',
-        'excel_sheets', 'generated_tables', 'hyberpaystatement', 'internal_conversation_participants',
-        'internal_conversations', 'internal_messages', 'job_positions', 'ludo_training',
-        'ludo_transactions', 'mail_types', 'notifications', 'odoo_api_config', 'order_payment',
-        'ordertotals', 'payment_methods', 'payment_transactions', 'products', 'profiles',
-        'project_members', 'projects', 'purchase_items', 'purpletransaction', 'push_subscriptions',
-        'query_cache', 'riyadbankstatement', 'shift_closing_images', 'shift_closing_numbers',
-        'shift_plans', 'shift_sessions', 'shifts', 'software_licenses', 'supplier_products',
-        'suppliers', 'system_config', 'task_attachments', 'task_time_entries', 'tasks',
-        'ticket_actions', 'ticket_attachments', 'tickets', 'upload_logs', 'user_groups',
-        'user_permissions', 'user_roles', 'user_email_configs', 'whatsapp_messages'
-      ];
-
-      // Add generated tables
-      if (generatedTables) {
-        for (const gt of generatedTables) {
-          const tableName = gt.table_name.toLowerCase();
-          if (!knownTables.includes(tableName)) {
-            knownTables.push(tableName);
-          }
-        }
+      // Get all tables from columns info
+      const { data: colData } = await supabase.rpc('get_table_columns_info');
+      const columnsData = colData as Array<{ table_name: string }> || [];
+      const tableNameSet = new Set<string>();
+      for (const c of columnsData) {
+        tableNameSet.add(String(c.table_name));
       }
+      const tableNames = Array.from(tableNameSet);
 
-      const tableData: Record<string, any[]> = {};
+      const tableData: Record<string, unknown[]> = {};
       let totalRows = 0;
 
-      for (const tableName of knownTables) {
+      for (const tbl of tableNames) {
         try {
           // Fetch data in pages to handle large tables
           const pageSize = 1000;
           const maxRows = 10000;
-          const allRows: any[] = [];
+          const allRows: unknown[] = [];
 
           for (let from = 0; from < maxRows; from += pageSize) {
             const { data: rows, error } = await supabase
-              .from(tableName)
+              .from(tbl)
               .select('*')
               .range(from, from + pageSize - 1);
 
             if (error) {
-              console.log(`Error fetching ${tableName}: ${error.message}`);
+              console.log(`Error fetching ${tbl}: ${error.message}`);
               break;
             }
 
@@ -175,12 +122,12 @@ Deno.serve(async (req) => {
           }
 
           if (allRows.length > 0) {
-            tableData[tableName] = allRows;
+            tableData[tbl] = allRows;
             totalRows += allRows.length;
-            console.log(`Fetched ${allRows.length} rows from ${tableName}`);
+            console.log(`Fetched ${allRows.length} rows from ${tbl}`);
           }
         } catch (e) {
-          console.log(`Error accessing table ${tableName}:`, e);
+          console.log(`Error accessing table ${tbl}:`, e);
         }
       }
 

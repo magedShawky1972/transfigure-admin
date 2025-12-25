@@ -3949,9 +3949,34 @@ export type Database = {
         Args: { date_from: string; date_to: string }
         Returns: number
       }
+      get_db_functions_info: {
+        Args: never
+        Returns: {
+          function_definition: string
+          function_name: string
+        }[]
+      }
       get_epayment_charges: {
         Args: { date_from: string; date_to: string }
         Returns: number
+      }
+      get_foreign_keys_info: {
+        Args: never
+        Returns: {
+          column_name: string
+          constraint_name: string
+          foreign_column_name: string
+          foreign_table_name: string
+          table_name: string
+        }[]
+      }
+      get_indexes_info: {
+        Args: never
+        Returns: {
+          indexdef: string
+          indexname: string
+          tablename: string
+        }[]
       }
       get_next_task_seq_number: {
         Args: { p_department_id: string }
@@ -3962,6 +3987,50 @@ export type Database = {
         Returns: {
           total_cost: number
           total_sales: number
+        }[]
+      }
+      get_primary_keys_info: {
+        Args: never
+        Returns: {
+          column_name: string
+          table_name: string
+        }[]
+      }
+      get_rls_policies_info: {
+        Args: never
+        Returns: {
+          cmd: string
+          permissive: string
+          policyname: string
+          qual: string
+          roles: string
+          tablename: string
+          with_check: string
+        }[]
+      }
+      get_table_columns_info: {
+        Args: never
+        Returns: {
+          character_maximum_length: number
+          column_default: string
+          column_name: string
+          data_type: string
+          is_nullable: string
+          numeric_precision: number
+          numeric_scale: number
+          ordinal_position: number
+          table_name: string
+          udt_name: string
+        }[]
+      }
+      get_triggers_info: {
+        Args: never
+        Returns: {
+          action_statement: string
+          action_timing: string
+          event_manipulation: string
+          event_object_table: string
+          trigger_name: string
         }[]
       }
       has_role: {
