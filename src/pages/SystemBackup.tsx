@@ -5,10 +5,18 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { BackupProgressDialog } from "@/components/BackupProgressDialog";
 
 interface BackupProgress {
   structure: 'idle' | 'loading' | 'done' | 'error';
   data: 'idle' | 'loading' | 'done' | 'error';
+}
+
+interface TableProgressItem {
+  tableName: string;
+  rowsFetched: number;
+  totalRows: number;
+  status: 'pending' | 'fetching' | 'done' | 'error';
 }
 
 const SystemBackup = () => {
@@ -18,6 +26,14 @@ const SystemBackup = () => {
   const [progress, setProgress] = useState<BackupProgress>({ structure: 'idle', data: 'idle' });
   const [structureResult, setStructureResult] = useState<any>(null);
   const [dataResult, setDataResult] = useState<any>(null);
+  
+  // Progress dialog state
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
+  const [tableProgressList, setTableProgressList] = useState<TableProgressItem[]>([]);
+  const [currentFetchingTable, setCurrentFetchingTable] = useState<string | null>(null);
+  const [totalRowsFetched, setTotalRowsFetched] = useState(0);
+  const [totalRowsExpected, setTotalRowsExpected] = useState(0);
+  const [isBackupComplete, setIsBackupComplete] = useState(false);
 
   const generateStructureSQL = (data: any): string => {
     let sql = '-- Edara Database Structure Backup\n';
@@ -331,30 +347,105 @@ const SystemBackup = () => {
     }
   };
 
-  const handleBackupData = async () => {
+  const handleBackupDataWithProgress = async () => {
     setProgress(prev => ({ ...prev, data: 'loading' }));
+    setShowProgressDialog(true);
+    setIsBackupComplete(false);
+    setTotalRowsFetched(0);
     
     try {
-      const { data, error } = await supabase.functions.invoke('database-backup', {
-        body: { type: 'data', maxRows: 10000 } // limit per table to avoid timeout
+      // Step 1: Get table list with row counts
+      const { data: tableListData, error: tableListError } = await supabase.functions.invoke('database-backup', {
+        body: { type: 'table-list' }
       });
 
-      if (error) throw error;
-      
-      if (data.success) {
-        setDataResult({
-          tables: data.data,
-          truncated: data.truncated || {},
-          maxRowsPerTable: data.maxRowsPerTable || 10000
-        });
-        setProgress(prev => ({ ...prev, data: 'done' }));
-        toast.success(isRTL ? 'تم جلب بيانات قاعدة البيانات بنجاح' : 'Database data fetched successfully');
-      } else {
-        throw new Error(data.error || 'Unknown error');
+      if (tableListError) throw tableListError;
+      if (!tableListData.success) throw new Error(tableListData.error || 'Failed to get table list');
+
+      const tables: string[] = tableListData.tables;
+      const rowCounts: Record<string, number> = tableListData.rowCounts;
+
+      // Calculate total expected rows (capped at 10k per table)
+      const maxRows = 10000;
+      let expectedTotal = 0;
+      for (const tbl of tables) {
+        expectedTotal += Math.min(rowCounts[tbl] || 0, maxRows);
       }
+      setTotalRowsExpected(expectedTotal);
+
+      // Initialize progress list
+      const initialProgress: TableProgressItem[] = tables.map(tbl => ({
+        tableName: tbl,
+        rowsFetched: 0,
+        totalRows: Math.min(rowCounts[tbl] || 0, maxRows),
+        status: 'pending' as const
+      }));
+      setTableProgressList(initialProgress);
+
+      // Step 2: Fetch each table one by one
+      const allTableData: Record<string, unknown[]> = {};
+      const truncatedTables: Record<string, boolean> = {};
+      let accumulatedRows = 0;
+
+      for (let i = 0; i < tables.length; i++) {
+        const tbl = tables[i];
+        setCurrentFetchingTable(tbl);
+        
+        // Update status to fetching
+        setTableProgressList(prev => prev.map((item, idx) => 
+          idx === i ? { ...item, status: 'fetching' as const } : item
+        ));
+
+        const { data: tableData, error: tableError } = await supabase.functions.invoke('database-backup', {
+          body: { type: 'data-single-table', tableName: tbl, maxRows }
+        });
+
+        if (tableError || !tableData.success) {
+          console.error(`Error fetching ${tbl}:`, tableError || tableData.error);
+          setTableProgressList(prev => prev.map((item, idx) => 
+            idx === i ? { ...item, status: 'error' as const } : item
+          ));
+          continue;
+        }
+
+        const rows = tableData.data || [];
+        if (rows.length > 0) {
+          allTableData[tbl] = rows;
+        }
+        if (tableData.truncated) {
+          truncatedTables[tbl] = true;
+        }
+
+        accumulatedRows += rows.length;
+        setTotalRowsFetched(accumulatedRows);
+
+        // Update status to done
+        setTableProgressList(prev => prev.map((item, idx) => 
+          idx === i ? { ...item, status: 'done' as const, rowsFetched: rows.length } : item
+        ));
+      }
+
+      setCurrentFetchingTable(null);
+      setIsBackupComplete(true);
+
+      // Store result
+      setDataResult({
+        tables: allTableData,
+        truncated: truncatedTables,
+        maxRowsPerTable: maxRows
+      });
+      setProgress(prev => ({ ...prev, data: 'done' }));
+      toast.success(isRTL ? 'تم جلب بيانات قاعدة البيانات بنجاح' : 'Database data fetched successfully');
+
+      // Auto-close dialog after 2 seconds
+      setTimeout(() => {
+        setShowProgressDialog(false);
+      }, 2000);
+
     } catch (error) {
       console.error('Error backing up data:', error);
       setProgress(prev => ({ ...prev, data: 'error' }));
+      setShowProgressDialog(false);
       toast.error(isRTL ? 'خطأ في نسخ البيانات' : 'Error backing up data');
     }
   };
@@ -453,6 +544,7 @@ const SystemBackup = () => {
   };
 
   return (
+    <>
     <div className={`container mx-auto p-6 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">
@@ -589,7 +681,7 @@ const SystemBackup = () => {
             
             <div className="flex gap-2">
               <Button 
-                onClick={handleBackupData}
+                onClick={handleBackupDataWithProgress}
                 disabled={progress.data === 'loading'}
                 className="flex-1"
               >
@@ -685,6 +777,19 @@ const SystemBackup = () => {
         </CardContent>
       </Card>
     </div>
+
+      {/* Backup Progress Dialog */}
+      <BackupProgressDialog
+        isOpen={showProgressDialog}
+        onClose={() => setShowProgressDialog(false)}
+        tables={tableProgressList}
+        currentTable={currentFetchingTable}
+        totalRowsFetched={totalRowsFetched}
+        totalRowsExpected={totalRowsExpected}
+        isComplete={isBackupComplete}
+        isRTL={isRTL}
+      />
+    </>
   );
 };
 
