@@ -575,6 +575,15 @@ const SystemBackup = () => {
     // crash the browser with "RangeError: Invalid string length". We stream-generate
     // the SQL and compress it on the fly instead, then save to cloud storage.
 
+    // Initialize progress dialog
+    setShowProgressDialog(true);
+    setIsBackupComplete(false);
+    setTotalRowsFetched(0);
+    setCurrentChunk(0);
+    setTotalChunksForCurrentTable(0);
+    setTableProgressList([]);
+    setCurrentFetchingTable(null);
+    
     setIsCompressing(true);
     toast.info(isRTL ? 'جاري إنشاء وضغط وحفظ الملف (قد يستغرق وقتاً)...' : 'Generating, compressing and saving file (this may take a while)...');
 
@@ -632,6 +641,29 @@ const SystemBackup = () => {
       // Keep chunks small to avoid timeouts
       const chunkSize = 2000;
 
+      // Calculate total expected rows
+      let expectedTotal = 0;
+      for (const tbl of tables) {
+        expectedTotal += rowCounts[tbl] || 0;
+      }
+      setTotalRowsExpected(expectedTotal);
+
+      // Initialize progress list
+      const sortedTables = tables.sort();
+      const initialProgress: TableProgressItem[] = sortedTables.map(tbl => {
+        const totalRows = rowCounts[tbl] || 0;
+        const chunksTotal = Math.ceil(totalRows / chunkSize) || 1;
+        return {
+          tableName: tbl,
+          rowsFetched: 0,
+          totalRows,
+          chunksTotal,
+          chunksFetched: 0,
+          status: 'pending' as const
+        };
+      });
+      setTableProgressList(initialProgress);
+
       // Build gzip stream writer (no huge intermediate string)
       const gzip = new CompressionStream('gzip');
       const writer = gzip.writable.getWriter();
@@ -647,10 +679,18 @@ const SystemBackup = () => {
       await writeText('-- ================================================\n\n');
 
       let exportedTables = 0;
+      let accumulatedRows = 0;
 
-      for (const tableName of tables.sort()) {
+      for (let tableIndex = 0; tableIndex < sortedTables.length; tableIndex++) {
+        const tableName = sortedTables[tableIndex];
         const totalRows = rowCounts[tableName] || 0;
-        if (totalRows === 0) continue;
+        if (totalRows === 0) {
+          // Mark as done immediately
+          setTableProgressList(prev => prev.map((item, idx) => 
+            idx === tableIndex ? { ...item, status: 'done' as const } : item
+          ));
+          continue;
+        }
 
         exportedTables += 1;
 
@@ -658,9 +698,15 @@ const SystemBackup = () => {
         setCurrentFetchingTable(tableName);
         setTotalChunksForCurrentTable(chunksTotal);
 
+        // Update status to fetching
+        setTableProgressList(prev => prev.map((item, idx) => 
+          idx === tableIndex ? { ...item, status: 'fetching' as const } : item
+        ));
+
         // Discover columns from the first non-empty chunk
         let columns: string[] | null = null;
         let wroteTableHeader = false;
+        let tableRowsFetched = 0;
 
         for (let chunkIndex = 0; chunkIndex < chunksTotal; chunkIndex++) {
           setCurrentChunk(chunkIndex + 1);
@@ -706,11 +752,28 @@ const SystemBackup = () => {
             await writeText(`INSERT INTO public.${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`);
           }
 
+          // Update progress
+          tableRowsFetched += rows.length;
+          accumulatedRows += rows.length;
+          setTotalRowsFetched(accumulatedRows);
+          setTableProgressList(prev => prev.map((item, idx) => 
+            idx === tableIndex ? { 
+              ...item, 
+              rowsFetched: tableRowsFetched,
+              chunksFetched: chunkIndex + 1 
+            } : item
+          ));
+
           // Table chunk separator to keep file readable
           await writeText('\n');
 
           if (!tableData.hasMore || rows.length < chunkSize) break;
         }
+
+        // Mark table as done
+        setTableProgressList(prev => prev.map((item, idx) => 
+          idx === tableIndex ? { ...item, status: 'done' as const, rowsFetched: tableRowsFetched } : item
+        ));
 
         // If table had rows but we never got any data back (rare), just skip it
         if (!columns) continue;
@@ -759,11 +822,20 @@ const SystemBackup = () => {
       // Refresh history
       fetchBackupHistory();
 
+      // Mark as complete
+      setIsBackupComplete(true);
+      setCurrentFetchingTable(null);
+
       toast.success(
         isRTL
           ? `تم حفظ النسخة الاحتياطية بنجاح (${exportedTables} جداول)`
           : `Backup saved successfully (${exportedTables} tables)`
       );
+
+      // Auto close dialog after 2 seconds
+      setTimeout(() => {
+        setShowProgressDialog(false);
+      }, 2000);
     } catch (error) {
       console.error('Backup error:', error);
       
@@ -780,6 +852,7 @@ const SystemBackup = () => {
       }
       
       toast.error(isRTL ? 'خطأ في إنشاء النسخة الاحتياطية' : 'Error creating backup');
+      setShowProgressDialog(false);
     } finally {
       setIsCompressing(false);
       setCurrentFetchingTable(null);
