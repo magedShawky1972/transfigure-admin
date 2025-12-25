@@ -98,9 +98,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     // Check for sysadmin session first
     const sysadminSession = sessionStorage.getItem("sysadmin_session");
     if (sysadminSession === "true") {
-      setIsSysadminSession(true);
-      setUserName("sysadmin");
-      setLoading(false);
+      (async () => {
+        try {
+          const { getSystemState } = await import("@/lib/systemState");
+          const state = await getSystemState();
+          if (state.needsRestore) {
+            navigate("/system-restore", { replace: true });
+            return;
+          }
+        } catch (e) {
+          console.error("Error checking system state (sysadmin session):", e);
+        }
+
+        setIsSysadminSession(true);
+        setUserName("sysadmin");
+        setLoading(false);
+      })();
       return;
     }
 
