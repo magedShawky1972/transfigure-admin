@@ -499,8 +499,8 @@ const SystemBackup = () => {
 
                 <p className="text-xs text-muted-foreground">
                   {isRTL
-                    ? 'ملاحظة: يتم تصدير حد أقصى 10,000 سجل لكل جدول.'
-                    : 'Note: export is limited to a maximum of 10,000 rows per table.'}
+                    ? 'ملاحظة: يتم تصدير جميع السجلات من كل جدول.'
+                    : 'Note: all rows from every table are exported.'}
                 </p>
               </div>
             )}
