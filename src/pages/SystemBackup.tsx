@@ -24,61 +24,184 @@ const SystemBackup = () => {
     sql += `-- Generated at: ${new Date().toISOString()}\n`;
     sql += '-- ================================================\n\n';
 
-    // Tables from structure
-    if (data.tables && Array.isArray(data.tables) && data.tables.length > 0) {
+    // Generate CREATE TABLE statements from columns info
+    if (data.columns && Array.isArray(data.columns) && data.columns.length > 0) {
+      // Group columns by table
+      const tableColumns: Record<string, any[]> = {};
+      for (const col of data.columns) {
+        if (!tableColumns[col.table_name]) {
+          tableColumns[col.table_name] = [];
+        }
+        tableColumns[col.table_name].push(col);
+      }
+
+      // Primary keys map
+      const pkMap: Record<string, string[]> = {};
+      if (data.primaryKeys && Array.isArray(data.primaryKeys)) {
+        for (const pk of data.primaryKeys) {
+          if (!pkMap[pk.table_name]) {
+            pkMap[pk.table_name] = [];
+          }
+          pkMap[pk.table_name].push(pk.column_name);
+        }
+      }
+
       sql += '-- ==================== TABLES ====================\n\n';
-      sql += '-- Table List with Row Counts:\n';
-      for (const table of data.tables) {
-        sql += `-- ${table.table_name}: ${table.row_count} rows\n`;
+
+      // Table list with row counts
+      if (data.tableRowCounts) {
+        sql += '-- Table List with Row Counts:\n';
+        for (const tableName of Object.keys(tableColumns).sort()) {
+          const rowCount = data.tableRowCounts[tableName] || 0;
+          sql += `-- ${tableName}: ${rowCount} rows\n`;
+        }
+        sql += '\n';
+      }
+
+      // CREATE TABLE statements
+      for (const tableName of Object.keys(tableColumns).sort()) {
+        sql += `-- Table: ${tableName}\n`;
+        sql += `CREATE TABLE IF NOT EXISTS public.${tableName} (\n`;
+        
+        const cols = tableColumns[tableName];
+        const colDefs: string[] = [];
+        
+        for (const col of cols) {
+          let colDef = `  ${col.column_name} `;
+          
+          // Map data type
+          if (col.udt_name === 'uuid') {
+            colDef += 'UUID';
+          } else if (col.udt_name === 'timestamptz') {
+            colDef += 'TIMESTAMP WITH TIME ZONE';
+          } else if (col.udt_name === 'timestamp') {
+            colDef += 'TIMESTAMP WITHOUT TIME ZONE';
+          } else if (col.udt_name === 'int4') {
+            colDef += 'INTEGER';
+          } else if (col.udt_name === 'int8') {
+            colDef += 'BIGINT';
+          } else if (col.udt_name === 'float8') {
+            colDef += 'DOUBLE PRECISION';
+          } else if (col.udt_name === 'float4') {
+            colDef += 'REAL';
+          } else if (col.udt_name === 'bool') {
+            colDef += 'BOOLEAN';
+          } else if (col.udt_name === 'jsonb') {
+            colDef += 'JSONB';
+          } else if (col.udt_name === 'json') {
+            colDef += 'JSON';
+          } else if (col.udt_name === '_text') {
+            colDef += 'TEXT[]';
+          } else if (col.udt_name === 'varchar' && col.character_maximum_length) {
+            colDef += `VARCHAR(${col.character_maximum_length})`;
+          } else if (col.udt_name === 'numeric' && col.numeric_precision) {
+            colDef += `NUMERIC(${col.numeric_precision}${col.numeric_scale ? ',' + col.numeric_scale : ''})`;
+          } else if (col.data_type) {
+            colDef += col.data_type.toUpperCase();
+          } else {
+            colDef += 'TEXT';
+          }
+          
+          // Default value
+          if (col.column_default) {
+            colDef += ` DEFAULT ${col.column_default}`;
+          }
+          
+          // Nullable
+          if (col.is_nullable === 'NO') {
+            colDef += ' NOT NULL';
+          }
+          
+          colDefs.push(colDef);
+        }
+        
+        // Add primary key constraint if exists
+        if (pkMap[tableName] && pkMap[tableName].length > 0) {
+          colDefs.push(`  PRIMARY KEY (${pkMap[tableName].join(', ')})`);
+        }
+        
+        sql += colDefs.join(',\n');
+        sql += '\n);\n\n';
+      }
+    }
+
+    // Foreign Keys
+    if (data.foreignKeys && Array.isArray(data.foreignKeys) && data.foreignKeys.length > 0) {
+      sql += '-- ==================== FOREIGN KEYS ====================\n\n';
+      for (const fk of data.foreignKeys) {
+        sql += `ALTER TABLE public.${fk.table_name}\n`;
+        sql += `  ADD CONSTRAINT ${fk.constraint_name}\n`;
+        sql += `  FOREIGN KEY (${fk.column_name})\n`;
+        sql += `  REFERENCES public.${fk.foreign_table_name}(${fk.foreign_column_name});\n\n`;
+      }
+    }
+
+    // Indexes
+    if (data.indexes && Array.isArray(data.indexes) && data.indexes.length > 0) {
+      sql += '-- ==================== INDEXES ====================\n\n';
+      for (const idx of data.indexes) {
+        // Skip primary key indexes
+        if (idx.indexname && !idx.indexname.endsWith('_pkey')) {
+          sql += `${idx.indexdef};\n`;
+        }
       }
       sql += '\n';
+    }
 
-      // Generate CREATE TABLE statements from generated_tables metadata
-      if (data.generatedTables && Array.isArray(data.generatedTables)) {
-        sql += '-- ==================== TABLE DEFINITIONS (from generated_tables) ====================\n\n';
-        for (const gt of data.generatedTables) {
-          if (gt.columns && Array.isArray(gt.columns)) {
-            sql += `-- Table: ${gt.table_name}\n`;
-            sql += `CREATE TABLE IF NOT EXISTS public.${gt.table_name.toLowerCase()} (\n`;
-            sql += `  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,\n`;
-            
-            for (const col of gt.columns) {
-              const colName = col.name?.toLowerCase().replace(/\s+/g, '_') || 'column';
-              const colType = mapColumnType(col.type);
-              const nullable = col.nullable !== false ? '' : ' NOT NULL';
-              sql += `  ${colName} ${colType}${nullable},\n`;
-            }
-            
-            sql += `  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),\n`;
-            sql += `  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()\n`;
-            sql += `);\n\n`;
-            sql += `ALTER TABLE public.${gt.table_name.toLowerCase()} ENABLE ROW LEVEL SECURITY;\n\n`;
-          }
+    // Functions
+    if (data.functions && Array.isArray(data.functions) && data.functions.length > 0) {
+      sql += '-- ==================== FUNCTIONS ====================\n\n';
+      for (const func of data.functions) {
+        if (func.function_definition) {
+          sql += `${func.function_definition};\n\n`;
         }
       }
     }
 
-    sql += '-- ==================== NOTES ====================\n\n';
-    sql += '-- This backup contains table structure based on available metadata.\n';
-    sql += '-- For complete schema including functions, triggers, and RLS policies,\n';
-    sql += '-- please export directly from the Supabase dashboard.\n';
-    sql += '\n';
+    // Triggers
+    if (data.triggers && Array.isArray(data.triggers) && data.triggers.length > 0) {
+      sql += '-- ==================== TRIGGERS ====================\n\n';
+      for (const trigger of data.triggers) {
+        if (trigger.trigger_name && trigger.event_object_table) {
+          sql += `CREATE TRIGGER ${trigger.trigger_name}\n`;
+          sql += `  ${trigger.action_timing} ${trigger.event_manipulation}\n`;
+          sql += `  ON public.${trigger.event_object_table}\n`;
+          sql += `  FOR EACH ROW\n`;
+          sql += `  ${trigger.action_statement};\n\n`;
+        }
+      }
+    }
+
+    // RLS Policies
+    if (data.policies && Array.isArray(data.policies) && data.policies.length > 0) {
+      sql += '-- ==================== RLS POLICIES ====================\n\n';
+      
+      // First enable RLS on tables
+      const tablesWithRLS = [...new Set(data.policies.map((p: any) => p.tablename))];
+      for (const table of tablesWithRLS) {
+        sql += `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;\n`;
+      }
+      sql += '\n';
+      
+      for (const policy of data.policies) {
+        if (policy.policyname && policy.tablename) {
+          sql += `CREATE POLICY "${policy.policyname}"\n`;
+          sql += `  ON public.${policy.tablename}\n`;
+          sql += `  AS ${policy.permissive === 'PERMISSIVE' ? 'PERMISSIVE' : 'RESTRICTIVE'}\n`;
+          sql += `  FOR ${policy.cmd}\n`;
+          sql += `  TO ${policy.roles || 'public'}\n`;
+          if (policy.qual) {
+            sql += `  USING (${policy.qual})\n`;
+          }
+          if (policy.with_check) {
+            sql += `  WITH CHECK (${policy.with_check})\n`;
+          }
+          sql += ';\n\n';
+        }
+      }
+    }
 
     return sql;
-  };
-
-  const mapColumnType = (type: string): string => {
-    const typeMap: Record<string, string> = {
-      'text': 'TEXT',
-      'integer': 'INTEGER',
-      'number': 'NUMERIC',
-      'boolean': 'BOOLEAN',
-      'date': 'DATE',
-      'timestamp': 'TIMESTAMP WITH TIME ZONE',
-      'uuid': 'UUID',
-      'json': 'JSONB',
-    };
-    return typeMap[type?.toLowerCase()] || 'TEXT';
   };
 
   const generateDataSQL = (tableData: Record<string, any[]>): string => {
@@ -203,8 +326,6 @@ const SystemBackup = () => {
   };
 
   const getTableCount = () => {
-    // Support both response shapes (old UI expected `columns`, new uses `tables`)
-    if (Array.isArray(structureResult?.tables)) return structureResult.tables.length;
     if (Array.isArray(structureResult?.columns)) {
       const tables = new Set(structureResult.columns.map((c: any) => c.table_name));
       return tables.size;
@@ -213,10 +334,22 @@ const SystemBackup = () => {
   };
 
   const getTotalRowCount = () => {
-    if (Array.isArray(structureResult?.tables)) {
-      return structureResult.tables.reduce((sum: number, t: any) => sum + (t.row_count || 0), 0);
+    if (structureResult?.tableRowCounts) {
+      return Object.values(structureResult.tableRowCounts).reduce((sum: number, count: any) => sum + (count || 0), 0);
     }
     return 0;
+  };
+
+  const getFunctionsCount = () => {
+    return structureResult?.functions?.length || 0;
+  };
+
+  const getTriggersCount = () => {
+    return structureResult?.triggers?.length || 0;
+  };
+
+  const getPoliciesCount = () => {
+    return structureResult?.policies?.length || 0;
   };
 
   const getDataRowCount = () => {
@@ -270,12 +403,18 @@ const SystemBackup = () => {
                   <span>{isRTL ? 'إجمالي السجلات:' : 'Total Rows:'}</span>
                   <span className="font-medium">{getTotalRowCount().toLocaleString()}</span>
                 </div>
-                {Array.isArray(structureResult?.generatedTables) && (
-                  <div className="flex justify-between text-sm">
-                    <span>{isRTL ? 'الجداول المُنشأة:' : 'Generated Tables:'}</span>
-                    <span className="font-medium">{structureResult.generatedTables.length}</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-sm">
+                  <span>{isRTL ? 'الدوال:' : 'Functions:'}</span>
+                  <span className="font-medium">{getFunctionsCount()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>{isRTL ? 'المشغلات:' : 'Triggers:'}</span>
+                  <span className="font-medium">{getTriggersCount()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>{isRTL ? 'السياسات:' : 'Policies:'}</span>
+                  <span className="font-medium">{getPoliciesCount()}</span>
+                </div>
               </div>
             )}
             
