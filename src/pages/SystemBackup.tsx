@@ -372,8 +372,8 @@ const SystemBackup = () => {
       const tables: string[] = tableListData.tables;
       const rowCounts: Record<string, number> = tableListData.rowCounts;
 
-      // Chunk size for pagination (10k rows per chunk to stay within edge function limits)
-      const chunkSize = 10000;
+      // Chunk size for pagination (keep payload small to avoid network timeouts)
+      const chunkSize = 2000;
 
       // Calculate total expected rows (ALL rows, no truncation)
       let expectedTotal = 0;
@@ -427,13 +427,24 @@ const SystemBackup = () => {
           ));
 
           const offset = chunkIndex * chunkSize;
-          
-          const { data: tableData, error: tableError } = await supabase.functions.invoke('database-backup', {
-            body: { type: 'data-single-table', tableName: tbl, chunkSize, offset }
-          });
 
-          if (tableError || !tableData.success) {
-            console.error(`Error fetching ${tbl} chunk ${chunkIndex + 1}:`, tableError || tableData.error);
+          // Network/timeouts can happen on big tables; retry a few times before failing the table.
+          const invokeChunk = async (attempt: number): Promise<{ data: any; error: any }> => {
+            const res = await supabase.functions.invoke('database-backup', {
+              body: { type: 'data-single-table', tableName: tbl, chunkSize, offset }
+            });
+            if (!res.error && res.data?.success) return res as any;
+
+            if (attempt >= 3) return res as any;
+            const waitMs = 500 * Math.pow(2, attempt - 1);
+            await new Promise((r) => setTimeout(r, waitMs));
+            return invokeChunk(attempt + 1);
+          };
+
+          const { data: tableData, error: tableError } = await invokeChunk(1);
+
+          if (tableError || !tableData?.success) {
+            console.error(`Error fetching ${tbl} chunk ${chunkIndex + 1}:`, tableError || tableData?.error);
             hasError = true;
             break;
           }
