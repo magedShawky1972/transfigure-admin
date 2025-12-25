@@ -82,58 +82,58 @@ interface UserPermission {
 }
 
   const MENU_ITEMS = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "ticket_dashboard", label: "Ticket Dashboard" },
-    { key: "shift_dashboard", label: "Shift Dashboard" },
-    { key: "task_dashboard", label: "Task Dashboard" },
-    { key: "user_dashboard", label: "User Dashboard" },
-    { key: "api_documentation", label: "API Documentation" },
-    { key: "softwareLicenses", label: "Software Licenses" },
-    { key: "reports", label: "Reports" },
-  { key: "transactions", label: "Transactions" },
-  { key: "pivotTable", label: "Pivot Table" },
-  { key: "loadData", label: "Load Data" },
-  { key: "uploadLog", label: "Upload Log" },
-  { key: "clearData", label: "Clear Data" },
-  { key: "tickets", label: "My Tickets" },
-  { key: "admin_tickets", label: "Department Tickets" },
-  { key: "softwareLicenseSetup", label: "License Entry" },
-  { key: "shiftSession", label: "Shift Session" },
-  { key: "myShifts", label: "My Shifts Calendar" },
-  { key: "shiftFollowUp", label: "Shift Follow-Up" },
-  { key: "tawasoul", label: "Tawasoul (تواصل)" },
-  { key: "companyNews", label: "Company News (أخبار الشركة)" },
-  { key: "reportsSetup", label: "Reports Setup" },
-  { key: "customerSetup", label: "Customer Setup" },
-  { key: "customerProfile", label: "Customer Profile" },
-  { key: "customerTotals", label: "Customer Totals" },
-  { key: "brandSetup", label: "Brand Setup" },
-  { key: "brandType", label: "Brand Type" },
-  { key: "productSetup", label: "Product Setup" },
-  { key: "paymentMethodSetup", label: "Payment Method Setup" },
-  { key: "department_management", label: "Department Management" },
-  { key: "userSetup", label: "User Setup" },
-  { key: "shiftSetup", label: "Shift Setup" },
-  { key: "shiftCalendar", label: "Shift Calendar" },
-  { key: "currencySetup", label: "Currency Setup" },
-  { key: "userGroupSetup", label: "User Groups" },
-  { key: "projectsTasks", label: "Projects & Tasks" },
-  { key: "companyHierarchy", label: "Company Hierarchy" },
-  { key: "supplierSetup", label: "Supplier Setup" },
-  { key: "userLogins", label: "Users Logins" },
-  { key: "userEmails", label: "Users & Mails" },
-  { key: "asusTawasoul", label: "Asus Tawasoul" },
-  { key: "emailManager", label: "Email Manager" },
-  { key: "mailSetup", label: "Mail Setup" },
-  { key: "systemConfig", label: "System Configuration" },
-  { key: "closingTraining", label: "Closing Training" },
-  { key: "odooSetup", label: "Odoo Setup" },
-  { key: "excelSetup", label: "Excel Setup" },
-  { key: "tableConfig", label: "Table Config" },
-  { key: "pdfToExcel", label: "PDF to Excel (تحويل PDF إلى Excel)" },
-  { key: "systemBackup", label: "System Backup (نسخ احتياطي)" },
-  { key: "systemRestore", label: "System Restore (استعادة النظام)" },
-];
+    { key: "dashboard", label: "لوحة التحكم", labelEn: "Dashboard" },
+    { key: "ticket_dashboard", label: "لوحة التذاكر", labelEn: "Ticket Dashboard" },
+    { key: "shift_dashboard", label: "لوحة الورديات", labelEn: "Shift Dashboard" },
+    { key: "task_dashboard", label: "لوحة المهام", labelEn: "Task Dashboard" },
+    { key: "user_dashboard", label: "لوحة المستخدم", labelEn: "User Dashboard" },
+    { key: "api_documentation", label: "توثيق API", labelEn: "API Documentation" },
+    { key: "softwareLicenses", label: "البرامج والتراخيص", labelEn: "Software Licenses" },
+    { key: "reports", label: "التقارير", labelEn: "Reports" },
+    { key: "transactions", label: "المعاملات", labelEn: "Transactions" },
+    { key: "pivotTable", label: "الجدول المحوري", labelEn: "Pivot Table" },
+    { key: "loadData", label: "تحميل البيانات", labelEn: "Load Data" },
+    { key: "uploadLog", label: "سجل التحميل", labelEn: "Upload Log" },
+    { key: "clearData", label: "مسح البيانات", labelEn: "Clear Data" },
+    { key: "tickets", label: "تذاكري", labelEn: "My Tickets" },
+    { key: "admin_tickets", label: "تذاكر القسم", labelEn: "Department Tickets" },
+    { key: "softwareLicenseSetup", label: "إدخال الترخيص", labelEn: "License Entry" },
+    { key: "shiftSession", label: "جلسة الوردية", labelEn: "Shift Session" },
+    { key: "myShifts", label: "تقويم وردياتي", labelEn: "My Shifts Calendar" },
+    { key: "shiftFollowUp", label: "متابعة الورديات", labelEn: "Shift Follow-Up" },
+    { key: "tawasoul", label: "تواصل", labelEn: "Tawasoul" },
+    { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
+    { key: "reportsSetup", label: "إعداد التقارير", labelEn: "Reports Setup" },
+    { key: "customerSetup", label: "إعداد العملاء", labelEn: "Customer Setup" },
+    { key: "customerProfile", label: "ملف العميل", labelEn: "Customer Profile" },
+    { key: "customerTotals", label: "إجمالي العملاء", labelEn: "Customer Totals" },
+    { key: "brandSetup", label: "إعداد العلامات", labelEn: "Brand Setup" },
+    { key: "brandType", label: "نوع العلامة", labelEn: "Brand Type" },
+    { key: "productSetup", label: "إعداد المنتجات", labelEn: "Product Setup" },
+    { key: "paymentMethodSetup", label: "إعداد طرق الدفع", labelEn: "Payment Method Setup" },
+    { key: "department_management", label: "إدارة الأقسام", labelEn: "Department Management" },
+    { key: "userSetup", label: "إعداد المستخدمين", labelEn: "User Setup" },
+    { key: "shiftSetup", label: "إعداد الورديات", labelEn: "Shift Setup" },
+    { key: "shiftCalendar", label: "تقويم الورديات", labelEn: "Shift Calendar" },
+    { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
+    { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
+    { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
+    { key: "companyHierarchy", label: "الهيكل التنظيمي", labelEn: "Company Hierarchy" },
+    { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
+    { key: "userLogins", label: "بيانات تسجيل الدخول", labelEn: "Users Logins" },
+    { key: "userEmails", label: "المستخدمين والبريد", labelEn: "Users & Mails" },
+    { key: "asusTawasoul", label: "أسس تواصل", labelEn: "Asus Tawasoul" },
+    { key: "emailManager", label: "مدير البريد", labelEn: "Email Manager" },
+    { key: "mailSetup", label: "إعداد البريد", labelEn: "Mail Setup" },
+    { key: "systemConfig", label: "إعدادات النظام", labelEn: "System Configuration" },
+    { key: "closingTraining", label: "تدريب الإغلاق", labelEn: "Closing Training" },
+    { key: "odooSetup", label: "إعداد Odoo", labelEn: "Odoo Setup" },
+    { key: "excelSetup", label: "إعداد Excel", labelEn: "Excel Setup" },
+    { key: "tableConfig", label: "إعداد الجداول", labelEn: "Table Config" },
+    { key: "pdfToExcel", label: "تحويل PDF إلى Excel", labelEn: "PDF to Excel" },
+    { key: "systemBackup", label: "نسخ احتياطي", labelEn: "System Backup" },
+    { key: "systemRestore", label: "استعادة النظام", labelEn: "System Restore" },
+  ];
 
 const DASHBOARD_COMPONENTS = [
   { key: "sales_metrics", label: "Sales Metrics" },
@@ -177,7 +177,7 @@ const REPORTS = [
 ];
 
 const UserSetup = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1420,16 +1420,18 @@ const UserSetup = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Security Settings - {selectedUser?.user_name}
+              {language === 'ar' ? 'إعدادات الأمان' : 'Security Settings'} - {selectedUser?.user_name}
             </DialogTitle>
           </DialogHeader>
           
           {loadingPermissions ? (
-            <div className="py-8 text-center">Loading permissions...</div>
+            <div className="py-8 text-center">{language === 'ar' ? 'جاري التحميل...' : 'Loading permissions...'}</div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Enable or disable access to menu items for this user. Disabled items will not appear in their sidebar.
+                {language === 'ar' 
+                  ? 'تمكين أو تعطيل الوصول إلى عناصر القائمة لهذا المستخدم. العناصر المعطلة لن تظهر في القائمة الجانبية.'
+                  : 'Enable or disable access to menu items for this user. Disabled items will not appear in their sidebar.'}
               </p>
               
               <div className="space-y-3">
@@ -1437,7 +1439,7 @@ const UserSetup = () => {
                   <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                     <div className="flex items-center gap-2 flex-1">
                       <Label htmlFor={`perm-${item.key}`} className="cursor-pointer">
-                        {item.label}
+                        {language === 'ar' ? item.label : item.labelEn}
                       </Label>
                       {item.key === "dashboard" && userPermissions[item.key] && (
                         <Button
@@ -1445,7 +1447,7 @@ const UserSetup = () => {
                           size="sm"
                           onClick={handleDashboardClick}
                         >
-                          Configure Components
+                          {language === 'ar' ? 'إعداد المكونات' : 'Configure Components'}
                         </Button>
                       )}
                       {item.key === "reports" && userPermissions[item.key] && (
@@ -1454,7 +1456,7 @@ const UserSetup = () => {
                           size="sm"
                           onClick={handleReportsClick}
                         >
-                          Configure Reports
+                          {language === 'ar' ? 'إعداد التقارير' : 'Configure Reports'}
                         </Button>
                       )}
                     </div>
