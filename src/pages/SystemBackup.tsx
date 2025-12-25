@@ -519,32 +519,167 @@ const SystemBackup = () => {
   };
 
   const handleDownloadData = async () => {
-    if (!dataResult) return;
-    
+    // NOTE: For very large exports (e.g. 1M+ rows), building a single SQL string can
+    // crash the browser with "RangeError: Invalid string length". We stream-generate
+    // the SQL and compress it on the fly instead.
+
     setIsCompressing(true);
-    toast.info(isRTL ? 'جاري إنشاء وضغط الملف...' : 'Generating and compressing file...');
-    
+    toast.info(isRTL ? 'جاري إنشاء وضغط الملف (قد يستغرق وقتاً)...' : 'Generating and compressing file (this may take a while)...');
+
+    const escapeValue = (value: any): string => {
+      if (value === null || value === undefined) return 'NULL';
+      if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+      if (typeof value === 'number') return String(value);
+      if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
+      return `'${String(value).replace(/'/g, "''")}'`;
+    };
+
     try {
-      // Use setTimeout to allow UI to update before heavy processing
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const sql = generateDataSQL(dataResult);
+      // Allow UI to paint before heavy work starts
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
       const timestamp = new Date().toISOString().split('T')[0];
-      
-      // Try compressed download first, fallback to uncompressed
-      const compressed = await downloadCompressedFile(sql, `edara_data_${timestamp}.sql.gz`);
-      if (compressed) {
-        toast.success(isRTL ? 'تم تحميل ملف البيانات المضغوط' : 'Compressed data file downloaded');
-      } else {
-        // Fallback to uncompressed
-        downloadFile(sql, `edara_data_${timestamp}.sql`);
-        toast.success(isRTL ? 'تم تحميل ملف البيانات' : 'Data file downloaded');
+      const filename = `edara_data_${timestamp}.sql.gz`;
+
+      // Get table list + counts
+      const { data: tableListData, error: tableListError } = await supabase.functions.invoke('database-backup', {
+        body: { type: 'table-list' },
+      });
+      if (tableListError) throw tableListError;
+      if (!tableListData?.success) throw new Error(tableListData?.error || 'Failed to get table list');
+
+      const tables: string[] = tableListData.tables || [];
+      const rowCounts: Record<string, number> = tableListData.rowCounts || {};
+
+      // Keep chunks small to avoid timeouts
+      const chunkSize = 2000;
+
+      // Build gzip stream writer (no huge intermediate string)
+      const gzip = new CompressionStream('gzip');
+      const writer = gzip.writable.getWriter();
+      const encoder = new TextEncoder();
+
+      const writeText = async (text: string) => {
+        await writer.write(encoder.encode(text));
+      };
+
+      // Header
+      await writeText('-- Edara Database Data Backup\n');
+      await writeText(`-- Generated at: ${new Date().toISOString()}\n`);
+      await writeText('-- ================================================\n\n');
+
+      let exportedTables = 0;
+
+      for (const tableName of tables.sort()) {
+        const totalRows = rowCounts[tableName] || 0;
+        if (totalRows === 0) continue;
+
+        exportedTables += 1;
+
+        const chunksTotal = Math.ceil(totalRows / chunkSize) || 1;
+        setCurrentFetchingTable(tableName);
+        setTotalChunksForCurrentTable(chunksTotal);
+
+        // Discover columns from the first non-empty chunk
+        let columns: string[] | null = null;
+        let wroteTableHeader = false;
+
+        for (let chunkIndex = 0; chunkIndex < chunksTotal; chunkIndex++) {
+          setCurrentChunk(chunkIndex + 1);
+
+          const offset = chunkIndex * chunkSize;
+
+          const invokeChunk = async (attempt: number): Promise<{ data: any; error: any }> => {
+            const res = await supabase.functions.invoke('database-backup', {
+              body: { type: 'data-single-table', tableName, chunkSize, offset },
+            });
+            if (!res.error && res.data?.success) return res as any;
+            if (attempt >= 3) return res as any;
+            const waitMs = 500 * Math.pow(2, attempt - 1);
+            await new Promise((r) => setTimeout(r, waitMs));
+            return invokeChunk(attempt + 1);
+          };
+
+          const { data: tableData, error: tableError } = await invokeChunk(1);
+          if (tableError || !tableData?.success) {
+            throw new Error(tableData?.error || tableError?.message || `Failed to fetch ${tableName} chunk ${chunkIndex + 1}`);
+          }
+
+          const rows: any[] = tableData.data || [];
+          if (rows.length === 0) {
+            if (!tableData.hasMore) break;
+            continue;
+          }
+
+          if (!columns) {
+            columns = Object.keys(rows[0]);
+            await writeText(`-- ==================== ${tableName.toUpperCase()} (${totalRows.toLocaleString()} rows) ====================\n\n`);
+            wroteTableHeader = true;
+          }
+
+          if (!wroteTableHeader && columns) {
+            await writeText(`-- ==================== ${tableName.toUpperCase()} (${totalRows.toLocaleString()} rows) ====================\n\n`);
+            wroteTableHeader = true;
+          }
+
+          // Write INSERTs row-by-row to avoid huge strings
+          for (const row of rows) {
+            const values = columns.map((col) => escapeValue(row?.[col]));
+            await writeText(`INSERT INTO public.${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`);
+          }
+
+          // Table chunk separator to keep file readable
+          await writeText('\n');
+
+          if (!tableData.hasMore || rows.length < chunkSize) break;
+        }
+
+        // If table had rows but we never got any data back (rare), just skip it
+        if (!columns) continue;
       }
+
+      await writer.close();
+
+      // Read compressed bytes
+      const reader = gzip.readable.getReader();
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+
+      const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+      const compressedData = new Uint8Array(totalLength);
+      let byteOffset = 0;
+      for (const c of chunks) {
+        compressedData.set(c, byteOffset);
+        byteOffset += c.length;
+      }
+
+      const blob = new Blob([compressedData], { type: 'application/gzip' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        isRTL
+          ? `تم بدء تنزيل ملف البيانات المضغوط (${exportedTables} جداول)`
+          : `Compressed data file download started (${exportedTables} tables)`
+      );
     } catch (error) {
       console.error('Download error:', error);
       toast.error(isRTL ? 'خطأ في تحميل الملف' : 'Error downloading file');
     } finally {
       setIsCompressing(false);
+      setCurrentFetchingTable(null);
+      setCurrentChunk(0);
+      setTotalChunksForCurrentTable(0);
     }
   };
 
