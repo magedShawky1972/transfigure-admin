@@ -15,7 +15,9 @@ export async function getSystemState(): Promise<SystemState> {
 
   const { error, count } = await supabase
     .from("profiles")
-    .select("id", { count: "exact", head: true });
+    // Avoid HEAD requests (some proxies/extensions block them and cause "Failed to fetch")
+    .select("id", { count: "exact" })
+    .limit(1);
 
   if (error) {
     const msg = (error as any)?.message as string | undefined;
