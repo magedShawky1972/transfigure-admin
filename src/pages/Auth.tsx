@@ -583,7 +583,7 @@ const Auth = () => {
                 </Label>
                 <Input
                   id="email"
-                  type={systemState?.needsInitialUser ? "text" : "email"}
+                  type={systemState?.needsInitialUser || email.toLowerCase() === "sysadmin" ? "text" : "email"}
                   placeholder={systemState?.needsInitialUser 
                     ? (language === "ar" ? "أدخل اسم المستخدم" : "Enter username")
                     : t("auth.emailPlaceholder")}
