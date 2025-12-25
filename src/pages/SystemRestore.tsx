@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,6 +26,7 @@ interface TableRestoreItem {
 }
 
 const SystemRestore = () => {
+  const navigate = useNavigate();
   const { language } = useLanguage();
   const isRTL = language === 'ar';
   
@@ -607,6 +609,22 @@ const SystemRestore = () => {
               </Table>
             </ScrollArea>
           </div>
+          
+          {/* Logout button after restore completes */}
+          {isRestoreComplete && (
+            <div className="flex justify-center pt-4 border-t">
+              <Button 
+                onClick={() => {
+                  sessionStorage.removeItem("sysadmin_session");
+                  navigate("/auth");
+                }}
+                className="w-full"
+              >
+                <LogOut className="h-4 w-4 me-2" />
+                {isRTL ? 'الذهاب إلى تسجيل الدخول' : 'Go to Login'}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
