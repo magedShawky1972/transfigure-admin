@@ -1,16 +1,17 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 
 interface RestoreProgress {
   structure: 'idle' | 'parsing' | 'executing' | 'done' | 'error';
@@ -25,10 +26,22 @@ interface TableRestoreItem {
   errorMessage?: string;
 }
 
+interface SystemState {
+  tableExists: boolean;
+  usersCount: number;
+  needsRestore: boolean;
+  needsInitialUser: boolean;
+}
+
 const SystemRestore = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isRTL = language === 'ar';
+  
+  const [checkingSystem, setCheckingSystem] = useState(true);
+  const [systemState, setSystemState] = useState<SystemState | null>(null);
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false);
+  const [userConfirmedRestore, setUserConfirmedRestore] = useState(false);
   
   const [progress, setProgress] = useState<RestoreProgress>({ structure: 'idle', data: 'idle' });
   const [structureFile, setStructureFile] = useState<File | null>(null);
@@ -44,6 +57,50 @@ const SystemRestore = () => {
   
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
+
+  // Check system state on mount
+  useEffect(() => {
+    checkSystemState();
+  }, []);
+
+  const checkSystemState = async () => {
+    setCheckingSystem(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-system-state");
+      
+      if (error) {
+        console.error("Error checking system state:", error);
+        // If error, assume user came here intentionally
+        setSystemState(null);
+        setUserConfirmedRestore(true);
+      } else {
+        setSystemState(data);
+        
+        // If database needs restore, show confirmation dialog
+        if (data.needsRestore) {
+          setShowRestoreConfirmation(true);
+        } else {
+          // Database is fine, user came here from menu - allow access
+          setUserConfirmedRestore(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking system state:", error);
+      setUserConfirmedRestore(true);
+    } finally {
+      setCheckingSystem(false);
+    }
+  };
+
+  const handleConfirmRestore = () => {
+    setShowRestoreConfirmation(false);
+    setUserConfirmedRestore(true);
+  };
+
+  const handleDeclineRestore = () => {
+    setShowRestoreConfirmation(false);
+    navigate("/auth");
+  };
 
   const handleStructureFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -344,6 +401,78 @@ const SystemRestore = () => {
   const overallProgress = totalRowsExpected > 0 
     ? Math.round((totalRowsInserted / totalRowsExpected) * 100) 
     : 0;
+
+  // Show loading state while checking system
+  if (checkingSystem) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground text-center">
+              {isRTL ? 'جاري فحص حالة النظام...' : 'Checking system state...'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show confirmation dialog when database needs restore
+  if (showRestoreConfirmation && !userConfirmedRestore) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-lg mx-4">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
+              <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+            </div>
+            <CardTitle className="text-xl">
+              {isRTL ? 'لم يتم العثور على جداول قاعدة البيانات' : 'Database Tables Not Found'}
+            </CardTitle>
+            <CardDescription className="text-base mt-2">
+              {isRTL 
+                ? 'النظام لم يتمكن من العثور على أي جداول في قاعدة البيانات. هل تريد استعادة قاعدة البيانات؟' 
+                : 'The system could not find any tables in the database. Do you want to restore the database?'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+              {isRTL ? (
+                <ul className="list-disc list-inside space-y-1">
+                  <li>ستحتاج إلى ملف هيكل قاعدة البيانات (.sql)</li>
+                  <li>ستحتاج إلى ملف البيانات (.sql.gz أو .sql)</li>
+                </ul>
+              ) : (
+                <ul className="list-disc list-inside space-y-1">
+                  <li>You will need a database structure file (.sql)</li>
+                  <li>You will need a data file (.sql.gz or .sql)</li>
+                </ul>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleDeclineRestore}
+                className="flex-1"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                {isRTL ? 'لا، العودة' : 'No, Go Back'}
+              </Button>
+              <Button
+                onClick={handleConfirmRestore}
+                className="flex-1"
+              >
+                <Database className="h-4 w-4 mr-2" />
+                {isRTL ? 'نعم، استعادة' : 'Yes, Restore'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className={`container mx-auto p-6 space-y-6 ${isRTL ? 'rtl' : 'ltr'}`}>

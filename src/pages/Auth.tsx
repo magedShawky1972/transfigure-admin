@@ -79,6 +79,7 @@ const Auth = () => {
         setSystemState(data);
         
         // If database needs restore, redirect to system restore page
+        // The restore page will handle showing the confirmation message
         if (data.needsRestore) {
           navigate("/system-restore");
           return;
