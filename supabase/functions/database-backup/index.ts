@@ -5,6 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Use a connection string to query system tables directly
+const SUPABASE_DB_URL = Deno.env.get('SUPABASE_DB_URL');
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -20,233 +23,168 @@ Deno.serve(async (req) => {
     console.log(`Starting database backup: ${type}`);
 
     if (type === 'structure') {
-      // Get all tables
-      const { data: tables, error: tablesError } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_type = 'BASE TABLE'
-          ORDER BY table_name
-        `
-      });
+      // Get all public tables from generated_tables
+      const { data: generatedTables, error: genTablesError } = await supabase
+        .from('generated_tables')
+        .select('table_name, columns, status');
+      
+      if (genTablesError) {
+        console.error('Error fetching generated_tables:', genTablesError);
+      }
 
-      // Get table definitions with columns
-      const { data: columns, error: columnsError } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            c.table_name,
-            c.column_name,
-            c.data_type,
-            c.column_default,
-            c.is_nullable,
-            c.character_maximum_length,
-            c.numeric_precision,
-            c.numeric_scale,
-            c.udt_name
-          FROM information_schema.columns c
-          WHERE c.table_schema = 'public'
-          ORDER BY c.table_name, c.ordinal_position
-        `
-      });
+      // Get all known public tables by querying each one
+      const knownTables = [
+        'api_field_configs', 'api_keys', 'brand_closing_training', 'brand_type', 'brands',
+        'company_news', 'crm_customer_followup', 'currencies', 'currency_rates', 'customers',
+        'deleted_email_ids', 'department_admins', 'department_members', 'department_task_phases',
+        'departments', 'email_attachments', 'email_contacts', 'emails', 'excel_column_mappings',
+        'excel_sheets', 'generated_tables', 'hyberpaystatement', 'internal_conversation_participants',
+        'internal_conversations', 'internal_messages', 'job_positions', 'ludo_training',
+        'ludo_transactions', 'mail_types', 'notifications', 'odoo_api_config', 'order_payment',
+        'ordertotals', 'payment_methods', 'payment_transactions', 'products', 'profiles',
+        'project_members', 'projects', 'purchase_items', 'purpletransaction', 'push_subscriptions',
+        'query_cache', 'riyadbankstatement', 'shift_closing_images', 'shift_closing_numbers',
+        'shift_plans', 'shift_sessions', 'shifts', 'software_licenses', 'supplier_products',
+        'suppliers', 'system_config', 'task_attachments', 'task_time_entries', 'tasks',
+        'ticket_actions', 'ticket_attachments', 'tickets', 'upload_logs', 'user_groups',
+        'user_permissions', 'user_roles', 'user_email_configs', 'whatsapp_messages'
+      ];
 
-      // Get primary keys
-      const { data: primaryKeys } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            tc.table_name,
-            kcu.column_name
-          FROM information_schema.table_constraints tc
-          JOIN information_schema.key_column_usage kcu 
-            ON tc.constraint_name = kcu.constraint_name
-            AND tc.table_schema = kcu.table_schema
-          WHERE tc.constraint_type = 'PRIMARY KEY'
-          AND tc.table_schema = 'public'
-        `
-      });
+      // Build table info by checking each table
+      const tableInfo: any[] = [];
+      for (const tableName of knownTables) {
+        try {
+          const { count } = await supabase
+            .from(tableName)
+            .select('*', { count: 'exact', head: true });
+          
+          tableInfo.push({
+            table_name: tableName,
+            row_count: count || 0
+          });
+        } catch (e) {
+          // Table might not exist, skip it
+          console.log(`Table ${tableName} not accessible`);
+        }
+      }
 
-      // Get foreign keys
-      const { data: foreignKeys } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT
-            tc.table_name,
-            kcu.column_name,
-            ccu.table_name AS foreign_table_name,
-            ccu.column_name AS foreign_column_name,
-            tc.constraint_name
-          FROM information_schema.table_constraints AS tc
-          JOIN information_schema.key_column_usage AS kcu
-            ON tc.constraint_name = kcu.constraint_name
-            AND tc.table_schema = kcu.table_schema
-          JOIN information_schema.constraint_column_usage AS ccu
-            ON ccu.constraint_name = tc.constraint_name
-            AND ccu.table_schema = tc.table_schema
-          WHERE tc.constraint_type = 'FOREIGN KEY'
-          AND tc.table_schema = 'public'
-        `
-      });
+      // Add generated tables
+      if (generatedTables) {
+        for (const gt of generatedTables) {
+          if (!knownTables.includes(gt.table_name.toLowerCase())) {
+            try {
+              const { count } = await supabase
+                .from(gt.table_name.toLowerCase())
+                .select('*', { count: 'exact', head: true });
+              
+              tableInfo.push({
+                table_name: gt.table_name,
+                row_count: count || 0,
+                columns: gt.columns
+              });
+            } catch (e) {
+              console.log(`Generated table ${gt.table_name} not accessible`);
+            }
+          }
+        }
+      }
 
-      // Get functions
-      const { data: functions } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            p.proname AS function_name,
-            pg_get_functiondef(p.oid) AS function_definition
-          FROM pg_proc p
-          JOIN pg_namespace n ON p.pronamespace = n.oid
-          WHERE n.nspname = 'public'
-          AND p.prokind = 'f'
-          ORDER BY p.proname
-        `
-      });
+      // Get database functions using information_schema approach via RPC
+      // Since exec_sql returns void, we need a different approach
+      // We'll return the structure info we can gather
+      
+      const structureData = {
+        tables: tableInfo,
+        generatedTables: generatedTables || [],
+        // Note: Functions, triggers, policies require direct DB access
+        // We'll provide what we can from the client
+        functionsNote: 'Database functions are stored in pg_proc system table',
+        triggersNote: 'Triggers are stored in information_schema.triggers',
+        policiesNote: 'RLS policies are stored in pg_policies'
+      };
 
-      // Get triggers
-      const { data: triggers } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            trigger_name,
-            event_manipulation,
-            event_object_table,
-            action_statement,
-            action_timing
-          FROM information_schema.triggers
-          WHERE trigger_schema = 'public'
-          ORDER BY event_object_table, trigger_name
-        `
-      });
-
-      // Get views
-      const { data: views } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            table_name AS view_name,
-            view_definition
-          FROM information_schema.views
-          WHERE table_schema = 'public'
-          ORDER BY table_name
-        `
-      });
-
-      // Get indexes
-      const { data: indexes } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            indexname,
-            tablename,
-            indexdef
-          FROM pg_indexes
-          WHERE schemaname = 'public'
-          ORDER BY tablename, indexname
-        `
-      });
-
-      // Get sequences
-      const { data: sequences } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT sequence_name
-          FROM information_schema.sequences
-          WHERE sequence_schema = 'public'
-          ORDER BY sequence_name
-        `
-      });
-
-      // Get RLS policies
-      const { data: policies } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            schemaname,
-            tablename,
-            policyname,
-            permissive,
-            roles,
-            cmd,
-            qual,
-            with_check
-          FROM pg_policies
-          WHERE schemaname = 'public'
-          ORDER BY tablename, policyname
-        `
-      });
-
-      // Get enums/custom types
-      const { data: enums } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT 
-            t.typname AS enum_name,
-            array_agg(e.enumlabel ORDER BY e.enumsortorder) AS enum_values
-          FROM pg_type t
-          JOIN pg_enum e ON t.oid = e.enumtypid
-          JOIN pg_namespace n ON t.typnamespace = n.oid
-          WHERE n.nspname = 'public'
-          GROUP BY t.typname
-          ORDER BY t.typname
-        `
-      });
+      console.log(`Found ${tableInfo.length} tables`);
 
       return new Response(
         JSON.stringify({
           success: true,
           type: 'structure',
-          data: {
-            tables,
-            columns,
-            primaryKeys,
-            foreignKeys,
-            functions,
-            triggers,
-            views,
-            indexes,
-            sequences,
-            policies,
-            enums
-          }
+          data: structureData
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
     } else if (type === 'data') {
-      // Get all tables
-      const { data: tablesResult } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_type = 'BASE TABLE'
-          ORDER BY table_name
-        `
-      });
+      // Get all tables from generated_tables first
+      const { data: generatedTables } = await supabase
+        .from('generated_tables')
+        .select('table_name');
 
-      const tableData: Record<string, any[]> = {};
+      const knownTables = [
+        'api_field_configs', 'api_keys', 'brand_closing_training', 'brand_type', 'brands',
+        'company_news', 'crm_customer_followup', 'currencies', 'currency_rates', 'customers',
+        'deleted_email_ids', 'department_admins', 'department_members', 'department_task_phases',
+        'departments', 'email_attachments', 'email_contacts', 'emails', 'excel_column_mappings',
+        'excel_sheets', 'generated_tables', 'hyberpaystatement', 'internal_conversation_participants',
+        'internal_conversations', 'internal_messages', 'job_positions', 'ludo_training',
+        'ludo_transactions', 'mail_types', 'notifications', 'odoo_api_config', 'order_payment',
+        'ordertotals', 'payment_methods', 'payment_transactions', 'products', 'profiles',
+        'project_members', 'projects', 'purchase_items', 'purpletransaction', 'push_subscriptions',
+        'query_cache', 'riyadbankstatement', 'shift_closing_images', 'shift_closing_numbers',
+        'shift_plans', 'shift_sessions', 'shifts', 'software_licenses', 'supplier_products',
+        'suppliers', 'system_config', 'task_attachments', 'task_time_entries', 'tasks',
+        'ticket_actions', 'ticket_attachments', 'tickets', 'upload_logs', 'user_groups',
+        'user_permissions', 'user_roles', 'user_email_configs', 'whatsapp_messages'
+      ];
 
-      // For each table, fetch all data
-      if (tablesResult && Array.isArray(tablesResult)) {
-        for (const row of tablesResult) {
-          const tableName = row.table_name;
-          
-          // Skip system tables that shouldn't be backed up
-          if (tableName.startsWith('_') || tableName === 'schema_migrations') {
-            continue;
-          }
-
-          try {
-            // Fetch data using a direct query to get all rows
-            const { data: tableRows, error } = await supabase
-              .from(tableName)
-              .select('*')
-              .limit(50000); // Limit to prevent memory issues
-
-            if (!error && tableRows) {
-              tableData[tableName] = tableRows;
-            } else {
-              console.log(`Skipping table ${tableName}: ${error?.message || 'No data'}`);
-              tableData[tableName] = [];
-            }
-          } catch (e) {
-            console.log(`Error fetching ${tableName}:`, e);
-            tableData[tableName] = [];
+      // Add generated tables
+      if (generatedTables) {
+        for (const gt of generatedTables) {
+          const tableName = gt.table_name.toLowerCase();
+          if (!knownTables.includes(tableName)) {
+            knownTables.push(tableName);
           }
         }
       }
+
+      const tableData: Record<string, any[]> = {};
+      let totalRows = 0;
+
+      for (const tableName of knownTables) {
+        try {
+          // Fetch data in pages to handle large tables
+          const pageSize = 1000;
+          const maxRows = 10000;
+          const allRows: any[] = [];
+
+          for (let from = 0; from < maxRows; from += pageSize) {
+            const { data: rows, error } = await supabase
+              .from(tableName)
+              .select('*')
+              .range(from, from + pageSize - 1);
+
+            if (error) {
+              console.log(`Error fetching ${tableName}: ${error.message}`);
+              break;
+            }
+
+            if (!rows || rows.length === 0) break;
+            allRows.push(...rows);
+            
+            if (rows.length < pageSize) break;
+          }
+
+          if (allRows.length > 0) {
+            tableData[tableName] = allRows;
+            totalRows += allRows.length;
+            console.log(`Fetched ${allRows.length} rows from ${tableName}`);
+          }
+        } catch (e) {
+          console.log(`Error accessing table ${tableName}:`, e);
+        }
+      }
+
+      console.log(`Total rows fetched: ${totalRows}`);
 
       return new Response(
         JSON.stringify({

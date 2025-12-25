@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Download, Database, FileText, Loader2, CheckCircle2 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface BackupProgress {
   structure: 'idle' | 'loading' | 'done' | 'error';
@@ -25,204 +24,61 @@ const SystemBackup = () => {
     sql += `-- Generated at: ${new Date().toISOString()}\n`;
     sql += '-- ================================================\n\n';
 
-    // Enums/Custom Types
-    if (data.enums && Array.isArray(data.enums) && data.enums.length > 0) {
-      sql += '-- ==================== ENUMS ====================\n\n';
-      for (const enumType of data.enums) {
-        if (enumType.enum_name && enumType.enum_values) {
-          const values = Array.isArray(enumType.enum_values) 
-            ? enumType.enum_values.map((v: string) => `'${v}'`).join(', ')
-            : enumType.enum_values;
-          sql += `CREATE TYPE public.${enumType.enum_name} AS ENUM (${values});\n\n`;
-        }
-      }
-    }
-
-    // Sequences
-    if (data.sequences && Array.isArray(data.sequences) && data.sequences.length > 0) {
-      sql += '-- ==================== SEQUENCES ====================\n\n';
-      for (const seq of data.sequences) {
-        if (seq.sequence_name) {
-          sql += `CREATE SEQUENCE IF NOT EXISTS public.${seq.sequence_name};\n`;
-        }
-      }
-      sql += '\n';
-    }
-
-    // Tables
-    if (data.columns && Array.isArray(data.columns) && data.columns.length > 0) {
+    // Tables from structure
+    if (data.tables && Array.isArray(data.tables) && data.tables.length > 0) {
       sql += '-- ==================== TABLES ====================\n\n';
-      
-      // Group columns by table
-      const tableColumns: Record<string, any[]> = {};
-      for (const col of data.columns) {
-        if (!tableColumns[col.table_name]) {
-          tableColumns[col.table_name] = [];
-        }
-        tableColumns[col.table_name].push(col);
-      }
-
-      // Primary keys map
-      const pkMap: Record<string, string[]> = {};
-      if (data.primaryKeys && Array.isArray(data.primaryKeys)) {
-        for (const pk of data.primaryKeys) {
-          if (!pkMap[pk.table_name]) {
-            pkMap[pk.table_name] = [];
-          }
-          pkMap[pk.table_name].push(pk.column_name);
-        }
-      }
-
-      for (const tableName of Object.keys(tableColumns).sort()) {
-        sql += `-- Table: ${tableName}\n`;
-        sql += `CREATE TABLE IF NOT EXISTS public.${tableName} (\n`;
-        
-        const cols = tableColumns[tableName];
-        const colDefs: string[] = [];
-        
-        for (const col of cols) {
-          let colDef = `  ${col.column_name} `;
-          
-          // Data type
-          if (col.udt_name === 'uuid') {
-            colDef += 'UUID';
-          } else if (col.udt_name === 'timestamptz') {
-            colDef += 'TIMESTAMP WITH TIME ZONE';
-          } else if (col.udt_name === 'timestamp') {
-            colDef += 'TIMESTAMP WITHOUT TIME ZONE';
-          } else if (col.udt_name === 'int4') {
-            colDef += 'INTEGER';
-          } else if (col.udt_name === 'int8') {
-            colDef += 'BIGINT';
-          } else if (col.udt_name === 'float8') {
-            colDef += 'DOUBLE PRECISION';
-          } else if (col.udt_name === 'bool') {
-            colDef += 'BOOLEAN';
-          } else if (col.udt_name === 'jsonb') {
-            colDef += 'JSONB';
-          } else if (col.udt_name === 'json') {
-            colDef += 'JSON';
-          } else if (col.udt_name === '_text') {
-            colDef += 'TEXT[]';
-          } else if (col.udt_name === 'varchar' && col.character_maximum_length) {
-            colDef += `VARCHAR(${col.character_maximum_length})`;
-          } else if (col.udt_name === 'numeric' && col.numeric_precision) {
-            colDef += `NUMERIC(${col.numeric_precision}${col.numeric_scale ? ',' + col.numeric_scale : ''})`;
-          } else {
-            colDef += col.data_type?.toUpperCase() || 'TEXT';
-          }
-          
-          // Default
-          if (col.column_default) {
-            colDef += ` DEFAULT ${col.column_default}`;
-          }
-          
-          // Nullable
-          if (col.is_nullable === 'NO') {
-            colDef += ' NOT NULL';
-          }
-          
-          colDefs.push(colDef);
-        }
-        
-        // Add primary key constraint
-        if (pkMap[tableName] && pkMap[tableName].length > 0) {
-          colDefs.push(`  PRIMARY KEY (${pkMap[tableName].join(', ')})`);
-        }
-        
-        sql += colDefs.join(',\n');
-        sql += '\n);\n\n';
-      }
-    }
-
-    // Foreign Keys
-    if (data.foreignKeys && Array.isArray(data.foreignKeys) && data.foreignKeys.length > 0) {
-      sql += '-- ==================== FOREIGN KEYS ====================\n\n';
-      for (const fk of data.foreignKeys) {
-        sql += `ALTER TABLE public.${fk.table_name}\n`;
-        sql += `  ADD CONSTRAINT ${fk.constraint_name}\n`;
-        sql += `  FOREIGN KEY (${fk.column_name})\n`;
-        sql += `  REFERENCES public.${fk.foreign_table_name}(${fk.foreign_column_name});\n\n`;
-      }
-    }
-
-    // Indexes
-    if (data.indexes && Array.isArray(data.indexes) && data.indexes.length > 0) {
-      sql += '-- ==================== INDEXES ====================\n\n';
-      for (const idx of data.indexes) {
-        // Skip primary key indexes
-        if (idx.indexname && !idx.indexname.endsWith('_pkey')) {
-          sql += `${idx.indexdef};\n`;
-        }
+      sql += '-- Table List with Row Counts:\n';
+      for (const table of data.tables) {
+        sql += `-- ${table.table_name}: ${table.row_count} rows\n`;
       }
       sql += '\n';
-    }
 
-    // Views
-    if (data.views && Array.isArray(data.views) && data.views.length > 0) {
-      sql += '-- ==================== VIEWS ====================\n\n';
-      for (const view of data.views) {
-        if (view.view_name && view.view_definition) {
-          sql += `CREATE OR REPLACE VIEW public.${view.view_name} AS\n`;
-          sql += `${view.view_definition};\n\n`;
-        }
-      }
-    }
-
-    // Functions
-    if (data.functions && Array.isArray(data.functions) && data.functions.length > 0) {
-      sql += '-- ==================== FUNCTIONS ====================\n\n';
-      for (const func of data.functions) {
-        if (func.function_definition) {
-          sql += `${func.function_definition};\n\n`;
-        }
-      }
-    }
-
-    // Triggers
-    if (data.triggers && Array.isArray(data.triggers) && data.triggers.length > 0) {
-      sql += '-- ==================== TRIGGERS ====================\n\n';
-      for (const trigger of data.triggers) {
-        if (trigger.trigger_name && trigger.event_object_table) {
-          sql += `CREATE TRIGGER ${trigger.trigger_name}\n`;
-          sql += `  ${trigger.action_timing} ${trigger.event_manipulation}\n`;
-          sql += `  ON public.${trigger.event_object_table}\n`;
-          sql += `  FOR EACH ROW\n`;
-          sql += `  ${trigger.action_statement};\n\n`;
-        }
-      }
-    }
-
-    // RLS Policies
-    if (data.policies && Array.isArray(data.policies) && data.policies.length > 0) {
-      sql += '-- ==================== RLS POLICIES ====================\n\n';
-      
-      // First enable RLS on tables
-      const tablesWithRLS = [...new Set(data.policies.map((p: any) => p.tablename))];
-      for (const table of tablesWithRLS) {
-        sql += `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;\n`;
-      }
-      sql += '\n';
-      
-      for (const policy of data.policies) {
-        if (policy.policyname && policy.tablename) {
-          sql += `CREATE POLICY "${policy.policyname}"\n`;
-          sql += `  ON public.${policy.tablename}\n`;
-          sql += `  AS ${policy.permissive === 'PERMISSIVE' ? 'PERMISSIVE' : 'RESTRICTIVE'}\n`;
-          sql += `  FOR ${policy.cmd}\n`;
-          sql += `  TO ${policy.roles || 'public'}\n`;
-          if (policy.qual) {
-            sql += `  USING (${policy.qual})\n`;
+      // Generate CREATE TABLE statements from generated_tables metadata
+      if (data.generatedTables && Array.isArray(data.generatedTables)) {
+        sql += '-- ==================== TABLE DEFINITIONS (from generated_tables) ====================\n\n';
+        for (const gt of data.generatedTables) {
+          if (gt.columns && Array.isArray(gt.columns)) {
+            sql += `-- Table: ${gt.table_name}\n`;
+            sql += `CREATE TABLE IF NOT EXISTS public.${gt.table_name.toLowerCase()} (\n`;
+            sql += `  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,\n`;
+            
+            for (const col of gt.columns) {
+              const colName = col.name?.toLowerCase().replace(/\s+/g, '_') || 'column';
+              const colType = mapColumnType(col.type);
+              const nullable = col.nullable !== false ? '' : ' NOT NULL';
+              sql += `  ${colName} ${colType}${nullable},\n`;
+            }
+            
+            sql += `  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),\n`;
+            sql += `  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()\n`;
+            sql += `);\n\n`;
+            sql += `ALTER TABLE public.${gt.table_name.toLowerCase()} ENABLE ROW LEVEL SECURITY;\n\n`;
           }
-          if (policy.with_check) {
-            sql += `  WITH CHECK (${policy.with_check})\n`;
-          }
-          sql += ';\n\n';
         }
       }
     }
+
+    sql += '-- ==================== NOTES ====================\n\n';
+    sql += '-- This backup contains table structure based on available metadata.\n';
+    sql += '-- For complete schema including functions, triggers, and RLS policies,\n';
+    sql += '-- please export directly from the Supabase dashboard.\n';
+    sql += '\n';
 
     return sql;
+  };
+
+  const mapColumnType = (type: string): string => {
+    const typeMap: Record<string, string> = {
+      'text': 'TEXT',
+      'integer': 'INTEGER',
+      'number': 'NUMERIC',
+      'boolean': 'BOOLEAN',
+      'date': 'DATE',
+      'timestamp': 'TIMESTAMP WITH TIME ZONE',
+      'uuid': 'UUID',
+      'json': 'JSONB',
+    };
+    return typeMap[type?.toLowerCase()] || 'TEXT';
   };
 
   const generateDataSQL = (tableData: Record<string, any[]>): string => {
@@ -340,21 +196,29 @@ const SystemBackup = () => {
       case 'done':
         return <CheckCircle2 className="h-5 w-5 text-green-500" />;
       case 'error':
-        return <div className="h-5 w-5 rounded-full bg-destructive" />;
+        return <AlertCircle className="h-5 w-5 text-destructive" />;
       default:
         return null;
     }
   };
 
   const getTableCount = () => {
-    if (!structureResult?.columns) return 0;
-    const tables = new Set(structureResult.columns.map((c: any) => c.table_name));
-    return tables.size;
+    return structureResult?.tables?.length || 0;
+  };
+
+  const getTotalRowCount = () => {
+    if (!structureResult?.tables) return 0;
+    return structureResult.tables.reduce((sum: number, t: any) => sum + (t.row_count || 0), 0);
   };
 
   const getDataRowCount = () => {
     if (!dataResult) return 0;
     return Object.values(dataResult).reduce((sum: number, rows: any) => sum + (rows?.length || 0), 0);
+  };
+
+  const getDataTableCount = () => {
+    if (!dataResult) return 0;
+    return Object.values(dataResult).filter((rows: any) => rows?.length > 0).length;
   };
 
   return (
@@ -382,29 +246,25 @@ const SystemBackup = () => {
             </CardTitle>
             <CardDescription>
               {isRTL 
-                ? 'نسخ احتياطي للجداول والأعمدة والدوال والمشغلات والسياسات'
-                : 'Backup tables, columns, functions, triggers, and policies'
+                ? 'نسخ احتياطي للجداول وعدد السجلات'
+                : 'Backup tables and row counts'
               }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {progress.structure === 'done' && (
+            {progress.structure === 'done' && structureResult && (
               <div className="p-4 bg-muted rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>{isRTL ? 'عدد الجداول:' : 'Tables:'}</span>
                   <span className="font-medium">{getTableCount()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'الدوال:' : 'Functions:'}</span>
-                  <span className="font-medium">{structureResult?.functions?.length || 0}</span>
+                  <span>{isRTL ? 'إجمالي السجلات:' : 'Total Rows:'}</span>
+                  <span className="font-medium">{getTotalRowCount().toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'المشغلات:' : 'Triggers:'}</span>
-                  <span className="font-medium">{structureResult?.triggers?.length || 0}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'السياسات:' : 'Policies:'}</span>
-                  <span className="font-medium">{structureResult?.policies?.length || 0}</span>
+                  <span>{isRTL ? 'الجداول المُنشأة:' : 'Generated Tables:'}</span>
+                  <span className="font-medium">{structureResult.generatedTables?.length || 0}</span>
                 </div>
               </div>
             )}
@@ -450,17 +310,15 @@ const SystemBackup = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {progress.data === 'done' && (
+            {progress.data === 'done' && dataResult && (
               <div className="p-4 bg-muted rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>{isRTL ? 'إجمالي السجلات:' : 'Total Rows:'}</span>
                   <span className="font-medium">{getDataRowCount().toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'عدد الجداول:' : 'Tables with data:'}</span>
-                  <span className="font-medium">
-                    {Object.values(dataResult || {}).filter((r: any) => r?.length > 0).length}
-                  </span>
+                  <span>{isRTL ? 'جداول بها بيانات:' : 'Tables with data:'}</span>
+                  <span className="font-medium">{getDataTableCount()}</span>
                 </div>
               </div>
             )}
@@ -491,13 +349,44 @@ const SystemBackup = () => {
         </Card>
       </div>
 
+      {/* Table Details */}
+      {progress.structure === 'done' && structureResult?.tables && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>{isRTL ? 'تفاصيل الجداول' : 'Table Details'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-80 overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background">
+                  <tr className="border-b">
+                    <th className="text-start py-2 px-3">{isRTL ? 'اسم الجدول' : 'Table Name'}</th>
+                    <th className="text-end py-2 px-3">{isRTL ? 'عدد السجلات' : 'Row Count'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {structureResult.tables
+                    .sort((a: any, b: any) => (b.row_count || 0) - (a.row_count || 0))
+                    .map((table: any, index: number) => (
+                    <tr key={index} className="border-b hover:bg-muted/50">
+                      <td className="py-2 px-3 font-mono text-xs">{table.table_name}</td>
+                      <td className="py-2 px-3 text-end">{(table.row_count || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Instructions */}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>{isRTL ? 'تعليمات الاستخدام' : 'Usage Instructions'}</CardTitle>
         </CardHeader>
         <CardContent>
-          <ol className={`list-decimal ${isRTL ? 'list-inside' : 'list-inside'} space-y-2 text-muted-foreground`}>
+          <ol className={`list-decimal list-inside space-y-2 text-muted-foreground`}>
             <li>
               {isRTL 
                 ? 'انقر على "جلب الهيكل" لتحميل معلومات هيكل قاعدة البيانات'
@@ -518,14 +407,14 @@ const SystemBackup = () => {
             </li>
             <li>
               {isRTL 
-                ? 'ملف الهيكل يحتوي على: الجداول، الأعمدة، المفاتيح، الفهارس، الدوال، المشغلات، والسياسات'
-                : 'Structure file contains: tables, columns, keys, indexes, functions, triggers, and policies'
+                ? 'ملف الهيكل يحتوي على: قائمة الجداول وعدد السجلات'
+                : 'Structure file contains: table list and row counts'
               }
             </li>
             <li>
               {isRTL 
-                ? 'ملف البيانات يحتوي على عبارات INSERT لجميع السجلات'
-                : 'Data file contains INSERT statements for all records'
+                ? 'ملف البيانات يحتوي على عبارات INSERT لجميع السجلات (حد أقصى 10,000 سجل لكل جدول)'
+                : 'Data file contains INSERT statements for all records (max 10,000 rows per table)'
               }
             </li>
           </ol>
