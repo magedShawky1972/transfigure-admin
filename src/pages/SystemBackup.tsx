@@ -335,7 +335,10 @@ const SystemBackup = () => {
 
   const getTotalRowCount = () => {
     if (structureResult?.tableRowCounts) {
-      return Object.values(structureResult.tableRowCounts).reduce((sum: number, count: any) => sum + (count || 0), 0);
+      return Object.values(structureResult.tableRowCounts).reduce(
+        (sum: number, count: any) => sum + (count || 0),
+        0
+      );
     }
     return 0;
   };
@@ -353,13 +356,24 @@ const SystemBackup = () => {
   };
 
   const getDataRowCount = () => {
+    // Rows INCLUDED in the export payload (may be truncated per table)
     if (!dataResult) return 0;
-    return Object.values(dataResult).reduce((sum: number, rows: any) => sum + (rows?.length || 0), 0);
+    return Object.values(dataResult).reduce(
+      (sum: number, rows: any) => sum + (rows?.length || 0),
+      0
+    );
   };
 
   const getDataTableCount = () => {
+    // Tables INCLUDED in the export payload (tables with at least 1 exported row)
     if (!dataResult) return 0;
     return Object.values(dataResult).filter((rows: any) => rows?.length > 0).length;
+  };
+
+  const getDatabaseTablesWithDataCount = () => {
+    if (!structureResult?.tableRowCounts) return 0;
+    return Object.values(structureResult.tableRowCounts).filter((c: any) => (c || 0) > 0)
+      .length;
   };
 
   return (
@@ -461,14 +475,33 @@ const SystemBackup = () => {
           <CardContent className="space-y-4">
             {progress.data === 'done' && dataResult && (
               <div className="p-4 bg-muted rounded-lg space-y-2">
+                {structureResult?.tableRowCounts && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span>{isRTL ? 'إجمالي السجلات في قاعدة البيانات:' : 'Total Rows in database:'}</span>
+                      <span className="font-medium">{getTotalRowCount().toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>{isRTL ? 'جداول بها بيانات (قاعدة البيانات):' : 'Tables with data (database):'}</span>
+                      <span className="font-medium">{getDatabaseTablesWithDataCount()}</span>
+                    </div>
+                  </>
+                )}
+
                 <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'إجمالي السجلات:' : 'Total Rows:'}</span>
+                  <span>{isRTL ? 'السجلات المُصدّرة:' : 'Rows exported:'}</span>
                   <span className="font-medium">{getDataRowCount().toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'جداول بها بيانات:' : 'Tables with data:'}</span>
+                  <span>{isRTL ? 'الجداول المُصدّرة:' : 'Tables exported:'}</span>
                   <span className="font-medium">{getDataTableCount()}</span>
                 </div>
+
+                <p className="text-xs text-muted-foreground">
+                  {isRTL
+                    ? 'ملاحظة: يتم تصدير حد أقصى 10,000 سجل لكل جدول.'
+                    : 'Note: export is limited to a maximum of 10,000 rows per table.'}
+                </p>
               </div>
             )}
             
