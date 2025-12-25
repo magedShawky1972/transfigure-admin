@@ -27,7 +27,8 @@ import {
   Building2,
   KeyRound,
   Truck,
-  Mail
+  Mail,
+  HardDrive
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -104,6 +105,7 @@ export function AppSidebar() {
     "/mail-setup": "mailSetup",
     "/company-news": "companyNews",
     "/pdf-to-excel": "pdfToExcel",
+    "/system-backup": "systemBackup",
   };
 
   useEffect(() => {
@@ -294,6 +296,7 @@ export function AppSidebar() {
         { title: t("menu.excelSetup"), url: "/excel-sheets", icon: FileSpreadsheet },
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
         { title: language === 'ar' ? 'تحويل PDF إلى Excel' : 'PDF to Excel', url: "/pdf-to-excel", icon: FileSpreadsheet },
+        { title: language === 'ar' ? 'نسخ احتياطي' : 'System Backup', url: "/system-backup", icon: HardDrive },
       ]
     }
   ];
