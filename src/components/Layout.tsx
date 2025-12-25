@@ -67,6 +67,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const [isSysadminSession, setIsSysadminSession] = useState(false);
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,6 +75,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   
   // Initialize idle timeout session manager (30 minutes)
   useIdleTimeout();
+
+  // Check for sysadmin session
+  useEffect(() => {
+    const sysadminSession = sessionStorage.getItem("sysadmin_session");
+    setIsSysadminSession(sysadminSession === "true");
+  }, []);
 
   // Update KSA time every second
   useEffect(() => {
@@ -88,13 +95,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     setTheme(savedTheme);
     document.documentElement.classList.toggle("dark", savedTheme === "dark");
 
+    // Check for sysadmin session first
+    const sysadminSession = sessionStorage.getItem("sysadmin_session");
+    if (sysadminSession === "true") {
+      setIsSysadminSession(true);
+      setUserName("sysadmin");
+      setLoading(false);
+      return;
+    }
+
     // Check authentication
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
       
-      // Redirect to auth if not logged in and not already on auth page
-      if (!session && location.pathname !== "/auth") {
+      // Redirect to auth if not logged in and not already on auth page or system-restore page
+      if (!session && location.pathname !== "/auth" && location.pathname !== "/system-restore") {
         navigate("/auth");
       }
     });
@@ -103,7 +119,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       const wasLoggedIn = user !== null;
       setUser(session?.user ?? null);
       
-      if (!session && location.pathname !== "/auth") {
+      if (!session && location.pathname !== "/auth" && location.pathname !== "/system-restore") {
         // Only show toast if user was previously logged in (session expired)
         if (wasLoggedIn && event === 'SIGNED_OUT') {
           toast({
@@ -165,6 +181,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     try {
+      // Clear sysadmin session if exists
+      if (isSysadminSession) {
+        sessionStorage.removeItem("sysadmin_session");
+        setIsSysadminSession(false);
+        toast({
+          title: "Success",
+          description: "Logged out successfully",
+        });
+        navigate("/auth");
+        return;
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -254,8 +282,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Don't show sidebar and header on auth page
-  if (location.pathname === "/auth") {
+  // Don't show sidebar and header on auth page or system-restore page (when no auth)
+  if (location.pathname === "/auth" || (location.pathname === "/system-restore" && !user && !isSysadminSession)) {
     return <>{children}</>;
   }
 
@@ -288,7 +316,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </h1>
               </div>
               <div className="flex items-center gap-2">
-                {user && (
+                {(user || isSysadminSession) && (
                   <>
                     {/* KSA Date & Time Display - Desktop only */}
                     <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
@@ -321,18 +349,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             {language === "ar" ? "حسابي" : "My Account"}
                           </DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
-                            <User className="h-4 w-4 me-2" />
-                            {language === "ar" ? "الملف الشخصي" : "Profile"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setAvatarDialogOpen(true)}>
-                            <Camera className="h-4 w-4 me-2" />
-                            {language === "ar" ? "تغيير الصورة" : "Change Picture"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)}>
-                            <Key className="h-4 w-4 me-2" />
-                            {language === "ar" ? "تغيير كلمة المرور" : "Change Password"}
-                          </DropdownMenuItem>
+                          {!isSysadminSession && (
+                            <>
+                              <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
+                                <User className="h-4 w-4 me-2" />
+                                {language === "ar" ? "الملف الشخصي" : "Profile"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setAvatarDialogOpen(true)}>
+                                <Camera className="h-4 w-4 me-2" />
+                                {language === "ar" ? "تغيير الصورة" : "Change Picture"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)}>
+                                <Key className="h-4 w-4 me-2" />
+                                {language === "ar" ? "تغيير كلمة المرور" : "Change Password"}
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}

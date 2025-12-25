@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp";
-import { Shield, Eye, EyeOff } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2, AlertTriangle, Database } from "lucide-react";
 import { z } from "zod";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -15,12 +15,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import logo from "@/assets/edara-logo.png";
 import { useAppVersion } from "@/hooks/useAppVersion";
 
+// Hardcoded sysadmin credentials for initial setup
+const SYSADMIN_EMAIL = "sysadmin";
+const SYSADMIN_PASSWORD = "sysadmin";
+
+interface SystemState {
+  tableExists: boolean;
+  usersCount: number;
+  needsRestore: boolean;
+  needsInitialUser: boolean;
+}
+
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const version = useAppVersion();
   const [loading, setLoading] = useState(false);
+  const [checkingSystem, setCheckingSystem] = useState(true);
+  const [systemState, setSystemState] = useState<SystemState | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -36,17 +49,87 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [isResetting, setIsResetting] = useState(false);
+  const [isSysadminSession, setIsSysadminSession] = useState(false);
 
   const authSchema = z.object({
     email: z.string().email("Invalid email address").max(255),
     password: z.string().min(6, "Password must be at least 6 characters").max(100),
   });
 
+  // Check system state on mount
+  useEffect(() => {
+    checkSystemState();
+  }, []);
+
+  const checkSystemState = async () => {
+    setCheckingSystem(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-system-state");
+      
+      if (error) {
+        console.error("Error checking system state:", error);
+        // Assume system is ready if we can't check
+        setSystemState({
+          tableExists: true,
+          usersCount: 1,
+          needsRestore: false,
+          needsInitialUser: false,
+        });
+      } else {
+        setSystemState(data);
+        
+        // If database needs restore, redirect to system restore page
+        if (data.needsRestore) {
+          navigate("/system-restore");
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking system state:", error);
+      setSystemState({
+        tableExists: true,
+        usersCount: 1,
+        needsRestore: false,
+        needsInitialUser: false,
+      });
+    } finally {
+      setCheckingSystem(false);
+    }
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Check if this is sysadmin login (when no users exist)
+      if (systemState?.needsInitialUser) {
+        if (email === SYSADMIN_EMAIL && password === SYSADMIN_PASSWORD) {
+          // Set sysadmin session flag
+          setIsSysadminSession(true);
+          sessionStorage.setItem("sysadmin_session", "true");
+          
+          toast({
+            title: language === "ar" ? "مرحباً مدير النظام" : "Welcome System Admin",
+            description: language === "ar" ? "يرجى إنشاء مستخدمين جدد" : "Please create new users",
+          });
+          
+          navigate("/user-setup");
+          return;
+        } else {
+          toast({
+            title: language === "ar" ? "فشل تسجيل الدخول" : "Login Failed",
+            description: language === "ar" 
+              ? "لا يوجد مستخدمين في النظام. استخدم بيانات مدير النظام (sysadmin)" 
+              : "No users in system. Use sysadmin credentials (sysadmin/sysadmin)",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Regular login flow
       // Validate input
       const validation = authSchema.safeParse({ email, password });
       if (!validation.success) {
@@ -423,6 +506,54 @@ const Auth = () => {
     checkExistingSession();
   }, [navigate]);
 
+  // Show loading while checking system state
+  if (checkingSystem) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">
+              {language === "ar" ? "جاري فحص حالة النظام..." : "Checking system state..."}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show message if system needs restore (shouldn't reach here as we redirect above)
+  if (systemState?.needsRestore) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Database className="h-16 w-16 text-destructive" />
+            </div>
+            <CardTitle className="text-2xl">
+              {language === "ar" ? "قاعدة البيانات فارغة" : "Empty Database"}
+            </CardTitle>
+            <CardDescription>
+              {language === "ar" 
+                ? "لم يتم العثور على هيكل قاعدة البيانات. يرجى استعادة النظام أولاً." 
+                : "Database structure not found. Please restore the system first."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              className="w-full" 
+              onClick={() => navigate("/system-restore")}
+            >
+              <Database className="mr-2 h-4 w-4" />
+              {language === "ar" ? "الذهاب إلى استعادة النظام" : "Go to System Restore"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -432,7 +563,18 @@ const Auth = () => {
           </div>
           <CardTitle className="text-2xl">{t("auth.welcome")}</CardTitle>
           <CardDescription>
-            {step === "email" && t("auth.signIn")}
+            {step === "email" && (
+              systemState?.needsInitialUser ? (
+                <div className="flex flex-col items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-warning" />
+                  <span className="text-warning">
+                    {language === "ar" 
+                      ? "لا يوجد مستخدمين. سجل دخول كمدير نظام (sysadmin/sysadmin)" 
+                      : "No users found. Login as sysadmin (sysadmin/sysadmin)"}
+                  </span>
+                </div>
+              ) : t("auth.signIn")
+            )}
             {step === "change-password" && t("auth.changePassword")}
             {step === "setup" && t("auth.setupMFA")}
             {step === "verify" && t("auth.verifyMFA")}
@@ -442,11 +584,17 @@ const Auth = () => {
           {step === "email" && (
             <form onSubmit={handleEmailSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">{t("auth.email")}</Label>
+                <Label htmlFor="email">
+                  {systemState?.needsInitialUser 
+                    ? (language === "ar" ? "اسم المستخدم" : "Username")
+                    : t("auth.email")}
+                </Label>
                 <Input
                   id="email"
-                  type="email"
-                  placeholder={t("auth.emailPlaceholder")}
+                  type={systemState?.needsInitialUser ? "text" : "email"}
+                  placeholder={systemState?.needsInitialUser 
+                    ? (language === "ar" ? "أدخل اسم المستخدم" : "Enter username")
+                    : t("auth.emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -479,16 +627,18 @@ const Auth = () => {
                   </Button>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="link"
-                  className="text-sm text-primary hover:underline p-0 h-auto"
-                  onClick={() => setShowForgotPassword(true)}
-                >
-                  {language === "ar" ? "نسيت كلمة المرور؟" : "Forgot Password?"}
-                </Button>
-              </div>
+              {!systemState?.needsInitialUser && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-sm text-primary hover:underline p-0 h-auto"
+                    onClick={() => setShowForgotPassword(true)}
+                  >
+                    {language === "ar" ? "نسيت كلمة المرور؟" : "Forgot Password?"}
+                  </Button>
+                </div>
+              )}
               <Button type="submit" className="w-full" disabled={loading}>
                 <Shield className="mr-2 h-4 w-4" />
                 {loading ? t("auth.signingIn") : t("auth.signInButton")}
