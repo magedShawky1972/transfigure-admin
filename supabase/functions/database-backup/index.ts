@@ -99,12 +99,13 @@ Deno.serve(async (req) => {
 
       for (const tbl of tableNames) {
         try {
-          // Fetch data in pages to handle large tables
+          // Fetch ALL data by paginating without a row cap
           const pageSize = 1000;
-          const maxRows = 10000;
           const allRows: unknown[] = [];
+          let from = 0;
+          let keepGoing = true;
 
-          for (let from = 0; from < maxRows; from += pageSize) {
+          while (keepGoing) {
             const { data: rows, error } = await supabase
               .from(tbl)
               .select('*')
@@ -115,10 +116,17 @@ Deno.serve(async (req) => {
               break;
             }
 
-            if (!rows || rows.length === 0) break;
+            if (!rows || rows.length === 0) {
+              keepGoing = false;
+              break;
+            }
+
             allRows.push(...rows);
-            
-            if (rows.length < pageSize) break;
+            from += pageSize;
+
+            if (rows.length < pageSize) {
+              keepGoing = false;
+            }
           }
 
           if (allRows.length > 0) {
@@ -141,7 +149,6 @@ Deno.serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid type. Use "structure" or "data"' }),
