@@ -66,26 +66,22 @@ const SystemRestore = () => {
   const checkSystemState = async () => {
     setCheckingSystem(true);
     try {
-      const { data, error } = await supabase.functions.invoke("check-system-state");
-      
-      if (error) {
-        console.error("Error checking system state:", error);
-        // If error, assume user came here intentionally
-        setSystemState(null);
-        setUserConfirmedRestore(true);
+      const { getSystemState } = await import("@/lib/systemState");
+      const data = await getSystemState();
+
+      setSystemState(data);
+
+      // If database needs restore, show confirmation dialog
+      if (data.needsRestore) {
+        setShowRestoreConfirmation(true);
       } else {
-        setSystemState(data);
-        
-        // If database needs restore, show confirmation dialog
-        if (data.needsRestore) {
-          setShowRestoreConfirmation(true);
-        } else {
-          // Database is fine, user came here from menu - allow access
-          setUserConfirmedRestore(true);
-        }
+        // Database is fine, user came here from menu - allow access
+        setUserConfirmedRestore(true);
       }
     } catch (error) {
       console.error("Error checking system state:", error);
+      // If error, assume user came here intentionally
+      setSystemState(null);
       setUserConfirmedRestore(true);
     } finally {
       setCheckingSystem(false);

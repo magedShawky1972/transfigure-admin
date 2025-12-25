@@ -64,29 +64,20 @@ const Auth = () => {
   const checkSystemState = async () => {
     setCheckingSystem(true);
     try {
-      const { data, error } = await supabase.functions.invoke("check-system-state");
-      
-      if (error) {
-        console.error("Error checking system state:", error);
-        // Assume system is ready if we can't check
-        setSystemState({
-          tableExists: true,
-          usersCount: 1,
-          needsRestore: false,
-          needsInitialUser: false,
-        });
-      } else {
-        setSystemState(data);
-        
-        // If database needs restore, redirect to system restore page
-        // The restore page will handle showing the confirmation message
-        if (data.needsRestore) {
-          navigate("/system-restore");
-          return;
-        }
+      const { getSystemState } = await import("@/lib/systemState");
+      const data = await getSystemState();
+
+      setSystemState(data);
+
+      // If database needs restore, redirect to system restore page
+      // The restore page will handle showing the confirmation message
+      if (data.needsRestore) {
+        navigate("/system-restore", { replace: true });
+        return;
       }
     } catch (error) {
       console.error("Error checking system state:", error);
+      // If we can't check, don't force navigation here.
       setSystemState({
         tableExists: true,
         usersCount: 1,

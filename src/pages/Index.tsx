@@ -22,7 +22,18 @@ const Index = () => {
         } = await supabase.auth.getSession();
 
         if (!session?.user) {
-          navigate("/auth");
+          try {
+            const { getSystemState } = await import("@/lib/systemState");
+            const state = await getSystemState();
+            if (state.needsRestore) {
+              navigate("/system-restore", { replace: true });
+              return;
+            }
+          } catch {
+            // ignore and fall back to auth
+          }
+
+          navigate("/auth", { replace: true });
           return;
         }
 

@@ -109,8 +109,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       if (location.pathname === "/auth" || location.pathname === "/system-restore") return;
 
       try {
-        const { data, error } = await supabase.functions.invoke("check-system-state");
-        if (!error && data?.needsRestore) {
+        const { getSystemState } = await import("@/lib/systemState");
+        const state = await getSystemState();
+        if (state.needsRestore) {
           navigate("/system-restore", { replace: true });
           return;
         }
