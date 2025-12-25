@@ -91,7 +91,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" || "dark";
+    const savedTheme = (localStorage.getItem("theme") as "light" | "dark") || "dark";
     setTheme(savedTheme);
     document.documentElement.classList.toggle("dark", savedTheme === "dark");
 
@@ -104,36 +104,58 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const redirectWhenNoSession = async (wasLoggedIn: boolean, event?: string) => {
+      // Never redirect away from auth/system restore screens
+      if (location.pathname === "/auth" || location.pathname === "/system-restore") return;
+
+      try {
+        const { data, error } = await supabase.functions.invoke("check-system-state");
+        if (!error && data?.needsRestore) {
+          navigate("/system-restore", { replace: true });
+          return;
+        }
+      } catch {
+        // ignore and fall back to auth
+      }
+
+      // Only show toast if user was previously logged in (session expired)
+      if (wasLoggedIn && event === "SIGNED_OUT") {
+        toast({
+          title: language === "ar" ? "انتهت الجلسة" : "Session Expired",
+          description:
+            language === "ar"
+              ? "تم تسجيل خروجك تلقائياً. يرجى تسجيل الدخول مرة أخرى."
+              : "You have been automatically logged out. Please sign in again.",
+          variant: "destructive",
+        });
+      }
+
+      navigate("/auth", { replace: true });
+    };
+
     // Check authentication
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
-      
-      // Redirect to auth if not logged in and not already on auth page or system-restore page
-      if (!session && location.pathname !== "/auth" && location.pathname !== "/system-restore") {
-        navigate("/auth");
+
+      if (!session) {
+        void redirectWhenNoSession(false);
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       const wasLoggedIn = user !== null;
       setUser(session?.user ?? null);
-      
-      if (!session && location.pathname !== "/auth" && location.pathname !== "/system-restore") {
-        // Only show toast if user was previously logged in (session expired)
-        if (wasLoggedIn && event === 'SIGNED_OUT') {
-          toast({
-            title: language === 'ar' ? 'انتهت الجلسة' : 'Session Expired',
-            description: language === 'ar' ? 'تم تسجيل خروجك تلقائياً. يرجى تسجيل الدخول مرة أخرى.' : 'You have been automatically logged out. Please sign in again.',
-            variant: "destructive",
-          });
-        }
-        navigate("/auth");
+
+      if (!session) {
+        void redirectWhenNoSession(wasLoggedIn, event);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, language, toast, user]);
 
   useEffect(() => {
     if (user) {
