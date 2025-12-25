@@ -28,7 +28,8 @@ import {
   KeyRound,
   Truck,
   Mail,
-  HardDrive
+  HardDrive,
+  RotateCcw
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -106,6 +107,7 @@ export function AppSidebar() {
     "/company-news": "companyNews",
     "/pdf-to-excel": "pdfToExcel",
     "/system-backup": "systemBackup",
+    "/system-restore": "systemRestore",
   };
 
   useEffect(() => {
@@ -297,6 +299,7 @@ export function AppSidebar() {
         { title: t("menu.tableConfig"), url: "/table-generator", icon: Database },
         { title: language === 'ar' ? 'تحويل PDF إلى Excel' : 'PDF to Excel', url: "/pdf-to-excel", icon: FileSpreadsheet },
         { title: language === 'ar' ? 'نسخ احتياطي' : 'System Backup', url: "/system-backup", icon: HardDrive },
+        { title: language === 'ar' ? 'استعادة النظام' : 'System Restore', url: "/system-restore", icon: RotateCcw },
       ]
     }
   ];
