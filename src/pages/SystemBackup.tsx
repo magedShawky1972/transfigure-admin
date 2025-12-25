@@ -203,12 +203,20 @@ const SystemBackup = () => {
   };
 
   const getTableCount = () => {
-    return structureResult?.tables?.length || 0;
+    // Support both response shapes (old UI expected `columns`, new uses `tables`)
+    if (Array.isArray(structureResult?.tables)) return structureResult.tables.length;
+    if (Array.isArray(structureResult?.columns)) {
+      const tables = new Set(structureResult.columns.map((c: any) => c.table_name));
+      return tables.size;
+    }
+    return 0;
   };
 
   const getTotalRowCount = () => {
-    if (!structureResult?.tables) return 0;
-    return structureResult.tables.reduce((sum: number, t: any) => sum + (t.row_count || 0), 0);
+    if (Array.isArray(structureResult?.tables)) {
+      return structureResult.tables.reduce((sum: number, t: any) => sum + (t.row_count || 0), 0);
+    }
+    return 0;
   };
 
   const getDataRowCount = () => {
@@ -262,10 +270,12 @@ const SystemBackup = () => {
                   <span>{isRTL ? 'إجمالي السجلات:' : 'Total Rows:'}</span>
                   <span className="font-medium">{getTotalRowCount().toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'الجداول المُنشأة:' : 'Generated Tables:'}</span>
-                  <span className="font-medium">{structureResult.generatedTables?.length || 0}</span>
-                </div>
+                {Array.isArray(structureResult?.generatedTables) && (
+                  <div className="flex justify-between text-sm">
+                    <span>{isRTL ? 'الجداول المُنشأة:' : 'Generated Tables:'}</span>
+                    <span className="font-medium">{structureResult.generatedTables.length}</span>
+                  </div>
+                )}
               </div>
             )}
             
