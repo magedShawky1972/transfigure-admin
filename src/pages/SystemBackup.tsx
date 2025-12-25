@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle, RefreshCw, Trash2, Clock, HardDrive } from "lucide-react";
 import { BackupProgressDialog } from "@/components/BackupProgressDialog";
+import { format } from "date-fns";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface BackupProgress {
   structure: 'idle' | 'loading' | 'done' | 'error';
@@ -19,6 +23,18 @@ interface TableProgressItem {
   chunksTotal: number;
   chunksFetched: number;
   status: 'pending' | 'fetching' | 'done' | 'error';
+}
+
+interface BackupRecord {
+  id: string;
+  backup_type: 'structure' | 'data';
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
 const SystemBackup = () => {
@@ -39,6 +55,42 @@ const SystemBackup = () => {
   const [totalRowsExpected, setTotalRowsExpected] = useState(0);
   const [isBackupComplete, setIsBackupComplete] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  
+  // Backup history state
+  const [backupHistory, setBackupHistory] = useState<BackupRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Fetch backup history on mount
+  useEffect(() => {
+    fetchBackupHistory();
+  }, []);
+
+  const fetchBackupHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('system_backups')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setBackupHistory((data || []) as BackupRecord[]);
+    } catch (error) {
+      console.error('Error fetching backup history:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const formatFileSize = (bytes: number | null): string => {
+    if (!bytes) return '-';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
 
   const generateStructureSQL = (data: any): string => {
     let sql = '-- Edara Database Structure Backup\n';
@@ -521,10 +573,10 @@ const SystemBackup = () => {
   const handleDownloadData = async () => {
     // NOTE: For very large exports (e.g. 1M+ rows), building a single SQL string can
     // crash the browser with "RangeError: Invalid string length". We stream-generate
-    // the SQL and compress it on the fly instead.
+    // the SQL and compress it on the fly instead, then save to cloud storage.
 
     setIsCompressing(true);
-    toast.info(isRTL ? 'جاري إنشاء وضغط الملف (قد يستغرق وقتاً)...' : 'Generating and compressing file (this may take a while)...');
+    toast.info(isRTL ? 'جاري إنشاء وضغط وحفظ الملف (قد يستغرق وقتاً)...' : 'Generating, compressing and saving file (this may take a while)...');
 
     const escapeValue = (value: any): string => {
       if (value === null || value === undefined) return 'NULL';
@@ -534,12 +586,38 @@ const SystemBackup = () => {
       return `'${String(value).replace(/'/g, "''")}'`;
     };
 
+    // Create backup record first
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `edara_data_${timestamp}.sql.gz`;
+    const filePath = `data/${filename}`;
+
+    let backupId: string | null = null;
+
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Insert pending backup record
+      const { data: backupRecord, error: insertError } = await supabase
+        .from('system_backups')
+        .insert({
+          backup_type: 'data',
+          file_name: filename,
+          file_path: filePath,
+          status: 'processing',
+          created_by: user?.id || null
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      backupId = backupRecord.id;
+
+      // Refresh history to show processing
+      fetchBackupHistory();
+
       // Allow UI to paint before heavy work starts
       await new Promise((resolve) => setTimeout(resolve, 50));
-
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `edara_data_${timestamp}.sql.gz`;
 
       // Get table list + counts
       const { data: tableListData, error: tableListError } = await supabase.functions.invoke('database-backup', {
@@ -657,29 +735,126 @@ const SystemBackup = () => {
         byteOffset += c.length;
       }
 
+      // Upload to storage
       const blob = new Blob([compressedData], { type: 'application/gzip' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      const { error: uploadError } = await supabase.storage
+        .from('system-backups')
+        .upload(filePath, blob, {
+          contentType: 'application/gzip',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Update backup record as completed
+      await supabase
+        .from('system_backups')
+        .update({
+          status: 'completed',
+          file_size: totalLength,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', backupId);
+
+      // Refresh history
+      fetchBackupHistory();
 
       toast.success(
         isRTL
-          ? `تم بدء تنزيل ملف البيانات المضغوط (${exportedTables} جداول)`
-          : `Compressed data file download started (${exportedTables} tables)`
+          ? `تم حفظ النسخة الاحتياطية بنجاح (${exportedTables} جداول)`
+          : `Backup saved successfully (${exportedTables} tables)`
       );
     } catch (error) {
-      console.error('Download error:', error);
-      toast.error(isRTL ? 'خطأ في تحميل الملف' : 'Error downloading file');
+      console.error('Backup error:', error);
+      
+      // Update backup record as failed
+      if (backupId) {
+        await supabase
+          .from('system_backups')
+          .update({
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : 'Unknown error'
+          })
+          .eq('id', backupId);
+        fetchBackupHistory();
+      }
+      
+      toast.error(isRTL ? 'خطأ في إنشاء النسخة الاحتياطية' : 'Error creating backup');
     } finally {
       setIsCompressing(false);
       setCurrentFetchingTable(null);
       setCurrentChunk(0);
       setTotalChunksForCurrentTable(0);
+    }
+  };
+
+  const handleDownloadFromHistory = async (backup: BackupRecord) => {
+    if (backup.status !== 'completed') return;
+    
+    setDownloadingId(backup.id);
+    try {
+      const { data, error } = await supabase.storage
+        .from('system-backups')
+        .download(backup.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = backup.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(isRTL ? 'تم بدء التحميل' : 'Download started');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(isRTL ? 'خطأ في تحميل الملف' : 'Error downloading file');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDeleteBackup = async (backup: BackupRecord) => {
+    setDeletingId(backup.id);
+    try {
+      // Delete from storage first (if exists)
+      if (backup.status === 'completed') {
+        await supabase.storage
+          .from('system-backups')
+          .remove([backup.file_path]);
+      }
+
+      // Delete record from database
+      const { error } = await supabase
+        .from('system_backups')
+        .delete()
+        .eq('id', backup.id);
+
+      if (error) throw error;
+
+      toast.success(isRTL ? 'تم حذف النسخة الاحتياطية' : 'Backup deleted');
+      fetchBackupHistory();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error(isRTL ? 'خطأ في حذف النسخة الاحتياطية' : 'Error deleting backup');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const getBackupStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-500">{isRTL ? 'مكتمل' : 'Completed'}</Badge>;
+      case 'processing':
+        return <Badge className="bg-blue-500">{isRTL ? 'قيد المعالجة' : 'Processing'}</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">{isRTL ? 'فشل' : 'Failed'}</Badge>;
+      default:
+        return <Badge variant="secondary">{isRTL ? 'قيد الانتظار' : 'Pending'}</Badge>;
     }
   };
 
@@ -840,80 +1015,186 @@ const SystemBackup = () => {
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
               {isRTL ? 'بيانات قاعدة البيانات' : 'Database Data'}
-              {getStatusIcon(progress.data)}
             </CardTitle>
             <CardDescription>
               {isRTL 
-                ? 'نسخ احتياطي لجميع البيانات في جميع الجداول'
-                : 'Backup all data from all tables'
+                ? 'إنشاء نسخة احتياطية لجميع البيانات وحفظها في السحابة'
+                : 'Create a backup of all data and save it to cloud storage'
               }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {progress.data === 'done' && dataResult && (
+            {isCompressing && currentFetchingTable && (
               <div className="p-4 bg-muted rounded-lg space-y-2">
-                {structureResult?.tableRowCounts && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span>{isRTL ? 'إجمالي السجلات في قاعدة البيانات:' : 'Total Rows in database:'}</span>
-                      <span className="font-medium">{getTotalRowCount().toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>{isRTL ? 'جداول بها بيانات (قاعدة البيانات):' : 'Tables with data (database):'}</span>
-                      <span className="font-medium">{getDatabaseTablesWithDataCount()}</span>
-                    </div>
-                  </>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm font-medium">
+                    {isRTL ? 'جاري المعالجة...' : 'Processing...'}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {isRTL ? 'الجدول الحالي:' : 'Current table:'} {currentFetchingTable}
+                </div>
+                {totalChunksForCurrentTable > 1 && (
+                  <div className="text-xs text-muted-foreground">
+                    {isRTL ? 'الدفعة:' : 'Chunk:'} {currentChunk} / {totalChunksForCurrentTable}
+                  </div>
                 )}
-
-                <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'السجلات المُصدّرة:' : 'Rows exported:'}</span>
-                  <span className="font-medium">{getDataRowCount().toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'الجداول المُصدّرة:' : 'Tables exported:'}</span>
-                  <span className="font-medium">{getDataTableCount()}</span>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  {isRTL
-                    ? 'ملاحظة: يتم جلب الجداول الكبيرة على دفعات لتجنب انتهاء الوقت.'
-                    : 'Note: Large tables are fetched in chunks to avoid timeout.'}
-                </p>
               </div>
             )}
             
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleBackupDataWithProgress}
-                disabled={progress.data === 'loading'}
-                className="flex-1"
-              >
-                {progress.data === 'loading' ? (
+            <Button 
+              onClick={handleDownloadData}
+              disabled={isCompressing}
+              className="w-full"
+            >
+              {isCompressing ? (
+                <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <FileText className="h-4 w-4 mr-2" />
-                )}
-                {isRTL ? 'جلب البيانات' : 'Fetch Data'}
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={handleDownloadData}
-                disabled={!dataResult || isCompressing}
-              >
-                {isCompressing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="ml-2">{isRTL ? 'جاري الضغط...' : 'Compressing...'}</span>
-                  </>
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+                  {isRTL ? 'جاري الإنشاء...' : 'Creating...'}
+                </>
+              ) : (
+                <>
+                  <HardDrive className="h-4 w-4 mr-2" />
+                  {isRTL ? 'إنشاء نسخة احتياطية جديدة' : 'Create New Backup'}
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       </div>
+
+      {/* Backup History */}
+      <Card className="mt-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              {isRTL ? 'سجل النسخ الاحتياطية' : 'Backup History'}
+            </CardTitle>
+            <CardDescription>
+              {isRTL ? 'النسخ الاحتياطية المحفوظة في السحابة' : 'Backups saved in cloud storage'}
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchBackupHistory}
+            disabled={loadingHistory}
+          >
+            {loadingHistory ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : backupHistory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {isRTL ? 'لا توجد نسخ احتياطية بعد' : 'No backups yet'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isRTL ? 'اسم الملف' : 'File Name'}</TableHead>
+                    <TableHead>{isRTL ? 'النوع' : 'Type'}</TableHead>
+                    <TableHead>{isRTL ? 'الحجم' : 'Size'}</TableHead>
+                    <TableHead>{isRTL ? 'الحالة' : 'Status'}</TableHead>
+                    <TableHead>{isRTL ? 'تاريخ الإنشاء' : 'Created At'}</TableHead>
+                    <TableHead className="text-center">{isRTL ? 'الإجراءات' : 'Actions'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {backupHistory.map((backup) => (
+                    <TableRow key={backup.id}>
+                      <TableCell className="font-mono text-xs max-w-[200px] truncate">
+                        {backup.file_name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {backup.backup_type === 'data' 
+                            ? (isRTL ? 'بيانات' : 'Data')
+                            : (isRTL ? 'هيكل' : 'Structure')
+                          }
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {formatFileSize(backup.file_size)}
+                      </TableCell>
+                      <TableCell>
+                        {getBackupStatusBadge(backup.status)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {format(new Date(backup.created_at), 'yyyy-MM-dd HH:mm')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadFromHistory(backup)}
+                            disabled={backup.status !== 'completed' || downloadingId === backup.id}
+                          >
+                            {downloadingId === backup.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={deletingId === backup.id}
+                              >
+                                {deletingId === backup.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  {isRTL ? 'حذف النسخة الاحتياطية؟' : 'Delete Backup?'}
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {isRTL 
+                                    ? 'هذا الإجراء لا يمكن التراجع عنه. سيتم حذف النسخة الاحتياطية نهائياً.'
+                                    : 'This action cannot be undone. The backup will be permanently deleted.'
+                                  }
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>
+                                  {isRTL ? 'إلغاء' : 'Cancel'}
+                                </AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteBackup(backup)}>
+                                  {isRTL ? 'حذف' : 'Delete'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Table Details */}
       {progress.structure === 'done' && structureResult?.tables && (
