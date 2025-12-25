@@ -52,7 +52,14 @@ const Auth = () => {
   const [isSysadminSession, setIsSysadminSession] = useState(false);
 
   const authSchema = z.object({
-    email: z.string().email("Invalid email address").max(255),
+    // Allow "sysadmin" as a special username (no @) in addition to normal emails
+    email: z
+      .string()
+      .max(255)
+      .refine(
+        (val) => val.toLowerCase() === SYSADMIN_EMAIL || z.string().email().safeParse(val).success,
+        "Invalid email address"
+      ),
     password: z.string().min(6, "Password must be at least 6 characters").max(100),
   });
 
@@ -94,31 +101,45 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // Check if this is sysadmin login (when no users exist)
-      if (systemState?.needsInitialUser) {
-        if (email === SYSADMIN_EMAIL && password === SYSADMIN_PASSWORD) {
-          // Set sysadmin session flag
+      const normalizedEmail = email.trim().toLowerCase();
+      const isSysadminLogin = normalizedEmail === SYSADMIN_EMAIL;
+
+      // Allow sysadmin to login without email format (no @)
+      if (isSysadminLogin) {
+        if (password === SYSADMIN_PASSWORD) {
           setIsSysadminSession(true);
           sessionStorage.setItem("sysadmin_session", "true");
-          
+
           toast({
             title: language === "ar" ? "مرحباً مدير النظام" : "Welcome System Admin",
-            description: language === "ar" ? "يرجى إنشاء مستخدمين جدد" : "Please create new users",
+            description: language === "ar" ? "تم تسجيل الدخول كمدير النظام" : "Signed in as system admin",
           });
-          
+
           navigate("/user-setup");
           return;
-        } else {
-          toast({
-            title: language === "ar" ? "فشل تسجيل الدخول" : "Login Failed",
-            description: language === "ar" 
-              ? "لا يوجد مستخدمين في النظام. استخدم بيانات مدير النظام (sysadmin)" 
-              : "No users in system. Use sysadmin credentials (sysadmin/sysadmin)",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
         }
+
+        toast({
+          title: language === "ar" ? "فشل تسجيل الدخول" : "Login Failed",
+          description: language === "ar" ? "كلمة مرور مدير النظام غير صحيحة" : "Incorrect sysadmin password",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check if this is sysadmin initial setup login (when no users exist)
+      if (systemState?.needsInitialUser) {
+        toast({
+          title: language === "ar" ? "لا يوجد مستخدمين" : "No users found",
+          description:
+            language === "ar"
+              ? "استخدم sysadmin / sysadmin لإنشاء المستخدمين" 
+              : "Use sysadmin/sysadmin to create users",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
       }
 
       // Regular login flow
@@ -133,7 +154,6 @@ const Auth = () => {
         setLoading(false);
         return;
       }
-
       // Check if email exists in profiles table
       const { data: checkData, error: checkError } = await supabase.functions.invoke("check-email", {
         body: { email },
