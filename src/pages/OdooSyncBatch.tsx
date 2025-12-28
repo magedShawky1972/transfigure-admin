@@ -78,6 +78,7 @@ const OdooSyncBatch = () => {
   const [syncProgress, setSyncProgress] = useState(0);
   const [currentOrderIndex, setCurrentOrderIndex] = useState(-1);
   const [syncComplete, setSyncComplete] = useState(false);
+  const [nonStockSkuSet, setNonStockSkuSet] = useState<Set<string>>(new Set());
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -124,6 +125,7 @@ const OdooSyncBatch = () => {
           if (p.sku) nonStockSet.add(p.sku);
           if (p.product_id) nonStockSet.add(p.product_id);
         });
+        setNonStockSkuSet(nonStockSet);
 
         // Group by order_number
         const groupMap = new Map<string, Transaction[]>();
@@ -218,17 +220,23 @@ const OdooSyncBatch = () => {
     const stepStatus = { ...group.stepStatus };
     const transactions = group.lines;
 
+    // Filter non-stock products from this order's lines
+    const orderNonStockProducts = transactions.filter(line => {
+      const sku = line.sku || line.product_id;
+      return sku && nonStockSkuSet.has(sku);
+    });
+
     const updateStepStatus = (newStepStatus: typeof stepStatus) => {
       setOrderGroups(prev => prev.map(g => 
         g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...newStepStatus } } : g
       ));
     };
 
-    const executeStep = async (stepId: string): Promise<{ success: boolean; error?: string }> => {
+    const executeStep = async (stepId: string, nonStockProducts: Transaction[] = []): Promise<{ success: boolean; error?: string }> => {
       console.log(`[Batch Sync] Executing step: ${stepId} for order: ${group.orderNumber}`);
       try {
         const response = await supabase.functions.invoke("sync-order-to-odoo-step", {
-          body: { step: stepId, transactions, nonStockProducts: [] },
+          body: { step: stepId, transactions, nonStockProducts },
         });
 
         console.log(`[Batch Sync] Step ${stepId} response:`, response);
@@ -319,13 +327,13 @@ const OdooSyncBatch = () => {
       updateStepStatus(stepStatus);
       console.log(`[Batch Sync] Order step completed for order: ${group.orderNumber}`);
 
-      // Step 5: Create Purchase Order (if non-stock)
-      if (group.hasNonStock) {
-        console.log(`[Batch Sync] Starting Purchase step for order: ${group.orderNumber}`);
+      // Step 5: Create Purchase Order (if non-stock products exist)
+      if (group.hasNonStock && orderNonStockProducts.length > 0) {
+        console.log(`[Batch Sync] Starting Purchase step for order: ${group.orderNumber}, non-stock products: ${orderNonStockProducts.length}`);
         stepStatus.purchase = 'running';
         updateStepStatus(stepStatus);
 
-        const purchaseResult = await executeStep('purchase');
+        const purchaseResult = await executeStep('purchase', orderNonStockProducts);
         if (!purchaseResult.success) {
           stepStatus.purchase = 'failed';
           updateStepStatus(stepStatus);
