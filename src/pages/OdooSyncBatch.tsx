@@ -232,11 +232,12 @@ const OdooSyncBatch = () => {
       ));
     };
 
-    const executeStep = async (stepId: string, nonStockProducts: Transaction[] = []): Promise<{ success: boolean; error?: string }> => {
+    const executeStep = async (stepId: string): Promise<{ success: boolean; error?: string }> => {
       console.log(`[Batch Sync] Executing step: ${stepId} for order: ${group.orderNumber}`);
       try {
+        // Always pass nonStockProducts to all steps (same as step-by-step dialog)
         const response = await supabase.functions.invoke("sync-order-to-odoo-step", {
-          body: { step: stepId, transactions, nonStockProducts },
+          body: { step: stepId, transactions, nonStockProducts: orderNonStockProducts },
         });
 
         console.log(`[Batch Sync] Step ${stepId} response:`, response);
@@ -333,7 +334,7 @@ const OdooSyncBatch = () => {
         stepStatus.purchase = 'running';
         updateStepStatus(stepStatus);
 
-        const purchaseResult = await executeStep('purchase', orderNonStockProducts);
+        const purchaseResult = await executeStep('purchase');
         if (!purchaseResult.success) {
           stepStatus.purchase = 'failed';
           updateStepStatus(stepStatus);
