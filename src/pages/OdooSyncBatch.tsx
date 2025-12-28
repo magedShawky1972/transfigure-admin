@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -489,7 +490,20 @@ const OdooSyncBatch = () => {
       case 'success':
         return <Badge variant="default" className="bg-green-500 gap-1"><CheckCircle2 className="h-3 w-3" />{language === 'ar' ? 'نجح' : 'Success'}</Badge>;
       case 'failed':
-        return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />{language === 'ar' ? 'فشل' : 'Failed'}</Badge>;
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="destructive" className="gap-1 cursor-help">
+                  <XCircle className="h-3 w-3" />{language === 'ar' ? 'فشل' : 'Failed'}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[300px] text-sm">
+                <p>{group.errorMessage || (language === 'ar' ? 'خطأ غير معروف' : 'Unknown error')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       case 'skipped':
         return <Badge variant="secondary" className="gap-1"><SkipForward className="h-3 w-3" />{language === 'ar' ? 'تخطي' : 'Skipped'}</Badge>;
       default:
