@@ -77,6 +77,7 @@ import BankStatementReport from "./pages/BankStatementReport";
 import SystemBackup from "./pages/SystemBackup";
 import SystemRestore from "./pages/SystemRestore";
 import OdooSyncBatch from "./pages/OdooSyncBatch";
+import OdooSyncAll from "./pages/OdooSyncAll";
 
 const queryClient = new QueryClient();
 
@@ -160,6 +161,7 @@ const App = () => (
               <Route path="/system-backup" element={<SystemBackup />} />
               <Route path="/system-restore" element={<SystemRestore />} />
               <Route path="/odoo-sync-batch" element={<OdooSyncBatch />} />
+              <Route path="/odoo-sync-all" element={<OdooSyncAll />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
