@@ -621,8 +621,18 @@ Deno.serve(async (req) => {
               body: JSON.stringify(createPayload),
             });
 
-            if (createResponse.ok) {
-              const createData = await createResponse.json();
+            const createResponseText = await createResponse.text();
+            console.log(`Product POST response status: ${createResponse.status}`);
+            console.log(`Product POST response body: ${createResponseText}`);
+
+            let createData: any = null;
+            try {
+              createData = JSON.parse(createResponseText);
+            } catch (e) {
+              console.log("Product POST response is not JSON");
+            }
+
+            if (createResponse.ok && createData) {
               productResult.status = "created";
               productResult.message = "New product created";
               productResult.odoo_product_id = createData.product_id;
@@ -639,36 +649,25 @@ Deno.serve(async (req) => {
                   console.log("Error updating local product with new Odoo product_id:", updateError.message);
                 }
               }
-            } else {
-              const errorText = await createResponse.text();
-              
-              // Check if product already exists (Odoo returns existing_product_id)
-              try {
-                const errorData = JSON.parse(errorText);
-                if (errorData.existing_product_id) {
-                  productResult.status = "exists";
-                  productResult.message = `Product already exists in Odoo: product_id=${errorData.existing_product_id}`;
-                  productResult.odoo_product_id = errorData.existing_product_id;
-                  productResult.source = "odoo_create_response";
+            } else if (createData?.existing_product_id) {
+              // Product already exists in Odoo
+              productResult.status = "exists";
+              productResult.message = `Product already exists in Odoo: product_id=${createData.existing_product_id}`;
+              productResult.odoo_product_id = createData.existing_product_id;
+              productResult.source = "odoo_create_response";
 
-                  // Update local product record with Odoo product_id
-                  const { error: updateError } = await supabase
-                    .from("products")
-                    .update({ odoo_product_id: errorData.existing_product_id })
-                    .eq("product_id", productId);
+              // Update local product record with Odoo product_id
+              const { error: updateError } = await supabase
+                .from("products")
+                .update({ odoo_product_id: createData.existing_product_id })
+                .eq("product_id", productId);
 
-                  if (updateError) {
-                    console.log("Error updating local product with existing Odoo product_id:", updateError.message);
-                  }
-                  result.products.push(productResult);
-                  continue;
-                }
-              } catch (e) {
-                // Not JSON, continue with error
+              if (updateError) {
+                console.log("Error updating local product with existing Odoo product_id:", updateError.message);
               }
-              
+            } else {
               productResult.status = "failed";
-              productResult.message = errorText;
+              productResult.message = createData?.error || createResponseText || "Unknown error creating product";
             }
           } catch (err: any) {
             productResult.status = "error";
