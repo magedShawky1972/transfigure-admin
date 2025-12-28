@@ -218,124 +218,135 @@ const OdooSyncBatch = () => {
     const stepStatus = { ...group.stepStatus };
     const transactions = group.lines;
 
+    const updateStepStatus = (newStepStatus: typeof stepStatus) => {
+      setOrderGroups(prev => prev.map(g => 
+        g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...newStepStatus } } : g
+      ));
+    };
+
     const executeStep = async (stepId: string): Promise<{ success: boolean; error?: string }> => {
+      console.log(`[Batch Sync] Executing step: ${stepId} for order: ${group.orderNumber}`);
       try {
         const response = await supabase.functions.invoke("sync-order-to-odoo-step", {
           body: { step: stepId, transactions, nonStockProducts: [] },
         });
 
+        console.log(`[Batch Sync] Step ${stepId} response:`, response);
+
         if (response.error) {
+          console.error(`[Batch Sync] Step ${stepId} error:`, response.error);
           return { success: false, error: response.error.message };
         }
 
         const data = response.data;
         
         if (data.skipped) {
+          console.log(`[Batch Sync] Step ${stepId} skipped`);
           return { success: true };
         }
 
         if (data.success) {
+          console.log(`[Batch Sync] Step ${stepId} success:`, data.message);
           return { success: true };
         } else {
+          console.error(`[Batch Sync] Step ${stepId} failed:`, data.error);
           return { success: false, error: data.error || data.message || 'Failed' };
         }
       } catch (error: any) {
+        console.error(`[Batch Sync] Step ${stepId} exception:`, error);
         return { success: false, error: error.message || 'Network error' };
       }
     };
 
     try {
       // Step 1: Sync Customer
+      console.log(`[Batch Sync] Starting Customer step for order: ${group.orderNumber}`);
       stepStatus.customer = 'running';
-      setOrderGroups(prev => prev.map(g => 
-        g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-      ));
+      updateStepStatus(stepStatus);
 
       const customerResult = await executeStep('customer');
       if (!customerResult.success) {
         stepStatus.customer = 'failed';
-        setOrderGroups(prev => prev.map(g => 
-          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-        ));
+        updateStepStatus(stepStatus);
         throw new Error(`Customer: ${customerResult.error}`);
       }
       stepStatus.customer = 'found';
+      updateStepStatus(stepStatus);
+      console.log(`[Batch Sync] Customer step completed for order: ${group.orderNumber}`);
 
       // Step 2: Sync Brand(s)
+      console.log(`[Batch Sync] Starting Brand step for order: ${group.orderNumber}`);
       stepStatus.brand = 'running';
-      setOrderGroups(prev => prev.map(g => 
-        g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-      ));
+      updateStepStatus(stepStatus);
 
       const brandResult = await executeStep('brand');
       if (!brandResult.success) {
         stepStatus.brand = 'failed';
-        setOrderGroups(prev => prev.map(g => 
-          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-        ));
+        updateStepStatus(stepStatus);
         throw new Error(`Brand: ${brandResult.error}`);
       }
       stepStatus.brand = 'found';
+      updateStepStatus(stepStatus);
+      console.log(`[Batch Sync] Brand step completed for order: ${group.orderNumber}`);
 
       // Step 3: Sync Product(s)
+      console.log(`[Batch Sync] Starting Product step for order: ${group.orderNumber}`);
       stepStatus.product = 'running';
-      setOrderGroups(prev => prev.map(g => 
-        g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-      ));
+      updateStepStatus(stepStatus);
 
       const productResult = await executeStep('product');
       if (!productResult.success) {
         stepStatus.product = 'failed';
-        setOrderGroups(prev => prev.map(g => 
-          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-        ));
+        updateStepStatus(stepStatus);
         throw new Error(`Product: ${productResult.error}`);
       }
       stepStatus.product = 'found';
+      updateStepStatus(stepStatus);
+      console.log(`[Batch Sync] Product step completed for order: ${group.orderNumber}`);
 
       // Step 4: Create Sales Order
+      console.log(`[Batch Sync] Starting Order step for order: ${group.orderNumber}`);
       stepStatus.order = 'running';
-      setOrderGroups(prev => prev.map(g => 
-        g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-      ));
+      updateStepStatus(stepStatus);
 
       const orderResult = await executeStep('order');
       if (!orderResult.success) {
         stepStatus.order = 'failed';
-        setOrderGroups(prev => prev.map(g => 
-          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-        ));
+        updateStepStatus(stepStatus);
         throw new Error(`Order: ${orderResult.error}`);
       }
       stepStatus.order = 'sent';
+      updateStepStatus(stepStatus);
+      console.log(`[Batch Sync] Order step completed for order: ${group.orderNumber}`);
 
       // Step 5: Create Purchase Order (if non-stock)
       if (group.hasNonStock) {
+        console.log(`[Batch Sync] Starting Purchase step for order: ${group.orderNumber}`);
         stepStatus.purchase = 'running';
-        setOrderGroups(prev => prev.map(g => 
-          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-        ));
+        updateStepStatus(stepStatus);
 
         const purchaseResult = await executeStep('purchase');
         if (!purchaseResult.success) {
           stepStatus.purchase = 'failed';
-          setOrderGroups(prev => prev.map(g => 
-            g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
-          ));
+          updateStepStatus(stepStatus);
           throw new Error(`Purchase: ${purchaseResult.error}`);
         }
         stepStatus.purchase = 'created';
+        updateStepStatus(stepStatus);
+        console.log(`[Batch Sync] Purchase step completed for order: ${group.orderNumber}`);
       } else {
         stepStatus.purchase = 'skipped';
+        updateStepStatus(stepStatus);
       }
 
+      console.log(`[Batch Sync] All steps completed for order: ${group.orderNumber}`);
       return {
         syncStatus: 'success',
         stepStatus,
       };
 
     } catch (error) {
-      console.error('Error syncing order:', group.orderNumber, error);
+      console.error('[Batch Sync] Error syncing order:', group.orderNumber, error);
       return {
         syncStatus: 'failed',
         stepStatus,
