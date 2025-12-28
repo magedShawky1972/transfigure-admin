@@ -368,29 +368,13 @@ const Transactions = () => {
       // Auto-load all data if count is less than 4000
       const AUTO_LOAD_THRESHOLD = 4000;
       if (totalRecords > 0 && totalRecords < AUTO_LOAD_THRESHOLD && !isAllDataLoaded && !loadingAll) {
-        // Fetch all data directly instead of paginated
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize - 1;
-        const { data, error } = await q.range(from, to);
-
-        if (error) throw error;
-        const rows = (data as any) as Transaction[];
-        setTransactions(rows);
-
-        if (page === 1) {
-          const uniqueBrands = [...new Set(rows.map(t => t.brand_name).filter(Boolean))];
-          const uniqueProducts = [...new Set(rows.map(t => t.product_name).filter(Boolean))];
-          const uniquePaymentMethods = [...new Set(rows.map(t => t.payment_method).filter(Boolean))];
-          const uniqueCustomers = [...new Set(rows.map(t => t.customer_name).filter(Boolean))];
-          setBrands(uniqueBrands as string[]);
-          setProducts(uniqueProducts as string[]);
-          setPaymentMethods(uniquePaymentMethods as string[]);
-          setCustomers(uniqueCustomers as string[]);
-        }
-
-        // Trigger auto-load after initial fetch
+        // Set totalCountAll first so display shows correct total
+        setTotalCountAll(totalRecords);
+        
+        // Trigger auto-load
         setLoading(false);
-        loadAllData();
+        // Use setTimeout to avoid calling loadAllData during render
+        setTimeout(() => loadAllData(), 0);
         return;
       }
 
@@ -519,7 +503,8 @@ const Transactions = () => {
       setLoadingProgress(100);
       setTransactions(allData);
       setIsAllDataLoaded(true);
-      setTotalCount(allData.length);
+      // Update totalCountAll to match actual loaded count (don't change totalCount which is for pagination)
+      setTotalCountAll(allData.length);
       
       toast({
         title: language === 'ar' ? 'تم تحميل جميع البيانات' : 'All Data Loaded',
