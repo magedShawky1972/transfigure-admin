@@ -258,8 +258,12 @@ const OdooSyncBatch = () => {
           console.log(`[Batch Sync] Step ${stepId} success:`, data.message);
           return { success: true };
         } else {
-          console.error(`[Batch Sync] Step ${stepId} failed:`, data.error);
-          return { success: false, error: data.error || data.message || 'Failed' };
+          // Handle nested error structure from Odoo: {error: {error: "message"}} or {error: "message"}
+          const errorMessage = typeof data.error === 'object' && data.error?.error 
+            ? data.error.error 
+            : (data.error || data.message || 'Failed');
+          console.error(`[Batch Sync] Step ${stepId} failed:`, errorMessage);
+          return { success: false, error: errorMessage };
         }
       } catch (error: any) {
         console.error(`[Batch Sync] Step ${stepId} exception:`, error);
