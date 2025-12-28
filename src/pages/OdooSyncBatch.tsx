@@ -44,6 +44,8 @@ interface OrderGroup {
   customerPhone: string;
   productNames: string[];
   totalAmount: number;
+  paymentMethod: string;
+  paymentBrand: string;
   selected: boolean;
   skipSync: boolean;
   syncStatus: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
@@ -145,6 +147,8 @@ const OdooSyncBatch = () => {
             customerPhone: firstLine.customer_phone || '',
             productNames,
             totalAmount,
+            paymentMethod: firstLine.payment_method || '',
+            paymentBrand: firstLine.payment_brand || '',
             selected: true,
             skipSync: false,
             syncStatus: 'pending',
@@ -698,6 +702,8 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
                     <TableHead>{language === 'ar' ? 'المنتجات' : 'Products'}</TableHead>
                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'بطاقة الدفع' : 'Payment Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                     <TableHead>{language === 'ar' ? 'التفاصيل' : 'Details'}</TableHead>
@@ -730,6 +736,8 @@ const OdooSyncBatch = () => {
                         {group.productNames.length > 2 && ` +${group.productNames.length - 2}`}
                       </TableCell>
                       <TableCell>{group.totalAmount.toFixed(2)} SAR</TableCell>
+                      <TableCell>{group.paymentMethod || '-'}</TableCell>
+                      <TableCell>{group.paymentBrand || '-'}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
