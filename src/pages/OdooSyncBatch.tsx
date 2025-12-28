@@ -82,18 +82,23 @@ const OdooSyncBatch = () => {
           title: language === 'ar' ? 'خطأ' : 'Error',
           description: language === 'ar' ? 'يجب تحديد تاريخ البداية والنهاية' : 'Start and end dates are required',
         });
-        navigate('/transactions');
+        navigate(`/transactions?from=${fromDate || ''}&to=${toDate || ''}`);
         return;
       }
 
       setLoading(true);
       try {
+        // Create proper date range with time to include full day
+        // fromDate starts at 00:00:00 and toDate ends at 23:59:59
+        const fromDateStart = `${fromDate} 00:00:00`;
+        const toDateEnd = `${toDate} 23:59:59`;
+        
         // Fetch transactions within date range, excluding payment_method = 'point'
         const { data, error } = await supabase
           .from('purpletransaction')
           .select('*')
-          .gte('created_at_date', fromDate)
-          .lte('created_at_date', toDate)
+          .gte('created_at_date', fromDateStart)
+          .lte('created_at_date', toDateEnd)
           .neq('payment_method', 'point')
           .eq('is_deleted', false)
           .order('created_at_date', { ascending: false });
@@ -574,7 +579,7 @@ const OdooSyncBatch = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/transactions')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/transactions?from=${fromDate}&to=${toDate}`)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

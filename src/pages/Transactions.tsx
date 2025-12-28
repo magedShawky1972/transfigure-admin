@@ -92,8 +92,22 @@ const Transactions = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
   const [orderNumberFilter, setOrderNumberFilter] = useState("");
-  const [fromDate, setFromDate] = useState<Date>(subDays(new Date(), 1));
-  const [toDate, setToDate] = useState<Date>(new Date());
+  const [fromDate, setFromDate] = useState<Date>(() => {
+    const fromParam = searchParams.get('from');
+    if (fromParam) {
+      const parsed = new Date(fromParam);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return subDays(new Date(), 1);
+  });
+  const [toDate, setToDate] = useState<Date>(() => {
+    const toParam = searchParams.get('to');
+    if (toParam) {
+      const parsed = new Date(toParam);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
