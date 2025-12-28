@@ -389,76 +389,98 @@ const Transactions = () => {
   };
 
   const loadAllData = async () => {
+    setLoadingAll(true);
+    setLoadingProgress(0);
+
+    const numericSortColumns = new Set([
+      'total', 'profit', 'cost_price', 'unit_price', 'cost_sold', 'qty'
+    ]);
+
+    const table = sortColumn && numericSortColumns.has(sortColumn)
+      ? 'purpletransaction_enriched'
+      : 'purpletransaction';
+
+    const start = startOfDay(fromDate || subDays(new Date(), 1));
+    const end = endOfDay(toDate || new Date());
+    const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
+    const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
+
+    const phone = phoneFilter.trim();
+    const orderNo = orderNumberFilter.trim();
+
+    const batchSize = 500; // Reduced batch size for stability
+    let from = 0;
+    let allData: Transaction[] = [];
+    let hasMore = true;
+    const estimatedTotal = Math.max(totalCountAll, 1);
+    let retryCount = 0;
+    const maxRetries = 3;
+
     try {
-      setLoadingAll(true);
-      setLoadingProgress(0);
-      
-      const numericSortColumns = new Set([
-        'total', 'profit', 'cost_price', 'unit_price', 'cost_sold', 'qty'
-      ]);
-
-      const table = sortColumn && numericSortColumns.has(sortColumn)
-        ? 'purpletransaction_enriched'
-        : 'purpletransaction';
-
-      const start = startOfDay(fromDate || subDays(new Date(), 1));
-      const end = endOfDay(toDate || new Date());
-      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
-      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
-
-      const phone = phoneFilter.trim();
-      const orderNo = orderNumberFilter.trim();
-
-      const batchSize = 1000;
-      let from = 0;
-      let allData: Transaction[] = [];
-      let hasMore = true;
-      const estimatedTotal = totalCountAll;
-
       while (hasMore) {
-        let query = (supabase as any)
-          .from(table)
-          .select('*')
-          .gte('created_at_date', startStr)
-          .lte('created_at_date', endStr);
+        try {
+          let query = (supabase as any)
+            .from(table)
+            .select('*')
+            .gte('created_at_date', startStr)
+            .lte('created_at_date', endStr);
 
-        if (phone) query = query.ilike('customer_phone', `%${phone}%`);
-        if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
+          if (phone) query = query.ilike('customer_phone', `%${phone}%`);
+          if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
 
-        if (sortColumn) {
-          if (numericSortColumns.has(sortColumn)) {
-            const map: Record<string, string> = {
-              total: 'total_num',
-              profit: 'profit_num',
-              qty: 'qty_num',
-              cost_price: 'cost_price_num',
-              unit_price: 'unit_price_num',
-              cost_sold: 'cost_sold_num',
-            };
-            query = query.order(map[sortColumn], { ascending: sortDirection === 'asc' });
+          if (sortColumn) {
+            if (numericSortColumns.has(sortColumn)) {
+              const map: Record<string, string> = {
+                total: 'total_num',
+                profit: 'profit_num',
+                qty: 'qty_num',
+                cost_price: 'cost_price_num',
+                unit_price: 'unit_price_num',
+                cost_sold: 'cost_sold_num',
+              };
+              query = query.order(map[sortColumn], { ascending: sortDirection === 'asc' });
+            } else {
+              query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+            }
           } else {
-            query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+            query = query.order('created_at_date', { ascending: false });
           }
-        } else {
-          query = query.order('created_at_date', { ascending: false });
-        }
 
-        query = query.range(from, from + batchSize - 1);
+          query = query.range(from, from + batchSize - 1);
 
-        const { data, error } = await query;
-        if (error) throw error;
+          const { data, error } = await query;
+          if (error) throw error;
 
-        const batch = (data as any) as Transaction[];
-        allData = allData.concat(batch);
+          const batch = (data as any) as Transaction[];
+          allData = allData.concat(batch);
+          retryCount = 0; // Reset retry count on success
 
-        // Update progress
-        const progress = Math.min(95, Math.round((allData.length / estimatedTotal) * 100));
-        setLoadingProgress(progress);
+          // Update progress
+          const progress = Math.min(95, Math.round((allData.length / estimatedTotal) * 100));
+          setLoadingProgress(progress);
 
-        if (batch.length < batchSize) {
-          hasMore = false;
-        } else {
-          from += batchSize;
+          if (batch.length < batchSize) {
+            hasMore = false;
+          } else {
+            from += batchSize;
+          }
+
+          // Small delay between batches to prevent overwhelming the connection
+          if (hasMore) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (batchError) {
+          retryCount++;
+          console.warn(`Batch fetch failed (attempt ${retryCount}/${maxRetries}):`, batchError);
+          
+          if (retryCount >= maxRetries) {
+            throw new Error(language === 'ar' 
+              ? 'فشل تحميل البيانات بعد عدة محاولات' 
+              : 'Failed to load data after multiple attempts');
+          }
+          
+          // Wait before retry with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
 
@@ -488,9 +510,9 @@ const Transactions = () => {
       toast({
         variant: "destructive",
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' 
+        description: error instanceof Error ? error.message : (language === 'ar' 
           ? 'فشل تحميل جميع البيانات'
-          : 'Failed to load all data',
+          : 'Failed to load all data'),
       });
     } finally {
       setLoadingAll(false);
