@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw, Upload, Loader2 } from "lucide-react";
+import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw, Upload, Loader2, RefreshCw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1269,6 +1269,21 @@ const Transactions = () => {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2" 
+                onClick={() => {
+                  setIsAllDataLoaded(false);
+                  setPage(1);
+                  fetchTransactions();
+                  fetchTotals();
+                }}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {language === 'ar' ? 'تحميل' : 'Load'}
+              </Button>
               <Button variant="outline" size="sm" className="gap-2" onClick={resetLayout}>
                 <RotateCcw className="h-4 w-4" />
                 {language === 'ar' ? 'إعادة تعيين' : 'Reset Layout'}
