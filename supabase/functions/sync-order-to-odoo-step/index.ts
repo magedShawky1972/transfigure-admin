@@ -534,17 +534,13 @@ Deno.serve(async (req) => {
               }
 
               if (verifyData?.success === false && verifyData?.error) {
-                productResult.status = "failed";
-                productResult.message = verifyData.error;
-                productResult.source = "odoo_api_verify";
-
-                // Clear stale local mapping so future runs don't show a false "Found"
+                // Product not found in Odoo, clear stale local mapping and proceed to create
+                console.log(`Product ${actualSku} not found in Odoo (local id was stale), will create...`);
                 await supabase.from("products").update({ odoo_product_id: null }).eq("product_id", productId);
-
-                result.products.push(productResult);
-                continue;
+                // Fall through to create the product below
+              } else {
+                // If we couldn't verify, fall through to the regular PUT check below.
               }
-              // If we couldn't verify, fall through to the regular PUT check below.
             }
 
             // Step 2: Check if product exists in Odoo via PUT request using SKU
@@ -597,28 +593,32 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            // If product check explicitly failed with success: false, capture the error
-            if (checkData?.success === false && checkData?.error) {
-              productResult.status = "failed";
-              productResult.message = checkData.error;
-              result.products.push(productResult);
-              continue;
-            }
+            // If product check explicitly failed with success: false, proceed to create it
+            // (don't stop here, we want to auto-create)
 
             // Step 3: Product doesn't exist, create new product
             console.log(`Product ${actualSku} not found in Odoo, creating new product...`);
+            
+            // Get cost_price and sales_price from product data
+            const costPrice = product?.product_cost ? parseFloat(String(product.product_cost)) : 0;
+            const salesPrice = product?.product_price ? parseFloat(String(product.product_price)) : (parseFloat(String(transaction?.unit_price)) || 0);
+            
+            const createPayload = {
+              sku: actualSku,
+              name: transaction?.product_name || actualSku,
+              cost_price: costPrice,
+              sales_price: salesPrice,
+            };
+            
+            console.log(`Product POST payload:`, JSON.stringify(createPayload));
+            
             const createResponse = await fetch(productApiUrl, {
               method: "POST",
               headers: {
                 Authorization: apiKey,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({
-                default_code: actualSku,
-                name: transaction?.product_name || actualSku,
-                list_price: parseFloat(String(transaction?.unit_price)) || 0,
-                cat_code: transaction?.brand_code,
-              }),
+              body: JSON.stringify(createPayload),
             });
 
             if (createResponse.ok) {
