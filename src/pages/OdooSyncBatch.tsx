@@ -17,6 +17,7 @@ interface Transaction {
   id: string;
   order_number: string;
   created_at_date: string;
+  created_at_date_int: number;
   customer_name: string;
   customer_phone: string;
   brand_name: string;
@@ -34,6 +35,12 @@ interface Transaction {
   payment_type: string;
   payment_brand: string;
   user_name: string;
+  vendor_name: string;
+  trans_type: string;
+  order_status: string;
+  profit: number;
+  bank_fee: number;
+  company: string;
   is_deleted: boolean;
 }
 
@@ -266,10 +273,12 @@ const OdooSyncBatch = () => {
               stepStatus.customer = 'created';
             } else {
               stepStatus.customer = 'failed';
+              throw new Error(`Customer sync failed: ${createResponse.status}`);
             }
           }
-        } catch {
+        } catch (err) {
           stepStatus.customer = 'failed';
+          throw new Error(`Customer: ${err instanceof Error ? err.message : 'Failed to fetch'}`);
         }
       } else {
         stepStatus.customer = 'found';
@@ -282,7 +291,7 @@ const OdooSyncBatch = () => {
       ));
 
       const brandCodes = [...new Set(group.lines.map(l => l.brand_code).filter(Boolean))];
-      let brandSuccess = true;
+      let brandError: string | null = null;
       
       for (const brandCode of brandCodes) {
         if (!brandApiUrl) continue;
@@ -306,13 +315,19 @@ const OdooSyncBatch = () => {
                 status: 'active',
               }),
             });
-            if (!postResponse.ok) brandSuccess = false;
+            if (!postResponse.ok) {
+              brandError = `Brand ${brandCode}: ${postResponse.status}`;
+            }
           }
-        } catch {
-          brandSuccess = false;
+        } catch (err) {
+          brandError = `Brand: ${err instanceof Error ? err.message : 'Failed to fetch'}`;
         }
       }
-      stepStatus.brand = brandSuccess ? (brandCodes.length > 0 ? 'found' : 'found') : 'failed';
+      if (brandError) {
+        stepStatus.brand = 'failed';
+        throw new Error(brandError);
+      }
+      stepStatus.brand = 'found';
 
       // Step 3: Sync Product(s)
       stepStatus.product = 'running';
@@ -321,7 +336,7 @@ const OdooSyncBatch = () => {
       ));
 
       const skus = [...new Set(group.lines.map(l => l.sku || l.product_id).filter(Boolean))];
-      let productSuccess = true;
+      let productError: string | null = null;
 
       for (const sku of skus) {
         if (!productApiUrl) continue;
@@ -347,13 +362,19 @@ const OdooSyncBatch = () => {
                 sales_price: productLine?.unit_price || 0,
               }),
             });
-            if (!postResponse.ok) productSuccess = false;
+            if (!postResponse.ok) {
+              productError = `Product ${sku}: ${postResponse.status}`;
+            }
           }
-        } catch {
-          productSuccess = false;
+        } catch (err) {
+          productError = `Product: ${err instanceof Error ? err.message : 'Failed to fetch'}`;
         }
       }
-      stepStatus.product = productSuccess ? 'found' : 'failed';
+      if (productError) {
+        stepStatus.product = 'failed';
+        throw new Error(productError);
+      }
+      stepStatus.product = 'found';
 
       // Step 4: Create Sales Order
       stepStatus.order = 'running';
@@ -362,49 +383,54 @@ const OdooSyncBatch = () => {
       ));
 
       if (salesOrderApiUrl) {
-        const orderPayload = {
-          order_number: group.orderNumber,
-          customer_phone: firstLine.customer_phone,
-          order_date: firstLine.created_at_date,
-          payment_term: "immediate",
-          sales_person: firstLine.user_name || "",
-          payment_brand: firstLine.payment_brand || "",
-          online_payment: "true",
-          transaction_type: firstLine.user_name ? "manual" : "automatic",
-          company: "Asus",
-          status: 1,
-          status_description: "completed",
-          lines: group.lines.map((line, idx) => ({
-            line_number: idx + 1,
-            line_status: 1,
-            product_sku: line.sku || line.product_id,
-            quantity: line.qty || 1,
-            unit_price: line.unit_price || 0,
-            total: line.total || 0,
-            coins_number: line.coins_number || 0,
-            cost_price: line.cost_price || 0,
-            total_cost: line.cost_sold || 0,
-          })),
-          payment: {
-            payment_method: firstLine.payment_method,
-            payment_brand: firstLine.payment_brand,
-            payment_amount: group.totalAmount,
-          },
-        };
+        try {
+          const orderPayload = {
+            order_number: group.orderNumber,
+            customer_phone: firstLine.customer_phone,
+            order_date: firstLine.created_at_date,
+            payment_term: "immediate",
+            sales_person: firstLine.user_name || "",
+            payment_brand: firstLine.payment_brand || "",
+            online_payment: "true",
+            transaction_type: firstLine.user_name ? "manual" : "automatic",
+            company: firstLine.company || "Asus",
+            status: 1,
+            status_description: "completed",
+            lines: group.lines.map((line, idx) => ({
+              line_number: idx + 1,
+              line_status: 1,
+              product_sku: line.sku || line.product_id,
+              quantity: line.qty || 1,
+              unit_price: line.unit_price || 0,
+              total: line.total || 0,
+              coins_number: line.coins_number || 0,
+              cost_price: line.cost_price || 0,
+              total_cost: line.cost_sold || 0,
+            })),
+            payment: {
+              payment_method: firstLine.payment_method,
+              payment_brand: firstLine.payment_brand,
+              payment_amount: group.totalAmount,
+            },
+          };
 
-        const orderResponse = await fetch(salesOrderApiUrl, {
-          method: 'POST',
-          headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload),
-        });
-        
-        const orderResult = await orderResponse.json().catch(() => ({ success: false }));
-        
-        if (orderResponse.ok || orderResult.success) {
-          stepStatus.order = 'sent';
-        } else {
+          const orderResponse = await fetch(salesOrderApiUrl, {
+            method: 'POST',
+            headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload),
+          });
+          
+          const orderResult = await orderResponse.json().catch(() => ({ success: false }));
+          
+          if (orderResponse.ok || orderResult.success) {
+            stepStatus.order = 'sent';
+          } else {
+            stepStatus.order = 'failed';
+            throw new Error(`Order: ${orderResult.error || orderResult.message || 'Failed to create order'}`);
+          }
+        } catch (err) {
           stepStatus.order = 'failed';
-          throw new Error(orderResult.error || orderResult.message || 'Failed to create order');
+          throw new Error(`Order: ${err instanceof Error ? err.message : 'Failed to fetch'}`);
         }
       } else {
         stepStatus.order = 'failed';
