@@ -88,20 +88,19 @@ const OdooSyncBatch = () => {
 
       setLoading(true);
       try {
-        // Create proper date range with time to include full day
-        // fromDate starts at 00:00:00 and toDate ends at 23:59:59
-        const fromDateStart = `${fromDate} 00:00:00`;
-        const toDateEnd = `${toDate} 23:59:59`;
+        // Convert date strings to integer format YYYYMMDD for filtering
+        const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
+        const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
         
-        // Fetch transactions within date range, excluding payment_method = 'point'
+        // Fetch transactions within date range using created_at_date_int, excluding payment_method = 'point'
         const { data, error } = await supabase
           .from('purpletransaction')
           .select('*')
-          .gte('created_at_date', fromDateStart)
-          .lte('created_at_date', toDateEnd)
+          .gte('created_at_date_int', fromDateInt)
+          .lte('created_at_date_int', toDateInt)
           .neq('payment_method', 'point')
           .eq('is_deleted', false)
-          .order('created_at_date', { ascending: false });
+          .order('created_at_date_int', { ascending: false });
 
         if (error) throw error;
 
