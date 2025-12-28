@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
       // Product doesn't exist, try POST to create
       console.log('Product not found, creating with POST:', productApiUrl);
       
-      // Build POST body (for creation - include cat_code if available)
+      // Build POST body (for creation - include cat_code only if brand is synced to Odoo)
       const postBody: any = {
         sku: sku,
         name: productName,
@@ -175,7 +175,8 @@ Deno.serve(async (req) => {
 
       // Add optional fields for creation
       if (uom) postBody.uom = uom;
-      if (brandCode) postBody.cat_code = brandCode; // Use brand_code string, not odoo_category_id number
+      // Only include cat_code if the brand has been synced to Odoo (has odoo_category_id)
+      if (odooCategoryId) postBody.cat_code = brandCode; // Use brand_code string when category exists in Odoo
       if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
       if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
       if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
