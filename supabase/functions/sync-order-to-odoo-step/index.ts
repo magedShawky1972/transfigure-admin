@@ -559,6 +559,14 @@ Deno.serve(async (req) => {
               continue;
             }
 
+            // If product check explicitly failed with success: false, capture the error
+            if (checkData?.success === false && checkData?.error) {
+              productResult.status = "failed";
+              productResult.message = checkData.error;
+              result.products.push(productResult);
+              continue;
+            }
+
             // Step 3: Product doesn't exist, create new product
             console.log(`Product ${actualSku} not found in Odoo, creating new product...`);
             const createResponse = await fetch(productApiUrl, {
