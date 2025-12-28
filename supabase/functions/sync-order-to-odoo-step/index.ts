@@ -718,13 +718,19 @@ Deno.serve(async (req) => {
           console.log(`[sync-order-to-odoo-step] ORDER response status: ${orderResponse.status}`);
           console.log(`[sync-order-to-odoo-step] ORDER response body: ${orderText}`);
 
-          if (orderResponse.ok) {
-            let data: any = null;
-            try {
-              data = JSON.parse(orderText);
-            } catch {
-              data = { raw: orderText };
-            }
+          let data: any = null;
+          try {
+            data = JSON.parse(orderText);
+          } catch {
+            data = { raw: orderText };
+          }
+
+          // Check if Odoo returned an error in the response body (even with HTTP 200)
+          if (data?.error || data?.success === false) {
+            result.success = false;
+            result.error = data.error?.error || data.error || data.message || `Failed to create order: ${orderText}`;
+            result.details = data;
+          } else if (orderResponse.ok) {
             result.success = true;
             result.message = `Order ${firstTransaction.order_number} created successfully in Odoo!`;
             result.details = data;
