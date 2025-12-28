@@ -186,6 +186,8 @@ const ProjectsTasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [timeEntriesDialogOpen, setTimeEntriesDialogOpen] = useState(false);
   const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
+  const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
+  const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null);
   
   // Form states
   const [projectForm, setProjectForm] = useState({
@@ -1704,9 +1706,17 @@ const ProjectsTasks = () => {
                                         </Badge>
                                       )}
 
-                                      {/* Attachments count */}
+                                      {/* Attachments count - clickable */}
                                       {(task.file_attachments?.length > 0 || task.external_links?.length > 0) && (
-                                        <Badge variant="outline" className="text-xs h-5 gap-1 px-1.5">
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-xs h-5 gap-1 px-1.5 cursor-pointer hover:bg-primary/10 transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTaskForAttachments(task);
+                                            setAttachmentsDialogOpen(true);
+                                          }}
+                                        >
                                           <FileText className="h-3 w-3" />
                                           {(task.file_attachments?.length || 0) + (task.external_links?.length || 0)}
                                         </Badge>
@@ -1782,6 +1792,106 @@ const ProjectsTasks = () => {
           ) : (
             <p className="text-center text-muted-foreground py-4">{t.noTimeEntries}</p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Attachments Dialog */}
+      <Dialog open={attachmentsDialogOpen} onOpenChange={setAttachmentsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.files}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* File Attachments */}
+            {selectedTaskForAttachments?.file_attachments && selectedTaskForAttachments.file_attachments.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  {language === 'ar' ? 'الملفات المرفقة' : 'Attached Files'}
+                </h4>
+                <div className="space-y-1">
+                  {selectedTaskForAttachments.file_attachments.map((file, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                      onClick={() => window.open(file.url, '_blank')}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm truncate">{file.name}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {language === 'ar' ? 'فتح' : 'Open'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* External Links */}
+            {selectedTaskForAttachments?.external_links && selectedTaskForAttachments.external_links.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Link className="h-4 w-4" />
+                  {t.externalLinks}
+                </h4>
+                <div className="space-y-1">
+                  {selectedTaskForAttachments.external_links.map((link, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                      onClick={() => window.open(link, '_blank')}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Link className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm truncate">{link}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {language === 'ar' ? 'فتح' : 'Open'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Video Attachments */}
+            {selectedTaskForAttachments?.video_attachments && selectedTaskForAttachments.video_attachments.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  {t.videos}
+                </h4>
+                <div className="space-y-1">
+                  {selectedTaskForAttachments.video_attachments.map((video, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                      onClick={() => window.open(video.url, '_blank')}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Video className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm truncate">{video.name}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {language === 'ar' ? 'فتح' : 'Open'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {(!selectedTaskForAttachments?.file_attachments?.length && 
+              !selectedTaskForAttachments?.external_links?.length && 
+              !selectedTaskForAttachments?.video_attachments?.length) && (
+              <p className="text-center text-muted-foreground py-4">
+                {language === 'ar' ? 'لا توجد مرفقات' : 'No attachments'}
+              </p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
