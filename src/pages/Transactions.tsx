@@ -300,6 +300,7 @@ const Transactions = () => {
   useEffect(() => {
     setPage(1);
     setIsAllDataLoaded(false);
+    setTotalCountAll(0);
   }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
   useEffect(() => {
@@ -364,6 +365,7 @@ const Transactions = () => {
       const { count } = await countQuery;
       const totalRecords = count || 0;
       setTotalCount(totalRecords);
+      setTotalCountAll(totalRecords);
 
       // Auto-load all data if count is less than 4000
       const AUTO_LOAD_THRESHOLD = 4000;
@@ -673,7 +675,6 @@ const Transactions = () => {
       // 5) Final totals exactly like Dashboard card
       setTotalSalesAll(totalSales);
       setTotalProfitAll(totalSales - costOfSales - totalPointsCost - ePaymentCharges);
-      setTotalCountAll(transactionCount);
       setPointTransactionCount(orderGrouped.size);
       setPointSales(totalPointsSales);
     } catch (error) {
