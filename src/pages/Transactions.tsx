@@ -362,7 +362,37 @@ const Transactions = () => {
       if (orderNo) countQuery = countQuery.ilike('order_number', `%${orderNo}%`);
       
       const { count } = await countQuery;
-      setTotalCount(count || 0);
+      const totalRecords = count || 0;
+      setTotalCount(totalRecords);
+
+      // Auto-load all data if count is less than 4000
+      const AUTO_LOAD_THRESHOLD = 4000;
+      if (totalRecords > 0 && totalRecords < AUTO_LOAD_THRESHOLD && !isAllDataLoaded && !loadingAll) {
+        // Fetch all data directly instead of paginated
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await q.range(from, to);
+
+        if (error) throw error;
+        const rows = (data as any) as Transaction[];
+        setTransactions(rows);
+
+        if (page === 1) {
+          const uniqueBrands = [...new Set(rows.map(t => t.brand_name).filter(Boolean))];
+          const uniqueProducts = [...new Set(rows.map(t => t.product_name).filter(Boolean))];
+          const uniquePaymentMethods = [...new Set(rows.map(t => t.payment_method).filter(Boolean))];
+          const uniqueCustomers = [...new Set(rows.map(t => t.customer_name).filter(Boolean))];
+          setBrands(uniqueBrands as string[]);
+          setProducts(uniqueProducts as string[]);
+          setPaymentMethods(uniquePaymentMethods as string[]);
+          setCustomers(uniqueCustomers as string[]);
+        }
+
+        // Trigger auto-load after initial fetch
+        setLoading(false);
+        loadAllData();
+        return;
+      }
 
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -1262,7 +1292,8 @@ const Transactions = () => {
                   </div>
                 </PopoverContent>
               </Popover>
-              {!isAllDataLoaded && totalCountAll > pageSize && (
+              {/* Only show Load All button when count >= 4000 and not all loaded */}
+              {!isAllDataLoaded && totalCountAll >= 4000 && (
                 <Button 
                   variant="outline" 
                   className="gap-2" 
