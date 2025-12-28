@@ -499,14 +499,49 @@ Deno.serve(async (req) => {
           const productResult: any = { sku: actualSku, product_name: transaction?.product_name };
 
           try {
-            // Step 1: Check if product has Odoo product_id in local database
+            // Step 1: If we have a local Odoo product id, still verify it exists in the current Odoo environment
             if (product?.odoo_product_id) {
-              productResult.status = "exists";
-              productResult.message = `Product already exists in Odoo (from local DB): product_id=${product.odoo_product_id}`;
-              productResult.odoo_product_id = product.odoo_product_id;
-              productResult.source = "local_database";
-              result.products.push(productResult);
-              continue;
+              console.log(`Verifying product in Odoo (local id exists): ${productApiUrl}/${actualSku}`);
+              const verifyResponse = await fetch(`${productApiUrl}/${actualSku}`, {
+                method: "GET",
+                headers: {
+                  Authorization: apiKey,
+                  "Content-Type": "application/json",
+                },
+              });
+
+              const verifyText = await verifyResponse.text();
+              console.log("Product verify response status:", verifyResponse.status);
+              console.log("Product verify response:", verifyText);
+
+              let verifyData: any = null;
+              try {
+                verifyData = JSON.parse(verifyText);
+              } catch (e) {
+                verifyData = null;
+              }
+
+              if (verifyResponse.ok && verifyData?.success === true && verifyData?.product_id) {
+                productResult.status = "exists";
+                productResult.message = `Product exists in Odoo (verified): ${verifyData.sku || actualSku}`;
+                productResult.odoo_product_id = verifyData.product_id;
+                productResult.source = "odoo_api_verify";
+                result.products.push(productResult);
+                continue;
+              }
+
+              if (verifyData?.success === false && verifyData?.error) {
+                productResult.status = "failed";
+                productResult.message = verifyData.error;
+                productResult.source = "odoo_api_verify";
+
+                // Clear stale local mapping so future runs don't show a false "Found"
+                await supabase.from("products").update({ odoo_product_id: null }).eq("product_id", productId);
+
+                result.products.push(productResult);
+                continue;
+              }
+              // If we couldn't verify, fall through to the regular PUT check below.
             }
 
             // Step 2: Check if product exists in Odoo via PUT request using SKU
