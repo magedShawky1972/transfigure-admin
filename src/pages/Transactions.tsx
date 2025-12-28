@@ -328,9 +328,10 @@ const Transactions = () => {
 
       const start = startOfDay(fromDate || subDays(new Date(), 1));
       const end = endOfDay(toDate || new Date());
-      const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
-      const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
-      q = q.gte('created_at_date', startStr).lte('created_at_date', endStr);
+      // Use created_at_date_int (integer format: YYYYMMDD) for filtering
+      const startInt = parseInt(format(start, 'yyyyMMdd'), 10);
+      const endInt = parseInt(format(end, 'yyyyMMdd'), 10);
+      q = q.gte('created_at_date_int', startInt).lte('created_at_date_int', endInt);
 
       const phone = phoneFilter.trim();
       if (phone) q = q.ilike('customer_phone', `%${phone}%`);
@@ -356,7 +357,7 @@ const Transactions = () => {
       }
 
       let countQuery = (supabase as any).from(table).select('*', { count: 'exact', head: true });
-      countQuery = countQuery.gte('created_at_date', startStr).lte('created_at_date', endStr);
+      countQuery = countQuery.gte('created_at_date_int', startInt).lte('created_at_date_int', endInt);
       if (phone) countQuery = countQuery.ilike('customer_phone', `%${phone}%`);
       if (orderNo) countQuery = countQuery.ilike('order_number', `%${orderNo}%`);
       
@@ -402,8 +403,9 @@ const Transactions = () => {
 
     const start = startOfDay(fromDate || subDays(new Date(), 1));
     const end = endOfDay(toDate || new Date());
-    const startStr = format(start, "yyyy-MM-dd'T'00:00:00");
-    const endStr = format(end, "yyyy-MM-dd'T'23:59:59");
+    // Use created_at_date_int (integer format: YYYYMMDD) for filtering
+    const startInt = parseInt(format(start, 'yyyyMMdd'), 10);
+    const endInt = parseInt(format(end, 'yyyyMMdd'), 10);
 
     const phone = phoneFilter.trim();
     const orderNo = orderNumberFilter.trim();
@@ -422,8 +424,8 @@ const Transactions = () => {
           let query = (supabase as any)
             .from(table)
             .select('*')
-            .gte('created_at_date', startStr)
-            .lte('created_at_date', endStr);
+            .gte('created_at_date_int', startInt)
+            .lte('created_at_date_int', endInt);
 
           if (phone) query = query.ilike('customer_phone', `%${phone}%`);
           if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
