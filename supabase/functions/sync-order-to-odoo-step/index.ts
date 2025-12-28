@@ -50,6 +50,19 @@ Deno.serve(async (req) => {
   try {
     const { step, transactions, nonStockProducts } = await req.json();
 
+    const firstTx = Array.isArray(transactions) && transactions.length > 0 ? (transactions[0] as Transaction) : null;
+    console.log(
+      `[sync-order-to-odoo-step] incoming`,
+      JSON.stringify({
+        step,
+        order_number: firstTx?.order_number,
+        customer_phone: firstTx?.customer_phone,
+        brand_code: firstTx?.brand_code,
+        products: Array.isArray(transactions) ? transactions.length : 0,
+        nonStockProducts: Array.isArray(nonStockProducts) ? nonStockProducts.length : 0,
+      })
+    );
+
     if (!step || !transactions || transactions.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing step or transactions" }),
@@ -687,6 +700,11 @@ Deno.serve(async (req) => {
         };
 
         try {
+          console.log(
+            `[sync-order-to-odoo-step] ORDER POST -> ${salesOrderApiUrl} for order ${firstTransaction.order_number}`
+          );
+          console.log(`[sync-order-to-odoo-step] ORDER payload:`, JSON.stringify(orderPayload));
+
           const orderResponse = await fetch(salesOrderApiUrl, {
             method: "POST",
             headers: {
@@ -696,15 +714,23 @@ Deno.serve(async (req) => {
             body: JSON.stringify(orderPayload),
           });
 
+          const orderText = await orderResponse.text();
+          console.log(`[sync-order-to-odoo-step] ORDER response status: ${orderResponse.status}`);
+          console.log(`[sync-order-to-odoo-step] ORDER response body: ${orderText}`);
+
           if (orderResponse.ok) {
-            const data = await orderResponse.json();
+            let data: any = null;
+            try {
+              data = JSON.parse(orderText);
+            } catch {
+              data = { raw: orderText };
+            }
             result.success = true;
             result.message = `Order ${firstTransaction.order_number} created successfully in Odoo!`;
             result.details = data;
           } else {
-            const errorText = await orderResponse.text();
             result.success = false;
-            result.error = `Failed to create order: ${errorText}`;
+            result.error = `Failed to create order: ${orderText}`;
           }
         } catch (err: any) {
           result.success = false;
