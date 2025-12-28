@@ -424,13 +424,30 @@ const Transactions = () => {
     const phone = phoneFilter.trim();
     const orderNo = orderNumberFilter.trim();
 
-    const batchSize = 500; // Reduced batch size for stability
+    const batchSize = 1000; // Larger batch size to reduce number of requests
     let from = 0;
     let allData: Transaction[] = [];
     let hasMore = true;
     const estimatedTotal = Math.max(totalCountAll, 1);
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 8;
+
+    const getErrorStatus = (err: unknown): number | undefined => {
+      const e = err as any;
+      return (
+        e?.status ??
+        e?.cause?.status ??
+        e?.error?.status ??
+        e?.response?.status
+      );
+    };
+
+    const getRetryDelayMs = (attempt: number, status?: number) => {
+      // More conservative backoff for rate limits / transient backend errors
+      if (status === 429) return 3000 * attempt * attempt;
+      if (status && status >= 500) return 2000 * attempt * attempt;
+      return 1000 * attempt;
+    }; 
 
     try {
       while (hasMore) {
@@ -481,22 +498,30 @@ const Transactions = () => {
             from += batchSize;
           }
 
-          // Small delay between batches to prevent overwhelming the connection
+          // Small delay between batches to avoid rate limiting
           if (hasMore) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 150));
           }
         } catch (batchError) {
           retryCount++;
-          console.warn(`Batch fetch failed (attempt ${retryCount}/${maxRetries}):`, batchError);
-          
+          const status = getErrorStatus(batchError);
+          console.warn(
+            `Batch fetch failed (attempt ${retryCount}/${maxRetries}, status ${status ?? 'n/a'}):`,
+            batchError
+          );
+
           if (retryCount >= maxRetries) {
-            throw new Error(language === 'ar' 
-              ? 'فشل تحميل البيانات بعد عدة محاولات' 
-              : 'Failed to load data after multiple attempts');
+            throw new Error(
+              language === 'ar'
+                ? `فشل تحميل البيانات بعد عدة محاولات (تم تحميل ${allData.length.toLocaleString()})`
+                : `Failed to load data after multiple attempts (loaded ${allData.length.toLocaleString()})`
+            );
           }
-          
-          // Wait before retry with exponential backoff
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+
+          // Wait before retry with backoff (handles 429/5xx better)
+          await new Promise(resolve =>
+            setTimeout(resolve, getRetryDelayMs(retryCount, status))
+          );
         }
       }
 
@@ -505,12 +530,13 @@ const Transactions = () => {
       setIsAllDataLoaded(true);
       // Update totalCountAll to match actual loaded count (don't change totalCount which is for pagination)
       setTotalCountAll(allData.length);
-      
+
       toast({
         title: language === 'ar' ? 'تم تحميل جميع البيانات' : 'All Data Loaded',
-        description: language === 'ar' 
-          ? `تم تحميل ${allData.length.toLocaleString()} معاملة`
-          : `Loaded ${allData.length.toLocaleString()} transactions`,
+        description:
+          language === 'ar'
+            ? `تم تحميل ${allData.length.toLocaleString()} معاملة`
+            : `Loaded ${allData.length.toLocaleString()} transactions`,
       });
 
       // Update filters with all data
