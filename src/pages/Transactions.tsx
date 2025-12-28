@@ -21,7 +21,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, subDays, addDays } from "date-fns";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
@@ -86,6 +86,7 @@ interface Transaction {
 const Transactions = () => {
   const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -901,8 +902,8 @@ const Transactions = () => {
     }
   };
 
-  // Sync all visible transactions to Odoo
-  const handleSyncAllToOdoo = async () => {
+  // Sync all visible transactions to Odoo - navigate to batch sync page
+  const handleSyncAllToOdoo = () => {
     if (sortedTransactions.length === 0) {
       toast({
         title: language === 'ar' ? 'لا توجد معاملات' : 'No Transactions',
@@ -912,36 +913,10 @@ const Transactions = () => {
       return;
     }
 
-    setSyncingAllToOdoo(true);
-    try {
-      const response = await supabase.functions.invoke('sync-order-to-odoo', {
-        body: { transactions: sortedTransactions },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      const result = response.data;
-      toast({
-        title: result.success 
-          ? (language === 'ar' ? 'تم الإرسال بنجاح' : 'Sync Successful')
-          : (language === 'ar' ? 'إرسال جزئي' : 'Partial Sync'),
-        description: language === 'ar'
-          ? `تم إرسال ${result.synced} من ${result.total_orders} طلب(ات)${result.failed > 0 ? ` - فشل ${result.failed}` : ''}`
-          : `${result.synced} of ${result.total_orders} order(s) synced${result.failed > 0 ? ` - ${result.failed} failed` : ''}`,
-        variant: result.failed > 0 ? 'destructive' : 'default',
-      });
-    } catch (error) {
-      console.error('Error syncing all to Odoo:', error);
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: error instanceof Error ? error.message : 'Failed to sync to Odoo',
-        variant: 'destructive',
-      });
-    } finally {
-      setSyncingAllToOdoo(false);
-    }
+    // Navigate to Odoo sync batch page with date filters
+    const fromDateStr = format(fromDate, 'yyyy-MM-dd');
+    const toDateStr = format(toDate, 'yyyy-MM-dd');
+    navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
   };
 
   const renderCell = (transaction: Transaction, columnId: string) => {

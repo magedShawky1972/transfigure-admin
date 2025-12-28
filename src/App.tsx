@@ -76,6 +76,7 @@ import ProjectGantt from "./pages/ProjectGantt";
 import BankStatementReport from "./pages/BankStatementReport";
 import SystemBackup from "./pages/SystemBackup";
 import SystemRestore from "./pages/SystemRestore";
+import OdooSyncBatch from "./pages/OdooSyncBatch";
 
 const queryClient = new QueryClient();
 
@@ -158,6 +159,7 @@ const App = () => (
               <Route path="/pdf-to-excel" element={<PdfToExcel />} />
               <Route path="/system-backup" element={<SystemBackup />} />
               <Route path="/system-restore" element={<SystemRestore />} />
+              <Route path="/odoo-sync-batch" element={<OdooSyncBatch />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
