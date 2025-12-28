@@ -213,76 +213,53 @@ const OdooSyncBatch = () => {
 
   const allSelected = orderGroups.length > 0 && orderGroups.every(g => g.selected);
 
-  // Sync a single order to Odoo with step tracking
+  // Sync a single order to Odoo with step tracking using edge function
   const syncSingleOrder = async (group: OrderGroup): Promise<Partial<OrderGroup>> => {
-    const updates: Partial<OrderGroup> = { syncStatus: 'running' };
     const stepStatus = { ...group.stepStatus };
+    const transactions = group.lines;
+
+    const executeStep = async (stepId: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const response = await supabase.functions.invoke("sync-order-to-odoo-step", {
+          body: { step: stepId, transactions, nonStockProducts: [] },
+        });
+
+        if (response.error) {
+          return { success: false, error: response.error.message };
+        }
+
+        const data = response.data;
+        
+        if (data.skipped) {
+          return { success: true };
+        }
+
+        if (data.success) {
+          return { success: true };
+        } else {
+          return { success: false, error: data.error || data.message || 'Failed' };
+        }
+      } catch (error: any) {
+        return { success: false, error: error.message || 'Network error' };
+      }
+    };
 
     try {
-      // Get Odoo config
-      const { data: odooConfig } = await supabase
-        .from('odoo_api_config')
-        .select('*')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (!odooConfig) {
-        throw new Error('Odoo API configuration not found');
-      }
-
-      const isProductionMode = odooConfig.is_production_mode !== false;
-      const customerApiUrl = isProductionMode ? odooConfig.customer_api_url : odooConfig.customer_api_url_test;
-      const brandApiUrl = isProductionMode ? odooConfig.brand_api_url : odooConfig.brand_api_url_test;
-      const productApiUrl = isProductionMode ? odooConfig.product_api_url : odooConfig.product_api_url_test;
-      const salesOrderApiUrl = isProductionMode ? odooConfig.sales_order_api_url : odooConfig.sales_order_api_url_test;
-      const purchaseOrderApiUrl = isProductionMode ? odooConfig.purchase_order_api_url : odooConfig.purchase_order_api_url_test;
-      const odooApiKey = isProductionMode ? odooConfig.api_key : odooConfig.api_key_test;
-
-      const firstLine = group.lines[0];
-
       // Step 1: Sync Customer
       stepStatus.customer = 'running';
       setOrderGroups(prev => prev.map(g => 
         g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
       ));
 
-      if (firstLine.customer_phone && customerApiUrl) {
-        try {
-          const checkResponse = await fetch(`${customerApiUrl}/${firstLine.customer_phone}`, {
-            method: 'PUT',
-            headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-          });
-          const checkData = await checkResponse.json().catch(() => null);
-          
-          if (checkResponse.ok && checkData?.success) {
-            stepStatus.customer = 'found';
-          } else {
-            // Create customer
-            const createResponse = await fetch(customerApiUrl, {
-              method: 'POST',
-              headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                partner_type: "customer",
-                phone: firstLine.customer_phone,
-                name: firstLine.customer_name || 'Unknown Customer',
-                email: "",
-                status: "active",
-              }),
-            });
-            if (createResponse.ok) {
-              stepStatus.customer = 'created';
-            } else {
-              stepStatus.customer = 'failed';
-              throw new Error(`Customer sync failed: ${createResponse.status}`);
-            }
-          }
-        } catch (err) {
-          stepStatus.customer = 'failed';
-          throw new Error(`Customer: ${err instanceof Error ? err.message : 'Failed to fetch'}`);
-        }
-      } else {
-        stepStatus.customer = 'found';
+      const customerResult = await executeStep('customer');
+      if (!customerResult.success) {
+        stepStatus.customer = 'failed';
+        setOrderGroups(prev => prev.map(g => 
+          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
+        ));
+        throw new Error(`Customer: ${customerResult.error}`);
       }
+      stepStatus.customer = 'found';
 
       // Step 2: Sync Brand(s)
       stepStatus.brand = 'running';
@@ -290,42 +267,13 @@ const OdooSyncBatch = () => {
         g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
       ));
 
-      const brandCodes = [...new Set(group.lines.map(l => l.brand_code).filter(Boolean))];
-      let brandError: string | null = null;
-      
-      for (const brandCode of brandCodes) {
-        if (!brandApiUrl) continue;
-        const brandLine = group.lines.find(l => l.brand_code === brandCode);
-        
-        try {
-          const putResponse = await fetch(`${brandApiUrl}/${brandCode}`, {
-            method: 'PUT',
-            headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: brandLine?.brand_name || brandCode }),
-          });
-          const putData = await putResponse.json().catch(() => ({ success: false }));
-          
-          if (!putData.success) {
-            const postResponse = await fetch(brandApiUrl, {
-              method: 'POST',
-              headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: brandLine?.brand_name || brandCode,
-                cat_code: brandCode,
-                status: 'active',
-              }),
-            });
-            if (!postResponse.ok) {
-              brandError = `Brand ${brandCode}: ${postResponse.status}`;
-            }
-          }
-        } catch (err) {
-          brandError = `Brand: ${err instanceof Error ? err.message : 'Failed to fetch'}`;
-        }
-      }
-      if (brandError) {
+      const brandResult = await executeStep('brand');
+      if (!brandResult.success) {
         stepStatus.brand = 'failed';
-        throw new Error(brandError);
+        setOrderGroups(prev => prev.map(g => 
+          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
+        ));
+        throw new Error(`Brand: ${brandResult.error}`);
       }
       stepStatus.brand = 'found';
 
@@ -335,44 +283,13 @@ const OdooSyncBatch = () => {
         g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
       ));
 
-      const skus = [...new Set(group.lines.map(l => l.sku || l.product_id).filter(Boolean))];
-      let productError: string | null = null;
-
-      for (const sku of skus) {
-        if (!productApiUrl) continue;
-        const productLine = group.lines.find(l => (l.sku || l.product_id) === sku);
-        
-        try {
-          const putResponse = await fetch(`${productApiUrl}/${sku}`, {
-            method: 'PUT',
-            headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: productLine?.product_name || sku }),
-          });
-          const putData = await putResponse.json().catch(() => ({ success: false }));
-          
-          if (!putData.success) {
-            const postResponse = await fetch(productApiUrl, {
-              method: 'POST',
-              headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                sku: sku,
-                name: productLine?.product_name || sku,
-                cat_code: productLine?.brand_code || undefined,
-                cost_price: productLine?.cost_price || 0,
-                sales_price: productLine?.unit_price || 0,
-              }),
-            });
-            if (!postResponse.ok) {
-              productError = `Product ${sku}: ${postResponse.status}`;
-            }
-          }
-        } catch (err) {
-          productError = `Product: ${err instanceof Error ? err.message : 'Failed to fetch'}`;
-        }
-      }
-      if (productError) {
+      const productResult = await executeStep('product');
+      if (!productResult.success) {
         stepStatus.product = 'failed';
-        throw new Error(productError);
+        setOrderGroups(prev => prev.map(g => 
+          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
+        ));
+        throw new Error(`Product: ${productResult.error}`);
       }
       stepStatus.product = 'found';
 
@@ -382,69 +299,31 @@ const OdooSyncBatch = () => {
         g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
       ));
 
-      if (salesOrderApiUrl) {
-        try {
-          const orderPayload = {
-            order_number: group.orderNumber,
-            customer_phone: firstLine.customer_phone,
-            order_date: firstLine.created_at_date,
-            payment_term: "immediate",
-            sales_person: firstLine.user_name || "",
-            payment_brand: firstLine.payment_brand || "",
-            online_payment: "true",
-            transaction_type: firstLine.user_name ? "manual" : "automatic",
-            company: firstLine.company || "Asus",
-            status: 1,
-            status_description: "completed",
-            lines: group.lines.map((line, idx) => ({
-              line_number: idx + 1,
-              line_status: 1,
-              product_sku: line.sku || line.product_id,
-              quantity: line.qty || 1,
-              unit_price: line.unit_price || 0,
-              total: line.total || 0,
-              coins_number: line.coins_number || 0,
-              cost_price: line.cost_price || 0,
-              total_cost: line.cost_sold || 0,
-            })),
-            payment: {
-              payment_method: firstLine.payment_method,
-              payment_brand: firstLine.payment_brand,
-              payment_amount: group.totalAmount,
-            },
-          };
-
-          const orderResponse = await fetch(salesOrderApiUrl, {
-            method: 'POST',
-            headers: { 'Authorization': odooApiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderPayload),
-          });
-          
-          const orderResult = await orderResponse.json().catch(() => ({ success: false }));
-          
-          if (orderResponse.ok || orderResult.success) {
-            stepStatus.order = 'sent';
-          } else {
-            stepStatus.order = 'failed';
-            throw new Error(`Order: ${orderResult.error || orderResult.message || 'Failed to create order'}`);
-          }
-        } catch (err) {
-          stepStatus.order = 'failed';
-          throw new Error(`Order: ${err instanceof Error ? err.message : 'Failed to fetch'}`);
-        }
-      } else {
+      const orderResult = await executeStep('order');
+      if (!orderResult.success) {
         stepStatus.order = 'failed';
-        throw new Error('Sales Order API URL not configured');
+        setOrderGroups(prev => prev.map(g => 
+          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
+        ));
+        throw new Error(`Order: ${orderResult.error}`);
       }
+      stepStatus.order = 'sent';
 
       // Step 5: Create Purchase Order (if non-stock)
-      if (group.hasNonStock && purchaseOrderApiUrl) {
+      if (group.hasNonStock) {
         stepStatus.purchase = 'running';
         setOrderGroups(prev => prev.map(g => 
           g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
         ));
 
-        // Simplified - in real implementation, this would create purchase orders
+        const purchaseResult = await executeStep('purchase');
+        if (!purchaseResult.success) {
+          stepStatus.purchase = 'failed';
+          setOrderGroups(prev => prev.map(g => 
+            g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...stepStatus } } : g
+          ));
+          throw new Error(`Purchase: ${purchaseResult.error}`);
+        }
         stepStatus.purchase = 'created';
       } else {
         stepStatus.purchase = 'skipped';
