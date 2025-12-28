@@ -1212,7 +1212,19 @@ const Transactions = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>{t("transactions.title")}</CardTitle>
+            <div>
+              <CardTitle>{t("transactions.title")}</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {language === 'ar' 
+                  ? `${transactions.length.toLocaleString()} سجل محمّل من ${totalCountAll.toLocaleString()}`
+                  : `${transactions.length.toLocaleString()} of ${totalCountAll.toLocaleString()} records loaded`}
+                {isAllDataLoaded && (
+                  <Badge variant="secondary" className="mr-2 ml-2">
+                    {language === 'ar' ? 'الكل محمّل' : 'All Loaded'}
+                  </Badge>
+                )}
+              </p>
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={resetLayout}>
                 <RotateCcw className="h-4 w-4" />
