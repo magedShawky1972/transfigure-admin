@@ -498,7 +498,15 @@ const OdooSyncBatch = () => {
     const success = orderGroups.filter(g => g.syncStatus === 'success').length;
     const failed = orderGroups.filter(g => g.syncStatus === 'failed').length;
     const skipped = orderGroups.filter(g => g.syncStatus === 'skipped').length;
-    return { total, success, failed, skipped };
+    
+    // Count created items (status === 'created')
+    const customersCreated = orderGroups.filter(g => g.stepStatus.customer === 'created').length;
+    const brandsCreated = orderGroups.filter(g => g.stepStatus.brand === 'created').length;
+    const productsCreated = orderGroups.filter(g => g.stepStatus.product === 'created').length;
+    const ordersCreated = orderGroups.filter(g => g.stepStatus.order === 'sent').length;
+    const purchasesCreated = orderGroups.filter(g => g.stepStatus.purchase === 'created').length;
+    
+    return { total, success, failed, skipped, customersCreated, brandsCreated, productsCreated, ordersCreated, purchasesCreated };
   }, [orderGroups]);
 
   return (
@@ -560,31 +568,68 @@ const OdooSyncBatch = () => {
 
       {/* Summary (after sync) */}
       {syncComplete && (
-        <div className="grid grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{summary.total}</div>
-              <p className="text-muted-foreground text-sm">{language === 'ar' ? 'إجمالي الطلبات' : 'Total Orders'}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-green-500">{summary.success}</div>
-              <p className="text-muted-foreground text-sm">{language === 'ar' ? 'نجح' : 'Success'}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-destructive">{summary.failed}</div>
-              <p className="text-muted-foreground text-sm">{language === 'ar' ? 'فشل' : 'Failed'}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-muted-foreground">{summary.skipped}</div>
-              <p className="text-muted-foreground text-sm">{language === 'ar' ? 'تخطي' : 'Skipped'}</p>
-            </CardContent>
-          </Card>
+        <div className="space-y-4">
+          {/* Sync Results */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{summary.total}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'إجمالي الطلبات' : 'Total Orders'}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-green-500">{summary.success}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'نجح' : 'Success'}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-destructive">{summary.failed}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'فشل' : 'Failed'}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-muted-foreground">{summary.skipped}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'تخطي' : 'Skipped'}</p>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Created in Odoo */}
+          <div className="grid grid-cols-5 gap-4">
+            <Card className="border-blue-500/30 bg-blue-500/5">
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-blue-500">{summary.customersCreated}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'عملاء تم إنشاؤهم' : 'Customers Created'}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-purple-500/30 bg-purple-500/5">
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-purple-500">{summary.brandsCreated}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'علامات تجارية' : 'Brands Created'}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-orange-500/30 bg-orange-500/5">
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-orange-500">{summary.productsCreated}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'منتجات تم إنشاؤها' : 'Products Created'}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-green-500/30 bg-green-500/5">
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-green-500">{summary.ordersCreated}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'طلبات تم إرسالها' : 'Orders Sent'}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-cyan-500/30 bg-cyan-500/5">
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-cyan-500">{summary.purchasesCreated}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'أوامر شراء' : 'Purchases Created'}</p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -626,11 +671,14 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
                     <TableHead>{language === 'ar' ? 'المنتجات' : 'Products'}</TableHead>
                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'بطاقة الدفع' : 'Payment Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'التفاصيل' : 'Details'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'العميل' : 'Customer'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'العلامة' : 'Brand'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'الطلب' : 'Order'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'الشراء' : 'Purchase'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -655,13 +703,11 @@ const OdooSyncBatch = () => {
                         {group.date ? format(parseISO(group.date), 'yyyy-MM-dd') : '-'}
                       </TableCell>
                       <TableCell>{group.customerPhone || '-'}</TableCell>
-                      <TableCell className="max-w-[200px] truncate" title={group.productNames.join(', ')}>
+                      <TableCell className="max-w-[150px] truncate" title={group.productNames.join(', ')}>
                         {group.productNames.slice(0, 2).join(', ')}
                         {group.productNames.length > 2 && ` +${group.productNames.length - 2}`}
                       </TableCell>
                       <TableCell>{group.totalAmount.toFixed(2)} SAR</TableCell>
-                      <TableCell>{group.paymentMethod || '-'}</TableCell>
-                      <TableCell>{group.paymentBrand || '-'}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -678,29 +724,53 @@ const OdooSyncBatch = () => {
                         </Button>
                       </TableCell>
                       <TableCell>{getSyncStatusBadge(group)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="flex items-center gap-1">
-                            {getStepIcon(group.stepStatus.customer)}
-                            <span className="hidden sm:inline">{getStepText('customer', group.stepStatus.customer)}</span>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {getStepIcon(group.stepStatus.customer)}
+                          <span className="text-xs hidden lg:inline">
+                            {group.stepStatus.customer === 'created' ? (language === 'ar' ? 'جديد' : 'New') : 
+                             group.stepStatus.customer === 'found' ? (language === 'ar' ? 'موجود' : 'Found') : ''}
                           </span>
-                          <span className="flex items-center gap-1">
-                            {getStepIcon(group.stepStatus.brand)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            {getStepIcon(group.stepStatus.product)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            {getStepIcon(group.stepStatus.order)}
-                          </span>
-                          {group.hasNonStock && (
-                            <span className="flex items-center gap-1">
-                              {getStepIcon(group.stepStatus.purchase)}
-                            </span>
-                          )}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {getStepIcon(group.stepStatus.brand)}
+                          <span className="text-xs hidden lg:inline">
+                            {group.stepStatus.brand === 'created' ? (language === 'ar' ? 'جديد' : 'New') : 
+                             group.stepStatus.brand === 'found' ? (language === 'ar' ? 'موجود' : 'Found') : ''}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {getStepIcon(group.stepStatus.product)}
+                          <span className="text-xs hidden lg:inline">
+                            {group.stepStatus.product === 'created' ? (language === 'ar' ? 'جديد' : 'New') : 
+                             group.stepStatus.product === 'found' ? (language === 'ar' ? 'موجود' : 'Found') : ''}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {getStepIcon(group.stepStatus.order)}
+                          <span className="text-xs hidden lg:inline">
+                            {group.stepStatus.order === 'sent' ? (language === 'ar' ? 'تم' : 'Sent') : ''}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {group.hasNonStock ? getStepIcon(group.stepStatus.purchase) : <span className="text-muted-foreground">-</span>}
+                          <span className="text-xs hidden lg:inline">
+                            {group.stepStatus.purchase === 'created' ? (language === 'ar' ? 'تم' : 'Created') : 
+                             group.stepStatus.purchase === 'skipped' ? (language === 'ar' ? 'تخطي' : 'Skip') : ''}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         {group.errorMessage && (
-                          <p className="text-xs text-destructive mt-1 truncate max-w-[200px]" title={group.errorMessage}>
+                          <p className="text-xs text-destructive truncate max-w-[150px]" title={group.errorMessage}>
                             {group.errorMessage}
                           </p>
                         )}
