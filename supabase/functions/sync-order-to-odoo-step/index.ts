@@ -503,11 +503,14 @@ Deno.serve(async (req) => {
             if (product?.odoo_product_id) {
               console.log(`Verifying product in Odoo (local id exists): ${productApiUrl}/${actualSku}`);
               const verifyResponse = await fetch(`${productApiUrl}/${actualSku}`, {
-                method: "GET",
+                method: "PUT",
                 headers: {
                   Authorization: apiKey,
                   "Content-Type": "application/json",
                 },
+                body: JSON.stringify({
+                  name: transaction?.product_name || actualSku,
+                }),
               });
 
               const verifyText = await verifyResponse.text();
