@@ -742,7 +742,16 @@ const OdooSyncBatch = () => {
                           )}
                         </Button>
                       </TableCell>
-                      <TableCell>{getSyncStatusBadge(group)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {getSyncStatusBadge(group)}
+                          {group.syncStatus === 'failed' && group.errorMessage && (
+                            <span className="text-xs text-destructive max-w-[200px] break-words">
+                              {group.errorMessage}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
                           {getStepIcon(group.stepStatus.customer)}
