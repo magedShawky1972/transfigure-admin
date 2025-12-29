@@ -69,13 +69,28 @@ const Auth = () => {
     checkSystemState();
     
     // Handle first login link from URL (auto-login with default password)
-    const mode = searchParams.get('mode');
-    const emailParam = searchParams.get('email');
-    const tokenParam = searchParams.get('token');
-    
-    if (mode === 'firstlogin' && emailParam && tokenParam) {
+    const firstLoginPayload = searchParams.get("firstlogin");
+    const mode = searchParams.get("mode");
+    const emailParam = searchParams.get("email");
+    const tokenParam = searchParams.get("token");
+
+    // New format: /auth?firstlogin=<base64(json:{email,password})>
+    if (firstLoginPayload) {
+      try {
+        const decoded = JSON.parse(atob(firstLoginPayload)) as { email?: string; password?: string };
+        if (decoded?.email && decoded?.password) {
+          handleFirstLogin(decoded.email, btoa(decoded.password));
+          return;
+        }
+      } catch {
+        // fall back to old format below
+      }
+    }
+
+    // Old format: /auth?mode=firstlogin&email=...&token=...
+    if (mode === "firstlogin" && emailParam && tokenParam) {
       handleFirstLogin(emailParam, tokenParam);
-    } else if (mode === 'reset' && emailParam) {
+    } else if (mode === "reset" && emailParam) {
       setEmail(emailParam);
       setShowForgotPassword(true);
       setResetEmail(emailParam);

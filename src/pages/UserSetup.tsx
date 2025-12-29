@@ -981,10 +981,13 @@ const UserSetup = () => {
   };
 
   const generatePasswordResetLink = (email: string) => {
-    // Generate a link that will auto-login with default password and redirect to change password
+    // Generate a link that will auto-login with default password and redirect to change password.
+    // Use a single param to avoid some chat apps dropping extra query params in link previews.
     const baseUrl = "https://edaraasus.com";
     const defaultPassword = "123456";
-    const resetLink = `${baseUrl}/auth?mode=firstlogin&email=${email}&token=${btoa(defaultPassword)}`;
+
+    const payload = btoa(JSON.stringify({ email, password: defaultPassword }));
+    const resetLink = `${baseUrl}/auth?firstlogin=${encodeURIComponent(payload)}`;
     return resetLink;
   };
 
