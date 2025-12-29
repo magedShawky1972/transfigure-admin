@@ -686,14 +686,21 @@ const OdooSyncBatch = () => {
 
     let processedCount = 0;
     let stoppedEarly = false;
+    
+    // Track results for database storage (since state updates are async)
+    const syncResults: Map<string, Partial<OrderGroup>> = new Map();
 
     for (let i = 0; i < toSync.length; i++) {
       // Check if stop was requested
       if (stopRequestedRef.current) {
         stoppedEarly = true;
         // Mark remaining orders as stopped
+        const remainingOrders = toSync.slice(i);
+        remainingOrders.forEach(g => {
+          syncResults.set(g.orderNumber, { syncStatus: 'stopped' });
+        });
         setOrderGroups(prev => prev.map(g => {
-          const isRemaining = toSync.slice(i).some(ts => ts.orderNumber === g.orderNumber);
+          const isRemaining = remainingOrders.some(ts => ts.orderNumber === g.orderNumber);
           if (isRemaining && g.syncStatus === 'pending') {
             return { ...g, syncStatus: 'stopped' };
           }
@@ -712,6 +719,9 @@ const OdooSyncBatch = () => {
 
       // Sync the order
       const result = await syncSingleOrder(group);
+      
+      // Store result for database
+      syncResults.set(group.orderNumber, result);
 
       // Update with result
       setOrderGroups(prev => prev.map(g => 
@@ -724,6 +734,10 @@ const OdooSyncBatch = () => {
     }
 
     // Mark skipped orders
+    const skippedOrders = orderGroups.filter(g => g.skipSync && g.selected);
+    skippedOrders.forEach(g => {
+      syncResults.set(g.orderNumber, { syncStatus: 'skipped' });
+    });
     setOrderGroups(prev => prev.map(g => 
       g.skipSync && g.selected ? { ...g, syncStatus: 'skipped' } : g
     ));
@@ -736,17 +750,17 @@ const OdooSyncBatch = () => {
     setCurrentOrderIndex(-1);
     setSyncComplete(true);
 
-    // Update sync run in database
+    // Update sync run in database with tracked results
     if (runId) {
-      // Get final groups state
+      // Build final groups with tracked results
       const finalGroups = orderGroups.map(g => {
-        const syncedGroup = toSync.find(ts => ts.orderNumber === g.orderNumber);
-        if (syncedGroup) {
-          return { ...g };
+        const result = syncResults.get(g.orderNumber);
+        if (result) {
+          return { ...g, ...result };
         }
         return g;
       });
-      await updateSyncRun(runId, stoppedEarly ? 'stopped' : 'completed', orderGroups);
+      await updateSyncRun(runId, stoppedEarly ? 'stopped' : 'completed', finalGroups);
     }
 
     toast({
