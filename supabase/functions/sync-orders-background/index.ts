@@ -31,6 +31,7 @@ interface BackgroundSyncRequest {
   userId: string;
   userEmail: string;
   userName: string;
+  resumeFrom?: number; // Number of orders already processed (for resume)
 }
 
 // Helper to send email via existing SMTP function
@@ -217,19 +218,22 @@ async function processBackgroundSync(
   toDate: string,
   userId: string,
   userEmail: string,
-  userName: string
+  userName: string,
+  resumeFrom: number = 0
 ) {
   const startTime = new Date();
-  console.log(`[Background Sync] Starting job ${jobId} for ${fromDate} to ${toDate}`);
+  const isResume = resumeFrom > 0;
+  console.log(`[Background Sync] ${isResume ? 'Resuming' : 'Starting'} job ${jobId} for ${fromDate} to ${toDate}${isResume ? ` from order ${resumeFrom}` : ''}`);
 
   try {
-    // Update job status to running
+    // Update job status to running (only update started_at if not resuming)
+    const updateData: any = { status: 'running' };
+    if (!isResume) {
+      updateData.started_at = startTime.toISOString();
+    }
     await supabase
       .from('background_sync_jobs')
-      .update({
-        status: 'running',
-        started_at: startTime.toISOString(),
-      })
+      .update(updateData)
       .eq('id', jobId);
 
     // Convert date strings to integer format YYYYMMDD
@@ -275,44 +279,127 @@ async function processBackgroundSync(
     const totalOrders = orderGroups.size;
     console.log(`[Background Sync] Found ${totalOrders} orders to process`);
 
-    // Update total orders
-    await supabase
-      .from('background_sync_jobs')
-      .update({ total_orders: totalOrders })
-      .eq('id', jobId);
+    // Update total orders (only if not resuming)
+    if (!isResume) {
+      await supabase
+        .from('background_sync_jobs')
+        .update({ total_orders: totalOrders })
+        .eq('id', jobId);
+    }
 
-    // Create sync run record
-    const { data: runData } = await supabase
-      .from('odoo_sync_runs')
-      .insert({
-        from_date: fromDate,
-        to_date: toDate,
-        start_time: startTime.toISOString(),
-        total_orders: totalOrders,
-        status: 'running',
-        created_by: userId,
-      })
-      .select('id')
-      .single();
+    // Create or get sync run record
+    let runId: string | null = null;
+    
+    if (isResume) {
+      // Find existing run for this job
+      const { data: existingRun } = await supabase
+        .from('odoo_sync_runs')
+        .select('id')
+        .eq('from_date', fromDate)
+        .eq('to_date', toDate)
+        .eq('created_by', userId)
+        .order('start_time', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      runId = existingRun?.id || null;
+      
+      if (runId) {
+        // Update run status back to running
+        await supabase
+          .from('odoo_sync_runs')
+          .update({ status: 'running' })
+          .eq('id', runId);
+      }
+    }
+    
+    if (!runId) {
+      const { data: runData } = await supabase
+        .from('odoo_sync_runs')
+        .insert({
+          from_date: fromDate,
+          to_date: toDate,
+          start_time: startTime.toISOString(),
+          total_orders: totalOrders,
+          status: 'running',
+          created_by: userId,
+        })
+        .select('id')
+        .single();
+      
+      runId = runData?.id;
+    }
 
-    const runId = runData?.id;
-
+    // Get existing counts if resuming
     let processedOrders = 0;
     let successfulOrders = 0;
     let failedOrders = 0;
     let skippedOrders = 0;
+    
+    if (isResume) {
+      const { data: jobData } = await supabase
+        .from('background_sync_jobs')
+        .select('processed_orders, successful_orders, failed_orders, skipped_orders')
+        .eq('id', jobId)
+        .single();
+      
+      if (jobData) {
+        processedOrders = jobData.processed_orders || 0;
+        successfulOrders = jobData.successful_orders || 0;
+        failedOrders = jobData.failed_orders || 0;
+        skippedOrders = jobData.skipped_orders || 0;
+      }
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
     // Process each order
+    let orderIndex = 0;
     for (const [orderNumber, lines] of orderGroups) {
+      // Skip already processed orders when resuming
+      if (isResume && orderIndex < resumeFrom) {
+        orderIndex++;
+        continue;
+      }
+      orderIndex++;
       // Check if job was cancelled
       const { data: jobCheck } = await supabase
         .from('background_sync_jobs')
         .select('status')
         .eq('id', jobId)
         .single();
+
+      if (jobCheck?.status === 'paused') {
+        console.log(`[Background Sync] Job ${jobId} was paused by user`);
+        
+        // Update sync run as paused
+        if (runId) {
+          await supabase
+            .from('odoo_sync_runs')
+            .update({
+              successful_orders: successfulOrders,
+              failed_orders: failedOrders,
+              skipped_orders: skippedOrders,
+              status: 'paused',
+            })
+            .eq('id', runId);
+        }
+
+        // Keep the job in paused state with current progress
+        await supabase
+          .from('background_sync_jobs')
+          .update({
+            processed_orders: processedOrders,
+            successful_orders: successfulOrders,
+            failed_orders: failedOrders,
+            skipped_orders: skippedOrders,
+            current_order_number: null,
+          })
+          .eq('id', jobId);
+
+        return;
+      }
 
       if (jobCheck?.status === 'cancelled') {
         console.log(`[Background Sync] Job ${jobId} was cancelled by user`);
@@ -528,7 +615,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { jobId, fromDate, toDate, userId, userEmail, userName } = await req.json() as BackgroundSyncRequest;
+    const { jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom } = await req.json() as BackgroundSyncRequest;
 
     if (!jobId || !fromDate || !toDate || !userId || !userEmail || !userName) {
       return new Response(
@@ -537,7 +624,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[Background Sync] Received request for job ${jobId}`);
+    const isResume = resumeFrom !== undefined && resumeFrom > 0;
+    console.log(`[Background Sync] Received ${isResume ? 'resume' : 'start'} request for job ${jobId}`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -545,13 +633,13 @@ Deno.serve(async (req) => {
     );
 
     // Use waitUntil for background processing
-    EdgeRuntime.waitUntil(processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName));
+    EdgeRuntime.waitUntil(processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom || 0));
 
     // Return immediately
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Background sync started',
+        message: isResume ? 'Background sync resumed' : 'Background sync started',
         jobId,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
