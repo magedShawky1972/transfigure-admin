@@ -75,7 +75,7 @@ serve(async (req) => {
     });
 
     // TEST MODE: Set to true to send only to test email, false for production
-    const TEST_MODE = true;
+    const TEST_MODE = false;
     const TEST_EMAIL = "maged.shawky@asuscards.com";
     
     let profiles: Array<{ user_id: string; user_name: string; email: string }> = [];
@@ -112,22 +112,39 @@ serve(async (req) => {
         throw membersError;
       }
 
-      if (!members || members.length === 0) {
-        console.log("No members in Coins Purchase department");
+      // Get all admins of the Coins Purchase department
+      const { data: admins, error: adminsError } = await supabase
+        .from("department_admins")
+        .select("user_id")
+        .eq("department_id", department.id);
+
+      if (adminsError) {
+        console.error("Error fetching department admins:", adminsError);
+        throw adminsError;
+      }
+
+      // Combine members and admins, removing duplicates
+      const memberUserIds = members?.map((m) => m.user_id) || [];
+      const adminUserIds = admins?.map((a) => a.user_id) || [];
+      const allUserIds = [...new Set([...memberUserIds, ...adminUserIds])];
+
+      console.log("Department members:", memberUserIds.length);
+      console.log("Department admins:", adminUserIds.length);
+      console.log("Total unique users:", allUserIds.length);
+
+      if (allUserIds.length === 0) {
+        console.log("No members or admins in Coins Purchase department");
         return new Response(
-          JSON.stringify({ message: "No members in department" }),
+          JSON.stringify({ message: "No members or admins in department" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      const userIds = members.map((m) => m.user_id);
-      console.log("Department members:", userIds.length);
 
       // Get user profiles for emails
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, user_name, email")
-        .in("user_id", userIds);
+        .in("user_id", allUserIds);
 
       if (profilesError) {
         console.error("Error fetching profiles:", profilesError);
@@ -135,6 +152,7 @@ serve(async (req) => {
       }
       
       profiles = profilesData || [];
+      console.log("Profiles to notify:", profiles.map(p => p.email));
     }
 
     // Get current date in Arabic format
