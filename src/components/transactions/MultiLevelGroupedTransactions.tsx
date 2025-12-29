@@ -141,6 +141,7 @@ export const MultiLevelGroupedTransactions = ({
                 <span className="text-sm">{currentLevel.label}:</span>
                 <span className="font-bold">{groupKey}</span>
                 <Badge variant="secondary">{groupItems.length}</Badge>
+                <span className="text-sm text-muted-foreground">({formatCurrency(groupTotal)})</span>
               </div>
               <div className="flex gap-4 text-sm">
                 <span>Total: {formatCurrency(groupTotal)}</span>

@@ -98,6 +98,7 @@ export const GroupedTransactions = ({
                     </Button>
                     <span>{groupKey}</span>
                     <Badge variant="secondary">{groupTransactions.length}</Badge>
+                    <span className="text-sm text-muted-foreground">({formatCurrency(groupTotal)})</span>
                   </div>
                   <div className="flex gap-4 text-sm">
                     <span>Total: {formatCurrency(groupTotal)}</span>
