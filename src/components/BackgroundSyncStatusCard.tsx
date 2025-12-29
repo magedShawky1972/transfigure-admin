@@ -3,10 +3,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, XCircle, Play, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2, CheckCircle2, XCircle, Eye, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 
 interface BackgroundJob {
   id: string;
@@ -17,16 +19,36 @@ interface BackgroundJob {
   processed_orders: number;
   successful_orders: number;
   failed_orders: number;
+  skipped_orders: number;
   current_order_number: string | null;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
 }
 
+interface SyncDetail {
+  id: string;
+  order_number: string;
+  order_date: string | null;
+  customer_phone: string | null;
+  product_names: string | null;
+  total_amount: number | null;
+  sync_status: string;
+  error_message: string | null;
+  step_customer: string | null;
+  step_brand: string | null;
+  step_product: string | null;
+  step_order: string | null;
+  step_purchase: string | null;
+}
+
 export const BackgroundSyncStatusCard = () => {
   const { language } = useLanguage();
-  const navigate = useNavigate();
   const [activeJob, setActiveJob] = useState<BackgroundJob | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [syncDetails, setSyncDetails] = useState<SyncDetail[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [showCompletedJob, setShowCompletedJob] = useState(false);
 
   useEffect(() => {
     // Fetch active/recent job
@@ -65,12 +87,11 @@ export const BackgroundSyncStatusCard = () => {
             const job = payload.new as BackgroundJob;
             if (job.status === 'pending' || job.status === 'running') {
               setActiveJob(job);
+              setShowCompletedJob(false);
             } else if (activeJob?.id === job.id) {
-              // Job completed - show for a few seconds then hide
+              // Job completed - show for a while then allow dismissing
               setActiveJob(job);
-              setTimeout(() => {
-                setActiveJob(null);
-              }, 10000);
+              setShowCompletedJob(true);
             }
           }
         }
@@ -82,6 +103,57 @@ export const BackgroundSyncStatusCard = () => {
     };
   }, [activeJob?.id]);
 
+  // Fetch sync details for the job
+  const fetchSyncDetails = async (jobId: string) => {
+    setLoadingDetails(true);
+    try {
+      // First, get the sync run that matches this job
+      const { data: job } = await supabase
+        .from('background_sync_jobs')
+        .select('from_date, to_date, started_at')
+        .eq('id', jobId)
+        .single();
+
+      if (!job) return;
+
+      // Get the matching sync run
+      const { data: run } = await supabase
+        .from('odoo_sync_runs')
+        .select('id')
+        .eq('from_date', job.from_date)
+        .eq('to_date', job.to_date)
+        .order('start_time', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (run?.id) {
+        const { data: details } = await supabase
+          .from('odoo_sync_run_details')
+          .select('*')
+          .eq('run_id', run.id)
+          .order('created_at', { ascending: true });
+
+        setSyncDetails((details as SyncDetail[]) || []);
+      }
+    } catch (error) {
+      console.error('Error fetching sync details:', error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleViewDetails = () => {
+    if (activeJob) {
+      fetchSyncDetails(activeJob.id);
+      setShowDetailsDialog(true);
+    }
+  };
+
+  const handleDismiss = () => {
+    setActiveJob(null);
+    setShowCompletedJob(false);
+  };
+
   if (!activeJob) return null;
 
   const progress = activeJob.total_orders > 0 
@@ -92,76 +164,234 @@ export const BackgroundSyncStatusCard = () => {
   const isCompleted = activeJob.status === 'completed';
   const isFailed = activeJob.status === 'failed';
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'success':
+        return <Badge className="bg-green-500 gap-1"><CheckCircle2 className="h-3 w-3" />{language === 'ar' ? 'نجح' : 'Success'}</Badge>;
+      case 'failed':
+        return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />{language === 'ar' ? 'فشل' : 'Failed'}</Badge>;
+      case 'skipped':
+        return <Badge variant="secondary">{language === 'ar' ? 'تخطي' : 'Skipped'}</Badge>;
+      default:
+        return <Badge variant="outline">{language === 'ar' ? 'جاري' : 'Processing'}</Badge>;
+    }
+  };
+
+  const getStepIcon = (status: string | null) => {
+    switch (status) {
+      case 'found':
+      case 'created':
+      case 'sent':
+        return <CheckCircle2 className="h-3 w-3 text-green-500" />;
+      case 'failed':
+        return <XCircle className="h-3 w-3 text-destructive" />;
+      case 'skipped':
+        return <span className="text-muted-foreground text-xs">-</span>;
+      case 'running':
+        return <Loader2 className="h-3 w-3 animate-spin text-primary" />;
+      default:
+        return <span className="text-muted-foreground text-xs">•</span>;
+    }
+  };
+
   return (
-    <Card 
-      className="border-primary/50 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
-      onClick={() => navigate(`/odoo-sync-batch?from=${activeJob.from_date}&to=${activeJob.to_date}`)}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-            {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-            {isFailed && <XCircle className="h-4 w-4 text-destructive" />}
-            <span className="font-medium">
-              {language === 'ar' ? 'مزامنة Odoo في الخلفية' : 'Background Odoo Sync'}
-            </span>
-          </div>
-          <Badge variant={isRunning ? 'default' : isCompleted ? 'secondary' : 'destructive'}>
-            {isRunning 
-              ? (language === 'ar' ? 'جاري التشغيل' : 'Running')
-              : isCompleted 
-                ? (language === 'ar' ? 'مكتمل' : 'Completed')
-                : (language === 'ar' ? 'فشل' : 'Failed')
-            }
-          </Badge>
-        </div>
-
-        <div className="text-sm text-muted-foreground mb-2">
-          {activeJob.from_date} → {activeJob.to_date}
-        </div>
-
-        {isRunning && (
-          <>
-            <Progress value={progress} className="h-2 mb-2" />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>
-                {language === 'ar' 
-                  ? `${activeJob.processed_orders} من ${activeJob.total_orders} طلب`
-                  : `${activeJob.processed_orders} of ${activeJob.total_orders} orders`
-                }
+    <>
+      <Card className="border-primary/50 bg-primary/5">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+              {isFailed && <XCircle className="h-4 w-4 text-destructive" />}
+              <span className="font-medium">
+                {language === 'ar' ? 'مزامنة Odoo في الخلفية' : 'Background Odoo Sync'}
               </span>
-              <span>{progress}%</span>
             </div>
-            {activeJob.current_order_number && (
-              <div className="text-xs text-muted-foreground mt-1">
-                {language === 'ar' ? 'الطلب الحالي: ' : 'Current: '}
-                {activeJob.current_order_number}
-              </div>
-            )}
-          </>
-        )}
-
-        {isCompleted && (
-          <div className="flex gap-4 text-sm">
-            <span className="text-green-600">
-              ✓ {activeJob.successful_orders}
-            </span>
-            {activeJob.failed_orders > 0 && (
-              <span className="text-destructive">
-                ✗ {activeJob.failed_orders}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              <Badge variant={isRunning ? 'default' : isCompleted ? 'secondary' : 'destructive'}>
+                {isRunning 
+                  ? (language === 'ar' ? 'جاري التشغيل' : 'Running')
+                  : isCompleted 
+                    ? (language === 'ar' ? 'مكتمل' : 'Completed')
+                    : (language === 'ar' ? 'فشل' : 'Failed')
+                }
+              </Badge>
+              {showCompletedJob && (
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDismiss}>
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
-        )}
 
-        <div className="mt-2 flex gap-2">
-          <Button variant="outline" size="sm" className="w-full gap-1">
-            <Eye className="h-3 w-3" />
-            {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="text-sm text-muted-foreground mb-2">
+            {activeJob.from_date} → {activeJob.to_date}
+          </div>
+
+          {isRunning && (
+            <>
+              <Progress value={progress} className="h-2 mb-2" />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>
+                  {language === 'ar' 
+                    ? `${activeJob.processed_orders} من ${activeJob.total_orders} طلب`
+                    : `${activeJob.processed_orders} of ${activeJob.total_orders} orders`
+                  }
+                </span>
+                <span>{progress}%</span>
+              </div>
+              {activeJob.current_order_number && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  {language === 'ar' ? 'الطلب الحالي: ' : 'Current: '}
+                  {activeJob.current_order_number}
+                </div>
+              )}
+            </>
+          )}
+
+          {(isCompleted || isFailed) && (
+            <div className="flex gap-4 text-sm">
+              <span className="text-green-600">
+                ✓ {activeJob.successful_orders}
+              </span>
+              {activeJob.failed_orders > 0 && (
+                <span className="text-destructive">
+                  ✗ {activeJob.failed_orders}
+                </span>
+              )}
+              {activeJob.skipped_orders > 0 && (
+                <span className="text-muted-foreground">
+                  ⊘ {activeJob.skipped_orders}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3">
+            <Button variant="outline" size="sm" className="w-full gap-1" onClick={handleViewDetails}>
+              <Eye className="h-3 w-3" />
+              {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-5xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تفاصيل المزامنة في الخلفية' : 'Background Sync Details'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="text-xl font-bold">{activeJob.total_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="text-xl font-bold text-green-500">{activeJob.successful_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'نجح' : 'Success'}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="text-xl font-bold text-destructive">{activeJob.failed_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'فشل' : 'Failed'}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="text-xl font-bold text-muted-foreground">{activeJob.skipped_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'تخطي' : 'Skipped'}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Details Table */}
+          {loadingDetails ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : syncDetails.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {isRunning 
+                ? (language === 'ar' ? 'جاري المعالجة... سيتم تحديث التفاصيل تلقائياً' : 'Processing... Details will update automatically')
+                : (language === 'ar' ? 'لا توجد تفاصيل متاحة' : 'No details available')
+              }
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Order'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الهاتف' : 'Phone'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المنتجات' : 'Products'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'العميل' : 'Cust'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'علامة' : 'Brand'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'منتج' : 'Prod'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'طلب' : 'Order'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'شراء' : 'Purch'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {syncDetails.map((detail) => (
+                    <TableRow 
+                      key={detail.id}
+                      className={
+                        detail.sync_status === 'success' ? 'bg-green-50 dark:bg-green-950/20' :
+                        detail.sync_status === 'failed' ? 'bg-red-50 dark:bg-red-950/20' : ''
+                      }
+                    >
+                      <TableCell className="font-mono text-xs">{detail.order_number}</TableCell>
+                      <TableCell className="text-xs">{detail.order_date || '-'}</TableCell>
+                      <TableCell className="text-xs">{detail.customer_phone || '-'}</TableCell>
+                      <TableCell className="text-xs max-w-[100px] truncate" title={detail.product_names || ''}>
+                        {detail.product_names?.split(', ').slice(0, 2).join(', ') || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs">{detail.total_amount?.toFixed(2) || '-'}</TableCell>
+                      <TableCell>{getStatusBadge(detail.sync_status)}</TableCell>
+                      <TableCell className="text-center">{getStepIcon(detail.step_customer)}</TableCell>
+                      <TableCell className="text-center">{getStepIcon(detail.step_brand)}</TableCell>
+                      <TableCell className="text-center">{getStepIcon(detail.step_product)}</TableCell>
+                      <TableCell className="text-center">{getStepIcon(detail.step_order)}</TableCell>
+                      <TableCell className="text-center">{getStepIcon(detail.step_purchase)}</TableCell>
+                      <TableCell className="text-xs text-destructive max-w-[150px] truncate" title={detail.error_message || ''}>
+                        {detail.error_message || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
+
+          {/* Refresh button for running jobs */}
+          {isRunning && (
+            <div className="flex justify-center mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fetchSyncDetails(activeJob.id)}
+                disabled={loadingDetails}
+              >
+                {loadingDetails ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {language === 'ar' ? 'تحديث' : 'Refresh'}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
