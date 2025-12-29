@@ -162,18 +162,19 @@ const DASHBOARD_COMPONENTS = [
 ];
 
 const REPORTS = [
-  { key: "revenue-by-brand-type", label: "Revenue by Brand Type" },
-  { key: "cost-by-brand-type", label: "Cost by Brand Type" },
-  { key: "tickets", label: "Tickets Report" },
-  { key: "software-licenses", label: "Software Licenses Report" },
-  { key: "shift-report", label: "Shift Report" },
-  { key: "shift-plan", label: "Shift Plan Report" },
-  { key: "brand-balance", label: "Brand Balance Report" },
-  { key: "api-documentation", label: "API Documentation" },
-  { key: "transaction-statistics", label: "Transaction Statistics" },
-  { key: "order-payment", label: "Order Payment Report (تقرير مدفوعات الطلبات)" },
-  { key: "data-loading-status", label: "Data Loading Status (حالة تحميل البيانات)" },
-  { key: "coins-ledger", label: "Coins Ledger Report (تقرير دفتر الكوينز)" },
+  { key: "revenue-by-brand-type", labelEn: "Revenue by Brand Type", labelAr: "الإيرادات حسب نوع العلامة التجارية" },
+  { key: "cost-by-brand-type", labelEn: "Cost by Brand Type", labelAr: "التكلفة حسب نوع العلامة التجارية" },
+  { key: "tickets", labelEn: "Tickets Report", labelAr: "تقرير التذاكر" },
+  { key: "software-licenses", labelEn: "Software Licenses Report", labelAr: "تقرير تراخيص البرمجيات" },
+  { key: "shift-report", labelEn: "Shift Report", labelAr: "تقرير المناوبات" },
+  { key: "shift-plan", labelEn: "Shift Plan Report", labelAr: "تقرير خطة المناوبات" },
+  { key: "brand-balance", labelEn: "Brand Balance Report", labelAr: "تقرير أرصدة البراندات" },
+  { key: "api-documentation", labelEn: "API Documentation", labelAr: "توثيق API" },
+  { key: "transaction-statistics", labelEn: "Transaction Statistics", labelAr: "إحصائيات المعاملات" },
+  { key: "order-payment", labelEn: "Order Payment Report", labelAr: "تقرير مدفوعات الطلبات" },
+  { key: "data-loading-status", labelEn: "Data Loading Status", labelAr: "حالة تحميل البيانات" },
+  { key: "coins-ledger", labelEn: "Coins Ledger Report", labelAr: "تقرير دفتر الكوينز" },
+  { key: "bank-statement", labelEn: "Bank Statement Report", labelAr: "تقرير كشف حساب البنك" },
 ];
 
 const UserSetup = () => {
@@ -1512,23 +1513,23 @@ const UserSetup = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Reports Permissions - {selectedUser?.user_name}
+              {language === 'ar' ? 'صلاحيات التقارير' : 'Reports Permissions'} - {selectedUser?.user_name}
             </DialogTitle>
           </DialogHeader>
           
           {loadingPermissions ? (
-            <div className="py-8 text-center">Loading permissions...</div>
+            <div className="py-8 text-center">{language === 'ar' ? 'جارٍ تحميل الصلاحيات...' : 'Loading permissions...'}</div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Enable or disable access to specific reports for this user.
+                {language === 'ar' ? 'تفعيل أو تعطيل الوصول إلى تقارير محددة لهذا المستخدم.' : 'Enable or disable access to specific reports for this user.'}
               </p>
               
               <div className="space-y-3">
                 {REPORTS.map((report) => (
                   <div key={report.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                     <Label htmlFor={`report-${report.key}`} className="cursor-pointer flex-1">
-                      {report.label}
+                      {language === 'ar' ? report.labelAr : report.labelEn}
                     </Label>
                     <Switch
                       id={`report-${report.key}`}
