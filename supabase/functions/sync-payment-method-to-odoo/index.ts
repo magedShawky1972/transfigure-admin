@@ -175,7 +175,26 @@ Deno.serve(async (req) => {
         );
       }
 
-      // POST also failed
+      // Check if POST failed because it already exists - treat as success
+      const alreadyExists = postResult.error && (
+        postResult.error.toLowerCase().includes('already exists') ||
+        postResult.error.toLowerCase().includes('duplicate') ||
+        postResult.message?.toLowerCase().includes('already exists')
+      );
+
+      if (alreadyExists) {
+        console.log('Payment method already exists in Odoo, treating as synced:', postResult);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Payment method already exists in Odoo',
+            odoo_response: postResult 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // POST failed for another reason
       return new Response(
         JSON.stringify({ 
           success: false, 
