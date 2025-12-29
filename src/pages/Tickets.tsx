@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon } from "lucide-react";
+import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import {
@@ -136,6 +138,14 @@ const Tickets = () => {
   const [newUomName, setNewUomName] = useState("");
   const [addingUom, setAddingUom] = useState(false);
   
+  // Filter states
+  const [filterDepartment, setFilterDepartment] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterDescription, setFilterDescription] = useState<string>("");
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>(undefined);
+  const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(undefined);
+  const [showFilters, setShowFilters] = useState(false);
+  
   // Multi-file states
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
@@ -150,6 +160,42 @@ const Tickets = () => {
   
   // Purchase items list (for combo box)
   const [purchaseItemsList, setPurchaseItemsList] = useState<PurchaseItemRecord[]>([]);
+
+  // Copy to clipboard function
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: language === 'ar' ? 'تم النسخ' : 'Copied',
+      description: language === 'ar' ? `تم نسخ ${label}` : `${label} copied to clipboard`,
+    });
+  };
+
+  // Filtered tickets
+  const filteredTickets = tickets.filter(ticket => {
+    if (filterDepartment !== "all" && ticket.department_id !== filterDepartment) return false;
+    if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
+    if (filterDescription && !ticket.description.toLowerCase().includes(filterDescription.toLowerCase()) && 
+        !ticket.subject.toLowerCase().includes(filterDescription.toLowerCase())) return false;
+    if (filterDateFrom) {
+      const ticketDate = new Date(ticket.created_at);
+      if (ticketDate < filterDateFrom) return false;
+    }
+    if (filterDateTo) {
+      const ticketDate = new Date(ticket.created_at);
+      const endOfDay = new Date(filterDateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (ticketDate > endOfDay) return false;
+    }
+    return true;
+  });
+
+  const clearFilters = () => {
+    setFilterDepartment("all");
+    setFilterStatus("all");
+    setFilterDescription("");
+    setFilterDateFrom(undefined);
+    setFilterDateTo(undefined);
+  };
   const [newItemName, setNewItemName] = useState("");
   const [addingItem, setAddingItem] = useState(false);
 
@@ -686,16 +732,21 @@ const Tickets = () => {
             {language === 'ar' ? 'إنشاء وتتبع تذاكر الدعم الخاصة بك' : 'Create and track your support tickets'}
           </p>
         </div>
-        <Dialog open={open} onOpenChange={(isOpen) => {
-          setOpen(isOpen);
-          if (!isOpen) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              {language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket'}
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2">
+            <Filter className="h-4 w-4" />
+            {language === 'ar' ? 'فلترة' : 'Filter'}
+          </Button>
+          <Dialog open={open} onOpenChange={(isOpen) => {
+            setOpen(isOpen);
+            if (!isOpen) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                {language === 'ar' ? 'إنشاء تذكرة' : 'Create Ticket'}
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{language === 'ar' ? 'إنشاء تذكرة جديدة' : 'Create New Ticket'}</DialogTitle>
@@ -1096,11 +1147,123 @@ const Tickets = () => {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Filters Section */}
+      {showFilters && (
+        <Card className="p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Department Filter */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {language === 'ar' ? 'القسم' : 'Department'}
+              </label>
+              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'الكل' : 'All'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.department_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {language === 'ar' ? 'الحالة' : 'Status'}
+              </label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'الكل' : 'All'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                  <SelectItem value="Open">{language === 'ar' ? 'مفتوح' : 'Open'}</SelectItem>
+                  <SelectItem value="In Progress">{language === 'ar' ? 'قيد المعالجة' : 'In Progress'}</SelectItem>
+                  <SelectItem value="Closed">{language === 'ar' ? 'مغلق' : 'Closed'}</SelectItem>
+                  <SelectItem value="Rejected">{language === 'ar' ? 'مرفوض' : 'Rejected'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Description/Subject Search */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {language === 'ar' ? 'بحث' : 'Search'}
+              </label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={language === 'ar' ? 'بحث في الموضوع/الوصف' : 'Search subject/description'}
+                  value={filterDescription}
+                  onChange={(e) => setFilterDescription(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+
+            {/* Date From Filter */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {language === 'ar' ? 'من تاريخ' : 'From Date'}
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    {filterDateFrom ? format(filterDateFrom, "PPP") : (language === 'ar' ? 'اختر تاريخ' : 'Pick a date')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filterDateFrom}
+                    onSelect={setFilterDateFrom}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Date To Filter */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {language === 'ar' ? 'إلى تاريخ' : 'To Date'}
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    {filterDateTo ? format(filterDateTo, "PPP") : (language === 'ar' ? 'اختر تاريخ' : 'Pick a date')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filterDateTo}
+                    onSelect={setFilterDateTo}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button variant="ghost" onClick={clearFilters} size="sm">
+              {language === 'ar' ? 'مسح الفلاتر' : 'Clear Filters'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {loading ? (
         <div className="text-center py-8">{language === 'ar' ? 'جاري تحميل التذاكر...' : 'Loading tickets...'}</div>
-      ) : tickets.length === 0 ? (
+      ) : filteredTickets.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">
@@ -1110,12 +1273,22 @@ const Tickets = () => {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {tickets.map((ticket) => (
+          {filteredTickets.map((ticket) => (
             <Card key={ticket.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex flex-col gap-3">
                   <div className="space-y-2">
-                    <CardTitle className="text-base sm:text-lg leading-tight">{ticket.subject}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base sm:text-lg leading-tight">{ticket.subject}</CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => copyToClipboard(ticket.subject, language === 'ar' ? 'الموضوع' : 'Subject')}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                     <div className="flex flex-wrap gap-1 sm:gap-2 items-center text-xs sm:text-sm text-muted-foreground">
                       <span className="font-medium">{ticket.ticket_number}</span>
                       <span className="hidden sm:inline">•</span>
@@ -1144,9 +1317,19 @@ const Tickets = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-                <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
-                  {ticket.description}
-                </p>
+                <div className="flex items-start gap-2 mb-3 sm:mb-4">
+                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 flex-1">
+                    {ticket.description}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0"
+                    onClick={() => copyToClipboard(ticket.description, language === 'ar' ? 'الوصف' : 'Description')}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
                   {ticket.is_purchase_ticket && (
                     <Badge variant="outline" className="bg-primary/10 text-xs">
