@@ -69,10 +69,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build request body for payment method
+    // Build request body for payment method - use field names expected by Odoo API
     const requestBody: any = {
       payment_type: payment_type,
-      payment_method: payment_method,
+      payment_brand: payment_method, // Odoo expects payment_brand, not payment_method
       gateway_fee: gateway_fee ?? 0,
       fixed_value: fixed_value ?? 0,
       vat_fee: vat_fee ?? 0,
