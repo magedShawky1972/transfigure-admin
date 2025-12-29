@@ -104,6 +104,72 @@ export type Database = {
         }
         Relationships: []
       }
+      background_sync_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_order_number: string | null
+          email_sent: boolean | null
+          error_message: string | null
+          failed_orders: number | null
+          from_date: string
+          id: string
+          processed_orders: number | null
+          skipped_orders: number | null
+          started_at: string | null
+          status: string
+          successful_orders: number | null
+          to_date: string
+          total_orders: number | null
+          updated_at: string
+          user_email: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_order_number?: string | null
+          email_sent?: boolean | null
+          error_message?: string | null
+          failed_orders?: number | null
+          from_date: string
+          id?: string
+          processed_orders?: number | null
+          skipped_orders?: number | null
+          started_at?: string | null
+          status?: string
+          successful_orders?: number | null
+          to_date: string
+          total_orders?: number | null
+          updated_at?: string
+          user_email: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_order_number?: string | null
+          email_sent?: boolean | null
+          error_message?: string | null
+          failed_orders?: number | null
+          from_date?: string
+          id?: string
+          processed_orders?: number | null
+          skipped_orders?: number | null
+          started_at?: string | null
+          status?: string
+          successful_orders?: number | null
+          to_date?: string
+          total_orders?: number | null
+          updated_at?: string
+          user_email?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       brand_closing_training: {
         Row: {
           brand_id: string

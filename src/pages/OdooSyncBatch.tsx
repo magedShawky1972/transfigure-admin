@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInSeconds } from "date-fns";
@@ -214,6 +214,7 @@ const OdooSyncBatch = () => {
   const [loadingRunDetails, setLoadingRunDetails] = useState(false);
   const stopRequestedRef = useRef(false);
   const [stopRequested, setStopRequested] = useState(false);
+  const [startingBackgroundSync, setStartingBackgroundSync] = useState(false);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -639,6 +640,103 @@ const OdooSyncBatch = () => {
     });
   };
 
+  // Start background sync process
+  const handleStartBackgroundSync = async () => {
+    const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
+    if (toSync.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'لا توجد طلبات' : 'No Orders',
+        description: language === 'ar' ? 'يرجى اختيار طلبات للمزامنة' : 'Please select orders to sync',
+      });
+      return;
+    }
+
+    if (!fromDate || !toDate) {
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يجب تحديد نطاق التاريخ' : 'Date range is required',
+      });
+      return;
+    }
+
+    setStartingBackgroundSync(true);
+
+    try {
+      // Get current user info
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_name, email')
+        .eq('user_id', userData.user.id)
+        .single();
+
+      if (!profile) {
+        throw new Error('User profile not found');
+      }
+
+      // Create background job record
+      const { data: job, error: jobError } = await supabase
+        .from('background_sync_jobs')
+        .insert({
+          user_id: userData.user.id,
+          user_email: profile.email,
+          user_name: profile.user_name,
+          from_date: fromDate,
+          to_date: toDate,
+          total_orders: toSync.length,
+          status: 'pending',
+        })
+        .select('id')
+        .single();
+
+      if (jobError || !job) {
+        throw new Error(jobError?.message || 'Failed to create background job');
+      }
+
+      // Invoke the background sync edge function
+      const { error: funcError } = await supabase.functions.invoke('sync-orders-background', {
+        body: {
+          jobId: job.id,
+          fromDate,
+          toDate,
+          userId: userData.user.id,
+          userEmail: profile.email,
+          userName: profile.user_name,
+        },
+      });
+
+      if (funcError) {
+        throw new Error(funcError.message);
+      }
+
+      toast({
+        title: language === 'ar' ? 'تم بدء المزامنة في الخلفية' : 'Background Sync Started',
+        description: language === 'ar' 
+          ? 'يمكنك إغلاق هذه الصفحة. سيتم إرسال إشعار بالبريد عند الانتهاء.'
+          : 'You can close this page. An email notification will be sent when complete.',
+      });
+
+      // Navigate back to transactions
+      navigate(`/transactions?from=${fromDate}&to=${toDate}`);
+
+    } catch (error) {
+      console.error('Error starting background sync:', error);
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error instanceof Error ? error.message : 'Failed to start background sync',
+      });
+    } finally {
+      setStartingBackgroundSync(false);
+    }
+  };
+
   // Start sync process
   const handleStartSync = async () => {
     const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
@@ -961,6 +1059,24 @@ const OdooSyncBatch = () => {
               <>
                 <Play className="h-4 w-4" />
                 {language === 'ar' ? 'ابدأ الآن' : 'Start Now'}
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={handleStartBackgroundSync} 
+            disabled={isSyncing || selectedCount === 0 || startingBackgroundSync}
+            variant="secondary"
+            className="gap-2"
+          >
+            {startingBackgroundSync ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {language === 'ar' ? 'جاري البدء...' : 'Starting...'}
+              </>
+            ) : (
+            <>
+                <Cloud className="h-4 w-4" />
+                {language === 'ar' ? 'تشغيل في الخلفية' : 'Run Process'}
               </>
             )}
           </Button>
