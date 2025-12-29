@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ interface SystemState {
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const version = useAppVersion();
@@ -63,10 +64,20 @@ const Auth = () => {
     password: z.string().min(6, "Password must be at least 6 characters").max(100),
   });
 
-  // Check system state on mount
+  // Check system state on mount and handle URL parameters
   useEffect(() => {
     checkSystemState();
-  }, []);
+    
+    // Handle password reset link from URL
+    const mode = searchParams.get('mode');
+    const emailParam = searchParams.get('email');
+    
+    if (mode === 'reset' && emailParam) {
+      setEmail(emailParam);
+      setShowForgotPassword(true);
+      setResetEmail(emailParam);
+    }
+  }, [searchParams]);
 
   const checkSystemState = async () => {
     setCheckingSystem(true);
