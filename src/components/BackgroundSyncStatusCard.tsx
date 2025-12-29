@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, Eye, X, StopCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,9 @@ interface BackgroundJob {
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
+  user_email: string;
+  user_name: string;
+  user_id: string;
 }
 
 interface SyncDetail {
@@ -61,7 +64,7 @@ export const BackgroundSyncStatusCard = () => {
         .from('background_sync_jobs')
         .select('*')
         .eq('user_id', user.user.id)
-        .in('status', ['pending', 'running'])
+        .in('status', ['pending', 'running', 'paused'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -150,32 +153,70 @@ export const BackgroundSyncStatusCard = () => {
     }
   };
 
-  const [stopping, setStopping] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const handleDismiss = () => {
     setActiveJob(null);
     setShowCompletedJob(false);
   };
 
-  const handleStopSync = async () => {
-    if (!activeJob || stopping) return;
+  const handlePauseSync = async () => {
+    if (!activeJob || actionLoading) return;
     
-    setStopping(true);
+    setActionLoading(true);
     try {
       const { error } = await supabase
         .from('background_sync_jobs')
-        .update({ status: 'cancelled' })
+        .update({ status: 'paused' })
         .eq('id', activeJob.id);
 
       if (error) throw error;
       
-      toast.success(language === 'ar' ? 'تم إيقاف المزامنة' : 'Sync stopped successfully');
-      setActiveJob({ ...activeJob, status: 'cancelled' });
+      toast.success(language === 'ar' ? 'تم إيقاف المزامنة مؤقتاً' : 'Sync paused');
+      setActiveJob({ ...activeJob, status: 'paused' });
     } catch (error) {
-      console.error('Error stopping sync:', error);
-      toast.error(language === 'ar' ? 'فشل إيقاف المزامنة' : 'Failed to stop sync');
+      console.error('Error pausing sync:', error);
+      toast.error(language === 'ar' ? 'فشل إيقاف المزامنة مؤقتاً' : 'Failed to pause sync');
     } finally {
-      setStopping(false);
+      setActionLoading(false);
+    }
+  };
+
+  const handleResumeSync = async () => {
+    if (!activeJob || actionLoading) return;
+    
+    setActionLoading(true);
+    try {
+      // Update status to running
+      const { error } = await supabase
+        .from('background_sync_jobs')
+        .update({ status: 'running' })
+        .eq('id', activeJob.id);
+
+      if (error) throw error;
+
+      // Call the edge function to resume processing
+      const { error: fnError } = await supabase.functions.invoke('sync-orders-background', {
+        body: {
+          jobId: activeJob.id,
+          fromDate: activeJob.from_date,
+          toDate: activeJob.to_date,
+          userId: activeJob.user_id,
+          userEmail: activeJob.user_email,
+          userName: activeJob.user_name,
+          resumeFrom: activeJob.processed_orders,
+        },
+      });
+
+      if (fnError) throw fnError;
+      
+      toast.success(language === 'ar' ? 'تم استئناف المزامنة' : 'Sync resumed');
+      setActiveJob({ ...activeJob, status: 'running' });
+    } catch (error) {
+      console.error('Error resuming sync:', error);
+      toast.error(language === 'ar' ? 'فشل استئناف المزامنة' : 'Failed to resume sync');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -186,9 +227,9 @@ export const BackgroundSyncStatusCard = () => {
     : 0;
 
   const isRunning = activeJob.status === 'running' || activeJob.status === 'pending';
+  const isPaused = activeJob.status === 'paused';
   const isCompleted = activeJob.status === 'completed';
   const isFailed = activeJob.status === 'failed';
-  const isCancelled = activeJob.status === 'cancelled';
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -227,21 +268,21 @@ export const BackgroundSyncStatusCard = () => {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              {isPaused && <Pause className="h-4 w-4 text-orange-500" />}
               {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500" />}
               {isFailed && <XCircle className="h-4 w-4 text-destructive" />}
-              {isCancelled && <StopCircle className="h-4 w-4 text-orange-500" />}
               <span className="font-medium">
                 {language === 'ar' ? 'مزامنة Odoo في الخلفية' : 'Background Odoo Sync'}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={isRunning ? 'default' : isCompleted ? 'secondary' : isCancelled ? 'outline' : 'destructive'}>
+              <Badge variant={isRunning ? 'default' : isPaused ? 'outline' : isCompleted ? 'secondary' : 'destructive'}>
                 {isRunning 
                   ? (language === 'ar' ? 'جاري التشغيل' : 'Running')
-                  : isCompleted 
-                    ? (language === 'ar' ? 'مكتمل' : 'Completed')
-                    : isCancelled
-                      ? (language === 'ar' ? 'تم الإيقاف' : 'Stopped')
+                  : isPaused
+                    ? (language === 'ar' ? 'متوقف مؤقتاً' : 'Paused')
+                    : isCompleted 
+                      ? (language === 'ar' ? 'مكتمل' : 'Completed')
                       : (language === 'ar' ? 'فشل' : 'Failed')
                 }
               </Badge>
@@ -250,14 +291,26 @@ export const BackgroundSyncStatusCard = () => {
                   variant="ghost" 
                   size="icon" 
                   className="h-6 w-6 text-orange-500 hover:text-orange-600 hover:bg-orange-100" 
-                  onClick={handleStopSync}
-                  disabled={stopping}
-                  title={language === 'ar' ? 'إيقاف المزامنة' : 'Stop Sync'}
+                  onClick={handlePauseSync}
+                  disabled={actionLoading}
+                  title={language === 'ar' ? 'إيقاف مؤقت' : 'Pause'}
                 >
-                  {stopping ? <Loader2 className="h-4 w-4 animate-spin" /> : <StopCircle className="h-4 w-4" />}
+                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
                 </Button>
               )}
-              {(showCompletedJob || isCancelled) && (
+              {isPaused && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 text-green-500 hover:text-green-600 hover:bg-green-100" 
+                  onClick={handleResumeSync}
+                  disabled={actionLoading}
+                  title={language === 'ar' ? 'استئناف' : 'Resume'}
+                >
+                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                </Button>
+              )}
+              {(showCompletedJob || isPaused) && (
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDismiss}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -269,7 +322,7 @@ export const BackgroundSyncStatusCard = () => {
             {activeJob.from_date} → {activeJob.to_date}
           </div>
 
-          {isRunning && (
+          {(isRunning || isPaused) && (
             <>
               <Progress value={progress} className="h-2 mb-2" />
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -281,7 +334,7 @@ export const BackgroundSyncStatusCard = () => {
                 </span>
                 <span>{progress}%</span>
               </div>
-              {activeJob.current_order_number && (
+              {activeJob.current_order_number && isRunning && (
                 <div className="text-xs text-muted-foreground mt-1">
                   {language === 'ar' ? 'الطلب الحالي: ' : 'Current: '}
                   {activeJob.current_order_number}
@@ -290,7 +343,7 @@ export const BackgroundSyncStatusCard = () => {
             </>
           )}
 
-          {(isCompleted || isFailed || isCancelled) && (
+          {(isCompleted || isFailed) && (
             <div className="flex gap-4 text-sm">
               <span className="text-green-600">
                 ✓ {activeJob.successful_orders}
