@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, Save, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, RefreshCw, Upload } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import {
   AlertDialog,
@@ -59,6 +59,10 @@ const PaymentMethodSetup = () => {
   const [bulkRecalculating, setBulkRecalculating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkMessage, setBulkMessage] = useState("");
+  
+  // Odoo sync states
+  const [syncingToOdoo, setSyncingToOdoo] = useState<string | null>(null);
+  const [syncingAllToOdoo, setSyncingAllToOdoo] = useState(false);
 
   useEffect(() => {
     fetchPaymentMethods();
@@ -415,6 +419,124 @@ const PaymentMethodSetup = () => {
     }
   };
 
+  const handleSyncToOdoo = async (method: PaymentMethod) => {
+    try {
+      setSyncingToOdoo(method.id);
+
+      const { data, error } = await supabase.functions.invoke('sync-payment-method-to-odoo', {
+        body: {
+          payment_method_id: method.id,
+          payment_type: method.payment_type,
+          payment_method: method.payment_method,
+          gateway_fee: method.gateway_fee,
+          fixed_value: method.fixed_value,
+          vat_fee: method.vat_fee,
+          is_active: method.is_active
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: language === "ar" ? "نجاح" : "Success",
+          description: language === "ar"
+            ? `تم مزامنة طريقة الدفع "${method.payment_method}" مع Odoo`
+            : `Payment method "${method.payment_method}" synced to Odoo`,
+        });
+      } else {
+        throw new Error(data?.error || 'Sync failed');
+      }
+    } catch (error) {
+      console.error("Error syncing to Odoo:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar"
+          ? `فشل في مزامنة طريقة الدفع مع Odoo: ${(error as any)?.message || 'Unknown error'}`
+          : `Failed to sync payment method to Odoo: ${(error as any)?.message || 'Unknown error'}`,
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingToOdoo(null);
+    }
+  };
+
+  const handleSyncAllToOdoo = async () => {
+    const activePaymentMethods = paymentMethods.filter(m => m.is_active);
+    if (activePaymentMethods.length === 0) {
+      toast({
+        title: language === "ar" ? "تنبيه" : "Notice",
+        description: language === "ar"
+          ? "لا توجد طرق دفع نشطة للمزامنة"
+          : "No active payment methods to sync",
+      });
+      return;
+    }
+
+    setSyncingAllToOdoo(true);
+    setBulkProgress(0);
+    setBulkMessage(language === "ar" ? "جاري مزامنة طرق الدفع مع Odoo..." : "Syncing payment methods to Odoo...");
+
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (let i = 0; i < activePaymentMethods.length; i++) {
+        const method = activePaymentMethods[i];
+        setBulkMessage(
+          language === "ar"
+            ? `جاري مزامنة ${method.payment_method}...`
+            : `Syncing ${method.payment_method}...`
+        );
+
+        try {
+          const { data, error } = await supabase.functions.invoke('sync-payment-method-to-odoo', {
+            body: {
+              payment_method_id: method.id,
+              payment_type: method.payment_type,
+              payment_method: method.payment_method,
+              gateway_fee: method.gateway_fee,
+              fixed_value: method.fixed_value,
+              vat_fee: method.vat_fee,
+              is_active: method.is_active
+            }
+          });
+
+          if (error || !data?.success) {
+            failCount++;
+            console.error(`Failed to sync ${method.payment_method}:`, error || data?.error);
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failCount++;
+          console.error(`Error syncing ${method.payment_method}:`, err);
+        }
+
+        setBulkProgress(Math.round(((i + 1) / activePaymentMethods.length) * 100));
+      }
+
+      toast({
+        title: language === "ar" ? "اكتمل!" : "Completed!",
+        description: language === "ar"
+          ? `تمت المزامنة: ${successCount} نجاح، ${failCount} فشل`
+          : `Sync completed: ${successCount} succeeded, ${failCount} failed`,
+        variant: failCount > 0 ? "destructive" : "default",
+      });
+    } catch (error) {
+      console.error("Error in bulk sync:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar"
+          ? "فشل في مزامنة طرق الدفع"
+          : "Failed to sync payment methods",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingAllToOdoo(false);
+    }
+  };
+
   return (
     <>
       {bulkRecalculating && (
@@ -467,13 +589,29 @@ const PaymentMethodSetup = () => {
           <CardTitle>
             {language === "ar" ? "عمولات البنوك" : "Bank Commissions"}
           </CardTitle>
-          <Button variant="secondary" onClick={handleRecalculateFees} disabled={recalculating}>
-            {recalculating ? (
-              <span className="inline-flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" />{language === "ar" ? "جارٍ الاحتساب" : "Recalculating"}</span>
-            ) : (
-              language === "ar" ? "إعادة احتساب رسوم الطلبات" : "Recalculate Order Fees"
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleSyncAllToOdoo} 
+              disabled={syncingAllToOdoo || paymentMethods.filter(m => m.is_active).length === 0}
+            >
+              {syncingAllToOdoo ? (
+                <span className="inline-flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" />{language === "ar" ? "جارٍ المزامنة" : "Syncing..."}</span>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  {language === "ar" ? "مزامنة الكل مع Odoo" : "Sync All to Odoo"}
+                </>
+              )}
+            </Button>
+            <Button variant="secondary" onClick={handleRecalculateFees} disabled={recalculating}>
+              {recalculating ? (
+                <span className="inline-flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" />{language === "ar" ? "جارٍ الاحتساب" : "Recalculating"}</span>
+              ) : (
+                language === "ar" ? "إعادة احتساب رسوم الطلبات" : "Recalculate Order Fees"
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -483,7 +621,7 @@ const PaymentMethodSetup = () => {
           ) : (
             <div className="space-y-4">
               {/* Header */}
-              <div className="grid grid-cols-8 gap-4 font-semibold text-sm pb-2 border-b">
+              <div className="grid grid-cols-9 gap-4 font-semibold text-sm pb-2 border-b">
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "طريقة الدفع" : "Payment Method"}
                 </div>
@@ -506,13 +644,16 @@ const PaymentMethodSetup = () => {
                   {language === "ar" ? "إعادة احتساب" : "Recalculate"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
+                  {language === "ar" ? "Odoo" : "Odoo"}
+                </div>
+                <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "إجراءات" : "Actions"}
                 </div>
               </div>
 
               {/* Existing Payment Methods */}
               {paymentMethods.map((method) => (
-                <div key={method.id} className="grid grid-cols-8 gap-4 items-center">
+                <div key={method.id} className="grid grid-cols-9 gap-4 items-center">
                   <Input
                     value={method.payment_type || ""}
                     onChange={(e) => {
@@ -603,6 +744,21 @@ const PaymentMethodSetup = () => {
                       )}
                     </Button>
                   </div>
+                  <div className="flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleSyncToOdoo(method)}
+                      disabled={syncingToOdoo === method.id}
+                      title={language === "ar" ? "مزامنة مع Odoo" : "Sync to Odoo"}
+                    >
+                      {syncingToOdoo === method.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       size="icon"
@@ -622,7 +778,7 @@ const PaymentMethodSetup = () => {
               ))}
 
               {/* Add New Method */}
-              <div className="grid grid-cols-8 gap-4 items-center pt-4 border-t">
+              <div className="grid grid-cols-9 gap-4 items-center pt-4 border-t">
                 <Input
                   placeholder={language === "ar" ? "نوع الدفع" : "Payment method"}
                   value={newMethod.payment_type}
@@ -688,6 +844,7 @@ const PaymentMethodSetup = () => {
                 <div className="flex items-center">
                   <Switch checked={true} disabled aria-label={language === "ar" ? "الحالة" : "Status"} />
                 </div>
+                <div></div>
                 <div></div>
                 <Button onClick={handleAddMethod} size="icon">
                   <Plus className="h-4 w-4" />
