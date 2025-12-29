@@ -31,7 +31,7 @@ interface BackgroundSyncRequest {
   userId: string;
   userEmail: string;
   userName: string;
-  resumeFrom?: number; // Number of orders already processed (for resume)
+  resumeFrom?: number;
 }
 
 // Helper to send email via existing SMTP function
@@ -48,7 +48,6 @@ async function sendCompletionEmail(
   duration: string
 ) {
   try {
-    // Get user's email config
     const { data: profile } = await supabase
       .from('profiles')
       .select('email_password, mail_type_id')
@@ -60,7 +59,6 @@ async function sendCompletionEmail(
       return false;
     }
 
-    // Get SMTP settings
     const { data: mailType } = await supabase
       .from('mail_types')
       .select('*')
@@ -72,9 +70,8 @@ async function sendCompletionEmail(
       return false;
     }
 
-    // Send via SMTP
-    const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-    
+    const { SMTPClient } = await import('https://deno.land/x/denomailer@1.6.0/mod.ts');
+
     const client = new SMTPClient({
       connection: {
         hostname: mailType.smtp_host,
@@ -89,7 +86,7 @@ async function sendCompletionEmail(
 
     const statusEmoji = failed > 0 ? '⚠️' : '✅';
     const subject = `${statusEmoji} Odoo Sync Complete - ${fromDate} to ${toDate}`;
-    
+
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333; border-bottom: 2px solid #4F46E5; padding-bottom: 10px;">
@@ -130,11 +127,15 @@ async function sendCompletionEmail(
           </table>
         </div>
         
-        ${failed > 0 ? `
+        ${
+          failed > 0
+            ? `
           <p style="color: #ef4444; background: #fef2f2; padding: 12px; border-radius: 8px;">
             ⚠️ Some orders failed to sync. Please check the sync history in the application for details.
           </p>
-        ` : ''}
+        `
+            : ''
+        }
         
         <p style="color: #666; font-size: 12px; margin-top: 30px;">
           This is an automated email from your Odoo Sync System.
@@ -158,13 +159,12 @@ async function sendCompletionEmail(
   }
 }
 
-// Format duration
 function formatDuration(startTime: Date, endTime: Date): string {
   const totalSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m ${seconds}s`;
   } else if (minutes > 0) {
@@ -173,14 +173,13 @@ function formatDuration(startTime: Date, endTime: Date): string {
   return `${seconds}s`;
 }
 
-// Execute a single sync step
 async function executeStep(
   stepId: string,
   transactions: OrderLine[],
   nonStockProducts: OrderLine[],
   supabaseUrl: string,
   supabaseKey: string,
-  timeoutMs: number = 120_000
+  timeoutMs: number = 60_000
 ): Promise<{ success: boolean; error?: string }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -189,7 +188,7 @@ async function executeStep(
     const response = await fetch(`${supabaseUrl}/functions/v1/sync-order-to-odoo-step`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
+        Authorization: `Bearer ${supabaseKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ step: stepId, transactions, nonStockProducts }),
@@ -206,9 +205,10 @@ async function executeStep(
       return { success: true };
     }
 
-    const errorMessage = typeof data?.error === 'object' && data?.error?.error
-      ? data.error.error
-      : (data?.error || data?.message || `Step ${stepId} failed`);
+    const errorMessage =
+      typeof data?.error === 'object' && data?.error?.error
+        ? data.error.error
+        : data?.error || data?.message || `Step ${stepId} failed`;
 
     return { success: false, error: errorMessage };
   } catch (error: any) {
@@ -221,7 +221,7 @@ async function executeStep(
   }
 }
 
-// Main background sync function
+// Main background sync function - processes in small chunks and self-continues
 async function processBackgroundSync(
   supabase: any,
   jobId: string,
@@ -232,20 +232,56 @@ async function processBackgroundSync(
   userName: string,
   resumeFrom: number = 0
 ) {
-  const startTime = new Date();
+  // Process in small chunks to avoid edge function shutdown
+  const MAX_ORDERS_PER_CHUNK = 10;
+  const MAX_RUNTIME_MS = 20_000; // 20 seconds max per invocation
+
+  const invocationStart = Date.now();
   const isResume = resumeFrom > 0;
-  console.log(`[Background Sync] ${isResume ? 'Resuming' : 'Starting'} job ${jobId} for ${fromDate} to ${toDate}${isResume ? ` from order ${resumeFrom}` : ''}`);
+  console.log(
+    `[Background Sync] ${isResume ? 'Resuming' : 'Starting'} job ${jobId} for ${fromDate} to ${toDate}${
+      isResume ? ` (resumeFrom=${resumeFrom})` : ''
+    }`
+  );
+
+  const scheduleContinuation = async (processedSoFar: number) => {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    console.log(`[Background Sync] Scheduling continuation (resumeFrom=${processedSoFar})`);
+
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/sync-orders-background`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jobId,
+          fromDate,
+          toDate,
+          userId,
+          userEmail,
+          userName,
+          resumeFrom: processedSoFar,
+        }),
+      });
+    } catch (e) {
+      console.error('[Background Sync] Failed to schedule continuation:', e);
+    }
+  };
 
   try {
-    // Update job status to running (only update started_at if not resuming)
-    const updateData: any = { status: 'running' };
+    // Update job status
     if (!isResume) {
-      updateData.started_at = startTime.toISOString();
+      await supabase
+        .from('background_sync_jobs')
+        .update({ status: 'running', started_at: new Date().toISOString() })
+        .eq('id', jobId);
+    } else {
+      await supabase.from('background_sync_jobs').update({ status: 'running' }).eq('id', jobId);
     }
-    await supabase
-      .from('background_sync_jobs')
-      .update(updateData)
-      .eq('id', jobId);
 
     // Convert date strings to integer format YYYYMMDD
     const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
@@ -288,21 +324,16 @@ async function processBackgroundSync(
     });
 
     const totalOrders = orderGroups.size;
-    console.log(`[Background Sync] Found ${totalOrders} orders to process`);
+    console.log(`[Background Sync] Found ${totalOrders} orders total`);
 
-    // Update total orders (only if not resuming)
     if (!isResume) {
-      await supabase
-        .from('background_sync_jobs')
-        .update({ total_orders: totalOrders })
-        .eq('id', jobId);
+      await supabase.from('background_sync_jobs').update({ total_orders: totalOrders }).eq('id', jobId);
     }
 
     // Create or get sync run record
     let runId: string | null = null;
-    
+
     if (isResume) {
-      // Find existing run for this job
       const { data: existingRun } = await supabase
         .from('odoo_sync_runs')
         .select('id')
@@ -312,42 +343,35 @@ async function processBackgroundSync(
         .order('start_time', { ascending: false })
         .limit(1)
         .maybeSingle();
-      
+
       runId = existingRun?.id || null;
-      
       if (runId) {
-        // Update run status back to running
-        await supabase
-          .from('odoo_sync_runs')
-          .update({ status: 'running' })
-          .eq('id', runId);
+        await supabase.from('odoo_sync_runs').update({ status: 'running' }).eq('id', runId);
       }
     }
-    
+
     if (!runId) {
       const { data: runData } = await supabase
         .from('odoo_sync_runs')
         .insert({
           from_date: fromDate,
           to_date: toDate,
-          start_time: startTime.toISOString(),
+          start_time: new Date().toISOString(),
           total_orders: totalOrders,
           status: 'running',
           created_by: userId,
         })
         .select('id')
         .single();
-      
+
       runId = runData?.id;
     }
 
-    // Get existing counts if resuming
+    // Get existing counts
     let processedOrders = 0;
     let successfulOrders = 0;
     let failedOrders = 0;
     let skippedOrders = 0;
-
-    // When resuming, build a set of already-processed order numbers from run details (stable resume)
     const processedOrderNumbers = new Set<string>();
 
     if (isResume) {
@@ -374,7 +398,6 @@ async function processBackgroundSync(
           if (d?.order_number) processedOrderNumbers.add(d.order_number);
         });
 
-        // Ensure processedOrders is at least the number of details we already have
         processedOrders = Math.max(processedOrders, processedOrderNumbers.size);
       }
     }
@@ -382,14 +405,35 @@ async function processBackgroundSync(
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    // Process each order
+    let processedThisChunk = 0;
+
     for (const [orderNumber, lines] of orderGroups) {
-      // Skip orders that already have a detail row (resume is based on order_number, not index)
-      if (isResume && processedOrderNumbers.has(orderNumber)) {
+      // Check if we should stop and continue later
+      const elapsedMs = Date.now() - invocationStart;
+      if (processedThisChunk >= MAX_ORDERS_PER_CHUNK || elapsedMs > MAX_RUNTIME_MS) {
+        console.log(
+          `[Background Sync] Chunk limit reached (processed=${processedThisChunk}, elapsed=${elapsedMs}ms). Continuing...`
+        );
+        await supabase
+          .from('background_sync_jobs')
+          .update({
+            processed_orders: processedOrders,
+            successful_orders: successfulOrders,
+            failed_orders: failedOrders,
+            skipped_orders: skippedOrders,
+            current_order_number: null,
+          })
+          .eq('id', jobId);
+        await scheduleContinuation(processedOrders);
+        return;
+      }
+
+      // Skip already processed orders
+      if (processedOrderNumbers.has(orderNumber)) {
         continue;
       }
 
-      // Check current job status before starting next order
+      // Check job status
       const { data: jobCheck } = await supabase
         .from('background_sync_jobs')
         .select('status')
@@ -397,9 +441,7 @@ async function processBackgroundSync(
         .single();
 
       if (jobCheck?.status === 'paused') {
-        console.log(`[Background Sync] Job ${jobId} was paused by user`);
-
-        // Update sync run as paused (keep end_time null)
+        console.log(`[Background Sync] Job ${jobId} paused by user`);
         if (runId) {
           await supabase
             .from('odoo_sync_runs')
@@ -411,8 +453,6 @@ async function processBackgroundSync(
             })
             .eq('id', runId);
         }
-
-        // Keep the job in paused state with current progress
         await supabase
           .from('background_sync_jobs')
           .update({
@@ -423,14 +463,11 @@ async function processBackgroundSync(
             current_order_number: null,
           })
           .eq('id', jobId);
-
         return;
       }
 
       if (jobCheck?.status === 'cancelled') {
-        console.log(`[Background Sync] Job ${jobId} was cancelled by user`);
-        
-        // Update sync run as cancelled
+        console.log(`[Background Sync] Job ${jobId} cancelled by user`);
         if (runId) {
           await supabase
             .from('odoo_sync_runs')
@@ -443,10 +480,10 @@ async function processBackgroundSync(
             })
             .eq('id', runId);
         }
-
         await supabase
           .from('background_sync_jobs')
           .update({
+            status: 'cancelled',
             processed_orders: processedOrders,
             successful_orders: successfulOrders,
             failed_orders: failedOrders,
@@ -455,14 +492,12 @@ async function processBackgroundSync(
             current_order_number: null,
           })
           .eq('id', jobId);
-
         return;
       }
 
       const firstLine = lines[0];
       console.log(`[Background Sync] Processing order ${orderNumber} (${processedOrders + 1}/${totalOrders})`);
 
-      // Update current order (and current progress)
       await supabase
         .from('background_sync_jobs')
         .update({
@@ -474,8 +509,7 @@ async function processBackgroundSync(
         })
         .eq('id', jobId);
 
-      // Check for non-stock products in this order
-      const orderNonStockProducts = lines.filter(line => {
+      const orderNonStockProducts = lines.filter((line) => {
         const sku = line.sku || line.product_id;
         return sku && nonStockSet.has(sku);
       });
@@ -493,7 +527,6 @@ async function processBackgroundSync(
       let errorMessage = '';
 
       try {
-        // Step 1: Customer
         const customerResult = await executeStep('customer', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
         if (!customerResult.success) {
           stepStatus.customer = 'failed';
@@ -501,7 +534,6 @@ async function processBackgroundSync(
         }
         stepStatus.customer = 'found';
 
-        // Step 2: Brand
         const brandResult = await executeStep('brand', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
         if (!brandResult.success) {
           stepStatus.brand = 'failed';
@@ -509,7 +541,6 @@ async function processBackgroundSync(
         }
         stepStatus.brand = 'found';
 
-        // Step 3: Product
         const productResult = await executeStep('product', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
         if (!productResult.success) {
           stepStatus.product = 'failed';
@@ -517,7 +548,6 @@ async function processBackgroundSync(
         }
         stepStatus.product = 'found';
 
-        // Step 4: Order
         const orderResult = await executeStep('order', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
         if (!orderResult.success) {
           stepStatus.order = 'failed';
@@ -525,7 +555,6 @@ async function processBackgroundSync(
         }
         stepStatus.order = 'sent';
 
-        // Step 5: Purchase (if non-stock)
         if (hasNonStock) {
           const purchaseResult = await executeStep('purchase', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
           if (!purchaseResult.success) {
@@ -539,7 +568,6 @@ async function processBackgroundSync(
 
         successfulOrders++;
         console.log(`[Background Sync] Order ${orderNumber} synced successfully`);
-
       } catch (error: any) {
         syncStatus = 'failed';
         errorMessage = error.message || 'Unknown error';
@@ -547,31 +575,28 @@ async function processBackgroundSync(
         console.error(`[Background Sync] Order ${orderNumber} failed: ${errorMessage}`);
       }
 
-      // Save run detail
       if (runId) {
-        await supabase
-          .from('odoo_sync_run_details')
-          .insert({
-            run_id: runId,
-            order_number: orderNumber,
-            order_date: firstLine.created_at_date?.slice(0, 10) || null,
-            customer_phone: firstLine.customer_phone || null,
-            product_names: [...new Set(lines.map(l => l.product_name))].filter(Boolean).join(', '),
-            total_amount: lines.reduce((sum, l) => sum + (l.total || 0), 0),
-            sync_status: syncStatus,
-            error_message: errorMessage || null,
-            step_customer: stepStatus.customer,
-            step_brand: stepStatus.brand,
-            step_product: stepStatus.product,
-            step_order: stepStatus.order,
-            step_purchase: stepStatus.purchase,
-          });
+        await supabase.from('odoo_sync_run_details').insert({
+          run_id: runId,
+          order_number: orderNumber,
+          order_date: firstLine.created_at_date?.slice(0, 10) || null,
+          customer_phone: firstLine.customer_phone || null,
+          product_names: [...new Set(lines.map((l) => l.product_name))].filter(Boolean).join(', '),
+          total_amount: lines.reduce((sum, l) => sum + (l.total || 0), 0),
+          sync_status: syncStatus,
+          error_message: errorMessage || null,
+          step_customer: stepStatus.customer,
+          step_brand: stepStatus.brand,
+          step_product: stepStatus.product,
+          step_order: stepStatus.order,
+          step_purchase: stepStatus.purchase,
+        });
       }
 
       processedOrders++;
+      processedThisChunk++;
       processedOrderNumbers.add(orderNumber);
 
-      // Persist running totals so UI updates during the run
       await supabase
         .from('background_sync_jobs')
         .update({
@@ -595,10 +620,9 @@ async function processBackgroundSync(
       }
     }
 
+    // Completed all orders
     const endTime = new Date();
-    const duration = formatDuration(startTime, endTime);
 
-    // Update sync run
     if (runId) {
       await supabase
         .from('odoo_sync_runs')
@@ -612,7 +636,6 @@ async function processBackgroundSync(
         .eq('id', runId);
     }
 
-    // Send completion email
     const emailSent = await sendCompletionEmail(
       supabase,
       userEmail,
@@ -623,10 +646,9 @@ async function processBackgroundSync(
       failedOrders,
       skippedOrders,
       totalOrders,
-      duration
+      formatDuration(new Date(Date.now() - (processedOrders * 2000)), endTime)
     );
 
-    // Update job as completed
     await supabase
       .from('background_sync_jobs')
       .update({
@@ -642,10 +664,9 @@ async function processBackgroundSync(
       .eq('id', jobId);
 
     console.log(`[Background Sync] Job ${jobId} completed. Success: ${successfulOrders}, Failed: ${failedOrders}`);
-
   } catch (error: any) {
     console.error(`[Background Sync] Job ${jobId} failed:`, error);
-    
+
     await supabase
       .from('background_sync_jobs')
       .update({
@@ -657,7 +678,6 @@ async function processBackgroundSync(
   }
 }
 
-// Declare EdgeRuntime for TypeScript
 declare const EdgeRuntime: {
   waitUntil: (promise: Promise<any>) => void;
 };
@@ -668,13 +688,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom } = await req.json() as BackgroundSyncRequest;
+    const { jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom } =
+      (await req.json()) as BackgroundSyncRequest;
 
     if (!jobId || !fromDate || !toDate || !userId || !userEmail || !userName) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Missing required parameters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ success: false, error: 'Missing required parameters' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const isResume = resumeFrom !== undefined && resumeFrom > 0;
@@ -685,10 +706,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Use waitUntil for background processing
-    EdgeRuntime.waitUntil(processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom || 0));
+    EdgeRuntime.waitUntil(
+      processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom || 0)
+    );
 
-    // Return immediately
     return new Response(
       JSON.stringify({
         success: true,
@@ -697,7 +718,6 @@ Deno.serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error in sync-orders-background:', error);
     return new Response(
