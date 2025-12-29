@@ -147,7 +147,7 @@ const LoadData = () => {
       const newFiles = Array.from(e.target.files).map(file => ({
         id: crypto.randomUUID(),
         file,
-        sheetId: availableSheets.length > 0 ? availableSheets[0].id : "",
+        sheetId: "",
         status: 'pending' as const,
         progress: 0,
       }));
@@ -231,7 +231,7 @@ const LoadData = () => {
       const newFiles = validFiles.map(file => ({
         id: crypto.randomUUID(),
         file,
-        sheetId: availableSheets.length > 0 ? availableSheets[0].id : "",
+        sheetId: "",
         status: 'pending' as const,
         progress: 0,
       }));
