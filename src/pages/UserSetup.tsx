@@ -136,29 +136,29 @@ interface UserPermission {
   ];
 
 const DASHBOARD_COMPONENTS = [
-  { key: "sales_metrics", label: "Sales Metrics" },
-  { key: "total_profit", label: "Total Profit" },
-  { key: "points_sales", label: "Points Sales" },
-  { key: "transaction_count", label: "Transaction Count" },
-  { key: "new_customers", label: "New Customers" },
-  { key: "avg_order_metrics", label: "Average Order Value" },
-  { key: "income_statement", label: "Income Statement" },
-  { key: "transaction_type_chart", label: "Transaction Type Chart" },
-  { key: "user_transaction_count_chart", label: "User Transaction Count Chart" },
-  { key: "user_transaction_value_chart", label: "User Transaction Value Chart" },
-  { key: "brand_sales_grid", label: "Brand Sales Grid" },
-  { key: "coins_by_brand", label: "Coins by Brand" },
-  { key: "sales_trend_chart", label: "Sales Trend Chart" },
-  { key: "top_brands_chart", label: "Top Brands Chart" },
-  { key: "top_products_chart", label: "Top Products Chart" },
-  { key: "month_comparison_chart", label: "Month Comparison Chart" },
-  { key: "payment_methods_chart", label: "Payment Methods Chart" },
-  { key: "payment_brands_chart", label: "Payment Brands Chart" },
-  { key: "unused_payment_brands", label: "Unused Payment Brands" },
-  { key: "product_summary_table", label: "Product Summary Table" },
-  { key: "customer_purchases_table", label: "Customer Purchases Table" },
-  { key: "inactive_customers_section", label: "Inactive Customers Section" },
-  { key: "recent_transactions", label: "Recent Transactions" },
+  { key: "sales_metrics", labelEn: "Sales Metrics", labelAr: "مقاييس المبيعات" },
+  { key: "total_profit", labelEn: "Total Profit", labelAr: "إجمالي الأرباح" },
+  { key: "points_sales", labelEn: "Points Sales", labelAr: "مبيعات النقاط" },
+  { key: "transaction_count", labelEn: "Transaction Count", labelAr: "عدد المعاملات" },
+  { key: "new_customers", labelEn: "New Customers", labelAr: "العملاء الجدد" },
+  { key: "avg_order_metrics", labelEn: "Average Order Value", labelAr: "متوسط قيمة الطلب" },
+  { key: "income_statement", labelEn: "Income Statement", labelAr: "بيان الدخل" },
+  { key: "transaction_type_chart", labelEn: "Transaction Type Chart", labelAr: "رسم أنواع المعاملات" },
+  { key: "user_transaction_count_chart", labelEn: "User Transaction Count Chart", labelAr: "رسم عدد معاملات المستخدم" },
+  { key: "user_transaction_value_chart", labelEn: "User Transaction Value Chart", labelAr: "رسم قيمة معاملات المستخدم" },
+  { key: "brand_sales_grid", labelEn: "Brand Sales Grid", labelAr: "شبكة مبيعات العلامات" },
+  { key: "coins_by_brand", labelEn: "Coins by Brand", labelAr: "الكوينز حسب العلامة" },
+  { key: "sales_trend_chart", labelEn: "Sales Trend Chart", labelAr: "رسم اتجاه المبيعات" },
+  { key: "top_brands_chart", labelEn: "Top Brands Chart", labelAr: "رسم أفضل العلامات" },
+  { key: "top_products_chart", labelEn: "Top Products Chart", labelAr: "رسم أفضل المنتجات" },
+  { key: "month_comparison_chart", labelEn: "Month Comparison Chart", labelAr: "رسم مقارنة الأشهر" },
+  { key: "payment_methods_chart", labelEn: "Payment Methods Chart", labelAr: "رسم طرق الدفع" },
+  { key: "payment_brands_chart", labelEn: "Payment Brands Chart", labelAr: "رسم علامات الدفع" },
+  { key: "unused_payment_brands", labelEn: "Unused Payment Brands", labelAr: "علامات الدفع غير المستخدمة" },
+  { key: "product_summary_table", labelEn: "Product Summary Table", labelAr: "جدول ملخص المنتجات" },
+  { key: "customer_purchases_table", labelEn: "Customer Purchases Table", labelAr: "جدول مشتريات العملاء" },
+  { key: "inactive_customers_section", labelEn: "Inactive Customers Section", labelAr: "قسم العملاء غير النشطين" },
+  { key: "recent_transactions", labelEn: "Recent Transactions", labelAr: "المعاملات الأخيرة" },
 ];
 
 const REPORTS = [
@@ -1573,23 +1573,25 @@ const UserSetup = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Dashboard Components - {selectedUser?.user_name}
+              {language === 'ar' ? 'مكونات لوحة التحكم' : 'Dashboard Components'} - {selectedUser?.user_name}
             </DialogTitle>
           </DialogHeader>
           
           {loadingPermissions ? (
-            <div className="py-8 text-center">Loading permissions...</div>
+            <div className="py-8 text-center">{language === 'ar' ? 'جاري التحميل...' : 'Loading permissions...'}</div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Enable or disable access to specific dashboard components for this user.
+                {language === 'ar' 
+                  ? 'تفعيل أو تعطيل الوصول إلى مكونات لوحة التحكم المحددة لهذا المستخدم.'
+                  : 'Enable or disable access to specific dashboard components for this user.'}
               </p>
               
               <div className="space-y-3">
                 {DASHBOARD_COMPONENTS.map((component) => (
                   <div key={component.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                     <Label htmlFor={`dash-${component.key}`} className="cursor-pointer flex-1">
-                      {component.label}
+                      {language === 'ar' ? component.labelAr : component.labelEn}
                     </Label>
                     <Switch
                       id={`dash-${component.key}`}
