@@ -1510,6 +1510,119 @@ export type Database = {
         }
         Relationships: []
       }
+      odoo_sync_run_details: {
+        Row: {
+          created_at: string
+          customer_phone: string | null
+          error_message: string | null
+          id: string
+          order_date: string | null
+          order_number: string
+          product_names: string | null
+          run_id: string
+          step_brand: string | null
+          step_customer: string | null
+          step_order: string | null
+          step_product: string | null
+          step_purchase: string | null
+          sync_status: string
+          total_amount: number | null
+        }
+        Insert: {
+          created_at?: string
+          customer_phone?: string | null
+          error_message?: string | null
+          id?: string
+          order_date?: string | null
+          order_number: string
+          product_names?: string | null
+          run_id: string
+          step_brand?: string | null
+          step_customer?: string | null
+          step_order?: string | null
+          step_product?: string | null
+          step_purchase?: string | null
+          sync_status: string
+          total_amount?: number | null
+        }
+        Update: {
+          created_at?: string
+          customer_phone?: string | null
+          error_message?: string | null
+          id?: string
+          order_date?: string | null
+          order_number?: string
+          product_names?: string | null
+          run_id?: string
+          step_brand?: string | null
+          step_customer?: string | null
+          step_order?: string | null
+          step_product?: string | null
+          step_purchase?: string | null
+          sync_status?: string
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "odoo_sync_run_details_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "odoo_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      odoo_sync_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_time: string | null
+          failed_orders: number
+          from_date: string
+          id: string
+          run_date: string
+          skipped_orders: number
+          start_time: string
+          status: string
+          successful_orders: number
+          to_date: string
+          total_orders: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_time?: string | null
+          failed_orders?: number
+          from_date: string
+          id?: string
+          run_date?: string
+          skipped_orders?: number
+          start_time: string
+          status?: string
+          successful_orders?: number
+          to_date: string
+          total_orders?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_time?: string | null
+          failed_orders?: number
+          from_date?: string
+          id?: string
+          run_date?: string
+          skipped_orders?: number
+          start_time?: string
+          status?: string
+          successful_orders?: number
+          to_date?: string
+          total_orders?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_payment: {
         Row: {
           created_at: string

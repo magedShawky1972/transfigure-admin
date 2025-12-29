@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -56,7 +57,7 @@ interface OrderGroup {
   paymentBrand: string;
   selected: boolean;
   skipSync: boolean;
-  syncStatus: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+  syncStatus: 'pending' | 'running' | 'success' | 'failed' | 'skipped' | 'stopped';
   stepStatus: {
     customer: 'pending' | 'running' | 'found' | 'created' | 'failed';
     brand: 'pending' | 'running' | 'found' | 'created' | 'failed';
@@ -167,6 +168,14 @@ const OdooSyncBatch = () => {
   const [currentOrderIndex, setCurrentOrderIndex] = useState(-1);
   const [syncComplete, setSyncComplete] = useState(false);
   const [nonStockSkuSet, setNonStockSkuSet] = useState<Set<string>>(new Set());
+  
+  // New states for enhanced features
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
+  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+  const [showFailedDialog, setShowFailedDialog] = useState(false);
+  const stopRequestedRef = useRef(false);
+  const [stopRequested, setStopRequested] = useState(false);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -190,7 +199,6 @@ const OdooSyncBatch = () => {
         const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
         const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
         
-        // Fetch transactions within date range using created_at_date_int, excluding payment_method = 'point'
         // Fetch transactions within date range, excluding already synced orders (sendodoo = true)
         const { data, error } = await supabase
           .from('purpletransaction')
@@ -458,6 +466,89 @@ const OdooSyncBatch = () => {
     }
   };
 
+  // Create sync run record in database
+  const createSyncRun = async (): Promise<string | null> => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('odoo_sync_runs')
+        .insert({
+          from_date: fromDate,
+          to_date: toDate,
+          start_time: new Date().toISOString(),
+          total_orders: selectedCount,
+          status: 'running',
+          created_by: user?.user?.id,
+        })
+        .select('id')
+        .single();
+      
+      if (error) {
+        console.error('Error creating sync run:', error);
+        return null;
+      }
+      return data?.id || null;
+    } catch (error) {
+      console.error('Error creating sync run:', error);
+      return null;
+    }
+  };
+
+  // Update sync run with final results
+  const updateSyncRun = async (runId: string, status: string, groups: OrderGroup[]) => {
+    try {
+      const success = groups.filter(g => g.syncStatus === 'success').length;
+      const failed = groups.filter(g => g.syncStatus === 'failed').length;
+      const skipped = groups.filter(g => g.syncStatus === 'skipped' || g.syncStatus === 'stopped').length;
+
+      await supabase
+        .from('odoo_sync_runs')
+        .update({
+          end_time: new Date().toISOString(),
+          successful_orders: success,
+          failed_orders: failed,
+          skipped_orders: skipped,
+          status,
+        })
+        .eq('id', runId);
+
+      // Insert details for all processed orders
+      const details = groups
+        .filter(g => g.syncStatus !== 'pending')
+        .map(g => ({
+          run_id: runId,
+          order_number: g.orderNumber,
+          order_date: g.date || null,
+          customer_phone: g.customerPhone,
+          product_names: g.productNames.join(', '),
+          total_amount: g.totalAmount,
+          sync_status: g.syncStatus,
+          error_message: g.errorMessage || null,
+          step_customer: g.stepStatus.customer,
+          step_brand: g.stepStatus.brand,
+          step_product: g.stepStatus.product,
+          step_order: g.stepStatus.order,
+          step_purchase: g.stepStatus.purchase,
+        }));
+
+      if (details.length > 0) {
+        await supabase.from('odoo_sync_run_details').insert(details);
+      }
+    } catch (error) {
+      console.error('Error updating sync run:', error);
+    }
+  };
+
+  // Handle stop request
+  const handleStopSync = () => {
+    stopRequestedRef.current = true;
+    setStopRequested(true);
+    toast({
+      title: language === 'ar' ? 'إيقاف المزامنة' : 'Stopping Sync',
+      description: language === 'ar' ? 'سيتم إيقاف المزامنة بعد الطلب الحالي' : 'Sync will stop after the current order',
+    });
+  };
+
   // Start sync process
   const handleStartSync = async () => {
     const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
@@ -470,11 +561,41 @@ const OdooSyncBatch = () => {
       return;
     }
 
+    // Reset stop flag
+    stopRequestedRef.current = false;
+    setStopRequested(false);
+
+    // Set start time
+    const syncStartTime = new Date();
+    setStartTime(syncStartTime);
+    setEndTime(null);
+
+    // Create sync run record
+    const runId = await createSyncRun();
+    setCurrentRunId(runId);
+
     setIsSyncing(true);
     setSyncProgress(0);
     setSyncComplete(false);
 
+    let processedCount = 0;
+    let stoppedEarly = false;
+
     for (let i = 0; i < toSync.length; i++) {
+      // Check if stop was requested
+      if (stopRequestedRef.current) {
+        stoppedEarly = true;
+        // Mark remaining orders as stopped
+        setOrderGroups(prev => prev.map(g => {
+          const isRemaining = toSync.slice(i).some(ts => ts.orderNumber === g.orderNumber);
+          if (isRemaining && g.syncStatus === 'pending') {
+            return { ...g, syncStatus: 'stopped' };
+          }
+          return g;
+        }));
+        break;
+      }
+
       const group = toSync[i];
       setCurrentOrderIndex(orderGroups.findIndex(g => g.orderNumber === group.orderNumber));
 
@@ -491,8 +612,9 @@ const OdooSyncBatch = () => {
         g.orderNumber === group.orderNumber ? { ...g, ...result } : g
       ));
 
+      processedCount++;
       // Update progress
-      setSyncProgress(Math.round(((i + 1) / toSync.length) * 100));
+      setSyncProgress(Math.round((processedCount / toSync.length) * 100));
     }
 
     // Mark skipped orders
@@ -500,15 +622,34 @@ const OdooSyncBatch = () => {
       g.skipSync && g.selected ? { ...g, syncStatus: 'skipped' } : g
     ));
 
+    // Set end time
+    const syncEndTime = new Date();
+    setEndTime(syncEndTime);
+
     setIsSyncing(false);
     setCurrentOrderIndex(-1);
     setSyncComplete(true);
 
+    // Update sync run in database
+    if (runId) {
+      // Get final groups state
+      const finalGroups = orderGroups.map(g => {
+        const syncedGroup = toSync.find(ts => ts.orderNumber === g.orderNumber);
+        if (syncedGroup) {
+          return { ...g };
+        }
+        return g;
+      });
+      await updateSyncRun(runId, stoppedEarly ? 'stopped' : 'completed', orderGroups);
+    }
+
     toast({
-      title: language === 'ar' ? 'اكتملت المزامنة' : 'Sync Complete',
+      title: stoppedEarly 
+        ? (language === 'ar' ? 'تم إيقاف المزامنة' : 'Sync Stopped')
+        : (language === 'ar' ? 'اكتملت المزامنة' : 'Sync Complete'),
       description: language === 'ar' 
-        ? `تمت مزامنة ${toSync.length} طلب(ات)`
-        : `${toSync.length} order(s) synced`,
+        ? `تمت معالجة ${processedCount} من ${toSync.length} طلب(ات)`
+        : `Processed ${processedCount} of ${toSync.length} order(s)`,
     });
   };
 
@@ -595,6 +736,8 @@ const OdooSyncBatch = () => {
         );
       case 'skipped':
         return <Badge variant="secondary" className="gap-1"><SkipForward className="h-3 w-3" />{language === 'ar' ? 'تخطي' : 'Skipped'}</Badge>;
+      case 'stopped':
+        return <Badge variant="outline" className="gap-1 border-orange-500 text-orange-500"><StopCircle className="h-3 w-3" />{language === 'ar' ? 'متوقف' : 'Stopped'}</Badge>;
       default:
         return <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" />{language === 'ar' ? 'معلق' : 'Pending'}</Badge>;
     }
@@ -605,7 +748,7 @@ const OdooSyncBatch = () => {
     const total = orderGroups.length;
     const success = orderGroups.filter(g => g.syncStatus === 'success').length;
     const failed = orderGroups.filter(g => g.syncStatus === 'failed').length;
-    const skipped = orderGroups.filter(g => g.syncStatus === 'skipped').length;
+    const skipped = orderGroups.filter(g => g.syncStatus === 'skipped' || g.syncStatus === 'stopped').length;
     
     // Count created items (status === 'created')
     const customersCreated = orderGroups.filter(g => g.stepStatus.customer === 'created').length;
@@ -616,6 +759,18 @@ const OdooSyncBatch = () => {
     
     return { total, success, failed, skipped, customersCreated, brandsCreated, productsCreated, ordersCreated, purchasesCreated };
   }, [orderGroups]);
+
+  // Get failed orders for dialog
+  const failedOrders = useMemo(() => 
+    orderGroups.filter(g => g.syncStatus === 'failed'),
+    [orderGroups]
+  );
+
+  // Get successful orders for dialog
+  const successfulOrders = useMemo(() => 
+    orderGroups.filter(g => g.syncStatus === 'success'),
+    [orderGroups]
+  );
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -640,33 +795,60 @@ const OdooSyncBatch = () => {
             </p>
           </div>
         </div>
-        <Button 
-          onClick={handleStartSync} 
-          disabled={isSyncing || selectedCount === 0}
-          className="gap-2"
-        >
-          {isSyncing ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {language === 'ar' ? 'جاري المزامنة...' : 'Syncing...'}
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4" />
-              {language === 'ar' ? 'ابدأ الآن' : 'Start Now'}
-            </>
+        <div className="flex items-center gap-2">
+          {isSyncing && (
+            <Button 
+              variant="destructive"
+              onClick={handleStopSync}
+              disabled={stopRequested}
+              className="gap-2"
+            >
+              <StopCircle className="h-4 w-4" />
+              {stopRequested 
+                ? (language === 'ar' ? 'جاري الإيقاف...' : 'Stopping...')
+                : (language === 'ar' ? 'إيقاف' : 'Stop')}
+            </Button>
           )}
-        </Button>
+          <Button 
+            onClick={handleStartSync} 
+            disabled={isSyncing || selectedCount === 0}
+            className="gap-2"
+          >
+            {isSyncing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {language === 'ar' ? 'جاري المزامنة...' : 'Syncing...'}
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4" />
+                {language === 'ar' ? 'ابدأ الآن' : 'Start Now'}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
-      {/* Progress bar */}
-      {isSyncing && (
+      {/* Progress bar with time info */}
+      {(isSyncing || syncComplete) && startTime && (
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>{language === 'ar' ? 'التقدم' : 'Progress'}</span>
-                <span>{syncProgress}%</span>
+                <span className="flex items-center gap-4">
+                  <span>{language === 'ar' ? 'التقدم' : 'Progress'}: {syncProgress}%</span>
+                  {currentRunId && (
+                    <span className="text-muted-foreground">
+                      {language === 'ar' ? 'معرف التشغيل:' : 'Run ID:'} {currentRunId.slice(0, 8)}...
+                    </span>
+                  )}
+                </span>
+                <span className="text-muted-foreground">
+                  {language === 'ar' ? 'وقت البدء:' : 'Start Time:'} {format(startTime, 'HH:mm:ss')}
+                  {endTime && (
+                    <> | {language === 'ar' ? 'وقت الانتهاء:' : 'End Time:'} {format(endTime, 'HH:mm:ss')}</>
+                  )}
+                </span>
               </div>
               <Progress value={syncProgress} className="h-2" />
             </div>
@@ -677,6 +859,30 @@ const OdooSyncBatch = () => {
       {/* Summary (after sync) */}
       {syncComplete && (
         <div className="space-y-4">
+          {/* Run Info */}
+          {currentRunId && startTime && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{language === 'ar' ? 'معلومات التشغيل' : 'Run Information'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'ar' ? 'معرف التشغيل:' : 'Run ID:'} <span className="font-mono">{currentRunId}</span>
+                    </p>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-sm">
+                      {language === 'ar' ? 'تاريخ التشغيل:' : 'Run Date:'} {format(startTime, 'yyyy-MM-dd')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(startTime, 'HH:mm:ss')} - {endTime ? format(endTime, 'HH:mm:ss') : '-'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Sync Results */}
           <div className="grid grid-cols-4 gap-4">
             <Card>
@@ -691,10 +897,22 @@ const OdooSyncBatch = () => {
                 <p className="text-muted-foreground text-sm">{language === 'ar' ? 'نجح' : 'Success'}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card 
+              className={cn(
+                summary.failed > 0 && "cursor-pointer hover:border-destructive/50 transition-colors"
+              )}
+              onClick={() => summary.failed > 0 && setShowFailedDialog(true)}
+            >
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-destructive">{summary.failed}</div>
-                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'فشل' : 'Failed'}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-destructive">{summary.failed}</div>
+                    <p className="text-muted-foreground text-sm">{language === 'ar' ? 'فشل' : 'Failed'}</p>
+                  </div>
+                  {summary.failed > 0 && (
+                    <Eye className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -796,7 +1014,8 @@ const OdooSyncBatch = () => {
                       className={cn(
                         currentOrderIndex === idx && 'bg-muted/50',
                         group.syncStatus === 'success' && 'bg-green-50 dark:bg-green-950/20',
-                        group.syncStatus === 'failed' && 'bg-red-50 dark:bg-red-950/20'
+                        group.syncStatus === 'failed' && 'bg-red-50 dark:bg-red-950/20',
+                        group.syncStatus === 'stopped' && 'bg-orange-50 dark:bg-orange-950/20'
                       )}
                     >
                       <TableCell>
@@ -900,6 +1119,55 @@ const OdooSyncBatch = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Failed Orders Dialog */}
+      <Dialog open={showFailedDialog} onOpenChange={setShowFailedDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              {language === 'ar' ? 'الطلبات الفاشلة' : 'Failed Orders'} ({failedOrders.length})
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Order Number'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'المنتجات' : 'Products'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'سبب الفشل' : 'Error Description'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {failedOrders.map((group) => (
+                  <TableRow key={group.orderNumber}>
+                    <TableCell className="font-mono">{group.orderNumber}</TableCell>
+                    <TableCell>
+                      {group.date ? format(parseISO(group.date), 'yyyy-MM-dd') : '-'}
+                    </TableCell>
+                    <TableCell>{group.customerPhone || '-'}</TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <span className="text-sm" title={group.productNames.join(', ')}>
+                        {group.productNames.slice(0, 2).join(', ')}
+                        {group.productNames.length > 2 && ` +${group.productNames.length - 2}`}
+                      </span>
+                    </TableCell>
+                    <TableCell>{group.totalAmount.toFixed(2)} SAR</TableCell>
+                    <TableCell className="max-w-[300px]">
+                      <p className="text-sm text-destructive break-words">
+                        {translateOdooError(group.errorMessage || (language === 'ar' ? 'خطأ غير معروف' : 'Unknown error'), language)}
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
