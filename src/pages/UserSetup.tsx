@@ -982,7 +982,7 @@ const UserSetup = () => {
 
   const generatePasswordResetLink = (email: string) => {
     // Generate a link that will redirect to the auth page with reset password mode
-    const baseUrl = window.location.origin;
+    const baseUrl = "https://edaraasus.com";
     const resetLink = `${baseUrl}/auth?mode=reset&email=${encodeURIComponent(email)}`;
     return resetLink;
   };
