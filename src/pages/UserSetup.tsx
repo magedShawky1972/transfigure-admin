@@ -194,6 +194,9 @@ const UserSetup = () => {
   const [reportsPermissions, setReportsPermissions] = useState<Record<string, boolean>>({});
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
   const [canViewPasswords, setCanViewPasswords] = useState(false);
+  const [copyPermissionsDialogOpen, setCopyPermissionsDialogOpen] = useState(false);
+  const [selectedTargetUsers, setSelectedTargetUsers] = useState<string[]>([]);
+  const [copyingPermissions, setCopyingPermissions] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     searchTerm: "",
@@ -854,6 +857,72 @@ const UserSetup = () => {
     }
   };
 
+  const handleCopyPermissionsToUsers = async () => {
+    if (!selectedUser || selectedTargetUsers.length === 0) return;
+    
+    setCopyingPermissions(true);
+    try {
+      // Fetch all permissions of source user
+      const { data: sourcePermissions, error: fetchError } = await supabase
+        .from("user_permissions")
+        .select("*")
+        .eq("user_id", selectedUser.user_id);
+      
+      if (fetchError) throw fetchError;
+      
+      // Copy permissions to each target user
+      for (const targetUserId of selectedTargetUsers) {
+        // Delete existing permissions for target user
+        await supabase
+          .from("user_permissions")
+          .delete()
+          .eq("user_id", targetUserId);
+        
+        // Insert source permissions for target user
+        if (sourcePermissions && sourcePermissions.length > 0) {
+          const newPermissions = sourcePermissions.map(perm => ({
+            user_id: targetUserId,
+            menu_item: perm.menu_item,
+            has_access: perm.has_access,
+            parent_menu: perm.parent_menu,
+          }));
+          
+          const { error: insertError } = await supabase
+            .from("user_permissions")
+            .insert(newPermissions);
+          
+          if (insertError) throw insertError;
+        }
+      }
+      
+      toast({
+        title: t("common.success"),
+        description: language === 'ar' 
+          ? `تم نسخ الصلاحيات إلى ${selectedTargetUsers.length} مستخدم بنجاح`
+          : `Permissions copied to ${selectedTargetUsers.length} user(s) successfully`,
+      });
+      
+      setCopyPermissionsDialogOpen(false);
+      setSelectedTargetUsers([]);
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setCopyingPermissions(false);
+    }
+  };
+
+  const toggleTargetUser = (userId: string) => {
+    setSelectedTargetUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
   // Filter profiles based on search and filters
   const filteredProfiles = profiles.filter((profile) => {
     // Search term filter - search across all fields
@@ -1420,9 +1489,23 @@ const UserSetup = () => {
       <Dialog open={securityDialogOpen} onOpenChange={setSecurityDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {language === 'ar' ? 'إعدادات الأمان' : 'Security Settings'} - {selectedUser?.user_name}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>
+                {language === 'ar' ? 'إعدادات الأمان' : 'Security Settings'} - {selectedUser?.user_name}
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedTargetUsers([]);
+                  setCopyPermissionsDialogOpen(true);
+                }}
+                className="flex items-center gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                {language === 'ar' ? 'نسخ إلى مستخدم' : 'Copy to User'}
+              </Button>
+            </div>
           </DialogHeader>
           
           {loadingPermissions ? (
@@ -1541,6 +1624,91 @@ const UserSetup = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Copy Permissions Dialog */}
+      <Dialog open={copyPermissionsDialogOpen} onOpenChange={setCopyPermissionsDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'نسخ الصلاحيات إلى مستخدمين آخرين' : 'Copy Permissions to Other Users'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {language === 'ar' 
+                ? `نسخ جميع صلاحيات ${selectedUser?.user_name} إلى المستخدمين المحددين أدناه.`
+                : `Copy all permissions from ${selectedUser?.user_name} to the selected users below.`}
+            </p>
+            
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {profiles
+                .filter(p => p.user_id !== selectedUser?.user_id && p.is_active)
+                .map((profile) => (
+                  <div 
+                    key={profile.user_id} 
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors",
+                      selectedTargetUsers.includes(profile.user_id) 
+                        ? "bg-primary/10 border-primary" 
+                        : "bg-card hover:bg-muted"
+                    )}
+                    onClick={() => toggleTargetUser(profile.user_id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        {profile.avatar_url ? (
+                          <AvatarImage src={profile.avatar_url} alt={profile.user_name} />
+                        ) : null}
+                        <AvatarFallback className="text-xs">
+                          {profile.user_name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{profile.user_name}</p>
+                        <p className="text-xs text-muted-foreground">{profile.email}</p>
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "w-5 h-5 rounded border-2 flex items-center justify-center",
+                      selectedTargetUsers.includes(profile.user_id)
+                        ? "bg-primary border-primary"
+                        : "border-muted-foreground"
+                    )}>
+                      {selectedTargetUsers.includes(profile.user_id) && (
+                        <Check className="h-3 w-3 text-primary-foreground" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            
+            <div className="flex justify-between items-center pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                {language === 'ar' 
+                  ? `تم تحديد ${selectedTargetUsers.length} مستخدم`
+                  : `${selectedTargetUsers.length} user(s) selected`}
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCopyPermissionsDialogOpen(false)}
+                >
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button 
+                  onClick={handleCopyPermissionsToUsers}
+                  disabled={selectedTargetUsers.length === 0 || copyingPermissions}
+                >
+                  {copyingPermissions 
+                    ? (language === 'ar' ? 'جاري النسخ...' : 'Copying...') 
+                    : (language === 'ar' ? 'نسخ الصلاحيات' : 'Copy Permissions')}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
