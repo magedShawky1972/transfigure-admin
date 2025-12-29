@@ -67,15 +67,19 @@ const Reports = () => {
     },
     {
       id: "tickets",
-      name: "Tickets Report",
-      description: "Detailed tickets report with filters for status, priority, department, and date range",
+      name: language === "ar" ? "تقرير التذاكر" : "Tickets Report",
+      description: language === "ar" 
+        ? "تقرير مفصل للتذاكر مع فلاتر حسب الحالة والأولوية والقسم ونطاق التاريخ" 
+        : "Detailed tickets report with filters for status, priority, department, and date range",
       icon: TicketCheck,
       route: "/reports/tickets",
     },
     {
       id: "software-licenses",
-      name: "Software Licenses Report",
-      description: "Comprehensive software licenses report with filters for status, category, renewal cycle, and dates",
+      name: language === "ar" ? "تقرير تراخيص البرمجيات" : "Software Licenses Report",
+      description: language === "ar" 
+        ? "تقرير شامل لتراخيص البرمجيات مع فلاتر حسب الحالة والفئة ودورة التجديد والتواريخ" 
+        : "Comprehensive software licenses report with filters for status, category, renewal cycle, and dates",
       icon: Key,
       route: "/reports/software-licenses-report",
     },
