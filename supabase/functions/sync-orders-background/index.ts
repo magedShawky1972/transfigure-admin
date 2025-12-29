@@ -335,19 +335,36 @@ async function processBackgroundSync(
     let successfulOrders = 0;
     let failedOrders = 0;
     let skippedOrders = 0;
-    
+
+    // When resuming, build a set of already-processed order numbers from run details (stable resume)
+    const processedOrderNumbers = new Set<string>();
+
     if (isResume) {
       const { data: jobData } = await supabase
         .from('background_sync_jobs')
         .select('processed_orders, successful_orders, failed_orders, skipped_orders')
         .eq('id', jobId)
         .single();
-      
+
       if (jobData) {
         processedOrders = jobData.processed_orders || 0;
         successfulOrders = jobData.successful_orders || 0;
         failedOrders = jobData.failed_orders || 0;
         skippedOrders = jobData.skipped_orders || 0;
+      }
+
+      if (runId) {
+        const { data: existingDetails } = await supabase
+          .from('odoo_sync_run_details')
+          .select('order_number')
+          .eq('run_id', runId);
+
+        (existingDetails || []).forEach((d: any) => {
+          if (d?.order_number) processedOrderNumbers.add(d.order_number);
+        });
+
+        // Ensure processedOrders is at least the number of details we already have
+        processedOrders = Math.max(processedOrders, processedOrderNumbers.size);
       }
     }
 
@@ -355,15 +372,13 @@ async function processBackgroundSync(
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
     // Process each order
-    let orderIndex = 0;
     for (const [orderNumber, lines] of orderGroups) {
-      // Skip already processed orders when resuming
-      if (isResume && orderIndex < resumeFrom) {
-        orderIndex++;
+      // Skip orders that already have a detail row (resume is based on order_number, not index)
+      if (isResume && processedOrderNumbers.has(orderNumber)) {
         continue;
       }
-      orderIndex++;
-      // Check if job was cancelled
+
+      // Check current job status before starting next order
       const { data: jobCheck } = await supabase
         .from('background_sync_jobs')
         .select('status')
@@ -372,8 +387,8 @@ async function processBackgroundSync(
 
       if (jobCheck?.status === 'paused') {
         console.log(`[Background Sync] Job ${jobId} was paused by user`);
-        
-        // Update sync run as paused
+
+        // Update sync run as paused (keep end_time null)
         if (runId) {
           await supabase
             .from('odoo_sync_runs')
@@ -436,12 +451,15 @@ async function processBackgroundSync(
       const firstLine = lines[0];
       console.log(`[Background Sync] Processing order ${orderNumber} (${processedOrders + 1}/${totalOrders})`);
 
-      // Update current order
+      // Update current order (and current progress)
       await supabase
         .from('background_sync_jobs')
         .update({
           current_order_number: orderNumber,
           processed_orders: processedOrders,
+          successful_orders: successfulOrders,
+          failed_orders: failedOrders,
+          skipped_orders: skippedOrders,
         })
         .eq('id', jobId);
 
@@ -540,6 +558,30 @@ async function processBackgroundSync(
       }
 
       processedOrders++;
+      processedOrderNumbers.add(orderNumber);
+
+      // Persist running totals so UI updates during the run
+      await supabase
+        .from('background_sync_jobs')
+        .update({
+          processed_orders: processedOrders,
+          successful_orders: successfulOrders,
+          failed_orders: failedOrders,
+          skipped_orders: skippedOrders,
+        })
+        .eq('id', jobId);
+
+      if (runId) {
+        await supabase
+          .from('odoo_sync_runs')
+          .update({
+            successful_orders: successfulOrders,
+            failed_orders: failedOrders,
+            skipped_orders: skippedOrders,
+            status: 'running',
+          })
+          .eq('id', runId);
+      }
     }
 
     const endTime = new Date();
