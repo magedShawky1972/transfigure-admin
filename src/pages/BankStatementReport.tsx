@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Printer } from "lucide-react";
+import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Printer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -43,6 +43,7 @@ const BankStatementReport = () => {
   const isRTL = language === "ar";
   
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const [data, setData] = useState<BankStatementRow[]>([]);
   
   // Filters
@@ -70,14 +71,22 @@ const BankStatementReport = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    setLoadingMessage(isRTL ? "جاري تحميل البيانات..." : "Loading data...");
     try {
       // Fetch all rows by paginating through all data
       const pageSize = 1000;
       const allRows: BankStatementRow[] = [];
       let hasMore = true;
       let from = 0;
+      let pageNum = 1;
 
       while (hasMore) {
+        setLoadingMessage(
+          isRTL 
+            ? `جاري تحميل الصفحة ${pageNum}... (${allRows.length} سجل)` 
+            : `Loading page ${pageNum}... (${allRows.length} records)`
+        );
+
         let query = supabase
           .from("riyadbankstatement")
           .select(
@@ -106,6 +115,7 @@ const BankStatementReport = () => {
           hasMore = false;
         } else {
           from += pageSize;
+          pageNum++;
         }
       }
 
@@ -284,6 +294,15 @@ const BankStatementReport = () => {
         }
       `}</style>
       <div className={`container mx-auto p-6 space-y-6 print-area ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-card p-6 rounded-lg shadow-lg flex flex-col items-center gap-4 border">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-lg font-medium">{loadingMessage}</p>
+            </div>
+          </div>
+        )}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
