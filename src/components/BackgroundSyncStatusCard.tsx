@@ -369,13 +369,22 @@ export const BackgroundSyncStatusCard = () => {
                         {detail.product_names?.split(', ').slice(0, 2).join(', ') || '-'}
                       </TableCell>
                       <TableCell className="text-xs">{detail.total_amount?.toFixed(2) || '-'}</TableCell>
-                      <TableCell>{getStatusBadge(detail.sync_status)}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {getStatusBadge(detail.sync_status)}
+                          {detail.sync_status === 'failed' && detail.error_message ? (
+                            <div className="text-xs text-destructive whitespace-normal break-words">
+                              {detail.error_message}
+                            </div>
+                          ) : null}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">{getStepIcon(detail.step_customer)}</TableCell>
                       <TableCell className="text-center">{getStepIcon(detail.step_brand)}</TableCell>
                       <TableCell className="text-center">{getStepIcon(detail.step_product)}</TableCell>
                       <TableCell className="text-center">{getStepIcon(detail.step_order)}</TableCell>
                       <TableCell className="text-center">{getStepIcon(detail.step_purchase)}</TableCell>
-                      <TableCell className="text-xs text-destructive max-w-[150px] truncate" title={detail.error_message || ''}>
+                      <TableCell className="text-xs whitespace-normal break-words max-w-[260px]">
                         {detail.error_message || '-'}
                       </TableCell>
                     </TableRow>
