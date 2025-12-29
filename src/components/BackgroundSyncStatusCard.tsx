@@ -285,33 +285,42 @@ export const BackgroundSyncStatusCard = () => {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <Card>
-              <CardContent className="p-3 text-center">
-                <div className="text-xl font-bold">{activeJob.total_orders}</div>
-                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 text-center">
-                <div className="text-xl font-bold text-green-500">{activeJob.successful_orders}</div>
-                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'نجح' : 'Success'}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 text-center">
-                <div className="text-xl font-bold text-destructive">{activeJob.failed_orders}</div>
-                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'فشل' : 'Failed'}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 text-center">
-                <div className="text-xl font-bold text-muted-foreground">{activeJob.skipped_orders}</div>
-                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'تخطي' : 'Skipped'}</div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Summary Cards - Calculate from syncDetails */}
+          {(() => {
+            const successCount = syncDetails.filter(d => d.sync_status === 'success').length;
+            const failedCount = syncDetails.filter(d => d.sync_status === 'failed').length;
+            const skippedCount = syncDetails.filter(d => d.sync_status === 'skipped').length;
+            const totalCount = syncDetails.length || activeJob.total_orders;
+            
+            return (
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <div className="text-xl font-bold">{totalCount}</div>
+                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <div className="text-xl font-bold text-green-500">{successCount}</div>
+                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'نجح' : 'Success'}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <div className="text-xl font-bold text-destructive">{failedCount}</div>
+                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'فشل' : 'Failed'}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <div className="text-xl font-bold text-muted-foreground">{skippedCount}</div>
+                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'تخطي' : 'Skipped'}</div>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
 
           {/* Details Table */}
           {loadingDetails ? (
