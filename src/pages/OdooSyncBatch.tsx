@@ -68,6 +68,93 @@ interface OrderGroup {
   hasNonStock: boolean;
 }
 
+// Helper function to translate Odoo error messages to Arabic
+const translateOdooError = (error: string, language: string): string => {
+  if (language !== 'ar') return error;
+  
+  // Common error patterns and their Arabic translations
+  const errorPatterns: Array<{ pattern: RegExp; translate: (match: RegExpMatchArray) => string }> = [
+    {
+      pattern: /^Order:\s*Order\s+(\d+)\s+already\s+exists$/i,
+      translate: (match) => `الطلب: الطلب ${match[1]} موجود مسبقاً`
+    },
+    {
+      pattern: /^Customer:\s*(.+)$/i,
+      translate: (match) => `العميل: ${translateErrorMessage(match[1], language)}`
+    },
+    {
+      pattern: /^Brand:\s*(.+)$/i,
+      translate: (match) => `العلامة التجارية: ${translateErrorMessage(match[1], language)}`
+    },
+    {
+      pattern: /^Product:\s*(.+)$/i,
+      translate: (match) => `المنتج: ${translateErrorMessage(match[1], language)}`
+    },
+    {
+      pattern: /already\s+exists/i,
+      translate: () => 'موجود مسبقاً'
+    },
+    {
+      pattern: /not\s+found/i,
+      translate: () => 'غير موجود'
+    },
+    {
+      pattern: /failed/i,
+      translate: () => 'فشل'
+    },
+    {
+      pattern: /network\s+error/i,
+      translate: () => 'خطأ في الشبكة'
+    },
+    {
+      pattern: /timeout/i,
+      translate: () => 'انتهت مهلة الاتصال'
+    },
+    {
+      pattern: /unauthorized/i,
+      translate: () => 'غير مصرح'
+    },
+    {
+      pattern: /invalid/i,
+      translate: () => 'غير صالح'
+    },
+  ];
+
+  for (const { pattern, translate } of errorPatterns) {
+    const match = error.match(pattern);
+    if (match) {
+      return translate(match);
+    }
+  }
+
+  return error;
+};
+
+// Helper to translate common error parts
+const translateErrorMessage = (message: string, language: string): string => {
+  if (language !== 'ar') return message;
+  
+  const translations: Record<string, string> = {
+    'already exists': 'موجود مسبقاً',
+    'not found': 'غير موجود',
+    'failed': 'فشل',
+    'network error': 'خطأ في الشبكة',
+    'timeout': 'انتهت المهلة',
+    'unauthorized': 'غير مصرح',
+    'invalid': 'غير صالح',
+    'missing': 'مفقود',
+    'required': 'مطلوب',
+    'duplicate': 'مكرر',
+  };
+  
+  let translated = message;
+  for (const [eng, ar] of Object.entries(translations)) {
+    translated = translated.replace(new RegExp(eng, 'gi'), ar);
+  }
+  
+  return translated;
+};
+
 const OdooSyncBatch = () => {
   const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
@@ -747,7 +834,7 @@ const OdooSyncBatch = () => {
                           {getSyncStatusBadge(group)}
                           {group.syncStatus === 'failed' && group.errorMessage && (
                             <span className="text-xs text-destructive max-w-[200px] break-words">
-                              {group.errorMessage}
+                              {translateOdooError(group.errorMessage, language)}
                             </span>
                           )}
                         </div>
@@ -798,8 +885,8 @@ const OdooSyncBatch = () => {
                       </TableCell>
                       <TableCell>
                         {group.errorMessage && (
-                          <p className="text-xs text-destructive truncate max-w-[150px]" title={group.errorMessage}>
-                            {group.errorMessage}
+                          <p className="text-xs text-destructive truncate max-w-[150px]" title={translateOdooError(group.errorMessage, language)}>
+                            {translateOdooError(group.errorMessage, language)}
                           </p>
                         )}
                       </TableCell>
