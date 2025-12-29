@@ -179,8 +179,12 @@ async function executeStep(
   transactions: OrderLine[],
   nonStockProducts: OrderLine[],
   supabaseUrl: string,
-  supabaseKey: string
+  supabaseKey: string,
+  timeoutMs: number = 120_000
 ): Promise<{ success: boolean; error?: string }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(`${supabaseUrl}/functions/v1/sync-order-to-odoo-step`, {
       method: 'POST',
@@ -189,24 +193,31 @@ async function executeStep(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ step: stepId, transactions, nonStockProducts }),
+      signal: controller.signal,
     });
 
-    const data = await response.json();
-    
-    if (data.skipped) {
+    const data = await response.json().catch(() => ({} as any));
+
+    if (data?.skipped) {
       return { success: true };
     }
 
-    if (data.success) {
+    if (data?.success) {
       return { success: true };
-    } else {
-      const errorMessage = typeof data.error === 'object' && data.error?.error 
-        ? data.error.error 
-        : (data.error || data.message || 'Failed');
-      return { success: false, error: errorMessage };
     }
+
+    const errorMessage = typeof data?.error === 'object' && data?.error?.error
+      ? data.error.error
+      : (data?.error || data?.message || `Step ${stepId} failed`);
+
+    return { success: false, error: errorMessage };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Network error' };
+    if (error?.name === 'AbortError') {
+      return { success: false, error: `Step ${stepId} timed out after ${Math.round(timeoutMs / 1000)}s` };
+    }
+    return { success: false, error: error?.message || 'Network error' };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
