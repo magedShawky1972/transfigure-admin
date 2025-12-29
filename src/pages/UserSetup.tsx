@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2 } from "lucide-react";
 import AvatarSelector from "@/components/AvatarSelector";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -980,6 +980,24 @@ const UserSetup = () => {
     });
   };
 
+  const generatePasswordResetLink = (email: string) => {
+    // Generate a link that will redirect to the auth page with reset password mode
+    const baseUrl = window.location.origin;
+    const resetLink = `${baseUrl}/auth?mode=reset&email=${encodeURIComponent(email)}`;
+    return resetLink;
+  };
+
+  const copyPasswordResetLink = (profile: Profile) => {
+    const link = generatePasswordResetLink(profile.email);
+    navigator.clipboard.writeText(link);
+    toast({
+      title: language === 'ar' ? 'تم النسخ' : 'Copied',
+      description: language === 'ar' 
+        ? `تم نسخ رابط تغيير كلمة المرور لـ ${profile.user_name}`
+        : `Password reset link copied for ${profile.user_name}`,
+    });
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -1457,12 +1475,21 @@ const UserSetup = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 pt-2 border-t w-full justify-center">
+            <div className="flex items-center gap-1 pt-2 border-t w-full justify-center flex-wrap">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => copyPasswordResetLink(profile)}
+                title={language === 'ar' ? 'نسخ رابط تغيير كلمة المرور' : 'Copy Password Reset Link'}
+                className="text-blue-500 hover:text-blue-600"
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => handleSecurityClick(profile)}
-                title="Security"
+                title={language === 'ar' ? 'الأمان' : 'Security'}
               >
                 <Shield className="h-4 w-4" />
               </Button>
@@ -1471,7 +1498,7 @@ const UserSetup = () => {
                   variant="ghost"
                   size="icon"
                   onClick={() => handleResetPassword(profile)}
-                  title="Reset Password"
+                  title={language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}
                 >
                   <KeyRound className="h-4 w-4" />
                 </Button>
