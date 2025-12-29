@@ -68,16 +68,61 @@ const Auth = () => {
   useEffect(() => {
     checkSystemState();
     
-    // Handle password reset link from URL
+    // Handle first login link from URL (auto-login with default password)
     const mode = searchParams.get('mode');
     const emailParam = searchParams.get('email');
+    const tokenParam = searchParams.get('token');
     
-    if (mode === 'reset' && emailParam) {
+    if (mode === 'firstlogin' && emailParam && tokenParam) {
+      handleFirstLogin(emailParam, tokenParam);
+    } else if (mode === 'reset' && emailParam) {
       setEmail(emailParam);
       setShowForgotPassword(true);
       setResetEmail(emailParam);
     }
   }, [searchParams]);
+
+  const handleFirstLogin = async (emailParam: string, tokenParam: string) => {
+    setLoading(true);
+    try {
+      const defaultPassword = atob(tokenParam);
+      
+      // Try to sign in with the default password
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailParam,
+        password: defaultPassword,
+      });
+
+      if (error) {
+        toast({
+          title: language === 'ar' ? 'فشل تسجيل الدخول' : 'Login Failed',
+          description: language === 'ar' ? 'بيانات الدخول غير صحيحة أو تم تغيير كلمة المرور مسبقاً' : 'Invalid credentials or password was already changed',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Set email and move to change password step
+        setEmail(emailParam);
+        setStep('change-password');
+        toast({
+          title: language === 'ar' ? 'مرحباً' : 'Welcome',
+          description: language === 'ar' ? 'الرجاء تغيير كلمة المرور الخاصة بك' : 'Please change your password',
+        });
+      }
+    } catch (error) {
+      console.error('First login error:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'حدث خطأ أثناء تسجيل الدخول' : 'An error occurred during login',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const checkSystemState = async () => {
     setCheckingSystem(true);

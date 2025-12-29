@@ -981,9 +981,10 @@ const UserSetup = () => {
   };
 
   const generatePasswordResetLink = (email: string) => {
-    // Generate a link that will redirect to the auth page with reset password mode
+    // Generate a link that will auto-login with default password and redirect to change password
     const baseUrl = "https://edaraasus.com";
-    const resetLink = `${baseUrl}/auth?mode=reset&email=${encodeURIComponent(email)}`;
+    const defaultPassword = "123456";
+    const resetLink = `${baseUrl}/auth?mode=firstlogin&email=${encodeURIComponent(email)}&token=${btoa(defaultPassword)}`;
     return resetLink;
   };
 
