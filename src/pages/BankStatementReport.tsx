@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Printer } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -71,13 +71,13 @@ const BankStatementReport = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // The backend enforces a maximum of 1000 rows per request.
-      // Fetch in pages and merge up to 10,000 rows.
+      // Fetch all rows by paginating through all data
       const pageSize = 1000;
-      const maxRows = 10000;
       const allRows: BankStatementRow[] = [];
+      let hasMore = true;
+      let from = 0;
 
-      for (let from = 0; from < maxRows; from += pageSize) {
+      while (hasMore) {
         let query = supabase
           .from("riyadbankstatement")
           .select(
@@ -101,8 +101,12 @@ const BankStatementReport = () => {
         const pageRows = (page || []) as BankStatementRow[];
         allRows.push(...pageRows);
 
-        // No more data
-        if (pageRows.length < pageSize) break;
+        // Check if there's more data
+        if (pageRows.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
       }
 
       // Apply posting_date filters client-side (posting_date is stored as TEXT in DD/MM/YYYY)
@@ -254,8 +258,32 @@ const BankStatementReport = () => {
     setPostDateTo("");
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className={`container mx-auto p-6 space-y-6 ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
+    <>
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print-area, .print-area * {
+            visibility: visible;
+          }
+          .print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+      <div className={`container mx-auto p-6 space-y-6 print-area ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -265,7 +293,7 @@ const BankStatementReport = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
             <div className="space-y-2">
               <Label>{isRTL ? "تاريخ المعاملة من" : "Transaction Date From"}</Label>
               <Input
@@ -301,7 +329,7 @@ const BankStatementReport = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 no-print">
             <Button onClick={fetchData} disabled={loading}>
               <Search className="h-4 w-4 mr-2" />
               {loading ? (isRTL ? "جاري البحث..." : "Searching...") : (isRTL ? "بحث" : "Search")}
@@ -312,6 +340,10 @@ const BankStatementReport = () => {
             <Button variant="secondary" onClick={exportToExcel} disabled={data.length === 0}>
               <FileSpreadsheet className="h-4 w-4 mr-2" />
               {isRTL ? "تصدير Excel" : "Export Excel"}
+            </Button>
+            <Button variant="outline" onClick={handlePrint} disabled={data.length === 0}>
+              <Printer className="h-4 w-4 mr-2" />
+              {isRTL ? "طباعة" : "Print"}
             </Button>
           </div>
 
@@ -435,7 +467,8 @@ const BankStatementReport = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 };
 
