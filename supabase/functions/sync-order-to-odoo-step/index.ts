@@ -779,6 +779,21 @@ Deno.serve(async (req) => {
             result.success = true;
             result.message = `Order ${firstTransaction.order_number} created successfully in Odoo!`;
             result.details = data;
+
+            // Mark all transaction lines as sent to Odoo
+            const orderNumbers = [...new Set(transactions.map((t: Transaction) => t.order_number))];
+            for (const orderNum of orderNumbers) {
+              const { error: updateError } = await supabase
+                .from("purpletransaction")
+                .update({ sendodoo: true })
+                .eq("order_number", orderNum);
+
+              if (updateError) {
+                console.log(`Error updating sendodoo for order ${orderNum}:`, updateError.message);
+              } else {
+                console.log(`Marked order ${orderNum} as sent to Odoo`);
+              }
+            }
           } else {
             result.success = false;
             result.error = `Failed to create order: ${orderText}`;
