@@ -113,12 +113,14 @@ const Transactions = () => {
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
+  const [filterPaymentBrand, setFilterPaymentBrand] = useState<string>("all");
   const [filterCustomer, setFilterCustomer] = useState<string>("all");
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
+  const [paymentBrands, setPaymentBrands] = useState<string[]>([]);
   const [customers, setCustomers] = useState<string[]>([]);
   const [page, setPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -409,10 +411,12 @@ const Transactions = () => {
         const uniqueBrands = [...new Set(rows.map(t => t.brand_name).filter(Boolean))];
         const uniqueProducts = [...new Set(rows.map(t => t.product_name).filter(Boolean))];
         const uniquePaymentMethods = [...new Set(rows.map(t => t.payment_method).filter(Boolean))];
+        const uniquePaymentBrands = [...new Set(rows.map(t => t.payment_brand).filter(Boolean))];
         const uniqueCustomers = [...new Set(rows.map(t => t.customer_name).filter(Boolean))];
         setBrands(uniqueBrands as string[]);
         setProducts(uniqueProducts as string[]);
         setPaymentMethods(uniquePaymentMethods as string[]);
+        setPaymentBrands(uniquePaymentBrands as string[]);
         setCustomers(uniqueCustomers as string[]);
       }
     } catch (error) {
@@ -723,11 +727,12 @@ const Transactions = () => {
       const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
       const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
       const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
+      const matchesPaymentBrand = filterPaymentBrand === "all" || transaction.payment_brand === filterPaymentBrand;
       const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
 
-      return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesCustomer;
+      return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer;
     });
-  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterCustomer]);
+  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer]);
 
   const sortedTransactions = useMemo(() => {
     return [...filteredTransactions].sort((a, b) => {
@@ -1513,6 +1518,18 @@ const Transactions = () => {
                 <SelectItem value="all">{language === 'ar' ? 'جميع طرق الدفع' : 'All Methods'}</SelectItem>
                 {paymentMethods.map(method => (
                   <SelectItem key={method} value={method}>{method}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterPaymentBrand} onValueChange={setFilterPaymentBrand}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t("dashboard.paymentBrands")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'جميع علامات الدفع' : 'All Payment Brands'}</SelectItem>
+                {paymentBrands.map(brand => (
+                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
