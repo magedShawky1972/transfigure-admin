@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, Eye, X } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Eye, X, StopCircle } from "lucide-react";
+import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -149,9 +150,33 @@ export const BackgroundSyncStatusCard = () => {
     }
   };
 
+  const [stopping, setStopping] = useState(false);
+
   const handleDismiss = () => {
     setActiveJob(null);
     setShowCompletedJob(false);
+  };
+
+  const handleStopSync = async () => {
+    if (!activeJob || stopping) return;
+    
+    setStopping(true);
+    try {
+      const { error } = await supabase
+        .from('background_sync_jobs')
+        .update({ status: 'cancelled' })
+        .eq('id', activeJob.id);
+
+      if (error) throw error;
+      
+      toast.success(language === 'ar' ? 'تم إيقاف المزامنة' : 'Sync stopped successfully');
+      setActiveJob({ ...activeJob, status: 'cancelled' });
+    } catch (error) {
+      console.error('Error stopping sync:', error);
+      toast.error(language === 'ar' ? 'فشل إيقاف المزامنة' : 'Failed to stop sync');
+    } finally {
+      setStopping(false);
+    }
   };
 
   if (!activeJob) return null;
@@ -160,9 +185,10 @@ export const BackgroundSyncStatusCard = () => {
     ? Math.round((activeJob.processed_orders / activeJob.total_orders) * 100) 
     : 0;
 
-  const isRunning = activeJob.status === 'running';
+  const isRunning = activeJob.status === 'running' || activeJob.status === 'pending';
   const isCompleted = activeJob.status === 'completed';
   const isFailed = activeJob.status === 'failed';
+  const isCancelled = activeJob.status === 'cancelled';
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -203,20 +229,35 @@ export const BackgroundSyncStatusCard = () => {
               {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
               {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500" />}
               {isFailed && <XCircle className="h-4 w-4 text-destructive" />}
+              {isCancelled && <StopCircle className="h-4 w-4 text-orange-500" />}
               <span className="font-medium">
                 {language === 'ar' ? 'مزامنة Odoo في الخلفية' : 'Background Odoo Sync'}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={isRunning ? 'default' : isCompleted ? 'secondary' : 'destructive'}>
+              <Badge variant={isRunning ? 'default' : isCompleted ? 'secondary' : isCancelled ? 'outline' : 'destructive'}>
                 {isRunning 
                   ? (language === 'ar' ? 'جاري التشغيل' : 'Running')
                   : isCompleted 
                     ? (language === 'ar' ? 'مكتمل' : 'Completed')
-                    : (language === 'ar' ? 'فشل' : 'Failed')
+                    : isCancelled
+                      ? (language === 'ar' ? 'تم الإيقاف' : 'Stopped')
+                      : (language === 'ar' ? 'فشل' : 'Failed')
                 }
               </Badge>
-              {showCompletedJob && (
+              {isRunning && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 text-orange-500 hover:text-orange-600 hover:bg-orange-100" 
+                  onClick={handleStopSync}
+                  disabled={stopping}
+                  title={language === 'ar' ? 'إيقاف المزامنة' : 'Stop Sync'}
+                >
+                  {stopping ? <Loader2 className="h-4 w-4 animate-spin" /> : <StopCircle className="h-4 w-4" />}
+                </Button>
+              )}
+              {(showCompletedJob || isCancelled) && (
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDismiss}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -249,7 +290,7 @@ export const BackgroundSyncStatusCard = () => {
             </>
           )}
 
-          {(isCompleted || isFailed) && (
+          {(isCompleted || isFailed || isCancelled) && (
             <div className="flex gap-4 text-sm">
               <span className="text-green-600">
                 ✓ {activeJob.successful_orders}

@@ -307,6 +307,45 @@ async function processBackgroundSync(
 
     // Process each order
     for (const [orderNumber, lines] of orderGroups) {
+      // Check if job was cancelled
+      const { data: jobCheck } = await supabase
+        .from('background_sync_jobs')
+        .select('status')
+        .eq('id', jobId)
+        .single();
+
+      if (jobCheck?.status === 'cancelled') {
+        console.log(`[Background Sync] Job ${jobId} was cancelled by user`);
+        
+        // Update sync run as cancelled
+        if (runId) {
+          await supabase
+            .from('odoo_sync_runs')
+            .update({
+              end_time: new Date().toISOString(),
+              successful_orders: successfulOrders,
+              failed_orders: failedOrders,
+              skipped_orders: skippedOrders,
+              status: 'cancelled',
+            })
+            .eq('id', runId);
+        }
+
+        await supabase
+          .from('background_sync_jobs')
+          .update({
+            processed_orders: processedOrders,
+            successful_orders: successfulOrders,
+            failed_orders: failedOrders,
+            skipped_orders: skippedOrders,
+            completed_at: new Date().toISOString(),
+            current_order_number: null,
+          })
+          .eq('id', jobId);
+
+        return;
+      }
+
       const firstLine = lines[0];
       console.log(`[Background Sync] Processing order ${orderNumber} (${processedOrders + 1}/${totalOrders})`);
 
