@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,7 +64,7 @@ export const BackgroundSyncStatusCard = () => {
         .from('background_sync_jobs')
         .select('*')
         .eq('user_id', user.user.id)
-        .in('status', ['pending', 'running', 'paused'])
+        .in('status', ['pending', 'running', 'paused', 'cancelled'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -228,6 +228,7 @@ export const BackgroundSyncStatusCard = () => {
 
   const isRunning = activeJob.status === 'running' || activeJob.status === 'pending';
   const isPaused = activeJob.status === 'paused';
+  const isCancelled = activeJob.status === 'cancelled';
   const isCompleted = activeJob.status === 'completed';
   const isFailed = activeJob.status === 'failed';
 
@@ -269,6 +270,7 @@ export const BackgroundSyncStatusCard = () => {
             <div className="flex items-center gap-2">
               {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
               {isPaused && <Pause className="h-4 w-4 text-orange-500" />}
+              {isCancelled && <StopCircle className="h-4 w-4 text-orange-500" />}
               {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500" />}
               {isFailed && <XCircle className="h-4 w-4 text-destructive" />}
               <span className="font-medium">
@@ -276,27 +278,58 @@ export const BackgroundSyncStatusCard = () => {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={isRunning ? 'default' : isPaused ? 'outline' : isCompleted ? 'secondary' : 'destructive'}>
+              <Badge variant={isRunning ? 'default' : isPaused || isCancelled ? 'outline' : isCompleted ? 'secondary' : 'destructive'}>
                 {isRunning 
                   ? (language === 'ar' ? 'جاري التشغيل' : 'Running')
                   : isPaused
                     ? (language === 'ar' ? 'متوقف مؤقتاً' : 'Paused')
-                    : isCompleted 
-                      ? (language === 'ar' ? 'مكتمل' : 'Completed')
-                      : (language === 'ar' ? 'فشل' : 'Failed')
+                    : isCancelled
+                      ? (language === 'ar' ? 'تم الإيقاف' : 'Stopped')
+                      : isCompleted 
+                        ? (language === 'ar' ? 'مكتمل' : 'Completed')
+                        : (language === 'ar' ? 'فشل' : 'Failed')
                 }
               </Badge>
               {isRunning && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 text-orange-500 hover:text-orange-600 hover:bg-orange-100" 
-                  onClick={handlePauseSync}
-                  disabled={actionLoading}
-                  title={language === 'ar' ? 'إيقاف مؤقت' : 'Pause'}
-                >
-                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-                </Button>
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-orange-500 hover:text-orange-600 hover:bg-orange-100" 
+                    onClick={handlePauseSync}
+                    disabled={actionLoading}
+                    title={language === 'ar' ? 'إيقاف مؤقت' : 'Pause'}
+                  >
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-destructive hover:bg-destructive/10" 
+                    onClick={async () => {
+                      if (!activeJob || actionLoading) return;
+                      setActionLoading(true);
+                      try {
+                        const { error } = await supabase
+                          .from('background_sync_jobs')
+                          .update({ status: 'cancelled' })
+                          .eq('id', activeJob.id);
+                        if (error) throw error;
+                        toast.success(language === 'ar' ? 'تم إيقاف المزامنة' : 'Sync stopped');
+                        setActiveJob({ ...activeJob, status: 'cancelled' });
+                      } catch (e) {
+                        console.error(e);
+                        toast.error(language === 'ar' ? 'فشل إيقاف المزامنة' : 'Failed to stop sync');
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading}
+                    title={language === 'ar' ? 'إيقاف' : 'Stop'}
+                  >
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <StopCircle className="h-4 w-4" />}
+                  </Button>
+                </>
               )}
               {isPaused && (
                 <Button 
@@ -310,7 +343,7 @@ export const BackgroundSyncStatusCard = () => {
                   {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 </Button>
               )}
-              {(showCompletedJob || isPaused) && (
+              {(showCompletedJob || isPaused || isCancelled) && (
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDismiss}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -343,7 +376,7 @@ export const BackgroundSyncStatusCard = () => {
             </>
           )}
 
-          {(isCompleted || isFailed) && (
+          {(isCompleted || isFailed || isCancelled) && (
             <div className="flex gap-4 text-sm">
               <span className="text-green-600">
                 ✓ {activeJob.successful_orders}
