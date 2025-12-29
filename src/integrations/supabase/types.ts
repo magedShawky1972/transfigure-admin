@@ -2014,6 +2014,7 @@ export type Database = {
           product_name: string | null
           profit: number | null
           qty: number | null
+          sendodoo: boolean | null
           total: number | null
           trans_type: string | null
           unit_price: number | null
@@ -2045,6 +2046,7 @@ export type Database = {
           product_name?: string | null
           profit?: number | null
           qty?: number | null
+          sendodoo?: boolean | null
           total?: number | null
           trans_type?: string | null
           unit_price?: number | null
@@ -2076,6 +2078,7 @@ export type Database = {
           product_name?: string | null
           profit?: number | null
           qty?: number | null
+          sendodoo?: boolean | null
           total?: number | null
           trans_type?: string | null
           unit_price?: number | null

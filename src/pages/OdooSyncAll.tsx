@@ -151,6 +151,7 @@ const OdooSyncAll = () => {
         .select('*')
         .neq('payment_method', 'point')
         .eq('is_deleted', false)
+        .or('sendodoo.is.null,sendodoo.eq.false')
         .order('created_at_date_int', { ascending: false });
 
       // Apply filters

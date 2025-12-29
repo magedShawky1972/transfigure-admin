@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw, Upload, Loader2, RefreshCw } from "lucide-react";
+import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw, Upload, Loader2, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,6 +81,7 @@ interface Transaction {
   vendor_name: string;
   order_status: string;
   is_deleted: boolean;
+  sendodoo?: boolean;
 }
 
 const Transactions = () => {
@@ -164,6 +165,7 @@ const Transactions = () => {
     { id: "cost_sold", label: t("transactions.costSold"), enabled: false },
     { id: "coins_number", label: t("transactions.coinsNumber"), enabled: false },
     { id: "is_deleted", label: language === 'ar' ? 'محذوف' : 'Deleted', enabled: true },
+    { id: "sendodoo", label: language === 'ar' ? 'مرسل لـ Odoo' : 'Sent to Odoo', enabled: true },
     { id: "odoo_sync", label: language === 'ar' ? 'إرسال لـ Odoo' : 'Sync to Odoo', enabled: true },
   ];
 
@@ -1044,6 +1046,52 @@ const Transactions = () => {
               <RotateCw className="h-4 w-4" />
             ) : (
               <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
+        );
+      case 'sendodoo':
+        return (
+          <Button
+            variant={transaction.sendodoo ? "default" : "outline"}
+            size="sm"
+            className={transaction.sendodoo ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+            onClick={async (e) => {
+              e.stopPropagation();
+              const newValue = !transaction.sendodoo;
+              const { error } = await supabase
+                .from('purpletransaction')
+                .update({ sendodoo: newValue })
+                .eq('order_number', transaction.order_number);
+              
+              if (error) {
+                toast({
+                  variant: 'destructive',
+                  title: language === 'ar' ? 'خطأ' : 'Error',
+                  description: error.message,
+                });
+              } else {
+                // Update local state
+                setTransactions(prev => prev.map(t => 
+                  t.order_number === transaction.order_number 
+                    ? { ...t, sendodoo: newValue } 
+                    : t
+                ));
+                toast({
+                  title: language === 'ar' ? 'تم التحديث' : 'Updated',
+                  description: language === 'ar' 
+                    ? `تم ${newValue ? 'تحديد' : 'إلغاء تحديد'} الطلب كمرسل`
+                    : `Order ${newValue ? 'marked' : 'unmarked'} as sent to Odoo`,
+                });
+              }
+            }}
+            title={language === 'ar' 
+              ? (transaction.sendodoo ? 'تم الإرسال - انقر للإلغاء' : 'لم يرسل - انقر للتحديد')
+              : (transaction.sendodoo ? 'Sent - Click to unmark' : 'Not sent - Click to mark')}
+          >
+            {transaction.sendodoo ? (
+              <CheckCircle2 className="h-4 w-4" />
+            ) : (
+              <XCircle className="h-4 w-4" />
             )}
           </Button>
         );
