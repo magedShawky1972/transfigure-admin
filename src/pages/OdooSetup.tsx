@@ -23,6 +23,8 @@ interface OdooConfig {
   sales_order_api_url_test: string;
   purchase_order_api_url: string;
   purchase_order_api_url_test: string;
+  payment_method_api_url: string;
+  payment_method_api_url_test: string;
   api_key: string;
   api_key_test: string;
   is_active: boolean;
@@ -47,6 +49,8 @@ const OdooSetup = () => {
     sales_order_api_url_test: "",
     purchase_order_api_url: "",
     purchase_order_api_url_test: "",
+    payment_method_api_url: "",
+    payment_method_api_url_test: "",
     api_key: "",
     api_key_test: "",
     is_active: true,
@@ -84,6 +88,8 @@ const OdooSetup = () => {
           sales_order_api_url_test: (data as any).sales_order_api_url_test || "",
           purchase_order_api_url: (data as any).purchase_order_api_url || "",
           purchase_order_api_url_test: (data as any).purchase_order_api_url_test || "",
+          payment_method_api_url: (data as any).payment_method_api_url || "",
+          payment_method_api_url_test: (data as any).payment_method_api_url_test || "",
           api_key: data.api_key || "",
           api_key_test: (data as any).api_key_test || "",
           is_active: data.is_active,
@@ -133,6 +139,8 @@ const OdooSetup = () => {
         sales_order_api_url_test: config.sales_order_api_url_test,
         purchase_order_api_url: config.purchase_order_api_url,
         purchase_order_api_url_test: config.purchase_order_api_url_test,
+        payment_method_api_url: config.payment_method_api_url,
+        payment_method_api_url_test: config.payment_method_api_url_test,
         api_key: config.api_key,
         api_key_test: config.api_key_test,
         is_active: config.is_active,
@@ -327,6 +335,13 @@ const OdooSetup = () => {
             "purchase_order_api_url",
             "purchase_order_api_url_test",
             "https://your-odoo-instance.com/api/purchase_orders"
+          )}
+
+          {renderUrlSection(
+            language === "ar" ? "عنوان API لطرق الدفع" : "Payment Method API URL",
+            "payment_method_api_url",
+            "payment_method_api_url_test",
+            "https://your-odoo-instance.com/api/payment_methods"
           )}
 
           <div className="flex gap-3 pt-4">
