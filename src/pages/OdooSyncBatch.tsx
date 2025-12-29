@@ -607,7 +607,7 @@ const OdooSyncBatch = () => {
       const failed = groups.filter(g => g.syncStatus === 'failed').length;
       const skipped = groups.filter(g => g.syncStatus === 'skipped' || g.syncStatus === 'stopped').length;
 
-      await supabase
+      const { error: runUpdateError } = await supabase
         .from('odoo_sync_runs')
         .update({
           end_time: new Date().toISOString(),
@@ -618,28 +618,12 @@ const OdooSyncBatch = () => {
         })
         .eq('id', runId);
 
-      // Insert details for all processed orders
-      const details = groups
-        .filter(g => g.syncStatus !== 'pending')
-        .map(g => ({
-          run_id: runId,
-          order_number: g.orderNumber,
-          order_date: g.date || null,
-          customer_phone: g.customerPhone,
-          product_names: g.productNames.join(', '),
-          total_amount: g.totalAmount,
-          sync_status: g.syncStatus,
-          error_message: g.errorMessage || null,
-          step_customer: g.stepStatus.customer,
-          step_brand: g.stepStatus.brand,
-          step_product: g.stepStatus.product,
-          step_order: g.stepStatus.order,
-          step_purchase: g.stepStatus.purchase,
-        }));
-
-      if (details.length > 0) {
-        await supabase.from('odoo_sync_run_details').insert(details);
+      if (runUpdateError) {
+        console.error('Error updating sync run header:', runUpdateError);
       }
+
+      // Details are saved per-order during sync (so we don't rely on async state at the end)
+      // Nothing else to do here.
     } catch (error) {
       console.error('Error updating sync run:', error);
     }
@@ -722,6 +706,32 @@ const OdooSyncBatch = () => {
       
       // Store result for database
       syncResults.set(group.orderNumber, result);
+
+      // Save this order detail immediately (avoid relying on async state)
+      if (runId) {
+        const mergedForDb: OrderGroup = { ...group, ...result } as OrderGroup;
+        const { error: perOrderInsertError } = await supabase
+          .from('odoo_sync_run_details')
+          .insert({
+            run_id: runId,
+            order_number: mergedForDb.orderNumber,
+            order_date: mergedForDb.date ? mergedForDb.date.slice(0, 10) : null,
+            customer_phone: mergedForDb.customerPhone || null,
+            product_names: mergedForDb.productNames.join(', ') || null,
+            total_amount: mergedForDb.totalAmount,
+            sync_status: mergedForDb.syncStatus,
+            error_message: mergedForDb.errorMessage ? translateOdooError(mergedForDb.errorMessage, language) : null,
+            step_customer: mergedForDb.stepStatus.customer,
+            step_brand: mergedForDb.stepStatus.brand,
+            step_product: mergedForDb.stepStatus.product,
+            step_order: mergedForDb.stepStatus.order,
+            step_purchase: mergedForDb.stepStatus.purchase,
+          });
+
+        if (perOrderInsertError) {
+          console.error('Error saving per-order sync detail:', perOrderInsertError);
+        }
+      }
 
       // Update with result
       setOrderGroups(prev => prev.map(g => 
