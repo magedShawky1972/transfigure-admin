@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.pdf-to-excel]
 verify_jwt = false
+
+[functions.sync-orders-background]
+verify_jwt = false

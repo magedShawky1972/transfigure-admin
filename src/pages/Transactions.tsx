@@ -49,6 +49,7 @@ import { DraggableColumnHeader } from "@/components/transactions/DraggableColumn
 import { MultiLevelGroupByZone } from "@/components/transactions/MultiLevelGroupByZone";
 import { MultiLevelGroupedTransactions } from "@/components/transactions/MultiLevelGroupedTransactions";
 import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
+import { BackgroundSyncStatusCard } from "@/components/BackgroundSyncStatusCard";
 
 interface GroupLevel {
   columnId: string;
@@ -1271,6 +1272,9 @@ const Transactions = () => {
           {t("transactions.subtitle")}
         </p>
       </div>
+
+      {/* Background Sync Status Card */}
+      <BackgroundSyncStatusCard />
 
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
