@@ -191,6 +191,7 @@ const OdooSyncBatch = () => {
         const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
         
         // Fetch transactions within date range using created_at_date_int, excluding payment_method = 'point'
+        // Fetch transactions within date range, excluding already synced orders (sendodoo = true)
         const { data, error } = await supabase
           .from('purpletransaction')
           .select('*')
@@ -198,6 +199,7 @@ const OdooSyncBatch = () => {
           .lte('created_at_date_int', toDateInt)
           .neq('payment_method', 'point')
           .eq('is_deleted', false)
+          .or('sendodoo.is.null,sendodoo.eq.false')
           .order('created_at_date_int', { ascending: false });
 
         if (error) throw error;
