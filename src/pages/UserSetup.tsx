@@ -983,13 +983,15 @@ const UserSetup = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">User Setup</h1>
+        <h1 className="text-3xl font-bold text-foreground">
+          {language === 'ar' ? 'إعداد المستخدمين' : 'User Setup'}
+        </h1>
         <div className="flex gap-2 items-center">
           {/* Main Search Box */}
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search users..."
+              placeholder={language === 'ar' ? 'بحث المستخدمين...' : 'Search users...'}
               value={filters.searchTerm}
               onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
               className="pl-9"
@@ -1000,19 +1002,23 @@ const UserSetup = () => {
             onClick={() => setShowFilters(!showFilters)}
           >
             <Filter className="h-4 w-4 mr-2" />
-            {showFilters ? "Hide Filters" : "Filters"}
+            {showFilters 
+              ? (language === 'ar' ? 'إخفاء الفلاتر' : 'Hide Filters') 
+              : (language === 'ar' ? 'الفلاتر' : 'Filters')}
           </Button>
           <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add User
+                {language === 'ar' ? 'إضافة مستخدم' : 'Add User'}
               </Button>
             </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingProfile ? "Edit User" : "Add New User"}
+                {editingProfile 
+                  ? (language === 'ar' ? 'تعديل المستخدم' : 'Edit User') 
+                  : (language === 'ar' ? 'إضافة مستخدم جديد' : 'Add New User')}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -1024,7 +1030,7 @@ const UserSetup = () => {
                 />
               )}
               <div className="space-y-2">
-                <Label htmlFor="user_name">User Name</Label>
+                <Label htmlFor="user_name">{language === 'ar' ? 'اسم المستخدم' : 'User Name'}</Label>
                 <Input
                   id="user_name"
                   value={formData.user_name}
@@ -1035,7 +1041,7 @@ const UserSetup = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -1048,7 +1054,7 @@ const UserSetup = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mobile_number">Mobile Number</Label>
+                <Label htmlFor="mobile_number">{language === 'ar' ? 'رقم الجوال' : 'Mobile Number'}</Label>
                 <Input
                   id="mobile_number"
                   value={formData.mobile_number}
@@ -1059,7 +1065,7 @@ const UserSetup = () => {
               </div>
               
               <div className="space-y-2">
-                <Label>Job Position</Label>
+                <Label>{language === 'ar' ? 'المسمى الوظيفي' : 'Job Position'}</Label>
                 <Popover open={jobPositionOpen} onOpenChange={setJobPositionOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -1070,14 +1076,14 @@ const UserSetup = () => {
                     >
                       {formData.job_position_id
                         ? jobPositions.find((pos) => pos.id === formData.job_position_id)?.position_name
-                        : "Select job position..."}
+                        : (language === 'ar' ? 'اختر المسمى الوظيفي...' : 'Select job position...')}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
                     <Command shouldFilter={false}>
                       <CommandInput 
-                        placeholder="Search or type new position..." 
+                        placeholder={language === 'ar' ? 'بحث أو إضافة مسمى جديد...' : 'Search or type new position...'} 
                         value={newJobPosition}
                         onValueChange={setNewJobPosition}
                       />
@@ -1113,12 +1119,12 @@ const UserSetup = () => {
                             className="bg-primary/10"
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Add "{newJobPosition}"
+                            {language === 'ar' ? `إضافة "${newJobPosition}"` : `Add "${newJobPosition}"`}
                           </CommandItem>
                         )}
                       </CommandGroup>
                       {jobPositions.length === 0 && !newJobPosition && (
-                        <CommandEmpty>No job positions found.</CommandEmpty>
+                        <CommandEmpty>{language === 'ar' ? 'لا توجد مسميات وظيفية.' : 'No job positions found.'}</CommandEmpty>
                       )}
                     </Command>
                   </PopoverContent>
@@ -1126,7 +1132,7 @@ const UserSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Default Department</Label>
+                <Label>{language === 'ar' ? 'القسم الافتراضي' : 'Default Department'}</Label>
                 <Select
                   value={formData.default_department_id || "none"}
                   onValueChange={(value) =>
@@ -1134,10 +1140,10 @@ const UserSetup = () => {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select department..." />
+                    <SelectValue placeholder={language === 'ar' ? 'اختر القسم...' : 'Select department...'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Default Department</SelectItem>
+                    <SelectItem value="none">{language === 'ar' ? 'بدون قسم افتراضي' : 'No Default Department'}</SelectItem>
                     {departments.map((dept) => (
                       <SelectItem key={dept.id} value={dept.id}>
                         {dept.department_name}
@@ -1148,19 +1154,19 @@ const UserSetup = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="salesman_code">Sales Man Code</Label>
+                <Label htmlFor="salesman_code">{language === 'ar' ? 'كود البائع' : 'Sales Man Code'}</Label>
                 <Input
                   id="salesman_code"
                   value={formData.salesman_code}
                   onChange={(e) =>
                     setFormData({ ...formData, salesman_code: e.target.value })
                   }
-                  placeholder="Enter sales man code..."
+                  placeholder={language === 'ar' ? 'أدخل كود البائع...' : 'Enter sales man code...'}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Mail Type</Label>
+                <Label>{language === 'ar' ? 'نوع البريد' : 'Mail Type'}</Label>
                 <Popover open={mailTypeOpen} onOpenChange={setMailTypeOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -1171,14 +1177,14 @@ const UserSetup = () => {
                     >
                       {formData.mail_type_id
                         ? mailTypes.find((mt) => mt.id === formData.mail_type_id)?.type_name
-                        : "Select mail type..."}
+                        : (language === 'ar' ? 'اختر نوع البريد...' : 'Select mail type...')}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
                     <Command shouldFilter={false}>
                       <CommandInput 
-                        placeholder="Search or type new mail type..." 
+                        placeholder={language === 'ar' ? 'بحث أو إضافة نوع بريد جديد...' : 'Search or type new mail type...'} 
                         value={newMailType}
                         onValueChange={setNewMailType}
                       />
@@ -1197,7 +1203,7 @@ const UserSetup = () => {
                               !formData.mail_type_id ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          No Mail Type
+                          {language === 'ar' ? 'بدون نوع بريد' : 'No Mail Type'}
                         </CommandItem>
                         {mailTypes
                           .filter((mailType) => 
@@ -1230,12 +1236,12 @@ const UserSetup = () => {
                             className="bg-primary/10"
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Add "{newMailType}"
+                            {language === 'ar' ? `إضافة "${newMailType}"` : `Add "${newMailType}"`}
                           </CommandItem>
                         )}
                       </CommandGroup>
                       {mailTypes.length === 0 && !newMailType && (
-                        <CommandEmpty>No mail types found.</CommandEmpty>
+                        <CommandEmpty>{language === 'ar' ? 'لا توجد أنواع بريد.' : 'No mail types found.'}</CommandEmpty>
                       )}
                     </Command>
                   </PopoverContent>
@@ -1244,7 +1250,7 @@ const UserSetup = () => {
 
               {editingProfile && (
                 <div className="space-y-2">
-                  <Label htmlFor="email_password">Email Password</Label>
+                  <Label htmlFor="email_password">{language === 'ar' ? 'كلمة مرور البريد' : 'Email Password'}</Label>
                   <div className="relative flex gap-2">
                     <Input
                       id="email_password"
@@ -1253,7 +1259,7 @@ const UserSetup = () => {
                       onChange={(e) =>
                         setFormData({ ...formData, email_password: e.target.value })
                       }
-                      placeholder="Enter email password..."
+                      placeholder={language === 'ar' ? 'أدخل كلمة مرور البريد...' : 'Enter email password...'}
                     />
                     <Button
                       type="button"
@@ -1275,7 +1281,7 @@ const UserSetup = () => {
                     setFormData({ ...formData, is_active: checked })
                   }
                 />
-                <Label htmlFor="is_active">Active</Label>
+                <Label htmlFor="is_active">{language === 'ar' ? 'نشط' : 'Active'}</Label>
               </div>
               {editingProfile && (
                 <div className="flex items-center space-x-2">
@@ -1286,11 +1292,15 @@ const UserSetup = () => {
                       setFormData({ ...formData, is_admin: checked })
                     }
                   />
-                  <Label htmlFor="is_admin">Admin Access</Label>
+                  <Label htmlFor="is_admin">{language === 'ar' ? 'صلاحية المدير' : 'Admin Access'}</Label>
                 </div>
               )}
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Saving..." : editingProfile ? "Update User" : "Create User"}
+                {loading 
+                  ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...') 
+                  : editingProfile 
+                    ? (language === 'ar' ? 'تحديث المستخدم' : 'Update User') 
+                    : (language === 'ar' ? 'إنشاء المستخدم' : 'Create User')}
               </Button>
             </form>
           </DialogContent>
@@ -1300,15 +1310,15 @@ const UserSetup = () => {
 
       {showFilters && (
         <div className="rounded-lg border bg-card p-4 space-y-4">
-          <h3 className="text-lg font-semibold">Advanced Filters</h3>
+          <h3 className="text-lg font-semibold">{language === 'ar' ? 'الفلاتر المتقدمة' : 'Advanced Filters'}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
+              <Label htmlFor="search">{language === 'ar' ? 'بحث' : 'Search'}</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search by name, email, or mobile..."
+                  placeholder={language === 'ar' ? 'بحث بالاسم أو البريد أو الجوال...' : 'Search by name, email, or mobile...'}
                   value={filters.searchTerm}
                   onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
                   className="pl-9"
@@ -1317,44 +1327,46 @@ const UserSetup = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status">{language === 'ar' ? 'الحالة' : 'Status'}</Label>
               <select
                 id="status"
                 value={filters.statusFilter}
                 onChange={(e) => setFilters({ ...filters, statusFilter: e.target.value })}
                 className="w-full h-10 px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="all">All Status</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive Only</option>
+                <option value="all">{language === 'ar' ? 'كل الحالات' : 'All Status'}</option>
+                <option value="active">{language === 'ar' ? 'النشطين فقط' : 'Active Only'}</option>
+                <option value="inactive">{language === 'ar' ? 'غير النشطين فقط' : 'Inactive Only'}</option>
               </select>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role">{language === 'ar' ? 'الدور' : 'Role'}</Label>
               <select
                 id="role"
                 value={filters.roleFilter}
                 onChange={(e) => setFilters({ ...filters, roleFilter: e.target.value })}
                 className="w-full h-10 px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin Only</option>
-                <option value="user">User Only</option>
+                <option value="all">{language === 'ar' ? 'كل الأدوار' : 'All Roles'}</option>
+                <option value="admin">{language === 'ar' ? 'المدراء فقط' : 'Admin Only'}</option>
+                <option value="user">{language === 'ar' ? 'المستخدمين فقط' : 'User Only'}</option>
               </select>
             </div>
           </div>
           
           <div className="flex justify-between items-center pt-2">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredProfiles.length} of {profiles.length} users
+              {language === 'ar' 
+                ? `عرض ${filteredProfiles.length} من ${profiles.length} مستخدم`
+                : `Showing ${filteredProfiles.length} of ${profiles.length} users`}
             </p>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setFilters({ searchTerm: "", statusFilter: "all", roleFilter: "all" })}
             >
-              Clear Filters
+              {language === 'ar' ? 'مسح الفلاتر' : 'Clear Filters'}
             </Button>
           </div>
         </div>
