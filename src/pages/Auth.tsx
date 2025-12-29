@@ -51,7 +51,7 @@ const Auth = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [isResetting, setIsResetting] = useState(false);
   const [isSysadminSession, setIsSysadminSession] = useState(false);
-
+  const [isFirstLoginProcessing, setIsFirstLoginProcessing] = useState(false);
   const authSchema = z.object({
     // Allow "sysadmin" as a special username (no @) in addition to normal emails
     email: z
@@ -83,6 +83,9 @@ const Auth = () => {
   }, [searchParams]);
 
   const handleFirstLogin = async (emailParam: string, tokenParam: string) => {
+    setIsFirstLoginProcessing(true);
+    // Set a flag so Layout knows not to redirect
+    sessionStorage.setItem('first_login_processing', 'true');
     setLoading(true);
     try {
       const defaultPassword = atob(tokenParam);
@@ -99,6 +102,8 @@ const Auth = () => {
           description: language === 'ar' ? 'بيانات الدخول غير صحيحة أو تم تغيير كلمة المرور مسبقاً' : 'Invalid credentials or password was already changed',
           variant: 'destructive',
         });
+        sessionStorage.removeItem('first_login_processing');
+        setIsFirstLoginProcessing(false);
         setLoading(false);
         return;
       }
@@ -119,6 +124,8 @@ const Auth = () => {
         description: language === 'ar' ? 'حدث خطأ أثناء تسجيل الدخول' : 'An error occurred during login',
         variant: 'destructive',
       });
+      sessionStorage.removeItem('first_login_processing');
+      setIsFirstLoginProcessing(false);
     } finally {
       setLoading(false);
     }
@@ -359,6 +366,9 @@ const Auth = () => {
         }
       }
 
+      // Clear the first login processing flag
+      sessionStorage.removeItem('first_login_processing');
+      
       toast({
         title: t("common.success"),
         description: language === "ar" ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully",

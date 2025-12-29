@@ -120,6 +120,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const redirectWhenNoSession = async (wasLoggedIn: boolean, event?: string) => {
       // Never redirect away from auth/system restore screens
       if (location.pathname === "/auth" || location.pathname === "/system-restore") return;
+      
+      // Don't redirect if first login is being processed
+      if (sessionStorage.getItem('first_login_processing') === 'true') return;
 
       try {
         const { getSystemState } = await import("@/lib/systemState");
