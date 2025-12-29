@@ -172,12 +172,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [navigate, location.pathname, language, toast, user]);
 
   useEffect(() => {
-    if (user) {
-      fetchUserProfile();
+    if (user?.id) {
+      fetchUserProfile(user.id);
     }
-  }, [user]);
+  }, [user?.id]);
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -188,10 +188,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           default_department:departments(department_name),
           job_position:job_positions(position_name)
         `)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        // Only log if it's not a network error during initial load
+        if (!error.message?.includes('Failed to fetch')) {
+          console.error("Error fetching user profile:", error);
+        }
+        return;
+      }
 
       if (data) {
         setUserName(data.user_name);
@@ -203,8 +209,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           job_position_name: (data.job_position as any)?.position_name || null,
         });
       }
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
+    } catch (error: any) {
+      // Silently ignore network errors during page transitions
+      if (!error?.message?.includes('Failed to fetch')) {
+        console.error("Error fetching user profile:", error);
+      }
     }
   };
 
