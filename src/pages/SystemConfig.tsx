@@ -476,6 +476,14 @@ const SystemConfig = () => {
       icon: MessageCircle,
       category: "Messaging Services",
       secretType: "twilio"
+    },
+    {
+      name: "Cloudinary Configuration",
+      description: "Cloudinary media management credentials. Used for uploading and managing images and media files in the cloud.",
+      usedIn: ["upload-to-cloudinary", "migrate-shift-images-to-cloudinary"],
+      icon: Database,
+      category: "Media Storage",
+      secretType: "cloudinary"
     }
   ];
 
