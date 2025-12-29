@@ -9,11 +9,25 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInSeconds } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+
+interface SyncRunHistory {
+  id: string;
+  run_date: string;
+  from_date: string;
+  to_date: string;
+  start_time: string;
+  end_time: string | null;
+  total_orders: number;
+  successful_orders: number;
+  failed_orders: number;
+  skipped_orders: number;
+  status: string;
+}
 
 interface Transaction {
   id: string;
@@ -174,11 +188,55 @@ const OdooSyncBatch = () => {
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [showFailedDialog, setShowFailedDialog] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [syncHistory, setSyncHistory] = useState<SyncRunHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const stopRequestedRef = useRef(false);
   const [stopRequested, setStopRequested] = useState(false);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
+
+  // Calculate duration in formatted string
+  const formatDuration = (start: Date, end: Date): string => {
+    const totalSeconds = differenceInSeconds(end, start);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) {
+      return language === 'ar' 
+        ? `${minutes} دقيقة و ${seconds} ثانية`
+        : `${minutes}m ${seconds}s`;
+    }
+    return language === 'ar' ? `${seconds} ثانية` : `${seconds}s`;
+  };
+
+  // Load sync history for current date range
+  const loadSyncHistory = async () => {
+    if (!fromDate || !toDate) return;
+    
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('odoo_sync_runs')
+        .select('*')
+        .eq('from_date', fromDate)
+        .eq('to_date', toDate)
+        .order('run_date', { ascending: false });
+
+      if (error) throw error;
+      setSyncHistory((data as SyncRunHistory[]) || []);
+    } catch (error) {
+      console.error('Error loading sync history:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Open history dialog
+  const handleShowHistory = () => {
+    loadSyncHistory();
+    setShowHistoryDialog(true);
+  };
 
   // Load transactions based on date filter
   useEffect(() => {
@@ -796,6 +854,14 @@ const OdooSyncBatch = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleShowHistory}
+            className="gap-2"
+          >
+            <History className="h-4 w-4" />
+            {language === 'ar' ? 'السجل' : 'History'}
+          </Button>
           {isSyncing && (
             <Button 
               variant="destructive"
@@ -844,9 +910,16 @@ const OdooSyncBatch = () => {
                   )}
                 </span>
                 <span className="text-muted-foreground">
-                  {language === 'ar' ? 'وقت البدء:' : 'Start Time:'} {format(startTime, 'HH:mm:ss')}
+                  {language === 'ar' ? 'وقت البدء:' : 'Start:'} {format(startTime, 'HH:mm:ss')}
                   {endTime && (
-                    <> | {language === 'ar' ? 'وقت الانتهاء:' : 'End Time:'} {format(endTime, 'HH:mm:ss')}</>
+                    <>
+                      {' - '}
+                      {language === 'ar' ? 'الانتهاء:' : 'End:'} {format(endTime, 'HH:mm:ss')}
+                      {' | '}
+                      <span className="font-medium text-primary">
+                        {language === 'ar' ? 'المدة:' : 'Duration:'} {formatDuration(startTime, endTime)}
+                      </span>
+                    </>
                   )}
                 </span>
               </div>
@@ -1166,6 +1239,83 @@ const OdooSyncBatch = () => {
               </TableBody>
             </Table>
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              {language === 'ar' ? 'سجل المزامنة' : 'Sync History'}
+              <span className="text-muted-foreground text-sm font-normal">
+                ({fromDate} → {toDate})
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : syncHistory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {language === 'ar' ? 'لا يوجد سجل سابق' : 'No previous sync history'}
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[60vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'معرف التشغيل' : 'Run ID'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'تاريخ التشغيل' : 'Run Date'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الوقت' : 'Time'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المدة' : 'Duration'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'نجح' : 'Success'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'فشل' : 'Failed'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {syncHistory.map((run) => {
+                    const runStartTime = parseISO(run.start_time);
+                    const runEndTime = run.end_time ? parseISO(run.end_time) : null;
+                    return (
+                      <TableRow key={run.id}>
+                        <TableCell className="font-mono text-xs">{run.id.slice(0, 8)}...</TableCell>
+                        <TableCell>{format(runStartTime, 'yyyy-MM-dd')}</TableCell>
+                        <TableCell>
+                          {format(runStartTime, 'HH:mm:ss')}
+                          {runEndTime && ` - ${format(runEndTime, 'HH:mm:ss')}`}
+                        </TableCell>
+                        <TableCell>
+                          {runEndTime ? formatDuration(runStartTime, runEndTime) : '-'}
+                        </TableCell>
+                        <TableCell>{run.total_orders}</TableCell>
+                        <TableCell className="text-green-500">{run.successful_orders}</TableCell>
+                        <TableCell className="text-destructive">{run.failed_orders}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={run.status === 'completed' ? 'default' : run.status === 'stopped' ? 'secondary' : 'destructive'}
+                            className={run.status === 'completed' ? 'bg-green-500' : ''}
+                          >
+                            {run.status === 'completed' 
+                              ? (language === 'ar' ? 'مكتمل' : 'Completed')
+                              : run.status === 'stopped'
+                              ? (language === 'ar' ? 'متوقف' : 'Stopped')
+                              : run.status === 'running'
+                              ? (language === 'ar' ? 'جاري' : 'Running')
+                              : run.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
     </div>
