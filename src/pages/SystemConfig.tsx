@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save, Clock } from "lucide-react";
+import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save, Clock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ConfigItem {
@@ -16,6 +16,11 @@ interface ConfigItem {
   usedIn: string[];
   icon: any;
   category: string;
+  secretType?: string;
+}
+
+interface SecretValues {
+  [key: string]: Record<string, string>;
 }
 
 interface ApiKey {
@@ -76,6 +81,9 @@ const SystemConfig = () => {
     timeout_minutes: 30,
   });
   const [savingIdleTimeout, setSavingIdleTimeout] = useState(false);
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const [secretValues, setSecretValues] = useState<SecretValues>({});
+  const [loadingSecrets, setLoadingSecrets] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     checkAdminAccess();
@@ -354,8 +362,70 @@ const SystemConfig = () => {
     navigator.clipboard.writeText(text);
     toast({
       title: "Copied",
-      description: "API key copied to clipboard",
+      description: "Copied to clipboard",
     });
+  };
+
+  const toggleSecretVisibility = async (secretType: string) => {
+    if (visibleSecrets[secretType]) {
+      setVisibleSecrets({ ...visibleSecrets, [secretType]: false });
+      return;
+    }
+
+    // If we already have the values, just show them
+    if (secretValues[secretType]) {
+      setVisibleSecrets({ ...visibleSecrets, [secretType]: true });
+      return;
+    }
+
+    // Fetch the secrets from the edge function
+    setLoadingSecrets({ ...loadingSecrets, [secretType]: true });
+    try {
+      const { data, error } = await supabase.functions.invoke("get-system-secrets", {
+        body: { secretType },
+      });
+
+      if (error) throw error;
+
+      setSecretValues({ ...secretValues, [secretType]: data.secrets });
+      setVisibleSecrets({ ...visibleSecrets, [secretType]: true });
+    } catch (error) {
+      console.error("Error fetching secrets:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch secret values",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingSecrets({ ...loadingSecrets, [secretType]: false });
+    }
+  };
+
+  const renderSecretValues = (secretType: string) => {
+    if (!visibleSecrets[secretType] || !secretValues[secretType]) return null;
+    
+    const secrets = secretValues[secretType];
+    return (
+      <div className="mt-4 p-3 bg-muted/50 rounded-lg border space-y-2">
+        <h5 className="font-medium text-sm text-muted-foreground mb-2">Secret Values:</h5>
+        {Object.entries(secrets).map(([key, value]) => (
+          <div key={key} className="flex items-center gap-2">
+            <code className="text-xs font-semibold text-primary">{key}:</code>
+            <code className="text-xs bg-background px-2 py-1 rounded font-mono flex-1 break-all" dir="ltr">
+              {value}
+            </code>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(value)}
+              className="h-6 w-6 p-0"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const configurations: ConfigItem[] = [
@@ -364,35 +434,48 @@ const SystemConfig = () => {
       description: "Web Push notification keys for browser push notifications. VAPID (Voluntary Application Server Identification) keys authenticate your server when sending push notifications.",
       usedIn: ["send-push-notification", "Frontend push subscription"],
       icon: Bell,
-      category: "Push Notifications"
+      category: "Push Notifications",
+      secretType: "vapid"
     },
     {
       name: "ODOO API Configuration",
       description: "Odoo ERP system integration credentials. Used to sync customers and products between your app and Odoo ERP system.",
       usedIn: ["sync-customer-to-odoo", "sync-product-to-odoo"],
       icon: Link2,
-      category: "External Integration"
+      category: "External Integration",
+      secretType: "odoo"
     },
     {
       name: "SMTP Configuration",
       description: "SMTP server credentials for sending email notifications. Used for ticket notifications and user communications.",
       usedIn: ["send-ticket-notification"],
       icon: Mail,
-      category: "Email Services"
+      category: "Email Services",
+      secretType: "smtp"
     },
     {
       name: "Resend API Key",
       description: "Resend email service API key for transactional emails. Alternative email delivery service with better deliverability.",
       usedIn: ["send-ticket-notification (alternative)"],
       icon: Mail,
-      category: "Email Services"
+      category: "Email Services",
+      secretType: "resend"
     },
     {
       name: "Supabase Configuration",
       description: "Auto-configured Lovable Cloud credentials. These are automatically managed and include database URL, service role key, and anon key.",
       usedIn: ["All edge functions", "Frontend authentication", "Database operations"],
       icon: Database,
-      category: "Backend Infrastructure"
+      category: "Backend Infrastructure",
+      secretType: "supabase"
+    },
+    {
+      name: "Twilio WhatsApp Configuration",
+      description: "Twilio API credentials for WhatsApp messaging. Used for sending and receiving WhatsApp messages through the Twilio Sandbox.",
+      usedIn: ["twilio-webhook", "send-whatsapp-message"],
+      icon: MessageCircle,
+      category: "Messaging Services",
+      secretType: "twilio"
     }
   ];
 
@@ -432,9 +515,9 @@ const SystemConfig = () => {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            For security reasons, actual key values are not displayed on this page. 
-            All secrets are securely stored and encrypted in the backend. Only authorized 
-            edge functions can access these values at runtime.
+            Secret values are securely stored and encrypted in the backend. 
+            As an admin, you can click the "Show" button on each configuration card 
+            to reveal the stored secret values. Handle these values with care.
           </p>
         </CardContent>
       </Card>
@@ -457,9 +540,29 @@ const SystemConfig = () => {
                       </Badge>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="bg-green-500/10 text-green-700 dark:text-green-400">
-                    Configured
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {config.secretType && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleSecretVisibility(config.secretType!)}
+                        disabled={loadingSecrets[config.secretType]}
+                        className="gap-2"
+                      >
+                        {loadingSecrets[config.secretType] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : visibleSecrets[config.secretType] ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                        {visibleSecrets[config.secretType] ? "Hide" : "Show"}
+                      </Button>
+                    )}
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-700 dark:text-green-400">
+                      Configured
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -478,6 +581,8 @@ const SystemConfig = () => {
                     ))}
                   </div>
                 </div>
+
+                {config.secretType && renderSecretValues(config.secretType)}
               </CardContent>
             </Card>
           );
