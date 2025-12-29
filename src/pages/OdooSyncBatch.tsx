@@ -29,6 +29,23 @@ interface SyncRunHistory {
   status: string;
 }
 
+interface SyncRunDetail {
+  id: string;
+  run_id: string;
+  order_number: string;
+  order_date: string | null;
+  customer_phone: string | null;
+  product_names: string | null;
+  total_amount: number | null;
+  sync_status: string;
+  error_message: string | null;
+  step_customer: string | null;
+  step_brand: string | null;
+  step_product: string | null;
+  step_order: string | null;
+  step_purchase: string | null;
+}
+
 interface Transaction {
   id: string;
   order_number: string;
@@ -189,8 +206,12 @@ const OdooSyncBatch = () => {
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [showFailedDialog, setShowFailedDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [showRunDetailsDialog, setShowRunDetailsDialog] = useState(false);
   const [syncHistory, setSyncHistory] = useState<SyncRunHistory[]>([]);
+  const [selectedRunDetails, setSelectedRunDetails] = useState<SyncRunDetail[]>([]);
+  const [selectedRunInfo, setSelectedRunInfo] = useState<SyncRunHistory | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingRunDetails, setLoadingRunDetails] = useState(false);
   const stopRequestedRef = useRef(false);
   const [stopRequested, setStopRequested] = useState(false);
 
@@ -236,6 +257,33 @@ const OdooSyncBatch = () => {
   const handleShowHistory = () => {
     loadSyncHistory();
     setShowHistoryDialog(true);
+  };
+
+  // Load run details
+  const loadRunDetails = async (run: SyncRunHistory) => {
+    setSelectedRunInfo(run);
+    setLoadingRunDetails(true);
+    setShowRunDetailsDialog(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('odoo_sync_run_details')
+        .select('*')
+        .eq('run_id', run.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setSelectedRunDetails((data as SyncRunDetail[]) || []);
+    } catch (error) {
+      console.error('Error loading run details:', error);
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل تحميل التفاصيل' : 'Failed to load details',
+      });
+    } finally {
+      setLoadingRunDetails(false);
+    }
   };
 
   // Load transactions based on date filter
@@ -1275,6 +1323,7 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'نجح' : 'Success'}</TableHead>
                     <TableHead>{language === 'ar' ? 'فشل' : 'Failed'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'التفاصيل' : 'Details'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1309,9 +1358,126 @@ const OdooSyncBatch = () => {
                               : run.status}
                           </Badge>
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => loadRunDetails(run)}
+                            className="gap-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Run Details Dialog */}
+      <Dialog open={showRunDetailsDialog} onOpenChange={setShowRunDetailsDialog}>
+        <DialogContent className="max-w-5xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              {language === 'ar' ? 'تفاصيل التشغيل' : 'Run Details'}
+              {selectedRunInfo && (
+                <span className="text-muted-foreground text-sm font-normal">
+                  {format(parseISO(selectedRunInfo.start_time), 'yyyy-MM-dd HH:mm:ss')}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Run Summary */}
+          {selectedRunInfo && (
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold">{selectedRunInfo.total_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+              </div>
+              <div className="bg-green-500/10 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-green-500">{selectedRunInfo.successful_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'نجح' : 'Success'}</div>
+              </div>
+              <div className="bg-destructive/10 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-destructive">{selectedRunInfo.failed_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'فشل' : 'Failed'}</div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-muted-foreground">{selectedRunInfo.skipped_orders}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'تخطي' : 'Skipped'}</div>
+              </div>
+            </div>
+          )}
+
+          {loadingRunDetails ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : selectedRunDetails.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {language === 'ar' ? 'لا توجد تفاصيل' : 'No details available'}
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[55vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Order Number'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المنتجات' : 'Products'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedRunDetails.map((detail) => (
+                    <TableRow 
+                      key={detail.id}
+                      className={cn(
+                        detail.sync_status === 'success' && 'bg-green-50 dark:bg-green-950/20',
+                        detail.sync_status === 'failed' && 'bg-red-50 dark:bg-red-950/20'
+                      )}
+                    >
+                      <TableCell className="font-mono">{detail.order_number}</TableCell>
+                      <TableCell>
+                        {detail.order_date ? format(parseISO(detail.order_date), 'yyyy-MM-dd') : '-'}
+                      </TableCell>
+                      <TableCell>{detail.customer_phone || '-'}</TableCell>
+                      <TableCell className="max-w-[200px] truncate" title={detail.product_names || ''}>
+                        {detail.product_names || '-'}
+                      </TableCell>
+                      <TableCell>{detail.total_amount?.toFixed(2) || '-'} SAR</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={detail.sync_status === 'success' ? 'default' : detail.sync_status === 'failed' ? 'destructive' : 'secondary'}
+                          className={detail.sync_status === 'success' ? 'bg-green-500' : ''}
+                        >
+                          {detail.sync_status === 'success' 
+                            ? (language === 'ar' ? 'نجح' : 'Success')
+                            : detail.sync_status === 'failed'
+                            ? (language === 'ar' ? 'فشل' : 'Failed')
+                            : detail.sync_status === 'skipped'
+                            ? (language === 'ar' ? 'تخطي' : 'Skipped')
+                            : detail.sync_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[250px]">
+                        {detail.error_message && (
+                          <p className="text-xs text-destructive break-words">
+                            {translateOdooError(detail.error_message, language)}
+                          </p>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </ScrollArea>
