@@ -474,22 +474,39 @@ const UserSetup = () => {
       } else {
         // For new users, use edge function to bypass rate limiting
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("Not authenticated");
+        const isSysadminSession = sessionStorage.getItem("sysadmin_session") === "true";
+        
+        // Check if there's a valid session OR sysadmin session
+        if (!session && !isSysadminSession) {
+          throw new Error("Not authenticated");
+        }
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+
+        // Add appropriate auth header
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+        
+        // Add sysadmin session header if applicable
+        if (isSysadminSession) {
+          headers["x-sysadmin-session"] = "true";
+        }
 
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
+            headers,
             body: JSON.stringify({
               user_name: formData.user_name,
               email: formData.email,
               mobile_number: formData.mobile_number || null,
               is_active: formData.is_active,
               job_position_id: formData.job_position_id,
+              is_admin: formData.is_admin,
             }),
           }
         );
@@ -500,10 +517,20 @@ const UserSetup = () => {
           throw new Error(result.error || "Failed to create user");
         }
 
-        toast({
-          title: t("common.success"),
-          description: "User created successfully",
-        });
+        // If this was the first user created, show a special message
+        if (result.isFirstUser) {
+          toast({
+            title: t("common.success"),
+            description: language === 'ar' 
+              ? "تم إنشاء المستخدم الأول بصلاحيات المسؤول الكاملة" 
+              : "First user created with full admin permissions",
+          });
+        } else {
+          toast({
+            title: t("common.success"),
+            description: "User created successfully",
+          });
+        }
       }
 
       setDialogOpen(false);
