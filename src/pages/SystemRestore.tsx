@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,6 +16,7 @@ import { AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 interface RestoreProgress {
   structure: 'idle' | 'parsing' | 'executing' | 'done' | 'error';
@@ -68,6 +69,11 @@ const SystemRestore = () => {
   const [externalTables, setExternalTables] = useState<{name: string, rowCount: number}[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [tablesError, setTablesError] = useState<string | null>(null);
+  
+  // Manual SQL generation state
+  const [showManualSqlDialog, setShowManualSqlDialog] = useState(false);
+  const [generatedSql, setGeneratedSql] = useState('');
+  const [generatingSql, setGeneratingSql] = useState(false);
   
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
@@ -548,6 +554,57 @@ const SystemRestore = () => {
     }
   };
 
+  // Generate SQL for manual execution (for self-hosted Supabase without API access)
+  const handleGenerateSql = async (type: 'structure' | 'data') => {
+    const file = type === 'structure' ? structureFile : dataFile;
+    if (!file) {
+      toast.error(isRTL ? 'يرجى اختيار الملف أولاً' : 'Please select a file first');
+      return;
+    }
+    
+    setGeneratingSql(true);
+    
+    try {
+      let sql: string;
+      
+      if (file.name.endsWith('.gz')) {
+        sql = await decompressGzip(file);
+      } else {
+        sql = await file.text();
+      }
+      
+      setGeneratedSql(sql);
+      setShowManualSqlDialog(true);
+    } catch (error: any) {
+      console.error('Error reading file:', error);
+      toast.error(error.message || (isRTL ? 'فشل في قراءة الملف' : 'Failed to read file'));
+    } finally {
+      setGeneratingSql(false);
+    }
+  };
+  
+  const handleDownloadSql = () => {
+    const blob = new Blob([generatedSql], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'restore.sql';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(isRTL ? 'تم تحميل الملف' : 'File downloaded');
+  };
+  
+  const handleCopySql = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedSql);
+      toast.success(isRTL ? 'تم نسخ SQL إلى الحافظة' : 'SQL copied to clipboard');
+    } catch (error) {
+      toast.error(isRTL ? 'فشل في النسخ' : 'Failed to copy');
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'done':
@@ -866,6 +923,24 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 </div>
               </div>
             </div>
+            
+            {/* Manual SQL Generation Option */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                <Download className="h-4 w-4" />
+                {isRTL ? 'بديل: توليد SQL للتشغيل اليدوي' : 'Alternative: Generate SQL for Manual Execution'}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {isRTL 
+                  ? 'إذا لم تتمكن من الوصول إلى API الخارجي، يمكنك تحميل ملفات SQL وتشغيلها يدوياً في محرر SQL الخاص بـ Supabase.' 
+                  : 'If you cannot access the external API, you can upload SQL files and run them manually in Supabase SQL Editor.'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isRTL 
+                  ? 'اختر الملفات في الأسفل ثم اضغط على "توليد SQL" لتحميل أو نسخ الأوامر.' 
+                  : 'Select files below and click "Generate SQL" to download or copy the commands.'}
+              </p>
+            </div>
           </CardContent>
         )}
       </Card>
@@ -1029,6 +1104,50 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 )}
               </Button>
               
+              {/* Generate SQL button for manual execution */}
+              {useExternalSupabase && structureFile && (
+                <Button
+                  variant="secondary"
+                  onClick={() => handleGenerateSql('structure')}
+                  disabled={generatingSql}
+                  className="w-full"
+                >
+                  {generatingSql ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {isRTL ? 'جاري التوليد...' : 'Generating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      {isRTL ? 'توليد SQL للتشغيل اليدوي' : 'Generate SQL for Manual Run'}
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              {/* Generate SQL button for manual execution */}
+              {useExternalSupabase && dataFile && (
+                <Button
+                  variant="secondary"
+                  onClick={() => handleGenerateSql('data')}
+                  disabled={generatingSql}
+                  className="w-full"
+                >
+                  {generatingSql ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {isRTL ? 'جاري التوليد...' : 'Generating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      {isRTL ? 'توليد SQL للتشغيل اليدوي' : 'Generate SQL for Manual Run'}
+                    </>
+                  )}
+                </Button>
+              )}
+              
               {progress.data === 'done' && (
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircle2 className="h-4 w-4" />
@@ -1155,6 +1274,65 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual SQL Dialog */}
+      <Dialog open={showManualSqlDialog} onOpenChange={setShowManualSqlDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {isRTL ? 'SQL للتشغيل اليدوي' : 'SQL for Manual Execution'}
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL 
+                ? 'انسخ هذا الكود وقم بتشغيله في محرر SQL الخاص بـ Supabase الخارجي' 
+                : 'Copy this SQL and run it in your external Supabase SQL Editor'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Button onClick={handleCopySql} variant="outline">
+                <Copy className="h-4 w-4 mr-2" />
+                {isRTL ? 'نسخ الكل' : 'Copy All'}
+              </Button>
+              <Button onClick={handleDownloadSql} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                {isRTL ? 'تحميل كملف' : 'Download as File'}
+              </Button>
+              <Badge variant="secondary">
+                {(generatedSql.length / 1024).toFixed(1)} KB
+              </Badge>
+            </div>
+            
+            <Textarea
+              value={generatedSql}
+              readOnly
+              className="font-mono text-xs h-96"
+              dir="ltr"
+            />
+            
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm">
+              <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  {isRTL ? (
+                    <p>قم بتشغيل هذا الكود في محرر SQL في لوحة تحكم Supabase الخارجي. قد تحتاج لتقسيمه إلى أجزاء إذا كان كبيراً جداً.</p>
+                  ) : (
+                    <p>Run this SQL in the SQL Editor in your external Supabase dashboard. You may need to split it into parts if it's too large.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowManualSqlDialog(false)}>
+              {isRTL ? 'إغلاق' : 'Close'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
