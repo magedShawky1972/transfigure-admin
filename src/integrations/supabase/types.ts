@@ -4263,6 +4263,7 @@ export type Database = {
       get_user_defined_types_info: {
         Args: never
         Returns: {
+          base_type: string
           enum_values: string[]
           type_name: string
           type_schema: string
