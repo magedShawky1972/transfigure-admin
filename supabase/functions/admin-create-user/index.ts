@@ -3,8 +3,39 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-sysadmin-session',
 };
+
+// Full list of menu items for admin permissions
+const ALL_MENU_ITEMS = [
+  "dashboard", "ticket_dashboard", "shift_dashboard", "task_dashboard", "user_dashboard",
+  "api_documentation", "softwareLicenses", "reports", "transactions", "pivotTable",
+  "loadData", "uploadLog", "clearData", "tickets", "admin_tickets", "softwareLicenseSetup",
+  "shiftSession", "myShifts", "shiftFollowUp", "tawasoul", "companyNews", "reportsSetup",
+  "customerSetup", "customerProfile", "customerTotals", "brandSetup", "brandType",
+  "productSetup", "paymentMethodSetup", "department_management", "userSetup", "shiftSetup",
+  "shiftCalendar", "currencySetup", "userGroupSetup", "projectsTasks", "companyHierarchy",
+  "supplierSetup", "userLogins", "userEmails", "asusTawasoul", "emailManager", "mailSetup",
+  "systemConfig", "closingTraining", "odooSetup", "excelSetup", "tableConfig", "pdfToExcel",
+  "systemBackup", "systemRestore"
+];
+
+// Dashboard components
+const ALL_DASHBOARD_COMPONENTS = [
+  "sales_metrics", "total_profit", "points_sales", "transaction_count", "new_customers",
+  "avg_order_metrics", "income_statement", "transaction_type_chart", "user_transaction_count_chart",
+  "user_transaction_value_chart", "brand_sales_grid", "coins_by_brand", "sales_trend_chart",
+  "top_brands_chart", "top_products_chart", "month_comparison_chart", "payment_methods_chart",
+  "payment_brands_chart", "unused_payment_brands", "product_summary_table", "customer_purchases_table",
+  "inactive_customers_section", "recent_transactions"
+];
+
+// Reports
+const ALL_REPORTS = [
+  "revenue-by-brand-type", "cost-by-brand-type", "tickets", "software-licenses",
+  "shift-report", "shift-plan", "brand-balance", "api-documentation",
+  "transaction-statistics", "order-payment", "data-loading-status", "coins-ledger", "bank-statement"
+];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -25,47 +56,77 @@ serve(async (req) => {
       }
     );
 
-    // Verify the requesting user is authenticated
+    // Check for sysadmin session (special header for initial setup)
+    const sysadminSession = req.headers.get('x-sysadmin-session');
     const authHeader = req.headers.get('Authorization');
-    console.log('Auth header present:', !!authHeader);
     
-    if (!authHeader) {
+    let isAuthorized = false;
+    let isSysadminSetup = false;
+
+    if (sysadminSession === 'true') {
+      // Sysadmin session - check if no users exist (initial setup)
+      const { count } = await supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      
+      if (count === 0) {
+        console.log('Sysadmin session authorized - no users exist, allowing first user creation');
+        isAuthorized = true;
+        isSysadminSetup = true;
+      } else {
+        console.log('Sysadmin session denied - users already exist');
+        return new Response(
+          JSON.stringify({ error: 'Users already exist. Use regular admin login.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else if (authHeader) {
+      // Regular auth flow
+      const token = authHeader.replace('Bearer ', '');
+      console.log('Token extracted, length:', token.length);
+      
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      console.log('Auth validation result:', { userId: user?.id, hasError: !!authError, errorMsg: authError?.message });
+
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized', details: authError?.message }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if user has admin role
+      console.log('Checking admin role for user:', user.id);
+      const { data: hasAdminRole, error: roleError } = await supabaseAdmin
+        .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+      
+      console.log('Role check result:', { hasAdminRole, roleError: roleError?.message });
+
+      if (roleError || !hasAdminRole) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden - Admin access required', details: roleError?.message }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      isAuthorized = true;
+    } else {
       return new Response(
         JSON.stringify({ error: 'Authorization header missing' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    const token = authHeader.replace('Bearer ', '');
-    console.log('Token extracted, length:', token.length);
-    
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    console.log('Auth validation result:', { userId: user?.id, hasError: !!authError, errorMsg: authError?.message });
 
-    if (authError || !user) {
+    if (!isAuthorized) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized', details: authError?.message }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if user has admin role
-    console.log('Checking admin role for user:', user.id);
-    const { data: hasAdminRole, error: roleError } = await supabaseAdmin
-      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
-    
-    console.log('Role check result:', { hasAdminRole, roleError: roleError?.message });
-
-    if (roleError || !hasAdminRole) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - Admin access required', details: roleError?.message }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log('User authorized, proceeding with user creation');
 
-    const { email, user_name, mobile_number, is_active, password, job_position_id } = await req.json();
+    const { email, user_name, mobile_number, is_active, password, job_position_id, is_admin } = await req.json();
 
     // Use provided password or default to "123456"
     const userPassword = password || '123456';
@@ -115,6 +176,65 @@ serve(async (req) => {
       );
     }
 
+    // If this is the first user (sysadmin setup) OR is_admin is true, assign admin role and all permissions
+    const shouldMakeAdmin = isSysadminSetup || is_admin === true;
+    
+    if (shouldMakeAdmin) {
+      console.log('Assigning admin role to user:', newUser.user.id);
+      
+      // Add admin role
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: newUser.user.id,
+          role: 'admin',
+        });
+      
+      if (roleError) {
+        console.error('Error assigning admin role:', roleError);
+      }
+
+      // If first user (sysadmin setup), grant all permissions
+      if (isSysadminSetup) {
+        console.log('First user - granting all permissions');
+        
+        // Grant all menu permissions
+        const menuPermissions = ALL_MENU_ITEMS.map(menuItem => ({
+          user_id: newUser.user.id,
+          menu_item: menuItem,
+          has_access: true,
+          parent_menu: null,
+        }));
+
+        // Grant all dashboard component permissions
+        const dashboardPermissions = ALL_DASHBOARD_COMPONENTS.map(component => ({
+          user_id: newUser.user.id,
+          menu_item: component,
+          has_access: true,
+          parent_menu: 'dashboard',
+        }));
+
+        // Grant all report permissions
+        const reportPermissions = ALL_REPORTS.map(report => ({
+          user_id: newUser.user.id,
+          menu_item: report,
+          has_access: true,
+          parent_menu: 'reports',
+        }));
+
+        const allPermissions = [...menuPermissions, ...dashboardPermissions, ...reportPermissions];
+        
+        const { error: permError } = await supabaseAdmin
+          .from('user_permissions')
+          .insert(allPermissions);
+        
+        if (permError) {
+          console.error('Error granting permissions:', permError);
+        } else {
+          console.log('All permissions granted successfully');
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
@@ -122,7 +242,8 @@ serve(async (req) => {
         user: { 
           id: newUser.user.id, 
           email: newUser.user.email 
-        } 
+        },
+        isFirstUser: isSysadminSetup,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
