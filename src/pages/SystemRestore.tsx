@@ -738,11 +738,79 @@ const SystemRestore = () => {
             )}
             
             {tablesError && !loadingTables && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {tablesError}
+              <div className="space-y-3">
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {tablesError}
+                  </div>
                 </div>
+                
+                {tablesError.includes('exec_sql') && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium">
+                      <AlertTriangle className="h-4 w-4" />
+                      {isRTL ? 'يجب إنشاء دالة exec_sql في المشروع الخارجي' : 'You need to create the exec_sql function in the external project'}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isRTL 
+                        ? 'قم بتشغيل هذا الكود SQL في محرر SQL الخاص بـ Supabase الخارجي:' 
+                        : 'Run this SQL in the external Supabase SQL Editor:'}
+                    </p>
+                    <div className="relative">
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto max-h-48" dir="ltr">
+{`CREATE OR REPLACE FUNCTION public.exec_sql(sql text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result json;
+BEGIN
+  EXECUTE sql INTO result;
+  RETURN result;
+EXCEPTION WHEN OTHERS THEN
+  RAISE;
+END;
+$$;
+
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO anon;
+GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`}
+                      </pre>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`CREATE OR REPLACE FUNCTION public.exec_sql(sql text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result json;
+BEGIN
+  EXECUTE sql INTO result;
+  RETURN result;
+EXCEPTION WHEN OTHERS THEN
+  RAISE;
+END;
+$$;
+
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO anon;
+GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
+                          toast.success(isRTL ? 'تم نسخ الكود' : 'SQL copied to clipboard');
+                        }}
+                      >
+                        {isRTL ? 'نسخ' : 'Copy'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             
