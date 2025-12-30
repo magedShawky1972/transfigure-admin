@@ -24,6 +24,21 @@ serve(async (req) => {
       );
     }
 
+    const isHtmlError = (msg: unknown) =>
+      typeof msg === 'string' && msg.trim().toLowerCase().startsWith('<!doctype html');
+
+    const normalizeExternalError = (err: any) => {
+      const message = err?.message ?? String(err);
+      if (isHtmlError(message)) {
+        return {
+          message:
+            'Invalid external SUPABASE_URL. Please use the API URL like https://<project-ref>.supabase.co (not the Studio/website URL).',
+          code: 'INVALID_SUPABASE_URL',
+        };
+      }
+      return { message, code: err?.code };
+    };
+
     // Create client for external Supabase
     const externalClient = createClient(externalUrl, externalAnonKey);
 
@@ -34,9 +49,10 @@ serve(async (req) => {
         // Try to execute a simple SQL query to test connection
         const { data: testData, error: testError } = await externalClient.rpc('exec_sql', { sql: 'SELECT 1 as test' });
         if (testError) {
-          console.error('Test connection error:', testError);
+          const e = normalizeExternalError(testError);
+          console.error('Test connection error:', e);
           return new Response(
-            JSON.stringify({ success: false, error: testError.message, code: testError.code }),
+            JSON.stringify({ success: false, error: e.message, code: e.code }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -57,9 +73,10 @@ serve(async (req) => {
           `
         });
         if (tablesError) {
-          console.error('Fetch tables error:', tablesError);
+          const e = normalizeExternalError(tablesError);
+          console.error('Fetch tables error:', e);
           return new Response(
-            JSON.stringify({ success: false, error: tablesError.message, code: tablesError.code }),
+            JSON.stringify({ success: false, error: e.message, code: e.code }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -76,9 +93,10 @@ serve(async (req) => {
         }
         const { data: sqlData, error: sqlError } = await externalClient.rpc('exec_sql', { sql });
         if (sqlError) {
-          console.error('Exec SQL error:', sqlError);
+          const e = normalizeExternalError(sqlError);
+          console.error('Exec SQL error:', e);
           return new Response(
-            JSON.stringify({ success: false, error: sqlError.message, code: sqlError.code }),
+            JSON.stringify({ success: false, error: e.message, code: e.code }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -98,9 +116,10 @@ serve(async (req) => {
           .upsert(data, { onConflict: 'id', ignoreDuplicates: false });
         
         if (insertError) {
-          console.error('Insert data error:', insertError);
+          const e = normalizeExternalError(insertError);
+          console.error('Insert data error:', e);
           return new Response(
-            JSON.stringify({ success: false, error: insertError.message, code: insertError.code }),
+            JSON.stringify({ success: false, error: e.message, code: e.code }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
