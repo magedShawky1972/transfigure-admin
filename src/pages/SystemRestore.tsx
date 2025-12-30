@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
 import { toast } from "sonner";
 import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -72,24 +72,22 @@ const SystemRestore = () => {
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
   
-  // Create external Supabase client when needed
-  const externalSupabase = useMemo(() => {
-    if (useExternalSupabase && externalUrl && externalAnonKey) {
-      try {
-        return createClient(externalUrl, externalAnonKey);
-      } catch {
-        return null;
+  // Call external Supabase via proxy edge function
+  const callExternalProxy = async (action: string, params: Record<string, any> = {}) => {
+    const { data, error } = await supabase.functions.invoke('external-supabase-proxy', {
+      body: {
+        action,
+        externalUrl,
+        externalAnonKey,
+        ...params
       }
+    });
+    
+    if (error) {
+      throw error;
     }
-    return null;
-  }, [useExternalSupabase, externalUrl, externalAnonKey]);
-  
-  // Get the active Supabase client
-  const getActiveClient = (): SupabaseClient => {
-    if (useExternalSupabase && externalSupabase) {
-      return externalSupabase;
-    }
-    return supabase;
+    
+    return data;
   };
   
   // Fetch tables from external Supabase
@@ -99,37 +97,30 @@ const SystemRestore = () => {
     setExternalTables([]);
     
     try {
-      const testClient = createClient(url, anonKey);
-      
-      // Query to get all tables in public schema with row counts
-      const { data, error } = await testClient.rpc('exec_sql', { 
-        sql: `
-          SELECT 
-            t.tablename as name,
-            COALESCE(s.n_live_tup, 0)::integer as row_count
-          FROM pg_catalog.pg_tables t
-          LEFT JOIN pg_stat_user_tables s ON t.tablename = s.relname
-          WHERE t.schemaname = 'public'
-          ORDER BY t.tablename
-        `
+      const result = await supabase.functions.invoke('external-supabase-proxy', {
+        body: {
+          action: 'fetch_tables',
+          externalUrl: url,
+          externalAnonKey: anonKey
+        }
       });
       
-      if (error) {
-        if (error.message.includes('exec_sql') || error.message.includes('function')) {
+      if (result.error) {
+        throw result.error;
+      }
+      
+      const data = result.data;
+      
+      if (!data.success) {
+        if (data.error?.includes('exec_sql') || data.error?.includes('function') || data.code === 'PGRST202') {
           setTablesError(isRTL ? 'دالة exec_sql غير موجودة في المشروع الخارجي' : 'exec_sql function not found in external project');
           setConnectionValid(false);
         } else {
-          throw error;
+          throw new Error(data.error || 'Unknown error');
         }
       } else {
-        // Parse result - it comes as an array or might need parsing
-        let tables: {name: string, rowCount: number}[] = [];
-        
-        if (Array.isArray(data)) {
-          tables = data.map((t: any) => ({ name: t.name, rowCount: t.row_count || 0 }));
-        }
-        
-        setExternalTables(tables);
+        const tables = data.tables || [];
+        setExternalTables(tables.map((t: any) => ({ name: t.name, rowCount: t.row_count || 0 })));
         setConnectionValid(true);
         
         if (tables.length === 0) {
@@ -171,17 +162,26 @@ const SystemRestore = () => {
     setConnectionValid(null);
     
     try {
-      const testClient = createClient(externalUrl, externalAnonKey);
-      // Try to call a simple RPC to test connection
-      const { error } = await testClient.rpc('exec_sql', { sql: 'SELECT 1' });
+      const result = await supabase.functions.invoke('external-supabase-proxy', {
+        body: {
+          action: 'test_connection',
+          externalUrl,
+          externalAnonKey
+        }
+      });
       
-      if (error) {
-        // Check if it's just the function not existing vs connection error
-        if (error.message.includes('exec_sql') || error.message.includes('function')) {
+      if (result.error) {
+        throw result.error;
+      }
+      
+      const data = result.data;
+      
+      if (!data.success) {
+        if (data.error?.includes('exec_sql') || data.error?.includes('function') || data.code === 'PGRST202') {
           toast.warning(isRTL ? 'الاتصال ناجح لكن دالة exec_sql غير موجودة' : 'Connection successful but exec_sql function not found');
           setConnectionValid(false);
         } else {
-          throw error;
+          throw new Error(data.error || 'Connection failed');
         }
       } else {
         setConnectionValid(true);
@@ -197,7 +197,6 @@ const SystemRestore = () => {
       setTestingConnection(false);
     }
   };
-
   // Check system state on mount
   useEffect(() => {
     checkSystemState();
@@ -345,13 +344,21 @@ const SystemRestore = () => {
       
       for (const statement of statements) {
         try {
-          // Execute via exec_sql function using active client
-          const activeClient = getActiveClient();
-          const { error } = await activeClient.rpc('exec_sql', { sql: statement + ';' });
-          if (error) {
-            errors.push(`Statement error: ${error.message}`);
+          // Execute via exec_sql function - use proxy for external or direct for local
+          if (useExternalSupabase && externalUrl && externalAnonKey) {
+            const result = await callExternalProxy('exec_sql', { sql: statement + ';' });
+            if (!result.success) {
+              errors.push(`Statement error: ${result.error}`);
+            } else {
+              successCount++;
+            }
           } else {
-            successCount++;
+            const { error } = await supabase.rpc('exec_sql', { sql: statement + ';' });
+            if (error) {
+              errors.push(`Statement error: ${error.message}`);
+            } else {
+              successCount++;
+            }
           }
         } catch (err: any) {
           errors.push(`Execution error: ${err.message}`);
@@ -461,13 +468,23 @@ const SystemRestore = () => {
           const batchSql = batch.join('\n');
           
           try {
-            const activeClient = getActiveClient();
-            const { error } = await activeClient.rpc('exec_sql', { sql: batchSql });
-            if (error) {
-              errors.push(`${item.tableName}: ${error.message}`);
+            // Use proxy for external or direct for local
+            if (useExternalSupabase && externalUrl && externalAnonKey) {
+              const result = await callExternalProxy('exec_sql', { sql: batchSql });
+              if (!result.success) {
+                errors.push(`${item.tableName}: ${result.error}`);
+              } else {
+                tableInserted += batch.length;
+                insertedTotal += batch.length;
+              }
             } else {
-              tableInserted += batch.length;
-              insertedTotal += batch.length;
+              const { error } = await supabase.rpc('exec_sql', { sql: batchSql });
+              if (error) {
+                errors.push(`${item.tableName}: ${error.message}`);
+              } else {
+                tableInserted += batch.length;
+                insertedTotal += batch.length;
+              }
             }
           } catch (err: any) {
             errors.push(`${item.tableName}: ${err.message}`);
