@@ -1,17 +1,21 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface RestoreProgress {
   structure: 'idle' | 'parsing' | 'executing' | 'done' | 'error';
@@ -55,8 +59,71 @@ const SystemRestore = () => {
   const [isRestoreComplete, setIsRestoreComplete] = useState(false);
   const [restoreErrors, setRestoreErrors] = useState<string[]>([]);
   
+  // External Supabase state
+  const [useExternalSupabase, setUseExternalSupabase] = useState(false);
+  const [externalUrl, setExternalUrl] = useState("");
+  const [externalAnonKey, setExternalAnonKey] = useState("");
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionValid, setConnectionValid] = useState<boolean | null>(null);
+  
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
+  
+  // Create external Supabase client when needed
+  const externalSupabase = useMemo(() => {
+    if (useExternalSupabase && externalUrl && externalAnonKey) {
+      try {
+        return createClient(externalUrl, externalAnonKey);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [useExternalSupabase, externalUrl, externalAnonKey]);
+  
+  // Get the active Supabase client
+  const getActiveClient = (): SupabaseClient => {
+    if (useExternalSupabase && externalSupabase) {
+      return externalSupabase;
+    }
+    return supabase;
+  };
+  
+  // Test external connection
+  const testExternalConnection = async () => {
+    if (!externalUrl || !externalAnonKey) {
+      toast.error(isRTL ? 'يرجى إدخال URL و Anon Key' : 'Please enter URL and Anon Key');
+      return;
+    }
+    
+    setTestingConnection(true);
+    setConnectionValid(null);
+    
+    try {
+      const testClient = createClient(externalUrl, externalAnonKey);
+      // Try to call a simple RPC to test connection
+      const { error } = await testClient.rpc('exec_sql', { sql: 'SELECT 1' });
+      
+      if (error) {
+        // Check if it's just the function not existing vs connection error
+        if (error.message.includes('exec_sql') || error.message.includes('function')) {
+          toast.warning(isRTL ? 'الاتصال ناجح لكن دالة exec_sql غير موجودة' : 'Connection successful but exec_sql function not found');
+          setConnectionValid(false);
+        } else {
+          throw error;
+        }
+      } else {
+        setConnectionValid(true);
+        toast.success(isRTL ? 'تم الاتصال بنجاح' : 'Connection successful');
+      }
+    } catch (error: any) {
+      console.error('Connection test error:', error);
+      setConnectionValid(false);
+      toast.error(isRTL ? 'فشل الاتصال: ' + error.message : 'Connection failed: ' + error.message);
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   // Check system state on mount
   useEffect(() => {
@@ -205,8 +272,9 @@ const SystemRestore = () => {
       
       for (const statement of statements) {
         try {
-          // Execute via exec_sql function
-          const { error } = await supabase.rpc('exec_sql', { sql: statement + ';' });
+          // Execute via exec_sql function using active client
+          const activeClient = getActiveClient();
+          const { error } = await activeClient.rpc('exec_sql', { sql: statement + ';' });
           if (error) {
             errors.push(`Statement error: ${error.message}`);
           } else {
@@ -320,7 +388,8 @@ const SystemRestore = () => {
           const batchSql = batch.join('\n');
           
           try {
-            const { error } = await supabase.rpc('exec_sql', { sql: batchSql });
+            const activeClient = getActiveClient();
+            const { error } = await activeClient.rpc('exec_sql', { sql: batchSql });
             if (error) {
               errors.push(`${item.tableName}: ${error.message}`);
             } else {
@@ -477,6 +546,133 @@ const SystemRestore = () => {
           {isRTL ? 'استعادة النظام' : 'System Restore'}
         </h1>
       </div>
+      
+      {/* External Supabase Configuration Card */}
+      <Card className={useExternalSupabase ? 'border-primary' : ''}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Server className="h-5 w-5" />
+              {isRTL ? 'استعادة إلى قاعدة بيانات خارجية' : 'Restore to External Database'}
+            </CardTitle>
+            <Switch
+              checked={useExternalSupabase}
+              onCheckedChange={(checked) => {
+                setUseExternalSupabase(checked);
+                setConnectionValid(null);
+              }}
+            />
+          </div>
+          <CardDescription>
+            {isRTL 
+              ? 'قم بتفعيل هذا الخيار للاستعادة إلى مشروع Supabase مختلف' 
+              : 'Enable this option to restore to a different Supabase project'}
+          </CardDescription>
+        </CardHeader>
+        
+        {useExternalSupabase && (
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="external-url">
+                {isRTL ? 'رابط Supabase URL' : 'Supabase URL'}
+              </Label>
+              <Input
+                id="external-url"
+                placeholder="https://your-project.supabase.co"
+                value={externalUrl}
+                onChange={(e) => {
+                  setExternalUrl(e.target.value);
+                  setConnectionValid(null);
+                }}
+                dir="ltr"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="external-anon-key">
+                {isRTL ? 'مفتاح Anon Key' : 'Anon Key'}
+              </Label>
+              <Input
+                id="external-anon-key"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                value={externalAnonKey}
+                onChange={(e) => {
+                  setExternalAnonKey(e.target.value);
+                  setConnectionValid(null);
+                }}
+                type="password"
+                dir="ltr"
+              />
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={testExternalConnection}
+                disabled={testingConnection || !externalUrl || !externalAnonKey}
+              >
+                {testingConnection ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {isRTL ? 'جاري الاختبار...' : 'Testing...'}
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {isRTL ? 'اختبار الاتصال' : 'Test Connection'}
+                  </>
+                )}
+              </Button>
+              
+              {connectionValid === true && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {isRTL ? 'الاتصال ناجح' : 'Connection successful'}
+                </div>
+              )}
+              
+              {connectionValid === false && (
+                <div className="flex items-center gap-2 text-destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  {isRTL ? 'فشل الاتصال' : 'Connection failed'}
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  {isRTL ? (
+                    <>
+                      <p className="font-medium">ملاحظة هامة:</p>
+                      <p>يجب أن يحتوي المشروع الخارجي على دالة exec_sql لتنفيذ الاستعادة.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium">Important Note:</p>
+                      <p>The external project must have the exec_sql function to execute the restore.</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Restore Target Indicator */}
+      {useExternalSupabase && connectionValid && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-3">
+          <Server className="h-5 w-5 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">
+              {isRTL ? 'الاستعادة إلى:' : 'Restoring to:'}
+            </p>
+            <p className="text-sm text-muted-foreground font-mono">{externalUrl}</p>
+          </div>
+        </div>
+      )}
       
       <div className="grid gap-6 md:grid-cols-2">
         {/* Structure Restore Card */}
