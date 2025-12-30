@@ -4260,6 +4260,15 @@ export type Database = {
           trigger_name: string
         }[]
       }
+      get_user_defined_types_info: {
+        Args: never
+        Returns: {
+          enum_values: string[]
+          type_name: string
+          type_schema: string
+          type_type: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

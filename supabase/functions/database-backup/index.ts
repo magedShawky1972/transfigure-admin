@@ -29,7 +29,8 @@ Deno.serve(async (req) => {
         indexesRes,
         policiesRes,
         functionsRes,
-        triggersRes
+        triggersRes,
+        userTypesRes
       ] = await Promise.all([
         supabase.rpc('get_table_columns_info'),
         supabase.rpc('get_primary_keys_info'),
@@ -37,11 +38,16 @@ Deno.serve(async (req) => {
         supabase.rpc('get_indexes_info'),
         supabase.rpc('get_rls_policies_info'),
         supabase.rpc('get_db_functions_info'),
-        supabase.rpc('get_triggers_info')
+        supabase.rpc('get_triggers_info'),
+        supabase.rpc('get_user_defined_types_info')
       ]);
 
       if (columnsRes.error) {
         console.error('Error fetching columns:', columnsRes.error);
+      }
+
+      if (userTypesRes.error) {
+        console.error('Error fetching user-defined types:', userTypesRes.error);
       }
 
       // Get row counts for each table
@@ -65,7 +71,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log(`Found ${tableNames.length} tables, ${(functionsRes.data || []).length} functions, ${(triggersRes.data || []).length} triggers, ${(policiesRes.data || []).length} policies`);
+      console.log(`Found ${tableNames.length} tables, ${(functionsRes.data || []).length} functions, ${(triggersRes.data || []).length} triggers, ${(policiesRes.data || []).length} policies, ${(userTypesRes.data || []).length} user-defined types`);
 
       return new Response(
         JSON.stringify({
@@ -79,6 +85,7 @@ Deno.serve(async (req) => {
             policies: policiesRes.data || [],
             functions: functionsRes.data || [],
             triggers: triggersRes.data || [],
+            userDefinedTypes: userTypesRes.data || [],
             tableRowCounts
           }
         }),
