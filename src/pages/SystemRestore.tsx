@@ -65,6 +65,9 @@ const SystemRestore = () => {
   const [externalAnonKey, setExternalAnonKey] = useState("");
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionValid, setConnectionValid] = useState<boolean | null>(null);
+  const [externalTables, setExternalTables] = useState<{name: string, rowCount: number}[]>([]);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const [tablesError, setTablesError] = useState<string | null>(null);
   
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
@@ -88,6 +91,74 @@ const SystemRestore = () => {
     }
     return supabase;
   };
+  
+  // Fetch tables from external Supabase
+  const fetchExternalTables = async (url: string, anonKey: string) => {
+    setLoadingTables(true);
+    setTablesError(null);
+    setExternalTables([]);
+    
+    try {
+      const testClient = createClient(url, anonKey);
+      
+      // Query to get all tables in public schema with row counts
+      const { data, error } = await testClient.rpc('exec_sql', { 
+        sql: `
+          SELECT 
+            t.tablename as name,
+            COALESCE(s.n_live_tup, 0)::integer as row_count
+          FROM pg_catalog.pg_tables t
+          LEFT JOIN pg_stat_user_tables s ON t.tablename = s.relname
+          WHERE t.schemaname = 'public'
+          ORDER BY t.tablename
+        `
+      });
+      
+      if (error) {
+        if (error.message.includes('exec_sql') || error.message.includes('function')) {
+          setTablesError(isRTL ? 'دالة exec_sql غير موجودة في المشروع الخارجي' : 'exec_sql function not found in external project');
+          setConnectionValid(false);
+        } else {
+          throw error;
+        }
+      } else {
+        // Parse result - it comes as an array or might need parsing
+        let tables: {name: string, rowCount: number}[] = [];
+        
+        if (Array.isArray(data)) {
+          tables = data.map((t: any) => ({ name: t.name, rowCount: t.row_count || 0 }));
+        }
+        
+        setExternalTables(tables);
+        setConnectionValid(true);
+        
+        if (tables.length === 0) {
+          setTablesError(isRTL ? 'لم يتم العثور على جداول في المشروع الخارجي' : 'No tables found in external project');
+        }
+      }
+    } catch (error: any) {
+      console.error('Error fetching tables:', error);
+      setTablesError(error.message);
+      setConnectionValid(false);
+    } finally {
+      setLoadingTables(false);
+    }
+  };
+  
+  // Auto-fetch tables when URL and Anon Key are both provided
+  useEffect(() => {
+    if (useExternalSupabase && externalUrl && externalAnonKey) {
+      // Debounce the fetch
+      const timer = setTimeout(() => {
+        fetchExternalTables(externalUrl, externalAnonKey);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setExternalTables([]);
+      setTablesError(null);
+      setConnectionValid(null);
+    }
+  }, [useExternalSupabase, externalUrl, externalAnonKey]);
   
   // Test external connection
   const testExternalConnection = async () => {
@@ -115,6 +186,8 @@ const SystemRestore = () => {
       } else {
         setConnectionValid(true);
         toast.success(isRTL ? 'تم الاتصال بنجاح' : 'Connection successful');
+        // Refresh tables
+        fetchExternalTables(externalUrl, externalAnonKey);
       }
     } catch (error: any) {
       console.error('Connection test error:', error);
@@ -638,6 +711,47 @@ const SystemRestore = () => {
                 </div>
               )}
             </div>
+            
+            {/* External Tables List */}
+            {loadingTables && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {isRTL ? 'جاري تحميل الجداول...' : 'Loading tables...'}
+              </div>
+            )}
+            
+            {tablesError && !loadingTables && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {tablesError}
+                </div>
+              </div>
+            )}
+            
+            {externalTables.length > 0 && !loadingTables && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  {isRTL ? `الجداول الموجودة (${externalTables.length})` : `Existing Tables (${externalTables.length})`}
+                </Label>
+                <ScrollArea className="h-48 border rounded-lg">
+                  <div className="p-2 space-y-1">
+                    {externalTables.map((table, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50"
+                      >
+                        <span className="font-mono text-sm">{table.name}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {table.rowCount.toLocaleString()} {isRTL ? 'صف' : 'rows'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
             
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-200">
               <div className="flex items-start gap-2">
