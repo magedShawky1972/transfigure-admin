@@ -112,7 +112,10 @@ const SystemRestore = () => {
       const data = result.data;
       
       if (!data.success) {
-        if (data.error?.includes('exec_sql') || data.error?.includes('function') || data.code === 'PGRST202') {
+        if (data.code === 'INVALID_SUPABASE_URL' || data.error?.toLowerCase?.().includes('<!doctype html')) {
+          setTablesError(isRTL ? 'رابط Supabase غير صحيح. استخدم رابط الـ API مثل https://<project-ref>.supabase.co' : 'Invalid SUPABASE_URL. Use the API URL like https://<project-ref>.supabase.co');
+          setConnectionValid(false);
+        } else if (data.error?.includes('exec_sql') || data.error?.includes('function') || data.code === 'PGRST202') {
           setTablesError(isRTL ? 'دالة exec_sql غير موجودة في المشروع الخارجي' : 'exec_sql function not found in external project');
           setConnectionValid(false);
         } else {
@@ -177,7 +180,14 @@ const SystemRestore = () => {
       const data = result.data;
       
       if (!data.success) {
-        if (data.error?.includes('exec_sql') || data.error?.includes('function') || data.code === 'PGRST202') {
+        if (data.code === 'INVALID_SUPABASE_URL' || data.error?.toLowerCase?.().includes('<!doctype html')) {
+          setConnectionValid(false);
+          toast.error(
+            isRTL
+              ? 'رابط Supabase غير صحيح. استخدم رابط الـ API مثل https://<project-ref>.supabase.co'
+              : 'Invalid SUPABASE_URL. Use the API URL like https://<project-ref>.supabase.co'
+          );
+        } else if (data.error?.includes('exec_sql') || data.error?.includes('function') || data.code === 'PGRST202') {
           toast.warning(isRTL ? 'الاتصال ناجح لكن دالة exec_sql غير موجودة' : 'Connection successful but exec_sql function not found');
           setConnectionValid(false);
         } else {
