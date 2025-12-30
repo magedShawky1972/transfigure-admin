@@ -97,6 +97,36 @@ const SystemBackup = () => {
     sql += `-- Generated at: ${new Date().toISOString()}\n`;
     sql += '-- ================================================\n\n';
 
+    // User-Defined Types (Enums, Domains, etc.) - MUST be created before tables
+    if (data.userDefinedTypes && Array.isArray(data.userDefinedTypes) && data.userDefinedTypes.length > 0) {
+      sql += '-- ==================== USER-DEFINED TYPES ====================\n\n';
+      
+      for (const udt of data.userDefinedTypes) {
+        if (udt.type_type === 'enum' && udt.enum_values && Array.isArray(udt.enum_values)) {
+          // Create ENUM type
+          const enumValues = udt.enum_values.map((v: string) => `'${v.replace(/'/g, "''")}'`).join(', ');
+          sql += `-- Enum type: ${udt.type_name}\n`;
+          sql += `DO $$ BEGIN\n`;
+          sql += `  CREATE TYPE public.${udt.type_name} AS ENUM (${enumValues});\n`;
+          sql += `EXCEPTION\n`;
+          sql += `  WHEN duplicate_object THEN NULL;\n`;
+          sql += `END $$;\n\n`;
+        } else if (udt.type_type === 'domain') {
+          sql += `-- Domain type: ${udt.type_name}\n`;
+          sql += `-- Note: Domain definition requires manual review\n`;
+          sql += `-- CREATE DOMAIN public.${udt.type_name} AS ...;\n\n`;
+        } else if (udt.type_type === 'composite') {
+          sql += `-- Composite type: ${udt.type_name}\n`;
+          sql += `-- Note: Composite type definition requires manual review\n`;
+          sql += `-- CREATE TYPE public.${udt.type_name} AS (...);\n\n`;
+        } else if (udt.type_type === 'range') {
+          sql += `-- Range type: ${udt.type_name}\n`;
+          sql += `-- Note: Range type definition requires manual review\n`;
+          sql += `-- CREATE TYPE public.${udt.type_name} AS RANGE (...);\n\n`;
+        }
+      }
+    }
+
     // Generate CREATE TABLE statements from columns info
     if (data.columns && Array.isArray(data.columns) && data.columns.length > 0) {
       // Group columns by table
@@ -142,8 +172,19 @@ const SystemBackup = () => {
         for (const col of cols) {
           let colDef = `  ${col.column_name} `;
           
+          // Check if this is a user-defined type (like enum)
+          const isUserDefinedType = data.userDefinedTypes?.some(
+            (udt: any) => udt.type_name === col.udt_name
+          );
+          
           // Map data type
-          if (col.udt_name === 'uuid') {
+          if (isUserDefinedType) {
+            // Use the user-defined type name directly
+            colDef += `public.${col.udt_name}`;
+          } else if (col.data_type === 'USER-DEFINED') {
+            // Fallback for USER-DEFINED types not in our list
+            colDef += `public.${col.udt_name}`;
+          } else if (col.udt_name === 'uuid') {
             colDef += 'UUID';
           } else if (col.udt_name === 'timestamptz') {
             colDef += 'TIMESTAMP WITH TIME ZONE';
