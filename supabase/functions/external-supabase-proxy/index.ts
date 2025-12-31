@@ -80,7 +80,26 @@ serve(async (req) => {
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        result = { success: true, tables: tablesData || [] };
+        
+        // Handle response - exec_sql now returns JSON array for SELECT queries
+        let tables = [];
+        if (Array.isArray(tablesData)) {
+          tables = tablesData;
+        } else if (tablesData && typeof tablesData === 'object') {
+          // Check if it's an error response from exec_sql
+          if (tablesData.error) {
+            console.error('exec_sql returned error:', tablesData.error);
+            return new Response(
+              JSON.stringify({ success: false, error: tablesData.error, detail: tablesData.detail }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          // If it's a single object, wrap in array
+          tables = [tablesData];
+        }
+        
+        console.log(`Fetch tables: found ${tables.length} tables`);
+        result = { success: true, tables };
         break;
 
       case 'exec_sql':

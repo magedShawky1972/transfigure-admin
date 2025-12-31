@@ -825,7 +825,7 @@ const SystemRestore = () => {
                         : 'Run this SQL in the external Supabase SQL Editor:'}
                     </p>
                     <div className="relative">
-                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto max-h-48" dir="ltr">
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto max-h-64" dir="ltr">
 {`CREATE OR REPLACE FUNCTION public.exec_sql(sql text)
 RETURNS json
 LANGUAGE plpgsql
@@ -834,11 +834,23 @@ SET search_path = public
 AS $$
 DECLARE
   result json;
+  is_select boolean;
 BEGIN
-  EXECUTE sql INTO result;
+  -- Check if it's a SELECT statement
+  is_select := lower(trim(sql)) LIKE 'select%';
+  
+  IF is_select THEN
+    -- For SELECT queries, wrap in json_agg to return array
+    EXECUTE 'SELECT COALESCE(json_agg(row_to_json(t)), ''[]''::json) FROM (' || sql || ') t' INTO result;
+  ELSE
+    -- For DDL/DML statements, just execute and return success
+    EXECUTE sql;
+    result := json_build_object('success', true);
+  END IF;
+  
   RETURN result;
 EXCEPTION WHEN OTHERS THEN
-  RAISE;
+  RETURN json_build_object('error', SQLERRM, 'detail', SQLSTATE);
 END;
 $$;
 
@@ -859,11 +871,23 @@ SET search_path = public
 AS $$
 DECLARE
   result json;
+  is_select boolean;
 BEGIN
-  EXECUTE sql INTO result;
+  -- Check if it's a SELECT statement
+  is_select := lower(trim(sql)) LIKE 'select%';
+  
+  IF is_select THEN
+    -- For SELECT queries, wrap in json_agg to return array
+    EXECUTE 'SELECT COALESCE(json_agg(row_to_json(t)), ''[]''::json) FROM (' || sql || ') t' INTO result;
+  ELSE
+    -- For DDL/DML statements, just execute and return success
+    EXECUTE sql;
+    result := json_build_object('success', true);
+  END IF;
+  
   RETURN result;
 EXCEPTION WHEN OTHERS THEN
-  RAISE;
+  RETURN json_build_object('error', SQLERRM, 'detail', SQLSTATE);
 END;
 $$;
 
