@@ -362,12 +362,12 @@ export default function TimesheetManagement() {
             </div>
             <div className="space-y-2">
               <Label>{language === "ar" ? "الموظف" : "Employee"}</Label>
-              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+              <Select value={selectedEmployee || "_all_"} onValueChange={(v) => setSelectedEmployee(v === "_all_" ? "" : v)}>
                 <SelectTrigger className="w-64">
                   <SelectValue placeholder={language === "ar" ? "جميع الموظفين" : "All Employees"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "ar" ? "جميع الموظفين" : "All Employees"}</SelectItem>
+                  <SelectItem value="_all_">{language === "ar" ? "جميع الموظفين" : "All Employees"}</SelectItem>
                   {employees.map((emp) => (
                     <SelectItem key={emp.id} value={emp.id}>
                       {emp.employee_number} - {emp.first_name} {emp.last_name}
