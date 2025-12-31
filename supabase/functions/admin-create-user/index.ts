@@ -17,7 +17,8 @@ const ALL_MENU_ITEMS = [
   "shiftCalendar", "currencySetup", "userGroupSetup", "projectsTasks", "companyHierarchy",
   "supplierSetup", "userLogins", "userEmails", "asusTawasoul", "emailManager", "mailSetup",
   "systemConfig", "closingTraining", "odooSetup", "excelSetup", "tableConfig", "pdfToExcel",
-  "systemBackup", "systemRestore"
+  "systemBackup", "systemRestore", "employeeSetup", "vacationSetup", "timesheetManagement",
+  "deductionRulesSetup", "medicalInsuranceSetup", "shiftPlansSetup"
 ];
 
 // Dashboard components

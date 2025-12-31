@@ -29,7 +29,13 @@ import {
   Truck,
   Mail,
   HardDrive,
-  RotateCcw
+  RotateCcw,
+  UserCircle,
+  Palmtree,
+  ClipboardList,
+  Calculator,
+  HeartPulse,
+  CalendarClock
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -108,6 +114,12 @@ export function AppSidebar() {
     "/pdf-to-excel": "pdfToExcel",
     "/system-backup": "systemBackup",
     "/system-restore": "systemRestore",
+    "/employee-setup": "employeeSetup",
+    "/vacation-setup": "vacationSetup",
+    "/timesheet-management": "timesheetManagement",
+    "/deduction-rules-setup": "deductionRulesSetup",
+    "/medical-insurance-setup": "medicalInsuranceSetup",
+    "/shift-plans-setup": "shiftPlansSetup",
   };
 
   useEffect(() => {
@@ -283,6 +295,17 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'مجموعات المستخدمين' : 'User Groups', url: "/user-group-setup", icon: Users },
         { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
+      ]
+    },
+    {
+      label: language === 'ar' ? 'الموارد البشرية' : 'HR Management',
+      items: [
+        { title: language === 'ar' ? 'إعداد الموظفين' : 'Employee Setup', url: "/employee-setup", icon: UserCircle },
+        { title: language === 'ar' ? 'إعداد الإجازات' : 'Vacation Setup', url: "/vacation-setup", icon: Palmtree },
+        { title: language === 'ar' ? 'إدارة الحضور' : 'Timesheet Management', url: "/timesheet-management", icon: ClipboardList },
+        { title: language === 'ar' ? 'قواعد الخصم' : 'Deduction Rules', url: "/deduction-rules-setup", icon: Calculator },
+        { title: language === 'ar' ? 'التأمين الطبي' : 'Medical Insurance', url: "/medical-insurance-setup", icon: HeartPulse },
+        { title: language === 'ar' ? 'خطط الورديات' : 'Shift Plans', url: "/shift-plans-setup", icon: CalendarClock },
       ]
     },
     {

@@ -78,6 +78,13 @@ import SystemBackup from "./pages/SystemBackup";
 import SystemRestore from "./pages/SystemRestore";
 import OdooSyncBatch from "./pages/OdooSyncBatch";
 import OdooSyncAll from "./pages/OdooSyncAll";
+import EmployeeSetup from "./pages/EmployeeSetup";
+import EmployeeProfile from "./pages/EmployeeProfile";
+import VacationSetup from "./pages/VacationSetup";
+import TimesheetManagement from "./pages/TimesheetManagement";
+import DeductionRulesSetup from "./pages/DeductionRulesSetup";
+import MedicalInsuranceSetup from "./pages/MedicalInsuranceSetup";
+import ShiftPlansSetup from "./pages/ShiftPlansSetup";
 
 const queryClient = new QueryClient();
 
@@ -162,6 +169,13 @@ const App = () => (
               <Route path="/system-restore" element={<SystemRestore />} />
               <Route path="/odoo-sync-batch" element={<OdooSyncBatch />} />
               <Route path="/odoo-sync-all" element={<OdooSyncAll />} />
+              <Route path="/employee-setup" element={<EmployeeSetup />} />
+              <Route path="/employee-profile/:id" element={<EmployeeProfile />} />
+              <Route path="/vacation-setup" element={<VacationSetup />} />
+              <Route path="/timesheet-management" element={<TimesheetManagement />} />
+              <Route path="/deduction-rules-setup" element={<DeductionRulesSetup />} />
+              <Route path="/medical-insurance-setup" element={<MedicalInsuranceSetup />} />
+              <Route path="/shift-plans-setup" element={<ShiftPlansSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
