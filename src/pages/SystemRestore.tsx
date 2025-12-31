@@ -31,6 +31,19 @@ interface TableRestoreItem {
   errorMessage?: string;
 }
 
+interface StructureRestoreItem {
+  name: string;
+  type: 'table' | 'function' | 'trigger' | 'index' | 'policy' | 'type' | 'sequence' | 'other';
+  status: 'pending' | 'executing' | 'done' | 'error' | 'skipped';
+  errorMessage?: string;
+  existsInTarget?: boolean;
+}
+
+interface ConflictingObject {
+  name: string;
+  type: string;
+}
+
 interface SystemState {
   tableExists: boolean;
   usersCount: number;
@@ -59,6 +72,18 @@ const SystemRestore = () => {
   const [totalRowsExpected, setTotalRowsExpected] = useState(0);
   const [isRestoreComplete, setIsRestoreComplete] = useState(false);
   const [restoreErrors, setRestoreErrors] = useState<string[]>([]);
+  
+  // Structure restore progress state
+  const [showStructureProgressDialog, setShowStructureProgressDialog] = useState(false);
+  const [structureRestoreList, setStructureRestoreList] = useState<StructureRestoreItem[]>([]);
+  const [currentStructureItem, setCurrentStructureItem] = useState<string | null>(null);
+  const [isStructureRestoreComplete, setIsStructureRestoreComplete] = useState(false);
+  
+  // Conflict confirmation state
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [conflictingObjects, setConflictingObjects] = useState<ConflictingObject[]>([]);
+  const [pendingStructureStatements, setPendingStructureStatements] = useState<{name: string, type: string, sql: string}[]>([]);
+  const [replaceExisting, setReplaceExisting] = useState(false);
   
   // External Supabase state
   const [useExternalSupabase, setUseExternalSupabase] = useState(false);
@@ -335,6 +360,123 @@ const SystemRestore = () => {
     return tableInserts;
   };
 
+  // Parse structure SQL to extract individual objects
+  const parseStructureStatements = (sql: string): {name: string, type: string, sql: string}[] => {
+    const statements: {name: string, type: string, sql: string}[] = [];
+    
+    // Split SQL by semicolons but handle function bodies properly
+    const rawStatements = sql.split(/;(?=\s*(?:CREATE|ALTER|DROP|GRANT|REVOKE|INSERT|UPDATE|DELETE|SET|DO|--|$))/gi);
+    
+    for (const rawStmt of rawStatements) {
+      const stmt = rawStmt.trim();
+      if (!stmt || stmt.startsWith('--')) continue;
+      
+      // Detect statement type and extract name
+      let name = 'Unknown';
+      let type: string = 'other';
+      
+      // CREATE TABLE
+      const tableMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?/i);
+      if (tableMatch) {
+        name = tableMatch[1];
+        type = 'table';
+      }
+      
+      // CREATE OR REPLACE FUNCTION
+      const funcMatch = stmt.match(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?["']?(\w+)["']?/i);
+      if (funcMatch) {
+        name = funcMatch[1];
+        type = 'function';
+      }
+      
+      // CREATE TRIGGER
+      const triggerMatch = stmt.match(/CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+["']?(\w+)["']?/i);
+      if (triggerMatch) {
+        name = triggerMatch[1];
+        type = 'trigger';
+      }
+      
+      // CREATE INDEX
+      const indexMatch = stmt.match(/CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?/i);
+      if (indexMatch) {
+        name = indexMatch[1];
+        type = 'index';
+      }
+      
+      // CREATE POLICY
+      const policyMatch = stmt.match(/CREATE\s+POLICY\s+["']?([^"'\s]+)["']?/i);
+      if (policyMatch) {
+        name = policyMatch[1];
+        type = 'policy';
+      }
+      
+      // CREATE TYPE
+      const typeMatch = stmt.match(/CREATE\s+TYPE\s+(?:public\.)?["']?(\w+)["']?/i);
+      if (typeMatch) {
+        name = typeMatch[1];
+        type = 'type';
+      }
+      
+      // CREATE SEQUENCE
+      const seqMatch = stmt.match(/CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?/i);
+      if (seqMatch) {
+        name = seqMatch[1];
+        type = 'sequence';
+      }
+      
+      // ALTER TABLE - for adding constraints, columns, etc.
+      const alterMatch = stmt.match(/ALTER\s+TABLE\s+(?:ONLY\s+)?(?:public\.)?["']?(\w+)["']?/i);
+      if (alterMatch && type === 'other') {
+        name = `ALTER ${alterMatch[1]}`;
+        type = 'other';
+      }
+      
+      // GRANT/REVOKE statements
+      if (stmt.match(/^(GRANT|REVOKE)\s+/i)) {
+        const grantMatch = stmt.match(/(?:GRANT|REVOKE).*?ON\s+(?:TABLE\s+)?(?:public\.)?["']?(\w+)["']?/i);
+        name = grantMatch ? `Permission: ${grantMatch[1]}` : 'Permission';
+        type = 'other';
+      }
+      
+      statements.push({ name, type, sql: stmt });
+    }
+    
+    return statements;
+  };
+
+  // Check for existing tables in target database
+  const checkExistingObjects = async (statements: {name: string, type: string, sql: string}[]): Promise<ConflictingObject[]> => {
+    const conflicts: ConflictingObject[] = [];
+    const tableNames = statements.filter(s => s.type === 'table').map(s => s.name);
+    
+    if (tableNames.length === 0) return [];
+    
+    try {
+      if (useExternalSupabase && externalUrl && externalAnonKey) {
+        // Use external tables that were already fetched
+        for (const tableName of tableNames) {
+          if (externalTables.some(t => t.name.toLowerCase() === tableName.toLowerCase())) {
+            conflicts.push({ name: tableName, type: 'table' });
+          }
+        }
+      } else {
+        // Check local database
+        for (const tableName of tableNames) {
+          const { data, error } = await supabase.rpc('exec_sql', { 
+            sql: `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${tableName}')`
+          });
+          if (!error && data === true) {
+            conflicts.push({ name: tableName, type: 'table' });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing objects:', error);
+    }
+    
+    return conflicts;
+  };
+
   const handleRestoreStructure = async () => {
     if (!structureFile) {
       toast.error(isRTL ? 'يرجى اختيار ملف الهيكل أولاً' : 'Please select a structure file first');
@@ -343,64 +485,176 @@ const SystemRestore = () => {
     
     setProgress(prev => ({ ...prev, structure: 'parsing' }));
     setRestoreErrors([]);
+    setStructureRestoreList([]);
+    setIsStructureRestoreComplete(false);
     
     try {
       const sql = await structureFile.text();
       
-      // Split into individual statements
-      const statements = sql
-        .split(';')
-        .map(s => s.trim())
-        .filter(s => s.length > 0 && !s.startsWith('--'));
+      // Parse SQL into individual statements with metadata
+      const statements = parseStructureStatements(sql);
       
-      setProgress(prev => ({ ...prev, structure: 'executing' }));
+      if (statements.length === 0) {
+        toast.error(isRTL ? 'لم يتم العثور على عبارات SQL' : 'No SQL statements found');
+        setProgress(prev => ({ ...prev, structure: 'error' }));
+        return;
+      }
       
-      const errors: string[] = [];
-      let successCount = 0;
+      // Check for existing tables that would conflict
+      const conflicts = await checkExistingObjects(statements);
       
-      for (const statement of statements) {
-        try {
-          // Execute via exec_sql function - use proxy for external or direct for local
-          if (useExternalSupabase && externalUrl && externalAnonKey) {
-            const result = await callExternalProxy('exec_sql', { sql: statement + ';' });
-            if (!result.success) {
-              errors.push(`Statement error: ${result.error}`);
+      if (conflicts.length > 0) {
+        // Show conflict dialog
+        setConflictingObjects(conflicts);
+        setPendingStructureStatements(statements);
+        setShowConflictDialog(true);
+        setProgress(prev => ({ ...prev, structure: 'idle' }));
+        return;
+      }
+      
+      // No conflicts, proceed with restore
+      await executeStructureRestore(statements, false);
+      
+    } catch (error: any) {
+      console.error('Error parsing structure file:', error);
+      setProgress(prev => ({ ...prev, structure: 'error' }));
+      toast.error(error.message || (isRTL ? 'فشل في قراءة ملف الهيكل' : 'Failed to read structure file'));
+    }
+  };
+
+  const handleConfirmReplace = async () => {
+    setShowConflictDialog(false);
+    await executeStructureRestore(pendingStructureStatements, replaceExisting);
+    setPendingStructureStatements([]);
+    setConflictingObjects([]);
+    setReplaceExisting(false);
+  };
+
+  const handleCancelReplace = () => {
+    setShowConflictDialog(false);
+    setPendingStructureStatements([]);
+    setConflictingObjects([]);
+    setReplaceExisting(false);
+    setProgress(prev => ({ ...prev, structure: 'idle' }));
+  };
+
+  const executeStructureRestore = async (statements: {name: string, type: string, sql: string}[], dropExisting: boolean) => {
+    setProgress(prev => ({ ...prev, structure: 'executing' }));
+    setShowStructureProgressDialog(true);
+    setIsStructureRestoreComplete(false);
+    
+    // Initialize progress list
+    const progressList: StructureRestoreItem[] = statements.map(s => ({
+      name: s.name,
+      type: s.type as StructureRestoreItem['type'],
+      status: 'pending',
+      existsInTarget: conflictingObjects.some(c => c.name.toLowerCase() === s.name.toLowerCase())
+    }));
+    
+    setStructureRestoreList(progressList);
+    
+    // Yield to let UI render
+    await new Promise(r => setTimeout(r, 50));
+    
+    const errors: string[] = [];
+    let successCount = 0;
+    let skippedCount = 0;
+    
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const isConflicting = conflictingObjects.some(c => c.name.toLowerCase() === stmt.name.toLowerCase());
+      
+      setCurrentStructureItem(stmt.name);
+      
+      // Update status to executing
+      setStructureRestoreList(prev => prev.map((t, idx) => 
+        idx === i ? { ...t, status: 'executing' } : t
+      ));
+      
+      await new Promise(r => setTimeout(r, 10));
+      
+      try {
+        // If table exists and user chose to replace, drop it first
+        if (isConflicting && stmt.type === 'table') {
+          if (dropExisting) {
+            const dropSql = `DROP TABLE IF EXISTS public.${stmt.name} CASCADE`;
+            if (useExternalSupabase && externalUrl && externalAnonKey) {
+              await callExternalProxy('exec_sql', { sql: dropSql });
             } else {
-              successCount++;
+              await supabase.rpc('exec_sql', { sql: dropSql });
             }
           } else {
-            const { error } = await supabase.rpc('exec_sql', { sql: statement + ';' });
-            if (error) {
-              errors.push(`Statement error: ${error.message}`);
-            } else {
-              successCount++;
-            }
+            // Skip this table
+            setStructureRestoreList(prev => prev.map((t, idx) => 
+              idx === i ? { ...t, status: 'skipped' } : t
+            ));
+            skippedCount++;
+            continue;
           }
-        } catch (err: any) {
-          errors.push(`Execution error: ${err.message}`);
         }
+        
+        // Execute the statement
+        if (useExternalSupabase && externalUrl && externalAnonKey) {
+          const result = await callExternalProxy('exec_sql', { sql: stmt.sql + ';' });
+          if (!result.success && result.error) {
+            // Check if it's a "already exists" error and we can skip
+            if (result.error.includes('already exists')) {
+              setStructureRestoreList(prev => prev.map((t, idx) => 
+                idx === i ? { ...t, status: 'skipped' } : t
+              ));
+              skippedCount++;
+              continue;
+            }
+            throw new Error(result.error);
+          }
+        } else {
+          const { error } = await supabase.rpc('exec_sql', { sql: stmt.sql + ';' });
+          if (error) {
+            if (error.message.includes('already exists')) {
+              setStructureRestoreList(prev => prev.map((t, idx) => 
+                idx === i ? { ...t, status: 'skipped' } : t
+              ));
+              skippedCount++;
+              continue;
+            }
+            throw error;
+          }
+        }
+        
+        successCount++;
+        setStructureRestoreList(prev => prev.map((t, idx) => 
+          idx === i ? { ...t, status: 'done' } : t
+        ));
+        
+      } catch (err: any) {
+        errors.push(`${stmt.type} "${stmt.name}": ${err.message}`);
+        setStructureRestoreList(prev => prev.map((t, idx) => 
+          idx === i ? { ...t, status: 'error', errorMessage: err.message } : t
+        ));
       }
       
-      if (errors.length > 0) {
-        setRestoreErrors(errors);
-        setProgress(prev => ({ ...prev, structure: 'error' }));
-        toast.warning(
-          isRTL 
-            ? `تم تنفيذ ${successCount} عبارة مع ${errors.length} أخطاء` 
-            : `Executed ${successCount} statements with ${errors.length} errors`
-        );
-      } else {
-        setProgress(prev => ({ ...prev, structure: 'done' }));
-        toast.success(
-          isRTL 
-            ? `تم استعادة الهيكل بنجاح (${successCount} عبارة)` 
-            : `Structure restored successfully (${successCount} statements)`
-        );
-      }
-    } catch (error: any) {
-      console.error('Error restoring structure:', error);
+      // Small delay for UI updates
+      await new Promise(r => setTimeout(r, 5));
+    }
+    
+    setCurrentStructureItem(null);
+    setIsStructureRestoreComplete(true);
+    
+    if (errors.length > 0) {
+      setRestoreErrors(errors);
       setProgress(prev => ({ ...prev, structure: 'error' }));
-      toast.error(error.message || (isRTL ? 'فشل في استعادة الهيكل' : 'Failed to restore structure'));
+      toast.warning(
+        isRTL 
+          ? `تم تنفيذ ${successCount} عبارة، تخطي ${skippedCount}، ${errors.length} أخطاء` 
+          : `Executed ${successCount} statements, skipped ${skippedCount}, ${errors.length} errors`
+      );
+    } else {
+      setProgress(prev => ({ ...prev, structure: 'done' }));
+      toast.success(
+        isRTL 
+          ? `تم استعادة الهيكل بنجاح (${successCount} عبارة${skippedCount > 0 ? `، تخطي ${skippedCount}` : ''})` 
+          : `Structure restored successfully (${successCount} statements${skippedCount > 0 ? `, skipped ${skippedCount}` : ''})`
+      );
     }
   };
 
@@ -1298,6 +1552,198 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Structure Restore Progress Dialog */}
+      <Dialog open={showStructureProgressDialog} onOpenChange={setShowStructureProgressDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {isStructureRestoreComplete ? (
+                progress.structure === 'error' ? (
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                )
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              )}
+              {isRTL ? 'تقدم استعادة الهيكل' : 'Structure Restore Progress'}
+            </DialogTitle>
+            <DialogDescription>
+              {isStructureRestoreComplete
+                ? (isRTL ? 'اكتملت عملية استعادة الهيكل' : 'Structure restore completed')
+                : (isRTL ? `جاري إنشاء: ${currentStructureItem || '...'}` : `Creating: ${currentStructureItem || '...'}`)}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Overall Progress */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{isRTL ? 'التقدم الإجمالي' : 'Overall Progress'}</span>
+                <span>
+                  {structureRestoreList.filter(s => s.status === 'done' || s.status === 'skipped').length} / {structureRestoreList.length}
+                </span>
+              </div>
+              <Progress 
+                value={structureRestoreList.length > 0 
+                  ? (structureRestoreList.filter(s => s.status === 'done' || s.status === 'skipped' || s.status === 'error').length / structureRestoreList.length) * 100 
+                  : 0
+                } 
+                className="h-3" 
+              />
+            </div>
+            
+            {/* Structure Items List */}
+            <ScrollArea className="h-64">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isRTL ? 'الاسم' : 'Name'}</TableHead>
+                    <TableHead className="text-center">{isRTL ? 'النوع' : 'Type'}</TableHead>
+                    <TableHead className="text-center">{isRTL ? 'الحالة' : 'Status'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {structureRestoreList.map((item, idx) => (
+                    <TableRow key={idx} className={item.status === 'executing' ? 'bg-primary/5' : ''}>
+                      <TableCell className="font-mono text-sm">
+                        <div className="flex items-center gap-2">
+                          {item.name}
+                          {item.existsInTarget && (
+                            <Badge variant="outline" className="text-xs">
+                              {isRTL ? 'موجود' : 'exists'}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary" className="text-xs capitalize">
+                          {item.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {getStatusIcon(item.status)}
+                          <Badge variant={
+                            item.status === 'done' ? 'default' :
+                            item.status === 'error' ? 'destructive' :
+                            item.status === 'skipped' ? 'outline' :
+                            item.status === 'executing' ? 'secondary' :
+                            'outline'
+                          }>
+                            {item.status === 'done' ? (isRTL ? 'تم' : 'done') :
+                             item.status === 'error' ? (isRTL ? 'خطأ' : 'error') :
+                             item.status === 'skipped' ? (isRTL ? 'تخطي' : 'skipped') :
+                             item.status === 'executing' ? (isRTL ? 'جاري' : 'running') :
+                             (isRTL ? 'انتظار' : 'pending')}
+                          </Badge>
+                        </div>
+                        {item.errorMessage && (
+                          <p className="text-xs text-destructive mt-1 max-w-48 truncate" title={item.errorMessage}>
+                            {item.errorMessage}
+                          </p>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
+          
+          {/* Close button after restore completes */}
+          {isStructureRestoreComplete && (
+            <DialogFooter className="pt-4 border-t">
+              <Button 
+                variant="outline"
+                onClick={() => setShowStructureProgressDialog(false)}
+              >
+                {isRTL ? 'إغلاق' : 'Close'}
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Conflict Confirmation Dialog */}
+      <Dialog open={showConflictDialog} onOpenChange={setShowConflictDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              {isRTL ? 'تم العثور على جداول موجودة' : 'Existing Tables Found'}
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL 
+                ? 'الجداول التالية موجودة بالفعل في قاعدة البيانات المستهدفة:' 
+                : 'The following tables already exist in the target database:'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <ScrollArea className="h-32 border rounded-lg p-2">
+              <div className="space-y-1">
+                {conflictingObjects.map((obj, idx) => (
+                  <div key={idx} className="flex items-center gap-2 py-1">
+                    <Database className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-mono text-sm">{obj.name}</span>
+                    <Badge variant="outline" className="text-xs">{obj.type}</Badge>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+            
+            <div className="flex items-center space-x-2 rtl:space-x-reverse p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <Switch
+                id="replace-existing"
+                checked={replaceExisting}
+                onCheckedChange={setReplaceExisting}
+              />
+              <Label htmlFor="replace-existing" className="text-sm cursor-pointer">
+                {isRTL 
+                  ? 'حذف الجداول الموجودة وإعادة إنشائها (سيتم فقدان البيانات!)' 
+                  : 'Drop existing tables and recreate them (data will be lost!)'}
+              </Label>
+            </div>
+            
+            {replaceExisting && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    {isRTL 
+                      ? 'تحذير: سيتم حذف الجداول الموجودة وجميع بياناتها قبل إعادة إنشائها. لا يمكن التراجع عن هذه العملية!' 
+                      : 'Warning: Existing tables and all their data will be deleted before recreating. This action cannot be undone!'}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {!replaceExisting && (
+              <div className="bg-muted p-3 rounded-lg text-sm text-muted-foreground">
+                {isRTL 
+                  ? 'سيتم تخطي الجداول الموجودة وإنشاء الجداول الجديدة فقط.' 
+                  : 'Existing tables will be skipped and only new tables will be created.'}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelReplace}>
+              {isRTL ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button 
+              variant={replaceExisting ? 'destructive' : 'default'}
+              onClick={handleConfirmReplace}
+            >
+              {replaceExisting 
+                ? (isRTL ? 'حذف وإعادة إنشاء' : 'Drop & Recreate')
+                : (isRTL ? 'تخطي الموجود' : 'Skip Existing')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
