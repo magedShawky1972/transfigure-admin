@@ -745,6 +745,39 @@ export type Database = {
           },
         ]
       }
+      document_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_mandatory: boolean | null
+          type_name: string
+          type_name_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_mandatory?: boolean | null
+          type_name: string
+          type_name_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_mandatory?: boolean | null
+          type_name?: string
+          type_name_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_attachments: {
         Row: {
           content_type: string | null
@@ -912,6 +945,63 @@ export type Database = {
             columns: ["linked_ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_documents: {
+        Row: {
+          created_at: string
+          document_type_id: string
+          employee_id: string
+          expiry_date: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          notes: string | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type_id: string
+          employee_id: string
+          expiry_date?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type_id?: string
+          employee_id?: string
+          expiry_date?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
