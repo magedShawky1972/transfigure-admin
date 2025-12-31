@@ -133,6 +133,12 @@ interface UserPermission {
     { key: "pdfToExcel", label: "تحويل PDF إلى Excel", labelEn: "PDF to Excel" },
     { key: "systemBackup", label: "نسخ احتياطي", labelEn: "System Backup" },
     { key: "systemRestore", label: "استعادة النظام", labelEn: "System Restore" },
+    { key: "employeeSetup", label: "إعداد الموظفين", labelEn: "Employee Setup" },
+    { key: "vacationSetup", label: "إعداد الإجازات", labelEn: "Vacation Setup" },
+    { key: "timesheetManagement", label: "إدارة الحضور", labelEn: "Timesheet Management" },
+    { key: "deductionRulesSetup", label: "قواعد الخصم", labelEn: "Deduction Rules" },
+    { key: "medicalInsuranceSetup", label: "التأمين الطبي", labelEn: "Medical Insurance" },
+    { key: "shiftPlansSetup", label: "خطط الورديات", labelEn: "Shift Plans" },
   ];
 
 const DASHBOARD_COMPONENTS = [
