@@ -509,6 +509,54 @@ export type Database = {
         }
         Relationships: []
       }
+      deduction_rules: {
+        Row: {
+          created_at: string
+          deduction_type: string
+          deduction_value: number
+          id: string
+          is_active: boolean
+          is_overtime: boolean | null
+          max_minutes: number | null
+          min_minutes: number | null
+          overtime_multiplier: number | null
+          rule_name: string
+          rule_name_ar: string | null
+          rule_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deduction_type: string
+          deduction_value: number
+          id?: string
+          is_active?: boolean
+          is_overtime?: boolean | null
+          max_minutes?: number | null
+          min_minutes?: number | null
+          overtime_multiplier?: number | null
+          rule_name: string
+          rule_name_ar?: string | null
+          rule_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deduction_type?: string
+          deduction_value?: number
+          id?: string
+          is_active?: boolean
+          is_overtime?: boolean | null
+          max_minutes?: number | null
+          min_minutes?: number | null
+          overtime_multiplier?: number | null
+          rule_name?: string
+          rule_name_ar?: string | null
+          rule_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       deleted_email_ids: {
         Row: {
           deleted_at: string
@@ -864,6 +912,233 @@ export type Database = {
             columns: ["linked_ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_job_history: {
+        Row: {
+          change_reason: string | null
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          employee_id: string
+          end_date: string | null
+          id: string
+          job_position_id: string | null
+          notes: string | null
+          salary: number | null
+          start_date: string
+        }
+        Insert: {
+          change_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          employee_id: string
+          end_date?: string | null
+          id?: string
+          job_position_id?: string | null
+          notes?: string | null
+          salary?: number | null
+          start_date: string
+        }
+        Update: {
+          change_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          employee_id?: string
+          end_date?: string | null
+          id?: string
+          job_position_id?: string | null
+          notes?: string | null
+          salary?: number | null
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_job_history_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_job_history_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_job_history_job_position_id_fkey"
+            columns: ["job_position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          basic_salary: number | null
+          created_at: string
+          currency: string | null
+          date_of_birth: string | null
+          department_id: string | null
+          email: string | null
+          employee_number: string
+          employment_status: Database["public"]["Enums"]["employment_status"]
+          first_name: string
+          first_name_ar: string | null
+          fixed_shift_end: string | null
+          fixed_shift_start: string | null
+          gender: string | null
+          id: string
+          insurance_end_date: string | null
+          insurance_start_date: string | null
+          job_position_id: string | null
+          job_start_date: string
+          last_name: string
+          last_name_ar: string | null
+          manager_id: string | null
+          marital_status: string | null
+          medical_insurance_plan_id: string | null
+          mobile: string | null
+          national_id: string | null
+          nationality: string | null
+          notes: string | null
+          passport_number: string | null
+          phone: string | null
+          photo_url: string | null
+          shift_plan_id: string | null
+          shift_type: Database["public"]["Enums"]["shift_type"]
+          termination_date: string | null
+          updated_at: string
+          user_id: string | null
+          vacation_balance: number | null
+          vacation_code_id: string | null
+        }
+        Insert: {
+          basic_salary?: number | null
+          created_at?: string
+          currency?: string | null
+          date_of_birth?: string | null
+          department_id?: string | null
+          email?: string | null
+          employee_number: string
+          employment_status?: Database["public"]["Enums"]["employment_status"]
+          first_name: string
+          first_name_ar?: string | null
+          fixed_shift_end?: string | null
+          fixed_shift_start?: string | null
+          gender?: string | null
+          id?: string
+          insurance_end_date?: string | null
+          insurance_start_date?: string | null
+          job_position_id?: string | null
+          job_start_date: string
+          last_name: string
+          last_name_ar?: string | null
+          manager_id?: string | null
+          marital_status?: string | null
+          medical_insurance_plan_id?: string | null
+          mobile?: string | null
+          national_id?: string | null
+          nationality?: string | null
+          notes?: string | null
+          passport_number?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          shift_plan_id?: string | null
+          shift_type?: Database["public"]["Enums"]["shift_type"]
+          termination_date?: string | null
+          updated_at?: string
+          user_id?: string | null
+          vacation_balance?: number | null
+          vacation_code_id?: string | null
+        }
+        Update: {
+          basic_salary?: number | null
+          created_at?: string
+          currency?: string | null
+          date_of_birth?: string | null
+          department_id?: string | null
+          email?: string | null
+          employee_number?: string
+          employment_status?: Database["public"]["Enums"]["employment_status"]
+          first_name?: string
+          first_name_ar?: string | null
+          fixed_shift_end?: string | null
+          fixed_shift_start?: string | null
+          gender?: string | null
+          id?: string
+          insurance_end_date?: string | null
+          insurance_start_date?: string | null
+          job_position_id?: string | null
+          job_start_date?: string
+          last_name?: string
+          last_name_ar?: string | null
+          manager_id?: string | null
+          marital_status?: string | null
+          medical_insurance_plan_id?: string | null
+          mobile?: string | null
+          national_id?: string | null
+          nationality?: string | null
+          notes?: string | null
+          passport_number?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          shift_plan_id?: string | null
+          shift_type?: Database["public"]["Enums"]["shift_type"]
+          termination_date?: string | null
+          updated_at?: string
+          user_id?: string | null
+          vacation_balance?: number | null
+          vacation_code_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_job_position_id_fkey"
+            columns: ["job_position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_medical_insurance_plan_id_fkey"
+            columns: ["medical_insurance_plan_id"]
+            isOneToOne: false
+            referencedRelation: "medical_insurance_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_shift_plan_id_fkey"
+            columns: ["shift_plan_id"]
+            isOneToOne: false
+            referencedRelation: "shift_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_vacation_code_id_fkey"
+            columns: ["vacation_code_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_codes"
             referencedColumns: ["id"]
           },
         ]
@@ -1443,6 +1718,54 @@ export type Database = {
           smtp_port?: number
           smtp_secure?: boolean
           type_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      medical_insurance_plans: {
+        Row: {
+          coverage_type: string | null
+          created_at: string
+          description: string | null
+          employee_contribution: number | null
+          employer_contribution: number | null
+          id: string
+          includes_family: boolean | null
+          is_active: boolean
+          max_coverage_amount: number | null
+          plan_name: string
+          plan_name_ar: string | null
+          provider: string | null
+          updated_at: string
+        }
+        Insert: {
+          coverage_type?: string | null
+          created_at?: string
+          description?: string | null
+          employee_contribution?: number | null
+          employer_contribution?: number | null
+          id?: string
+          includes_family?: boolean | null
+          is_active?: boolean
+          max_coverage_amount?: number | null
+          plan_name: string
+          plan_name_ar?: string | null
+          provider?: string | null
+          updated_at?: string
+        }
+        Update: {
+          coverage_type?: string | null
+          created_at?: string
+          description?: string | null
+          employee_contribution?: number | null
+          employer_contribution?: number | null
+          id?: string
+          includes_family?: boolean | null
+          is_active?: boolean
+          max_coverage_amount?: number | null
+          plan_name?: string
+          plan_name_ar?: string | null
+          provider?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2748,6 +3071,77 @@ export type Database = {
           },
         ]
       }
+      shift_plan_details: {
+        Row: {
+          break_duration_minutes: number | null
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_off_day: boolean | null
+          shift_plan_id: string
+          start_time: string
+        }
+        Insert: {
+          break_duration_minutes?: number | null
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_off_day?: boolean | null
+          shift_plan_id: string
+          start_time: string
+        }
+        Update: {
+          break_duration_minutes?: number | null
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_off_day?: boolean | null
+          shift_plan_id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_plan_details_shift_plan_id_fkey"
+            columns: ["shift_plan_id"]
+            isOneToOne: false
+            referencedRelation: "shift_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          plan_name: string
+          plan_name_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          plan_name: string
+          plan_name_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          plan_name?: string
+          plan_name_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shift_reopen_logs: {
         Row: {
           admin_user_id: string
@@ -3565,6 +3959,89 @@ export type Database = {
           },
         ]
       }
+      timesheets: {
+        Row: {
+          absence_reason: string | null
+          actual_end: string | null
+          actual_start: string | null
+          approved_at: string | null
+          approved_by: string | null
+          break_duration_minutes: number | null
+          created_at: string
+          deduction_amount: number | null
+          early_leave_minutes: number | null
+          employee_id: string
+          id: string
+          is_absent: boolean | null
+          late_minutes: number | null
+          notes: string | null
+          overtime_amount: number | null
+          overtime_minutes: number | null
+          scheduled_end: string | null
+          scheduled_start: string | null
+          status: string
+          total_work_minutes: number | null
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          absence_reason?: string | null
+          actual_end?: string | null
+          actual_start?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          break_duration_minutes?: number | null
+          created_at?: string
+          deduction_amount?: number | null
+          early_leave_minutes?: number | null
+          employee_id: string
+          id?: string
+          is_absent?: boolean | null
+          late_minutes?: number | null
+          notes?: string | null
+          overtime_amount?: number | null
+          overtime_minutes?: number | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          status?: string
+          total_work_minutes?: number | null
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          absence_reason?: string | null
+          actual_end?: string | null
+          actual_start?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          break_duration_minutes?: number | null
+          created_at?: string
+          deduction_amount?: number | null
+          early_leave_minutes?: number | null
+          employee_id?: string
+          id?: string
+          is_absent?: boolean | null
+          late_minutes?: number | null
+          notes?: string | null
+          overtime_amount?: number | null
+          overtime_minutes?: number | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          status?: string
+          total_work_minutes?: number | null
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheets_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uom: {
         Row: {
           created_at: string
@@ -3913,6 +4390,111 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vacation_codes: {
+        Row: {
+          code: string
+          created_at: string
+          default_days: number
+          description: string | null
+          id: string
+          is_active: boolean
+          is_paid: boolean
+          name_ar: string | null
+          name_en: string
+          requires_approval: boolean
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          default_days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_paid?: boolean
+          name_ar?: string | null
+          name_en: string
+          requires_approval?: boolean
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          default_days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_paid?: boolean
+          name_ar?: string | null
+          name_en?: string
+          requires_approval?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vacation_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          employee_id: string
+          end_date: string
+          id: string
+          reason: string | null
+          rejection_reason: string | null
+          start_date: string
+          status: string
+          total_days: number
+          updated_at: string
+          vacation_code_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id: string
+          end_date: string
+          id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          start_date: string
+          status?: string
+          total_days: number
+          updated_at?: string
+          vacation_code_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id?: string
+          end_date?: string
+          id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          start_date?: string
+          status?: string
+          total_days?: number
+          updated_at?: string
+          vacation_code_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacation_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacation_requests_vacation_code_id_fkey"
+            columns: ["vacation_code_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_config: {
         Row: {
@@ -4329,6 +4911,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      employment_status: "active" | "on_leave" | "terminated" | "suspended"
+      shift_type: "fixed" | "rotating"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4457,6 +5041,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      employment_status: ["active", "on_leave", "terminated", "suspended"],
+      shift_type: ["fixed", "rotating"],
     },
   },
 } as const
