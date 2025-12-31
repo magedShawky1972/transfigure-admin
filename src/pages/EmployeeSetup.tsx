@@ -527,14 +527,14 @@ export default function EmployeeSetup() {
             <div className="space-y-2">
               <Label>{language === "ar" ? "ربط بمستخدم" : "Link to User"}</Label>
               <Select
-                value={formData.user_id}
-                onValueChange={(value) => setFormData({ ...formData, user_id: value })}
+                value={formData.user_id || "_none_"}
+                onValueChange={(value) => setFormData({ ...formData, user_id: value === "_none_" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={language === "ar" ? "اختر مستخدم" : "Select User"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "ar" ? "بدون ربط" : "No Link"}</SelectItem>
+                  <SelectItem value="_none_">{language === "ar" ? "بدون ربط" : "No Link"}</SelectItem>
                   {profiles.map((profile) => (
                     <SelectItem key={profile.user_id} value={profile.user_id}>
                       {profile.user_name} ({profile.email})
@@ -688,14 +688,14 @@ export default function EmployeeSetup() {
             <div className="space-y-2">
               <Label>{language === "ar" ? "المدير المباشر" : "Manager"}</Label>
               <Select
-                value={formData.manager_id}
-                onValueChange={(value) => setFormData({ ...formData, manager_id: value })}
+                value={formData.manager_id || "_none_"}
+                onValueChange={(value) => setFormData({ ...formData, manager_id: value === "_none_" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={language === "ar" ? "اختر المدير" : "Select Manager"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "ar" ? "بدون مدير" : "No Manager"}</SelectItem>
+                  <SelectItem value="_none_">{language === "ar" ? "بدون مدير" : "No Manager"}</SelectItem>
                   {allEmployees
                     .filter((e) => e.id !== selectedEmployee?.id)
                     .map((emp) => (
