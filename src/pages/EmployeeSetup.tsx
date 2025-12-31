@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -27,8 +29,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Search, UserCircle, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -100,9 +103,31 @@ interface ShiftPlan {
   plan_name: string;
 }
 
+interface DocumentType {
+  id: string;
+  type_name: string;
+  type_name_ar: string | null;
+  is_mandatory: boolean;
+}
+
+interface EmployeeDocument {
+  id: string;
+  employee_id: string;
+  document_type_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  expiry_date: string | null;
+  notes: string | null;
+  document_types?: { type_name: string; type_name_ar: string | null };
+}
+
 export default function EmployeeSetup() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
@@ -111,11 +136,19 @@ export default function EmployeeSetup() {
   const [insurancePlans, setInsurancePlans] = useState<MedicalInsurancePlan[]>([]);
   const [shiftPlans, setShiftPlans] = useState<ShiftPlan[]>([]);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [employeeDocuments, setEmployeeDocuments] = useState<EmployeeDocument[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  
   const [formData, setFormData] = useState({
     employee_number: "",
     user_id: "",
@@ -144,6 +177,13 @@ export default function EmployeeSetup() {
     medical_insurance_plan_id: "",
     basic_salary: "",
     manager_id: "",
+    photo_url: "",
+  });
+
+  const [documentFormData, setDocumentFormData] = useState({
+    document_type_id: "",
+    expiry_date: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -161,6 +201,7 @@ export default function EmployeeSetup() {
         vacationCodesRes,
         insurancePlansRes,
         shiftPlansRes,
+        docTypesRes,
       ] = await Promise.all([
         supabase
           .from("employees")
@@ -176,6 +217,7 @@ export default function EmployeeSetup() {
         supabase.from("vacation_codes").select("id, code, name_en, name_ar").eq("is_active", true).order("code"),
         supabase.from("medical_insurance_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
         supabase.from("shift_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
+        supabase.from("document_types").select("id, type_name, type_name_ar, is_mandatory").eq("is_active", true).order("type_name"),
       ]);
 
       if (employeesRes.error) throw employeesRes.error;
@@ -187,10 +229,29 @@ export default function EmployeeSetup() {
       setVacationCodes(vacationCodesRes.data || []);
       setInsurancePlans(insurancePlansRes.data || []);
       setShiftPlans(shiftPlansRes.data || []);
+      setDocumentTypes(docTypesRes.data || []);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEmployeeDocuments = async (employeeId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("employee_documents")
+        .select(`
+          *,
+          document_types(type_name, type_name_ar)
+        `)
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setEmployeeDocuments(data || []);
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -207,6 +268,112 @@ export default function EmployeeSetup() {
           emp.email?.toLowerCase().includes(term.toLowerCase())
       );
       setEmployees(filtered);
+    }
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error(language === "ar" ? "يرجى اختيار صورة" : "Please select an image file");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `photos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("employee-photos")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("employee-photos")
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, photo_url: urlData.publicUrl });
+      toast.success(language === "ar" ? "تم رفع الصورة بنجاح" : "Photo uploaded successfully");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedEmployee || !documentFormData.document_type_id) return;
+
+    setUploadingDocument(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${selectedEmployee.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("employee-documents")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error: dbError } = await supabase.from("employee_documents").insert({
+        employee_id: selectedEmployee.id,
+        document_type_id: documentFormData.document_type_id,
+        file_name: file.name,
+        file_path: fileName,
+        file_size: file.size,
+        expiry_date: documentFormData.expiry_date || null,
+        notes: documentFormData.notes || null,
+        uploaded_by: user?.id,
+      });
+
+      if (dbError) throw dbError;
+
+      toast.success(language === "ar" ? "تم رفع المستند بنجاح" : "Document uploaded successfully");
+      fetchEmployeeDocuments(selectedEmployee.id);
+      setDocumentFormData({ document_type_id: "", expiry_date: "", notes: "" });
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const handleDownloadDocument = async (doc: EmployeeDocument) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("employee-documents")
+        .download(doc.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.file_name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string, filePath: string) => {
+    try {
+      await supabase.storage.from("employee-documents").remove([filePath]);
+      await supabase.from("employee_documents").delete().eq("id", docId);
+      toast.success(language === "ar" ? "تم حذف المستند" : "Document deleted");
+      if (selectedEmployee) {
+        fetchEmployeeDocuments(selectedEmployee.id);
+      }
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -240,6 +407,7 @@ export default function EmployeeSetup() {
       medical_insurance_plan_id: "",
       basic_salary: "",
       manager_id: "",
+      photo_url: "",
     });
     setDialogOpen(true);
   };
@@ -274,8 +442,15 @@ export default function EmployeeSetup() {
       medical_insurance_plan_id: employee.medical_insurance_plan_id || "",
       basic_salary: employee.basic_salary?.toString() || "",
       manager_id: employee.manager_id || "",
+      photo_url: employee.photo_url || "",
     });
     setDialogOpen(true);
+  };
+
+  const openDocumentDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    fetchEmployeeDocuments(employee.id);
+    setDocumentDialogOpen(true);
   };
 
   const handleSave = async () => {
@@ -295,6 +470,7 @@ export default function EmployeeSetup() {
         email: formData.email || null,
         phone: formData.phone || null,
         mobile: formData.mobile || null,
+        photo_url: formData.photo_url || null,
         date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
         nationality: formData.nationality || null,
@@ -363,6 +539,10 @@ export default function EmployeeSetup() {
     }
   };
 
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card>
@@ -371,10 +551,28 @@ export default function EmployeeSetup() {
             <UserCircle className="h-6 w-6" />
             {language === "ar" ? "إعداد الموظفين" : "Employee Setup"}
           </CardTitle>
-          <Button onClick={openAddDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            {language === "ar" ? "إضافة موظف" : "Add Employee"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center border rounded-md">
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("table")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "card" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("card")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button onClick={openAddDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              {language === "ar" ? "إضافة موظف" : "Add Employee"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4 mb-4">
@@ -389,57 +587,144 @@ export default function EmployeeSetup() {
             </div>
           </div>
 
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{language === "ar" ? "رقم الموظف" : "Employee #"}</TableHead>
-                  <TableHead>{language === "ar" ? "الاسم" : "Name"}</TableHead>
-                  <TableHead>{language === "ar" ? "القسم" : "Department"}</TableHead>
-                  <TableHead>{language === "ar" ? "المسمى الوظيفي" : "Position"}</TableHead>
-                  <TableHead>{language === "ar" ? "تاريخ البدء" : "Start Date"}</TableHead>
-                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
-                  <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+          {viewMode === "table" ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      {language === "ar" ? "جاري التحميل..." : "Loading..."}
-                    </TableCell>
+                    <TableHead>{language === "ar" ? "الصورة" : "Photo"}</TableHead>
+                    <TableHead>{language === "ar" ? "رقم الموظف" : "Employee #"}</TableHead>
+                    <TableHead>{language === "ar" ? "الاسم" : "Name"}</TableHead>
+                    <TableHead>{language === "ar" ? "القسم" : "Department"}</TableHead>
+                    <TableHead>{language === "ar" ? "المسمى الوظيفي" : "Position"}</TableHead>
+                    <TableHead>{language === "ar" ? "تاريخ البدء" : "Start Date"}</TableHead>
+                    <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                    <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                   </TableRow>
-                ) : employees.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      {language === "ar" ? "لا توجد بيانات" : "No data found"}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  employees.map((emp) => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="font-medium">{emp.employee_number}</TableCell>
-                      <TableCell>
-                        {language === "ar"
-                          ? `${emp.first_name_ar || emp.first_name} ${emp.last_name_ar || emp.last_name}`
-                          : `${emp.first_name} ${emp.last_name}`}
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        {language === "ar" ? "جاري التحميل..." : "Loading..."}
                       </TableCell>
-                      <TableCell>{emp.departments?.department_name || "-"}</TableCell>
-                      <TableCell>{emp.job_positions?.position_name || "-"}</TableCell>
-                      <TableCell>{format(new Date(emp.job_start_date), "yyyy-MM-dd")}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(emp.employment_status)}`}>
+                    </TableRow>
+                  ) : employees.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        {language === "ar" ? "لا توجد بيانات" : "No data found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    employees.map((emp) => (
+                      <TableRow key={emp.id}>
+                        <TableCell>
+                          <Avatar>
+                            <AvatarImage src={emp.photo_url || undefined} />
+                            <AvatarFallback>{getInitials(emp.first_name, emp.last_name)}</AvatarFallback>
+                          </Avatar>
+                        </TableCell>
+                        <TableCell className="font-medium">{emp.employee_number}</TableCell>
+                        <TableCell>
+                          {language === "ar"
+                            ? `${emp.first_name_ar || emp.first_name} ${emp.last_name_ar || emp.last_name}`
+                            : `${emp.first_name} ${emp.last_name}`}
+                        </TableCell>
+                        <TableCell>{emp.departments?.department_name || "-"}</TableCell>
+                        <TableCell>{emp.job_positions?.position_name || "-"}</TableCell>
+                        <TableCell>{format(new Date(emp.job_start_date), "yyyy-MM-dd")}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(emp.employment_status)}`}>
+                            {emp.employment_status}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => navigate(`/employee-profile/${emp.id}`)}
+                              title={language === "ar" ? "عرض" : "View"}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDocumentDialog(emp)}
+                              title={language === "ar" ? "المستندات" : "Documents"}
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(emp)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedEmployee(emp);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {loading ? (
+                <div className="col-span-full text-center py-8">
+                  {language === "ar" ? "جاري التحميل..." : "Loading..."}
+                </div>
+              ) : employees.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  {language === "ar" ? "لا توجد بيانات" : "No data found"}
+                </div>
+              ) : (
+                employees.map((emp) => (
+                  <Card key={emp.id} className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col items-center text-center">
+                        <Avatar className="h-20 w-20 mb-3">
+                          <AvatarImage src={emp.photo_url || undefined} />
+                          <AvatarFallback className="text-xl">{getInitials(emp.first_name, emp.last_name)}</AvatarFallback>
+                        </Avatar>
+                        <h3 className="font-semibold">
+                          {language === "ar"
+                            ? `${emp.first_name_ar || emp.first_name} ${emp.last_name_ar || emp.last_name}`
+                            : `${emp.first_name} ${emp.last_name}`}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{emp.employee_number}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {emp.job_positions?.position_name || "-"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {emp.departments?.department_name || "-"}
+                        </p>
+                        <Badge className={`mt-2 ${getStatusColor(emp.employment_status)}`}>
                           {emp.employment_status}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                        </Badge>
+                        <div className="flex items-center gap-1 mt-4">
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => navigate(`/employee-profile/${emp.id}`)}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openDocumentDialog(emp)}
+                          >
+                            <FileText className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(emp)}>
                             <Edit className="h-4 w-4" />
@@ -455,13 +740,13 @@ export default function EmployeeSetup() {
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -480,347 +765,395 @@ export default function EmployeeSetup() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-            {/* Basic Info */}
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "رقم الموظف *" : "Employee Number *"}</Label>
-              <Input
-                value={formData.employee_number}
-                onChange={(e) => setFormData({ ...formData, employee_number: e.target.value })}
-              />
-            </div>
+          <Tabs defaultValue="info">
+            <TabsList className="mb-4">
+              <TabsTrigger value="info">{language === "ar" ? "المعلومات الأساسية" : "Basic Info"}</TabsTrigger>
+              <TabsTrigger value="job">{language === "ar" ? "معلومات العمل" : "Job Info"}</TabsTrigger>
+              <TabsTrigger value="shift">{language === "ar" ? "الورديات والإجازات" : "Shifts & Leave"}</TabsTrigger>
+            </TabsList>
 
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الاسم الأول *" : "First Name *"}</Label>
-              <Input
-                value={formData.first_name}
-                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-              />
-            </div>
+            <TabsContent value="info">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Photo Upload */}
+                <div className="md:col-span-3 flex justify-center mb-4">
+                  <div className="relative">
+                    <Avatar className="h-24 w-24">
+                      <AvatarImage src={formData.photo_url || undefined} />
+                      <AvatarFallback>
+                        <Camera className="h-8 w-8 text-muted-foreground" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute bottom-0 right-0 rounded-full h-8 w-8"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={uploadingPhoto}
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الاسم الأول (عربي)" : "First Name (Arabic)"}</Label>
-              <Input
-                value={formData.first_name_ar}
-                onChange={(e) => setFormData({ ...formData, first_name_ar: e.target.value })}
-                dir="rtl"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "اسم العائلة *" : "Last Name *"}</Label>
-              <Input
-                value={formData.last_name}
-                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "اسم العائلة (عربي)" : "Last Name (Arabic)"}</Label>
-              <Input
-                value={formData.last_name_ar}
-                onChange={(e) => setFormData({ ...formData, last_name_ar: e.target.value })}
-                dir="rtl"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "ربط بمستخدم" : "Link to User"}</Label>
-              <Select
-                value={formData.user_id || "_none_"}
-                onValueChange={(value) => setFormData({ ...formData, user_id: value === "_none_" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر مستخدم" : "Select User"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">{language === "ar" ? "بدون ربط" : "No Link"}</SelectItem>
-                  {profiles.map((profile) => (
-                    <SelectItem key={profile.user_id} value={profile.user_id}>
-                      {profile.user_name} ({profile.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "البريد الإلكتروني" : "Email"}</Label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الهاتف" : "Phone"}</Label>
-              <Input
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الجوال" : "Mobile"}</Label>
-              <Input
-                value={formData.mobile}
-                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "تاريخ الميلاد" : "Date of Birth"}</Label>
-              <Input
-                type="date"
-                value={formData.date_of_birth}
-                onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الجنس" : "Gender"}</Label>
-              <Select
-                value={formData.gender}
-                onValueChange={(value) => setFormData({ ...formData, gender: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">{language === "ar" ? "ذكر" : "Male"}</SelectItem>
-                  <SelectItem value="female">{language === "ar" ? "أنثى" : "Female"}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الجنسية" : "Nationality"}</Label>
-              <Input
-                value={formData.nationality}
-                onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "رقم الهوية" : "National ID"}</Label>
-              <Input
-                value={formData.national_id}
-                onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
-              />
-            </div>
-
-            {/* Job Info */}
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "القسم" : "Department"}</Label>
-              <Select
-                value={formData.department_id}
-                onValueChange={(value) => setFormData({ ...formData, department_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر القسم" : "Select Department"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.department_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "المسمى الوظيفي" : "Job Position"}</Label>
-              <Select
-                value={formData.job_position_id}
-                onValueChange={(value) => setFormData({ ...formData, job_position_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر المسمى" : "Select Position"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {jobPositions.map((pos) => (
-                    <SelectItem key={pos.id} value={pos.id}>
-                      {pos.position_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "تاريخ بدء العمل *" : "Job Start Date *"}</Label>
-              <Input
-                type="date"
-                value={formData.job_start_date}
-                onChange={(e) => setFormData({ ...formData, job_start_date: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "تاريخ انتهاء العقد" : "Termination Date"}</Label>
-              <Input
-                type="date"
-                value={formData.termination_date}
-                onChange={(e) => setFormData({ ...formData, termination_date: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "حالة التوظيف" : "Employment Status"}</Label>
-              <Select
-                value={formData.employment_status}
-                onValueChange={(value) => setFormData({ ...formData, employment_status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
-                  <SelectItem value="on_leave">{language === "ar" ? "في إجازة" : "On Leave"}</SelectItem>
-                  <SelectItem value="terminated">{language === "ar" ? "منتهي" : "Terminated"}</SelectItem>
-                  <SelectItem value="suspended">{language === "ar" ? "موقوف" : "Suspended"}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "المدير المباشر" : "Manager"}</Label>
-              <Select
-                value={formData.manager_id || "_none_"}
-                onValueChange={(value) => setFormData({ ...formData, manager_id: value === "_none_" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر المدير" : "Select Manager"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">{language === "ar" ? "بدون مدير" : "No Manager"}</SelectItem>
-                  {allEmployees
-                    .filter((e) => e.id !== selectedEmployee?.id)
-                    .map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.first_name} {emp.last_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Shift Info */}
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "نوع الوردية" : "Shift Type"}</Label>
-              <Select
-                value={formData.shift_type}
-                onValueChange={(value) => setFormData({ ...formData, shift_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fixed">{language === "ar" ? "ثابت" : "Fixed"}</SelectItem>
-                  <SelectItem value="rotating">{language === "ar" ? "متناوب" : "Rotating"}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.shift_type === "fixed" ? (
-              <>
                 <div className="space-y-2">
-                  <Label>{language === "ar" ? "بداية الوردية" : "Shift Start"}</Label>
+                  <Label>{language === "ar" ? "رقم الموظف *" : "Employee Number *"}</Label>
                   <Input
-                    type="time"
-                    value={formData.fixed_shift_start}
-                    onChange={(e) => setFormData({ ...formData, fixed_shift_start: e.target.value })}
+                    value={formData.employee_number}
+                    onChange={(e) => setFormData({ ...formData, employee_number: e.target.value })}
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label>{language === "ar" ? "نهاية الوردية" : "Shift End"}</Label>
+                  <Label>{language === "ar" ? "الاسم الأول *" : "First Name *"}</Label>
                   <Input
-                    type="time"
-                    value={formData.fixed_shift_end}
-                    onChange={(e) => setFormData({ ...formData, fixed_shift_end: e.target.value })}
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                   />
                 </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <Label>{language === "ar" ? "خطة الورديات" : "Shift Plan"}</Label>
-                <Select
-                  value={formData.shift_plan_id}
-                  onValueChange={(value) => setFormData({ ...formData, shift_plan_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === "ar" ? "اختر الخطة" : "Select Plan"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {shiftPlans.map((plan) => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.plan_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الاسم الأول (عربي)" : "First Name (Arabic)"}</Label>
+                  <Input
+                    value={formData.first_name_ar}
+                    onChange={(e) => setFormData({ ...formData, first_name_ar: e.target.value })}
+                    dir="rtl"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "اسم العائلة *" : "Last Name *"}</Label>
+                  <Input
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "اسم العائلة (عربي)" : "Last Name (Arabic)"}</Label>
+                  <Input
+                    value={formData.last_name_ar}
+                    onChange={(e) => setFormData({ ...formData, last_name_ar: e.target.value })}
+                    dir="rtl"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "ربط بمستخدم" : "Link to User"}</Label>
+                  <Select
+                    value={formData.user_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, user_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر مستخدم" : "Select User"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "بدون ربط" : "No Link"}</SelectItem>
+                      {profiles.map((profile) => (
+                        <SelectItem key={profile.user_id} value={profile.user_id}>
+                          {profile.user_name} ({profile.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "البريد الإلكتروني" : "Email"}</Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الهاتف" : "Phone"}</Label>
+                  <Input
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الجوال" : "Mobile"}</Label>
+                  <Input
+                    value={formData.mobile}
+                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "تاريخ الميلاد" : "Date of Birth"}</Label>
+                  <Input
+                    type="date"
+                    value={formData.date_of_birth}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الجنس" : "Gender"}</Label>
+                  <Select
+                    value={formData.gender || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, gender: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      <SelectItem value="male">{language === "ar" ? "ذكر" : "Male"}</SelectItem>
+                      <SelectItem value="female">{language === "ar" ? "أنثى" : "Female"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الجنسية" : "Nationality"}</Label>
+                  <Input
+                    value={formData.nationality}
+                    onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "رقم الهوية" : "National ID"}</Label>
+                  <Input
+                    value={formData.national_id}
+                    onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
+                  />
+                </div>
               </div>
-            )}
+            </TabsContent>
 
-            {/* Vacation & Insurance */}
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "نوع الإجازات" : "Vacation Type"}</Label>
-              <Select
-                value={formData.vacation_code_id}
-                onValueChange={(value) => setFormData({ ...formData, vacation_code_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {vacationCodes.map((vc) => (
-                    <SelectItem key={vc.id} value={vc.id}>
-                      {language === "ar" ? vc.name_ar || vc.name_en : vc.name_en} ({vc.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <TabsContent value="job">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "القسم" : "Department"}</Label>
+                  <Select
+                    value={formData.department_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, department_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر القسم" : "Select Department"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.department_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "رصيد الإجازات" : "Vacation Balance"}</Label>
-              <Input
-                type="number"
-                value={formData.vacation_balance}
-                onChange={(e) => setFormData({ ...formData, vacation_balance: e.target.value })}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "المسمى الوظيفي" : "Job Position"}</Label>
+                  <Select
+                    value={formData.job_position_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, job_position_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر المسمى" : "Select Position"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {jobPositions.map((pos) => (
+                        <SelectItem key={pos.id} value={pos.id}>
+                          {pos.position_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "التأمين الطبي" : "Medical Insurance"}</Label>
-              <Select
-                value={formData.medical_insurance_plan_id}
-                onValueChange={(value) => setFormData({ ...formData, medical_insurance_plan_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {insurancePlans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.plan_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "تاريخ بدء العمل *" : "Job Start Date *"}</Label>
+                  <Input
+                    type="date"
+                    value={formData.job_start_date}
+                    onChange={(e) => setFormData({ ...formData, job_start_date: e.target.value })}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الراتب الأساسي" : "Basic Salary"}</Label>
-              <Input
-                type="number"
-                value={formData.basic_salary}
-                onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "تاريخ انتهاء العقد" : "Termination Date"}</Label>
+                  <Input
+                    type="date"
+                    value={formData.termination_date}
+                    onChange={(e) => setFormData({ ...formData, termination_date: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "حالة التوظيف" : "Employment Status"}</Label>
+                  <Select
+                    value={formData.employment_status}
+                    onValueChange={(value) => setFormData({ ...formData, employment_status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
+                      <SelectItem value="on_leave">{language === "ar" ? "في إجازة" : "On Leave"}</SelectItem>
+                      <SelectItem value="terminated">{language === "ar" ? "منتهي" : "Terminated"}</SelectItem>
+                      <SelectItem value="suspended">{language === "ar" ? "موقوف" : "Suspended"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "المدير المباشر" : "Manager"}</Label>
+                  <Select
+                    value={formData.manager_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, manager_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر المدير" : "Select Manager"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "بدون مدير" : "No Manager"}</SelectItem>
+                      {allEmployees
+                        .filter((e) => e.id !== selectedEmployee?.id)
+                        .map((emp) => (
+                          <SelectItem key={emp.id} value={emp.id}>
+                            {emp.first_name} {emp.last_name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الراتب الأساسي" : "Basic Salary"}</Label>
+                  <Input
+                    type="number"
+                    value={formData.basic_salary}
+                    onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="shift">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "نوع الوردية" : "Shift Type"}</Label>
+                  <Select
+                    value={formData.shift_type}
+                    onValueChange={(value) => setFormData({ ...formData, shift_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">{language === "ar" ? "ثابت" : "Fixed"}</SelectItem>
+                      <SelectItem value="rotating">{language === "ar" ? "متناوب" : "Rotating"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.shift_type === "fixed" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "بداية الوردية" : "Shift Start"}</Label>
+                      <Input
+                        type="time"
+                        value={formData.fixed_shift_start}
+                        onChange={(e) => setFormData({ ...formData, fixed_shift_start: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "نهاية الوردية" : "Shift End"}</Label>
+                      <Input
+                        type="time"
+                        value={formData.fixed_shift_end}
+                        onChange={(e) => setFormData({ ...formData, fixed_shift_end: e.target.value })}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>{language === "ar" ? "خطة الورديات" : "Shift Plan"}</Label>
+                    <Select
+                      value={formData.shift_plan_id || "_none_"}
+                      onValueChange={(value) => setFormData({ ...formData, shift_plan_id: value === "_none_" ? "" : value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "ar" ? "اختر الخطة" : "Select Plan"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                        {shiftPlans.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.plan_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "نوع الإجازات" : "Vacation Type"}</Label>
+                  <Select
+                    value={formData.vacation_code_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, vacation_code_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {vacationCodes.map((vc) => (
+                        <SelectItem key={vc.id} value={vc.id}>
+                          {language === "ar" ? vc.name_ar || vc.name_en : vc.name_en} ({vc.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "رصيد الإجازات" : "Vacation Balance"}</Label>
+                  <Input
+                    type="number"
+                    value={formData.vacation_balance}
+                    onChange={(e) => setFormData({ ...formData, vacation_balance: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "التأمين الطبي" : "Medical Insurance"}</Label>
+                  <Select
+                    value={formData.medical_insurance_plan_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, medical_insurance_plan_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {insurancePlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.plan_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -828,6 +1161,127 @@ export default function EmployeeSetup() {
             </Button>
             <Button onClick={handleSave}>
               {language === "ar" ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Management Dialog */}
+      <Dialog open={documentDialogOpen} onOpenChange={setDocumentDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === "ar"
+                ? `مستندات ${selectedEmployee?.first_name} ${selectedEmployee?.last_name}`
+                : `Documents for ${selectedEmployee?.first_name} ${selectedEmployee?.last_name}`}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Upload Section */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <h4 className="font-medium">{language === "ar" ? "رفع مستند جديد" : "Upload New Document"}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "نوع المستند *" : "Document Type *"}</Label>
+                <Select
+                  value={documentFormData.document_type_id || "_none_"}
+                  onValueChange={(value) => setDocumentFormData({ ...documentFormData, document_type_id: value === "_none_" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر النوع" : "Select Type"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                    {documentTypes.map((dt) => (
+                      <SelectItem key={dt.id} value={dt.id}>
+                        {language === "ar" ? dt.type_name_ar || dt.type_name : dt.type_name}
+                        {dt.is_mandatory && " *"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "تاريخ الانتهاء" : "Expiry Date"}</Label>
+                <Input
+                  type="date"
+                  value={documentFormData.expiry_date}
+                  onChange={(e) => setDocumentFormData({ ...documentFormData, expiry_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>
+              <Input
+                value={documentFormData.notes}
+                onChange={(e) => setDocumentFormData({ ...documentFormData, notes: e.target.value })}
+              />
+            </div>
+            <Button
+              onClick={() => documentInputRef.current?.click()}
+              disabled={!documentFormData.document_type_id || uploadingDocument}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {uploadingDocument
+                ? language === "ar"
+                  ? "جاري الرفع..."
+                  : "Uploading..."
+                : language === "ar"
+                ? "اختيار ملف"
+                : "Select File"}
+            </Button>
+            <input
+              ref={documentInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleDocumentUpload}
+            />
+          </div>
+
+          {/* Documents List */}
+          <div className="space-y-2">
+            <h4 className="font-medium">{language === "ar" ? "المستندات المرفوعة" : "Uploaded Documents"}</h4>
+            {employeeDocuments.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                {language === "ar" ? "لا توجد مستندات" : "No documents"}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {employeeDocuments.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">{doc.file_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {language === "ar"
+                            ? doc.document_types?.type_name_ar || doc.document_types?.type_name
+                            : doc.document_types?.type_name}
+                          {doc.expiry_date && ` • ${language === "ar" ? "ينتهي" : "Expires"}: ${doc.expiry_date}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleDownloadDocument(doc)}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteDocument(doc.id, doc.file_path)}
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDocumentDialogOpen(false)}>
+              {language === "ar" ? "إغلاق" : "Close"}
             </Button>
           </DialogFooter>
         </DialogContent>
