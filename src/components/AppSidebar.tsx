@@ -120,6 +120,7 @@ export function AppSidebar() {
     "/deduction-rules-setup": "deductionRulesSetup",
     "/medical-insurance-setup": "medicalInsuranceSetup",
     "/shift-plans-setup": "shiftPlansSetup",
+    "/document-type-setup": "documentTypeSetup",
   };
 
   useEffect(() => {
@@ -306,6 +307,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'قواعد الخصم' : 'Deduction Rules', url: "/deduction-rules-setup", icon: Calculator },
         { title: language === 'ar' ? 'التأمين الطبي' : 'Medical Insurance', url: "/medical-insurance-setup", icon: HeartPulse },
         { title: language === 'ar' ? 'خطط الورديات' : 'Shift Plans', url: "/shift-plans-setup", icon: CalendarClock },
+        { title: language === 'ar' ? 'أنواع المستندات' : 'Document Types', url: "/document-type-setup", icon: FileText },
       ]
     },
     {

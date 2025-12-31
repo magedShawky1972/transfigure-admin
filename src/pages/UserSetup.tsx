@@ -139,6 +139,7 @@ interface UserPermission {
     { key: "deductionRulesSetup", label: "قواعد الخصم", labelEn: "Deduction Rules" },
     { key: "medicalInsuranceSetup", label: "التأمين الطبي", labelEn: "Medical Insurance" },
     { key: "shiftPlansSetup", label: "خطط الورديات", labelEn: "Shift Plans" },
+    { key: "documentTypeSetup", label: "أنواع المستندات", labelEn: "Document Types" },
   ];
 
 const DASHBOARD_COMPONENTS = [
