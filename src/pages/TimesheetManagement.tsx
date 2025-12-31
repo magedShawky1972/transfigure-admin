@@ -1,0 +1,638 @@
+import { useState, useEffect } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator } from "lucide-react";
+import { format, parseISO, differenceInMinutes } from "date-fns";
+
+interface Employee {
+  id: string;
+  employee_number: string;
+  first_name: string;
+  last_name: string;
+  shift_type: string;
+  fixed_shift_start: string | null;
+  fixed_shift_end: string | null;
+  basic_salary: number | null;
+}
+
+interface Timesheet {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  actual_start: string | null;
+  actual_end: string | null;
+  break_duration_minutes: number;
+  status: string;
+  is_absent: boolean;
+  absence_reason: string | null;
+  late_minutes: number;
+  early_leave_minutes: number;
+  overtime_minutes: number;
+  total_work_minutes: number;
+  deduction_amount: number;
+  overtime_amount: number;
+  notes: string | null;
+  employees?: {
+    employee_number: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+interface DeductionRule {
+  id: string;
+  rule_name: string;
+  rule_type: string;
+  min_minutes: number | null;
+  max_minutes: number | null;
+  deduction_type: string;
+  deduction_value: number;
+  is_overtime: boolean;
+  overtime_multiplier: number;
+}
+
+export default function TimesheetManagement() {
+  const { language } = useLanguage();
+  const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [formData, setFormData] = useState({
+    employee_id: "",
+    work_date: format(new Date(), "yyyy-MM-dd"),
+    scheduled_start: "",
+    scheduled_end: "",
+    actual_start: "",
+    actual_end: "",
+    break_duration_minutes: 0,
+    is_absent: false,
+    absence_reason: "",
+    notes: "",
+  });
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedDate, selectedEmployee]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [employeesRes, rulesRes] = await Promise.all([
+        supabase
+          .from("employees")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary")
+          .eq("employment_status", "active")
+          .order("employee_number"),
+        supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
+      ]);
+
+      setEmployees(employeesRes.data || []);
+      setDeductionRules(rulesRes.data || []);
+
+      // Fetch timesheets
+      let query = supabase
+        .from("timesheets")
+        .select(`
+          *,
+          employees(employee_number, first_name, last_name)
+        `)
+        .eq("work_date", selectedDate)
+        .order("employees(employee_number)");
+
+      if (selectedEmployee) {
+        query = query.eq("employee_id", selectedEmployee);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setTimesheets(data || []);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateTimesheet = (data: typeof formData, employee: Employee | undefined): Partial<Timesheet> => {
+    let late_minutes = 0;
+    let early_leave_minutes = 0;
+    let overtime_minutes = 0;
+    let total_work_minutes = 0;
+    let deduction_amount = 0;
+    let overtime_amount = 0;
+
+    if (data.is_absent) {
+      // Find absence rule
+      const absenceRule = deductionRules.find((r) => r.rule_type === "absence");
+      if (absenceRule && employee?.basic_salary) {
+        const dailySalary = employee.basic_salary / 30;
+        deduction_amount = dailySalary * absenceRule.deduction_value;
+      }
+      return { late_minutes, early_leave_minutes, overtime_minutes, total_work_minutes, deduction_amount, overtime_amount };
+    }
+
+    if (data.actual_start && data.actual_end && data.scheduled_start && data.scheduled_end) {
+      const scheduledStart = parseISO(`${data.work_date}T${data.scheduled_start}`);
+      const scheduledEnd = parseISO(`${data.work_date}T${data.scheduled_end}`);
+      const actualStart = parseISO(`${data.work_date}T${data.actual_start}`);
+      const actualEnd = parseISO(`${data.work_date}T${data.actual_end}`);
+
+      // Calculate late minutes
+      if (actualStart > scheduledStart) {
+        late_minutes = differenceInMinutes(actualStart, scheduledStart);
+      }
+
+      // Calculate early leave minutes
+      if (actualEnd < scheduledEnd) {
+        early_leave_minutes = differenceInMinutes(scheduledEnd, actualEnd);
+      }
+
+      // Calculate overtime
+      if (actualEnd > scheduledEnd) {
+        overtime_minutes = differenceInMinutes(actualEnd, scheduledEnd);
+      }
+
+      // Calculate total work minutes
+      total_work_minutes = differenceInMinutes(actualEnd, actualStart) - data.break_duration_minutes;
+
+      // Calculate deductions for late arrival
+      if (late_minutes > 0 && employee?.basic_salary) {
+        const dailySalary = employee.basic_salary / 30;
+        const hourlyRate = dailySalary / 8;
+
+        const lateRule = deductionRules
+          .filter((r) => r.rule_type === "late_arrival")
+          .find((r) => {
+            const min = r.min_minutes || 0;
+            const max = r.max_minutes || Infinity;
+            return late_minutes >= min && late_minutes <= max;
+          });
+
+        if (lateRule) {
+          if (lateRule.deduction_type === "fixed") {
+            deduction_amount = lateRule.deduction_value;
+          } else if (lateRule.deduction_type === "percentage") {
+            deduction_amount = dailySalary * lateRule.deduction_value;
+          } else if (lateRule.deduction_type === "hourly") {
+            deduction_amount = hourlyRate * (late_minutes / 60) * lateRule.deduction_value;
+          }
+        }
+      }
+
+      // Calculate overtime pay
+      if (overtime_minutes > 0 && employee?.basic_salary) {
+        const dailySalary = employee.basic_salary / 30;
+        const hourlyRate = dailySalary / 8;
+        const overtimeRule = deductionRules.find((r) => r.is_overtime);
+        const multiplier = overtimeRule?.overtime_multiplier || 1.5;
+        overtime_amount = hourlyRate * (overtime_minutes / 60) * multiplier;
+      }
+    }
+
+    return { late_minutes, early_leave_minutes, overtime_minutes, total_work_minutes, deduction_amount, overtime_amount };
+  };
+
+  const openAddDialog = () => {
+    setFormData({
+      employee_id: "",
+      work_date: selectedDate,
+      scheduled_start: "",
+      scheduled_end: "",
+      actual_start: "",
+      actual_end: "",
+      break_duration_minutes: 0,
+      is_absent: false,
+      absence_reason: "",
+      notes: "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleEmployeeSelect = (employeeId: string) => {
+    const employee = employees.find((e) => e.id === employeeId);
+    if (employee) {
+      setFormData({
+        ...formData,
+        employee_id: employeeId,
+        scheduled_start: employee.fixed_shift_start || "",
+        scheduled_end: employee.fixed_shift_end || "",
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData.employee_id || !formData.work_date) {
+      toast.error(language === "ar" ? "يرجى اختيار الموظف والتاريخ" : "Please select employee and date");
+      return;
+    }
+
+    try {
+      const employee = employees.find((e) => e.id === formData.employee_id);
+      const calculations = calculateTimesheet(formData, employee);
+
+      const payload = {
+        employee_id: formData.employee_id,
+        work_date: formData.work_date,
+        scheduled_start: formData.scheduled_start || null,
+        scheduled_end: formData.scheduled_end || null,
+        actual_start: formData.actual_start || null,
+        actual_end: formData.actual_end || null,
+        break_duration_minutes: formData.break_duration_minutes,
+        is_absent: formData.is_absent,
+        absence_reason: formData.absence_reason || null,
+        notes: formData.notes || null,
+        ...calculations,
+      };
+
+      const { error } = await supabase.from("timesheets").upsert(payload, {
+        onConflict: "employee_id,work_date",
+      });
+
+      if (error) throw error;
+      toast.success(language === "ar" ? "تم الحفظ بنجاح" : "Saved successfully");
+      setDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("timesheets")
+        .update({ status: "approved", approved_by: user?.id, approved_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success(language === "ar" ? "تمت الموافقة" : "Approved");
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("timesheets")
+        .update({ status: "rejected", approved_by: user?.id, approved_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success(language === "ar" ? "تم الرفض" : "Rejected");
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const getStatusBadge = (status: string, isAbsent: boolean) => {
+    if (isAbsent) {
+      return <Badge variant="destructive">{language === "ar" ? "غائب" : "Absent"}</Badge>;
+    }
+    switch (status) {
+      case "approved":
+        return <Badge className="bg-green-100 text-green-800">{language === "ar" ? "معتمد" : "Approved"}</Badge>;
+      case "rejected":
+        return <Badge variant="destructive">{language === "ar" ? "مرفوض" : "Rejected"}</Badge>;
+      default:
+        return <Badge variant="secondary">{language === "ar" ? "معلق" : "Pending"}</Badge>;
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-6 w-6" />
+            {language === "ar" ? "إدارة سجل الحضور" : "Timesheet Management"}
+          </CardTitle>
+          <Button onClick={openAddDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "ar" ? "إضافة سجل" : "Add Entry"}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-4 mb-6">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "التاريخ" : "Date"}</Label>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الموظف" : "Employee"}</Label>
+              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder={language === "ar" ? "جميع الموظفين" : "All Employees"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">{language === "ar" ? "جميع الموظفين" : "All Employees"}</SelectItem>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.employee_number} - {emp.first_name} {emp.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{timesheets.length}</p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي السجلات" : "Total Entries"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">
+                    {timesheets.filter((t) => t.status === "approved").length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "معتمد" : "Approved"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {timesheets.filter((t) => t.status === "pending").length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "معلق" : "Pending"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-600">
+                    {timesheets.filter((t) => t.is_absent).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "غياب" : "Absent"}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === "ar" ? "الموظف" : "Employee"}</TableHead>
+                  <TableHead>{language === "ar" ? "المجدول" : "Scheduled"}</TableHead>
+                  <TableHead>{language === "ar" ? "الفعلي" : "Actual"}</TableHead>
+                  <TableHead>{language === "ar" ? "ساعات العمل" : "Work Hours"}</TableHead>
+                  <TableHead>{language === "ar" ? "التأخير" : "Late"}</TableHead>
+                  <TableHead>{language === "ar" ? "الإضافي" : "Overtime"}</TableHead>
+                  <TableHead>{language === "ar" ? "الخصم" : "Deduction"}</TableHead>
+                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                  <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      {language === "ar" ? "جاري التحميل..." : "Loading..."}
+                    </TableCell>
+                  </TableRow>
+                ) : timesheets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      {language === "ar" ? "لا توجد سجلات" : "No records found"}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  timesheets.map((ts) => (
+                    <TableRow key={ts.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">
+                            {ts.employees?.first_name} {ts.employees?.last_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{ts.employees?.employee_number}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {ts.scheduled_start && ts.scheduled_end
+                          ? `${ts.scheduled_start} - ${ts.scheduled_end}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {ts.actual_start && ts.actual_end
+                          ? `${ts.actual_start} - ${ts.actual_end}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {Math.floor(ts.total_work_minutes / 60)}h {ts.total_work_minutes % 60}m
+                      </TableCell>
+                      <TableCell className={ts.late_minutes > 0 ? "text-destructive font-medium" : ""}>
+                        {ts.late_minutes > 0 ? `${ts.late_minutes}m` : "-"}
+                      </TableCell>
+                      <TableCell className={ts.overtime_minutes > 0 ? "text-green-600 font-medium" : ""}>
+                        {ts.overtime_minutes > 0 ? `${ts.overtime_minutes}m` : "-"}
+                      </TableCell>
+                      <TableCell className={ts.deduction_amount > 0 ? "text-destructive font-medium" : ""}>
+                        {ts.deduction_amount > 0 ? `${ts.deduction_amount.toFixed(2)}` : "-"}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
+                      <TableCell>
+                        {ts.status === "pending" && (
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleApprove(ts.id)}>
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleReject(ts.id)}>
+                              <XCircle className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Add Entry Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {language === "ar" ? "إضافة سجل حضور" : "Add Timesheet Entry"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الموظف *" : "Employee *"}</Label>
+              <Select value={formData.employee_id} onValueChange={handleEmployeeSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === "ar" ? "اختر الموظف" : "Select Employee"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.employee_number} - {emp.first_name} {emp.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "التاريخ *" : "Date *"}</Label>
+              <Input
+                type="date"
+                value={formData.work_date}
+                onChange={(e) => setFormData({ ...formData, work_date: e.target.value })}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_absent"
+                checked={formData.is_absent}
+                onChange={(e) => setFormData({ ...formData, is_absent: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="is_absent">{language === "ar" ? "غائب" : "Absent"}</Label>
+            </div>
+
+            {formData.is_absent ? (
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "سبب الغياب" : "Absence Reason"}</Label>
+                <Textarea
+                  value={formData.absence_reason}
+                  onChange={(e) => setFormData({ ...formData, absence_reason: e.target.value })}
+                  rows={2}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{language === "ar" ? "بداية الوردية المجدولة" : "Scheduled Start"}</Label>
+                    <Input
+                      type="time"
+                      value={formData.scheduled_start}
+                      onChange={(e) => setFormData({ ...formData, scheduled_start: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{language === "ar" ? "نهاية الوردية المجدولة" : "Scheduled End"}</Label>
+                    <Input
+                      type="time"
+                      value={formData.scheduled_end}
+                      onChange={(e) => setFormData({ ...formData, scheduled_end: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{language === "ar" ? "وقت الحضور الفعلي" : "Actual Start"}</Label>
+                    <Input
+                      type="time"
+                      value={formData.actual_start}
+                      onChange={(e) => setFormData({ ...formData, actual_start: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{language === "ar" ? "وقت الانصراف الفعلي" : "Actual End"}</Label>
+                    <Input
+                      type="time"
+                      value={formData.actual_end}
+                      onChange={(e) => setFormData({ ...formData, actual_end: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "مدة الاستراحة (دقائق)" : "Break Duration (minutes)"}</Label>
+                  <Input
+                    type="number"
+                    value={formData.break_duration_minutes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, break_duration_minutes: parseInt(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleSave}>
+              <Calculator className="h-4 w-4 mr-2" />
+              {language === "ar" ? "حفظ وحساب" : "Save & Calculate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
