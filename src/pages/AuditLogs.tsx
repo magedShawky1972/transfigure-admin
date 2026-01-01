@@ -87,24 +87,14 @@ const AuditLogs = () => {
     try {
       setLoading(true);
       
-      let query = supabase
-        .from("audit_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-
-      if (tableFilter !== "all") {
-        query = query.eq("table_name", tableFilter);
-      }
-
-      if (actionFilter !== "all") {
-        query = query.eq("action", actionFilter);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc("get_audit_logs", {
+        p_table_name: tableFilter === "all" ? null : tableFilter,
+        p_action: actionFilter === "all" ? null : actionFilter,
+        p_limit: limit
+      });
 
       if (error) throw error;
-      setLogs(data || []);
+      setLogs((data as AuditLog[]) || []);
     } catch (error) {
       console.error("Error fetching audit logs:", error);
     } finally {
