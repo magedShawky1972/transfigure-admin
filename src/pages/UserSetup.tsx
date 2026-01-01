@@ -986,14 +986,36 @@ const UserSetup = () => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  // Store decrypted passwords for display
+  const [decryptedEmailPasswords, setDecryptedEmailPasswords] = useState<Map<string, string>>(new Map());
+
   const handleShowEmailPassword = (profileId: string) => {
     setVerifyingForUserId(profileId);
     setVerifyPassword("");
     setEmailPasswordVerifyOpen(true);
   };
 
-  const handleVerifyEmailPassword = () => {
+  const handleVerifyEmailPassword = async () => {
     if (verifyPassword === "159753" && verifyingForUserId) {
+      // Find the profile to get the user_id
+      const profile = profiles.find(p => p.id === verifyingForUserId);
+      if (profile && profile.email_password) {
+        try {
+          // Call the decrypt function to get the plaintext password
+          const { data: decryptedPwd, error } = await supabase
+            .rpc('decrypt_email_password', { encrypted_password: profile.email_password });
+          
+          if (!error && decryptedPwd) {
+            setDecryptedEmailPasswords(prev => new Map(prev).set(verifyingForUserId, decryptedPwd));
+          } else {
+            // If decryption fails, show the stored value (might be plaintext)
+            setDecryptedEmailPasswords(prev => new Map(prev).set(verifyingForUserId, profile.email_password || ''));
+          }
+        } catch (err) {
+          // Fallback to stored value
+          setDecryptedEmailPasswords(prev => new Map(prev).set(verifyingForUserId, profile.email_password || ''));
+        }
+      }
       setVisibleEmailPasswords(prev => new Set([...prev, verifyingForUserId]));
       setEmailPasswordVerifyOpen(false);
       setVerifyPassword("");
@@ -1470,13 +1492,13 @@ const UserSetup = () => {
                   {visibleEmailPasswords.has(profile.id) ? (
                     <>
                       <span className="text-xs font-mono text-muted-foreground">
-                        Email Pass: {profile.email_password}
+                        Email Pass: {decryptedEmailPasswords.get(profile.id) || '***'}
                       </span>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5"
-                        onClick={() => copyEmailPassword(profile.email_password!)}
+                        onClick={() => copyEmailPassword(decryptedEmailPasswords.get(profile.id) || '')}
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
