@@ -3107,6 +3107,63 @@ export type Database = {
         }
         Relationships: []
       }
+      security_alert_config: {
+        Row: {
+          alert_recipients: string[] | null
+          alert_type: string
+          created_at: string | null
+          id: string
+          is_enabled: boolean
+          threshold: number
+          time_window_minutes: number
+          updated_at: string | null
+        }
+        Insert: {
+          alert_recipients?: string[] | null
+          alert_type: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          threshold?: number
+          time_window_minutes?: number
+          updated_at?: string | null
+        }
+        Update: {
+          alert_recipients?: string[] | null
+          alert_type?: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          threshold?: number
+          time_window_minutes?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      security_alerts_sent: {
+        Row: {
+          alert_type: string
+          details: Json | null
+          id: string
+          sent_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alert_type: string
+          details?: Json | null
+          id?: string
+          sent_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          details?: Json | null
+          id?: string
+          sent_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       shift_admins: {
         Row: {
           admin_order: number
@@ -5000,6 +5057,25 @@ export type Database = {
       decrypt_email_password_aes: {
         Args: { encrypted_password: string }
         Returns: string
+      }
+      detect_bulk_password_access: {
+        Args: { p_threshold?: number; p_time_window_minutes?: number }
+        Returns: {
+          access_count: number
+          first_access: string
+          last_access: string
+          user_email: string
+          user_id: string
+        }[]
+      }
+      detect_new_user_password_access: {
+        Args: { p_time_window_minutes?: number }
+        Returns: {
+          access_count: number
+          user_created_at: string
+          user_email: string
+          user_id: string
+        }[]
       }
       encrypt_email_password: {
         Args: { plain_password: string }
