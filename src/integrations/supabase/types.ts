@@ -106,8 +106,12 @@ export type Database = {
       }
       attendance_types: {
         Row: {
+          allow_early_exit_minutes: number | null
+          allow_late_minutes: number | null
           created_at: string
           description: string | null
+          fixed_end_time: string | null
+          fixed_start_time: string | null
           id: string
           is_active: boolean
           is_shift_based: boolean
@@ -117,8 +121,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_early_exit_minutes?: number | null
+          allow_late_minutes?: number | null
           created_at?: string
           description?: string | null
+          fixed_end_time?: string | null
+          fixed_start_time?: string | null
           id?: string
           is_active?: boolean
           is_shift_based?: boolean
@@ -128,8 +136,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_early_exit_minutes?: number | null
+          allow_late_minutes?: number | null
           created_at?: string
           description?: string | null
+          fixed_end_time?: string | null
+          fixed_start_time?: string | null
           id?: string
           is_active?: boolean
           is_shift_based?: boolean

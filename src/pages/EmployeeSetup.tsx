@@ -111,6 +111,10 @@ interface AttendanceType {
   type_name: string;
   type_name_ar: string | null;
   is_shift_based: boolean;
+  fixed_start_time: string | null;
+  fixed_end_time: string | null;
+  allow_late_minutes: number | null;
+  allow_early_exit_minutes: number | null;
 }
 
 interface DocumentType {
@@ -232,7 +236,7 @@ export default function EmployeeSetup() {
         supabase.from("medical_insurance_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
         supabase.from("shift_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
         supabase.from("document_types").select("id, type_name, type_name_ar, is_mandatory").eq("is_active", true).order("type_name"),
-        supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based").eq("is_active", true).order("type_name"),
+        supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes").eq("is_active", true).order("type_name"),
       ]);
 
       if (employeesRes.error) throw employeesRes.error;
@@ -1102,22 +1106,53 @@ export default function EmployeeSetup() {
                 {/* Show fixed time fields only if attendance type is NOT shift-based */}
                 {formData.attendance_type_id && !attendanceTypes.find(at => at.id === formData.attendance_type_id)?.is_shift_based && (
                   <>
-                    <div className="space-y-2">
-                      <Label>{language === "ar" ? "بداية الوردية" : "Shift Start"}</Label>
-                      <Input
-                        type="time"
-                        value={formData.fixed_shift_start}
-                        onChange={(e) => setFormData({ ...formData, fixed_shift_start: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{language === "ar" ? "نهاية الوردية" : "Shift End"}</Label>
-                      <Input
-                        type="time"
-                        value={formData.fixed_shift_end}
-                        onChange={(e) => setFormData({ ...formData, fixed_shift_end: e.target.value })}
-                      />
-                    </div>
+                    {(() => {
+                      const selectedAttType = attendanceTypes.find(at => at.id === formData.attendance_type_id);
+                      const hasFixedTimes = selectedAttType?.fixed_start_time && selectedAttType?.fixed_end_time;
+                      return (
+                        <>
+                          <div className="space-y-2">
+                            <Label>{language === "ar" ? "بداية الدوام" : "Work Start"}</Label>
+                            <Input
+                              type="time"
+                              value={hasFixedTimes ? selectedAttType.fixed_start_time?.slice(0, 5) || "" : formData.fixed_shift_start}
+                              onChange={(e) => !hasFixedTimes && setFormData({ ...formData, fixed_shift_start: e.target.value })}
+                              disabled={!!hasFixedTimes}
+                              className={hasFixedTimes ? "bg-muted" : ""}
+                            />
+                            {hasFixedTimes && (
+                              <p className="text-xs text-muted-foreground">
+                                {language === "ar" ? "محدد من إعداد نوع الحضور" : "Set from attendance type setup"}
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{language === "ar" ? "نهاية الدوام" : "Work End"}</Label>
+                            <Input
+                              type="time"
+                              value={hasFixedTimes ? selectedAttType.fixed_end_time?.slice(0, 5) || "" : formData.fixed_shift_end}
+                              onChange={(e) => !hasFixedTimes && setFormData({ ...formData, fixed_shift_end: e.target.value })}
+                              disabled={!!hasFixedTimes}
+                              className={hasFixedTimes ? "bg-muted" : ""}
+                            />
+                            {hasFixedTimes && (
+                              <p className="text-xs text-muted-foreground">
+                                {language === "ar" ? "محدد من إعداد نوع الحضور" : "Set from attendance type setup"}
+                              </p>
+                            )}
+                          </div>
+                          {selectedAttType && (selectedAttType.allow_late_minutes || selectedAttType.allow_early_exit_minutes) ? (
+                            <div className="md:col-span-2 p-3 bg-muted rounded-lg">
+                              <p className="text-sm text-muted-foreground">
+                                {language === "ar" 
+                                  ? `السماح بالتأخير: ${selectedAttType.allow_late_minutes || 0} دقيقة | السماح بالخروج المبكر: ${selectedAttType.allow_early_exit_minutes || 0} دقيقة`
+                                  : `Late allowance: ${selectedAttType.allow_late_minutes || 0} min | Early exit: ${selectedAttType.allow_early_exit_minutes || 0} min`}
+                              </p>
+                            </div>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </>
                 )}
 
