@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.external-supabase-proxy]
 verify_jwt = false
+
+[functions.verify-sysadmin]
+verify_jwt = false

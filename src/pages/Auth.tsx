@@ -15,9 +15,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import logo from "@/assets/edara-logo.png";
 import { useAppVersion } from "@/hooks/useAppVersion";
 
-// Hardcoded sysadmin credentials for initial setup
-const SYSADMIN_EMAIL = "sysadmin";
-const SYSADMIN_PASSWORD = "sysadmin";
+// Sysadmin username (password is stored server-side only)
+const SYSADMIN_USERNAME = "sysadmin";
 
 interface SystemState {
   tableExists: boolean;
@@ -58,7 +57,7 @@ const Auth = () => {
       .string()
       .max(255)
       .refine(
-        (val) => val.toLowerCase() === SYSADMIN_EMAIL || z.string().email().safeParse(val).success,
+        (val) => val.toLowerCase() === SYSADMIN_USERNAME || z.string().email().safeParse(val).success,
         "Invalid email address"
       ),
     password: z.string().min(6, "Password must be at least 6 characters").max(100),
@@ -180,13 +179,29 @@ const Auth = () => {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      const isSysadminLogin = normalizedEmail === SYSADMIN_EMAIL;
+      const isSysadminLogin = normalizedEmail === SYSADMIN_USERNAME;
 
       // Allow sysadmin to login without email format (no @)
       if (isSysadminLogin) {
-        if (password === SYSADMIN_PASSWORD) {
+        // Validate sysadmin password via server-side edge function
+        try {
+          const { data, error } = await supabase.functions.invoke("verify-sysadmin", {
+            body: { password },
+          });
+
+          if (error || !data?.success) {
+            toast({
+              title: language === "ar" ? "فشل تسجيل الدخول" : "Login Failed",
+              description: language === "ar" ? "كلمة مرور مدير النظام غير صحيحة" : "Incorrect sysadmin password",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+
+          // Store the session token from server
           setIsSysadminSession(true);
-          sessionStorage.setItem("sysadmin_session", "true");
+          sessionStorage.setItem("sysadmin_session", data.sessionToken || "true");
 
           toast({
             title: language === "ar" ? "مرحباً مدير النظام" : "Welcome System Admin",
@@ -207,15 +222,17 @@ const Auth = () => {
 
           navigate("/user-setup");
           return;
-        }
 
-        toast({
-          title: language === "ar" ? "فشل تسجيل الدخول" : "Login Failed",
-          description: language === "ar" ? "كلمة مرور مدير النظام غير صحيحة" : "Incorrect sysadmin password",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
+        } catch (err: any) {
+          console.error("Sysadmin auth error:", err);
+          toast({
+            title: language === "ar" ? "فشل تسجيل الدخول" : "Login Failed",
+            description: language === "ar" ? "خطأ في المصادقة" : "Authentication error",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       // Check if this is sysadmin initial setup login (when no users exist)
@@ -224,8 +241,8 @@ const Auth = () => {
           title: language === "ar" ? "لا يوجد مستخدمين" : "No users found",
           description:
             language === "ar"
-              ? "استخدم sysadmin / sysadmin لإنشاء المستخدمين" 
-              : "Use sysadmin/sysadmin to create users",
+              ? "استخدم sysadmin لإنشاء المستخدمين" 
+              : "Use sysadmin to create users",
           variant: "destructive",
         });
         setLoading(false);
