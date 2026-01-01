@@ -535,31 +535,49 @@ const CertificateManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{language === "ar" ? "اسم الجهاز" : "Device Name"}</TableHead>
+                    <TableHead>{language === "ar" ? "نظام التشغيل" : "OS Type"}</TableHead>
                     <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                     <TableHead>{language === "ar" ? "تاريخ التفعيل" : "Activated At"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedCertDevices.map((device) => (
-                    <TableRow key={device.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Monitor className="h-4 w-4 text-muted-foreground" />
-                          {device.device_name || device.device_fingerprint.slice(0, 12)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={device.is_active ? "default" : "secondary"}>
-                          {device.is_active 
-                            ? (language === "ar" ? "نشط" : "Active") 
-                            : (language === "ar" ? "غير نشط" : "Inactive")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(device.activated_at), "yyyy-MM-dd HH:mm")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {selectedCertDevices.map((device) => {
+                    const deviceInfo = device.device_info as Record<string, unknown> | null;
+                    const platform = deviceInfo?.platform as string || '';
+                    const userAgent = deviceInfo?.userAgent as string || '';
+                    
+                    // Detect OS type from platform or userAgent
+                    let osType = 'Unknown';
+                    if (platform.includes('Win') || userAgent.includes('Windows')) osType = 'Windows';
+                    else if (platform.includes('Mac') || userAgent.includes('Mac')) osType = 'macOS';
+                    else if (platform.includes('Linux') || userAgent.includes('Linux')) osType = 'Linux';
+                    else if (userAgent.includes('iPhone') || userAgent.includes('iPad')) osType = 'iOS';
+                    else if (userAgent.includes('Android')) osType = 'Android';
+                    
+                    return (
+                      <TableRow key={device.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Monitor className="h-4 w-4 text-muted-foreground" />
+                            {device.device_name || device.device_fingerprint.slice(0, 12)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{osType}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={device.is_active ? "default" : "secondary"}>
+                            {device.is_active 
+                              ? (language === "ar" ? "نشط" : "Active") 
+                              : (language === "ar" ? "غير نشط" : "Inactive")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(device.activated_at), "yyyy-MM-dd HH:mm")}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
