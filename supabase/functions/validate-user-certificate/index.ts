@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { certificate, user_id } = await req.json();
+    const { certificate, user_id, device_fingerprint, device_name, device_info } = await req.json();
 
     if (!certificate || !user_id) {
       throw new Error('certificate and user_id are required');
@@ -121,6 +121,35 @@ Deno.serve(async (req) => {
       );
     }
 
+    // If device_fingerprint is provided, activate the device
+    if (device_fingerprint) {
+      try {
+        // Upsert device activation record
+        const { error: deviceError } = await supabase
+          .from('user_device_activations')
+          .upsert({
+            user_id: user_id,
+            certificate_id: certRecord.id,
+            device_fingerprint: device_fingerprint,
+            device_name: device_name || 'Unknown Device',
+            device_info: device_info || {},
+            is_active: true,
+            activated_at: new Date().toISOString(),
+            last_login_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,device_fingerprint'
+          });
+
+        if (deviceError) {
+          console.error('Error activating device:', deviceError);
+        } else {
+          console.log(`Device activated for user ${user_id}: ${device_name}`);
+        }
+      } catch (deviceErr) {
+        console.error('Device activation error:', deviceErr);
+      }
+    }
+
     console.log(`Certificate validated for user ${user_id}`);
 
     return new Response(
@@ -128,7 +157,8 @@ Deno.serve(async (req) => {
         valid: true,
         certificate_id: certRecord.id,
         issued_at: certRecord.issued_at,
-        expires_at: certRecord.expires_at
+        expires_at: certRecord.expires_at,
+        device_activated: !!device_fingerprint
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

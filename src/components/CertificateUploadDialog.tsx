@@ -37,6 +37,45 @@ const CertificateUploadDialog = ({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const getDeviceFingerprint = (): string => {
+    const stored = localStorage.getItem('device_fingerprint');
+    if (stored) return stored;
+    
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl');
+    const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info');
+    const renderer = debugInfo ? gl?.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown';
+    
+    const fingerprint = btoa(JSON.stringify({
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      platform: navigator.platform,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      colorDepth: screen.colorDepth,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      renderer: renderer,
+      timestamp: Date.now()
+    })).slice(0, 64);
+    
+    localStorage.setItem('device_fingerprint', fingerprint);
+    return fingerprint;
+  };
+
+  const getDeviceName = (): string => {
+    const ua = navigator.userAgent;
+    if (/Mobile|Android|iPhone|iPad/.test(ua)) {
+      if (/iPhone/.test(ua)) return 'iPhone';
+      if (/iPad/.test(ua)) return 'iPad';
+      if (/Android/.test(ua)) return 'Android Device';
+      return 'Mobile Device';
+    }
+    if (/Windows/.test(ua)) return 'Windows PC';
+    if (/Mac/.test(ua)) return 'Mac';
+    if (/Linux/.test(ua)) return 'Linux PC';
+    return 'Unknown Device';
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,9 +96,24 @@ const CertificateUploadDialog = ({
 
     try {
       const content = await file.text();
+      const deviceFingerprint = getDeviceFingerprint();
+      const deviceName = getDeviceName();
+      const deviceInfo = {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        screenResolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      };
 
       const { data, error } = await supabase.functions.invoke("validate-user-certificate", {
-        body: { certificate: content, user_id: userId },
+        body: { 
+          certificate: content, 
+          user_id: userId,
+          device_fingerprint: deviceFingerprint,
+          device_name: deviceName,
+          device_info: deviceInfo
+        },
       });
 
       if (error) throw error;

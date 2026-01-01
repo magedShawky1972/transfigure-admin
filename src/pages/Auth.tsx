@@ -177,36 +177,91 @@ const Auth = () => {
     }
   };
 
-  // Check if user has a valid certificate - ALWAYS requires file upload
-  const checkUserCertificate = async (userId: string): Promise<boolean> => {
+  // Generate device fingerprint
+  const getDeviceFingerprint = (): string => {
+    const stored = localStorage.getItem('device_fingerprint');
+    if (stored) return stored;
+    
+    // Generate new fingerprint based on device characteristics
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl');
+    const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info');
+    const renderer = debugInfo ? gl?.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown';
+    
+    const fingerprint = btoa(JSON.stringify({
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      platform: navigator.platform,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      colorDepth: screen.colorDepth,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      renderer: renderer,
+      timestamp: Date.now()
+    })).slice(0, 64);
+    
+    localStorage.setItem('device_fingerprint', fingerprint);
+    return fingerprint;
+  };
+
+  const getDeviceName = (): string => {
+    const ua = navigator.userAgent;
+    if (/Mobile|Android|iPhone|iPad/.test(ua)) {
+      if (/iPhone/.test(ua)) return 'iPhone';
+      if (/iPad/.test(ua)) return 'iPad';
+      if (/Android/.test(ua)) return 'Android Device';
+      return 'Mobile Device';
+    }
+    if (/Windows/.test(ua)) return 'Windows PC';
+    if (/Mac/.test(ua)) return 'Mac';
+    if (/Linux/.test(ua)) return 'Linux PC';
+    return 'Unknown Device';
+  };
+
+  // Check if current device is activated for user
+  const checkDeviceActivation = async (userId: string): Promise<boolean> => {
     try {
-      // Check if user has ANY certificate record (active and not expired)
-      const { data: certificates, error } = await supabase
-        .from("user_certificates")
-        .select("*")
+      const fingerprint = getDeviceFingerprint();
+      
+      const { data: activation, error } = await supabase
+        .from("user_device_activations")
+        .select("*, user_certificates!inner(is_active, expires_at)")
         .eq("user_id", userId)
+        .eq("device_fingerprint", fingerprint)
         .eq("is_active", true)
-        .gte("expires_at", new Date().toISOString())
-        .order("expires_at", { ascending: false })
-        .limit(1);
+        .maybeSingle();
 
       if (error) {
-        console.error("Error checking certificate:", error);
+        console.error("Error checking device activation:", error);
+        setCertificateDialogType("missing");
+        setShowCertificateDialog(true);
+        return false;
       }
 
-      // Always require user to upload certificate file for validation
-      // Even if they have a valid certificate in DB, they must prove they have the file
-      if (!certificates || certificates.length === 0) {
+      if (!activation) {
+        // Device not activated - require certificate upload
         setCertificateDialogType("missing");
-      } else {
-        // Has certificate in DB but still needs to upload file to prove ownership
-        setCertificateDialogType("missing");
+        setShowCertificateDialog(true);
+        return false;
       }
-      
-      setShowCertificateDialog(true);
-      return false; // Always return false to force upload dialog
+
+      // Check if linked certificate is still valid
+      const cert = activation.user_certificates;
+      if (!cert?.is_active || new Date(cert.expires_at) < new Date()) {
+        setCertificateDialogType("expired");
+        setShowCertificateDialog(true);
+        return false;
+      }
+
+      // Update last login time
+      await supabase
+        .from("user_device_activations")
+        .update({ last_login_at: new Date().toISOString() })
+        .eq("id", activation.id);
+
+      return true; // Device is activated and certificate is valid
     } catch (error) {
-      console.error("Certificate check error:", error);
+      console.error("Device activation check error:", error);
       setCertificateDialogType("missing");
       setShowCertificateDialog(true);
       return false;
@@ -356,11 +411,11 @@ const Auth = () => {
         return;
       }
 
-      // Check for valid certificate
+      // Check if device is activated for this user
       const userId = profile?.user_id;
       if (userId) {
-        const certificateValid = await checkUserCertificate(userId);
-        if (!certificateValid) {
+        const deviceActivated = await checkDeviceActivation(userId);
+        if (!deviceActivated) {
           setPendingUserId(userId);
           return; // Dialog will be shown, don't navigate yet
         }

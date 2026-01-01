@@ -4489,6 +4489,59 @@ export type Database = {
         }
         Relationships: []
       }
+      user_device_activations: {
+        Row: {
+          activated_at: string
+          certificate_id: string | null
+          created_at: string
+          deactivated_at: string | null
+          device_fingerprint: string
+          device_info: Json | null
+          device_name: string | null
+          id: string
+          is_active: boolean
+          last_login_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activated_at?: string
+          certificate_id?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          device_fingerprint: string
+          device_info?: Json | null
+          device_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activated_at?: string
+          certificate_id?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          device_fingerprint?: string
+          device_info?: Json | null
+          device_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_device_activations_certificate_id_fkey"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "user_certificates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_email_configs: {
         Row: {
           created_at: string
