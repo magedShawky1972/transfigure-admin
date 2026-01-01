@@ -4984,6 +4984,10 @@ export type Database = {
           function_name: string
         }[]
       }
+      get_email_config_password: {
+        Args: { config_id: string }
+        Returns: string
+      }
       get_epayment_charges: {
         Args: { date_from: string; date_to: string }
         Returns: number
