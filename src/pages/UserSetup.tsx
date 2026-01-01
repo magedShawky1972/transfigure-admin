@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2, FileKey, Loader2 } from "lucide-react";
 import AvatarSelector from "@/components/AvatarSelector";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -141,6 +141,7 @@ interface UserPermission {
     { key: "shiftPlansSetup", label: "خطط الورديات", labelEn: "Shift Plans" },
     { key: "documentTypeSetup", label: "أنواع المستندات", labelEn: "Document Types" },
     { key: "attendanceTypeSetup", label: "أنواع الحضور", labelEn: "Attendance Types" },
+    { key: "certificateManagement", label: "إدارة الشهادات", labelEn: "Certificate Management" },
   ];
 
 const DASHBOARD_COMPONENTS = [
@@ -240,6 +241,7 @@ const UserSetup = () => {
   const [verifyPassword, setVerifyPassword] = useState("");
   const [verifyingForUserId, setVerifyingForUserId] = useState<string | null>(null);
   const [visibleEmailPasswords, setVisibleEmailPasswords] = useState<Set<string>>(new Set());
+  const [generatingCertificate, setGeneratingCertificate] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfiles();
@@ -624,6 +626,47 @@ const UserSetup = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateCertificate = async (profile: Profile) => {
+    setGeneratingCertificate(profile.user_id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase.functions.invoke("generate-user-certificate", {
+        body: { user_id: profile.user_id, created_by_id: user?.id },
+      });
+
+      if (error) throw error;
+
+      if (data?.certificate) {
+        const blob = new Blob([data.certificate], { type: "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `certificate_${profile.email}_${new Date().toISOString().split('T')[0]}.cert`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: language === "ar" ? "تم إنشاء الشهادة" : "Certificate Generated",
+          description: language === "ar" 
+            ? `تنتهي الصلاحية في ${new Date(data.expires_at).toLocaleDateString()}` 
+            : `Expires on ${new Date(data.expires_at).toLocaleDateString()}`,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error generating certificate:", error);
+      toast({
+        title: t("common.error"),
+        description: language === "ar" ? "فشل في إنشاء الشهادة" : "Failed to generate certificate",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingCertificate(null);
     }
   };
 
@@ -1556,14 +1599,30 @@ const UserSetup = () => {
                 <Shield className="h-4 w-4" />
               </Button>
               {isCurrentUserAdmin && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleResetPassword(profile)}
-                  title={language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}
-                >
-                  <KeyRound className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleResetPassword(profile)}
+                    title={language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}
+                  >
+                    <KeyRound className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleGenerateCertificate(profile)}
+                    disabled={generatingCertificate === profile.user_id}
+                    title={language === 'ar' ? 'إنشاء شهادة' : 'Generate Certificate'}
+                    className="text-green-600 hover:text-green-700"
+                  >
+                    {generatingCertificate === profile.user_id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileKey className="h-4 w-4" />
+                    )}
+                  </Button>
+                </>
               )}
               <Button
                 variant="ghost"

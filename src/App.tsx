@@ -89,6 +89,7 @@ import ShiftPlansSetup from "./pages/ShiftPlansSetup";
 import AttendanceTypeSetup from "./pages/AttendanceTypeSetup";
 import AuditLogs from "./pages/AuditLogs";
 import SecurityDashboard from "./pages/SecurityDashboard";
+import CertificateManagement from "./pages/CertificateManagement";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -183,6 +184,7 @@ const App = () => (
               <Route path="/document-type-setup" element={<DocumentTypeSetup />} />
               <Route path="/attendance-type-setup" element={<AttendanceTypeSetup />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
+              <Route path="/certificate-management" element={<CertificateManagement />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -36,7 +36,8 @@ import {
   Calculator,
   HeartPulse,
   CalendarClock,
-  ClipboardCheck
+  ClipboardCheck,
+  FileKey
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -124,6 +125,7 @@ export function AppSidebar() {
     "/document-type-setup": "documentTypeSetup",
     "/attendance-type-setup": "attendanceTypeSetup",
     "/audit-logs": "auditLogs",
+    "/certificate-management": "certificateManagement",
   };
 
   useEffect(() => {
@@ -330,6 +332,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'نسخ احتياطي' : 'System Backup', url: "/system-backup", icon: HardDrive },
         { title: language === 'ar' ? 'استعادة النظام' : 'System Restore', url: "/system-restore", icon: RotateCcw },
         { title: language === 'ar' ? 'سجلات التدقيق' : 'Audit Logs', url: "/audit-logs", icon: ClipboardCheck },
+        { title: language === 'ar' ? 'إدارة الشهادات' : 'Certificate Management', url: "/certificate-management", icon: FileKey },
       ]
     }
   ];
