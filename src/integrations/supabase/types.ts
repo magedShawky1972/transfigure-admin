@@ -2286,6 +2286,42 @@ export type Database = {
         }
         Relationships: []
       }
+      password_access_logs: {
+        Row: {
+          access_type: string
+          accessed_record_id: string | null
+          accessed_table: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          access_type?: string
+          accessed_record_id?: string | null
+          accessed_table: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          accessed_record_id?: string | null
+          accessed_table?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_methods: {
         Row: {
           created_at: string
@@ -5044,6 +5080,24 @@ export type Database = {
         Args: { p_department_id: string }
         Returns: number
       }
+      get_password_access_logs: {
+        Args: {
+          p_from_date?: string
+          p_limit?: number
+          p_table_name?: string
+          p_to_date?: string
+          p_user_id?: string
+        }
+        Returns: {
+          access_type: string
+          accessed_record_id: string
+          accessed_table: string
+          created_at: string
+          id: string
+          user_email: string
+          user_id: string
+        }[]
+      }
       get_points_summary: {
         Args: { date_from: string; date_to: string }
         Returns: {
@@ -5124,6 +5178,10 @@ export type Database = {
       is_project_member: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
+      }
+      log_password_access: {
+        Args: { p_accessed_record_id?: string; p_accessed_table: string }
+        Returns: undefined
       }
       revenue_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }
