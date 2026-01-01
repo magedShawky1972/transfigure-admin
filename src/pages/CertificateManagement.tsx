@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, RefreshCw, Ban, FileKey, Download, AlertTriangle, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Search, RefreshCw, Ban, FileKey, Download, AlertTriangle, CheckCircle, XCircle, Clock, Monitor } from "lucide-react";
 import { format, differenceInDays, isPast } from "date-fns";
 
 interface Certificate {
@@ -54,6 +54,15 @@ interface Profile {
   email: string;
 }
 
+interface DeviceActivation {
+  id: string;
+  device_name: string;
+  device_fingerprint: string;
+  device_info: unknown;
+  is_active: boolean;
+  activated_at: string;
+}
+
 const CertificateManagement = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -66,6 +75,10 @@ const CertificateManagement = () => {
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
   const [generating, setGenerating] = useState<string | null>(null);
+  const [devicesDialogOpen, setDevicesDialogOpen] = useState(false);
+  const [selectedCertDevices, setSelectedCertDevices] = useState<DeviceActivation[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [selectedCertForDevices, setSelectedCertForDevices] = useState<Certificate | null>(null);
 
   useEffect(() => {
     fetchCertificates();
@@ -143,6 +156,31 @@ const CertificateManagement = () => {
         description: language === "ar" ? "فشل في إلغاء الشهادة" : "Failed to revoke certificate",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleShowDevices = async (cert: Certificate) => {
+    setSelectedCertForDevices(cert);
+    setDevicesDialogOpen(true);
+    setLoadingDevices(true);
+    try {
+      const { data, error } = await supabase
+        .from("user_device_activations")
+        .select("*")
+        .eq("certificate_id", cert.id)
+        .order("activated_at", { ascending: false });
+
+      if (error) throw error;
+      setSelectedCertDevices(data || []);
+    } catch (error) {
+      console.error("Error fetching devices:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في جلب الأجهزة" : "Failed to fetch devices",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingDevices(false);
     }
   };
 
@@ -393,6 +431,14 @@ const CertificateManagement = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => handleShowDevices(cert)}
+                            title={language === "ar" ? "عرض الأجهزة" : "Show Devices"}
+                          >
+                            <Monitor className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleGenerateCertificate(cert.user_id)}
                             disabled={generating === cert.user_id}
                           >
@@ -457,6 +503,69 @@ const CertificateManagement = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Devices Dialog */}
+      <Dialog open={devicesDialogOpen} onOpenChange={setDevicesDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Monitor className="h-5 w-5" />
+              {language === "ar" ? "الأجهزة المفعّلة" : "Activated Devices"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCertForDevices && profiles[selectedCertForDevices.user_id] && (
+                <span>
+                  {language === "ar" ? "المستخدم: " : "User: "}
+                  {profiles[selectedCertForDevices.user_id].user_name} ({profiles[selectedCertForDevices.user_id].email})
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {loadingDevices ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {language === "ar" ? "جاري التحميل..." : "Loading..."}
+              </div>
+            ) : selectedCertDevices.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {language === "ar" ? "لا توجد أجهزة مفعّلة" : "No activated devices"}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === "ar" ? "اسم الجهاز" : "Device Name"}</TableHead>
+                    <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                    <TableHead>{language === "ar" ? "تاريخ التفعيل" : "Activated At"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedCertDevices.map((device) => (
+                    <TableRow key={device.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <Monitor className="h-4 w-4 text-muted-foreground" />
+                          {device.device_name || device.device_fingerprint.slice(0, 12)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={device.is_active ? "default" : "secondary"}>
+                          {device.is_active 
+                            ? (language === "ar" ? "نشط" : "Active") 
+                            : (language === "ar" ? "غير نشط" : "Inactive")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(device.activated_at), "yyyy-MM-dd HH:mm")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Revoke Dialog */}
       <Dialog open={revokeDialogOpen} onOpenChange={setRevokeDialogOpen}>
