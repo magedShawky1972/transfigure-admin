@@ -4961,7 +4961,15 @@ export type Database = {
         Args: { encrypted_password: string }
         Returns: string
       }
+      decrypt_email_password_aes: {
+        Args: { encrypted_password: string }
+        Returns: string
+      }
       encrypt_email_password: {
+        Args: { plain_password: string }
+        Returns: string
+      }
+      encrypt_email_password_aes: {
         Args: { plain_password: string }
         Returns: string
       }
@@ -5097,6 +5105,7 @@ export type Database = {
           type_type: string
         }[]
       }
+      get_user_email_password: { Args: { email_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
