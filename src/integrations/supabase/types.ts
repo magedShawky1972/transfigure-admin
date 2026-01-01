@@ -152,6 +152,48 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       background_sync_jobs: {
         Row: {
           completed_at: string | null
@@ -4910,6 +4952,27 @@ export type Database = {
       format_date_to_int: { Args: { d: string }; Returns: number }
       generate_ludo_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
+      get_audit_logs: {
+        Args: {
+          p_action?: string
+          p_from_date?: string
+          p_limit?: number
+          p_table_name?: string
+          p_to_date?: string
+          p_user_id?: string
+        }
+        Returns: {
+          action: string
+          created_at: string
+          id: string
+          new_data: Json
+          old_data: Json
+          record_id: string
+          table_name: string
+          user_email: string
+          user_id: string
+        }[]
+      }
       get_cost_of_sales: {
         Args: { date_from: string; date_to: string }
         Returns: number
