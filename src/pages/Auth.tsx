@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import logo from "@/assets/edara-logo.png";
 import { useAppVersion } from "@/hooks/useAppVersion";
+import CertificateUploadDialog from "@/components/CertificateUploadDialog";
 
 // Sysadmin username (password is stored server-side only)
 const SYSADMIN_USERNAME = "sysadmin";
@@ -51,6 +52,9 @@ const Auth = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [isSysadminSession, setIsSysadminSession] = useState(false);
   const [isFirstLoginProcessing, setIsFirstLoginProcessing] = useState(false);
+  const [showCertificateDialog, setShowCertificateDialog] = useState(false);
+  const [certificateDialogType, setCertificateDialogType] = useState<"missing" | "expired">("missing");
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const authSchema = z.object({
     // Allow "sysadmin" as a special username (no @) in addition to normal emails
     email: z
@@ -171,6 +175,53 @@ const Auth = () => {
     } finally {
       setCheckingSystem(false);
     }
+  };
+
+  // Check if user has a valid certificate
+  const checkUserCertificate = async (userId: string): Promise<boolean> => {
+    try {
+      const { data: certificates, error } = await supabase
+        .from("user_certificates")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .gte("expires_at", new Date().toISOString())
+        .order("expires_at", { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error("Error checking certificate:", error);
+        // If there's an error, show the upload dialog
+        setCertificateDialogType("missing");
+        setShowCertificateDialog(true);
+        return false;
+      }
+
+      if (!certificates || certificates.length === 0) {
+        // No valid certificate found
+        setCertificateDialogType("missing");
+        setShowCertificateDialog(true);
+        return false;
+      }
+
+      // Valid certificate exists
+      return true;
+    } catch (error) {
+      console.error("Certificate check error:", error);
+      setCertificateDialogType("missing");
+      setShowCertificateDialog(true);
+      return false;
+    }
+  };
+
+  const handleCertificateSuccess = () => {
+    setShowCertificateDialog(false);
+    setPendingUserId(null);
+    toast({
+      title: t("common.success"),
+      description: language === "ar" ? "تم التحقق من الشهادة بنجاح" : "Certificate verified successfully",
+    });
+    navigate("/");
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -297,7 +348,7 @@ const Auth = () => {
       // Check if password change is required
       const { data: profile } = await supabase
         .from("profiles")
-        .select("must_change_password")
+        .select("must_change_password, user_id")
         .eq("email", email)
         .single();
 
@@ -306,7 +357,17 @@ const Auth = () => {
         return;
       }
 
-      // Skip MFA and go directly to dashboard
+      // Check for valid certificate
+      const userId = profile?.user_id;
+      if (userId) {
+        const certificateValid = await checkUserCertificate(userId);
+        if (!certificateValid) {
+          setPendingUserId(userId);
+          return; // Dialog will be shown, don't navigate yet
+        }
+      }
+
+      // Certificate is valid, proceed to dashboard
       toast({
         title: t("common.success"),
         description: t("auth.signInButton"),
@@ -967,6 +1028,24 @@ const Auth = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Certificate Upload Dialog */}
+      {pendingUserId && (
+        <CertificateUploadDialog
+          open={showCertificateDialog}
+          onOpenChange={(open) => {
+            if (!open) {
+              // If user closes dialog without validating, sign them out
+              supabase.auth.signOut();
+              setPendingUserId(null);
+            }
+            setShowCertificateDialog(open);
+          }}
+          userId={pendingUserId}
+          onSuccess={handleCertificateSuccess}
+          type={certificateDialogType}
+        />
+      )}
     </div>
   );
 };
