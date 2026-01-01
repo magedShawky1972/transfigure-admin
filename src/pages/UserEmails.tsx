@@ -44,6 +44,7 @@ interface UserEmail {
   host: string;
   description: string | null;
   owner: string | null;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -150,6 +151,8 @@ const UserEmails = () => {
         if (error) throw error;
         toast.success(language === "ar" ? "تم التحديث بنجاح" : "Updated successfully");
       } else {
+        // Get current user id
+        const { data: { user } } = await supabase.auth.getUser();
         const { error } = await supabase.from("user_emails").insert({
           user_name: formData.user_name,
           email: formData.email,
@@ -157,6 +160,7 @@ const UserEmails = () => {
           host: formData.host,
           description: formData.description || null,
           owner: formData.owner || null,
+          user_id: user?.id || null,
         });
 
         if (error) throw error;
