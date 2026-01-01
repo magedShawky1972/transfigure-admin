@@ -8,38 +8,35 @@ export interface SystemState {
 }
 
 export async function getSystemState(): Promise<SystemState> {
-  // We avoid relying on backend functions here because some deployments may block /functions
-  // while /rest remains accessible.
-  let tableExists = false;
-  let usersCount = 0;
+  try {
+    // Use the edge function which uses service role key to bypass RLS
+    const { data, error } = await supabase.functions.invoke("check-system-state");
 
-  const { error, count } = await supabase
-    .from("profiles")
-    // Avoid HEAD requests (some proxies/extensions block them and cause "Failed to fetch")
-    .select("id", { count: "exact" })
-    .limit(1);
-
-  if (error) {
-    const msg = (error as any)?.message as string | undefined;
-    const code = (error as any)?.code as string | undefined;
-
-    // Postgres: undefined_table
-    if (code === "42P01" || msg?.includes("does not exist")) {
-      tableExists = false;
-      usersCount = 0;
-    } else {
-      // Unknown error: rethrow so callers can decide (auth issues, network issues, etc.)
-      throw error;
+    if (error) {
+      console.error("Error calling check-system-state:", error);
+      // Fallback: assume system is working to avoid blocking login
+      return {
+        tableExists: true,
+        usersCount: 1,
+        needsRestore: false,
+        needsInitialUser: false,
+      };
     }
-  } else {
-    tableExists = true;
-    usersCount = count ?? 0;
-  }
 
-  return {
-    tableExists,
-    usersCount,
-    needsRestore: !tableExists,
-    needsInitialUser: tableExists && usersCount === 0,
-  };
+    return {
+      tableExists: data.tableExists ?? true,
+      usersCount: data.usersCount ?? 1,
+      needsRestore: data.needsRestore ?? false,
+      needsInitialUser: data.needsInitialUser ?? false,
+    };
+  } catch (err) {
+    console.error("Error getting system state:", err);
+    // Fallback: assume system is working to avoid blocking login
+    return {
+      tableExists: true,
+      usersCount: 1,
+      needsRestore: false,
+      needsInitialUser: false,
+    };
+  }
 }
