@@ -177,9 +177,10 @@ const Auth = () => {
     }
   };
 
-  // Check if user has a valid certificate
+  // Check if user has a valid certificate - ALWAYS requires file upload
   const checkUserCertificate = async (userId: string): Promise<boolean> => {
     try {
+      // Check if user has ANY certificate record (active and not expired)
       const { data: certificates, error } = await supabase
         .from("user_certificates")
         .select("*")
@@ -191,21 +192,19 @@ const Auth = () => {
 
       if (error) {
         console.error("Error checking certificate:", error);
-        // If there's an error, show the upload dialog
-        setCertificateDialogType("missing");
-        setShowCertificateDialog(true);
-        return false;
       }
 
+      // Always require user to upload certificate file for validation
+      // Even if they have a valid certificate in DB, they must prove they have the file
       if (!certificates || certificates.length === 0) {
-        // No valid certificate found
         setCertificateDialogType("missing");
-        setShowCertificateDialog(true);
-        return false;
+      } else {
+        // Has certificate in DB but still needs to upload file to prove ownership
+        setCertificateDialogType("missing");
       }
-
-      // Valid certificate exists
-      return true;
+      
+      setShowCertificateDialog(true);
+      return false; // Always return false to force upload dialog
     } catch (error) {
       console.error("Certificate check error:", error);
       setCertificateDialogType("missing");
