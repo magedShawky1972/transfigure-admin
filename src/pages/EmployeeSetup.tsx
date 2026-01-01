@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera } from "lucide-react";
+import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera, UserPlus, Users } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -153,6 +153,7 @@ export default function EmployeeSetup() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [employeeDocuments, setEmployeeDocuments] = useState<EmployeeDocument[]>([]);
+  const [usersWithoutEmployee, setUsersWithoutEmployee] = useState<Profile[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -160,7 +161,9 @@ export default function EmployeeSetup() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [loadUsersDialogOpen, setLoadUsersDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedUsersToAdd, setSelectedUsersToAdd] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   
@@ -250,11 +253,116 @@ export default function EmployeeSetup() {
       setShiftPlans(shiftPlansRes.data || []);
       setDocumentTypes(docTypesRes.data || []);
       setAttendanceTypes(attendanceTypesRes.data || []);
+      // Find users without employee records
+      const allProfiles = profilesRes.data || [];
+      const existingUserIds = (employeesRes.data || []).map(emp => emp.user_id).filter(Boolean);
+      const usersNotLinked = allProfiles.filter(p => !existingUserIds.includes(p.user_id));
+      setUsersWithoutEmployee(usersNotLinked);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const openLoadUsersDialog = () => {
+    setSelectedUsersToAdd([]);
+    setLoadUsersDialogOpen(true);
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsersToAdd(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleAddSelectedUsers = async () => {
+    if (selectedUsersToAdd.length === 0) {
+      toast.error(language === "ar" ? "يرجى اختيار مستخدم واحد على الأقل" : "Please select at least one user");
+      return;
+    }
+
+    try {
+      const usersToAdd = usersWithoutEmployee.filter(u => selectedUsersToAdd.includes(u.user_id));
+      const newEmployees = usersToAdd.map((user, index) => {
+        // Split user_name into first and last name
+        const nameParts = user.user_name.trim().split(/\s+/);
+        const firstName = nameParts[0] || user.user_name;
+        const lastName = nameParts.slice(1).join(" ") || "-";
+        
+        // Generate employee number
+        const timestamp = Date.now();
+        const empNumber = `EMP${timestamp}${index}`;
+        
+        return {
+          employee_number: empNumber,
+          user_id: user.user_id,
+          first_name: firstName,
+          last_name: lastName,
+          email: user.email,
+          job_start_date: new Date().toISOString().split('T')[0],
+          employment_status: 'active' as const,
+          shift_type: 'fixed' as const,
+        };
+      });
+
+      const { error } = await supabase.from("employees").insert(newEmployees);
+      if (error) throw error;
+
+      toast.success(
+        language === "ar" 
+          ? `تم إضافة ${newEmployees.length} موظف بنجاح` 
+          : `Successfully added ${newEmployees.length} employee(s)`
+      );
+      setLoadUsersDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const openAddFromUser = (user: Profile) => {
+    // Split user_name into first and last name
+    const nameParts = user.user_name.trim().split(/\s+/);
+    const firstName = nameParts[0] || user.user_name;
+    const lastName = nameParts.slice(1).join(" ") || "-";
+    
+    setSelectedEmployee(null);
+    setFormData({
+      employee_number: `EMP${Date.now()}`,
+      user_id: user.user_id,
+      first_name: firstName,
+      first_name_ar: "",
+      last_name: lastName,
+      last_name_ar: "",
+      email: user.email,
+      phone: "",
+      mobile: "",
+      date_of_birth: "",
+      gender: "",
+      nationality: "",
+      national_id: "",
+      department_id: "",
+      job_position_id: "",
+      job_start_date: new Date().toISOString().split('T')[0],
+      termination_date: "",
+      employment_status: "active",
+      shift_type: "fixed",
+      fixed_shift_start: "",
+      fixed_shift_end: "",
+      shift_plan_id: "",
+      attendance_type_id: "",
+      vacation_code_id: "",
+      vacation_balance: "",
+      medical_insurance_plan_id: "",
+      basic_salary: "",
+      manager_id: "",
+      photo_url: "",
+    });
+    setLoadUsersDialogOpen(false);
+    setDialogOpen(true);
   };
 
   const fetchEmployeeDocuments = async (employeeId: string) => {
@@ -588,14 +696,18 @@ export default function EmployeeSetup() {
                 size="icon"
                 onClick={() => setViewMode("card")}
               >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-            <Button onClick={openAddDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              {language === "ar" ? "إضافة موظف" : "Add Employee"}
+              <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
+          <Button variant="outline" onClick={openLoadUsersDialog} disabled={usersWithoutEmployee.length === 0}>
+            <Users className="h-4 w-4 mr-2" />
+            {language === "ar" ? `تحميل من المستخدمين (${usersWithoutEmployee.length})` : `Load from Users (${usersWithoutEmployee.length})`}
+          </Button>
+          <Button onClick={openAddDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "ar" ? "إضافة موظف" : "Add Employee"}
+          </Button>
+        </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4 mb-4">
@@ -1368,6 +1480,102 @@ export default function EmployeeSetup() {
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
               {language === "ar" ? "حذف" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Load Users Dialog */}
+      <Dialog open={loadUsersDialogOpen} onOpenChange={setLoadUsersDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              {language === "ar" ? "تحميل موظفين من المستخدمين" : "Load Employees from Users"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {language === "ar" 
+                ? "المستخدمون التاليون ليس لديهم سجل موظف. يمكنك تحديد المستخدمين لإضافتهم كموظفين أو النقر على مستخدم لتعديل بياناته قبل الإضافة."
+                : "The following users don't have an employee record. You can select users to add them as employees or click on a user to edit their data before adding."}
+            </p>
+
+            {usersWithoutEmployee.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {language === "ar" ? "جميع المستخدمين لديهم سجلات موظفين" : "All users have employee records"}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">
+                    {language === "ar" 
+                      ? `${selectedUsersToAdd.length} مستخدم محدد`
+                      : `${selectedUsersToAdd.length} user(s) selected`}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedUsersToAdd.length === usersWithoutEmployee.length) {
+                        setSelectedUsersToAdd([]);
+                      } else {
+                        setSelectedUsersToAdd(usersWithoutEmployee.map(u => u.user_id));
+                      }
+                    }}
+                  >
+                    {selectedUsersToAdd.length === usersWithoutEmployee.length
+                      ? (language === "ar" ? "إلغاء تحديد الكل" : "Deselect All")
+                      : (language === "ar" ? "تحديد الكل" : "Select All")}
+                  </Button>
+                </div>
+
+                <div className="border rounded-md max-h-[400px] overflow-y-auto">
+                  {usersWithoutEmployee.map((user) => (
+                    <div
+                      key={user.user_id}
+                      className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsersToAdd.includes(user.user_id)}
+                          onChange={() => toggleUserSelection(user.user_id)}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <div>
+                          <p className="font-medium">{user.user_name}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openAddFromUser(user)}
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        {language === "ar" ? "إضافة وتعديل" : "Add & Edit"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLoadUsersDialogOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleAddSelectedUsers} 
+              disabled={selectedUsersToAdd.length === 0}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {language === "ar" 
+                ? `إضافة ${selectedUsersToAdd.length} موظف`
+                : `Add ${selectedUsersToAdd.length} Employee(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>
