@@ -262,11 +262,11 @@ const EmailManager = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Fetch profile data
       const { data, error } = await supabase
         .from("profiles")
         .select(`
           email,
-          email_password,
           user_name,
           mail_type:mail_types(
             id,
@@ -284,12 +284,18 @@ const EmailManager = () => {
 
       if (error) throw error;
       
+      // Get decrypted email password using secure function
+      const { data: passwordData, error: pwdError } = await supabase
+        .rpc('get_my_email_password');
+      
+      const decryptedPassword = pwdError ? null : passwordData;
+      
       if (!data.mail_type) {
         setConfigError(isArabic 
           ? "لم يتم تحديد نوع البريد. يرجى تحديث إعدادات المستخدم الخاصة بك."
           : "Mail type not set. Please update your user settings."
         );
-      } else if (!data.email_password) {
+      } else if (!decryptedPassword) {
         setConfigError(isArabic
           ? "لم يتم تعيين كلمة مرور البريد الإلكتروني. يرجى تحديث إعدادات المستخدم الخاصة بك."
           : "Email password not set. Please update your user settings."
@@ -298,7 +304,10 @@ const EmailManager = () => {
         setConfigError(null);
       }
       
-      setUserConfig(data as UserEmailConfig);
+      setUserConfig({
+        ...data,
+        email_password: decryptedPassword
+      } as UserEmailConfig);
     } catch (error) {
       console.error("Error fetching user email config:", error);
       setConfigError(isArabic ? "خطأ في جلب الإعدادات" : "Error fetching settings");
