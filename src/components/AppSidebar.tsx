@@ -35,7 +35,8 @@ import {
   ClipboardList,
   Calculator,
   HeartPulse,
-  CalendarClock
+  CalendarClock,
+  ClipboardCheck
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -122,6 +123,7 @@ export function AppSidebar() {
     "/shift-plans-setup": "shiftPlansSetup",
     "/document-type-setup": "documentTypeSetup",
     "/attendance-type-setup": "attendanceTypeSetup",
+    "/audit-logs": "auditLogs",
   };
 
   useEffect(() => {
@@ -327,6 +329,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'تحويل PDF إلى Excel' : 'PDF to Excel', url: "/pdf-to-excel", icon: FileSpreadsheet },
         { title: language === 'ar' ? 'نسخ احتياطي' : 'System Backup', url: "/system-backup", icon: HardDrive },
         { title: language === 'ar' ? 'استعادة النظام' : 'System Restore', url: "/system-restore", icon: RotateCcw },
+        { title: language === 'ar' ? 'سجلات التدقيق' : 'Audit Logs', url: "/audit-logs", icon: ClipboardCheck },
       ]
     }
   ];
