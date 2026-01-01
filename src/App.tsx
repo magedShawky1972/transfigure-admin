@@ -152,6 +152,7 @@ const App = () => (
               <Route path="/reports/coins-ledger" element={<CoinsLedgerReport />} />
               <Route path="/reports/bank-statement" element={<BankStatementReport />} />
               <Route path="/reports/security-dashboard" element={<SecurityDashboard />} />
+              <Route path="/security-dashboard" element={<SecurityDashboard />} />
               <Route path="/tawasoul" element={<Tawasoul />} />
               <Route path="/closing-training" element={<ClosingTraining />} />
               <Route path="/currency-setup" element={<CurrencySetup />} />
