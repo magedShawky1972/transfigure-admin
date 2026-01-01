@@ -60,6 +60,8 @@ interface Employee {
   fixed_shift_start: string | null;
   fixed_shift_end: string | null;
   shift_plan_id: string | null;
+  attendance_type_id: string | null;
+  attendance_types?: { type_name: string; type_name_ar: string | null; is_shift_based: boolean } | null;
   vacation_code_id: string | null;
   vacation_balance: number | null;
   medical_insurance_plan_id: string | null;
@@ -103,6 +105,14 @@ interface ShiftPlan {
   plan_name: string;
 }
 
+interface AttendanceType {
+  id: string;
+  type_code: string;
+  type_name: string;
+  type_name_ar: string | null;
+  is_shift_based: boolean;
+}
+
 interface DocumentType {
   id: string;
   type_name: string;
@@ -135,6 +145,7 @@ export default function EmployeeSetup() {
   const [vacationCodes, setVacationCodes] = useState<VacationCode[]>([]);
   const [insurancePlans, setInsurancePlans] = useState<MedicalInsurancePlan[]>([]);
   const [shiftPlans, setShiftPlans] = useState<ShiftPlan[]>([]);
+  const [attendanceTypes, setAttendanceTypes] = useState<AttendanceType[]>([]);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [employeeDocuments, setEmployeeDocuments] = useState<EmployeeDocument[]>([]);
@@ -172,6 +183,7 @@ export default function EmployeeSetup() {
     fixed_shift_start: "",
     fixed_shift_end: "",
     shift_plan_id: "",
+    attendance_type_id: "",
     vacation_code_id: "",
     vacation_balance: "",
     medical_insurance_plan_id: "",
@@ -202,13 +214,15 @@ export default function EmployeeSetup() {
         insurancePlansRes,
         shiftPlansRes,
         docTypesRes,
+        attendanceTypesRes,
       ] = await Promise.all([
         supabase
           .from("employees")
           .select(`
             *,
             departments(department_name),
-            job_positions(position_name)
+            job_positions(position_name),
+            attendance_types(type_name, type_name_ar, is_shift_based)
           `)
           .order("employee_number"),
         supabase.from("departments").select("id, department_name").eq("is_active", true).order("department_name"),
@@ -218,6 +232,7 @@ export default function EmployeeSetup() {
         supabase.from("medical_insurance_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
         supabase.from("shift_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
         supabase.from("document_types").select("id, type_name, type_name_ar, is_mandatory").eq("is_active", true).order("type_name"),
+        supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based").eq("is_active", true).order("type_name"),
       ]);
 
       if (employeesRes.error) throw employeesRes.error;
@@ -230,6 +245,7 @@ export default function EmployeeSetup() {
       setInsurancePlans(insurancePlansRes.data || []);
       setShiftPlans(shiftPlansRes.data || []);
       setDocumentTypes(docTypesRes.data || []);
+      setAttendanceTypes(attendanceTypesRes.data || []);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -402,6 +418,7 @@ export default function EmployeeSetup() {
       fixed_shift_start: "",
       fixed_shift_end: "",
       shift_plan_id: "",
+      attendance_type_id: "",
       vacation_code_id: "",
       vacation_balance: "",
       medical_insurance_plan_id: "",
@@ -437,6 +454,7 @@ export default function EmployeeSetup() {
       fixed_shift_start: employee.fixed_shift_start || "",
       fixed_shift_end: employee.fixed_shift_end || "",
       shift_plan_id: employee.shift_plan_id || "",
+      attendance_type_id: employee.attendance_type_id || "",
       vacation_code_id: employee.vacation_code_id || "",
       vacation_balance: employee.vacation_balance?.toString() || "",
       medical_insurance_plan_id: employee.medical_insurance_plan_id || "",
@@ -484,6 +502,7 @@ export default function EmployeeSetup() {
         fixed_shift_start: formData.fixed_shift_start || null,
         fixed_shift_end: formData.fixed_shift_end || null,
         shift_plan_id: formData.shift_plan_id || null,
+        attendance_type_id: formData.attendance_type_id || null,
         vacation_code_id: formData.vacation_code_id || null,
         vacation_balance: formData.vacation_balance ? parseFloat(formData.vacation_balance) : null,
         medical_insurance_plan_id: formData.medical_insurance_plan_id || null,
@@ -1047,22 +1066,41 @@ export default function EmployeeSetup() {
             <TabsContent value="shift">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>{language === "ar" ? "نوع الوردية" : "Shift Type"}</Label>
+                  <Label>{language === "ar" ? "نوع الحضور" : "Attendance Type"}</Label>
                   <Select
-                    value={formData.shift_type}
-                    onValueChange={(value) => setFormData({ ...formData, shift_type: value })}
+                    value={formData.attendance_type_id || "_none_"}
+                    onValueChange={(value) => {
+                      const selectedAttType = attendanceTypes.find(at => at.id === value);
+                      setFormData({ 
+                        ...formData, 
+                        attendance_type_id: value === "_none_" ? "" : value,
+                        // Auto-set shift_type based on attendance type
+                        shift_type: selectedAttType?.is_shift_based ? "rotating" : "fixed"
+                      });
+                    }}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder={language === "ar" ? "اختر نوع الحضور" : "Select Attendance Type"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="fixed">{language === "ar" ? "ثابت" : "Fixed"}</SelectItem>
-                      <SelectItem value="rotating">{language === "ar" ? "متناوب" : "Rotating"}</SelectItem>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {attendanceTypes.map((at) => (
+                        <SelectItem key={at.id} value={at.id}>
+                          {language === "ar" ? at.type_name_ar || at.type_name : at.type_name}
+                          {at.is_shift_based && ` (${language === "ar" ? "مرتبط بتقويم الورديات" : "Shift Calendar"})`}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" 
+                      ? "إذا كان نوع الحضور مبني على الورديات، سيتم ربطه تلقائياً بتقويم جلسات الورديات"
+                      : "If attendance type is shift-based, it will be linked to shift session calendar"}
+                  </p>
                 </div>
 
-                {formData.shift_type === "fixed" ? (
+                {/* Show fixed time fields only if attendance type is NOT shift-based */}
+                {formData.attendance_type_id && !attendanceTypes.find(at => at.id === formData.attendance_type_id)?.is_shift_based && (
                   <>
                     <div className="space-y-2">
                       <Label>{language === "ar" ? "بداية الوردية" : "Shift Start"}</Label>
@@ -1081,25 +1119,16 @@ export default function EmployeeSetup() {
                       />
                     </div>
                   </>
-                ) : (
-                  <div className="space-y-2">
-                    <Label>{language === "ar" ? "خطة الورديات" : "Shift Plan"}</Label>
-                    <Select
-                      value={formData.shift_plan_id || "_none_"}
-                      onValueChange={(value) => setFormData({ ...formData, shift_plan_id: value === "_none_" ? "" : value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={language === "ar" ? "اختر الخطة" : "Select Plan"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
-                        {shiftPlans.map((plan) => (
-                          <SelectItem key={plan.id} value={plan.id}>
-                            {plan.plan_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                )}
+
+                {/* Show info message when shift-based attendance type is selected */}
+                {formData.attendance_type_id && attendanceTypes.find(at => at.id === formData.attendance_type_id)?.is_shift_based && (
+                  <div className="md:col-span-2 p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      {language === "ar" 
+                        ? "سيتم تحديد أوقات الحضور والانصراف بناءً على جلسات الورديات (فتح/إغلاق) في تقويم الورديات"
+                        : "Working hours will be determined based on shift sessions (open/close) from the shift calendar"}
+                    </p>
                   </div>
                 )}
 

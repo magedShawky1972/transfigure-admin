@@ -121,6 +121,7 @@ export function AppSidebar() {
     "/medical-insurance-setup": "medicalInsuranceSetup",
     "/shift-plans-setup": "shiftPlansSetup",
     "/document-type-setup": "documentTypeSetup",
+    "/attendance-type-setup": "attendanceTypeSetup",
   };
 
   useEffect(() => {
@@ -308,6 +309,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'التأمين الطبي' : 'Medical Insurance', url: "/medical-insurance-setup", icon: HeartPulse },
         { title: language === 'ar' ? 'خطط الورديات' : 'Shift Plans', url: "/shift-plans-setup", icon: CalendarClock },
         { title: language === 'ar' ? 'أنواع المستندات' : 'Document Types', url: "/document-type-setup", icon: FileText },
+        { title: language === 'ar' ? 'أنواع الحضور' : 'Attendance Types', url: "/attendance-type-setup", icon: Clock },
       ]
     },
     {

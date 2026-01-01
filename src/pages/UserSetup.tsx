@@ -140,6 +140,7 @@ interface UserPermission {
     { key: "medicalInsuranceSetup", label: "التأمين الطبي", labelEn: "Medical Insurance" },
     { key: "shiftPlansSetup", label: "خطط الورديات", labelEn: "Shift Plans" },
     { key: "documentTypeSetup", label: "أنواع المستندات", labelEn: "Document Types" },
+    { key: "attendanceTypeSetup", label: "أنواع الحضور", labelEn: "Attendance Types" },
   ];
 
 const DASHBOARD_COMPONENTS = [
