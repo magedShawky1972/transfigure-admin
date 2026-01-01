@@ -88,7 +88,7 @@ import MedicalInsuranceSetup from "./pages/MedicalInsuranceSetup";
 import ShiftPlansSetup from "./pages/ShiftPlansSetup";
 import AttendanceTypeSetup from "./pages/AttendanceTypeSetup";
 import AuditLogs from "./pages/AuditLogs";
-
+import SecurityDashboard from "./pages/SecurityDashboard";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -150,6 +150,7 @@ const App = () => (
               <Route path="/reports/data-loading-status" element={<DataLoadingStatus />} />
               <Route path="/reports/coins-ledger" element={<CoinsLedgerReport />} />
               <Route path="/reports/bank-statement" element={<BankStatementReport />} />
+              <Route path="/reports/security-dashboard" element={<SecurityDashboard />} />
               <Route path="/tawasoul" element={<Tawasoul />} />
               <Route path="/closing-training" element={<ClosingTraining />} />
               <Route path="/currency-setup" element={<CurrencySetup />} />

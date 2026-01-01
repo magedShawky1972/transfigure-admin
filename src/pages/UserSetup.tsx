@@ -183,6 +183,7 @@ const REPORTS = [
   { key: "data-loading-status", labelEn: "Data Loading Status", labelAr: "حالة تحميل البيانات" },
   { key: "coins-ledger", labelEn: "Coins Ledger Report", labelAr: "تقرير دفتر الكوينز" },
   { key: "bank-statement", labelEn: "Bank Statement Report", labelAr: "تقرير كشف حساب البنك" },
+  { key: "security-dashboard", labelEn: "Security Dashboard", labelAr: "لوحة الأمان" },
 ];
 
 const UserSetup = () => {

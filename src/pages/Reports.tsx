@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'security-dashboard']);
         return;
       }
 
@@ -163,6 +163,15 @@ const Reports = () => {
         : "View bank statement with filters by transaction date and posting date",
       icon: Landmark,
       route: "/reports/bank-statement",
+    },
+    {
+      id: "security-dashboard",
+      name: language === "ar" ? "لوحة الأمان" : "Security Dashboard",
+      description: language === "ar" 
+        ? "مراقبة أنماط الوصول لكلمات المرور وسجل التنبيهات الأمنية في الوقت الفعلي" 
+        : "Monitor password access patterns and security alert history in real-time",
+      icon: Shield,
+      route: "/reports/security-dashboard",
     },
   ];
 
