@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
 import { 
@@ -39,7 +40,9 @@ import {
   UserPlus,
   Pencil,
   Trash2,
-  Filter
+  Filter,
+  Key,
+  Lock
 } from "lucide-react";
 
 interface AuditLog {
@@ -54,10 +57,23 @@ interface AuditLog {
   created_at: string;
 }
 
+interface PasswordAccessLog {
+  id: string;
+  user_id: string;
+  user_email: string | null;
+  accessed_table: string;
+  accessed_record_id: string | null;
+  access_type: string;
+  created_at: string;
+}
+
 const AuditLogs = () => {
   const { language } = useLanguage();
+  const [activeTab, setActiveTab] = useState("audit");
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [passwordLogs, setPasswordLogs] = useState<PasswordAccessLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [passwordLoading, setPasswordLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -67,6 +83,11 @@ const AuditLogs = () => {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [limit, setLimit] = useState(100);
+  
+  // Password logs filters
+  const [passwordTableFilter, setPasswordTableFilter] = useState<string>("all");
+  const [passwordSearchTerm, setPasswordSearchTerm] = useState("");
+  const [passwordLimit, setPasswordLimit] = useState(100);
 
   const tables = [
     "user_email_configs",
@@ -77,11 +98,17 @@ const AuditLogs = () => {
     "api_keys"
   ];
 
+  const passwordTables = ["profiles", "user_email_configs", "user_emails"];
+
   const actions = ["INSERT", "UPDATE", "DELETE"];
 
   useEffect(() => {
     fetchLogs();
   }, [tableFilter, actionFilter, limit]);
+
+  useEffect(() => {
+    fetchPasswordLogs();
+  }, [passwordTableFilter, passwordLimit]);
 
   const fetchLogs = async () => {
     try {
@@ -102,9 +129,31 @@ const AuditLogs = () => {
     }
   };
 
+  const fetchPasswordLogs = async () => {
+    try {
+      setPasswordLoading(true);
+      
+      const { data, error } = await supabase.rpc("get_password_access_logs", {
+        p_table_name: passwordTableFilter === "all" ? null : passwordTableFilter,
+        p_limit: passwordLimit
+      });
+
+      if (error) throw error;
+      setPasswordLogs((data as PasswordAccessLog[]) || []);
+    } catch (error) {
+      console.error("Error fetching password access logs:", error);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchLogs();
+    if (activeTab === "audit") {
+      await fetchLogs();
+    } else {
+      await fetchPasswordLogs();
+    }
     setRefreshing(false);
   };
 
@@ -150,6 +199,16 @@ const AuditLogs = () => {
     );
   });
 
+  const filteredPasswordLogs = passwordLogs.filter(log => {
+    if (!passwordSearchTerm) return true;
+    const term = passwordSearchTerm.toLowerCase();
+    return (
+      log.accessed_table.toLowerCase().includes(term) ||
+      log.user_email?.toLowerCase().includes(term) ||
+      log.accessed_record_id?.toLowerCase().includes(term)
+    );
+  });
+
   const renderJsonDiff = (oldData: unknown, newData: unknown) => {
     const oldObj = oldData as Record<string, unknown> | null;
     const newObj = newData as Record<string, unknown> | null;
@@ -192,6 +251,19 @@ const AuditLogs = () => {
     );
   };
 
+  const getTableDisplayName = (tableName: string) => {
+    switch (tableName) {
+      case "profiles":
+        return language === "ar" ? "الملفات الشخصية" : "Profiles";
+      case "user_email_configs":
+        return language === "ar" ? "إعدادات البريد" : "Email Configs";
+      case "user_emails":
+        return language === "ar" ? "بريد المستخدم" : "User Emails";
+      default:
+        return tableName;
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6" dir={language === "ar" ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between">
@@ -214,163 +286,319 @@ const AuditLogs = () => {
         </Button>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            {language === "ar" ? "الفلاتر" : "Filters"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "بحث" : "Search"}</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={language === "ar" ? "بحث..." : "Search..."}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="audit" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            {language === "ar" ? "سجلات التدقيق" : "Audit Logs"}
+          </TabsTrigger>
+          <TabsTrigger value="password" className="flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            {language === "ar" ? "الوصول للكلمات السرية" : "Password Access"}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Audit Logs Tab */}
+        <TabsContent value="audit" className="space-y-4">
+          {/* Filters */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                {language === "ar" ? "الفلاتر" : "Filters"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "بحث" : "Search"}</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={language === "ar" ? "بحث..." : "Search..."}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الجدول" : "Table"}</Label>
+                  <Select value={tableFilter} onValueChange={setTableFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {language === "ar" ? "الكل" : "All Tables"}
+                      </SelectItem>
+                      {tables.map(table => (
+                        <SelectItem key={table} value={table}>
+                          {table}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "العملية" : "Action"}</Label>
+                  <Select value={actionFilter} onValueChange={setActionFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {language === "ar" ? "الكل" : "All Actions"}
+                      </SelectItem>
+                      {actions.map(action => (
+                        <SelectItem key={action} value={action}>
+                          {action}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "عدد السجلات" : "Limit"}</Label>
+                  <Select value={limit.toString()} onValueChange={(v) => setLimit(parseInt(v))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="250">250</SelectItem>
+                      <SelectItem value="500">500</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "الجدول" : "Table"}</Label>
-              <Select value={tableFilter} onValueChange={setTableFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    {language === "ar" ? "الكل" : "All Tables"}
-                  </SelectItem>
-                  {tables.map(table => (
-                    <SelectItem key={table} value={table}>
-                      {table}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "العملية" : "Action"}</Label>
-              <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    {language === "ar" ? "الكل" : "All Actions"}
-                  </SelectItem>
-                  {actions.map(action => (
-                    <SelectItem key={action} value={action}>
-                      {action}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "عدد السجلات" : "Limit"}</Label>
-              <Select value={limit.toString()} onValueChange={(v) => setLimit(parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                  <SelectItem value="250">250</SelectItem>
-                  <SelectItem value="500">500</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Logs Table */}
-      <Card>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[600px]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{language === "ar" ? "التاريخ" : "Timestamp"}</TableHead>
-                  <TableHead>{language === "ar" ? "الجدول" : "Table"}</TableHead>
-                  <TableHead>{language === "ar" ? "العملية" : "Action"}</TableHead>
-                  <TableHead>{language === "ar" ? "المستخدم" : "User"}</TableHead>
-                  <TableHead>{language === "ar" ? "معرف السجل" : "Record ID"}</TableHead>
-                  <TableHead className="text-center">{language === "ar" ? "تفاصيل" : "Details"}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 10 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+          {/* Logs Table */}
+          <Card>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[600px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{language === "ar" ? "التاريخ" : "Timestamp"}</TableHead>
+                      <TableHead>{language === "ar" ? "الجدول" : "Table"}</TableHead>
+                      <TableHead>{language === "ar" ? "العملية" : "Action"}</TableHead>
+                      <TableHead>{language === "ar" ? "المستخدم" : "User"}</TableHead>
+                      <TableHead>{language === "ar" ? "معرف السجل" : "Record ID"}</TableHead>
+                      <TableHead className="text-center">{language === "ar" ? "تفاصيل" : "Details"}</TableHead>
                     </TableRow>
-                  ))
-                ) : filteredLogs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      {language === "ar" ? "لا توجد سجلات" : "No audit logs found"}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-mono text-sm">
-                        {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{log.table_name}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={getActionBadgeVariant(log.action) as "default" | "secondary" | "destructive" | "outline"}
-                          className="flex items-center gap-1 w-fit"
-                        >
-                          {getActionIcon(log.action)}
-                          {log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {log.user_email || (
-                          <span className="text-muted-foreground italic">
-                            {language === "ar" ? "غير معروف" : "Unknown"}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {log.record_id?.substring(0, 8)}...
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => viewDetails(log)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      Array.from({ length: 10 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : filteredLogs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          {language === "ar" ? "لا توجد سجلات" : "No audit logs found"}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-mono text-sm">
+                            {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{log.table_name}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={getActionBadgeVariant(log.action) as "default" | "secondary" | "destructive" | "outline"}
+                              className="flex items-center gap-1 w-fit"
+                            >
+                              {getActionIcon(log.action)}
+                              {log.action}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {log.user_email || (
+                              <span className="text-muted-foreground italic">
+                                {language === "ar" ? "غير معروف" : "Unknown"}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {log.record_id?.substring(0, 8)}...
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => viewDetails(log)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Password Access Logs Tab */}
+        <TabsContent value="password" className="space-y-4">
+          {/* Filters */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                {language === "ar" ? "الفلاتر" : "Filters"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "بحث" : "Search"}</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={language === "ar" ? "بحث بالبريد..." : "Search by email..."}
+                      value={passwordSearchTerm}
+                      onChange={(e) => setPasswordSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "المصدر" : "Source Table"}</Label>
+                  <Select value={passwordTableFilter} onValueChange={setPasswordTableFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {language === "ar" ? "الكل" : "All Sources"}
+                      </SelectItem>
+                      {passwordTables.map(table => (
+                        <SelectItem key={table} value={table}>
+                          {getTableDisplayName(table)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "عدد السجلات" : "Limit"}</Label>
+                  <Select value={passwordLimit.toString()} onValueChange={(v) => setPasswordLimit(parseInt(v))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="250">250</SelectItem>
+                      <SelectItem value="500">500</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Password Access Logs Table */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Lock className="h-4 w-4 text-orange-500" />
+                {language === "ar" ? "سجل الوصول لكلمات المرور" : "Password Access Log"}
+                <Badge variant="secondary" className="ml-2">
+                  {filteredPasswordLogs.length} {language === "ar" ? "سجل" : "records"}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[550px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{language === "ar" ? "التاريخ" : "Timestamp"}</TableHead>
+                      <TableHead>{language === "ar" ? "المستخدم" : "User"}</TableHead>
+                      <TableHead>{language === "ar" ? "المصدر" : "Source"}</TableHead>
+                      <TableHead>{language === "ar" ? "معرف السجل" : "Record ID"}</TableHead>
+                      <TableHead>{language === "ar" ? "نوع الوصول" : "Access Type"}</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {passwordLoading ? (
+                      Array.from({ length: 10 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : filteredPasswordLogs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          {language === "ar" ? "لا توجد سجلات وصول" : "No password access logs found"}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredPasswordLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-mono text-sm">
+                            {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {log.user_email || (
+                              <span className="text-muted-foreground italic">
+                                {language === "ar" ? "غير معروف" : "Unknown"}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                              <Key className="h-3 w-3" />
+                              {getTableDisplayName(log.accessed_table)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {log.accessed_record_id?.substring(0, 8)}...
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                              <Lock className="h-3 w-3" />
+                              {log.access_type}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
