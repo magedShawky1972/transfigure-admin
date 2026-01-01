@@ -104,3 +104,9 @@ verify_jwt = false
 
 [functions.detect-password-anomalies]
 verify_jwt = false
+
+[functions.generate-user-certificate]
+verify_jwt = false
+
+[functions.validate-user-certificate]
+verify_jwt = false
