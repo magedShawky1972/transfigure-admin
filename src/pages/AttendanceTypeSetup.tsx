@@ -44,6 +44,10 @@ interface AttendanceType {
   description: string | null;
   is_shift_based: boolean;
   is_active: boolean;
+  fixed_start_time: string | null;
+  fixed_end_time: string | null;
+  allow_late_minutes: number | null;
+  allow_early_exit_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +66,10 @@ const AttendanceTypeSetup = () => {
     description: "",
     is_shift_based: false,
     is_active: true,
+    fixed_start_time: "",
+    fixed_end_time: "",
+    allow_late_minutes: "0",
+    allow_early_exit_minutes: "0",
   });
 
   const fetchAttendanceTypes = async () => {
@@ -95,6 +103,10 @@ const AttendanceTypeSetup = () => {
       description: "",
       is_shift_based: false,
       is_active: true,
+      fixed_start_time: "",
+      fixed_end_time: "",
+      allow_late_minutes: "0",
+      allow_early_exit_minutes: "0",
     });
     setIsDialogOpen(true);
   };
@@ -108,6 +120,10 @@ const AttendanceTypeSetup = () => {
       description: type.description || "",
       is_shift_based: type.is_shift_based,
       is_active: type.is_active,
+      fixed_start_time: type.fixed_start_time || "",
+      fixed_end_time: type.fixed_end_time || "",
+      allow_late_minutes: type.allow_late_minutes?.toString() || "0",
+      allow_early_exit_minutes: type.allow_early_exit_minutes?.toString() || "0",
     });
     setIsDialogOpen(true);
   };
@@ -124,30 +140,29 @@ const AttendanceTypeSetup = () => {
     }
 
     try {
+      const payload = {
+        type_code: formData.type_code,
+        type_name: formData.type_name,
+        type_name_ar: formData.type_name_ar || null,
+        description: formData.description || null,
+        is_shift_based: formData.is_shift_based,
+        is_active: formData.is_active,
+        fixed_start_time: !formData.is_shift_based && formData.fixed_start_time ? formData.fixed_start_time : null,
+        fixed_end_time: !formData.is_shift_based && formData.fixed_end_time ? formData.fixed_end_time : null,
+        allow_late_minutes: parseInt(formData.allow_late_minutes) || 0,
+        allow_early_exit_minutes: parseInt(formData.allow_early_exit_minutes) || 0,
+      };
+
       if (selectedType) {
         const { error } = await supabase
           .from("attendance_types")
-          .update({
-            type_code: formData.type_code,
-            type_name: formData.type_name,
-            type_name_ar: formData.type_name_ar || null,
-            description: formData.description || null,
-            is_shift_based: formData.is_shift_based,
-            is_active: formData.is_active,
-          })
+          .update(payload)
           .eq("id", selectedType.id);
 
         if (error) throw error;
         toast.success(language === "ar" ? "تم التحديث بنجاح" : "Updated successfully");
       } else {
-        const { error } = await supabase.from("attendance_types").insert({
-          type_code: formData.type_code,
-          type_name: formData.type_name,
-          type_name_ar: formData.type_name_ar || null,
-          description: formData.description || null,
-          is_shift_based: formData.is_shift_based,
-          is_active: formData.is_active,
-        });
+        const { error } = await supabase.from("attendance_types").insert(payload);
 
         if (error) throw error;
         toast.success(language === "ar" ? "تمت الإضافة بنجاح" : "Added successfully");
@@ -200,21 +215,23 @@ const AttendanceTypeSetup = () => {
               <TableHead>{language === "ar" ? "الاسم" : "Name"}</TableHead>
               <TableHead>{language === "ar" ? "الاسم بالعربي" : "Arabic Name"}</TableHead>
               <TableHead>{language === "ar" ? "نظام الورديات" : "Shift Based"}</TableHead>
+              <TableHead>{language === "ar" ? "وقت البداية" : "Start Time"}</TableHead>
+              <TableHead>{language === "ar" ? "وقت النهاية" : "End Time"}</TableHead>
+              <TableHead>{language === "ar" ? "السماح بالتأخير (دقائق)" : "Late Allow (min)"}</TableHead>
               <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
-              <TableHead>{language === "ar" ? "الوصف" : "Description"}</TableHead>
               <TableHead className="text-center">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   {language === "ar" ? "جاري التحميل..." : "Loading..."}
                 </TableCell>
               </TableRow>
             ) : attendanceTypes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {language === "ar" ? "لا توجد بيانات" : "No data found"}
                 </TableCell>
               </TableRow>
@@ -238,6 +255,19 @@ const AttendanceTypeSetup = () => {
                     )}
                   </TableCell>
                   <TableCell>
+                    {!type.is_shift_based && type.fixed_start_time 
+                      ? type.fixed_start_time.slice(0, 5) 
+                      : "-"}
+                  </TableCell>
+                  <TableCell>
+                    {!type.is_shift_based && type.fixed_end_time 
+                      ? type.fixed_end_time.slice(0, 5) 
+                      : "-"}
+                  </TableCell>
+                  <TableCell>
+                    {type.allow_late_minutes || 0} / {type.allow_early_exit_minutes || 0}
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={type.is_active ? "default" : "secondary"}>
                       {type.is_active
                         ? language === "ar"
@@ -248,7 +278,6 @@ const AttendanceTypeSetup = () => {
                         : "Inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate">{type.description || "-"}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-2">
                       <Button variant="ghost" size="icon" onClick={() => openEditDialog(type)}>
@@ -342,8 +371,80 @@ const AttendanceTypeSetup = () => {
               <Switch
                 id="is_shift_based"
                 checked={formData.is_shift_based}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_shift_based: checked })}
+                onCheckedChange={(checked) => setFormData({ 
+                  ...formData, 
+                  is_shift_based: checked,
+                  fixed_start_time: checked ? "" : formData.fixed_start_time,
+                  fixed_end_time: checked ? "" : formData.fixed_end_time,
+                })}
               />
+            </div>
+
+            {/* Fixed Time Fields - Only show when NOT shift based */}
+            {!formData.is_shift_based && (
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                <div className="grid gap-2">
+                  <Label htmlFor="fixed_start_time">
+                    {language === "ar" ? "وقت بداية الدوام" : "Work Start Time"} *
+                  </Label>
+                  <Input
+                    id="fixed_start_time"
+                    type="time"
+                    value={formData.fixed_start_time}
+                    onChange={(e) => setFormData({ ...formData, fixed_start_time: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="fixed_end_time">
+                    {language === "ar" ? "وقت نهاية الدوام" : "Work End Time"} *
+                  </Label>
+                  <Input
+                    id="fixed_end_time"
+                    type="time"
+                    value={formData.fixed_end_time}
+                    onChange={(e) => setFormData({ ...formData, fixed_end_time: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {formData.is_shift_based && (
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  {language === "ar" 
+                    ? "سيتم تحديد أوقات الحضور والانصراف بناءً على جلسات الورديات (فتح/إغلاق) في تقويم الورديات"
+                    : "Working hours will be determined based on shift sessions (open/close) from the shift calendar"}
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="allow_late_minutes">
+                  {language === "ar" ? "السماح بالتأخير (دقائق)" : "Allow Late (minutes)"}
+                </Label>
+                <Input
+                  id="allow_late_minutes"
+                  type="number"
+                  min="0"
+                  value={formData.allow_late_minutes}
+                  onChange={(e) => setFormData({ ...formData, allow_late_minutes: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="allow_early_exit_minutes">
+                  {language === "ar" ? "السماح بالخروج المبكر (دقائق)" : "Allow Early Exit (minutes)"}
+                </Label>
+                <Input
+                  id="allow_early_exit_minutes"
+                  type="number"
+                  min="0"
+                  value={formData.allow_early_exit_minutes}
+                  onChange={(e) => setFormData({ ...formData, allow_early_exit_minutes: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
