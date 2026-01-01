@@ -104,6 +104,42 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_shift_based: boolean
+          type_code: string
+          type_name: string
+          type_name_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_shift_based?: boolean
+          type_code: string
+          type_name: string
+          type_name_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_shift_based?: boolean
+          type_code?: string
+          type_name?: string
+          type_name_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       background_sync_jobs: {
         Row: {
           completed_at: string | null
@@ -1072,6 +1108,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          attendance_type_id: string | null
           basic_salary: number | null
           created_at: string
           currency: string | null
@@ -1111,6 +1148,7 @@ export type Database = {
           vacation_code_id: string | null
         }
         Insert: {
+          attendance_type_id?: string | null
           basic_salary?: number | null
           created_at?: string
           currency?: string | null
@@ -1150,6 +1188,7 @@ export type Database = {
           vacation_code_id?: string | null
         }
         Update: {
+          attendance_type_id?: string | null
           basic_salary?: number | null
           created_at?: string
           currency?: string | null
@@ -1189,6 +1228,13 @@ export type Database = {
           vacation_code_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employees_attendance_type_id_fkey"
+            columns: ["attendance_type_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employees_department_id_fkey"
             columns: ["department_id"]

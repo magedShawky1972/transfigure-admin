@@ -86,6 +86,7 @@ import TimesheetManagement from "./pages/TimesheetManagement";
 import DeductionRulesSetup from "./pages/DeductionRulesSetup";
 import MedicalInsuranceSetup from "./pages/MedicalInsuranceSetup";
 import ShiftPlansSetup from "./pages/ShiftPlansSetup";
+import AttendanceTypeSetup from "./pages/AttendanceTypeSetup";
 
 const queryClient = new QueryClient();
 
@@ -178,6 +179,7 @@ const App = () => (
               <Route path="/medical-insurance-setup" element={<MedicalInsuranceSetup />} />
               <Route path="/shift-plans-setup" element={<ShiftPlansSetup />} />
               <Route path="/document-type-setup" element={<DocumentTypeSetup />} />
+              <Route path="/attendance-type-setup" element={<AttendanceTypeSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
