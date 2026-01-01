@@ -396,6 +396,20 @@ const Auth = () => {
         if (profileError) {
           console.error("Error updating profile:", profileError);
         }
+
+        // Log password change to password_access_logs
+        try {
+          await supabase.from("password_access_logs").insert({
+            user_id: user.id,
+            user_email: email || user.email || "unknown",
+            access_type: "password_change",
+            accessed_table: "auth.users",
+            accessed_record_id: user.id,
+            user_agent: navigator.userAgent,
+          });
+        } catch (logError) {
+          console.error("Error logging password change:", logError);
+        }
       }
 
       // Clear the first login processing flag
