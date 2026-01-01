@@ -3,6 +3,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Upload, Phone, FileKey, CheckCircle, Loader2 } from "lucide-react";
+import { AlertTriangle, Upload, Phone, FileKey, CheckCircle, Loader2, Monitor } from "lucide-react";
 
 interface CertificateUploadDialogProps {
   open: boolean;
@@ -30,6 +32,9 @@ const CertificateUploadDialog = ({
   const { language } = useLanguage();
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
+  const [deviceName, setDeviceName] = useState(() => {
+    return localStorage.getItem('user_device_name') || '';
+  });
   const [validationResult, setValidationResult] = useState<{
     valid: boolean;
     error?: string;
@@ -62,7 +67,7 @@ const CertificateUploadDialog = ({
     return fingerprint;
   };
 
-  const getDeviceName = (): string => {
+  const getDefaultDeviceName = (): string => {
     const ua = navigator.userAgent;
     if (/Mobile|Android|iPhone|iPad/.test(ua)) {
       if (/iPhone/.test(ua)) return 'iPhone';
@@ -91,13 +96,28 @@ const CertificateUploadDialog = ({
       return;
     }
 
+    const finalDeviceName = deviceName.trim() || getDefaultDeviceName();
+    
+    if (!finalDeviceName) {
+      toast({
+        title: language === "ar" ? "اسم الجهاز مطلوب" : "Device Name Required",
+        description: language === "ar" 
+          ? "يرجى إدخال اسم الجهاز" 
+          : "Please enter a device name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Save device name for future use
+    localStorage.setItem('user_device_name', finalDeviceName);
+
     setUploading(true);
     setValidationResult(null);
 
     try {
       const content = await file.text();
       const deviceFingerprint = getDeviceFingerprint();
-      const deviceName = getDeviceName();
       const deviceInfo = {
         userAgent: navigator.userAgent,
         platform: navigator.platform,
@@ -111,7 +131,7 @@ const CertificateUploadDialog = ({
           certificate: content, 
           user_id: userId,
           device_fingerprint: deviceFingerprint,
-          device_name: deviceName,
+          device_name: finalDeviceName,
           device_info: deviceInfo
         },
       });
@@ -191,6 +211,25 @@ const CertificateUploadDialog = ({
             </div>
           ) : (
             <>
+              <div className="space-y-2">
+                <Label htmlFor="deviceName" className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4" />
+                  {language === "ar" ? "اسم الجهاز" : "Device Name"}
+                </Label>
+                <Input
+                  id="deviceName"
+                  placeholder={language === "ar" ? "مثال: DESKTOP-4OA5OM6" : "e.g., DESKTOP-4OA5OM6"}
+                  value={deviceName}
+                  onChange={(e) => setDeviceName(e.target.value)}
+                  disabled={uploading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {language === "ar" 
+                    ? "أدخل اسم جهازك (يمكنك العثور عليه في إعدادات النظام)"
+                    : "Enter your computer name (you can find it in System Settings)"}
+                </p>
+              </div>
+
               <input
                 ref={fileInputRef}
                 type="file"
