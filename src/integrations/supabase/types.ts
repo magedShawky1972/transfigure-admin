@@ -4894,6 +4894,14 @@ export type Database = {
           total_spend: number
         }[]
       }
+      decrypt_email_password: {
+        Args: { encrypted_password: string }
+        Returns: string
+      }
+      encrypt_email_password: {
+        Args: { plain_password: string }
+        Returns: string
+      }
       exec_sql: { Args: { sql: string }; Returns: undefined }
       find_or_create_direct_conversation: {
         Args: { other_user_id: string }
@@ -4935,6 +4943,7 @@ export type Database = {
           tablename: string
         }[]
       }
+      get_my_email_password: { Args: never; Returns: string }
       get_next_task_seq_number: {
         Args: { p_department_id: string }
         Returns: number
