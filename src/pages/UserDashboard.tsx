@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import DOMPurify from "dompurify";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1349,7 +1350,7 @@ const UserDashboard = () => {
                       <h4 className="font-medium">{news.title}</h4>
                       <div 
                         className="text-sm text-muted-foreground line-clamp-2 mt-1"
-                        dangerouslySetInnerHTML={{ __html: news.content.replace(/<[^>]*>/g, '').substring(0, 150) + '...' }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(news.content.replace(/<[^>]*>/g, '').substring(0, 150) + '...') }}
                       />
                     </div>
                   </div>
