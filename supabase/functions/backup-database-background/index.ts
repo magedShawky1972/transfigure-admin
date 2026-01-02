@@ -253,6 +253,58 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
+    } else if (action === 'check-schedule') {
+      // Called by cron - check if we should run a scheduled backup
+      console.log('[Background Backup] Cron check-schedule triggered');
+      
+      // The cron job SQL already filters for enabled schedules that haven't run today
+      // So if we get here, we should run the backup
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `edara_scheduled_${timestamp}.sql.gz`;
+      const filePath = `data/${filename}`;
+
+      const { data: backupRecord, error: insertError } = await supabase
+        .from('system_backups')
+        .insert({
+          backup_type: 'data',
+          file_name: filename,
+          file_path: filePath,
+          status: 'pending',
+          created_by: null
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Update schedule last_run_at
+      await supabase
+        .from('backup_schedule')
+        .update({ 
+          last_run_at: new Date().toISOString(),
+          next_run_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('is_enabled', true);
+
+      const backupId = backupRecord.id;
+
+      // Start background task
+      (globalThis as any).EdgeRuntime.waitUntil(
+        runBackupTask(backupId, null, true)
+      );
+
+      console.log(`[Background Backup] Scheduled backup started: ${backupId}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Scheduled backup started',
+          backupId
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
     } else if (action === 'status') {
       // Get backup status
       const { backupId } = body;
@@ -279,7 +331,7 @@ Deno.serve(async (req) => {
 
     } else {
       return new Response(
-        JSON.stringify({ error: 'Invalid action. Use "start" or "status"' }),
+        JSON.stringify({ error: 'Invalid action. Use "start", "check-schedule", or "status"' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
