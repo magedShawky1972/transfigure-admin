@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.validate-user-certificate]
 verify_jwt = false
+
+[functions.backup-database-background]
+verify_jwt = false
