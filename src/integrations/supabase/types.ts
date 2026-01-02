@@ -3832,7 +3832,14 @@ export type Database = {
           file_path: string
           file_size: number | null
           id: string
+          parent_backup_id: string | null
+          progress_percent: number | null
+          progress_phase: string | null
+          rows_processed: number | null
+          rows_total: number | null
           status: string
+          tables_processed: number | null
+          tables_total: number | null
         }
         Insert: {
           backup_type: string
@@ -3844,7 +3851,14 @@ export type Database = {
           file_path: string
           file_size?: number | null
           id?: string
+          parent_backup_id?: string | null
+          progress_percent?: number | null
+          progress_phase?: string | null
+          rows_processed?: number | null
+          rows_total?: number | null
           status?: string
+          tables_processed?: number | null
+          tables_total?: number | null
         }
         Update: {
           backup_type?: string
@@ -3856,9 +3870,24 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           id?: string
+          parent_backup_id?: string | null
+          progress_percent?: number | null
+          progress_phase?: string | null
+          rows_processed?: number | null
+          rows_total?: number | null
           status?: string
+          tables_processed?: number | null
+          tables_total?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "system_backups_parent_backup_id_fkey"
+            columns: ["parent_backup_id"]
+            isOneToOne: false
+            referencedRelation: "system_backups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_settings: {
         Row: {
