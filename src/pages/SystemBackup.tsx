@@ -68,6 +68,7 @@ const SystemBackup = () => {
   const [isBackupComplete, setIsBackupComplete] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [backupPhase, setBackupPhase] = useState<'fetching' | 'compressing' | 'uploading' | 'complete'>('fetching');
+  const [backupErrorMessage, setBackupErrorMessage] = useState<string | null>(null);
   
   // Backup history state
   const [backupHistory, setBackupHistory] = useState<BackupRecord[]>([]);
@@ -790,6 +791,7 @@ const SystemBackup = () => {
     setTableProgressList([]);
     setCurrentFetchingTable(null);
     setBackupPhase('fetching');
+    setBackupErrorMessage(null);
     
     setIsCompressing(true);
     toast.info(isRTL ? 'جاري إنشاء وضغط وحفظ الملف (قد يستغرق وقتاً)...' : 'Generating, compressing and saving file (this may take a while)...');
@@ -1068,6 +1070,8 @@ const SystemBackup = () => {
       }, 2000);
     } catch (error) {
       console.error('Backup error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setBackupErrorMessage(errorMsg);
       
       // Update backup record as failed
       if (backupId) {
@@ -1075,14 +1079,14 @@ const SystemBackup = () => {
           .from('system_backups')
           .update({
             status: 'failed',
-            error_message: error instanceof Error ? error.message : 'Unknown error'
+            error_message: errorMsg
           })
           .eq('id', backupId);
         fetchBackupHistory();
       }
       
       toast.error(isRTL ? 'خطأ في إنشاء النسخة الاحتياطية' : 'Error creating backup');
-      setShowProgressDialog(false);
+      // Keep dialog open to show error
     } finally {
       setIsCompressing(false);
       setCurrentFetchingTable(null);
@@ -1717,6 +1721,7 @@ const SystemBackup = () => {
         isComplete={isBackupComplete}
         isRTL={isRTL}
         backupPhase={backupPhase}
+        errorMessage={backupErrorMessage || undefined}
       />
     </>
   );
