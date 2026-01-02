@@ -260,6 +260,42 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_schedule: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_enabled: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          retention_days: number
+          schedule_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          retention_days?: number
+          schedule_time?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          retention_days?: number
+          schedule_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       brand_closing_training: {
         Row: {
           brand_id: string

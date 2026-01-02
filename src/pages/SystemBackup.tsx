@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle, RefreshCw, Trash2, Clock, HardDrive } from "lucide-react";
+import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle, RefreshCw, Trash2, Clock, HardDrive, Play, Calendar, Settings } from "lucide-react";
 import { BackupProgressDialog } from "@/components/BackupProgressDialog";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface BackupProgress {
   structure: 'idle' | 'loading' | 'done' | 'error';
@@ -37,6 +40,15 @@ interface BackupRecord {
   completed_at: string | null;
 }
 
+interface BackupSchedule {
+  id: string;
+  is_enabled: boolean;
+  schedule_time: string;
+  retention_days: number;
+  last_run_at: string | null;
+  next_run_at: string | null;
+}
+
 const SystemBackup = () => {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
@@ -62,11 +74,52 @@ const SystemBackup = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // Background backup state
+  const [startingBackgroundBackup, setStartingBackgroundBackup] = useState(false);
+  const [pollingBackupId, setPollingBackupId] = useState<string | null>(null);
+  
+  // Schedule state
+  const [schedule, setSchedule] = useState<BackupSchedule | null>(null);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
-  // Fetch backup history on mount
+  // Fetch backup history and schedule on mount
   useEffect(() => {
     fetchBackupHistory();
+    fetchSchedule();
   }, []);
+
+  // Poll for background backup status
+  useEffect(() => {
+    if (!pollingBackupId) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('system_backups')
+          .select('*')
+          .eq('id', pollingBackupId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (data.status === 'completed' || data.status === 'failed') {
+          setPollingBackupId(null);
+          fetchBackupHistory();
+          if (data.status === 'completed') {
+            toast.success(isRTL ? 'اكتمل النسخ الاحتياطي في الخلفية' : 'Background backup completed');
+          } else {
+            toast.error(isRTL ? 'فشل النسخ الاحتياطي في الخلفية' : 'Background backup failed');
+          }
+        }
+      } catch (error) {
+        console.error('Error polling backup status:', error);
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [pollingBackupId, isRTL]);
 
   const fetchBackupHistory = async () => {
     setLoadingHistory(true);
@@ -83,6 +136,117 @@ const SystemBackup = () => {
       console.error('Error fetching backup history:', error);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const fetchSchedule = async () => {
+    setLoadingSchedule(true);
+    try {
+      const { data, error } = await supabase
+        .from('backup_schedule')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data) {
+        setSchedule(data as BackupSchedule);
+      }
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
+
+  const handleSaveSchedule = async () => {
+    if (!schedule) return;
+    
+    setSavingSchedule(true);
+    try {
+      const { error } = await supabase
+        .from('backup_schedule')
+        .update({
+          is_enabled: schedule.is_enabled,
+          schedule_time: schedule.schedule_time,
+          retention_days: schedule.retention_days
+        })
+        .eq('id', schedule.id);
+
+      if (error) throw error;
+      toast.success(isRTL ? 'تم حفظ إعدادات الجدولة' : 'Schedule settings saved');
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      toast.error(isRTL ? 'خطأ في حفظ الإعدادات' : 'Error saving settings');
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleStartBackgroundBackup = async () => {
+    setStartingBackgroundBackup(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase.functions.invoke('backup-database-background', {
+        body: { action: 'start', userId: user?.id }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to start backup');
+
+      setPollingBackupId(data.backupId);
+      toast.success(isRTL ? 'بدأ النسخ الاحتياطي في الخلفية' : 'Background backup started');
+      fetchBackupHistory();
+    } catch (error) {
+      console.error('Error starting background backup:', error);
+      toast.error(isRTL ? 'خطأ في بدء النسخ الاحتياطي' : 'Error starting backup');
+    } finally {
+      setStartingBackgroundBackup(false);
+    }
+  };
+
+  const handleDeleteOldBackups = async () => {
+    const retentionDays = schedule?.retention_days || 30;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+    try {
+      // Find old backups
+      const { data: oldBackups, error: fetchError } = await supabase
+        .from('system_backups')
+        .select('*')
+        .lt('created_at', cutoffDate.toISOString())
+        .eq('status', 'completed');
+
+      if (fetchError) throw fetchError;
+      if (!oldBackups || oldBackups.length === 0) {
+        toast.info(isRTL ? 'لا توجد نسخ احتياطية قديمة للحذف' : 'No old backups to delete');
+        return;
+      }
+
+      // Delete files from storage
+      const filePaths = oldBackups.map(b => b.file_path);
+      await supabase.storage.from('system-backups').remove(filePaths);
+
+      // Delete records from database
+      const ids = oldBackups.map(b => b.id);
+      const { error: deleteError } = await supabase
+        .from('system_backups')
+        .delete()
+        .in('id', ids);
+
+      if (deleteError) throw deleteError;
+
+      toast.success(
+        isRTL 
+          ? `تم حذف ${oldBackups.length} نسخة احتياطية قديمة` 
+          : `Deleted ${oldBackups.length} old backup(s)`
+      );
+      fetchBackupHistory();
+    } catch (error) {
+      console.error('Error deleting old backups:', error);
+      toast.error(isRTL ? 'خطأ في حذف النسخ القديمة' : 'Error deleting old backups');
     }
   };
 
@@ -1182,26 +1346,158 @@ const SystemBackup = () => {
               </div>
             )}
             
-            <Button 
-              onClick={handleDownloadData}
-              disabled={isCompressing}
-              className="w-full"
-            >
-              {isCompressing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  {isRTL ? 'جاري الإنشاء...' : 'Creating...'}
-                </>
-              ) : (
-                <>
-                  <HardDrive className="h-4 w-4 mr-2" />
-                  {isRTL ? 'إنشاء نسخة احتياطية جديدة' : 'Create New Backup'}
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleDownloadData}
+                disabled={isCompressing || startingBackgroundBackup || !!pollingBackupId}
+                className="flex-1"
+              >
+                {isCompressing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    {isRTL ? 'جاري الإنشاء...' : 'Creating...'}
+                  </>
+                ) : (
+                  <>
+                    <HardDrive className="h-4 w-4 mr-2" />
+                    {isRTL ? 'نسخ احتياطي عادي' : 'Standard Backup'}
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                variant="outline"
+                onClick={handleStartBackgroundBackup}
+                disabled={isCompressing || startingBackgroundBackup || !!pollingBackupId}
+                title={isRTL ? 'يمكنك إغلاق الصفحة بعد البدء' : 'You can close the page after starting'}
+              >
+                {startingBackgroundBackup || pollingBackupId ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            
+            {pollingBackupId && (
+              <div className="p-3 bg-blue-500/10 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  <span className="text-sm text-blue-700">
+                    {isRTL ? 'جاري النسخ الاحتياطي في الخلفية... يمكنك إغلاق هذه الصفحة' : 'Background backup running... You can close this page'}
+                  </span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Backup Schedule Settings */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            {isRTL ? 'جدولة النسخ الاحتياطي' : 'Backup Schedule'}
+          </CardTitle>
+          <CardDescription>
+            {isRTL ? 'إعداد النسخ الاحتياطي التلقائي اليومي' : 'Configure automatic daily backup'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadingSchedule ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : schedule ? (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{isRTL ? 'تفعيل النسخ الاحتياطي اليومي' : 'Enable Daily Backup'}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {isRTL ? 'سيتم إنشاء نسخة احتياطية تلقائية يومياً' : 'A backup will be created automatically every day'}
+                  </p>
+                </div>
+                <Switch
+                  checked={schedule.is_enabled}
+                  onCheckedChange={(checked) => setSchedule({ ...schedule, is_enabled: checked })}
+                />
+              </div>
+              
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>{isRTL ? 'وقت النسخ الاحتياطي' : 'Backup Time'}</Label>
+                  <Input
+                    type="time"
+                    value={schedule.schedule_time}
+                    onChange={(e) => setSchedule({ ...schedule, schedule_time: e.target.value })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>{isRTL ? 'الاحتفاظ بالنسخ (أيام)' : 'Retention (days)'}</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={schedule.retention_days}
+                    onChange={(e) => setSchedule({ ...schedule, retention_days: parseInt(e.target.value) || 30 })}
+                  />
+                </div>
+              </div>
+              
+              {schedule.last_run_at && (
+                <div className="text-sm text-muted-foreground">
+                  {isRTL ? 'آخر تشغيل:' : 'Last run:'} {format(new Date(schedule.last_run_at), 'yyyy-MM-dd HH:mm')}
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Button onClick={handleSaveSchedule} disabled={savingSchedule}>
+                  {savingSchedule ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Settings className="h-4 w-4 mr-2" />
+                  )}
+                  {isRTL ? 'حفظ الإعدادات' : 'Save Settings'}
+                </Button>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {isRTL ? 'حذف النسخ القديمة' : 'Delete Old Backups'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {isRTL ? 'حذف النسخ الاحتياطية القديمة؟' : 'Delete Old Backups?'}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {isRTL 
+                          ? `سيتم حذف جميع النسخ الاحتياطية الأقدم من ${schedule.retention_days} يوم.`
+                          : `This will delete all backups older than ${schedule.retention_days} days.`
+                        }
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{isRTL ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteOldBackups}>
+                        {isRTL ? 'حذف' : 'Delete'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              {isRTL ? 'لا توجد إعدادات جدولة' : 'No schedule settings found'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Backup History */}
       <Card className="mt-6">
