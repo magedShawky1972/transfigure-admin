@@ -275,6 +275,41 @@ async function compressAndUpload(supabase: any, content: string, filePath: strin
   return totalLength;
 }
 
+// Fetch ALL rows from a table using proper pagination (same logic as database-backup)
+async function fetchAllTableRows(supabase: any, tableName: string): Promise<unknown[]> {
+  const pageSize = 1000; // Supabase max per request
+  const allRows: unknown[] = [];
+  let from = 0;
+  let keepGoing = true;
+
+  while (keepGoing) {
+    const { data: rows, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.log(`[Background Backup] Error fetching ${tableName} at offset ${from}: ${error.message}`);
+      break;
+    }
+
+    if (!rows || rows.length === 0) {
+      keepGoing = false;
+      break;
+    }
+
+    allRows.push(...rows);
+    from += rows.length;
+
+    // If we got fewer rows than pageSize, we've reached the end
+    if (rows.length < pageSize) {
+      keepGoing = false;
+    }
+  }
+
+  return allRows;
+}
+
 // Background backup task - creates BOTH structure and data backups
 async function runBackupTask(structureBackupId: string, dataBackupId: string, userId: string | null, isScheduled: boolean) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -382,8 +417,7 @@ async function runBackupTask(structureBackupId: string, dataBackupId: string, us
 
     console.log(`[Background Backup] Found ${tableNames.length} tables, ${totalRowsExpected} total rows`);
 
-    // Build SQL content
-    const chunkSize = 2000;
+    // Build SQL content - fetch ALL rows from each table using proper pagination
     const sqlParts: string[] = [];
     
     sqlParts.push('-- Edara Database Data Backup\n');
@@ -396,53 +430,38 @@ async function runBackupTask(structureBackupId: string, dataBackupId: string, us
 
     for (const tableName of tableNames) {
       const tableRowCount = rowCounts[tableName] || 0;
+      
       if (tableRowCount === 0) {
         tablesProcessed++;
         continue;
       }
 
-      const chunksTotal = Math.ceil(tableRowCount / chunkSize) || 1;
-      let columns: string[] | null = null;
-      let wroteHeader = false;
+      console.log(`[Background Backup] Fetching table: ${tableName} (${tableRowCount} rows expected)`);
 
-      for (let chunkIndex = 0; chunkIndex < chunksTotal; chunkIndex++) {
-        const offset = chunkIndex * chunkSize;
-        
-        const { data: rows, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .range(offset, offset + chunkSize - 1);
+      // Fetch ALL rows from this table using proper pagination
+      const allRows = await fetchAllTableRows(supabase, tableName);
 
-        if (error || !rows || rows.length === 0) {
-          if (error) console.log(`[Background Backup] Error fetching ${tableName}: ${error.message}`);
-          break;
-        }
+      if (allRows.length > 0) {
+        const columns = Object.keys(allRows[0] as Record<string, any>);
+        sqlParts.push(`-- ==================== ${tableName.toUpperCase()} (${allRows.length.toLocaleString()} rows) ====================\n\n`);
 
-        if (!columns) {
-          columns = Object.keys(rows[0]);
-          sqlParts.push(`-- ==================== ${tableName.toUpperCase()} (${tableRowCount.toLocaleString()} rows) ====================\n\n`);
-          wroteHeader = true;
-        }
-
-        for (const row of rows) {
-          const values = columns.map((col) => escapeValue(row?.[col]));
+        for (const row of allRows) {
+          const rowObj = row as Record<string, any>;
+          const values = columns.map((col) => escapeValue(rowObj[col]));
           sqlParts.push(`INSERT INTO public.${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`);
         }
-        
-        rowsProcessed += rows.length;
 
-        if (rows.length < chunkSize) break;
-      }
-
-      if (wroteHeader) {
         sqlParts.push('\n');
+        rowsProcessed += allRows.length;
+        
+        console.log(`[Background Backup] Table ${tableName}: fetched ${allRows.length} rows`);
       }
 
       tablesProcessed++;
 
-      // Update progress every 5 tables
-      if (tablesProcessed % 5 === 0 || tablesProcessed === tableNames.length) {
-        const progressPercent = Math.min(95, Math.floor((rowsProcessed / Math.max(1, totalRowsExpected)) * 90) + 5);
+      // Update progress every 3 tables
+      if (tablesProcessed % 3 === 0 || tablesProcessed === tableNames.length) {
+        const progressPercent = Math.min(90, Math.floor((rowsProcessed / Math.max(1, totalRowsExpected)) * 85) + 5);
         await supabase
           .from('system_backups')
           .update({
