@@ -103,10 +103,54 @@ const SystemBackup = () => {
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
 
-  // Fetch backup history and schedule on mount
+  // Check for active background backups on mount
+  const checkActiveBackups = async () => {
+    try {
+      // Find any backups that are pending or processing
+      const { data: activeBackups, error } = await supabase
+        .from('system_backups')
+        .select('*')
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (activeBackups && activeBackups.length > 0) {
+        // Find structure and data backups
+        const structureBackup = activeBackups.find(b => b.backup_type === 'structure');
+        const dataBackup = activeBackups.find(b => b.backup_type === 'data');
+
+        if (structureBackup || dataBackup) {
+          setPollingBackupIds({
+            structure: structureBackup?.id || null,
+            data: dataBackup?.id || null
+          });
+          
+          // Set initial progress from current state
+          setBackgroundProgress({
+            structureProgress: structureBackup?.progress_percent || 0,
+            dataProgress: dataBackup?.progress_percent || 0,
+            structurePhase: structureBackup?.progress_phase || 'pending',
+            dataPhase: dataBackup?.progress_phase || 'pending',
+            tablesTotal: dataBackup?.tables_total || 0,
+            tablesProcessed: dataBackup?.tables_processed || 0,
+            rowsTotal: dataBackup?.rows_total || 0,
+            rowsProcessed: dataBackup?.rows_processed || 0,
+          });
+          
+          console.log('Found active background backup, resuming progress tracking');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking active backups:', error);
+    }
+  };
+
+  // Fetch backup history, schedule, and check for active backups on mount
   useEffect(() => {
     fetchBackupHistory();
     fetchSchedule();
+    checkActiveBackups();
   }, []);
 
   // Poll for background backup status (both structure and data)
