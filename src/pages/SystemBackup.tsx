@@ -1456,7 +1456,54 @@ const SystemBackup = () => {
                 </div>
               )}
               
-              <div className="flex gap-2">
+              {/* Background Backup Button - Prominent */}
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">{isRTL ? 'النسخ الاحتياطي في الخلفية' : 'Background Backup'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isRTL 
+                        ? 'يعمل على الخادم - يمكنك إغلاق المتصفح والنسخ سيستمر' 
+                        : 'Runs on server - you can close your browser and backup will continue'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleStartBackgroundBackup} 
+                  disabled={startingBackgroundBackup || !!pollingBackupId}
+                  className="w-full"
+                  size="lg"
+                >
+                  {startingBackgroundBackup ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      {isRTL ? 'جاري البدء...' : 'Starting...'}
+                    </>
+                  ) : pollingBackupId ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      {isRTL ? 'النسخ الاحتياطي قيد التنفيذ...' : 'Backup in progress...'}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      {isRTL ? 'بدء النسخ الاحتياطي في الخلفية' : 'Start Background Backup'}
+                    </>
+                  )}
+                </Button>
+                {pollingBackupId && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    {isRTL 
+                      ? 'يمكنك إغلاق هذه الصفحة. سيظهر النسخ في السجل عند الانتهاء.'
+                      : 'You can close this page. Backup will appear in history when complete.'
+                    }
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
                 <Button onClick={handleSaveSchedule} disabled={savingSchedule}>
                   {savingSchedule ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
