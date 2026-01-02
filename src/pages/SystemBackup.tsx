@@ -55,6 +55,7 @@ const SystemBackup = () => {
   const [totalRowsExpected, setTotalRowsExpected] = useState(0);
   const [isBackupComplete, setIsBackupComplete] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [backupPhase, setBackupPhase] = useState<'fetching' | 'compressing' | 'uploading' | 'complete'>('fetching');
   
   // Backup history state
   const [backupHistory, setBackupHistory] = useState<BackupRecord[]>([]);
@@ -624,6 +625,7 @@ const SystemBackup = () => {
     setTotalChunksForCurrentTable(0);
     setTableProgressList([]);
     setCurrentFetchingTable(null);
+    setBackupPhase('fetching');
     
     setIsCompressing(true);
     toast.info(isRTL ? 'جاري إنشاء وضغط وحفظ الملف (قد يستغرق وقتاً)...' : 'Generating, compressing and saving file (this may take a while)...');
@@ -840,6 +842,10 @@ const SystemBackup = () => {
         if (!columns) continue;
       }
 
+      // Switch to compressing phase
+      setBackupPhase('compressing');
+      setCurrentFetchingTable(null);
+      
       await writer.close();
       await consumeCompressed;
 
@@ -853,6 +859,9 @@ const SystemBackup = () => {
         compressedData.set(c, byteOffset);
         byteOffset += c.length;
       }
+
+      // Switch to uploading phase
+      setBackupPhase('uploading');
 
       // Upload to storage
       const blob = new Blob([compressedData], { type: 'application/gzip' });
@@ -879,6 +888,7 @@ const SystemBackup = () => {
       fetchBackupHistory();
 
       // Mark as complete
+      setBackupPhase('complete');
       setIsBackupComplete(true);
       setCurrentFetchingTable(null);
 
@@ -1410,6 +1420,7 @@ const SystemBackup = () => {
         totalRowsExpected={totalRowsExpected}
         isComplete={isBackupComplete}
         isRTL={isRTL}
+        backupPhase={backupPhase}
       />
     </>
   );
