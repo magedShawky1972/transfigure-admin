@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 
 interface BackupProgress {
   structure: 'idle' | 'loading' | 'done' | 'error';
@@ -38,6 +39,13 @@ interface BackupRecord {
   error_message: string | null;
   created_at: string;
   completed_at: string | null;
+  progress_percent: number | null;
+  progress_phase: string | null;
+  tables_total: number | null;
+  tables_processed: number | null;
+  rows_total: number | null;
+  rows_processed: number | null;
+  parent_backup_id: string | null;
 }
 
 interface BackupSchedule {
@@ -78,7 +86,17 @@ const SystemBackup = () => {
   
   // Background backup state
   const [startingBackgroundBackup, setStartingBackgroundBackup] = useState(false);
-  const [pollingBackupId, setPollingBackupId] = useState<string | null>(null);
+  const [pollingBackupIds, setPollingBackupIds] = useState<{structure: string | null, data: string | null}>({structure: null, data: null});
+  const [backgroundProgress, setBackgroundProgress] = useState<{
+    structureProgress: number;
+    dataProgress: number;
+    structurePhase: string;
+    dataPhase: string;
+    tablesTotal: number;
+    tablesProcessed: number;
+    rowsTotal: number;
+    rowsProcessed: number;
+  } | null>(null);
   
   // Schedule state
   const [schedule, setSchedule] = useState<BackupSchedule | null>(null);
@@ -91,36 +109,60 @@ const SystemBackup = () => {
     fetchSchedule();
   }, []);
 
-  // Poll for background backup status
+  // Poll for background backup status (both structure and data)
   useEffect(() => {
-    if (!pollingBackupId) return;
+    if (!pollingBackupIds.structure && !pollingBackupIds.data) return;
     
     const interval = setInterval(async () => {
       try {
+        const idsToFetch = [pollingBackupIds.structure, pollingBackupIds.data].filter(Boolean) as string[];
+        if (idsToFetch.length === 0) return;
+
         const { data, error } = await supabase
           .from('system_backups')
           .select('*')
-          .eq('id', pollingBackupId)
-          .single();
+          .in('id', idsToFetch);
         
         if (error) throw error;
         
-        if (data.status === 'completed' || data.status === 'failed') {
-          setPollingBackupId(null);
+        const structureBackup = data?.find(b => b.id === pollingBackupIds.structure);
+        const dataBackup = data?.find(b => b.id === pollingBackupIds.data);
+        
+        // Update progress state
+        setBackgroundProgress({
+          structureProgress: structureBackup?.progress_percent || 0,
+          dataProgress: dataBackup?.progress_percent || 0,
+          structurePhase: structureBackup?.progress_phase || 'pending',
+          dataPhase: dataBackup?.progress_phase || 'pending',
+          tablesTotal: dataBackup?.tables_total || 0,
+          tablesProcessed: dataBackup?.tables_processed || 0,
+          rowsTotal: dataBackup?.rows_total || 0,
+          rowsProcessed: dataBackup?.rows_processed || 0,
+        });
+
+        // Check if both are done
+        const structureDone = !pollingBackupIds.structure || structureBackup?.status === 'completed' || structureBackup?.status === 'failed';
+        const dataDone = !pollingBackupIds.data || dataBackup?.status === 'completed' || dataBackup?.status === 'failed';
+        
+        if (structureDone && dataDone) {
+          setPollingBackupIds({ structure: null, data: null });
+          setBackgroundProgress(null);
           fetchBackupHistory();
-          if (data.status === 'completed') {
-            toast.success(isRTL ? 'اكتمل النسخ الاحتياطي في الخلفية' : 'Background backup completed');
-          } else {
+          
+          const anyFailed = structureBackup?.status === 'failed' || dataBackup?.status === 'failed';
+          if (anyFailed) {
             toast.error(isRTL ? 'فشل النسخ الاحتياطي في الخلفية' : 'Background backup failed');
+          } else {
+            toast.success(isRTL ? 'اكتمل النسخ الاحتياطي في الخلفية (الهيكل + البيانات)' : 'Background backup completed (structure + data)');
           }
         }
       } catch (error) {
         console.error('Error polling backup status:', error);
       }
-    }, 5000);
+    }, 2000); // Poll every 2 seconds for better progress updates
     
     return () => clearInterval(interval);
-  }, [pollingBackupId, isRTL]);
+  }, [pollingBackupIds.structure, pollingBackupIds.data, isRTL]);
 
   const fetchBackupHistory = async () => {
     setLoadingHistory(true);
@@ -196,8 +238,21 @@ const SystemBackup = () => {
       if (error) throw error;
       if (!data.success) throw new Error(data.error || 'Failed to start backup');
 
-      setPollingBackupId(data.backupId);
-      toast.success(isRTL ? 'بدأ النسخ الاحتياطي في الخلفية' : 'Background backup started');
+      setPollingBackupIds({
+        structure: data.structureBackupId,
+        data: data.dataBackupId
+      });
+      setBackgroundProgress({
+        structureProgress: 0,
+        dataProgress: 0,
+        structurePhase: 'pending',
+        dataPhase: 'pending',
+        tablesTotal: 0,
+        tablesProcessed: 0,
+        rowsTotal: 0,
+        rowsProcessed: 0,
+      });
+      toast.success(isRTL ? 'بدأ النسخ الاحتياطي في الخلفية (الهيكل + البيانات)' : 'Background backup started (structure + data)');
       fetchBackupHistory();
     } catch (error) {
       console.error('Error starting background backup:', error);
@@ -1353,7 +1408,7 @@ const SystemBackup = () => {
             <div className="flex gap-2">
               <Button 
                 onClick={handleDownloadData}
-                disabled={isCompressing || startingBackgroundBackup || !!pollingBackupId}
+                disabled={isCompressing || startingBackgroundBackup || !!(pollingBackupIds.structure || pollingBackupIds.data)}
                 className="flex-1"
               >
                 {isCompressing ? (
@@ -1372,10 +1427,10 @@ const SystemBackup = () => {
               <Button 
                 variant="outline"
                 onClick={handleStartBackgroundBackup}
-                disabled={isCompressing || startingBackgroundBackup || !!pollingBackupId}
+                disabled={isCompressing || startingBackgroundBackup || !!(pollingBackupIds.structure || pollingBackupIds.data)}
                 title={isRTL ? 'يمكنك إغلاق الصفحة بعد البدء' : 'You can close the page after starting'}
               >
-                {startingBackgroundBackup || pollingBackupId ? (
+                {startingBackgroundBackup || (pollingBackupIds.structure || pollingBackupIds.data) ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Play className="h-4 w-4" />
@@ -1383,14 +1438,44 @@ const SystemBackup = () => {
               </Button>
             </div>
             
-            {pollingBackupId && (
-              <div className="p-3 bg-blue-500/10 rounded-lg">
+            {(pollingBackupIds.structure || pollingBackupIds.data) && backgroundProgress && (
+              <div className="p-3 bg-blue-500/10 rounded-lg space-y-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                  <span className="text-sm text-blue-700">
-                    {isRTL ? 'جاري النسخ الاحتياطي في الخلفية... يمكنك إغلاق هذه الصفحة' : 'Background backup running... You can close this page'}
+                  <span className="text-sm text-blue-700 font-medium">
+                    {isRTL ? 'جاري النسخ الاحتياطي في الخلفية...' : 'Background backup running...'}
                   </span>
                 </div>
+                
+                {/* Structure Progress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span>{isRTL ? 'الهيكل' : 'Structure'}</span>
+                    <span>{backgroundProgress.structureProgress}%</span>
+                  </div>
+                  <Progress value={backgroundProgress.structureProgress} className="h-2" />
+                </div>
+                
+                {/* Data Progress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span>{isRTL ? 'البيانات' : 'Data'}</span>
+                    <span>{backgroundProgress.dataProgress}%</span>
+                  </div>
+                  <Progress value={backgroundProgress.dataProgress} className="h-2" />
+                  {backgroundProgress.tablesTotal > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      {isRTL 
+                        ? `الجداول: ${backgroundProgress.tablesProcessed}/${backgroundProgress.tablesTotal} | الصفوف: ${backgroundProgress.rowsProcessed.toLocaleString()}/${backgroundProgress.rowsTotal.toLocaleString()}`
+                        : `Tables: ${backgroundProgress.tablesProcessed}/${backgroundProgress.tablesTotal} | Rows: ${backgroundProgress.rowsProcessed.toLocaleString()}/${backgroundProgress.rowsTotal.toLocaleString()}`
+                      }
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-xs text-center text-muted-foreground">
+                  {isRTL ? 'يمكنك إغلاق هذه الصفحة' : 'You can close this page'}
+                </p>
               </div>
             )}
           </CardContent>
@@ -1464,15 +1549,15 @@ const SystemBackup = () => {
                     <p className="font-medium">{isRTL ? 'النسخ الاحتياطي في الخلفية' : 'Background Backup'}</p>
                     <p className="text-xs text-muted-foreground">
                       {isRTL 
-                        ? 'يعمل على الخادم - يمكنك إغلاق المتصفح والنسخ سيستمر' 
-                        : 'Runs on server - you can close your browser and backup will continue'
+                        ? 'ينشئ ملفين: الهيكل + البيانات - يعمل على الخادم' 
+                        : 'Creates 2 files: Structure + Data - runs on server'
                       }
                     </p>
                   </div>
                 </div>
                 <Button 
                   onClick={handleStartBackgroundBackup} 
-                  disabled={startingBackgroundBackup || !!pollingBackupId}
+                  disabled={startingBackgroundBackup || !!(pollingBackupIds.structure || pollingBackupIds.data)}
                   className="w-full"
                   size="lg"
                 >
@@ -1481,7 +1566,7 @@ const SystemBackup = () => {
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       {isRTL ? 'جاري البدء...' : 'Starting...'}
                     </>
-                  ) : pollingBackupId ? (
+                  ) : (pollingBackupIds.structure || pollingBackupIds.data) ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       {isRTL ? 'النسخ الاحتياطي قيد التنفيذ...' : 'Backup in progress...'}
@@ -1493,13 +1578,31 @@ const SystemBackup = () => {
                     </>
                   )}
                 </Button>
-                {pollingBackupId && (
-                  <p className="text-xs text-center text-muted-foreground">
-                    {isRTL 
-                      ? 'يمكنك إغلاق هذه الصفحة. سيظهر النسخ في السجل عند الانتهاء.'
-                      : 'You can close this page. Backup will appear in history when complete.'
-                    }
-                  </p>
+                
+                {/* Show progress in schedule section too */}
+                {(pollingBackupIds.structure || pollingBackupIds.data) && backgroundProgress && (
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span>{isRTL ? 'الهيكل' : 'Structure'}</span>
+                        <span>{backgroundProgress.structureProgress}%</span>
+                      </div>
+                      <Progress value={backgroundProgress.structureProgress} className="h-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span>{isRTL ? 'البيانات' : 'Data'}</span>
+                        <span>{backgroundProgress.dataProgress}%</span>
+                      </div>
+                      <Progress value={backgroundProgress.dataProgress} className="h-2" />
+                    </div>
+                    <p className="text-xs text-center text-muted-foreground">
+                      {isRTL 
+                        ? 'يمكنك إغلاق هذه الصفحة. سيظهر النسخ في السجل عند الانتهاء.'
+                        : 'You can close this page. Backup will appear in history when complete.'
+                      }
+                    </p>
+                  </div>
                 )}
               </div>
 

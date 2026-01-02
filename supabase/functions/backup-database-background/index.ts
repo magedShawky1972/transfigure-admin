@@ -14,28 +14,336 @@ const escapeValue = (value: any): string => {
   return `'${String(value).replace(/'/g, "''")}'`;
 };
 
-// Background backup task
-async function runBackupTask(backupId: string, userId: string | null, isScheduled: boolean) {
+// Generate structure SQL
+async function generateStructureSQL(supabase: any): Promise<string> {
+  let sql = '-- Edara Database Structure Backup\n';
+  sql += `-- Generated at: ${new Date().toISOString()}\n`;
+  sql += '-- ================================================\n\n';
+
+  // Get columns info
+  const { data: columns } = await supabase.rpc('get_table_columns_info');
+  
+  // Get user-defined types
+  const { data: userDefinedTypes } = await supabase.rpc('get_user_defined_types');
+  
+  // Get primary keys
+  const { data: primaryKeys } = await supabase.rpc('get_primary_keys');
+  
+  // Get foreign keys
+  const { data: foreignKeys } = await supabase.rpc('get_foreign_keys');
+  
+  // Get indexes
+  const { data: indexes } = await supabase.rpc('get_indexes');
+  
+  // Get functions
+  const { data: functions } = await supabase.rpc('get_functions');
+  
+  // Get triggers
+  const { data: triggers } = await supabase.rpc('get_triggers');
+  
+  // Get RLS policies
+  const { data: policies } = await supabase.rpc('get_rls_policies');
+
+  // User-Defined Types (Enums, Domains, etc.)
+  if (userDefinedTypes && Array.isArray(userDefinedTypes) && userDefinedTypes.length > 0) {
+    sql += '-- ==================== USER-DEFINED TYPES ====================\n\n';
+    
+    for (const udt of userDefinedTypes) {
+      if (udt.type_type === 'enum' && udt.enum_values && Array.isArray(udt.enum_values)) {
+        const enumValues = udt.enum_values.map((v: string) => `'${v.replace(/'/g, "''")}'`).join(', ');
+        sql += `-- Enum type: ${udt.type_name}\n`;
+        sql += `DO $$ BEGIN\n`;
+        sql += `  CREATE TYPE public.${udt.type_name} AS ENUM (${enumValues});\n`;
+        sql += `EXCEPTION\n`;
+        sql += `  WHEN duplicate_object THEN NULL;\n`;
+        sql += `END $$;\n\n`;
+      }
+    }
+  }
+
+  // Generate CREATE TABLE statements
+  if (columns && Array.isArray(columns) && columns.length > 0) {
+    const tableColumns: Record<string, any[]> = {};
+    for (const col of columns) {
+      if (!tableColumns[col.table_name]) {
+        tableColumns[col.table_name] = [];
+      }
+      tableColumns[col.table_name].push(col);
+    }
+
+    const pkMap: Record<string, string[]> = {};
+    if (primaryKeys && Array.isArray(primaryKeys)) {
+      for (const pk of primaryKeys) {
+        if (!pkMap[pk.table_name]) {
+          pkMap[pk.table_name] = [];
+        }
+        pkMap[pk.table_name].push(pk.column_name);
+      }
+    }
+
+    sql += '-- ==================== TABLES ====================\n\n';
+
+    for (const tableName of Object.keys(tableColumns).sort()) {
+      sql += `-- Table: ${tableName}\n`;
+      sql += `CREATE TABLE IF NOT EXISTS public.${tableName} (\n`;
+      
+      const cols = tableColumns[tableName];
+      const colDefs: string[] = [];
+      
+      for (const col of cols) {
+        let colDef = `  ${col.column_name} `;
+        
+        const isUserDefinedType = userDefinedTypes?.some(
+          (udt: any) => udt.type_name === col.udt_name
+        );
+        
+        if (isUserDefinedType) {
+          colDef += `public.${col.udt_name}`;
+        } else if (col.data_type === 'USER-DEFINED') {
+          colDef += `public.${col.udt_name}`;
+        } else if (col.udt_name === 'uuid') {
+          colDef += 'UUID';
+        } else if (col.udt_name === 'timestamptz') {
+          colDef += 'TIMESTAMP WITH TIME ZONE';
+        } else if (col.udt_name === 'timestamp') {
+          colDef += 'TIMESTAMP WITHOUT TIME ZONE';
+        } else if (col.udt_name === 'int4') {
+          colDef += 'INTEGER';
+        } else if (col.udt_name === 'int8') {
+          colDef += 'BIGINT';
+        } else if (col.udt_name === 'float8') {
+          colDef += 'DOUBLE PRECISION';
+        } else if (col.udt_name === 'float4') {
+          colDef += 'REAL';
+        } else if (col.udt_name === 'bool') {
+          colDef += 'BOOLEAN';
+        } else if (col.udt_name === 'jsonb') {
+          colDef += 'JSONB';
+        } else if (col.udt_name === 'json') {
+          colDef += 'JSON';
+        } else if (col.udt_name === '_text') {
+          colDef += 'TEXT[]';
+        } else if (col.udt_name === '_int4') {
+          colDef += 'INTEGER[]';
+        } else if (col.udt_name === 'varchar' && col.character_maximum_length) {
+          colDef += `VARCHAR(${col.character_maximum_length})`;
+        } else if (col.udt_name === 'numeric' && col.numeric_precision) {
+          colDef += `NUMERIC(${col.numeric_precision}${col.numeric_scale ? ',' + col.numeric_scale : ''})`;
+        } else if (col.data_type) {
+          colDef += col.data_type.toUpperCase();
+        } else {
+          colDef += 'TEXT';
+        }
+        
+        if (col.column_default) {
+          colDef += ` DEFAULT ${col.column_default}`;
+        }
+        
+        if (col.is_nullable === 'NO') {
+          colDef += ' NOT NULL';
+        }
+        
+        colDefs.push(colDef);
+      }
+      
+      if (pkMap[tableName] && pkMap[tableName].length > 0) {
+        colDefs.push(`  PRIMARY KEY (${pkMap[tableName].join(', ')})`);
+      }
+      
+      sql += colDefs.join(',\n');
+      sql += '\n);\n\n';
+    }
+  }
+
+  // Foreign Keys
+  if (foreignKeys && Array.isArray(foreignKeys) && foreignKeys.length > 0) {
+    sql += '-- ==================== FOREIGN KEYS ====================\n\n';
+    for (const fk of foreignKeys) {
+      sql += `ALTER TABLE public.${fk.table_name}\n`;
+      sql += `  ADD CONSTRAINT ${fk.constraint_name}\n`;
+      sql += `  FOREIGN KEY (${fk.column_name})\n`;
+      sql += `  REFERENCES public.${fk.foreign_table_name}(${fk.foreign_column_name});\n\n`;
+    }
+  }
+
+  // Indexes
+  if (indexes && Array.isArray(indexes) && indexes.length > 0) {
+    sql += '-- ==================== INDEXES ====================\n\n';
+    for (const idx of indexes) {
+      if (idx.indexname && !idx.indexname.endsWith('_pkey')) {
+        sql += `${idx.indexdef};\n`;
+      }
+    }
+    sql += '\n';
+  }
+
+  // Functions
+  if (functions && Array.isArray(functions) && functions.length > 0) {
+    sql += '-- ==================== FUNCTIONS ====================\n\n';
+    for (const func of functions) {
+      if (func.function_definition) {
+        sql += `${func.function_definition};\n\n`;
+      }
+    }
+  }
+
+  // Triggers
+  if (triggers && Array.isArray(triggers) && triggers.length > 0) {
+    sql += '-- ==================== TRIGGERS ====================\n\n';
+    for (const trigger of triggers) {
+      if (trigger.trigger_name && trigger.event_object_table) {
+        sql += `CREATE TRIGGER ${trigger.trigger_name}\n`;
+        sql += `  ${trigger.action_timing} ${trigger.event_manipulation}\n`;
+        sql += `  ON public.${trigger.event_object_table}\n`;
+        sql += `  FOR EACH ROW\n`;
+        sql += `  ${trigger.action_statement};\n\n`;
+      }
+    }
+  }
+
+  // RLS Policies
+  if (policies && Array.isArray(policies) && policies.length > 0) {
+    sql += '-- ==================== RLS POLICIES ====================\n\n';
+    
+    const tablesWithRLS = [...new Set(policies.map((p: any) => p.tablename))];
+    for (const table of tablesWithRLS) {
+      sql += `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;\n`;
+    }
+    sql += '\n';
+    
+    for (const policy of policies) {
+      if (policy.policyname && policy.tablename) {
+        sql += `CREATE POLICY "${policy.policyname}"\n`;
+        sql += `  ON public.${policy.tablename}\n`;
+        sql += `  AS ${policy.permissive === 'PERMISSIVE' ? 'PERMISSIVE' : 'RESTRICTIVE'}\n`;
+        sql += `  FOR ${policy.cmd}\n`;
+        sql += `  TO ${policy.roles || 'public'}\n`;
+        if (policy.qual) {
+          sql += `  USING (${policy.qual})\n`;
+        }
+        if (policy.with_check) {
+          sql += `  WITH CHECK (${policy.with_check})\n`;
+        }
+        sql += ';\n\n';
+      }
+    }
+  }
+
+  return sql;
+}
+
+// Compress and upload file
+async function compressAndUpload(supabase: any, content: string, filePath: string): Promise<number> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+
+  const readableStream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(data);
+      controller.close();
+    }
+  });
+
+  const compressedStream = readableStream.pipeThrough(new CompressionStream('gzip'));
+  const reader = compressedStream.getReader();
+  const chunks: Uint8Array[] = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+
+  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+  const compressedData = new Uint8Array(totalLength);
+  let byteOffset = 0;
+  for (const c of chunks) {
+    compressedData.set(c, byteOffset);
+    byteOffset += c.length;
+  }
+
+  const blob = new Blob([compressedData], { type: 'application/gzip' });
+  const { error: uploadError } = await supabase.storage
+    .from('system-backups')
+    .upload(filePath, blob, {
+      contentType: 'application/gzip',
+      upsert: false
+    });
+
+  if (uploadError) throw uploadError;
+  
+  return totalLength;
+}
+
+// Background backup task - creates BOTH structure and data backups
+async function runBackupTask(structureBackupId: string, dataBackupId: string, userId: string | null, isScheduled: boolean) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  console.log(`[Background Backup] Starting backup task: ${backupId}`);
+  console.log(`[Background Backup] Starting backup task - Structure: ${structureBackupId}, Data: ${dataBackupId}`);
   
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `edara_data_${timestamp}.sql.gz`;
-  const filePath = `data/${filename}`;
 
   try {
-    // Update backup record to processing
+    // ========== PHASE 1: Structure Backup ==========
+    console.log(`[Background Backup] Phase 1: Structure backup`);
+    
+    const structureFilename = `edara_structure_${timestamp}.sql.gz`;
+    const structureFilePath = `structure/${structureFilename}`;
+
     await supabase
       .from('system_backups')
       .update({
         status: 'processing',
-        file_name: filename,
-        file_path: filePath
+        progress_phase: 'structure',
+        progress_percent: 5,
+        file_name: structureFilename,
+        file_path: structureFilePath
       })
-      .eq('id', backupId);
+      .eq('id', structureBackupId);
+
+    // Generate structure SQL
+    const structureSQL = await generateStructureSQL(supabase);
+    
+    await supabase
+      .from('system_backups')
+      .update({ progress_percent: 15 })
+      .eq('id', structureBackupId);
+
+    // Compress and upload structure
+    const structureSize = await compressAndUpload(supabase, structureSQL, structureFilePath);
+
+    // Mark structure backup as completed
+    await supabase
+      .from('system_backups')
+      .update({
+        status: 'completed',
+        progress_phase: 'complete',
+        progress_percent: 100,
+        file_size: structureSize,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', structureBackupId);
+
+    console.log(`[Background Backup] Structure backup completed: ${structureSize} bytes`);
+
+    // ========== PHASE 2: Data Backup ==========
+    console.log(`[Background Backup] Phase 2: Data backup`);
+    
+    const dataFilename = `edara_data_${timestamp}.sql.gz`;
+    const dataFilePath = `data/${dataFilename}`;
+
+    await supabase
+      .from('system_backups')
+      .update({
+        status: 'processing',
+        progress_phase: 'fetching_tables',
+        progress_percent: 0,
+        file_name: dataFilename,
+        file_path: dataFilePath
+      })
+      .eq('id', dataBackupId);
 
     // Get table list + counts
     const { data: colData } = await supabase.rpc('get_table_columns_info');
@@ -48,41 +356,54 @@ async function runBackupTask(backupId: string, userId: string | null, isSchedule
 
     // Get row counts
     const rowCounts: Record<string, number> = {};
+    let totalRowsExpected = 0;
     for (const tbl of tableNames) {
       try {
         const { count } = await supabase
           .from(tbl)
           .select('*', { count: 'exact', head: true });
         rowCounts[tbl] = count || 0;
+        totalRowsExpected += count || 0;
       } catch (e) {
         rowCounts[tbl] = 0;
       }
     }
 
-    console.log(`[Background Backup] Found ${tableNames.length} tables`);
+    // Update with totals
+    await supabase
+      .from('system_backups')
+      .update({
+        tables_total: tableNames.length,
+        rows_total: totalRowsExpected,
+        progress_phase: 'exporting_data',
+        progress_percent: 5
+      })
+      .eq('id', dataBackupId);
+
+    console.log(`[Background Backup] Found ${tableNames.length} tables, ${totalRowsExpected} total rows`);
 
     // Build SQL content
     const chunkSize = 2000;
     const sqlParts: string[] = [];
     
-    // Header
     sqlParts.push('-- Edara Database Data Backup\n');
     sqlParts.push(`-- Generated at: ${new Date().toISOString()}\n`);
     sqlParts.push(`-- Backup Type: ${isScheduled ? 'Scheduled' : 'Manual Background'}\n`);
     sqlParts.push('-- ================================================\n\n');
 
-    let exportedTables = 0;
-    let totalRows = 0;
+    let tablesProcessed = 0;
+    let rowsProcessed = 0;
 
     for (const tableName of tableNames) {
       const tableRowCount = rowCounts[tableName] || 0;
-      if (tableRowCount === 0) continue;
+      if (tableRowCount === 0) {
+        tablesProcessed++;
+        continue;
+      }
 
-      exportedTables++;
       const chunksTotal = Math.ceil(tableRowCount / chunkSize) || 1;
       let columns: string[] | null = null;
       let wroteHeader = false;
-      let tableRows = 0;
 
       for (let chunkIndex = 0; chunkIndex < chunksTotal; chunkIndex++) {
         const offset = chunkIndex * chunkSize;
@@ -108,8 +429,7 @@ async function runBackupTask(backupId: string, userId: string | null, isSchedule
           sqlParts.push(`INSERT INTO public.${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`);
         }
         
-        tableRows += rows.length;
-        totalRows += rows.length;
+        rowsProcessed += rows.length;
 
         if (rows.length < chunkSize) break;
       }
@@ -118,82 +438,86 @@ async function runBackupTask(backupId: string, userId: string | null, isSchedule
         sqlParts.push('\n');
       }
 
-      // Log progress every 10 tables
-      if (exportedTables % 10 === 0) {
-        console.log(`[Background Backup] Processed ${exportedTables} tables, ${totalRows} rows`);
+      tablesProcessed++;
+
+      // Update progress every 5 tables
+      if (tablesProcessed % 5 === 0 || tablesProcessed === tableNames.length) {
+        const progressPercent = Math.min(95, Math.floor((rowsProcessed / Math.max(1, totalRowsExpected)) * 90) + 5);
+        await supabase
+          .from('system_backups')
+          .update({
+            tables_processed: tablesProcessed,
+            rows_processed: rowsProcessed,
+            progress_percent: progressPercent
+          })
+          .eq('id', dataBackupId);
       }
     }
 
-    console.log(`[Background Backup] SQL generation complete: ${exportedTables} tables, ${totalRows} rows`);
+    console.log(`[Background Backup] SQL generation complete: ${tablesProcessed} tables, ${rowsProcessed} rows`);
 
-    // Compress the SQL content
+    // Update to compression phase
+    await supabase
+      .from('system_backups')
+      .update({
+        progress_phase: 'compressing',
+        progress_percent: 92
+      })
+      .eq('id', dataBackupId);
+
+    // Compress and upload
     const sqlContent = sqlParts.join('');
-    const encoder = new TextEncoder();
-    const data = encoder.encode(sqlContent);
+    
+    await supabase
+      .from('system_backups')
+      .update({
+        progress_phase: 'uploading',
+        progress_percent: 95
+      })
+      .eq('id', dataBackupId);
 
-    const readableStream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(data);
-        controller.close();
-      }
-    });
+    const dataSize = await compressAndUpload(supabase, sqlContent, dataFilePath);
 
-    const compressedStream = readableStream.pipeThrough(new CompressionStream('gzip'));
-    const reader = compressedStream.getReader();
-    const chunks: Uint8Array[] = [];
+    console.log(`[Background Backup] Data upload complete: ${(dataSize / 1024 / 1024).toFixed(2)} MB`);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) chunks.push(value);
-    }
-
-    const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-    const compressedData = new Uint8Array(totalLength);
-    let byteOffset = 0;
-    for (const c of chunks) {
-      compressedData.set(c, byteOffset);
-      byteOffset += c.length;
-    }
-
-    console.log(`[Background Backup] Compressed size: ${(totalLength / 1024 / 1024).toFixed(2)} MB`);
-
-    // Upload to storage
-    const blob = new Blob([compressedData], { type: 'application/gzip' });
-    const { error: uploadError } = await supabase.storage
-      .from('system-backups')
-      .upload(filePath, blob, {
-        contentType: 'application/gzip',
-        upsert: false
-      });
-
-    if (uploadError) throw uploadError;
-
-    console.log(`[Background Backup] Upload complete`);
-
-    // Update backup record as completed
+    // Update data backup record as completed
     await supabase
       .from('system_backups')
       .update({
         status: 'completed',
-        file_size: totalLength,
+        progress_phase: 'complete',
+        progress_percent: 100,
+        file_size: dataSize,
         completed_at: new Date().toISOString()
       })
-      .eq('id', backupId);
+      .eq('id', dataBackupId);
 
-    console.log(`[Background Backup] Backup completed successfully: ${backupId}`);
+    console.log(`[Background Backup] Both backups completed successfully`);
+
+    // Update schedule if this was a scheduled backup
+    if (isScheduled) {
+      await supabase
+        .from('backup_schedule')
+        .update({ 
+          last_run_at: new Date().toISOString(),
+          next_run_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('is_enabled', true);
+    }
 
   } catch (error) {
     console.error('[Background Backup] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
-    // Update backup record as failed
+    // Update both backup records as failed
     await supabase
       .from('system_backups')
       .update({
         status: 'failed',
-        error_message: error instanceof Error ? error.message : 'Unknown error'
+        progress_phase: 'error',
+        error_message: errorMessage
       })
-      .eq('id', backupId);
+      .in('id', [structureBackupId, dataBackupId]);
   }
 }
 
@@ -218,95 +542,116 @@ Deno.serve(async (req) => {
     console.log(`[Background Backup] Action: ${action}, User: ${userId}, Scheduled: ${isScheduled}`);
 
     if (action === 'start') {
-      // Create pending backup record
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `edara_data_${timestamp}.sql.gz`;
-      const filePath = `data/${filename}`;
-
-      const { data: backupRecord, error: insertError } = await supabase
+      
+      // Create structure backup record
+      const { data: structureRecord, error: structureError } = await supabase
         .from('system_backups')
         .insert({
-          backup_type: 'data',
-          file_name: filename,
-          file_path: filePath,
+          backup_type: 'structure',
+          file_name: `edara_structure_${timestamp}.sql.gz`,
+          file_path: `structure/edara_structure_${timestamp}.sql.gz`,
           status: 'pending',
+          progress_phase: 'pending',
+          progress_percent: 0,
           created_by: userId || null
         })
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (structureError) throw structureError;
 
-      const backupId = backupRecord.id;
+      // Create data backup record
+      const { data: dataRecord, error: dataError } = await supabase
+        .from('system_backups')
+        .insert({
+          backup_type: 'data',
+          file_name: `edara_data_${timestamp}.sql.gz`,
+          file_path: `data/edara_data_${timestamp}.sql.gz`,
+          status: 'pending',
+          progress_phase: 'pending',
+          progress_percent: 0,
+          created_by: userId || null,
+          parent_backup_id: structureRecord.id
+        })
+        .select()
+        .single();
+
+      if (dataError) throw dataError;
 
       // Start background task
       (globalThis as any).EdgeRuntime.waitUntil(
-        runBackupTask(backupId, userId, isScheduled)
+        runBackupTask(structureRecord.id, dataRecord.id, userId, isScheduled)
       );
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Background backup started',
-          backupId
+          message: 'Background backup started (structure + data)',
+          structureBackupId: structureRecord.id,
+          dataBackupId: dataRecord.id
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
     } else if (action === 'check-schedule') {
-      // Called by cron - check if we should run a scheduled backup
       console.log('[Background Backup] Cron check-schedule triggered');
       
-      // The cron job SQL already filters for enabled schedules that haven't run today
-      // So if we get here, we should run the backup
-      
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `edara_scheduled_${timestamp}.sql.gz`;
-      const filePath = `data/${filename}`;
 
-      const { data: backupRecord, error: insertError } = await supabase
+      // Create structure backup record
+      const { data: structureRecord, error: structureError } = await supabase
         .from('system_backups')
         .insert({
-          backup_type: 'data',
-          file_name: filename,
-          file_path: filePath,
+          backup_type: 'structure',
+          file_name: `edara_scheduled_structure_${timestamp}.sql.gz`,
+          file_path: `structure/edara_scheduled_structure_${timestamp}.sql.gz`,
           status: 'pending',
+          progress_phase: 'pending',
+          progress_percent: 0,
           created_by: null
         })
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (structureError) throw structureError;
 
-      // Update schedule last_run_at
-      await supabase
-        .from('backup_schedule')
-        .update({ 
-          last_run_at: new Date().toISOString(),
-          next_run_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      // Create data backup record
+      const { data: dataRecord, error: dataError } = await supabase
+        .from('system_backups')
+        .insert({
+          backup_type: 'data',
+          file_name: `edara_scheduled_data_${timestamp}.sql.gz`,
+          file_path: `data/edara_scheduled_data_${timestamp}.sql.gz`,
+          status: 'pending',
+          progress_phase: 'pending',
+          progress_percent: 0,
+          created_by: null,
+          parent_backup_id: structureRecord.id
         })
-        .eq('is_enabled', true);
+        .select()
+        .single();
 
-      const backupId = backupRecord.id;
+      if (dataError) throw dataError;
 
       // Start background task
       (globalThis as any).EdgeRuntime.waitUntil(
-        runBackupTask(backupId, null, true)
+        runBackupTask(structureRecord.id, dataRecord.id, null, true)
       );
 
-      console.log(`[Background Backup] Scheduled backup started: ${backupId}`);
+      console.log(`[Background Backup] Scheduled backup started - Structure: ${structureRecord.id}, Data: ${dataRecord.id}`);
 
       return new Response(
         JSON.stringify({
           success: true,
           message: 'Scheduled backup started',
-          backupId
+          structureBackupId: structureRecord.id,
+          dataBackupId: dataRecord.id
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
     } else if (action === 'status') {
-      // Get backup status
       const { backupId } = body;
       
       if (!backupId) {
