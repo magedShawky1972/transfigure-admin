@@ -5159,6 +5159,7 @@ export type Database = {
       }
     }
     Functions: {
+      check_and_run_scheduled_backup: { Args: never; Returns: undefined }
       clean_expired_cache: { Args: never; Returns: undefined }
       cost_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }
