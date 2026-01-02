@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Archive, Upload } from "lucide-react";
 
 interface TableProgress {
   tableName: string;
@@ -22,6 +22,7 @@ interface BackupProgressDialogProps {
   totalRowsExpected: number;
   isComplete: boolean;
   isRTL: boolean;
+  backupPhase?: 'fetching' | 'compressing' | 'uploading' | 'complete';
 }
 
 export const BackupProgressDialog = ({
@@ -33,7 +34,8 @@ export const BackupProgressDialog = ({
   totalRowsFetched,
   totalRowsExpected,
   isComplete,
-  isRTL
+  isRTL,
+  backupPhase = 'fetching'
 }: BackupProgressDialogProps) => {
   const overallProgress = totalRowsExpected > 0 
     ? Math.min(100, (totalRowsFetched / totalRowsExpected) * 100) 
@@ -130,7 +132,36 @@ export const BackupProgressDialog = ({
             ))}
           </div>
 
-          {isComplete && (
+          {/* Post-processing phases */}
+          {backupPhase === 'compressing' && (
+            <div className="p-3 bg-amber-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Archive className="h-4 w-4 text-amber-600 animate-pulse" />
+                <span className="text-sm font-medium text-amber-700">
+                  {isRTL ? 'جاري ضغط البيانات...' : 'Compressing data...'}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isRTL ? 'قد يستغرق هذا بعض الوقت للملفات الكبيرة' : 'This may take a moment for large files'}
+              </p>
+            </div>
+          )}
+
+          {backupPhase === 'uploading' && (
+            <div className="p-3 bg-blue-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Upload className="h-4 w-4 text-blue-600 animate-pulse" />
+                <span className="text-sm font-medium text-blue-700">
+                  {isRTL ? 'جاري رفع الملف إلى التخزين...' : 'Uploading to storage...'}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isRTL ? 'يرجى عدم إغلاق هذه النافذة' : 'Please do not close this window'}
+              </p>
+            </div>
+          )}
+
+          {isComplete && backupPhase === 'complete' && (
             <div className="p-3 bg-green-500/10 rounded-lg text-center">
               <p className="text-sm font-medium text-green-600">
                 {isRTL ? 'اكتمل النسخ الاحتياطي بنجاح!' : 'Backup completed successfully!'}
