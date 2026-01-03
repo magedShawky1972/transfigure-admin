@@ -80,9 +80,8 @@ const SecurityDashboard = () => {
   const fetchAccessLogs = async (fromDate: Date, toDate: Date) => {
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
+        .from('password_access_logs')
         .select('*')
-        .eq('table_name', 'stored_passwords')
         .gte('created_at', fromDate.toISOString())
         .lte('created_at', toDate.toISOString())
         .order('created_at', { ascending: false })
@@ -94,9 +93,9 @@ const SecurityDashboard = () => {
         id: log.id,
         user_id: log.user_id || '',
         user_email: log.user_email || 'Unknown',
-        action: log.action,
+        action: log.access_type || 'ACCESS',
         created_at: log.created_at,
-        record_id: log.record_id,
+        record_id: log.accessed_record_id,
       }));
 
       setAccessLogs(logs);
@@ -147,9 +146,8 @@ const SecurityDashboard = () => {
   const fetchDailyPatterns = async (fromDate: Date, toDate: Date) => {
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
+        .from('password_access_logs')
         .select('created_at')
-        .eq('table_name', 'stored_passwords')
         .gte('created_at', fromDate.toISOString())
         .lte('created_at', toDate.toISOString());
 
@@ -182,9 +180,8 @@ const SecurityDashboard = () => {
   const fetchUserSummaries = async (fromDate: Date, toDate: Date) => {
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
+        .from('password_access_logs')
         .select('user_email, created_at')
-        .eq('table_name', 'stored_passwords')
         .gte('created_at', fromDate.toISOString())
         .lte('created_at', toDate.toISOString());
 
