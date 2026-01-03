@@ -312,7 +312,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إدارة الحضور' : 'Timesheet Management', url: "/timesheet-management", icon: ClipboardList },
         { title: language === 'ar' ? 'قواعد الخصم' : 'Deduction Rules', url: "/deduction-rules-setup", icon: Calculator },
         { title: language === 'ar' ? 'التأمين الطبي' : 'Medical Insurance', url: "/medical-insurance-setup", icon: HeartPulse },
-        { title: language === 'ar' ? 'خطط الورديات' : 'Shift Plans', url: "/shift-plans-setup", icon: CalendarClock },
         { title: language === 'ar' ? 'أنواع المستندات' : 'Document Types', url: "/document-type-setup", icon: FileText },
         { title: language === 'ar' ? 'أنواع الحضور' : 'Attendance Types', url: "/attendance-type-setup", icon: Clock },
       ]
