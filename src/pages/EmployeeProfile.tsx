@@ -29,6 +29,7 @@ import {
   Phone,
   MapPin,
   Building2,
+  Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -232,13 +233,19 @@ export default function EmployeeProfile() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate("/employee-setup")}>
-          <ArrowLeft className="h-4 w-4" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate("/employee-setup")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold">
+            {language === "ar" ? "ملف الموظف" : "Employee Profile"}
+          </h1>
+        </div>
+        <Button onClick={() => navigate(`/employee-setup?edit=${id}`)}>
+          <Pencil className="h-4 w-4 mr-2" />
+          {language === "ar" ? "تعديل" : "Edit"}
         </Button>
-        <h1 className="text-2xl font-bold">
-          {language === "ar" ? "ملف الموظف" : "Employee Profile"}
-        </h1>
       </div>
 
       {/* Profile Header Card */}

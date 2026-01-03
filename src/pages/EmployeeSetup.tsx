@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera, UserPlus, Users } from "lucide-react";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface Employee {
   id: string;
@@ -139,6 +139,7 @@ interface EmployeeDocument {
 export default function EmployeeSetup() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   
@@ -210,6 +211,19 @@ export default function EmployeeSetup() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Handle edit query parameter from Employee Profile
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && employees.length > 0) {
+      const employeeToEdit = employees.find(emp => emp.id === editId);
+      if (employeeToEdit) {
+        openEditDialog(employeeToEdit);
+        // Clear the query parameter
+        setSearchParams({});
+      }
+    }
+  }, [searchParams, employees]);
 
   const fetchData = async () => {
     setLoading(true);
