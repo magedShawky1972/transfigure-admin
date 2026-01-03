@@ -3,9 +3,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
-import { FolderKanban, CheckCircle2, Clock, ListTodo, AlertCircle, Building2 } from "lucide-react";
-
+import { FolderKanban, CheckCircle2, Clock, ListTodo, AlertCircle, Building2, X } from "lucide-react";
 interface DepartmentStats {
   department_id: string;
   department_name: string;
@@ -26,6 +29,17 @@ interface ProjectStats {
   completion_percentage: number;
 }
 
+interface TaskDetail {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  department_name: string;
+  project_name: string;
+  assigned_to_name: string;
+  created_at: string;
+}
+
 const TaskDashboard = () => {
   const { language } = useLanguage();
   const [departmentStats, setDepartmentStats] = useState<DepartmentStats[]>([]);
@@ -40,6 +54,13 @@ const TaskDashboard = () => {
     todoTasks: 0,
     totalProjects: 0
   });
+  
+  // Drill-down state
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [drilldownType, setDrilldownType] = useState<'completed' | 'unfinished' | 'all' | null>(null);
+  const [drilldownDepartment, setDrilldownDepartment] = useState<string | null>(null);
+  const [drilldownTasks, setDrilldownTasks] = useState<TaskDetail[]>([]);
+  const [loadingDrilldown, setLoadingDrilldown] = useState(false);
 
   const translations = {
     ar: {
@@ -63,7 +84,21 @@ const TaskDashboard = () => {
       taskDistribution: 'توزيع المهام',
       departmentPerformance: 'أداء الأقسام',
       project: 'المشروع',
-      noData: 'لا توجد بيانات'
+      noData: 'لا توجد بيانات',
+      unfinishedTasks: 'المهام غير المكتملة',
+      allTasks: 'جميع المهام',
+      taskTitle: 'عنوان المهمة',
+      status: 'الحالة',
+      priority: 'الأولوية',
+      assignedTo: 'المسند إليه',
+      createdAt: 'تاريخ الإنشاء',
+      viewCompleted: 'عرض المكتملة',
+      viewUnfinished: 'عرض غير المكتملة',
+      viewAll: 'عرض الكل',
+      high: 'عالية',
+      medium: 'متوسطة',
+      low: 'منخفضة',
+      close: 'إغلاق'
     },
     en: {
       pageTitle: 'Tasks & Projects Dashboard',
@@ -86,7 +121,21 @@ const TaskDashboard = () => {
       taskDistribution: 'Task Distribution',
       departmentPerformance: 'Department Performance',
       project: 'Project',
-      noData: 'No data available'
+      noData: 'No data available',
+      unfinishedTasks: 'Unfinished Tasks',
+      allTasks: 'All Tasks',
+      taskTitle: 'Task Title',
+      status: 'Status',
+      priority: 'Priority',
+      assignedTo: 'Assigned To',
+      createdAt: 'Created At',
+      viewCompleted: 'View Completed',
+      viewUnfinished: 'View Unfinished',
+      viewAll: 'View All',
+      high: 'High',
+      medium: 'Medium',
+      low: 'Low',
+      close: 'Close'
     }
   };
 
@@ -98,6 +147,78 @@ const TaskDashboard = () => {
     in_progress: '#3b82f6',
     review: '#f59e0b',
     todo: '#6b7280'
+  };
+
+  // Drilldown function
+  const openDrilldown = async (type: 'completed' | 'unfinished' | 'all', departmentId: string, departmentName: string) => {
+    setDrilldownType(type);
+    setDrilldownDepartment(departmentName);
+    setDrilldownOpen(true);
+    setLoadingDrilldown(true);
+    
+    try {
+      let query = supabase
+        .from('tasks')
+        .select(`
+          id, 
+          title, 
+          status, 
+          priority,
+          created_at,
+          departments(department_name),
+          projects(name),
+          profiles:assigned_to(user_name)
+        `)
+        .eq('department_id', departmentId);
+      
+      if (type === 'completed') {
+        query = query.eq('status', 'done');
+      } else if (type === 'unfinished') {
+        query = query.neq('status', 'done');
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      const tasks: TaskDetail[] = (data || []).map((task: any) => ({
+        id: task.id,
+        title: task.title || '',
+        status: task.status || '',
+        priority: task.priority || 'medium',
+        department_name: task.departments?.department_name || '',
+        project_name: task.projects?.name || '-',
+        assigned_to_name: task.profiles?.user_name || '-',
+        created_at: task.created_at
+      }));
+      
+      setDrilldownTasks(tasks);
+    } catch (error) {
+      console.error('Error fetching drilldown tasks:', error);
+    } finally {
+      setLoadingDrilldown(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { label: string; className: string }> = {
+      done: { label: t.completed, className: 'bg-green-500/10 text-green-600 border-green-500/20' },
+      in_progress: { label: t.inProgress, className: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+      review: { label: t.review, className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+      todo: { label: t.todo, className: 'bg-gray-500/10 text-gray-600 border-gray-500/20' }
+    };
+    const v = variants[status] || variants.todo;
+    return <Badge variant="outline" className={v.className}>{v.label}</Badge>;
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    const variants: Record<string, { label: string; className: string }> = {
+      high: { label: t.high, className: 'bg-red-500/10 text-red-600 border-red-500/20' },
+      medium: { label: t.medium, className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+      low: { label: t.low, className: 'bg-green-500/10 text-green-600 border-green-500/20' }
+    };
+    const v = variants[priority] || variants.medium;
+    return <Badge variant="outline" className={v.className}>{v.label}</Badge>;
   };
 
   const fetchData = useCallback(async () => {
@@ -363,16 +484,37 @@ const TaskDashboard = () => {
                       <span className="font-medium">{dept.department_name}</span>
                       <span className="text-muted-foreground">{dept.completion_percentage}%</span>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-2 bg-muted rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => openDrilldown('all', dept.department_id, dept.department_name)}
+                      title={t.viewAll}
+                    >
                       <div 
                         className="h-full bg-green-500 rounded-full transition-all duration-500"
                         style={{ width: `${dept.completion_percentage}%` }}
                       />
                     </div>
-                    <div className="flex gap-2 text-xs text-muted-foreground">
-                      <span>{t.completed}: {dept.completed_tasks}</span>
-                      <span>•</span>
-                      <span>{t.tasks}: {dept.total_tasks}</span>
+                    <div className="flex gap-3 text-xs">
+                      <button
+                        onClick={() => openDrilldown('completed', dept.department_id, dept.department_name)}
+                        className="text-green-600 hover:underline cursor-pointer"
+                      >
+                        {t.completed}: {dept.completed_tasks}
+                      </button>
+                      <span className="text-muted-foreground">•</span>
+                      <button
+                        onClick={() => openDrilldown('unfinished', dept.department_id, dept.department_name)}
+                        className="text-orange-600 hover:underline cursor-pointer"
+                      >
+                        {t.unfinishedTasks}: {dept.total_tasks - dept.completed_tasks}
+                      </button>
+                      <span className="text-muted-foreground">•</span>
+                      <button
+                        onClick={() => openDrilldown('all', dept.department_id, dept.department_name)}
+                        className="text-blue-600 hover:underline cursor-pointer"
+                      >
+                        {t.allTasks}: {dept.total_tasks}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -456,6 +598,53 @@ const TaskDashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Drilldown Dialog */}
+      <Dialog open={drilldownOpen} onOpenChange={setDrilldownOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>
+                {drilldownType === 'completed' ? t.completedTasks : 
+                 drilldownType === 'unfinished' ? t.unfinishedTasks : t.allTasks}
+                {drilldownDepartment && ` - ${drilldownDepartment}`}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {loadingDrilldown ? (
+              <div className="flex items-center justify-center h-32">Loading...</div>
+            ) : drilldownTasks.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t.taskTitle}</TableHead>
+                    <TableHead>{t.project}</TableHead>
+                    <TableHead>{t.status}</TableHead>
+                    <TableHead>{t.priority}</TableHead>
+                    <TableHead>{t.assignedTo}</TableHead>
+                    <TableHead>{t.createdAt}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {drilldownTasks.map(task => (
+                    <TableRow key={task.id}>
+                      <TableCell className="font-medium">{task.title}</TableCell>
+                      <TableCell>{task.project_name}</TableCell>
+                      <TableCell>{getStatusBadge(task.status)}</TableCell>
+                      <TableCell>{getPriorityBadge(task.priority)}</TableCell>
+                      <TableCell>{task.assigned_to_name}</TableCell>
+                      <TableCell>{new Date(task.created_at).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex items-center justify-center h-32 text-muted-foreground">{t.noData}</div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
