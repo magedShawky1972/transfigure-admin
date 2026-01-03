@@ -165,9 +165,9 @@ const TaskDashboard = () => {
           status, 
           priority,
           created_at,
+          assigned_to,
           departments(department_name),
-          projects(name),
-          profiles:assigned_to(user_name)
+          projects(name)
         `)
         .eq('department_id', departmentId);
       
@@ -181,6 +181,19 @@ const TaskDashboard = () => {
       
       if (error) throw error;
       
+      // Fetch user names for assigned_to
+      const assignedToIds = (data || []).map(t => t.assigned_to).filter(Boolean);
+      let userMap = new Map<string, string>();
+      
+      if (assignedToIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from('profiles')
+          .select('user_id, user_name')
+          .in('user_id', assignedToIds);
+        
+        usersData?.forEach(u => userMap.set(u.user_id, u.user_name || '-'));
+      }
+      
       const tasks: TaskDetail[] = (data || []).map((task: any) => ({
         id: task.id,
         title: task.title || '',
@@ -188,7 +201,7 @@ const TaskDashboard = () => {
         priority: task.priority || 'medium',
         department_name: task.departments?.department_name || '',
         project_name: task.projects?.name || '-',
-        assigned_to_name: task.profiles?.user_name || '-',
+        assigned_to_name: task.assigned_to ? (userMap.get(task.assigned_to) || '-') : '-',
         created_at: task.created_at
       }));
       
