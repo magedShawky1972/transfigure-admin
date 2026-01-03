@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, AlertTriangle, Eye, Users, Clock, TrendingUp, Activity, RefreshCw } from "lucide-react";
+import { Shield, AlertTriangle, Eye, Users, Clock, TrendingUp, Activity, RefreshCw, Smartphone, Monitor } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
@@ -21,6 +21,18 @@ interface PasswordAccessLog {
   record_id: string | null;
 }
 
+interface DeviceActivation {
+  id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  device_name: string;
+  device_info: Record<string, unknown>;
+  activated_at: string;
+  last_login_at: string;
+  is_active: boolean;
+}
+
 interface AlertHistory {
   id: string;
   alert_type: string;
@@ -32,11 +44,14 @@ interface AlertHistory {
 interface AccessPattern {
   date: string;
   count: number;
+  devices: number;
 }
 
 interface UserAccessSummary {
   user_email: string;
+  user_name: string;
   access_count: number;
+  device_count: number;
   last_access: string;
 }
 
@@ -47,12 +62,14 @@ const SecurityDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState("7");
   const [accessLogs, setAccessLogs] = useState<PasswordAccessLog[]>([]);
+  const [deviceActivations, setDeviceActivations] = useState<DeviceActivation[]>([]);
   const [alertHistory, setAlertHistory] = useState<AlertHistory[]>([]);
   const [dailyPatterns, setDailyPatterns] = useState<AccessPattern[]>([]);
   const [userSummaries, setUserSummaries] = useState<UserAccessSummary[]>([]);
   const [stats, setStats] = useState({
     totalAccesses: 0,
     uniqueUsers: 0,
+    deviceActivations: 0,
     alertsSent: 0,
     avgAccessesPerDay: 0,
   });
@@ -69,6 +86,7 @@ const SecurityDashboard = () => {
 
     await Promise.all([
       fetchAccessLogs(fromDate, toDate),
+      fetchDeviceActivations(fromDate, toDate),
       fetchAlertHistory(fromDate, toDate),
       fetchDailyPatterns(fromDate, toDate),
       fetchUserSummaries(fromDate, toDate),
@@ -117,6 +135,53 @@ const SecurityDashboard = () => {
     }
   };
 
+  const fetchDeviceActivations = async (fromDate: Date, toDate: Date) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_device_activations')
+        .select(`
+          id,
+          user_id,
+          device_name,
+          device_info,
+          activated_at,
+          last_login_at,
+          is_active,
+          profiles!user_device_activations_user_id_fkey(user_name, email)
+        `)
+        .gte('activated_at', fromDate.toISOString())
+        .lte('activated_at', toDate.toISOString())
+        .order('activated_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      const activations: DeviceActivation[] = (data || []).map(d => ({
+        id: d.id,
+        user_id: d.user_id || '',
+        user_email: (d.profiles as any)?.email || 'Unknown',
+        user_name: (d.profiles as any)?.user_name || 'Unknown',
+        device_name: d.device_name || 'Unknown Device',
+        device_info: typeof d.device_info === 'object' && d.device_info !== null ? d.device_info as Record<string, unknown> : {},
+        activated_at: d.activated_at,
+        last_login_at: d.last_login_at,
+        is_active: d.is_active,
+      }));
+
+      setDeviceActivations(activations);
+
+      // Update stats with device activations count
+      const uniqueDeviceUsers = new Set(activations.map(a => a.user_id)).size;
+      setStats(prev => ({
+        ...prev,
+        deviceActivations: activations.length,
+        uniqueUsers: Math.max(prev.uniqueUsers, uniqueDeviceUsers),
+      }));
+    } catch (error) {
+      console.error('Error fetching device activations:', error);
+    }
+  };
+
   const fetchAlertHistory = async (fromDate: Date, toDate: Date) => {
     try {
       const { data, error } = await supabase
@@ -145,19 +210,38 @@ const SecurityDashboard = () => {
 
   const fetchDailyPatterns = async (fromDate: Date, toDate: Date) => {
     try {
-      const { data, error } = await supabase
+      // Fetch device activations for patterns
+      const { data: deviceData, error: deviceError } = await supabase
+        .from('user_device_activations')
+        .select('activated_at, last_login_at')
+        .gte('activated_at', fromDate.toISOString())
+        .lte('activated_at', toDate.toISOString());
+
+      // Fetch password access logs
+      const { data: accessData, error: accessError } = await supabase
         .from('password_access_logs')
         .select('created_at')
         .gte('created_at', fromDate.toISOString())
         .lte('created_at', toDate.toISOString());
 
-      if (error) throw error;
+      if (deviceError) throw deviceError;
+      if (accessError) throw accessError;
 
       // Group by date
-      const dateMap = new Map<string, number>();
-      (data || []).forEach(log => {
+      const dateMap = new Map<string, { accesses: number; devices: number }>();
+      
+      (accessData || []).forEach(log => {
         const date = format(new Date(log.created_at), 'yyyy-MM-dd');
-        dateMap.set(date, (dateMap.get(date) || 0) + 1);
+        const existing = dateMap.get(date) || { accesses: 0, devices: 0 };
+        existing.accesses++;
+        dateMap.set(date, existing);
+      });
+
+      (deviceData || []).forEach(d => {
+        const date = format(new Date(d.activated_at), 'yyyy-MM-dd');
+        const existing = dateMap.get(date) || { accesses: 0, devices: 0 };
+        existing.devices++;
+        dateMap.set(date, existing);
       });
 
       // Fill in missing dates
@@ -165,9 +249,11 @@ const SecurityDashboard = () => {
       const days = parseInt(dateRange);
       for (let i = days - 1; i >= 0; i--) {
         const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
+        const data = dateMap.get(date) || { accesses: 0, devices: 0 };
         patterns.push({
           date: format(subDays(new Date(), i), 'MMM dd'),
-          count: dateMap.get(date) || 0,
+          count: data.accesses + data.devices,
+          devices: data.devices,
         });
       }
 
@@ -179,39 +265,96 @@ const SecurityDashboard = () => {
 
   const fetchUserSummaries = async (fromDate: Date, toDate: Date) => {
     try {
-      const { data, error } = await supabase
+      // Fetch device activations with user info
+      const { data: deviceData, error: deviceError } = await supabase
+        .from('user_device_activations')
+        .select(`
+          user_id,
+          activated_at,
+          last_login_at,
+          profiles!user_device_activations_user_id_fkey(user_name, email)
+        `)
+        .gte('activated_at', fromDate.toISOString())
+        .lte('activated_at', toDate.toISOString());
+
+      // Fetch password access logs
+      const { data: accessData, error: accessError } = await supabase
         .from('password_access_logs')
-        .select('user_email, created_at')
+        .select('user_id, user_email, created_at')
         .gte('created_at', fromDate.toISOString())
         .lte('created_at', toDate.toISOString());
 
-      if (error) throw error;
+      if (deviceError) throw deviceError;
+      if (accessError) throw accessError;
 
       // Group by user
-      const userMap = new Map<string, { count: number; lastAccess: string }>();
-      (data || []).forEach(log => {
+      const userMap = new Map<string, { 
+        user_name: string; 
+        user_email: string;
+        accessCount: number; 
+        deviceCount: number;
+        lastAccess: string 
+      }>();
+      
+      (deviceData || []).forEach(d => {
+        const email = (d.profiles as any)?.email || 'Unknown';
+        const userName = (d.profiles as any)?.user_name || 'Unknown';
+        const existing = userMap.get(email);
+        const loginTime = d.last_login_at || d.activated_at;
+        
+        if (existing) {
+          existing.deviceCount++;
+          if (new Date(loginTime) > new Date(existing.lastAccess)) {
+            existing.lastAccess = loginTime;
+          }
+        } else {
+          userMap.set(email, { 
+            user_name: userName,
+            user_email: email,
+            accessCount: 0, 
+            deviceCount: 1, 
+            lastAccess: loginTime 
+          });
+        }
+      });
+
+      (accessData || []).forEach(log => {
         const email = log.user_email || 'Unknown';
         const existing = userMap.get(email);
         if (existing) {
-          existing.count++;
+          existing.accessCount++;
           if (new Date(log.created_at) > new Date(existing.lastAccess)) {
             existing.lastAccess = log.created_at;
           }
         } else {
-          userMap.set(email, { count: 1, lastAccess: log.created_at });
+          userMap.set(email, { 
+            user_name: email.split('@')[0],
+            user_email: email,
+            accessCount: 1, 
+            deviceCount: 0, 
+            lastAccess: log.created_at 
+          });
         }
       });
 
-      const summaries: UserAccessSummary[] = Array.from(userMap.entries())
-        .map(([email, data]) => ({
-          user_email: email,
-          access_count: data.count,
+      const summaries: UserAccessSummary[] = Array.from(userMap.values())
+        .map(data => ({
+          user_email: data.user_email,
+          user_name: data.user_name,
+          access_count: data.accessCount + data.deviceCount,
+          device_count: data.deviceCount,
           last_access: data.lastAccess,
         }))
         .sort((a, b) => b.access_count - a.access_count)
         .slice(0, 10);
 
       setUserSummaries(summaries);
+      
+      // Update unique users stat
+      setStats(prev => ({
+        ...prev,
+        uniqueUsers: userMap.size,
+      }));
     } catch (error) {
       console.error('Error fetching user summaries:', error);
     }
@@ -260,8 +403,8 @@ const SecurityDashboard = () => {
           </h1>
           <p className="text-muted-foreground">
             {language === 'ar' 
-              ? 'مراقبة أنماط الوصول لكلمات المرور وسجل التنبيهات في الوقت الفعلي'
-              : 'Monitor password access patterns and alert history in real-time'}
+              ? 'مراقبة الأجهزة المفعلة ونشاط المستخدمين في الوقت الفعلي'
+              : 'Monitor device activations and user activity in real-time'}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -317,6 +460,21 @@ const SecurityDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
+              {language === 'ar' ? 'الأجهزة المفعلة' : 'Device Activations'}
+            </CardTitle>
+            <Smartphone className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.deviceActivations}</div>
+            <p className="text-xs text-muted-foreground">
+              {language === 'ar' ? 'أجهزة جديدة' : 'New devices'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
               {language === 'ar' ? 'التنبيهات المرسلة' : 'Alerts Sent'}
             </CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
@@ -325,21 +483,6 @@ const SecurityDashboard = () => {
             <div className="text-2xl font-bold">{stats.alertsSent}</div>
             <p className="text-xs text-muted-foreground">
               {language === 'ar' ? 'تنبيهات أمنية' : 'Security alerts'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {language === 'ar' ? 'متوسط الوصول اليومي' : 'Avg. Daily Access'}
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgAccessesPerDay}</div>
-            <p className="text-xs text-muted-foreground">
-              {language === 'ar' ? 'وصول في اليوم' : 'Accesses per day'}
             </p>
           </CardContent>
         </Card>
@@ -375,10 +518,10 @@ const SecurityDashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              {language === 'ar' ? 'أكثر المستخدمين وصولاً' : 'Top Users by Access'}
+              {language === 'ar' ? 'أكثر المستخدمين نشاطاً' : 'Top Active Users'}
             </CardTitle>
             <CardDescription>
-              {language === 'ar' ? 'المستخدمين الأكثر وصولاً لكلمات المرور' : 'Users with most password accesses'}
+              {language === 'ar' ? 'المستخدمين الأكثر نشاطاً مع أجهزتهم' : 'Most active users with their devices'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -390,13 +533,20 @@ const SecurityDashboard = () => {
                       {index + 1}
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{user.user_email}</p>
+                      <p className="text-sm font-medium">{user.user_name}</p>
+                      <p className="text-xs text-muted-foreground">{user.user_email}</p>
                       <p className="text-xs text-muted-foreground">
-                        {language === 'ar' ? 'آخر وصول:' : 'Last access:'} {format(new Date(user.last_access), 'MMM dd, HH:mm')}
+                        {language === 'ar' ? 'آخر نشاط:' : 'Last activity:'} {format(new Date(user.last_access), 'MMM dd, HH:mm')}
                       </p>
                     </div>
                   </div>
-                  <Badge variant="outline">{user.access_count}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Smartphone className="h-3 w-3" />
+                      {user.device_count}
+                    </Badge>
+                    <Badge variant="secondary">{user.access_count}</Badge>
+                  </div>
                 </div>
               ))}
               {userSummaries.length === 0 && (
@@ -410,22 +560,96 @@ const SecurityDashboard = () => {
       </div>
 
       {/* Tabs for detailed data */}
-      <Tabs defaultValue="logs" className="w-full">
+      <Tabs defaultValue="devices" className="w-full">
         <TabsList>
+          <TabsTrigger value="devices">
+            <Smartphone className="h-4 w-4 mr-2" />
+            {language === 'ar' ? 'الأجهزة المفعلة' : 'Device Activations'}
+          </TabsTrigger>
           <TabsTrigger value="logs">
             <Eye className="h-4 w-4 mr-2" />
-            {language === 'ar' ? 'سجل الوصول' : 'Access Logs'}
+            {language === 'ar' ? 'سجل كلمات المرور' : 'Password Logs'}
           </TabsTrigger>
           <TabsTrigger value="alerts">
             <AlertTriangle className="h-4 w-4 mr-2" />
-            {language === 'ar' ? 'سجل التنبيهات' : 'Alert History'}
+            {language === 'ar' ? 'التنبيهات' : 'Alerts'}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="devices">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'الأجهزة المفعلة حديثاً' : 'Recent Device Activations'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' ? 'الأجهزة التي تم تفعيلها مؤخراً' : 'Devices that have been recently activated'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'المستخدم' : 'User'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الجهاز' : 'Device'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المنصة' : 'Platform'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'تاريخ التفعيل' : 'Activated'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'آخر دخول' : 'Last Login'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {deviceActivations.map(device => (
+                    <TableRow key={device.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{device.user_name}</p>
+                          <p className="text-xs text-muted-foreground">{device.user_email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {device.device_name.includes('iPhone') || device.device_name.includes('Android') ? (
+                            <Smartphone className="h-4 w-4" />
+                          ) : (
+                            <Monitor className="h-4 w-4" />
+                          )}
+                          {device.device_name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {(device.device_info as any)?.platform || 'Unknown'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(device.activated_at), 'yyyy-MM-dd HH:mm')}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(device.last_login_at), 'yyyy-MM-dd HH:mm')}
+                      </TableCell>
+                      <TableCell>
+                        {device.is_active ? (
+                          <Badge className="bg-green-500">{language === 'ar' ? 'نشط' : 'Active'}</Badge>
+                        ) : (
+                          <Badge variant="secondary">{language === 'ar' ? 'غير نشط' : 'Inactive'}</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {deviceActivations.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        {language === 'ar' ? 'لا توجد أجهزة مفعلة' : 'No device activations found'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="logs">
           <Card>
             <CardHeader>
-              <CardTitle>{language === 'ar' ? 'سجل الوصول الأخير لكلمات المرور' : 'Recent Password Access Logs'}</CardTitle>
+              <CardTitle>{language === 'ar' ? 'سجل الوصول لكلمات المرور' : 'Password Access Logs'}</CardTitle>
               <CardDescription>
                 {language === 'ar' ? 'آخر 100 سجل وصول' : 'Last 100 access records'}
               </CardDescription>
