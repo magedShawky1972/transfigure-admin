@@ -35,6 +35,7 @@ interface Shift {
   shift_type_id?: string;
   shift_type?: string;
   job_positions?: string[];
+  shift_order?: number;
 }
 
 interface ShiftType {
@@ -234,6 +235,7 @@ const ShiftCalendar = () => {
             shift_start_time,
             shift_end_time,
             color,
+            shift_order,
             shift_types (type),
             shift_job_positions (
               job_position_id
@@ -590,18 +592,17 @@ const ShiftCalendar = () => {
   const getAssignmentsForDate = (date: Date) => {
     const dateAssignments = assignments.filter(a => isSameDay(new Date(a.assignment_date), date));
     
-    if (selectedShiftType === "all") {
-      return dateAssignments;
+    let result = dateAssignments;
+    
+    if (selectedShiftType !== "all") {
+      result = dateAssignments.filter(a => {
+        const shiftType = a.shift.shift_type;
+        return shiftType === selectedShiftType;
+      });
     }
     
-    const filtered = dateAssignments.filter(a => {
-      const shiftType = a.shift.shift_type;
-      console.log("Comparing shift type:", shiftType, "with selected:", selectedShiftType);
-      return shiftType === selectedShiftType;
-    });
-    
-    console.log("Filtered assignments:", filtered.length, "out of", dateAssignments.length);
-    return filtered;
+    // Sort by shift_order
+    return result.sort((a, b) => (a.shift.shift_order || 0) - (b.shift.shift_order || 0));
   };
 
   const getFilteredShifts = () => {
