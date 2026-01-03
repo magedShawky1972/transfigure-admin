@@ -181,6 +181,8 @@ export default function EmployeeSetup() {
     gender: "",
     nationality: "",
     national_id: "",
+    passport_number: "",
+    marital_status: "",
     department_id: "",
     job_position_id: "",
     job_start_date: "",
@@ -344,6 +346,8 @@ export default function EmployeeSetup() {
       gender: "",
       nationality: "",
       national_id: "",
+      passport_number: "",
+      marital_status: "",
       department_id: "",
       job_position_id: "",
       job_start_date: new Date().toISOString().split('T')[0],
@@ -521,6 +525,8 @@ export default function EmployeeSetup() {
       gender: "",
       nationality: "",
       national_id: "",
+      passport_number: "",
+      marital_status: "",
       department_id: "",
       job_position_id: "",
       job_start_date: "",
@@ -557,6 +563,8 @@ export default function EmployeeSetup() {
       gender: employee.gender || "",
       nationality: employee.nationality || "",
       national_id: employee.national_id || "",
+      passport_number: (employee as any).passport_number || "",
+      marital_status: (employee as any).marital_status || "",
       department_id: employee.department_id || "",
       job_position_id: employee.job_position_id || "",
       job_start_date: employee.job_start_date,
@@ -605,6 +613,8 @@ export default function EmployeeSetup() {
         gender: formData.gender || null,
         nationality: formData.nationality || null,
         national_id: formData.national_id || null,
+        passport_number: formData.passport_number || null,
+        marital_status: formData.marital_status || null,
         department_id: formData.department_id || null,
         job_position_id: formData.job_position_id || null,
         job_start_date: formData.job_start_date,
@@ -1052,10 +1062,67 @@ export default function EmployeeSetup() {
 
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "الجنسية" : "Nationality"}</Label>
-                  <Input
-                    value={formData.nationality}
-                    onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-                  />
+                  <Select
+                    value={formData.nationality || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, nationality: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر الجنسية" : "Select Nationality"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      <SelectItem value="Saudi Arabia">{language === "ar" ? "السعودية" : "Saudi Arabia"}</SelectItem>
+                      <SelectItem value="United Arab Emirates">{language === "ar" ? "الإمارات" : "United Arab Emirates"}</SelectItem>
+                      <SelectItem value="Kuwait">{language === "ar" ? "الكويت" : "Kuwait"}</SelectItem>
+                      <SelectItem value="Qatar">{language === "ar" ? "قطر" : "Qatar"}</SelectItem>
+                      <SelectItem value="Bahrain">{language === "ar" ? "البحرين" : "Bahrain"}</SelectItem>
+                      <SelectItem value="Oman">{language === "ar" ? "عُمان" : "Oman"}</SelectItem>
+                      <SelectItem value="Egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                      <SelectItem value="Jordan">{language === "ar" ? "الأردن" : "Jordan"}</SelectItem>
+                      <SelectItem value="Lebanon">{language === "ar" ? "لبنان" : "Lebanon"}</SelectItem>
+                      <SelectItem value="Syria">{language === "ar" ? "سوريا" : "Syria"}</SelectItem>
+                      <SelectItem value="Iraq">{language === "ar" ? "العراق" : "Iraq"}</SelectItem>
+                      <SelectItem value="Yemen">{language === "ar" ? "اليمن" : "Yemen"}</SelectItem>
+                      <SelectItem value="Palestine">{language === "ar" ? "فلسطين" : "Palestine"}</SelectItem>
+                      <SelectItem value="Morocco">{language === "ar" ? "المغرب" : "Morocco"}</SelectItem>
+                      <SelectItem value="Algeria">{language === "ar" ? "الجزائر" : "Algeria"}</SelectItem>
+                      <SelectItem value="Tunisia">{language === "ar" ? "تونس" : "Tunisia"}</SelectItem>
+                      <SelectItem value="Libya">{language === "ar" ? "ليبيا" : "Libya"}</SelectItem>
+                      <SelectItem value="Sudan">{language === "ar" ? "السودان" : "Sudan"}</SelectItem>
+                      <SelectItem value="India">{language === "ar" ? "الهند" : "India"}</SelectItem>
+                      <SelectItem value="Pakistan">{language === "ar" ? "باكستان" : "Pakistan"}</SelectItem>
+                      <SelectItem value="Bangladesh">{language === "ar" ? "بنغلاديش" : "Bangladesh"}</SelectItem>
+                      <SelectItem value="Philippines">{language === "ar" ? "الفلبين" : "Philippines"}</SelectItem>
+                      <SelectItem value="Indonesia">{language === "ar" ? "إندونيسيا" : "Indonesia"}</SelectItem>
+                      <SelectItem value="Sri Lanka">{language === "ar" ? "سريلانكا" : "Sri Lanka"}</SelectItem>
+                      <SelectItem value="Nepal">{language === "ar" ? "نيبال" : "Nepal"}</SelectItem>
+                      <SelectItem value="United States">{language === "ar" ? "الولايات المتحدة" : "United States"}</SelectItem>
+                      <SelectItem value="United Kingdom">{language === "ar" ? "المملكة المتحدة" : "United Kingdom"}</SelectItem>
+                      <SelectItem value="Canada">{language === "ar" ? "كندا" : "Canada"}</SelectItem>
+                      <SelectItem value="Australia">{language === "ar" ? "أستراليا" : "Australia"}</SelectItem>
+                      <SelectItem value="Germany">{language === "ar" ? "ألمانيا" : "Germany"}</SelectItem>
+                      <SelectItem value="France">{language === "ar" ? "فرنسا" : "France"}</SelectItem>
+                      <SelectItem value="Italy">{language === "ar" ? "إيطاليا" : "Italy"}</SelectItem>
+                      <SelectItem value="Spain">{language === "ar" ? "إسبانيا" : "Spain"}</SelectItem>
+                      <SelectItem value="Turkey">{language === "ar" ? "تركيا" : "Turkey"}</SelectItem>
+                      <SelectItem value="Iran">{language === "ar" ? "إيران" : "Iran"}</SelectItem>
+                      <SelectItem value="China">{language === "ar" ? "الصين" : "China"}</SelectItem>
+                      <SelectItem value="Japan">{language === "ar" ? "اليابان" : "Japan"}</SelectItem>
+                      <SelectItem value="South Korea">{language === "ar" ? "كوريا الجنوبية" : "South Korea"}</SelectItem>
+                      <SelectItem value="Malaysia">{language === "ar" ? "ماليزيا" : "Malaysia"}</SelectItem>
+                      <SelectItem value="Singapore">{language === "ar" ? "سنغافورة" : "Singapore"}</SelectItem>
+                      <SelectItem value="Thailand">{language === "ar" ? "تايلاند" : "Thailand"}</SelectItem>
+                      <SelectItem value="Vietnam">{language === "ar" ? "فيتنام" : "Vietnam"}</SelectItem>
+                      <SelectItem value="South Africa">{language === "ar" ? "جنوب أفريقيا" : "South Africa"}</SelectItem>
+                      <SelectItem value="Nigeria">{language === "ar" ? "نيجيريا" : "Nigeria"}</SelectItem>
+                      <SelectItem value="Kenya">{language === "ar" ? "كينيا" : "Kenya"}</SelectItem>
+                      <SelectItem value="Ethiopia">{language === "ar" ? "إثيوبيا" : "Ethiopia"}</SelectItem>
+                      <SelectItem value="Brazil">{language === "ar" ? "البرازيل" : "Brazil"}</SelectItem>
+                      <SelectItem value="Mexico">{language === "ar" ? "المكسيك" : "Mexico"}</SelectItem>
+                      <SelectItem value="Argentina">{language === "ar" ? "الأرجنتين" : "Argentina"}</SelectItem>
+                      <SelectItem value="Other">{language === "ar" ? "أخرى" : "Other"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -1064,6 +1131,33 @@ export default function EmployeeSetup() {
                     value={formData.national_id}
                     onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "رقم جواز السفر" : "Passport Number"}</Label>
+                  <Input
+                    value={formData.passport_number}
+                    onChange={(e) => setFormData({ ...formData, passport_number: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الحالة الاجتماعية" : "Marital Status"}</Label>
+                  <Select
+                    value={formData.marital_status || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, marital_status: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      <SelectItem value="single">{language === "ar" ? "أعزب" : "Single"}</SelectItem>
+                      <SelectItem value="married">{language === "ar" ? "متزوج" : "Married"}</SelectItem>
+                      <SelectItem value="divorced">{language === "ar" ? "مطلق" : "Divorced"}</SelectItem>
+                      <SelectItem value="widowed">{language === "ar" ? "أرمل" : "Widowed"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </TabsContent>
