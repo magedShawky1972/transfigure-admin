@@ -1245,25 +1245,37 @@ export type Database = {
       }
       employee_vacation_types: {
         Row: {
+          balance: number | null
           created_at: string
           custom_days: number | null
           employee_id: string
           id: string
+          updated_at: string | null
+          used_days: number | null
           vacation_code_id: string
+          year: number | null
         }
         Insert: {
+          balance?: number | null
           created_at?: string
           custom_days?: number | null
           employee_id: string
           id?: string
+          updated_at?: string | null
+          used_days?: number | null
           vacation_code_id: string
+          year?: number | null
         }
         Update: {
+          balance?: number | null
           created_at?: string
           custom_days?: number | null
           employee_id?: string
           id?: string
+          updated_at?: string | null
+          used_days?: number | null
           vacation_code_id?: string
+          year?: number | null
         }
         Relationships: [
           {
