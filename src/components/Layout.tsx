@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Moon, Sun, Languages, LogOut, Home, Clock, User, Key, Camera, Building2, Briefcase } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
+import { PushNotificationBar } from "@/components/PushNotificationBar";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -376,7 +377,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20">
         <AppSidebar />
         
-        <main className="flex-1 flex flex-col min-w-0">          
+        <main className="flex-1 flex flex-col min-w-0">
+          {/* Push Notification Enable Bar */}
+          {(user || isSysadminSession) && <PushNotificationBar />}
+          
           <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
             {/* Main header row */}
             <div className="h-16 flex items-center justify-between px-4 md:px-6">
