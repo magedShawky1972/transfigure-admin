@@ -17,6 +17,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -145,7 +146,6 @@ const Transactions = () => {
   const [syncingAllToOdoo, setSyncingAllToOdoo] = useState(false);
   const [odooStepDialogOpen, setOdooStepDialogOpen] = useState(false);
   const [odooStepTransactions, setOdooStepTransactions] = useState<Transaction[]>([]);
-  const [resetOdooDialogOpen, setResetOdooDialogOpen] = useState(false);
   const [resettingOdoo, setResettingOdoo] = useState(false);
   const pageSize = 500;
 
@@ -1009,11 +1009,6 @@ const Transactions = () => {
     navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
   };
 
-  // Reset Odoo sync flag - simply open dialog
-  const handleResetOdooSync = () => {
-    setResetOdooDialogOpen(true);
-  };
-
   const confirmResetOdooSync = async () => {
     setResettingOdoo(true);
     try {
@@ -1042,7 +1037,6 @@ const Transactions = () => {
       });
     } finally {
       setResettingOdoo(false);
-      setResetOdooDialogOpen(false);
     }
   };
 
@@ -1304,51 +1298,6 @@ const Transactions = () => {
         }}
       />
 
-      {/* Reset Odoo Sync Confirmation Dialog */}
-      <AlertDialog open={resetOdooDialogOpen} onOpenChange={setResetOdooDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {language === 'ar' ? 'إعادة تعيين إرسال Odoo' : 'Reset Odoo Sync Flag'}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>
-                {language === 'ar' 
-                  ? 'سيتم إعادة تعيين علامة الإرسال لجميع المعاملات في الفترة:'
-                  : 'This will reset the Odoo sync flag for all transactions in the period:'}
-              </p>
-              <p className="font-semibold text-foreground">
-                {format(fromDate, 'yyyy-MM-dd')} → {format(toDate, 'yyyy-MM-dd')}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {language === 'ar' 
-                  ? 'سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.'
-                  : 'This will allow you to resend data to Odoo.'}
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={resettingOdoo}>
-              {language === 'ar' ? 'إلغاء' : 'Cancel'}
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmResetOdooSync} 
-              disabled={resettingOdoo}
-              className="bg-orange-600 text-white hover:bg-orange-700 gap-2"
-            >
-              {resettingOdoo ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {language === 'ar' ? 'جاري إعادة التعيين...' : 'Resetting...'}
-                </>
-              ) : (
-                language === 'ar' ? 'إعادة تعيين' : 'Reset'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {loadingAll && (
         <LoadingOverlay
           progress={loadingProgress}
@@ -1501,15 +1450,53 @@ const Transactions = () => {
                 {syncingAllToOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {language === 'ar' ? 'إرسال الكل لـ Odoo' : 'Sync All to Odoo'}
               </Button>
-              <Button 
-                variant="outline" 
-                className="gap-2 text-orange-600 border-orange-600 hover:bg-orange-50 hover:text-orange-700" 
-                onClick={handleResetOdooSync}
-                disabled={resettingOdoo || sortedTransactions.length === 0}
-              >
-                {resettingOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                {language === 'ar' ? 'إعادة تعيين Odoo' : 'Reset Odoo Sync'}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="gap-2 text-orange-600 border-orange-600 hover:bg-orange-50 hover:text-orange-700" 
+                    disabled={resettingOdoo || sortedTransactions.length === 0}
+                  >
+                    {resettingOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    {language === 'ar' ? 'إعادة تعيين Odoo' : 'Reset Odoo Sync'}
+                  </Button>
+                </AlertDialogTrigger>
+
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {language === 'ar' ? 'إعادة تعيين إرسال Odoo' : 'Reset Odoo Sync Flag'}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2">
+                      <p>
+                        {language === 'ar'
+                          ? 'سيتم إعادة تعيين علامة الإرسال لجميع المعاملات في الفترة:'
+                          : 'This will reset the Odoo sync flag for all transactions in the period:'}
+                      </p>
+                      <p className="font-semibold text-foreground">
+                        {format(fromDate, 'yyyy-MM-dd')} → {format(toDate, 'yyyy-MM-dd')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'ar'
+                          ? 'سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.'
+                          : 'This will allow you to resend data to Odoo.'}
+                      </p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={resettingOdoo}>
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={confirmResetOdooSync}
+                      disabled={resettingOdoo}
+                      className="bg-orange-600 text-white hover:bg-orange-700 gap-2"
+                    >
+                      {language === 'ar' ? 'إعادة تعيين' : 'Reset'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </CardHeader>
