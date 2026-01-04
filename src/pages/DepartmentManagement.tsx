@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart, ChevronDown, Search } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -729,10 +730,14 @@ const DepartmentManagement = () => {
     });
   };
 
-  const filteredDepartments = departments.filter(dept => 
-    dept.department_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    dept.department_code.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [activeTab, setActiveTab] = useState<"normal" | "outsource">("normal");
+
+  const filteredDepartments = departments.filter(dept => {
+    const matchesSearch = dept.department_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      dept.department_code.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTab = activeTab === "outsource" ? dept.is_outsource : !dept.is_outsource;
+    return matchesSearch && matchesTab;
+  });
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -977,16 +982,28 @@ const DepartmentManagement = () => {
         </Dialog>
       </div>
 
-      {/* Search Box */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder={language === 'ar' ? 'بحث في الأقسام...' : 'Search departments...'}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Tabs and Search */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "normal" | "outsource")} className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="normal">
+              {language === 'ar' ? 'الأقسام الداخلية' : 'Internal Departments'}
+            </TabsTrigger>
+            <TabsTrigger value="outsource">
+              {language === 'ar' ? 'الأقسام الخارجية' : 'Outsource Departments'}
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={language === 'ar' ? 'بحث في الأقسام...' : 'Search departments...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
 
       {loading ? (
         <div className="text-center py-8">{language === 'ar' ? 'جاري التحميل...' : 'Loading departments...'}</div>
@@ -1253,6 +1270,7 @@ const DepartmentManagement = () => {
           })}
         </div>
       )}
+      </Tabs>
 
       {/* Confirmation Dialog for Admin Type */}
       <AlertDialog open={confirmAdminDialog} onOpenChange={setConfirmAdminDialog}>
