@@ -72,6 +72,7 @@ import * as z from "zod";
 
 const departmentSchema = z.object({
   department_name: z.string().min(2, "Name must be at least 2 characters"),
+  department_name_ar: z.string().optional(),
   department_code: z.string().min(2, "Code must be at least 2 characters"),
   description: z.string().optional(),
   parent_department_id: z.string().nullable().optional(),
@@ -81,6 +82,7 @@ const departmentSchema = z.object({
 type Department = {
   id: string;
   department_name: string;
+  department_name_ar: string | null;
   department_code: string;
   description: string | null;
   is_active: boolean;
@@ -227,6 +229,7 @@ const DepartmentManagement = () => {
     resolver: zodResolver(departmentSchema),
     defaultValues: {
       department_name: "",
+      department_name_ar: "",
       department_code: "",
       description: "",
       parent_department_id: null,
@@ -353,6 +356,7 @@ const DepartmentManagement = () => {
         .from("departments")
         .insert({
           department_name: values.department_name,
+          department_name_ar: values.department_name_ar || null,
           department_code: values.department_code,
           description: values.description || null,
           parent_department_id: values.parent_department_id || null,
@@ -396,6 +400,7 @@ const DepartmentManagement = () => {
         .from("departments")
         .update({
           department_name: values.department_name,
+          department_name_ar: values.department_name_ar || null,
           department_code: values.department_code,
           description: values.description || null,
           parent_department_id: values.parent_department_id || null,
@@ -426,6 +431,7 @@ const DepartmentManagement = () => {
   const handleEditDepartment = (dept: Department) => {
     setEditingDept(dept);
     form.setValue("department_name", dept.department_name);
+    form.setValue("department_name_ar", dept.department_name_ar || "");
     form.setValue("department_code", dept.department_code);
     form.setValue("description", dept.description || "");
     form.setValue("parent_department_id", dept.parent_department_id);
@@ -756,9 +762,22 @@ const DepartmentManagement = () => {
                   name="department_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{language === 'ar' ? 'اسم القسم' : 'Department Name'}</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'اسم القسم (إنجليزي)' : 'Department Name (English)'}</FormLabel>
                       <FormControl>
-                        <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. Technical Support'} {...field} />
+                        <Input placeholder={language === 'ar' ? 'مثال: Technical Support' : 'e.g. Technical Support'} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="department_name_ar"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'اسم القسم (عربي)' : 'Department Name (Arabic)'}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. الدعم الفني'} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -848,9 +867,22 @@ const DepartmentManagement = () => {
                   name="department_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{language === 'ar' ? 'اسم القسم' : 'Department Name'}</FormLabel>
+                      <FormLabel>{language === 'ar' ? 'اسم القسم (إنجليزي)' : 'Department Name (English)'}</FormLabel>
                       <FormControl>
-                        <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. Technical Support'} {...field} />
+                        <Input placeholder={language === 'ar' ? 'مثال: Technical Support' : 'e.g. Technical Support'} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="department_name_ar"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'اسم القسم (عربي)' : 'Department Name (Arabic)'}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. الدعم الفني'} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
