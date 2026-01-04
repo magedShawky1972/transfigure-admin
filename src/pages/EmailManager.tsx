@@ -786,7 +786,9 @@ const EmailManager = () => {
     if (!/^[A-Za-z0-9+/=\s]+$/.test(trimmed)) return null;
 
     try {
-      const decoded = atob(trimmed.replace(/\s/g, ""));
+      const compact = trimmed.replace(/\s/g, "");
+      const padded = compact + "===".slice((compact.length + 3) % 4);
+      const decoded = atob(padded);
       const sample = decoded.slice(0, 4000).toLowerCase();
 
       // Case 1: proper HTML
