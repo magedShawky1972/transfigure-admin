@@ -332,9 +332,6 @@ const EmailManager = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let folder = "INBOX";
-      if (activeTab === "sent") folder = "Sent";
-
       let query = supabase
         .from("emails")
         .select("*")
@@ -345,8 +342,11 @@ const EmailManager = () => {
         query = query.eq("is_starred", true);
       } else if (activeTab === "drafts") {
         query = query.eq("is_draft", true);
+      } else if (activeTab === "sent") {
+        // Use ilike for case-insensitive matching (handles both "SENT" and "Sent")
+        query = query.ilike("folder", "sent");
       } else {
-        query = query.eq("folder", folder);
+        query = query.eq("folder", "INBOX");
       }
 
       const { data, error } = await query;
@@ -373,12 +373,12 @@ const EmailManager = () => {
         .eq("folder", "INBOX");
       setInboxCount(inbox || 0);
 
-      // Get sent count
+      // Get sent count (use ilike for case-insensitive matching)
       const { count: sent } = await supabase
         .from("emails")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id)
-        .eq("folder", "Sent");
+        .ilike("folder", "sent");
       setSentCount(sent || 0);
 
       // Get starred count
