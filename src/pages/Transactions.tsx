@@ -1028,16 +1028,25 @@ const Transactions = () => {
       // Get unique order numbers from visible transactions
       const orderNumbers = [...new Set(sortedTransactions.map(t => t.order_number))];
       
-      const { error } = await supabase
-        .from('purpletransaction')
-        .update({ sendodoo: false })
-        .in('order_number', orderNumbers);
+      // Batch update in chunks of 100 to avoid query size limits
+      const batchSize = 100;
+      let successCount = 0;
+      
+      for (let i = 0; i < orderNumbers.length; i += batchSize) {
+        const batch = orderNumbers.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from('purpletransaction')
+          .update({ sendodoo: false })
+          .in('order_number', batch);
 
-      if (error) throw error;
+        if (error) throw error;
+        successCount += batch.length;
+      }
 
       // Update local state
+      const orderNumberSet = new Set(orderNumbers);
       setTransactions(prev => prev.map(t => 
-        orderNumbers.includes(t.order_number) 
+        orderNumberSet.has(t.order_number) 
           ? { ...t, sendodoo: false } 
           : t
       ));
@@ -1045,8 +1054,8 @@ const Transactions = () => {
       toast({
         title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
         description: language === 'ar' 
-          ? `تم إعادة تعيين ${orderNumbers.length} طلب(ات)`
-          : `${orderNumbers.length} order(s) reset successfully`,
+          ? `تم إعادة تعيين ${successCount} طلب(ات)`
+          : `${successCount} order(s) reset successfully`,
       });
     } catch (error) {
       console.error('Error resetting Odoo sync:', error);
