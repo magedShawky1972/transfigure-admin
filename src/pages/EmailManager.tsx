@@ -1214,23 +1214,10 @@ const EmailManager = () => {
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {format(new Date(email.email_date), "MMM d, h:mm a")}
                           </span>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             {email.has_attachments && (
                               <Paperclip className="h-4 w-4 text-muted-foreground" />
                             )}
-                            <button
-                              type="button"
-                              onClick={(e) => handleReloadBody(email, e)}
-                              title={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
-                              className="p-1 bg-primary/20 hover:bg-primary/30 rounded transition-colors"
-                              disabled={reloadingBodyId === email.id}
-                            >
-                              <RefreshCw
-                                className={`h-4 w-4 text-primary ${
-                                  reloadingBodyId === email.id ? "animate-spin" : ""
-                                }`}
-                              />
-                            </button>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1291,6 +1278,16 @@ const EmailManager = () => {
                       </Button>
                       <Button variant="ghost" size="icon" onClick={openCreateTask} title={isArabic ? "إنشاء مهمة" : "Create Task"}>
                         <ListTodo className="h-4 w-4" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => handleReloadBody(selectedEmail, e)}
+                        title={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
+                        disabled={reloadingBodyId === selectedEmail.id}
+                      >
+                        <RefreshCw className={`h-4 w-4 ${reloadingBodyId === selectedEmail.id ? "animate-spin" : ""}`} />
                       </Button>
 
                       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
