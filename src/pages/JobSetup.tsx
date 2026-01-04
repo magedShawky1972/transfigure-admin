@@ -283,14 +283,14 @@ const JobSetup = () => {
             <div className="space-y-2">
               <Label>{language === "ar" ? "القسم" : "Department"}</Label>
               <Select
-                value={formData.department_id}
-                onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                value={formData.department_id || "__none__"}
+                onValueChange={(value) => setFormData({ ...formData, department_id: value === "__none__" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={language === "ar" ? "اختر القسم" : "Select department"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "ar" ? "بدون قسم" : "No department"}</SelectItem>
+                  <SelectItem value="__none__">{language === "ar" ? "بدون قسم" : "No department"}</SelectItem>
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
                       {dept.department_name}
