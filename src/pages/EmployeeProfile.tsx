@@ -114,6 +114,12 @@ interface Timesheet {
   total_work_minutes: number;
 }
 
+interface EmployeeVacationType {
+  id: string;
+  vacation_code_id: string;
+  vacation_codes?: { code: string; name_en: string; name_ar: string | null } | null;
+}
+
 export default function EmployeeProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -122,6 +128,7 @@ export default function EmployeeProfile() {
   const [jobHistory, setJobHistory] = useState<JobHistory[]>([]);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
+  const [employeeVacationTypes, setEmployeeVacationTypes] = useState<EmployeeVacationType[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -134,7 +141,7 @@ export default function EmployeeProfile() {
   const fetchEmployeeData = async () => {
     setLoading(true);
     try {
-      const [employeeRes, historyRes, vacationRes, timesheetRes] = await Promise.all([
+      const [employeeRes, historyRes, vacationRes, timesheetRes, vacationTypesRes] = await Promise.all([
         supabase
           .from("employees")
           .select(`
@@ -171,6 +178,14 @@ export default function EmployeeProfile() {
           .eq("employee_id", id)
           .order("work_date", { ascending: false })
           .limit(30),
+        supabase
+          .from("employee_vacation_types")
+          .select(`
+            id,
+            vacation_code_id,
+            vacation_codes(code, name_en, name_ar)
+          `)
+          .eq("employee_id", id),
       ]);
 
       if (employeeRes.error) throw employeeRes.error;
@@ -178,6 +193,7 @@ export default function EmployeeProfile() {
       setJobHistory(historyRes.data || []);
       setVacationRequests(vacationRes.data || []);
       setTimesheets(timesheetRes.data || []);
+      setEmployeeVacationTypes(vacationTypesRes.data as EmployeeVacationType[] || []);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -404,16 +420,26 @@ export default function EmployeeProfile() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <span className="text-muted-foreground">{language === "ar" ? "نوع الإجازة" : "Vacation Type"}</span>
-                  <span>
-                    {employee.vacation_codes
-                      ? language === "ar"
-                        ? employee.vacation_codes.name_ar || employee.vacation_codes.name_en
-                        : employee.vacation_codes.name_en
-                      : "-"}
-                  </span>
-
+                <div className="space-y-2 text-sm">
+                  <span className="text-muted-foreground block">{language === "ar" ? "أنواع الإجازات المسموحة" : "Eligible Vacation Types"}</span>
+                  <div className="flex flex-wrap gap-2">
+                    {employeeVacationTypes.length > 0 ? (
+                      employeeVacationTypes.map((evt) => (
+                        <Badge key={evt.id} variant="secondary">
+                          {evt.vacation_codes
+                            ? language === "ar"
+                              ? evt.vacation_codes.name_ar || evt.vacation_codes.name_en
+                              : evt.vacation_codes.name_en
+                            : "-"}
+                          {evt.vacation_codes && ` (${evt.vacation_codes.code})`}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">{language === "ar" ? "لا توجد إجازات محددة" : "No vacation types assigned"}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
                   <span className="text-muted-foreground">{language === "ar" ? "الرصيد المتبقي" : "Remaining Balance"}</span>
                   <span className="font-bold text-primary">{employee.vacation_balance || 0} {language === "ar" ? "يوم" : "days"}</span>
                 </div>

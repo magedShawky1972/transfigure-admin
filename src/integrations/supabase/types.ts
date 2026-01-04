@@ -1196,6 +1196,45 @@ export type Database = {
           },
         ]
       }
+      employee_vacation_types: {
+        Row: {
+          created_at: string
+          custom_days: number | null
+          employee_id: string
+          id: string
+          vacation_code_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_days?: number | null
+          employee_id: string
+          id?: string
+          vacation_code_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_days?: number | null
+          employee_id?: string
+          id?: string
+          vacation_code_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_vacation_types_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_vacation_types_vacation_code_id_fkey"
+            columns: ["vacation_code_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           attendance_type_id: string | null
