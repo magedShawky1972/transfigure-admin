@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.test-email-connection]
 verify_jwt = false
+
+[functions.sync-emails-background]
+verify_jwt = false
