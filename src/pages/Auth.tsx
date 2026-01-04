@@ -268,8 +268,49 @@ const Auth = () => {
     }
   };
 
-  const handleCertificateSuccess = () => {
+  // Record login in login_history table
+  const recordLoginHistory = async (userId: string) => {
+    try {
+      const deviceInfo = {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        screenResolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
+      const { data, error } = await supabase.from("login_history").insert({
+        user_id: userId,
+        login_at: new Date().toISOString(),
+        ip_address: null, // Can't get client IP from browser
+        user_agent: navigator.userAgent,
+        device_info: deviceInfo,
+        device_name: getDeviceName(),
+        is_active: true,
+      }).select("id").single();
+
+      if (error) {
+        console.error("Error recording login history:", error);
+        return;
+      }
+
+      // Store session ID for logout tracking
+      if (data?.id) {
+        localStorage.setItem("current_login_session_id", data.id);
+      }
+    } catch (error) {
+      console.error("Error recording login:", error);
+    }
+  };
+
+  const handleCertificateSuccess = async () => {
     setShowCertificateDialog(false);
+    
+    // Record login history after certificate validation
+    if (pendingUserId) {
+      await recordLoginHistory(pendingUserId);
+    }
+    
     setPendingUserId(null);
     toast({
       title: t("common.success"),
@@ -417,8 +458,12 @@ const Auth = () => {
         const deviceActivated = await checkDeviceActivation(userId);
         if (!deviceActivated) {
           setPendingUserId(userId);
+          setPendingUserId(userId);
           return; // Dialog will be shown, don't navigate yet
         }
+
+        // Record login in history
+        await recordLoginHistory(userId);
       }
 
       // Certificate is valid, proceed to dashboard

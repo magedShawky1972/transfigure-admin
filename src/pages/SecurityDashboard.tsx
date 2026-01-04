@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, AlertTriangle, Eye, Users, Clock, TrendingUp, Activity, RefreshCw, Smartphone, Monitor } from "lucide-react";
+import { Shield, AlertTriangle, Eye, Users, Clock, TrendingUp, Activity, RefreshCw, Smartphone, Monitor, LogIn } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
@@ -55,6 +55,19 @@ interface UserAccessSummary {
   last_access: string;
 }
 
+interface LoginHistoryRecord {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  login_at: string;
+  logout_at: string | null;
+  session_duration_minutes: number | null;
+  device_name: string | null;
+  device_info: Record<string, unknown>;
+  is_active: boolean;
+}
+
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--destructive))'];
 
 const SecurityDashboard = () => {
@@ -63,6 +76,7 @@ const SecurityDashboard = () => {
   const [dateRange, setDateRange] = useState("7");
   const [accessLogs, setAccessLogs] = useState<PasswordAccessLog[]>([]);
   const [deviceActivations, setDeviceActivations] = useState<DeviceActivation[]>([]);
+  const [loginHistory, setLoginHistory] = useState<LoginHistoryRecord[]>([]);
   const [alertHistory, setAlertHistory] = useState<AlertHistory[]>([]);
   const [dailyPatterns, setDailyPatterns] = useState<AccessPattern[]>([]);
   const [userSummaries, setUserSummaries] = useState<UserAccessSummary[]>([]);
@@ -70,6 +84,7 @@ const SecurityDashboard = () => {
     totalAccesses: 0,
     uniqueUsers: 0,
     deviceActivations: 0,
+    loginSessions: 0,
     alertsSent: 0,
     avgAccessesPerDay: 0,
   });
@@ -87,6 +102,7 @@ const SecurityDashboard = () => {
     await Promise.all([
       fetchAccessLogs(fromDate, toDate),
       fetchDeviceActivations(fromDate, toDate),
+      fetchLoginHistory(fromDate, toDate),
       fetchAlertHistory(fromDate, toDate),
       fetchDailyPatterns(fromDate, toDate),
       fetchUserSummaries(fromDate, toDate),
@@ -179,6 +195,59 @@ const SecurityDashboard = () => {
       }));
     } catch (error) {
       console.error('Error fetching device activations:', error);
+    }
+  };
+
+  const fetchLoginHistory = async (fromDate: Date, toDate: Date) => {
+    try {
+      const { data, error } = await supabase
+        .from('login_history')
+        .select(`
+          id,
+          user_id,
+          login_at,
+          logout_at,
+          session_duration_minutes,
+          device_name,
+          device_info,
+          is_active
+        `)
+        .gte('login_at', fromDate.toISOString())
+        .lte('login_at', toDate.toISOString())
+        .order('login_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Fetch user profiles for the login records
+      const userIds = [...new Set((data || []).map(d => d.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, user_name, email')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+      const history: LoginHistoryRecord[] = (data || []).map(d => {
+        const profile = profileMap.get(d.user_id);
+        return {
+          id: d.id,
+          user_id: d.user_id,
+          user_name: profile?.user_name || 'Unknown',
+          user_email: profile?.email || 'Unknown',
+          login_at: d.login_at,
+          logout_at: d.logout_at,
+          session_duration_minutes: d.session_duration_minutes,
+          device_name: d.device_name,
+          device_info: typeof d.device_info === 'object' && d.device_info !== null ? d.device_info as Record<string, unknown> : {},
+          is_active: d.is_active,
+        };
+      });
+
+      setLoginHistory(history);
+      setStats(prev => ({ ...prev, loginSessions: history.length }));
+    } catch (error) {
+      console.error('Error fetching login history:', error);
     }
   };
 
@@ -566,6 +635,10 @@ const SecurityDashboard = () => {
             <Smartphone className="h-4 w-4 mr-2" />
             {language === 'ar' ? 'الأجهزة المفعلة' : 'Device Activations'}
           </TabsTrigger>
+          <TabsTrigger value="logins">
+            <LogIn className="h-4 w-4 mr-2" />
+            {language === 'ar' ? 'سجل تسجيل الدخول' : 'Login History'}
+          </TabsTrigger>
           <TabsTrigger value="logs">
             <Eye className="h-4 w-4 mr-2" />
             {language === 'ar' ? 'سجل كلمات المرور' : 'Password Logs'}
@@ -637,6 +710,84 @@ const SecurityDashboard = () => {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground">
                         {language === 'ar' ? 'لا توجد أجهزة مفعلة' : 'No device activations found'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="logins">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'سجل تسجيل الدخول' : 'Login History'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' ? 'سجل جلسات تسجيل الدخول ومدة البقاء' : 'Login sessions and session duration tracking'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'المستخدم' : 'User'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الجهاز' : 'Device'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'وقت الدخول' : 'Login Time'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'وقت الخروج' : 'Logout Time'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'مدة الجلسة' : 'Session Duration'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loginHistory.map(login => (
+                    <TableRow key={login.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{login.user_name}</p>
+                          <p className="text-xs text-muted-foreground">{login.user_email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {login.device_name?.includes('iPhone') || login.device_name?.includes('Android') ? (
+                            <Smartphone className="h-4 w-4" />
+                          ) : (
+                            <Monitor className="h-4 w-4" />
+                          )}
+                          <span className="text-sm">{login.device_name || 'Unknown'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(login.login_at), 'yyyy-MM-dd HH:mm')}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {login.logout_at ? format(new Date(login.logout_at), 'yyyy-MM-dd HH:mm') : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {login.session_duration_minutes !== null ? (
+                          <span className="font-medium">
+                            {login.session_duration_minutes >= 60 
+                              ? `${Math.floor(login.session_duration_minutes / 60)}h ${login.session_duration_minutes % 60}m`
+                              : `${login.session_duration_minutes}m`}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {login.is_active ? (
+                          <Badge className="bg-green-500">{language === 'ar' ? 'نشط' : 'Active'}</Badge>
+                        ) : (
+                          <Badge variant="secondary">{language === 'ar' ? 'منتهي' : 'Ended'}</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {loginHistory.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        {language === 'ar' ? 'لا توجد سجلات تسجيل دخول' : 'No login history found'}
                       </TableCell>
                     </TableRow>
                   )}

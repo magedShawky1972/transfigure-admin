@@ -1886,6 +1886,48 @@ export type Database = {
           },
         ]
       }
+      login_history: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          device_name: string | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          login_at: string
+          logout_at: string | null
+          session_duration_minutes: number | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          device_name?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          login_at?: string
+          logout_at?: string | null
+          session_duration_minutes?: number | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          device_name?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          login_at?: string
+          logout_at?: string | null
+          session_duration_minutes?: number | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ludo_training: {
         Row: {
           created_at: string

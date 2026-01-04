@@ -229,6 +229,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     try {
+      // Update login history with logout time
+      const sessionId = localStorage.getItem("current_login_session_id");
+      if (sessionId) {
+        const { data: loginSession } = await supabase
+          .from("login_history")
+          .select("login_at")
+          .eq("id", sessionId)
+          .single();
+
+        if (loginSession) {
+          const loginAt = new Date(loginSession.login_at);
+          const now = new Date();
+          const durationMinutes = Math.round((now.getTime() - loginAt.getTime()) / 60000);
+
+          await supabase.from("login_history").update({
+            logout_at: now.toISOString(),
+            session_duration_minutes: durationMinutes,
+            is_active: false,
+          }).eq("id", sessionId);
+        }
+        
+        localStorage.removeItem("current_login_session_id");
+      }
+
       // Clear sysadmin session if exists
       if (isSysadminSession) {
         sessionStorage.removeItem("sysadmin_session");
