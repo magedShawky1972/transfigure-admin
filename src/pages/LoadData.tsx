@@ -601,8 +601,10 @@ const LoadData = () => {
     setTotalRows(0);
     setCurrentFileIndex(-1);
 
-    const completed = fileItems.filter(f => f.status === 'completed');
-    const failed = fileItems.filter(f => f.status === 'error');
+    // Use ref to get the latest file items (state may be stale in async context)
+    const latestItems = fileItemsRef.current;
+    const completed = latestItems.filter(f => f.status === 'completed');
+    const failed = latestItems.filter(f => f.status === 'error');
 
     const totalRecords = completed.reduce((sum, f) => sum + (f.summary?.totalRecords || 0), 0);
     const totalValue = completed.reduce((sum, f) => sum + (f.summary?.totalValue || 0), 0);
