@@ -16,31 +16,51 @@ interface FetchEmailBodyRequest {
   messageId: string; // stored message_id from DB
 }
 
-function decodeQuotedPrintable(text: string): string {
-  if (!text) return text;
-  // First replace soft line breaks, then decode hex sequences
-  const raw = text
-    .replace(/=\r?\n/g, "")
-    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-  // Convert bytes to UTF-8
-  try {
-    const bytes = new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
-    return new TextDecoder("utf-8").decode(bytes);
-  } catch {
-    return raw;
-  }
+function stringToBytesLatin1(input: string): Uint8Array {
+  const bytes = new Uint8Array(input.length);
+  for (let i = 0; i < input.length; i++) bytes[i] = input.charCodeAt(i) & 0xff;
+  return bytes;
 }
 
-function decodeBase64(text: string): string {
-  if (!text) return text;
+function decodeBytes(bytes: Uint8Array, charset: string): string {
+  const cs = (charset || "utf-8").toLowerCase();
+  const candidates = [cs, "utf-8", "windows-1256", "iso-8859-6", "latin1"];
+  for (const c of candidates) {
+    try {
+      return new TextDecoder(c).decode(bytes);
+    } catch {
+      // try next
+    }
+  }
+  // Final fallback: latin1-ish
+  return Array.from(bytes).map((b) => String.fromCharCode(b)).join("");
+}
+
+function decodeQuotedPrintableToBytes(text: string): Uint8Array {
+  if (!text) return new Uint8Array();
+  const raw = text.replace(/=\r?\n/g, "");
+  const out: number[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === "=" && i + 2 < raw.length && /[0-9A-Fa-f]{2}/.test(raw.slice(i + 1, i + 3))) {
+      out.push(parseInt(raw.slice(i + 1, i + 3), 16));
+      i += 2;
+    } else {
+      out.push(raw.charCodeAt(i) & 0xff);
+    }
+  }
+  return new Uint8Array(out);
+}
+
+function decodeBase64ToBytes(text: string): Uint8Array {
+  if (!text) return new Uint8Array();
   const cleaned = text.replace(/\s/g, "");
-  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned) || cleaned.length % 4 !== 0) return text;
+  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned) || cleaned.length % 4 !== 0) return stringToBytesLatin1(text);
   try {
     const decoded = atob(cleaned);
-    const bytes = new Uint8Array([...decoded].map((c) => c.charCodeAt(0)));
-    return new TextDecoder("utf-8").decode(bytes);
+    return stringToBytesLatin1(decoded);
   } catch {
-    return text;
+    return stringToBytesLatin1(text);
   }
 }
 
@@ -68,9 +88,25 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
 
   const decodeBodyByEncoding = (headers: string, body: string): string => {
     const enc = (headerValue(headers, "Content-Transfer-Encoding") || "").toLowerCase();
-    if (enc === "base64") return decodeBase64(body.trim()).trim();
-    if (enc === "quoted-printable") return decodeQuotedPrintable(body).trim();
-    return body.trim();
+    const ctFull = headerValue(headers, "Content-Type") || "";
+    const charsetMatch = ctFull.match(/charset\s*=\s*"?([^";\r\n]+)"?/i);
+    const charset = (charsetMatch?.[1] || "utf-8").trim();
+
+    const trimmed = body ?? "";
+
+    if (enc === "base64") {
+      const bytes = decodeBase64ToBytes(trimmed.trim());
+      return decodeBytes(bytes, charset).trim();
+    }
+
+    if (enc === "quoted-printable") {
+      const bytes = decodeQuotedPrintableToBytes(trimmed);
+      return decodeBytes(bytes, charset).trim();
+    }
+
+    // 7bit/8bit/binary: body is currently a latin1 string; decode bytes using charset
+    const bytes = stringToBytesLatin1(trimmed);
+    return decodeBytes(bytes, charset).trim();
   };
 
   const splitMultipartBody = (body: string, boundary: string): string[] => {
@@ -129,7 +165,8 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
 
     // If still looks like base64 garbage, try to decode it
     if (/^[A-Za-z0-9+/=\s]{100,}$/.test(cleaned)) {
-      const decoded = decodeBase64(cleaned);
+      const bytes = decodeBase64ToBytes(cleaned);
+      const decoded = decodeBytes(bytes, "utf-8");
       if (decoded && !/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(decoded)) {
         cleaned = decoded;
       }
