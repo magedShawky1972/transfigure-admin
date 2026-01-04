@@ -1057,56 +1057,6 @@ const CompanyHierarchy = () => {
                         </div>
                       )}
 
-                      {jobs.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {jobs.map(job => {
-                            const jobEmployees = getEmployeesForJob(job.id, dept.id);
-                            return (
-                              <div key={job.id} className="relative group/job">
-                                <div className="px-2 py-1 bg-secondary text-secondary-foreground rounded text-xs text-center">
-                                  <div className="font-medium">{job.position_name}</div>
-                                  {jobEmployees.length > 0 && (
-                                    <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-                                      {jobEmployees.slice(0, 3).map(emp => (
-                                        <TooltipProvider key={emp.id}>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <div className="relative group/user">
-                                                <Avatar className="h-7 w-7 cursor-pointer ring-2 ring-background hover:ring-primary transition-all" onClick={(e) => { e.stopPropagation(); handleOpenEmployeeProfile(emp); }}>
-                                                  <AvatarImage src={emp.photo_url || undefined} />
-                                                  <AvatarFallback className="text-[10px] font-medium">{emp.first_name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <button
-                                                  onClick={(e) => { e.stopPropagation(); handleRemoveEmployeeFromDept(emp.id, getEmployeeName(emp)); }}
-                                                  className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover/user:opacity-100 transition-opacity flex items-center justify-center"
-                                                >
-                                                  <X className="h-2.5 w-2.5" />
-                                                </button>
-                                              </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent>{getEmployeeName(emp)}</TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      ))}
-                                      {jobEmployees.length > 3 && (
-                                        <span className="text-xs text-muted-foreground">+{jobEmployees.length - 3}</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover/job:opacity-100 transition-opacity">
-                                  <Button size="icon" variant="outline" className="h-4 w-4 rounded-full shadow-sm bg-background" onClick={(e) => { e.stopPropagation(); handleEditJob(job); }}>
-                                    <Pencil className="h-2 w-2" />
-                                  </Button>
-                                  <Button size="icon" variant="outline" className="h-4 w-4 rounded-full shadow-sm bg-background" onClick={(e) => { e.stopPropagation(); handleOpenAssignEmployee(job.id, dept.id); }}>
-                                    <UserPlus className="h-2 w-2" />
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
