@@ -1214,31 +1214,29 @@ const EmailManager = () => {
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {format(new Date(email.email_date), "MMM d, h:mm a")}
                           </span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2">
                             {email.has_attachments && (
                               <Paperclip className="h-4 w-4 text-muted-foreground" />
                             )}
                             <button
+                              type="button"
                               onClick={(e) => handleReloadBody(email, e)}
                               title={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
-                              aria-label={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
-                              className="p-1 hover:bg-primary/20 rounded transition-colors border border-transparent hover:border-primary/30"
+                              className="p-1 bg-primary/20 hover:bg-primary/30 rounded transition-colors"
                               disabled={reloadingBodyId === email.id}
                             >
-                              <RotateCw
-                                className={`h-4 w-4 ${
-                                  reloadingBodyId === email.id 
-                                    ? "animate-spin text-primary" 
-                                    : "text-primary/70 hover:text-primary"
+                              <RefreshCw
+                                className={`h-4 w-4 text-primary ${
+                                  reloadingBodyId === email.id ? "animate-spin" : ""
                                 }`}
                               />
                             </button>
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleToggleStar(email);
                               }}
-                              aria-label={isArabic ? "تمييز" : "Star"}
                               className="p-0.5 hover:bg-muted rounded"
                             >
                               <Star
