@@ -1336,6 +1336,25 @@ const EmailManager = () => {
                           <span className="text-xs ml-1">&lt;{selectedEmail.from_address}&gt;</span>
                         )}
                       </p>
+                      {/* To recipients */}
+                      {selectedEmail.to_addresses && (
+                        <p className="text-sm text-muted-foreground">
+                          {isArabic ? "إلى:" : "To:"}{" "}
+                          {Array.isArray(selectedEmail.to_addresses) 
+                            ? selectedEmail.to_addresses.map((r: any) => r.name || r.address || r).join(", ")
+                            : typeof selectedEmail.to_addresses === 'object'
+                              ? selectedEmail.to_addresses.address || JSON.stringify(selectedEmail.to_addresses)
+                              : selectedEmail.to_addresses
+                          }
+                        </p>
+                      )}
+                      {/* CC recipients */}
+                      {selectedEmail.cc_addresses && Array.isArray(selectedEmail.cc_addresses) && selectedEmail.cc_addresses.length > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {isArabic ? "نسخة:" : "CC:"}{" "}
+                          {selectedEmail.cc_addresses.map((r: any) => r.name || r.address || r).join(", ")}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(selectedEmail.email_date), "PPpp")}
                       </p>
@@ -1343,6 +1362,15 @@ const EmailManager = () => {
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" title={isArabic ? "رد" : "Reply"}>
                         <Reply className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="text-xs gap-1"
+                        title={isArabic ? "رد للكل" : "Reply All"}
+                      >
+                        <Reply className="h-4 w-4" />
+                        <span>{isArabic ? "الكل" : "All"}</span>
                       </Button>
                       <Button variant="ghost" size="icon" title={isArabic ? "تحويل" : "Forward"}>
                         <Forward className="h-4 w-4" />

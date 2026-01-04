@@ -768,10 +768,9 @@ serve(async (req) => {
       existingByKey.set(key, existing);
     }
 
-    // Process emails in batches
+    // Process emails in batches - ONLY ADD NEW EMAILS, never update existing
     let savedCount = 0;
     const newEmails: any[] = [];
-    const updates: { id: string; data: any }[] = [];
 
     for (const emailData of emails) {
       // Skip if user previously deleted this email
@@ -780,58 +779,22 @@ serve(async (req) => {
         continue;
       }
 
-      // 1) Check by message_id
-      const existingById = existingByMessageId.get(emailData.message_id);
-      if (existingById) {
-        updates.push({
-          id: existingById.id,
-          data: {
-            subject: emailData.subject,
-            from_address: emailData.from_address,
-            from_name: emailData.from_name,
-            to_addresses: emailData.to_addresses,
-            email_date: emailData.email_date,
-            body_text: emailData.body_text,
-            body_html: emailData.body_html,
-            has_attachments: emailData.has_attachments,
-            folder: emailData.folder,
-          }
-        });
+      // 1) Check by message_id - skip if exists (don't update)
+      if (existingByMessageId.has(emailData.message_id)) {
         continue;
       }
 
-      // 2) Fallback match
+      // 2) Fallback match - skip if exists (don't update)
       const fallbackKey = `${emailData.folder}|${emailData.from_address}|${emailData.email_date}|${emailData.subject}`;
-      const existingFallback = existingByKey.get(fallbackKey);
-      if (existingFallback) {
-        if (!existingFallback.body_text && !existingFallback.body_html) {
-          updates.push({
-            id: existingFallback.id,
-            data: {
-              body_text: emailData.body_text,
-              body_html: emailData.body_html,
-              has_attachments: emailData.has_attachments,
-            }
-          });
-        }
+      if (existingByKey.has(fallbackKey)) {
         continue;
       }
 
-      // 3) New email
+      // 3) New email - add to insert list
       newEmails.push({
         ...emailData,
         user_id: user.id,
       });
-    }
-
-    // Batch update existing emails (in chunks of 10 to avoid timeout)
-    for (let i = 0; i < updates.length; i += 10) {
-      const chunk = updates.slice(i, i + 10);
-      await Promise.all(
-        chunk.map(({ id, data }) =>
-          supabase.from("emails").update(data).eq("id", id)
-        )
-      );
     }
 
     // Batch insert new emails (in chunks of 20)
