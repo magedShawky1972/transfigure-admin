@@ -61,6 +61,8 @@ interface FileUploadItem {
 const LoadData = () => {
   const { toast } = useToast();
   const [fileItems, setFileItems] = useState<FileUploadItem[]>([]);
+  const fileItemsRef = useRef<FileUploadItem[]>([]);
+  const uploadQueueRef = useRef<string[]>([]);
   const [availableSheets, setAvailableSheets] = useState<ExcelSheet[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState(-1);
@@ -73,6 +75,7 @@ const LoadData = () => {
   const [extraColumns, setExtraColumns] = useState<string[]>([]);
   const [pendingUploadData, setPendingUploadData] = useState<any>(null);
   const [pendingFileId, setPendingFileId] = useState<string | null>(null);
+  const [pendingFileIndex, setPendingFileIndex] = useState<number | null>(null);
   const [showSummaryDialog, setShowSummaryDialog] = useState(false);
   const [allFilesSummary, setAllFilesSummary] = useState<{
     totalFiles: number;
@@ -124,6 +127,10 @@ const LoadData = () => {
     loadAvailableSheets();
   }, []);
 
+  useEffect(() => {
+    fileItemsRef.current = fileItems;
+  }, [fileItems]);
+
   const loadAvailableSheets = async () => {
     const { data, error } = await supabase
       .from("excel_sheets")
@@ -168,9 +175,11 @@ const LoadData = () => {
   const handleBrandTypeConfirm = (selections: { brand_name: string; brand_type_id: string }[]) => {
     setBrandTypeSelections(selections);
     setShowBrandTypeDialog(false);
-    
+
+    const idx = pendingFileIndex ?? currentFileIndex;
+
     if (pendingUploadData && pendingFileId) {
-      processFileUpload(pendingFileId, pendingUploadData, selections);
+      processFileUpload(pendingFileId, pendingUploadData, idx, selections);
     }
   };
 
@@ -179,14 +188,16 @@ const LoadData = () => {
     setBrandTypeSelections([]);
     setNewBrandsDetected([]);
     setPendingUploadData(null);
-    
+
     if (pendingFileId) {
       setFileItems(prev => prev.map(f => 
         f.id === pendingFileId ? { ...f, status: 'error', error: 'Brand type selection cancelled' } : f
       ));
-      setPendingFileId(null);
     }
-    
+
+    setPendingFileId(null);
+    setPendingFileIndex(null);
+
     // Continue with remaining files
     continueProcessingFiles();
   };
@@ -240,8 +251,8 @@ const LoadData = () => {
   };
 
   const handleUploadAll = async () => {
-    const pendingFiles = fileItems.filter(f => f.status === 'pending');
-    
+    const pendingFiles = fileItems.filter((f) => f.status === 'pending');
+
     if (pendingFiles.length === 0) {
       toast({
         title: "No files to upload",
@@ -251,7 +262,7 @@ const LoadData = () => {
       return;
     }
 
-    const filesWithoutSheet = pendingFiles.filter(f => !f.sheetId);
+    const filesWithoutSheet = pendingFiles.filter((f) => !f.sheetId);
     if (filesWithoutSheet.length > 0) {
       toast({
         title: "Missing sheet type",
@@ -261,46 +272,50 @@ const LoadData = () => {
       return;
     }
 
+    // Freeze a queue for this run so a file can't be re-picked due to stale closures/state.
+    uploadQueueRef.current = pendingFiles.map((f) => f.id);
+
     setIsLoading(true);
     startKeepAlive();
-    setCurrentFileIndex(0);
 
-    // Process files one by one
     await processNextFile(0);
   };
 
   const processNextFile = async (index: number) => {
-    const pendingFiles = fileItems.filter(f => f.status === 'pending');
-    
-    if (index >= pendingFiles.length) {
+    const fileId = uploadQueueRef.current[index];
+    if (!fileId) {
       finishAllUploads();
       return;
     }
 
-    const fileItem = pendingFiles[index];
+    const latestItems = fileItemsRef.current;
+    const fileItem = latestItems.find((f) => f.id === fileId);
+
+    // If the file is no longer pending (already processed / removed), skip it.
+    if (!fileItem || fileItem.status !== 'pending') {
+      await processNextFile(index + 1);
+      return;
+    }
+
     setCurrentFileIndex(index);
-    
-    await processFileValidation(fileItem);
+    await processFileValidation(fileItem, index);
   };
 
   const continueProcessingFiles = async () => {
-    const pendingFiles = fileItems.filter(f => f.status === 'pending');
-    const currentPendingIndex = pendingFiles.findIndex(f => f.status === 'pending');
-    
-    if (currentPendingIndex >= 0) {
-      await processNextFile(0);
-    } else {
-      finishAllUploads();
-    }
+    const idx = (pendingFileIndex ?? currentFileIndex) + 1;
+    setPendingFileIndex(null);
+    setPendingFileId(null);
+    setPendingUploadData(null);
+    await processNextFile(idx);
   };
 
-  const processFileValidation = async (fileItem: FileUploadItem) => {
-    const sheetConfig = availableSheets.find(s => s.id === fileItem.sheetId);
+  const processFileValidation = async (fileItem: FileUploadItem, queueIndex: number) => {
+    const sheetConfig = availableSheets.find((s) => s.id === fileItem.sheetId);
     const shouldSkipFirstRow = sheetConfig?.skip_first_row ?? false;
 
-    setFileItems(prev => prev.map(f => 
-      f.id === fileItem.id ? { ...f, status: 'processing', progress: 5 } : f
-    ));
+    setFileItems((prev) =>
+      prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'processing', progress: 5 } : f))
+    );
     setUploadStatus(`Reading ${fileItem.file.name}...`);
 
     try {
@@ -309,15 +324,13 @@ const LoadData = () => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, shouldSkipFirstRow ? { range: 1 } : {});
 
-      setFileItems(prev => prev.map(f => 
-        f.id === fileItem.id ? { ...f, progress: 15 } : f
-      ));
+      setFileItems((prev) => prev.map((f) => (f.id === fileItem.id ? { ...f, progress: 15 } : f)));
 
       if (jsonData.length === 0) {
-        setFileItems(prev => prev.map(f => 
-          f.id === fileItem.id ? { ...f, status: 'error', error: 'Empty file' } : f
-        ));
-        await processNextFile(currentFileIndex + 1);
+        setFileItems((prev) =>
+          prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'error', error: 'Empty file' } : f))
+        );
+        await processNextFile(queueIndex + 1);
         return;
       }
 
@@ -328,47 +341,45 @@ const LoadData = () => {
         .eq("sheet_id", fileItem.sheetId);
 
       const normalizeCol = (col: string) => col.trim().replace(/\s+/g, ' ').toLowerCase();
-      const mappedColumns = mappings?.map(m => m.excel_column.trim()) || [];
-      const fileColumns = Object.keys(jsonData[0] as object).map(col => col.trim());
+      const mappedColumns = mappings?.map((m) => m.excel_column.trim()) || [];
+      const fileColumns = Object.keys(jsonData[0] as object).map((col) => col.trim());
       const normalizedFileColumns = fileColumns.map(normalizeCol);
 
-      const missingColumns = mappedColumns.filter(col => 
-        !normalizedFileColumns.includes(normalizeCol(col))
-      );
-      
+      const missingColumns = mappedColumns.filter((col) => !normalizedFileColumns.includes(normalizeCol(col)));
+
       if (missingColumns.length > 0) {
         console.log(`${fileItem.file.name}: Missing columns (will be set to NULL):`, missingColumns);
       }
 
       const normalizedMappedColumns = mappedColumns.map(normalizeCol);
-      const extraCols = fileColumns.filter(col => !normalizedMappedColumns.includes(normalizeCol(col)));
-      
+      const extraCols = fileColumns.filter((col) => !normalizedMappedColumns.includes(normalizeCol(col)));
+
       if (extraCols.length > 0) {
         setExtraColumns(extraCols);
         setPendingUploadData(jsonData);
         setPendingFileId(fileItem.id);
+        setPendingFileIndex(queueIndex);
         setShowExtraColumnsDialog(true);
         return;
       }
 
-      await processFileUpload(fileItem.id, jsonData);
+      await processFileUpload(fileItem.id, jsonData, queueIndex);
     } catch (error: any) {
-      setFileItems(prev => prev.map(f => 
-        f.id === fileItem.id ? { ...f, status: 'error', error: error.message } : f
-      ));
-      await processNextFile(currentFileIndex + 1);
+      setFileItems((prev) => prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'error', error: error.message } : f)));
+      await processNextFile(queueIndex + 1);
     }
   };
 
   const processFileUpload = async (
-    fileId: string, 
-    jsonData: any[], 
+    fileId: string,
+    jsonData: any[],
+    queueIndex: number,
     brandSelections?: { brand_name: string; brand_type_id: string }[]
   ) => {
-    const fileItem = fileItems.find(f => f.id === fileId);
+    const fileItem = fileItemsRef.current.find((f) => f.id === fileId);
     if (!fileItem) return;
 
-    const sheetConfig = availableSheets.find(s => s.id === fileItem.sheetId);
+    const sheetConfig = availableSheets.find((s) => s.id === fileItem.sheetId);
     const shouldCheckCustomer = sheetConfig?.check_customer ?? true;
     const shouldCheckBrand = sheetConfig?.check_brand ?? true;
     const shouldCheckProduct = sheetConfig?.check_product ?? true;
@@ -499,6 +510,7 @@ const LoadData = () => {
           setNewBrandsDetected(result.newBrands);
           setPendingUploadData(jsonData);
           setPendingFileId(fileId);
+          setPendingFileIndex(queueIndex);
           setShowBrandTypeDialog(true);
           return;
         }
@@ -560,8 +572,8 @@ const LoadData = () => {
 
       window.dispatchEvent(new CustomEvent('dataUploaded'));
 
-      // Move to next file index (don't re-filter, just increment)
-      await processNextFile(currentFileIndex + 1);
+      // Move to next file in this run's queue
+      await processNextFile(queueIndex + 1);
 
     } catch (error: any) {
       if (uploadLogId) {
@@ -575,7 +587,7 @@ const LoadData = () => {
         f.id === fileId ? { ...f, status: 'error', error: error.message } : f
       ));
 
-      await processNextFile(currentFileIndex + 1);
+      await processNextFile(queueIndex + 1);
     }
   };
 
@@ -806,14 +818,16 @@ const LoadData = () => {
               }
               setPendingUploadData(null);
               setPendingFileId(null);
+              setPendingFileIndex(null);
               continueProcessingFiles();
             }}>
               Skip File
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               setShowExtraColumnsDialog(false);
+              const idx = pendingFileIndex ?? currentFileIndex;
               if (pendingUploadData && pendingFileId) {
-                processFileUpload(pendingFileId, pendingUploadData);
+                processFileUpload(pendingFileId, pendingUploadData, idx);
               }
             }}>
               Continue Anyway
