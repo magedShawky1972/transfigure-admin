@@ -1025,37 +1025,30 @@ const Transactions = () => {
   const confirmResetOdooSync = async () => {
     setResettingOdoo(true);
     try {
-      // Get unique order numbers from visible transactions
-      const orderNumbers = [...new Set(sortedTransactions.map(t => t.order_number))];
-      
-      // Batch update in chunks of 100 to avoid query size limits
-      const batchSize = 100;
-      let successCount = 0;
-      
-      for (let i = 0; i < orderNumbers.length; i += batchSize) {
-        const batch = orderNumbers.slice(i, i + batchSize);
-        const { error } = await supabase
-          .from('purpletransaction')
-          .update({ sendodoo: false })
-          .in('order_number', batch);
+      // Convert dates to integer format (YYYYMMDD)
+      const fromDateInt = parseInt(format(fromDate, 'yyyyMMdd'));
+      const toDateInt = parseInt(format(toDate, 'yyyyMMdd'));
 
-        if (error) throw error;
-        successCount += batch.length;
+      console.log(`Calling reset-odoo-sync edge function: ${fromDateInt} to ${toDateInt}`);
+
+      const { data, error } = await supabase.functions.invoke('reset-odoo-sync', {
+        body: { fromDateInt, toDateInt }
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
-      // Update local state
-      const orderNumberSet = new Set(orderNumbers);
-      setTransactions(prev => prev.map(t => 
-        orderNumberSet.has(t.order_number) 
-          ? { ...t, sendodoo: false } 
-          : t
-      ));
+      // Update local state - reset all transactions in the current view
+      setTransactions(prev => prev.map(t => ({ ...t, sendodoo: false })));
 
       toast({
         title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
         description: language === 'ar' 
-          ? `تم إعادة تعيين ${successCount} طلب(ات)`
-          : `${successCount} order(s) reset successfully`,
+          ? `تم إعادة تعيين ${data?.updatedCount || 0} معاملة بنجاح`
+          : `${data?.updatedCount || 0} transaction(s) reset successfully`,
       });
     } catch (error) {
       console.error('Error resetting Odoo sync:', error);
@@ -1335,10 +1328,20 @@ const Transactions = () => {
             <AlertDialogTitle>
               {language === 'ar' ? 'إعادة تعيين إرسال Odoo' : 'Reset Odoo Sync Flag'}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {language === 'ar' 
-                ? `هل أنت متأكد من إعادة تعيين علامة الإرسال لـ ${[...new Set(sortedTransactions.map(t => t.order_number))].length} طلب(ات)؟ سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.`
-                : `Are you sure you want to reset the Odoo sync flag for ${[...new Set(sortedTransactions.map(t => t.order_number))].length} order(s)? This will allow you to resend data to Odoo.`}
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                {language === 'ar' 
+                  ? 'سيتم إعادة تعيين علامة الإرسال لجميع المعاملات في الفترة:'
+                  : 'This will reset the Odoo sync flag for all transactions in the period:'}
+              </p>
+              <p className="font-semibold text-foreground">
+                {format(fromDate, 'yyyy-MM-dd')} → {format(toDate, 'yyyy-MM-dd')}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {language === 'ar' 
+                  ? 'سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.'
+                  : 'This will allow you to resend data to Odoo.'}
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1350,8 +1353,14 @@ const Transactions = () => {
               disabled={resettingOdoo}
               className="bg-orange-600 text-white hover:bg-orange-700 gap-2"
             >
-              {resettingOdoo && <Loader2 className="h-4 w-4 animate-spin" />}
-              {language === 'ar' ? 'إعادة تعيين' : 'Reset'}
+              {resettingOdoo ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {language === 'ar' ? 'جاري إعادة التعيين...' : 'Resetting...'}
+                </>
+              ) : (
+                language === 'ar' ? 'إعادة تعيين' : 'Reset'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
