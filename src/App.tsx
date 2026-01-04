@@ -88,6 +88,7 @@ import MedicalInsuranceSetup from "./pages/MedicalInsuranceSetup";
 import ShiftPlansSetup from "./pages/ShiftPlansSetup";
 import AttendanceTypeSetup from "./pages/AttendanceTypeSetup";
 import AuditLogs from "./pages/AuditLogs";
+import JobSetup from "./pages/JobSetup";
 import SecurityDashboard from "./pages/SecurityDashboard";
 import CertificateManagement from "./pages/CertificateManagement";
 const queryClient = new QueryClient();
@@ -184,6 +185,7 @@ const App = () => (
               <Route path="/shift-plans-setup" element={<ShiftPlansSetup />} />
               <Route path="/document-type-setup" element={<DocumentTypeSetup />} />
               <Route path="/attendance-type-setup" element={<AttendanceTypeSetup />} />
+              <Route path="/job-setup" element={<JobSetup />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="/certificate-management" element={<CertificateManagement />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
