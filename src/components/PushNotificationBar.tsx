@@ -42,31 +42,35 @@ export function PushNotificationBar() {
   };
 
   // Don't show if:
-  // - Already subscribed to push notifications
-  // - Bar was dismissed (within 24 hours)
-  // - Permission was permanently denied
   // - Push not supported
-  if (!isSupported || permission === "denied") {
+  // - Already subscribed AND permission granted
+  // - Bar was dismissed for this session
+  if (!isSupported) {
     return null;
   }
-  
-  if (isSubscribed) {
+
+  if (permission === "granted" && isSubscribed) {
     return null;
   }
-  
+
   if (isDismissed) {
     return null;
   }
 
+  const message =
+    permission === "denied"
+      ? (language === "ar"
+          ? "الإشعارات محظورة في المتصفح. فعّلها من إعدادات المتصفح."
+          : "Notifications are blocked in your browser. Enable them in browser settings.")
+      : (language === "ar"
+          ? "فعّل الإشعارات للبقاء على اطلاع بآخر التحديثات"
+          : "Enable notifications to stay updated with the latest alerts");
+
   return (
-    <div className="bg-primary text-primary-foreground px-4 py-2.5 flex items-center justify-between gap-4">
+    <div className="bg-primary text-primary-foreground px-4 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-20">
       <div className="flex items-center gap-3 flex-1">
         <Bell className="h-4 w-4 flex-shrink-0" />
-        <span className="text-sm font-medium">
-          {language === "ar" 
-            ? "فعّل الإشعارات للبقاء على اطلاع بآخر التحديثات"
-            : "Enable notifications to stay updated with the latest alerts"}
-        </span>
+        <span className="text-sm font-medium">{message}</span>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <Button
