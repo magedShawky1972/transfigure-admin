@@ -33,7 +33,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Copy, Check, ChevronsUpDown, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Copy, Check, ChevronsUpDown, Upload, RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface UserEmail {
@@ -47,6 +48,9 @@ interface UserEmail {
   user_id: string | null;
   created_at: string;
   updated_at: string;
+  is_active: boolean | null;
+  last_error: string | null;
+  last_checked_at: string | null;
 }
 
 const UserEmails = () => {
@@ -63,6 +67,8 @@ const UserEmails = () => {
   const [hostOptions, setHostOptions] = useState<string[]>(["Hostinger", "Google"]);
   const [hostOpen, setHostOpen] = useState(false);
   const [newHostValue, setNewHostValue] = useState("");
+  const [checkingEmails, setCheckingEmails] = useState<Record<string, boolean>>({});
+  const [isCheckingAll, setIsCheckingAll] = useState(false);
 
   const [formData, setFormData] = useState({
     user_name: "",
@@ -297,6 +303,94 @@ const UserEmails = () => {
     }
   };
 
+  // Check single email connection
+  const handleCheckEmail = async (userEmail: UserEmail) => {
+    if (!userEmail.password) {
+      toast.error(language === "ar" ? "كلمة المرور مطلوبة للفحص" : "Password required for check");
+      return;
+    }
+
+    setCheckingEmails((prev) => ({ ...prev, [userEmail.id]: true }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke("test-email-connection", {
+        body: {
+          emailId: userEmail.id,
+          email: userEmail.email,
+          password: userEmail.password,
+          host: userEmail.host,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.isActive) {
+        toast.success(language === "ar" ? `${userEmail.email} يعمل بنجاح` : `${userEmail.email} is working`);
+      } else {
+        toast.error(language === "ar" ? `${userEmail.email}: ${data.error}` : `${userEmail.email}: ${data.error}`);
+      }
+
+      fetchUserEmails();
+    } catch (error: any) {
+      console.error("Error checking email:", error);
+      toast.error(language === "ar" ? "خطأ في فحص البريد" : "Error checking email");
+    } finally {
+      setCheckingEmails((prev) => ({ ...prev, [userEmail.id]: false }));
+    }
+  };
+
+  // Check all emails
+  const handleCheckAllEmails = async () => {
+    const emailsWithPassword = userEmails.filter((e) => e.password);
+    if (emailsWithPassword.length === 0) {
+      toast.error(language === "ar" ? "لا توجد بريدات بكلمات مرور" : "No emails with passwords");
+      return;
+    }
+
+    setIsCheckingAll(true);
+    toast.info(language === "ar" ? `جاري فحص ${emailsWithPassword.length} بريد...` : `Checking ${emailsWithPassword.length} emails...`);
+
+    let activeCount = 0;
+    let errorCount = 0;
+
+    for (const userEmail of emailsWithPassword) {
+      setCheckingEmails((prev) => ({ ...prev, [userEmail.id]: true }));
+
+      try {
+        const { data, error } = await supabase.functions.invoke("test-email-connection", {
+          body: {
+            emailId: userEmail.id,
+            email: userEmail.email,
+            password: userEmail.password,
+            host: userEmail.host,
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.isActive) {
+          activeCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        console.error("Error checking email:", error);
+        errorCount++;
+      } finally {
+        setCheckingEmails((prev) => ({ ...prev, [userEmail.id]: false }));
+      }
+    }
+
+    await fetchUserEmails();
+    setIsCheckingAll(false);
+
+    toast.success(
+      language === "ar"
+        ? `تم الفحص: ${activeCount} يعمل، ${errorCount} فشل`
+        : `Check complete: ${activeCount} working, ${errorCount} failed`
+    );
+  };
+
   const filteredEmails = userEmails.filter(
     (item) =>
       item.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -313,6 +407,18 @@ const UserEmails = () => {
           {language === "ar" ? "المستخدمين والبريد" : "Users & Mails"}
         </h1>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleCheckAllEmails}
+            disabled={isCheckingAll}
+          >
+            {isCheckingAll ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {language === "ar" ? "فحص الكل" : "Check All"}
+          </Button>
           <Button variant="secondary" onClick={handleUpdateAllUserSetup}>
             <Upload className="h-4 w-4 mr-2" />
             {language === "ar" ? "تحديث إعدادات المستخدمين" : "Update User Setup"}
@@ -341,10 +447,12 @@ const UserEmails = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 <TableHead>{language === "ar" ? "اسم المستخدم" : "User Name"}</TableHead>
                 <TableHead>{language === "ar" ? "البريد الإلكتروني" : "Email"}</TableHead>
                 <TableHead>{language === "ar" ? "كلمة المرور" : "Password"}</TableHead>
                 <TableHead>{language === "ar" ? "الاستضافة" : "Host"}</TableHead>
+                <TableHead>{language === "ar" ? "الخطأ" : "Error"}</TableHead>
                 <TableHead>{language === "ar" ? "الوصف" : "Description"}</TableHead>
                 <TableHead>{language === "ar" ? "المالك" : "Owner"}</TableHead>
                 <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
@@ -353,6 +461,32 @@ const UserEmails = () => {
             <TableBody>
               {filteredEmails.map((item) => (
                 <TableRow key={item.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {checkingEmails[item.id] ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : item.is_active === true ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : item.is_active === false ? (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        onClick={() => handleCheckEmail(item)}
+                        disabled={checkingEmails[item.id] || !item.password}
+                      >
+                        {checkingEmails[item.id] ? (
+                          language === "ar" ? "جاري..." : "..."
+                        ) : (
+                          language === "ar" ? "فحص" : "Check"
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium">{item.user_name}</TableCell>
                   <TableCell>{item.email}</TableCell>
                   <TableCell>
@@ -385,6 +519,19 @@ const UserEmails = () => {
                     </div>
                   </TableCell>
                   <TableCell>{item.host}</TableCell>
+                  <TableCell className="max-w-[200px]">
+                    {item.last_error ? (
+                      <span className="text-xs text-destructive line-clamp-2" title={item.last_error}>
+                        {item.last_error}
+                      </span>
+                    ) : item.is_active === true ? (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        {language === "ar" ? "يعمل" : "Working"}
+                      </Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
                   <TableCell>{item.description || "-"}</TableCell>
                   <TableCell>{item.owner || "-"}</TableCell>
                   <TableCell>
@@ -401,7 +548,7 @@ const UserEmails = () => {
               ))}
               {filteredEmails.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {language === "ar" ? "لا توجد بيانات" : "No data found"}
                   </TableCell>
                 </TableRow>

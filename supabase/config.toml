@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.backup-database-background]
 verify_jwt = false
+
+[functions.test-email-connection]
+verify_jwt = false
