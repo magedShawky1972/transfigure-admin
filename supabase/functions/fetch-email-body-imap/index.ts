@@ -70,6 +70,24 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
     /\bfilename\*?=|\bname\*?=/i.test(rawBody) ||
     (/Content-Type:\s*image\//i.test(rawBody) && /Content-ID:\s*<[^>]+>/i.test(rawBody));
 
+  // Some providers return a body that is essentially a giant base64 blob.
+  // If decoding it reveals a real MIME message (with headers), decode first then parse normally.
+  const maybeDecodeWholeMessage = (input: string): string => {
+    const sample = input.trim().slice(0, 2000);
+    const isBase64ish = /^[A-Za-z0-9+/=\r\n\s]{500,}$/.test(sample) && !/Content-Type:/i.test(sample);
+    if (!isBase64ish) return input;
+
+    const bytes = decodeBase64ToBytes(input);
+    const decoded = decodeBytes(bytes, "utf-8");
+    if (/Content-Type:/i.test(decoded) || /MIME-Version:/i.test(decoded)) {
+      return decoded;
+    }
+    // Sometimes it's not valid base64; keep original
+    return input;
+  };
+
+  rawBody = maybeDecodeWholeMessage(rawBody);
+
   const splitHeadersAndBody = (part: string): { headers: string; body: string } => {
     const idx = part.search(/\r?\n\r?\n/);
     if (idx === -1) return { headers: part, body: "" };
