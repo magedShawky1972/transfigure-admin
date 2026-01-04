@@ -128,6 +128,7 @@ const CompanyHierarchy = () => {
   const [jobForm, setJobForm] = useState({ name: "", departmentId: "", existingJobId: "" });
   const [jobMode, setJobMode] = useState<"existing" | "new">("existing");
   const [selectedJobEmployees, setSelectedJobEmployees] = useState<string[]>([]);
+  const [deptEmployeeSearch, setDeptEmployeeSearch] = useState("");
 
   const getEmployeeName = (emp: Employee) => {
     if (language === 'ar' && emp.first_name_ar) {
@@ -1242,14 +1243,29 @@ const CompanyHierarchy = () => {
       </Dialog>
 
       {/* Assign Employee to Department Dialog */}
-      <Dialog open={assignToDeptDialogOpen} onOpenChange={setAssignToDeptDialogOpen}>
+      <Dialog open={assignToDeptDialogOpen} onOpenChange={(open) => { setAssignToDeptDialogOpen(open); if (!open) setDeptEmployeeSearch(""); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{language === 'ar' ? 'تعيين موظف للقسم' : 'Assign Employee to Department'}</DialogTitle>
           </DialogHeader>
+          <Input
+            placeholder={language === 'ar' ? 'بحث بالاسم...' : 'Search by name...'}
+            value={deptEmployeeSearch}
+            onChange={(e) => setDeptEmployeeSearch(e.target.value)}
+            className="mb-2"
+          />
           <ScrollArea className="h-64">
             <div className="space-y-2">
-              {getAllActiveEmployees().map(emp => (
+              {getAllActiveEmployees()
+                .filter(emp => {
+                  if (!deptEmployeeSearch.trim()) return true;
+                  const searchLower = deptEmployeeSearch.toLowerCase();
+                  const fullName = getEmployeeName(emp).toLowerCase();
+                  const fullNameEn = `${emp.first_name} ${emp.last_name}`.toLowerCase();
+                  const fullNameAr = emp.first_name_ar && emp.last_name_ar ? `${emp.first_name_ar} ${emp.last_name_ar}`.toLowerCase() : '';
+                  return fullName.includes(searchLower) || fullNameEn.includes(searchLower) || fullNameAr.includes(searchLower);
+                })
+                .map(emp => (
                 <div key={emp.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer" onClick={() => handleAssignEmployeeToDept(emp.id)}>
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={emp.photo_url || undefined} />
