@@ -1009,7 +1009,7 @@ const Transactions = () => {
     navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
   };
 
-  // Reset Odoo sync flag for all transactions within date range (fast backend batch)
+  // Reset Odoo sync flag - simply open dialog
   const handleResetOdooSync = () => {
     setResetOdooDialogOpen(true);
   };
@@ -1017,7 +1017,6 @@ const Transactions = () => {
   const confirmResetOdooSync = async () => {
     setResettingOdoo(true);
     try {
-      // Convert dates to integer format (YYYYMMDD)
       const fromDateInt = parseInt(format(fromDate, 'yyyyMMdd'), 10);
       const toDateInt = parseInt(format(toDate, 'yyyyMMdd'), 10);
 
@@ -1030,17 +1029,10 @@ const Transactions = () => {
 
       toast({
         title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
-        description:
-          language === 'ar'
-            ? `تم إعادة تعيين ${data?.updatedCount || 0} معاملة بنجاح`
-            : `${data?.updatedCount || 0} transaction(s) reset successfully`,
+        description: language === 'ar'
+          ? `تم إعادة تعيين ${data?.updatedCount || 0} معاملة بنجاح`
+          : `${data?.updatedCount || 0} transaction(s) reset successfully`,
       });
-
-      // Re-fetch current view (avoid heavy local array mapping that can freeze UI)
-      setIsAllDataLoaded(false);
-      setPage(1);
-      await fetchTransactions();
-      await fetchTotals();
     } catch (error) {
       console.error('Error resetting Odoo sync:', error);
       toast({
