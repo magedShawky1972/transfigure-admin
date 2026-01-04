@@ -10,15 +10,20 @@ const Reports = () => {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const [allowedReports, setAllowedReports] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchUserPermissions();
   }, []);
 
   const fetchUserPermissions = async () => {
+    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
 
       // Check if user is admin
       const { data: roles } = await supabase
@@ -31,6 +36,7 @@ const Reports = () => {
       // If admin, allow all reports
       if (roles) {
         setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'security-dashboard']);
+        setLoading(false);
         return;
       }
 
@@ -42,11 +48,13 @@ const Reports = () => {
         .eq('parent_menu', 'Reports')
         .eq('has_access', true);
 
-      if (permissions) {
+      if (permissions && permissions.length > 0) {
         setAllowedReports(permissions.map(p => p.menu_item));
       }
     } catch (error) {
       console.error('Error fetching permissions:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -177,6 +185,16 @@ const Reports = () => {
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">
+          {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -186,8 +204,17 @@ const Reports = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredReports.map((report) => {
+      {filteredReports.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">
+            {language === 'ar' 
+              ? 'ليس لديك صلاحيات للوصول إلى أي تقارير. يرجى التواصل مع المسؤول.' 
+              : 'You do not have permission to access any reports. Please contact an administrator.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredReports.map((report) => {
           const Icon = report.icon;
           return (
             <Card key={report.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(report.route)}>
@@ -213,7 +240,8 @@ const Reports = () => {
             </Card>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
