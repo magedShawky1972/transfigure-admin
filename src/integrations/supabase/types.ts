@@ -1075,6 +1075,53 @@ export type Database = {
           },
         ]
       }
+      employee_contacts: {
+        Row: {
+          contact_address: string | null
+          contact_name: string
+          contact_phone: string | null
+          contact_type: string
+          created_at: string
+          employee_id: string
+          id: string
+          is_emergency_contact: boolean | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_address?: string | null
+          contact_name: string
+          contact_phone?: string | null
+          contact_type: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          is_emergency_contact?: boolean | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_address?: string | null
+          contact_name?: string
+          contact_phone?: string | null
+          contact_type?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          is_emergency_contact?: boolean | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_contacts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           created_at: string
@@ -1237,6 +1284,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          address: string | null
           attendance_type_id: string | null
           basic_salary: number | null
           created_at: string
@@ -1277,6 +1325,7 @@ export type Database = {
           vacation_code_id: string | null
         }
         Insert: {
+          address?: string | null
           attendance_type_id?: string | null
           basic_salary?: number | null
           created_at?: string
@@ -1317,6 +1366,7 @@ export type Database = {
           vacation_code_id?: string | null
         }
         Update: {
+          address?: string | null
           attendance_type_id?: string | null
           basic_salary?: number | null
           created_at?: string

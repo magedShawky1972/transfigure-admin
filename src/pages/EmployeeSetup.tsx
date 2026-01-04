@@ -136,6 +136,17 @@ interface EmployeeDocument {
   document_types?: { type_name: string; type_name_ar: string | null };
 }
 
+interface EmployeeContact {
+  id: string;
+  employee_id: string;
+  contact_type: string;
+  contact_name: string;
+  contact_phone: string | null;
+  contact_address: string | null;
+  is_emergency_contact: boolean;
+  notes: string | null;
+}
+
 export default function EmployeeSetup() {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -154,6 +165,7 @@ export default function EmployeeSetup() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [employeeDocuments, setEmployeeDocuments] = useState<EmployeeDocument[]>([]);
+  const [employeeContacts, setEmployeeContacts] = useState<EmployeeContact[]>([]);
   const [usersWithoutEmployee, setUsersWithoutEmployee] = useState<Profile[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -162,11 +174,13 @@ export default function EmployeeSetup() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [loadUsersDialogOpen, setLoadUsersDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [selectedUsersToAdd, setSelectedUsersToAdd] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [editingContact, setEditingContact] = useState<EmployeeContact | null>(null);
   
   const [selectedVacationTypes, setSelectedVacationTypes] = useState<string[]>([]);
   
@@ -201,6 +215,16 @@ export default function EmployeeSetup() {
     basic_salary: "",
     manager_id: "",
     photo_url: "",
+    address: "",
+  });
+
+  const [contactFormData, setContactFormData] = useState({
+    contact_type: "",
+    contact_name: "",
+    contact_phone: "",
+    contact_address: "",
+    is_emergency_contact: false,
+    notes: "",
   });
 
   const [documentFormData, setDocumentFormData] = useState({
@@ -378,6 +402,7 @@ export default function EmployeeSetup() {
       basic_salary: "",
       manager_id: "",
       photo_url: "",
+      address: "",
     });
     setSelectedVacationTypes([]);
     setLoadUsersDialogOpen(false);
@@ -557,6 +582,7 @@ export default function EmployeeSetup() {
       basic_salary: "",
       manager_id: "",
       photo_url: "",
+      address: "",
     });
     setSelectedVacationTypes([]);
     setDialogOpen(true);
@@ -595,9 +621,11 @@ export default function EmployeeSetup() {
       basic_salary: employee.basic_salary?.toString() || "",
       manager_id: employee.manager_id || "",
       photo_url: employee.photo_url || "",
+      address: (employee as any).address || "",
     });
-    // Fetch employee vacation types
+    // Fetch employee vacation types and contacts
     fetchEmployeeVacationTypes(employee.id);
+    fetchEmployeeContacts(employee.id);
     setDialogOpen(true);
   };
 
@@ -620,6 +648,104 @@ export default function EmployeeSetup() {
     setSelectedEmployee(employee);
     fetchEmployeeDocuments(employee.id);
     setDocumentDialogOpen(true);
+  };
+
+  const openContactDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    fetchEmployeeContacts(employee.id);
+    setContactDialogOpen(true);
+  };
+
+  const fetchEmployeeContacts = async (employeeId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("employee_contacts")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setEmployeeContacts(data || []);
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleSaveContact = async () => {
+    if (!selectedEmployee || !contactFormData.contact_type || !contactFormData.contact_name) {
+      toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
+      return;
+    }
+
+    try {
+      if (editingContact) {
+        const { error } = await supabase
+          .from("employee_contacts")
+          .update({
+            contact_type: contactFormData.contact_type,
+            contact_name: contactFormData.contact_name,
+            contact_phone: contactFormData.contact_phone || null,
+            contact_address: contactFormData.contact_address || null,
+            is_emergency_contact: contactFormData.is_emergency_contact,
+            notes: contactFormData.notes || null,
+          })
+          .eq("id", editingContact.id);
+
+        if (error) throw error;
+        toast.success(language === "ar" ? "تم تحديث جهة الاتصال" : "Contact updated successfully");
+      } else {
+        const { error } = await supabase.from("employee_contacts").insert({
+          employee_id: selectedEmployee.id,
+          contact_type: contactFormData.contact_type,
+          contact_name: contactFormData.contact_name,
+          contact_phone: contactFormData.contact_phone || null,
+          contact_address: contactFormData.contact_address || null,
+          is_emergency_contact: contactFormData.is_emergency_contact,
+          notes: contactFormData.notes || null,
+        });
+
+        if (error) throw error;
+        toast.success(language === "ar" ? "تم إضافة جهة الاتصال" : "Contact added successfully");
+      }
+
+      setContactFormData({
+        contact_type: "",
+        contact_name: "",
+        contact_phone: "",
+        contact_address: "",
+        is_emergency_contact: false,
+        notes: "",
+      });
+      setEditingContact(null);
+      fetchEmployeeContacts(selectedEmployee.id);
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleEditContact = (contact: EmployeeContact) => {
+    setEditingContact(contact);
+    setContactFormData({
+      contact_type: contact.contact_type,
+      contact_name: contact.contact_name,
+      contact_phone: contact.contact_phone || "",
+      contact_address: contact.contact_address || "",
+      is_emergency_contact: contact.is_emergency_contact,
+      notes: contact.notes || "",
+    });
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    try {
+      const { error } = await supabase.from("employee_contacts").delete().eq("id", contactId);
+      if (error) throw error;
+      toast.success(language === "ar" ? "تم حذف جهة الاتصال" : "Contact deleted");
+      if (selectedEmployee) {
+        fetchEmployeeContacts(selectedEmployee.id);
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
   const handleSave = async () => {
@@ -660,6 +786,7 @@ export default function EmployeeSetup() {
         medical_insurance_plan_id: formData.medical_insurance_plan_id || null,
         basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : null,
         manager_id: formData.manager_id || null,
+        address: formData.address || null,
       };
 
       let employeeId: string;
@@ -961,6 +1088,7 @@ export default function EmployeeSetup() {
           <Tabs defaultValue="info">
             <TabsList className="mb-4">
               <TabsTrigger value="info">{language === "ar" ? "المعلومات الأساسية" : "Basic Info"}</TabsTrigger>
+              <TabsTrigger value="contacts">{language === "ar" ? "جهات الاتصال" : "Contacts"}</TabsTrigger>
               <TabsTrigger value="job">{language === "ar" ? "معلومات العمل" : "Job Info"}</TabsTrigger>
               <TabsTrigger value="shift">{language === "ar" ? "الورديات والإجازات" : "Shifts & Leave"}</TabsTrigger>
             </TabsList>
@@ -1207,6 +1335,177 @@ export default function EmployeeSetup() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2 md:col-span-3">
+                  <Label>{language === "ar" ? "العنوان" : "Address"}</Label>
+                  <Input
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder={language === "ar" ? "أدخل العنوان الكامل" : "Enter full address"}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="contacts">
+              <div className="space-y-4">
+                {/* Contact Form */}
+                <Card>
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-sm">
+                      {editingContact 
+                        ? (language === "ar" ? "تعديل جهة اتصال" : "Edit Contact")
+                        : (language === "ar" ? "إضافة جهة اتصال" : "Add Contact")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>{language === "ar" ? "نوع جهة الاتصال *" : "Contact Type *"}</Label>
+                        <Select
+                          value={contactFormData.contact_type || "_none_"}
+                          onValueChange={(value) => setContactFormData({ ...contactFormData, contact_type: value === "_none_" ? "" : value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                            <SelectItem value="emergency">{language === "ar" ? "طوارئ" : "Emergency"}</SelectItem>
+                            <SelectItem value="spouse">{language === "ar" ? "زوج/زوجة" : "Spouse"}</SelectItem>
+                            <SelectItem value="parent">{language === "ar" ? "والد/والدة" : "Parent"}</SelectItem>
+                            <SelectItem value="sibling">{language === "ar" ? "أخ/أخت" : "Sibling"}</SelectItem>
+                            <SelectItem value="child">{language === "ar" ? "ابن/ابنة" : "Child"}</SelectItem>
+                            <SelectItem value="friend">{language === "ar" ? "صديق" : "Friend"}</SelectItem>
+                            <SelectItem value="other">{language === "ar" ? "أخرى" : "Other"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "ar" ? "اسم جهة الاتصال *" : "Contact Name *"}</Label>
+                        <Input
+                          value={contactFormData.contact_name}
+                          onChange={(e) => setContactFormData({ ...contactFormData, contact_name: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "ar" ? "رقم الهاتف" : "Phone Number"}</Label>
+                        <Input
+                          value={contactFormData.contact_phone}
+                          onChange={(e) => setContactFormData({ ...contactFormData, contact_phone: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{language === "ar" ? "العنوان" : "Address"}</Label>
+                        <Input
+                          value={contactFormData.contact_address}
+                          onChange={(e) => setContactFormData({ ...contactFormData, contact_address: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={contactFormData.is_emergency_contact}
+                        onChange={(e) => setContactFormData({ ...contactFormData, is_emergency_contact: e.target.checked })}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label className="cursor-pointer">
+                        {language === "ar" ? "جهة اتصال للطوارئ" : "Emergency Contact"}
+                      </Label>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleSaveContact} size="sm">
+                        {editingContact 
+                          ? (language === "ar" ? "تحديث" : "Update")
+                          : (language === "ar" ? "إضافة" : "Add")}
+                      </Button>
+                      {editingContact && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setEditingContact(null);
+                            setContactFormData({
+                              contact_type: "",
+                              contact_name: "",
+                              contact_phone: "",
+                              contact_address: "",
+                              is_emergency_contact: false,
+                              notes: "",
+                            });
+                          }}
+                        >
+                          {language === "ar" ? "إلغاء" : "Cancel"}
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Existing Contacts List */}
+                {selectedEmployee && employeeContacts.length > 0 && (
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm">
+                        {language === "ar" ? "جهات الاتصال المسجلة" : "Registered Contacts"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                            <TableHead>{language === "ar" ? "الاسم" : "Name"}</TableHead>
+                            <TableHead>{language === "ar" ? "الهاتف" : "Phone"}</TableHead>
+                            <TableHead>{language === "ar" ? "العنوان" : "Address"}</TableHead>
+                            <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {employeeContacts.map((contact) => (
+                            <TableRow key={contact.id}>
+                              <TableCell>
+                                <Badge variant={contact.is_emergency_contact ? "destructive" : "secondary"}>
+                                  {contact.contact_type}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{contact.contact_name}</TableCell>
+                              <TableCell>{contact.contact_phone || "-"}</TableCell>
+                              <TableCell className="max-w-[150px] truncate">{contact.contact_address || "-"}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleEditContact(contact)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive"
+                                    onClick={() => handleDeleteContact(contact.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {selectedEmployee && employeeContacts.length === 0 && (
+                  <p className="text-center text-muted-foreground py-4">
+                    {language === "ar" ? "لا توجد جهات اتصال مسجلة بعد" : "No contacts registered yet"}
+                  </p>
+                )}
               </div>
             </TabsContent>
 
