@@ -4817,6 +4817,9 @@ export type Database = {
           email: string
           host: string
           id: string
+          is_active: boolean | null
+          last_checked_at: string | null
+          last_error: string | null
           owner: string | null
           password: string | null
           updated_at: string
@@ -4829,6 +4832,9 @@ export type Database = {
           email: string
           host?: string
           id?: string
+          is_active?: boolean | null
+          last_checked_at?: string | null
+          last_error?: string | null
           owner?: string | null
           password?: string | null
           updated_at?: string
@@ -4841,6 +4847,9 @@ export type Database = {
           email?: string
           host?: string
           id?: string
+          is_active?: boolean | null
+          last_checked_at?: string | null
+          last_error?: string | null
           owner?: string | null
           password?: string | null
           updated_at?: string
