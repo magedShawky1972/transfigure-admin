@@ -781,6 +781,68 @@ const EmailManager = () => {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
+  const buildICalendarHtml = (ics: string): string => {
+    const raw = (ics || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+    // Unfold lines (RFC 5545)
+    const folded = raw.split("\n");
+    const lines: string[] = [];
+    for (const l of folded) {
+      if ((l.startsWith(" ") || l.startsWith("\t")) && lines.length > 0) {
+        lines[lines.length - 1] += l.trimStart();
+      } else {
+        lines.push(l.trimEnd());
+      }
+    }
+
+    const getProp = (name: string): string | null => {
+      const re = new RegExp(`^${name}(?:;[^:]*)?:(.*)$`, "i");
+      const found = lines.find((ln) => re.test(ln));
+      if (!found) return null;
+      const m = found.match(re);
+      return (m?.[1] || "").trim() || null;
+    };
+
+    const summary = getProp("SUMMARY") || "Calendar Invitation";
+    const dtStart = getProp("DTSTART");
+    const dtEnd = getProp("DTEND");
+    const location = getProp("LOCATION");
+    const status = getProp("STATUS");
+
+    const fullText = lines.join("\n");
+    const teamsLinkMatch = fullText.match(/https?:\/\/(?:www\.)?teams\.microsoft\.com\/l\/meetup-join\/[^\s>]+/i);
+    const teamsLink = teamsLinkMatch?.[0] || null;
+
+    const items: Array<[string, string]> = [];
+    if (status) items.push([isArabic ? "الحالة" : "Status", status]);
+    if (dtStart) items.push([isArabic ? "البداية" : "Start", dtStart]);
+    if (dtEnd) items.push([isArabic ? "النهاية" : "End", dtEnd]);
+    if (location) items.push([isArabic ? "الموقع" : "Location", location]);
+    if (teamsLink) items.push([isArabic ? "الرابط" : "Teams", teamsLink]);
+
+    return `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.6">
+        <h2 style="margin:0 0 10px 0;">${escapeHtml(summary)}</h2>
+        <table style="border-collapse:collapse;width:100%;max-width:720px">
+          <tbody>
+            ${items
+              .map(([k, v]) => {
+                const vv = k === (isArabic ? "الرابط" : "Teams")
+                  ? `<a href="${escapeHtml(v)}" target="_blank" rel="noopener noreferrer">${isArabic ? "انضم للاجتماع" : "Join meeting"}</a>`
+                  : escapeHtml(v);
+                return `
+                  <tr>
+                    <td style="padding:6px 10px;border-top:1px solid #e5e7eb;color:#6b7280;white-space:nowrap">${escapeHtml(k)}</td>
+                    <td style="padding:6px 10px;border-top:1px solid #e5e7eb;color:#111827">${vv}</td>
+                  </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `.trim();
+  };
+
   const tryDecodeBase64Html = (input: string | null): string | null => {
     if (!input) return null;
     const trimmed = input.trim();
@@ -806,7 +868,12 @@ const EmailManager = () => {
 
       if (looksHtml) return decoded;
 
-      // Case 2: decoded but not HTML (often MIME or plain text) → render in the same iframe panel
+      // Case 2: calendar invite inside decoded text
+      if (/BEGIN:VCALENDAR/i.test(decoded)) {
+        return buildICalendarHtml(decoded);
+      }
+
+      // Case 3: decoded but not HTML (often MIME or plain text) → render in the same iframe panel
       const looksText = sample.includes("content-type:") || sample.includes("mime-version:") || decoded.length > 0;
       if (looksText) {
         return `<pre style="white-space:pre-wrap;font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${escapeHtml(decoded)}</pre>`;
@@ -823,11 +890,14 @@ const EmailManager = () => {
     setDecodedHtml(null);
     handleMarkAsRead(email);
 
-    // Client-side fallback: if body_text is a base64 HTML blob, render it in the same iframe panel.
+    // Client-side fallback: render base64 bodies (HTML/MIME/calendar) into the iframe
     if (!email.body_html && email.body_text) {
       const html = tryDecodeBase64Html(email.body_text);
       if (html) {
         setDecodedHtml({ emailId: email.id, html });
+      } else if (/BEGIN:VCALENDAR/i.test(email.body_text)) {
+        // Some providers store raw iCalendar text
+        setDecodedHtml({ emailId: email.id, html: buildICalendarHtml(email.body_text) });
       }
     }
 
@@ -870,10 +940,12 @@ const EmailManager = () => {
         setSelectedEmail(refreshed as any);
         setEmails((prev) => prev.map((e) => (e.id === email.id ? (refreshed as any) : e)));
 
-        // If server saved only text but it's still a base64 HTML blob, decode for display.
+        // If server saved only text but it's still a base64 HTML/calendar blob, decode for display.
         if (!(refreshed as any).body_html && (refreshed as any).body_text) {
-          const html = tryDecodeBase64Html((refreshed as any).body_text);
+          const bt = String((refreshed as any).body_text || "");
+          const html = tryDecodeBase64Html(bt);
           if (html) setDecodedHtml({ emailId: email.id, html });
+          else if (/BEGIN:VCALENDAR/i.test(bt)) setDecodedHtml({ emailId: email.id, html: buildICalendarHtml(bt) });
         }
       }
     } catch (e) {
