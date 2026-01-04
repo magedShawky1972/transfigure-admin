@@ -37,7 +37,8 @@ import {
   HeartPulse,
   CalendarClock,
   ClipboardCheck,
-  FileKey
+  FileKey,
+  Briefcase
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -314,6 +315,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'التأمين الطبي' : 'Medical Insurance', url: "/medical-insurance-setup", icon: HeartPulse },
         { title: language === 'ar' ? 'أنواع المستندات' : 'Document Types', url: "/document-type-setup", icon: FileText },
         { title: language === 'ar' ? 'أنواع الحضور' : 'Attendance Types', url: "/attendance-type-setup", icon: Clock },
+        { title: language === 'ar' ? 'إعداد الوظائف' : 'Job Setup', url: "/job-setup", icon: Briefcase },
       ]
     },
     {
