@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Briefcase } from "lucide-react";
+import { Plus, Pencil, Trash2, Briefcase, Users, UserCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface JobPosition {
   id: string;
@@ -27,6 +28,20 @@ interface Department {
   department_code: string;
 }
 
+interface LinkedEmployee {
+  id: string;
+  first_name: string;
+  last_name: string;
+  employee_number: string;
+  user_id: string | null;
+}
+
+interface LinkedUser {
+  user_id: string;
+  user_name: string;
+  email: string;
+}
+
 const JobSetup = () => {
   const { language } = useLanguage();
   const [jobs, setJobs] = useState<JobPosition[]>([]);
@@ -34,7 +49,11 @@ const JobSetup = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [linkedDialogOpen, setLinkedDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosition | null>(null);
+  const [linkedEmployees, setLinkedEmployees] = useState<LinkedEmployee[]>([]);
+  const [linkedUsers, setLinkedUsers] = useState<LinkedUser[]>([]);
+  const [loadingLinked, setLoadingLinked] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     position_name: "",
@@ -161,6 +180,37 @@ const JobSetup = () => {
     }
   };
 
+  const openLinkedDialog = async (job: JobPosition) => {
+    setSelectedJob(job);
+    setLoadingLinked(true);
+    setLinkedDialogOpen(true);
+
+    try {
+      // Fetch employees linked to this job
+      const { data: employees, error: empError } = await supabase
+        .from("employees")
+        .select("id, first_name, last_name, employee_number, user_id")
+        .eq("job_position_id", job.id);
+
+      if (empError) throw empError;
+      setLinkedEmployees(employees || []);
+
+      // Fetch users linked via profiles with this job
+      const { data: profiles, error: profError } = await supabase
+        .from("profiles")
+        .select("user_id, user_name, email, job_position_id")
+        .eq("job_position_id", job.id);
+
+      if (profError) throw profError;
+      setLinkedUsers(profiles || []);
+    } catch (error) {
+      console.error("Error fetching linked data:", error);
+      toast.error(language === "ar" ? "خطأ في تحميل البيانات" : "Error loading data");
+    } finally {
+      setLoadingLinked(false);
+    }
+  };
+
   const getDepartmentName = (departmentId: string | null) => {
     if (!departmentId) return "-";
     const dept = departments.find((d) => d.id === departmentId);
@@ -235,6 +285,9 @@ const JobSetup = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      <Button variant="outline" size="icon" onClick={() => openLinkedDialog(job)} title={language === "ar" ? "عرض المرتبطين" : "View Linked"}>
+                        <Users className="h-4 w-4" />
+                      </Button>
                       <Button variant="outline" size="icon" onClick={() => openEditDialog(job)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -341,6 +394,89 @@ const JobSetup = () => {
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
               {language === "ar" ? "حذف" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Linked Employees & Users Dialog */}
+      <Dialog open={linkedDialogOpen} onOpenChange={setLinkedDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              {language === "ar" 
+                ? `المرتبطين بالوظيفة: ${selectedJob?.position_name}` 
+                : `Linked to Job: ${selectedJob?.position_name}`}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingLinked ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Linked Employees */}
+              <div>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                  <UserCircle className="h-5 w-5" />
+                  {language === "ar" ? "الموظفون" : "Employees"}
+                  <Badge variant="secondary">{linkedEmployees.length}</Badge>
+                </h3>
+                {linkedEmployees.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    {language === "ar" ? "لا يوجد موظفون مرتبطون" : "No employees linked"}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {linkedEmployees.map((emp) => (
+                      <div key={emp.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                        <div>
+                          <p className="font-medium">{emp.first_name} {emp.last_name}</p>
+                          <p className="text-sm text-muted-foreground">{emp.employee_number}</p>
+                        </div>
+                        {emp.user_id && (
+                          <Badge variant="outline" className="text-xs">
+                            {language === "ar" ? "مرتبط بمستخدم" : "Has User"}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Linked Users */}
+              <div>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                  <Users className="h-5 w-5" />
+                  {language === "ar" ? "المستخدمون" : "Users"}
+                  <Badge variant="secondary">{linkedUsers.length}</Badge>
+                </h3>
+                {linkedUsers.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    {language === "ar" ? "لا يوجد مستخدمون مرتبطون" : "No users linked"}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {linkedUsers.map((user) => (
+                      <div key={user.user_id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                        <div>
+                          <p className="font-medium">{user.user_name}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkedDialogOpen(false)}>
+              {language === "ar" ? "إغلاق" : "Close"}
             </Button>
           </DialogFooter>
         </DialogContent>
