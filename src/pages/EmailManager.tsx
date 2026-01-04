@@ -1220,13 +1220,14 @@ const EmailManager = () => {
                             )}
                             <button
                               onClick={(e) => handleReloadBody(email, e)}
+                              title={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
                               aria-label={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
-                              className="p-0.5 hover:bg-muted rounded"
+                              className="p-1 hover:bg-muted rounded transition-colors"
                               disabled={reloadingBodyId === email.id}
                             >
                               <RotateCw
                                 className={`h-4 w-4 text-muted-foreground hover:text-primary ${
-                                  reloadingBodyId === email.id ? "animate-spin" : ""
+                                  reloadingBodyId === email.id ? "animate-spin text-primary" : ""
                                 }`}
                               />
                             </button>
