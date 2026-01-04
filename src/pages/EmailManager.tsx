@@ -53,6 +53,7 @@ import {
   AlertCircle,
   X,
   Trash2,
+  RotateCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -173,6 +174,8 @@ const EmailManager = () => {
   // delete email
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingEmail, setDeletingEmail] = useState(false);
+  // reload body
+  const [reloadingBodyId, setReloadingBodyId] = useState<string | null>(null);
   // Compose dialog
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState({
@@ -813,6 +816,53 @@ const EmailManager = () => {
     }
   };
 
+  // Force reload email body from server
+  const handleReloadBody = async (email: Email, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!userConfig?.mail_type || !userConfig.email_password) {
+      toast.error(isArabic ? "إعدادات البريد غير مكتملة" : "Email settings incomplete");
+      return;
+    }
+
+    setReloadingBodyId(email.id);
+    try {
+      const folder = activeTab === "sent" ? "INBOX.Sent" : "INBOX";
+      const { data, error } = await supabase.functions.invoke("fetch-email-body-imap", {
+        body: {
+          imapHost: userConfig.mail_type.imap_host,
+          imapPort: userConfig.mail_type.imap_port,
+          imapSecure: userConfig.mail_type.imap_secure,
+          email: userConfig.email,
+          emailPassword: userConfig.email_password,
+          folder,
+          messageId: email.message_id,
+        },
+      });
+
+      if (error) throw error;
+
+      // Refresh email from DB
+      const { data: refreshed } = await supabase
+        .from("emails")
+        .select("*")
+        .eq("id", email.id)
+        .maybeSingle();
+
+      if (refreshed) {
+        setEmails((prev) => prev.map((em) => (em.id === email.id ? (refreshed as any) : em)));
+        if (selectedEmail?.id === email.id) {
+          setSelectedEmail(refreshed as any);
+        }
+        toast.success(isArabic ? "تم إعادة تحميل المحتوى" : "Body reloaded");
+      }
+    } catch (err: any) {
+      console.error("Reload body failed:", err);
+      toast.error(isArabic ? "فشل إعادة التحميل" : "Reload failed");
+    } finally {
+      setReloadingBodyId(null);
+    }
+  };
+
   const openCreateTicket = () => {
     if (!selectedEmail) return;
     setTicketData({
@@ -1164,16 +1214,29 @@ const EmailManager = () => {
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {format(new Date(email.email_date), "MMM d, h:mm a")}
                           </span>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             {email.has_attachments && (
                               <Paperclip className="h-4 w-4 text-muted-foreground" />
                             )}
+                            <button
+                              onClick={(e) => handleReloadBody(email, e)}
+                              aria-label={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
+                              className="p-0.5 hover:bg-muted rounded"
+                              disabled={reloadingBodyId === email.id}
+                            >
+                              <RotateCw
+                                className={`h-4 w-4 text-muted-foreground hover:text-primary ${
+                                  reloadingBodyId === email.id ? "animate-spin" : ""
+                                }`}
+                              />
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleToggleStar(email);
                               }}
                               aria-label={isArabic ? "تمييز" : "Star"}
+                              className="p-0.5 hover:bg-muted rounded"
                             >
                               <Star
                                 className={`h-4 w-4 ${
