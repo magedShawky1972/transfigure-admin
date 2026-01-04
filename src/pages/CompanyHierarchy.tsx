@@ -1079,7 +1079,7 @@ const CompanyHierarchy = () => {
 
                       {directEmployees.length > 0 && (
                         <div className="mt-2 flex items-center justify-center gap-2 px-2 py-2 bg-muted rounded-md flex-wrap">
-                          {directEmployees.slice(0, 4).map(emp => (
+                          {directEmployees.map(emp => (
                             <TooltipProvider key={emp.id}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1092,9 +1092,6 @@ const CompanyHierarchy = () => {
                               </Tooltip>
                             </TooltipProvider>
                           ))}
-                          {directEmployees.length > 4 && (
-                            <span className="text-xs text-muted-foreground">+{directEmployees.length - 4}</span>
-                          )}
                         </div>
                       )}
 
