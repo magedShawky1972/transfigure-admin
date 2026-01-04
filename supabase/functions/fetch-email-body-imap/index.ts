@@ -351,6 +351,13 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
     textContent = cleanRawMimeContent(textContent);
   }
 
+  // Post-process: if text contains VCALENDAR and no HTML, parse as calendar
+  if (textContent && /BEGIN:VCALENDAR/i.test(textContent) && !htmlContent) {
+    const parsed = parseICalendar(textContent);
+    textContent = parsed.text;
+    htmlContent = parsed.html;
+  }
+
   // If only HTML, derive text
   if (!textContent && htmlContent) {
     textContent = htmlContent
