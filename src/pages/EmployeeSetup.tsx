@@ -168,6 +168,8 @@ export default function EmployeeSetup() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   
+  const [selectedVacationTypes, setSelectedVacationTypes] = useState<string[]>([]);
+  
   const [formData, setFormData] = useState({
     employee_number: "",
     user_id: "",
@@ -194,7 +196,6 @@ export default function EmployeeSetup() {
     fixed_shift_end: "",
     shift_plan_id: "",
     attendance_type_id: "",
-    vacation_code_id: "",
     vacation_balance: "",
     medical_insurance_plan_id: "",
     basic_salary: "",
@@ -372,13 +373,13 @@ export default function EmployeeSetup() {
       fixed_shift_end: "",
       shift_plan_id: "",
       attendance_type_id: "",
-      vacation_code_id: "",
       vacation_balance: "",
       medical_insurance_plan_id: "",
       basic_salary: "",
       manager_id: "",
       photo_url: "",
     });
+    setSelectedVacationTypes([]);
     setLoadUsersDialogOpen(false);
     setDialogOpen(true);
   };
@@ -551,13 +552,13 @@ export default function EmployeeSetup() {
       fixed_shift_end: "",
       shift_plan_id: "",
       attendance_type_id: "",
-      vacation_code_id: "",
       vacation_balance: "",
       medical_insurance_plan_id: "",
       basic_salary: "",
       manager_id: "",
       photo_url: "",
     });
+    setSelectedVacationTypes([]);
     setDialogOpen(true);
   };
 
@@ -589,14 +590,30 @@ export default function EmployeeSetup() {
       fixed_shift_end: employee.fixed_shift_end || "",
       shift_plan_id: employee.shift_plan_id || "",
       attendance_type_id: employee.attendance_type_id || "",
-      vacation_code_id: employee.vacation_code_id || "",
       vacation_balance: employee.vacation_balance?.toString() || "",
       medical_insurance_plan_id: employee.medical_insurance_plan_id || "",
       basic_salary: employee.basic_salary?.toString() || "",
       manager_id: employee.manager_id || "",
       photo_url: employee.photo_url || "",
     });
+    // Fetch employee vacation types
+    fetchEmployeeVacationTypes(employee.id);
     setDialogOpen(true);
+  };
+
+  const fetchEmployeeVacationTypes = async (employeeId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("employee_vacation_types")
+        .select("vacation_code_id")
+        .eq("employee_id", employeeId);
+      
+      if (error) throw error;
+      setSelectedVacationTypes(data?.map(d => d.vacation_code_id) || []);
+    } catch (error: any) {
+      console.error("Error fetching vacation types:", error);
+      setSelectedVacationTypes([]);
+    }
   };
 
   const openDocumentDialog = (employee: Employee) => {
@@ -639,12 +656,13 @@ export default function EmployeeSetup() {
         fixed_shift_end: formData.fixed_shift_end || null,
         shift_plan_id: formData.shift_plan_id || null,
         attendance_type_id: formData.attendance_type_id || null,
-        vacation_code_id: formData.vacation_code_id || null,
         vacation_balance: formData.vacation_balance ? parseFloat(formData.vacation_balance) : null,
         medical_insurance_plan_id: formData.medical_insurance_plan_id || null,
         basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : null,
         manager_id: formData.manager_id || null,
       };
+
+      let employeeId: string;
 
       if (selectedEmployee) {
         const { error } = await supabase
@@ -652,11 +670,27 @@ export default function EmployeeSetup() {
           .update(payload)
           .eq("id", selectedEmployee.id);
         if (error) throw error;
+        employeeId = selectedEmployee.id;
         toast.success(language === "ar" ? "تم تحديث الموظف بنجاح" : "Employee updated successfully");
       } else {
-        const { error } = await supabase.from("employees").insert(payload);
+        const { data, error } = await supabase.from("employees").insert(payload).select("id").single();
         if (error) throw error;
+        employeeId = data.id;
         toast.success(language === "ar" ? "تم إضافة الموظف بنجاح" : "Employee added successfully");
+      }
+
+      // Update employee vacation types
+      // First delete existing
+      await supabase.from("employee_vacation_types").delete().eq("employee_id", employeeId);
+      
+      // Then insert new ones
+      if (selectedVacationTypes.length > 0) {
+        const vacationTypeRecords = selectedVacationTypes.map(vcId => ({
+          employee_id: employeeId,
+          vacation_code_id: vcId,
+        }));
+        const { error: vacError } = await supabase.from("employee_vacation_types").insert(vacationTypeRecords);
+        if (vacError) console.error("Error saving vacation types:", vacError);
       }
 
       setDialogOpen(false);
@@ -1387,24 +1421,34 @@ export default function EmployeeSetup() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label>{language === "ar" ? "نوع الإجازات" : "Vacation Type"}</Label>
-                  <Select
-                    value={formData.vacation_code_id || "_none_"}
-                    onValueChange={(value) => setFormData({ ...formData, vacation_code_id: value === "_none_" ? "" : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
-                      {vacationCodes.map((vc) => (
-                        <SelectItem key={vc.id} value={vc.id}>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>{language === "ar" ? "أنواع الإجازات" : "Vacation Types"}</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 border rounded-md max-h-40 overflow-y-auto">
+                    {vacationCodes.map((vc) => (
+                      <label key={vc.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedVacationTypes.includes(vc.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedVacationTypes([...selectedVacationTypes, vc.id]);
+                            } else {
+                              setSelectedVacationTypes(selectedVacationTypes.filter(id => id !== vc.id));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <span className="text-sm">
                           {language === "ar" ? vc.name_ar || vc.name_en : vc.name_en} ({vc.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" 
+                      ? `تم تحديد ${selectedVacationTypes.length} نوع إجازة`
+                      : `${selectedVacationTypes.length} vacation type(s) selected`}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
