@@ -45,7 +45,21 @@ self.addEventListener('notificationclick', function(event) {
   console.log('Notification clicked:', event);
   event.notification.close();
 
+  const urlToOpen = event.notification.data?.url || '/';
+  
   event.waitUntil(
-    clients.openWindow(event.notification.data?.url || '/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      // Check if app is already open
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(urlToOpen);
+          return client.focus();
+        }
+      }
+      // If no existing window, open new one
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
   );
 });
