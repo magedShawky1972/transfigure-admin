@@ -10,45 +10,23 @@ export function PushNotificationBar() {
   const [isDismissed, setIsDismissed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
-  const [isReady, setIsReady] = useState(false);
 
-  // Check if bar was dismissed and if push is supported
+  // Check browser support on mount
   useEffect(() => {
-    // Small delay to let the push hook initialize
-    const timer = setTimeout(() => {
-      const dismissed = localStorage.getItem("push_bar_dismissed");
-      const dismissedAt = localStorage.getItem("push_bar_dismissed_at");
-      
-      // Re-show bar after 7 days if dismissed
-      if (dismissed === "true" && dismissedAt) {
-        const dismissedDate = new Date(dismissedAt);
-        const daysSinceDismissed = (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSinceDismissed < 7) {
-          setIsDismissed(true);
-        } else {
-          // Clear old dismissal
-          localStorage.removeItem("push_bar_dismissed");
-          localStorage.removeItem("push_bar_dismissed_at");
-        }
-      } else if (dismissed === "true") {
-        setIsDismissed(true);
-      }
-      
-      // Check browser support
-      if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-        setIsSupported(false);
-      }
-      
-      setIsReady(true);
-    }, 500);
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      setIsSupported(false);
+    }
     
-    return () => clearTimeout(timer);
+    // Check if dismissed today - use sessionStorage so it resets on new sessions
+    const dismissedAt = sessionStorage.getItem("push_bar_dismissed_at");
+    if (dismissedAt) {
+      setIsDismissed(true);
+    }
   }, []);
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    localStorage.setItem("push_bar_dismissed", "true");
-    localStorage.setItem("push_bar_dismissed_at", new Date().toISOString());
+    sessionStorage.setItem("push_bar_dismissed_at", new Date().toISOString());
   };
 
   const handleEnablePush = async () => {
@@ -56,31 +34,32 @@ export function PushNotificationBar() {
     try {
       const success = await subscribe();
       if (success) {
-        // Remove dismissed flag on successful subscription
-        localStorage.removeItem("push_bar_dismissed");
-        localStorage.removeItem("push_bar_dismissed_at");
+        sessionStorage.removeItem("push_bar_dismissed_at");
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Wait for ready state
-  if (!isReady) {
-    return null;
-  }
-
   // Don't show if:
   // - Already subscribed to push notifications
-  // - Bar was dismissed (within 7 days)
+  // - Bar was dismissed (within 24 hours)
   // - Permission was permanently denied
   // - Push not supported
-  if (isSubscribed || isDismissed || permission === "denied" || !isSupported) {
+  if (!isSupported || permission === "denied") {
+    return null;
+  }
+  
+  if (isSubscribed) {
+    return null;
+  }
+  
+  if (isDismissed) {
     return null;
   }
 
   return (
-    <div className="bg-primary text-primary-foreground px-4 py-2 flex items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
+    <div className="bg-primary text-primary-foreground px-4 py-2.5 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3 flex-1">
         <Bell className="h-4 w-4 flex-shrink-0" />
         <span className="text-sm font-medium">
