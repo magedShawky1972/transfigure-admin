@@ -129,6 +129,7 @@ const CompanyHierarchy = () => {
   const [jobMode, setJobMode] = useState<"existing" | "new">("existing");
   const [selectedJobEmployees, setSelectedJobEmployees] = useState<string[]>([]);
   const [deptEmployeeSearch, setDeptEmployeeSearch] = useState("");
+  const [selectedDeptEmployees, setSelectedDeptEmployees] = useState<string[]>([]);
 
   const getEmployeeName = (emp: Employee) => {
     if (language === 'ar' && emp.first_name_ar) {
@@ -659,24 +660,41 @@ const CompanyHierarchy = () => {
     }
   };
 
-  const handleAssignEmployeeToDept = async (empId: string) => {
-    if (!selectedDeptId) return;
+  const handleAssignEmployeesToDept = async () => {
+    if (!selectedDeptId || selectedDeptEmployees.length === 0) return;
 
     try {
-      // Use upsert to handle existing assignments
-      const { error } = await supabase.from("hierarchy_assignments").upsert({
+      const assignments = selectedDeptEmployees.map(empId => ({
         employee_id: empId,
         department_id: selectedDeptId,
         job_position_id: null,
-      }, { onConflict: 'employee_id,department_id' });
+      }));
+
+      const { error } = await supabase.from("hierarchy_assignments").upsert(
+        assignments,
+        { onConflict: 'employee_id,department_id' }
+      );
 
       if (error) throw error;
-      toast({ title: language === 'ar' ? "تم تعيين الموظف للقسم" : "Employee assigned to department" });
+      toast({ 
+        title: language === 'ar' 
+          ? `تم تعيين ${selectedDeptEmployees.length} موظف للقسم` 
+          : `${selectedDeptEmployees.length} employee(s) assigned to department` 
+      });
       setAssignToDeptDialogOpen(false);
+      setSelectedDeptEmployees([]);
       fetchData();
     } catch (error: any) {
       toast({ title: error.message, variant: "destructive" });
     }
+  };
+
+  const toggleDeptEmployeeSelection = (empId: string) => {
+    setSelectedDeptEmployees(prev => 
+      prev.includes(empId) 
+        ? prev.filter(id => id !== empId)
+        : [...prev, empId]
+    );
   };
 
   const handleRemoveEmployeeFromDept = async (empId: string, empName: string, deptId: string) => {
@@ -1243,10 +1261,10 @@ const CompanyHierarchy = () => {
       </Dialog>
 
       {/* Assign Employee to Department Dialog */}
-      <Dialog open={assignToDeptDialogOpen} onOpenChange={(open) => { setAssignToDeptDialogOpen(open); if (!open) setDeptEmployeeSearch(""); }}>
+      <Dialog open={assignToDeptDialogOpen} onOpenChange={(open) => { setAssignToDeptDialogOpen(open); if (!open) { setDeptEmployeeSearch(""); setSelectedDeptEmployees([]); } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{language === 'ar' ? 'تعيين موظف للقسم' : 'Assign Employee to Department'}</DialogTitle>
+            <DialogTitle>{language === 'ar' ? 'تعيين موظفين للقسم' : 'Assign Employees to Department'}</DialogTitle>
           </DialogHeader>
           <Input
             placeholder={language === 'ar' ? 'بحث بالاسم...' : 'Search by name...'}
@@ -1266,7 +1284,18 @@ const CompanyHierarchy = () => {
                   return fullName.includes(searchLower) || fullNameEn.includes(searchLower) || fullNameAr.includes(searchLower);
                 })
                 .map(emp => (
-                <div key={emp.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer" onClick={() => handleAssignEmployeeToDept(emp.id)}>
+                <div 
+                  key={emp.id} 
+                  className={cn(
+                    "flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer",
+                    selectedDeptEmployees.includes(emp.id) && "bg-primary/10"
+                  )} 
+                  onClick={() => toggleDeptEmployeeSelection(emp.id)}
+                >
+                  <Checkbox 
+                    checked={selectedDeptEmployees.includes(emp.id)}
+                    onCheckedChange={() => toggleDeptEmployeeSelection(emp.id)}
+                  />
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={emp.photo_url || undefined} />
                     <AvatarFallback>{emp.first_name.charAt(0)}</AvatarFallback>
@@ -1286,6 +1315,14 @@ const CompanyHierarchy = () => {
               ))}
             </div>
           </ScrollArea>
+          <div className="flex justify-between items-center mt-4">
+            <span className="text-sm text-muted-foreground">
+              {language === 'ar' ? `تم اختيار ${selectedDeptEmployees.length}` : `${selectedDeptEmployees.length} selected`}
+            </span>
+            <Button onClick={handleAssignEmployeesToDept} disabled={selectedDeptEmployees.length === 0}>
+              {language === 'ar' ? 'تعيين' : 'Assign'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
