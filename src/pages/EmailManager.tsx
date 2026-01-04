@@ -1191,16 +1191,11 @@ const EmailManager = () => {
   }
 
   return (
-    <div className="container mx-auto px-3 py-2 space-y-2" dir={isArabic ? "rtl" : "ltr"}>
+    <div className="px-1 py-1 space-y-1" dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Mail className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold">{isArabic ? "مدير البريد" : "Email Manager"}</h1>
-            <p className="text-xs text-muted-foreground">
-              {userConfig?.email} ({userConfig?.mail_type?.type_name})
-            </p>
-          </div>
+          <Mail className="h-5 w-5 text-primary" />
+          <h1 className="text-lg font-bold">{isArabic ? "مدير البريد" : "Email Manager"}</h1>
         </div>
         <div className="flex items-center gap-2">
           {/* Loaded / Total indicator */}
@@ -1294,15 +1289,15 @@ const EmailManager = () => {
       </Dialog>
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-1">
         {/* Sidebar */}
         <div className="lg:col-span-2">
           <Card>
-            <CardContent className="p-2 space-y-2">
+            <CardContent className="p-1.5 space-y-1">
               {/* Email Account Info */}
-              <div className="p-2 bg-primary/5 rounded-lg border border-primary/10">
+              <div className="p-1.5 bg-primary/5 rounded border border-primary/10">
                 <p className="text-xs font-medium truncate">{userConfig?.user_name || userConfig?.email}</p>
-                <p className="text-xs text-muted-foreground truncate">{userConfig?.email}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{userConfig?.email}</p>
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical">
@@ -1342,8 +1337,8 @@ const EmailManager = () => {
 
         {/* Email List */}
         <div className="lg:col-span-4">
-          <Card className="h-[calc(100vh-120px)] flex flex-col">
-            <CardHeader className="p-2 pb-1">
+          <Card className="h-[calc(100vh-80px)] flex flex-col">
+            <CardHeader className="p-1.5 pb-1">
               <div className="relative">
                 <Search className={`absolute ${isArabic ? "right-3" : "left-3"} top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
                 <Input
@@ -1419,13 +1414,13 @@ const EmailManager = () => {
 
         {/* Email View */}
         <div className="lg:col-span-6">
-          <Card className="h-[calc(100vh-120px)] flex flex-col">
+          <Card className="h-[calc(100vh-80px)] flex flex-col">
             {selectedEmail ? (
               <>
-                <CardHeader className="p-3 pb-2">
+                <CardHeader className="p-2 pb-1">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <CardTitle className="text-lg">
+                    <div className="space-y-0.5 flex-1">
+                      <CardTitle className="text-base">
                         {decodeMimeWord(selectedEmail.subject || '') || (isArabic ? "(بدون موضوع)" : "(No subject)")}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">

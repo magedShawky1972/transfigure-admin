@@ -69,6 +69,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [changingPassword, setChangingPassword] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
   const [isSysadminSession, setIsSysadminSession] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,6 +92,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-hide header on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const mainElement = document.querySelector('main .overflow-auto');
+      if (!mainElement) return;
+      
+      const currentScrollY = mainElement.scrollTop;
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setHeaderVisible(false);
+      } else {
+        setHeaderVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    const mainElement = document.querySelector('main .overflow-auto');
+    if (mainElement) {
+      mainElement.addEventListener('scroll', handleScroll, { passive: true });
+      return () => mainElement.removeEventListener('scroll', handleScroll);
+    }
+  }, [lastScrollY]);
 
   useEffect(() => {
     const savedTheme = (localStorage.getItem("theme") as "light" | "dark") || "dark";
@@ -381,9 +405,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {/* Push Notification Enable Bar */}
           {(user || isSysadminSession) && <PushNotificationBar />}
           
-          <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+          <header className={`border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10 transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
             {/* Main header row */}
-            <div className="h-16 flex items-center justify-between px-4 md:px-6">
+            <div className="h-12 flex items-center justify-between px-3 md:px-4">
               <div className="flex items-center gap-3">
                 <SidebarTrigger className={language === "ar" ? "ml-4" : "mr-4"} />
                 <img src={edaraLogo} alt="Edara Logo" className="w-10 h-10 object-contain" />
@@ -502,7 +526,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             )}
           </header>
           
-          <div className="flex-1 overflow-auto p-6 w-full">
+          <div className="flex-1 overflow-auto p-2 w-full">
             {children}
           </div>
         </main>
