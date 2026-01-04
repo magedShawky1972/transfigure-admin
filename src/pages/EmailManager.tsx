@@ -54,6 +54,8 @@ import {
   X,
   Trash2,
   RotateCw,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -175,6 +177,8 @@ const EmailManager = () => {
   // delete email
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingEmail, setDeletingEmail] = useState(false);
+  // maximize email view
+  const [isEmailMaximized, setIsEmailMaximized] = useState(false);
   // reload body
   const [reloadingBodyId, setReloadingBodyId] = useState<string | null>(null);
   // Compose dialog
@@ -1385,6 +1389,15 @@ const EmailManager = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => setIsEmailMaximized(true)}
+                        title={isArabic ? "تكبير" : "Maximize"}
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => handleReloadBody(selectedEmail, e)}
                         title={isArabic ? "إعادة تحميل المحتوى" : "Reload body"}
                         disabled={reloadingBodyId === selectedEmail.id}
@@ -1482,6 +1495,99 @@ const EmailManager = () => {
           </Card>
         </div>
       </div>
+
+      {/* Maximize Email Dialog */}
+      <Dialog open={isEmailMaximized} onOpenChange={setIsEmailMaximized}>
+        <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg">
+                {selectedEmail ? (decodeMimeWord(selectedEmail.subject || '') || (isArabic ? "(بدون موضوع)" : "(No subject)")) : ""}
+              </DialogTitle>
+              <Button variant="ghost" size="icon" onClick={() => setIsEmailMaximized(false)}>
+                <Minimize2 className="h-4 w-4" />
+              </Button>
+            </div>
+            {selectedEmail && (
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p>
+                  {isArabic ? "من:" : "From:"} {decodeMimeWord(selectedEmail.from_name || '') || selectedEmail.from_address}
+                  {selectedEmail.from_name && (
+                    <span className="text-xs ml-1">&lt;{selectedEmail.from_address}&gt;</span>
+                  )}
+                </p>
+                {selectedEmail.to_addresses && (
+                  <p>
+                    {isArabic ? "إلى:" : "To:"}{" "}
+                    {Array.isArray(selectedEmail.to_addresses) 
+                      ? selectedEmail.to_addresses.map((r: any) => r.name || r.address || r).join(", ")
+                      : typeof selectedEmail.to_addresses === 'object'
+                        ? selectedEmail.to_addresses.address || JSON.stringify(selectedEmail.to_addresses)
+                        : selectedEmail.to_addresses
+                    }
+                  </p>
+                )}
+                {selectedEmail.cc_addresses && Array.isArray(selectedEmail.cc_addresses) && selectedEmail.cc_addresses.length > 0 && (
+                  <p>
+                    {isArabic ? "نسخة:" : "CC:"}{" "}
+                    {selectedEmail.cc_addresses.map((r: any) => r.name || r.address || r).join(", ")}
+                  </p>
+                )}
+                <p className="text-xs">{format(new Date(selectedEmail.email_date), "PPpp")}</p>
+              </div>
+            )}
+          </DialogHeader>
+          <div className="flex-1 min-h-0 mt-4">
+            {selectedEmail && (selectedEmail.body_html || (decodedHtml?.emailId === selectedEmail.id ? decodedHtml.html : null)) ? (
+              <div className="h-full rounded-md border overflow-hidden bg-background">
+                <iframe
+                  title={isArabic ? "محتوى البريد" : "Email content"}
+                  className="w-full h-full"
+                  sandbox="allow-popups allow-top-navigation-by-user-activation"
+                  srcDoc={`<!doctype html>
+<html lang="${isArabic ? "ar" : "en"}" dir="${isArabic ? "rtl" : "ltr"}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html, body { margin: 0; padding: 0; background: #ffffff; height: 100%; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        padding: 16px;
+        background: #ffffff;
+        color: #111827;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      img { max-width: 100%; height: auto; }
+      table { max-width: 100%; }
+      a { color: #2563eb; }
+    </style>
+  </head>
+  <body>
+    ${(selectedEmail.body_html || (decodedHtml?.emailId === selectedEmail.id ? decodedHtml.html : ""))
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, "")}
+  </body>
+</html>`}
+                />
+              </div>
+            ) : (
+              <ScrollArea className="h-full">
+                {selectedEmail?.body_text ? (
+                  <pre className="whitespace-pre-wrap text-sm font-sans p-4">
+                    {decodeMimeWord(selectedEmail.body_text)}
+                  </pre>
+                ) : (
+                  <p className="text-muted-foreground text-sm p-4">
+                    {isArabic ? "لا يوجد محتوى" : "No content available"}
+                  </p>
+                )}
+              </ScrollArea>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Compose Dialog */}
       <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
