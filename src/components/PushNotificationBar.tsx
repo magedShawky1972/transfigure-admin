@@ -9,36 +9,73 @@ export function PushNotificationBar() {
   const { permission, isSubscribed, subscribe } = usePushNotifications();
   const [isDismissed, setIsDismissed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSupported, setIsSupported] = useState(true);
+  const [isReady, setIsReady] = useState(false);
 
-  // Check if bar was dismissed in this session
+  // Check if bar was dismissed and if push is supported
   useEffect(() => {
-    const dismissed = sessionStorage.getItem("push_bar_dismissed");
-    if (dismissed === "true") {
-      setIsDismissed(true);
-    }
+    // Small delay to let the push hook initialize
+    const timer = setTimeout(() => {
+      const dismissed = localStorage.getItem("push_bar_dismissed");
+      const dismissedAt = localStorage.getItem("push_bar_dismissed_at");
+      
+      // Re-show bar after 7 days if dismissed
+      if (dismissed === "true" && dismissedAt) {
+        const dismissedDate = new Date(dismissedAt);
+        const daysSinceDismissed = (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceDismissed < 7) {
+          setIsDismissed(true);
+        } else {
+          // Clear old dismissal
+          localStorage.removeItem("push_bar_dismissed");
+          localStorage.removeItem("push_bar_dismissed_at");
+        }
+      } else if (dismissed === "true") {
+        setIsDismissed(true);
+      }
+      
+      // Check browser support
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        setIsSupported(false);
+      }
+      
+      setIsReady(true);
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    sessionStorage.setItem("push_bar_dismissed", "true");
+    localStorage.setItem("push_bar_dismissed", "true");
+    localStorage.setItem("push_bar_dismissed_at", new Date().toISOString());
   };
 
   const handleEnablePush = async () => {
     setIsLoading(true);
     try {
-      await subscribe();
+      const success = await subscribe();
+      if (success) {
+        // Remove dismissed flag on successful subscription
+        localStorage.removeItem("push_bar_dismissed");
+        localStorage.removeItem("push_bar_dismissed_at");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Don't show if already subscribed, dismissed, or permission denied permanently
-  if (isSubscribed || isDismissed || permission === "denied") {
+  // Wait for ready state
+  if (!isReady) {
     return null;
   }
 
-  // Check if push notifications are supported
-  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+  // Don't show if:
+  // - Already subscribed to push notifications
+  // - Bar was dismissed (within 7 days)
+  // - Permission was permanently denied
+  // - Push not supported
+  if (isSubscribed || isDismissed || permission === "denied" || !isSupported) {
     return null;
   }
 
