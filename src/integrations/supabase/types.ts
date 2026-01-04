@@ -1607,6 +1607,55 @@ export type Database = {
         }
         Relationships: []
       }
+      hierarchy_assignments: {
+        Row: {
+          created_at: string
+          department_id: string
+          employee_id: string
+          id: string
+          job_position_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          employee_id: string
+          id?: string
+          job_position_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          employee_id?: string
+          id?: string
+          job_position_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hierarchy_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_assignments_job_position_id_fkey"
+            columns: ["job_position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hyberpaystatement: {
         Row: {
           accountcountry: string | null
