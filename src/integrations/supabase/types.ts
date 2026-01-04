@@ -1972,6 +1972,7 @@ export type Database = {
           id: string
           is_active: boolean
           position_name: string
+          position_name_ar: string | null
           updated_at: string
         }
         Insert: {
@@ -1980,6 +1981,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           position_name: string
+          position_name_ar?: string | null
           updated_at?: string
         }
         Update: {
@@ -1988,6 +1990,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           position_name?: string
+          position_name_ar?: string | null
           updated_at?: string
         }
         Relationships: [
