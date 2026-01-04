@@ -1695,39 +1695,83 @@ const UserDashboard = () => {
 
   const renderEmailsWidget = () => (
     <Card className="h-full overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 pt-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Mail className="h-4 w-4 text-primary" />
           {getWidgetName("emails")}
         </CardTitle>
         <Badge variant="secondary">{unreadEmails.length}</Badge>
       </CardHeader>
-      <CardContent className="h-[calc(100%-60px)]">
+      <CardContent className="h-[calc(100%-50px)] p-0">
         <ScrollArea className="h-full">
           {unreadEmails.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="flex items-center justify-center h-full text-muted-foreground py-8">
               <CheckCircle2 className="h-8 w-8 mr-2" />
               {language === "ar" ? "لا توجد رسائل غير مقروءة" : "No unread emails"}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="divide-y">
               {unreadEmails.map(email => (
                 <div
                   key={email.id}
-                  className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => handleEmailClick(email.id)}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{email.subject || (language === "ar" ? "بدون موضوع" : "No Subject")}</p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {email.from_name || email.from_address}
-                      </p>
-                    </div>
+                  {/* From */}
+                  <div className="w-32 shrink-0">
+                    <p className="text-sm font-medium truncate">
+                      {email.from_name || email.from_address}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {format(new Date(email.email_date), "dd/MM/yyyy HH:mm")}
+                  {/* Subject */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">
+                      {email.subject || (language === "ar" ? "بدون موضوع" : "No Subject")}
+                    </p>
+                  </div>
+                  {/* Date */}
+                  <div className="w-28 shrink-0 text-xs text-muted-foreground text-right">
+                    {format(new Date(email.email_date), "dd/MM HH:mm")}
+                  </div>
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEmailClick(email.id);
+                      }}
+                      title={language === "ar" ? "عرض" : "View"}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Open reply dialog
+                        handleEmailClick(email.id);
+                      }}
+                      title={language === "ar" ? "رد" : "Reply"}
+                    >
+                      <Reply className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEmailClick(email.id);
+                      }}
+                      title={language === "ar" ? "تحويل" : "Forward"}
+                    >
+                      <Forward className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
