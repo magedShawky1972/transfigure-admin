@@ -1455,7 +1455,7 @@ const Transactions = () => {
                   <Button 
                     variant="outline" 
                     className="gap-2 text-orange-600 border-orange-600 hover:bg-orange-50 hover:text-orange-700" 
-                    disabled={resettingOdoo || sortedTransactions.length === 0}
+                    disabled={resettingOdoo}
                   >
                     {resettingOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                     {language === 'ar' ? 'إعادة تعيين Odoo' : 'Reset Odoo Sync'}
@@ -1467,20 +1467,22 @@ const Transactions = () => {
                     <AlertDialogTitle>
                       {language === 'ar' ? 'إعادة تعيين إرسال Odoo' : 'Reset Odoo Sync Flag'}
                     </AlertDialogTitle>
-                    <AlertDialogDescription className="space-y-2">
-                      <p>
-                        {language === 'ar'
-                          ? 'سيتم إعادة تعيين علامة الإرسال لجميع المعاملات في الفترة:'
-                          : 'This will reset the Odoo sync flag for all transactions in the period:'}
-                      </p>
-                      <p className="font-semibold text-foreground">
-                        {format(fromDate, 'yyyy-MM-dd')} → {format(toDate, 'yyyy-MM-dd')}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {language === 'ar'
-                          ? 'سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.'
-                          : 'This will allow you to resend data to Odoo.'}
-                      </p>
+                    <AlertDialogDescription asChild>
+                      <div className="space-y-2">
+                        <p>
+                          {language === 'ar'
+                            ? 'سيتم إعادة تعيين علامة الإرسال لجميع المعاملات في الفترة:'
+                            : 'This will reset the Odoo sync flag for all transactions in the period:'}
+                        </p>
+                        <p className="font-semibold text-foreground">
+                          {format(fromDate, 'yyyy-MM-dd')} → {format(toDate, 'yyyy-MM-dd')}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'ar'
+                            ? 'سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.'
+                            : 'This will allow you to resend data to Odoo.'}
+                        </p>
+                      </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
