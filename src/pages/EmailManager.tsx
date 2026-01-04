@@ -769,6 +769,14 @@ const EmailManager = () => {
     }
   };
 
+  const escapeHtml = (str: string) =>
+    str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
   const tryDecodeBase64Html = (input: string | null): string | null => {
     if (!input) return null;
     const trimmed = input.trim();
@@ -779,11 +787,26 @@ const EmailManager = () => {
 
     try {
       const decoded = atob(trimmed.replace(/\s/g, ""));
-      // If it decodes to HTML-ish content, return it.
-      const sample = decoded.slice(0, 2000).toLowerCase();
-      const looksHtml = sample.includes("<html") || sample.includes("<!doctype") || sample.includes("<body") || sample.includes("<div") || sample.includes("<p");
-      if (!looksHtml) return null;
-      return decoded;
+      const sample = decoded.slice(0, 4000).toLowerCase();
+
+      // Case 1: proper HTML
+      const looksHtml =
+        sample.includes("<html") ||
+        sample.includes("<!doctype") ||
+        sample.includes("<body") ||
+        sample.includes("<div") ||
+        sample.includes("<table") ||
+        sample.includes("<p");
+
+      if (looksHtml) return decoded;
+
+      // Case 2: decoded but not HTML (often MIME or plain text) → render in the same iframe panel
+      const looksText = sample.includes("content-type:") || sample.includes("mime-version:") || decoded.length > 0;
+      if (looksText) {
+        return `<pre style="white-space:pre-wrap;font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${escapeHtml(decoded)}</pre>`;
+      }
+
+      return null;
     } catch {
       return null;
     }
