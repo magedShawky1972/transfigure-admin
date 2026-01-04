@@ -140,11 +140,12 @@ const decodeMimeWord = (text: string): string => {
 const EmailManager = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
-  
+
   const [activeTab, setActiveTab] = useState("inbox");
   const [emails, setEmails] = useState<Email[]>([]);
   const [userConfig, setUserConfig] = useState<UserEmailConfig | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+  const [decodedHtml, setDecodedHtml] = useState<{ emailId: string; html: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
@@ -768,9 +769,38 @@ const EmailManager = () => {
     }
   };
 
+  const tryDecodeBase64Html = (input: string | null): string | null => {
+    if (!input) return null;
+    const trimmed = input.trim();
+
+    // Quick heuristic: looks like base64 and is fairly long
+    if (trimmed.length < 200) return null;
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(trimmed)) return null;
+
+    try {
+      const decoded = atob(trimmed.replace(/\s/g, ""));
+      // If it decodes to HTML-ish content, return it.
+      const sample = decoded.slice(0, 2000).toLowerCase();
+      const looksHtml = sample.includes("<html") || sample.includes("<!doctype") || sample.includes("<body") || sample.includes("<div") || sample.includes("<p");
+      if (!looksHtml) return null;
+      return decoded;
+    } catch {
+      return null;
+    }
+  };
+
   const handleSelectEmail = async (email: Email) => {
     setSelectedEmail(email);
+    setDecodedHtml(null);
     handleMarkAsRead(email);
+
+    // Client-side fallback: if body_text is a base64 HTML blob, render it in the same iframe panel.
+    if (!email.body_html && email.body_text) {
+      const html = tryDecodeBase64Html(email.body_text);
+      if (html) {
+        setDecodedHtml({ emailId: email.id, html });
+      }
+    }
 
     // Lazy-load body from server when missing
     if (!userConfig?.mail_type || !userConfig.email_password) return;
@@ -810,6 +840,12 @@ const EmailManager = () => {
       if (refreshed) {
         setSelectedEmail(refreshed as any);
         setEmails((prev) => prev.map((e) => (e.id === email.id ? (refreshed as any) : e)));
+
+        // If server saved only text but it's still a base64 HTML blob, decode for display.
+        if (!(refreshed as any).body_html && (refreshed as any).body_text) {
+          const html = tryDecodeBase64Html((refreshed as any).body_text);
+          if (html) setDecodedHtml({ emailId: email.id, html });
+        }
       }
     } catch (e) {
       console.error("Body lazy-load failed:", e);
@@ -1338,7 +1374,7 @@ const EmailManager = () => {
                 </CardHeader>
                 <Separator />
                 <CardContent className="p-4 flex-1 min-h-0">
-                  {selectedEmail.body_html ? (
+                  {selectedEmail.body_html || (decodedHtml?.emailId === selectedEmail.id ? decodedHtml.html : null) ? (
                     <div className="h-full min-h-0 rounded-md border overflow-hidden bg-background">
                       <iframe
                         title={isArabic ? "محتوى البريد" : "Email content"}
@@ -1363,7 +1399,7 @@ const EmailManager = () => {
     </style>
   </head>
   <body>
-    ${selectedEmail.body_html
+    ${(selectedEmail.body_html || (decodedHtml?.emailId === selectedEmail.id ? decodedHtml.html : ""))
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, "")}
   </body>
