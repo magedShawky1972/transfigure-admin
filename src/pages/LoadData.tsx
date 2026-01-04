@@ -560,14 +560,8 @@ const LoadData = () => {
 
       window.dispatchEvent(new CustomEvent('dataUploaded'));
 
-      // Process next file
-      const pendingFiles = fileItems.filter(f => f.status === 'pending');
-      const nextIndex = pendingFiles.findIndex(f => f.id !== fileId);
-      if (nextIndex >= 0) {
-        await processNextFile(0);
-      } else {
-        finishAllUploads();
-      }
+      // Move to next file index (don't re-filter, just increment)
+      await processNextFile(currentFileIndex + 1);
 
     } catch (error: any) {
       if (uploadLogId) {
