@@ -128,6 +128,7 @@ export function AppSidebar() {
     "/audit-logs": "auditLogs",
     "/certificate-management": "certificateManagement",
     "/security-dashboard": "securityDashboard",
+    "/job-setup": "jobSetup",
   };
 
   useEffect(() => {
