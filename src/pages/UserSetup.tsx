@@ -141,6 +141,7 @@ interface UserPermission {
     { key: "shiftPlansSetup", label: "خطط الورديات", labelEn: "Shift Plans" },
     { key: "documentTypeSetup", label: "أنواع المستندات", labelEn: "Document Types" },
     { key: "attendanceTypeSetup", label: "أنواع الحضور", labelEn: "Attendance Types" },
+    { key: "jobSetup", label: "إعداد الوظائف", labelEn: "Job Setup" },
     { key: "certificateManagement", label: "إدارة الشهادات", labelEn: "Certificate Management" },
     { key: "auditLogs", label: "سجلات التدقيق", labelEn: "Audit Logs" },
     { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
