@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Trash2, UserPlus, Edit, GripVertical, ShoppingCart, ChevronDown, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import DepartmentTaskPhases from "@/components/DepartmentTaskPhases";
 import DepartmentHierarchy from "@/components/DepartmentHierarchy";
 import {
@@ -856,111 +857,113 @@ const DepartmentManagement = () => {
         </Dialog>
 
         <Dialog open={openEditDept} onOpenChange={setOpenEditDept}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{language === 'ar' ? 'تعديل القسم' : 'Edit Department'}</DialogTitle>
             </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmitEditDepartment)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="department_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'اسم القسم (إنجليزي)' : 'Department Name (English)'}</FormLabel>
-                      <FormControl>
-                        <Input placeholder={language === 'ar' ? 'مثال: Technical Support' : 'e.g. Technical Support'} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="department_name_ar"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'اسم القسم (عربي)' : 'Department Name (Arabic)'}</FormLabel>
-                      <FormControl>
-                        <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. الدعم الفني'} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="department_code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'كود القسم' : 'Department Code'}</FormLabel>
-                      <FormControl>
-                        <Input placeholder={language === 'ar' ? 'مثال: TECH' : 'e.g. TECH'} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'الوصف (اختياري)' : 'Description (Optional)'}</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder={language === 'ar' ? 'وصف القسم' : 'Department description'} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="parent_department_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'القسم الرئيسي (اختياري)' : 'Parent Department (Optional)'}</FormLabel>
-                      <FormControl>
-                        <DepartmentHierarchy
-                          departments={departments.filter(d => d.id !== editingDept?.id)}
-                          selectedId={field.value}
-                          onSelect={(id) => field.onChange(id)}
-                          language={language}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="is_outsource"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rtl:space-x-reverse">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal cursor-pointer">
-                        {language === 'ar' ? 'قسم خارجي (لن يظهر في الهيكل التنظيمي)' : 'Outsource Department (Will not appear in Company Hierarchy)'}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => {
-                    setOpenEditDept(false);
-                    setEditingDept(null);
-                    form.reset();
-                  }}>
-                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                  </Button>
-                  <Button type="submit">{language === 'ar' ? 'حفظ' : 'Save'}</Button>
-                </div>
-              </form>
-            </Form>
+            <ScrollArea className="flex-1 max-h-[calc(90vh-120px)] pr-4">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmitEditDepartment)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="department_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'اسم القسم (إنجليزي)' : 'Department Name (English)'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'مثال: Technical Support' : 'e.g. Technical Support'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="department_name_ar"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'اسم القسم (عربي)' : 'Department Name (Arabic)'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'مثال: الدعم الفني' : 'e.g. الدعم الفني'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="department_code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'كود القسم' : 'Department Code'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'مثال: TECH' : 'e.g. TECH'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الوصف (اختياري)' : 'Description (Optional)'}</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder={language === 'ar' ? 'وصف القسم' : 'Department description'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="parent_department_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'القسم الرئيسي (اختياري)' : 'Parent Department (Optional)'}</FormLabel>
+                        <FormControl>
+                          <DepartmentHierarchy
+                            departments={departments.filter(d => d.id !== editingDept?.id)}
+                            selectedId={field.value}
+                            onSelect={(id) => field.onChange(id)}
+                            language={language}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="is_outsource"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rtl:space-x-reverse">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal cursor-pointer">
+                          {language === 'ar' ? 'قسم خارجي (لن يظهر في الهيكل التنظيمي)' : 'Outsource Department (Will not appear in Company Hierarchy)'}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-2">
+                    <Button type="button" variant="outline" onClick={() => {
+                      setOpenEditDept(false);
+                      setEditingDept(null);
+                      form.reset();
+                    }}>
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    </Button>
+                    <Button type="submit">{language === 'ar' ? 'حفظ' : 'Save'}</Button>
+                  </div>
+                </form>
+              </Form>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>
