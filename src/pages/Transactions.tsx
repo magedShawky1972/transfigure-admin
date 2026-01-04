@@ -51,6 +51,7 @@ import { MultiLevelGroupByZone } from "@/components/transactions/MultiLevelGroup
 import { MultiLevelGroupedTransactions } from "@/components/transactions/MultiLevelGroupedTransactions";
 import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
 import { BackgroundSyncStatusCard } from "@/components/BackgroundSyncStatusCard";
+import { ResetOdooSyncDialog } from "@/components/ResetOdooSyncDialog";
 
 interface GroupLevel {
   columnId: string;
@@ -146,7 +147,6 @@ const Transactions = () => {
   const [syncingAllToOdoo, setSyncingAllToOdoo] = useState(false);
   const [odooStepDialogOpen, setOdooStepDialogOpen] = useState(false);
   const [odooStepTransactions, setOdooStepTransactions] = useState<Transaction[]>([]);
-  const [resettingOdoo, setResettingOdoo] = useState(false);
   const pageSize = 500;
 
   const allColumns = [
@@ -1009,36 +1009,6 @@ const Transactions = () => {
     navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
   };
 
-  const confirmResetOdooSync = async () => {
-    setResettingOdoo(true);
-    try {
-      const fromDateInt = parseInt(format(fromDate, 'yyyyMMdd'), 10);
-      const toDateInt = parseInt(format(toDate, 'yyyyMMdd'), 10);
-
-      const { data, error } = await supabase.functions.invoke('reset-odoo-sync', {
-        body: { fromDateInt, toDateInt },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      toast({
-        title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
-        description: language === 'ar'
-          ? `تم إعادة تعيين ${data?.updatedCount || 0} معاملة بنجاح`
-          : `${data?.updatedCount || 0} transaction(s) reset successfully`,
-      });
-    } catch (error) {
-      console.error('Error resetting Odoo sync:', error);
-      toast({
-        variant: 'destructive',
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل في إعادة التعيين' : 'Failed to reset Odoo sync flag',
-      });
-    } finally {
-      setResettingOdoo(false);
-    }
-  };
 
   const renderCell = (transaction: Transaction, columnId: string) => {
     const value = transaction[columnId as keyof Transaction];
@@ -1450,55 +1420,7 @@ const Transactions = () => {
                 {syncingAllToOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {language === 'ar' ? 'إرسال الكل لـ Odoo' : 'Sync All to Odoo'}
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="gap-2 text-orange-600 border-orange-600 hover:bg-orange-50 hover:text-orange-700" 
-                    disabled={resettingOdoo}
-                  >
-                    {resettingOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                    {language === 'ar' ? 'إعادة تعيين Odoo' : 'Reset Odoo Sync'}
-                  </Button>
-                </AlertDialogTrigger>
-
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {language === 'ar' ? 'إعادة تعيين إرسال Odoo' : 'Reset Odoo Sync Flag'}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription asChild>
-                      <div className="space-y-2">
-                        <p>
-                          {language === 'ar'
-                            ? 'سيتم إعادة تعيين علامة الإرسال لجميع المعاملات في الفترة:'
-                            : 'This will reset the Odoo sync flag for all transactions in the period:'}
-                        </p>
-                        <p className="font-semibold text-foreground">
-                          {format(fromDate, 'yyyy-MM-dd')} → {format(toDate, 'yyyy-MM-dd')}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {language === 'ar'
-                            ? 'سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.'
-                            : 'This will allow you to resend data to Odoo.'}
-                        </p>
-                      </div>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={resettingOdoo}>
-                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={confirmResetOdooSync}
-                      disabled={resettingOdoo}
-                      className="bg-orange-600 text-white hover:bg-orange-700 gap-2"
-                    >
-                      {language === 'ar' ? 'إعادة تعيين' : 'Reset'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <ResetOdooSyncDialog fromDate={fromDate} toDate={toDate} language={language} />
             </div>
           </div>
         </CardHeader>
