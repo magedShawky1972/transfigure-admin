@@ -1145,6 +1145,13 @@ const Auth = () => {
           type={certificateDialogType}
         />
       )}
+
+      {/* Copyright Footer */}
+      <div className="absolute bottom-4 left-0 right-0 text-center">
+        <p className="text-sm text-muted-foreground">
+          © {new Date().getFullYear()} Asus. {language === 'ar' ? 'جميع الحقوق محفوظة' : 'All rights reserved.'}
+        </p>
+      </div>
     </div>
   );
 };
