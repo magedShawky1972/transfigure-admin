@@ -821,6 +821,7 @@ export type Database = {
           created_at: string
           department_code: string
           department_name: string
+          department_name_ar: string | null
           description: string | null
           display_order: number | null
           id: string
@@ -836,6 +837,7 @@ export type Database = {
           created_at?: string
           department_code: string
           department_name: string
+          department_name_ar?: string | null
           description?: string | null
           display_order?: number | null
           id?: string
@@ -851,6 +853,7 @@ export type Database = {
           created_at?: string
           department_code?: string
           department_name?: string
+          department_name_ar?: string | null
           description?: string | null
           display_order?: number | null
           id?: string
