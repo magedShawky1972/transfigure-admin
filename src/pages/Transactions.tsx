@@ -145,6 +145,8 @@ const Transactions = () => {
   const [syncingAllToOdoo, setSyncingAllToOdoo] = useState(false);
   const [odooStepDialogOpen, setOdooStepDialogOpen] = useState(false);
   const [odooStepTransactions, setOdooStepTransactions] = useState<Transaction[]>([]);
+  const [resetOdooDialogOpen, setResetOdooDialogOpen] = useState(false);
+  const [resettingOdoo, setResettingOdoo] = useState(false);
   const pageSize = 500;
 
   const allColumns = [
@@ -1007,6 +1009,58 @@ const Transactions = () => {
     navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
   };
 
+  // Reset Odoo sync flag for all visible transactions
+  const handleResetOdooSync = async () => {
+    if (sortedTransactions.length === 0) {
+      toast({
+        title: language === 'ar' ? 'لا توجد معاملات' : 'No Transactions',
+        description: language === 'ar' ? 'لا توجد معاملات لإعادة تعيينها' : 'No transactions to reset',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setResetOdooDialogOpen(true);
+  };
+
+  const confirmResetOdooSync = async () => {
+    setResettingOdoo(true);
+    try {
+      // Get unique order numbers from visible transactions
+      const orderNumbers = [...new Set(sortedTransactions.map(t => t.order_number))];
+      
+      const { error } = await supabase
+        .from('purpletransaction')
+        .update({ sendodoo: false })
+        .in('order_number', orderNumbers);
+
+      if (error) throw error;
+
+      // Update local state
+      setTransactions(prev => prev.map(t => 
+        orderNumbers.includes(t.order_number) 
+          ? { ...t, sendodoo: false } 
+          : t
+      ));
+
+      toast({
+        title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
+        description: language === 'ar' 
+          ? `تم إعادة تعيين ${orderNumbers.length} طلب(ات)`
+          : `${orderNumbers.length} order(s) reset successfully`,
+      });
+    } catch (error) {
+      console.error('Error resetting Odoo sync:', error);
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في إعادة التعيين' : 'Failed to reset Odoo sync flag',
+      });
+    } finally {
+      setResettingOdoo(false);
+      setResetOdooDialogOpen(false);
+    }
+  };
+
   const renderCell = (transaction: Transaction, columnId: string) => {
     const value = transaction[columnId as keyof Transaction];
 
@@ -1265,6 +1319,35 @@ const Transactions = () => {
         }}
       />
 
+      {/* Reset Odoo Sync Confirmation Dialog */}
+      <AlertDialog open={resetOdooDialogOpen} onOpenChange={setResetOdooDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'إعادة تعيين إرسال Odoo' : 'Reset Odoo Sync Flag'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? `هل أنت متأكد من إعادة تعيين علامة الإرسال لـ ${[...new Set(sortedTransactions.map(t => t.order_number))].length} طلب(ات)؟ سيتيح لك هذا إعادة إرسال البيانات إلى Odoo.`
+                : `Are you sure you want to reset the Odoo sync flag for ${[...new Set(sortedTransactions.map(t => t.order_number))].length} order(s)? This will allow you to resend data to Odoo.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resettingOdoo}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmResetOdooSync} 
+              disabled={resettingOdoo}
+              className="bg-orange-600 text-white hover:bg-orange-700 gap-2"
+            >
+              {resettingOdoo && <Loader2 className="h-4 w-4 animate-spin" />}
+              {language === 'ar' ? 'إعادة تعيين' : 'Reset'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {loadingAll && (
         <LoadingOverlay
           progress={loadingProgress}
@@ -1416,6 +1499,15 @@ const Transactions = () => {
               >
                 {syncingAllToOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {language === 'ar' ? 'إرسال الكل لـ Odoo' : 'Sync All to Odoo'}
+              </Button>
+              <Button 
+                variant="outline" 
+                className="gap-2 text-orange-600 border-orange-600 hover:bg-orange-50 hover:text-orange-700" 
+                onClick={handleResetOdooSync}
+                disabled={resettingOdoo || sortedTransactions.length === 0}
+              >
+                {resettingOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                {language === 'ar' ? 'إعادة تعيين Odoo' : 'Reset Odoo Sync'}
               </Button>
             </div>
           </div>
