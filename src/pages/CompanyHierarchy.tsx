@@ -71,6 +71,13 @@ interface Employee {
   email: string | null;
 }
 
+interface HierarchyAssignment {
+  id: string;
+  employee_id: string;
+  department_id: string;
+  job_position_id: string | null;
+}
+
 interface NodePosition {
   id: string;
   x: number;
@@ -83,6 +90,7 @@ const CompanyHierarchy = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [hierarchyAssignments, setHierarchyAssignments] = useState<HierarchyAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const canvasRef = useRef<HTMLDivElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -300,19 +308,22 @@ const CompanyHierarchy = () => {
 
   const fetchData = async () => {
     try {
-      const [deptRes, jobRes, empRes] = await Promise.all([
+      const [deptRes, jobRes, empRes, assignRes] = await Promise.all([
         supabase.from("departments").select("*").order("display_order").order("department_name"),
         supabase.from("job_positions").select("*").order("position_name"),
         supabase.from("employees").select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number, job_position_id, department_id, photo_url, employment_status, user_id, email").eq("employment_status", "active"),
+        supabase.from("hierarchy_assignments").select("id, employee_id, department_id, job_position_id"),
       ]);
 
       if (deptRes.error) throw deptRes.error;
       if (jobRes.error) throw jobRes.error;
       if (empRes.error) throw empRes.error;
+      if (assignRes.error) throw assignRes.error;
 
       setDepartments(deptRes.data || []);
       setJobPositions(jobRes.data || []);
       setEmployees(empRes.data || []);
+      setHierarchyAssignments(assignRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -630,10 +641,12 @@ const CompanyHierarchy = () => {
     if (!selectedJobId || !selectedDeptId) return;
 
     try {
-      const { error } = await supabase.from("employees").update({
-        job_position_id: selectedJobId,
+      // Use upsert to handle existing assignments
+      const { error } = await supabase.from("hierarchy_assignments").upsert({
+        employee_id: empId,
         department_id: selectedDeptId,
-      }).eq("id", empId);
+        job_position_id: selectedJobId,
+      }, { onConflict: 'employee_id,department_id' });
 
       if (error) throw error;
       
@@ -649,10 +662,12 @@ const CompanyHierarchy = () => {
     if (!selectedDeptId) return;
 
     try {
-      const { error } = await supabase.from("employees").update({
+      // Use upsert to handle existing assignments
+      const { error } = await supabase.from("hierarchy_assignments").upsert({
+        employee_id: empId,
         department_id: selectedDeptId,
         job_position_id: null,
-      }).eq("id", empId);
+      }, { onConflict: 'employee_id,department_id' });
 
       if (error) throw error;
       toast({ title: language === 'ar' ? "تم تعيين الموظف للقسم" : "Employee assigned to department" });
@@ -663,11 +678,12 @@ const CompanyHierarchy = () => {
     }
   };
 
-  const handleRemoveEmployeeFromDept = async (empId: string, empName: string) => {
+  const handleRemoveEmployeeFromDept = async (empId: string, empName: string, deptId: string) => {
     try {
-      const { error } = await supabase.from("employees").update({
-        department_id: null,
-      }).eq("id", empId);
+      const { error } = await supabase.from("hierarchy_assignments")
+        .delete()
+        .eq("employee_id", empId)
+        .eq("department_id", deptId);
 
       if (error) throw error;
       toast({ title: language === 'ar' ? `تم إزالة ${empName} من القسم` : `${empName} removed from department` });
@@ -679,9 +695,9 @@ const CompanyHierarchy = () => {
 
   const getJobsForDepartment = (deptId: string) => {
     const jobIdsWithEmpsInDept = new Set(
-      employees
-        .filter(e => e.department_id === deptId && e.job_position_id)
-        .map(e => e.job_position_id)
+      hierarchyAssignments
+        .filter(a => a.department_id === deptId && a.job_position_id)
+        .map(a => a.job_position_id)
     );
     
     return jobPositions.filter(j => 
@@ -690,11 +706,17 @@ const CompanyHierarchy = () => {
   };
 
   const getEmployeesForJob = (jobId: string, departmentId: string) => {
-    return employees.filter(e => e.job_position_id === jobId && e.department_id === departmentId);
+    const assignedEmpIds = hierarchyAssignments
+      .filter(a => a.job_position_id === jobId && a.department_id === departmentId)
+      .map(a => a.employee_id);
+    return employees.filter(e => assignedEmpIds.includes(e.id));
   };
 
   const getEmployeesDirectlyInDepartment = (deptId: string) => {
-    return employees.filter(e => e.department_id === deptId && !e.job_position_id);
+    const assignedEmpIds = hierarchyAssignments
+      .filter(a => a.department_id === deptId && !a.job_position_id)
+      .map(a => a.employee_id);
+    return employees.filter(e => assignedEmpIds.includes(e.id));
   };
 
   const getAllActiveEmployees = () => {
