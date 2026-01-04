@@ -1009,16 +1009,8 @@ const Transactions = () => {
     navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
   };
 
-  // Reset Odoo sync flag for all visible transactions
-  const handleResetOdooSync = async () => {
-    if (sortedTransactions.length === 0) {
-      toast({
-        title: language === 'ar' ? 'لا توجد معاملات' : 'No Transactions',
-        description: language === 'ar' ? 'لا توجد معاملات لإعادة تعيينها' : 'No transactions to reset',
-        variant: 'destructive',
-      });
-      return;
-    }
+  // Reset Odoo sync flag for all transactions within date range (fast backend batch)
+  const handleResetOdooSync = () => {
     setResetOdooDialogOpen(true);
   };
 
@@ -1026,30 +1018,29 @@ const Transactions = () => {
     setResettingOdoo(true);
     try {
       // Convert dates to integer format (YYYYMMDD)
-      const fromDateInt = parseInt(format(fromDate, 'yyyyMMdd'));
-      const toDateInt = parseInt(format(toDate, 'yyyyMMdd'));
-
-      console.log(`Calling reset-odoo-sync edge function: ${fromDateInt} to ${toDateInt}`);
+      const fromDateInt = parseInt(format(fromDate, 'yyyyMMdd'), 10);
+      const toDateInt = parseInt(format(toDate, 'yyyyMMdd'), 10);
 
       const { data, error } = await supabase.functions.invoke('reset-odoo-sync', {
-        body: { fromDateInt, toDateInt }
+        body: { fromDateInt, toDateInt },
       });
 
       if (error) throw error;
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      // Update local state - reset all transactions in the current view
-      setTransactions(prev => prev.map(t => ({ ...t, sendodoo: false })));
+      if (data?.error) throw new Error(data.error);
 
       toast({
         title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
-        description: language === 'ar' 
-          ? `تم إعادة تعيين ${data?.updatedCount || 0} معاملة بنجاح`
-          : `${data?.updatedCount || 0} transaction(s) reset successfully`,
+        description:
+          language === 'ar'
+            ? `تم إعادة تعيين ${data?.updatedCount || 0} معاملة بنجاح`
+            : `${data?.updatedCount || 0} transaction(s) reset successfully`,
       });
+
+      // Re-fetch current view (avoid heavy local array mapping that can freeze UI)
+      setIsAllDataLoaded(false);
+      setPage(1);
+      await fetchTransactions();
+      await fetchTotals();
     } catch (error) {
       console.error('Error resetting Odoo sync:', error);
       toast({
