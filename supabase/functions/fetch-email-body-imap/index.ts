@@ -193,6 +193,91 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
     return cleaned;
   };
 
+  const parseICalendar = (ics: string): { text: string; html: string } => {
+    const raw = (ics || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    // Unfold lines (RFC 5545)
+    const foldedLines = raw.split("\n");
+    const lines: string[] = [];
+    for (const l of foldedLines) {
+      if ((l.startsWith(" ") || l.startsWith("\t")) && lines.length > 0) {
+        lines[lines.length - 1] += l.trimStart();
+      } else {
+        lines.push(l.trimEnd());
+      }
+    }
+
+    const getProp = (name: string): string | null => {
+      const re = new RegExp(`^${name}(?:;[^:]*)?:(.*)$`, "i");
+      const found = lines.find((ln) => re.test(ln));
+      if (!found) return null;
+      const m = found.match(re);
+      return (m?.[1] || "").trim() || null;
+    };
+
+    const summary = getProp("SUMMARY");
+    const dtStart = getProp("DTSTART");
+    const dtEnd = getProp("DTEND");
+    const location = getProp("LOCATION");
+    const description = getProp("DESCRIPTION");
+    const method = getProp("METHOD") || getProp("X-MICROSOFT-CDO-BUSYSTATUS");
+    const status = getProp("STATUS");
+
+    // Teams link can be in DESCRIPTION or anywhere
+    const fullText = lines.join("\n");
+    const teamsLinkMatch = fullText.match(/https?:\/\/(?:www\.)?teams\.microsoft\.com\/l\/meetup-join\/[^\s>]+/i);
+    const teamsLink = teamsLinkMatch?.[0] || null;
+
+    const items: Array<[string, string]> = [];
+    if (summary) items.push(["Event", summary]);
+    if (status) items.push(["Status", status]);
+    if (method) items.push(["Method", method]);
+    if (dtStart) items.push(["Start", dtStart]);
+    if (dtEnd) items.push(["End", dtEnd]);
+    if (location) items.push(["Location", location]);
+    if (teamsLink) items.push(["Teams", teamsLink]);
+
+    const text = [
+      "[Calendar Invitation]",
+      ...items.map(([k, v]) => `${k}: ${v}`),
+      description ? `\n${description}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+
+    const escape = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const html = `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.6">
+        <h2 style="margin:0 0 8px 0;">${escape(summary || "Calendar Invitation")}</h2>
+        <table style="border-collapse:collapse;width:100%;max-width:720px">
+          <tbody>
+            ${items
+              .filter(([k]) => k !== "Event")
+              .map(([k, v]) => {
+                const vv = k === "Teams" ? `<a href="${escape(v)}" target="_blank" rel="noopener noreferrer">Join meeting</a>` : escape(v);
+                return `
+                  <tr>
+                    <td style="padding:6px 10px;border-top:1px solid #e5e7eb;color:#6b7280;white-space:nowrap">${escape(k)}</td>
+                    <td style="padding:6px 10px;border-top:1px solid #e5e7eb;color:#111827">${vv}</td>
+                  </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>
+        ${description ? `<p style="margin-top:10px;white-space:pre-wrap">${escape(description)}</p>` : ""}
+      </div>
+    `.trim();
+
+    return { text, html };
+  };
+
   const parseMimeRecursive = (part: string): { text: string; html: string } => {
     const { headers, body } = splitHeadersAndBody(part);
 
@@ -226,22 +311,11 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
         } else if (pType.includes("text/html")) {
           if (!htmlContent) htmlContent = decodeBodyByEncoding(ph, pb);
         } else if (pType.includes("text/calendar")) {
-          // Handle calendar invitations - extract summary if possible
           const decoded = decodeBodyByEncoding(ph, pb);
-          if (!textContent) {
-            // Extract SUMMARY from iCalendar format
-            const summaryMatch = decoded.match(/SUMMARY[;:]([^\r\n]+)/i);
-            const descMatch = decoded.match(/DESCRIPTION[;:]([^\r\n]+)/i);
-            const locationMatch = decoded.match(/LOCATION[;:]([^\r\n]+)/i);
-            const startMatch = decoded.match(/DTSTART[;:]([^\r\n]+)/i);
-            
-            let calendarText = "[Calendar Invitation]\n";
-            if (summaryMatch) calendarText += `Event: ${summaryMatch[1]}\n`;
-            if (startMatch) calendarText += `When: ${startMatch[1]}\n`;
-            if (locationMatch) calendarText += `Location: ${locationMatch[1]}\n`;
-            if (descMatch) calendarText += `Description: ${descMatch[1]}\n`;
-            
-            textContent = calendarText.trim();
+          if (!textContent && !htmlContent) {
+            const parsed = parseICalendar(decoded);
+            textContent = parsed.text;
+            htmlContent = parsed.html;
           }
         }
 
@@ -254,10 +328,8 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
     // Not multipart
     const decoded = decodeBodyByEncoding(headers, body);
     if (contentType.includes("text/html")) return { text: "", html: decoded };
-    if (contentType.includes("text/calendar")) {
-      // Handle standalone calendar
-      const summaryMatch = decoded.match(/SUMMARY[;:]([^\r\n]+)/i);
-      return { text: summaryMatch ? `[Calendar: ${summaryMatch[1]}]` : decoded, html: "" };
+    if (contentType.includes("text/calendar") || /BEGIN:VCALENDAR/i.test(decoded)) {
+      return parseICalendar(decoded);
     }
     return { text: decoded, html: "" };
   };
