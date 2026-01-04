@@ -430,6 +430,9 @@ serve(async (req) => {
     // Determine seq
     let seq: number | null = null;
     const parts = messageId.split("|");
+    
+    console.log("Looking for email with messageId:", messageId, "in folder:", folder);
+    console.log("Parts:", parts);
 
     // Our stored message_id format is:
     // - "${email}|${message_id_header}" (if message_id header exists)
@@ -440,6 +443,7 @@ serve(async (req) => {
       const last = parts[parts.length - 1];
       if (/^\d+$/.test(last)) {
         seq = parseInt(last, 10);
+        console.log("Found seq from folder|seq pattern:", seq);
       }
     }
 
@@ -447,15 +451,26 @@ serve(async (req) => {
     // Format: "${email}|${message_id_header}"
     if (!seq && parts.length >= 2) {
       const headerValue = parts.slice(1).join("|"); // Everything after the first pipe
+      console.log("Searching by Message-ID header:", headerValue);
+      
       // Try with angle brackets variations
       const normalized = headerValue.replace(/[<>]/g, "").trim();
       
       // Try different search variations
+      console.log("Trying search with angle brackets:", `<${normalized}>`);
       seq = await client.searchMessageId(`<${normalized}>`);
-      if (!seq) seq = await client.searchMessageId(normalized);
+      
+      if (!seq) {
+        console.log("Trying search without angle brackets:", normalized);
+        seq = await client.searchMessageId(normalized);
+      }
+      
       if (!seq && !headerValue.startsWith("<")) {
+        console.log("Trying search with original value:", headerValue);
         seq = await client.searchMessageId(headerValue);
       }
+      
+      console.log("Search result seq:", seq);
     }
 
     // 3) Legacy fallback: "...-<seq>-<timestamp>" pattern
@@ -463,17 +478,23 @@ serve(async (req) => {
       const dashSeqMatch = messageId.match(/-(\d+)-(\d+)$/);
       if (dashSeqMatch) {
         const maybeSeq = parseInt(dashSeqMatch[1], 10);
-        if (!Number.isNaN(maybeSeq) && maybeSeq > 0) seq = maybeSeq;
+        if (!Number.isNaN(maybeSeq) && maybeSeq > 0) {
+          seq = maybeSeq;
+          console.log("Found seq from legacy pattern:", seq);
+        }
       }
     }
 
     if (!seq) {
+      console.log("Email not found, message_id:", messageId);
       await client.logout();
       return new Response(JSON.stringify({ success: false, error: "Email not found on server" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    
+    console.log("Found email at seq:", seq);
 
      const raw = await client.fetchFullRaw(seq);
      const { text, html, hasAttachments } = extractBodyFromMime(raw);

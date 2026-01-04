@@ -826,7 +826,12 @@ const EmailManager = () => {
 
     setReloadingBodyId(email.id);
     try {
-      const folder = activeTab === "sent" ? "INBOX.Sent" : "INBOX";
+      // Use the email's actual folder, mapping DB folder names to IMAP folder names
+      let folder = email.folder || "INBOX";
+      if (folder === "Sent") folder = "INBOX.Sent";
+      
+      console.log("Reloading body for email:", email.id, "folder:", folder, "message_id:", email.message_id);
+      
       const { data, error } = await supabase.functions.invoke("fetch-email-body-imap", {
         body: {
           imapHost: userConfig.mail_type.imap_host,
@@ -839,7 +844,15 @@ const EmailManager = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Reload body error:", error);
+        throw error;
+      }
+      
+      if (data && !data.success) {
+        toast.error(data.error || (isArabic ? "فشل إعادة التحميل" : "Reload failed"));
+        return;
+      }
 
       // Refresh email from DB
       const { data: refreshed } = await supabase
