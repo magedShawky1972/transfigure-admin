@@ -43,29 +43,30 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${totalCount} records to reset`);
 
-    // Perform the batch update
-    const { data, error } = await supabase
+    // Perform the batch update (return minimal payload to avoid freezing the client)
+    const { count: updatedCount, error } = await supabase
       .from('purpletransaction')
-      .update({ sendodoo: false })
+      .update(
+        { sendodoo: false },
+        ({ count: 'exact', returning: 'minimal' } as any)
+      )
       .gte('created_at_date_int', fromDateInt)
       .lte('created_at_date_int', toDateInt)
-      .eq('sendodoo', true)
-      .select('id');
+      .eq('sendodoo', true);
 
     if (error) {
       console.error('Error resetting Odoo sync:', error);
       throw error;
     }
 
-    const updatedCount = data?.length || 0;
-    console.log(`Successfully reset ${updatedCount} records`);
+    console.log(`Successfully reset ${updatedCount || 0} records`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        updatedCount,
+      JSON.stringify({
+        success: true,
+        updatedCount: updatedCount || 0,
         totalCount: totalCount || 0,
-        message: `Reset ${updatedCount} transaction(s) successfully` 
+        message: `Reset ${updatedCount || 0} transaction(s) successfully`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
