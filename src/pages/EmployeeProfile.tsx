@@ -129,6 +129,14 @@ export default function EmployeeProfile() {
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [employeeVacationTypes, setEmployeeVacationTypes] = useState<EmployeeVacationType[]>([]);
+  const [employeeContacts, setEmployeeContacts] = useState<{
+    id: string;
+    contact_type: string;
+    contact_name: string;
+    contact_phone: string | null;
+    contact_address: string | null;
+    is_emergency_contact: boolean;
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -186,6 +194,11 @@ export default function EmployeeProfile() {
             vacation_codes(code, name_en, name_ar)
           `)
           .eq("employee_id", id),
+        supabase
+          .from("employee_contacts")
+          .select("id, contact_type, contact_name, contact_phone, contact_address, is_emergency_contact")
+          .eq("employee_id", id)
+          .order("created_at", { ascending: false }),
       ]);
 
       if (employeeRes.error) throw employeeRes.error;
@@ -194,6 +207,14 @@ export default function EmployeeProfile() {
       setVacationRequests(vacationRes.data || []);
       setTimesheets(timesheetRes.data || []);
       setEmployeeVacationTypes(vacationTypesRes.data as EmployeeVacationType[] || []);
+      
+      // Fetch contacts
+      const contactsRes = await supabase
+        .from("employee_contacts")
+        .select("id, contact_type, contact_name, contact_phone, contact_address, is_emergency_contact")
+        .eq("employee_id", id)
+        .order("created_at", { ascending: false });
+      setEmployeeContacts(contactsRes.data || []);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -347,6 +368,10 @@ export default function EmployeeProfile() {
             <Shield className="h-4 w-4" />
             {language === "ar" ? "التأمين" : "Insurance"}
           </TabsTrigger>
+          <TabsTrigger value="contacts" className="flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            {language === "ar" ? "جهات الاتصال" : "Contacts"}
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -379,6 +404,12 @@ export default function EmployeeProfile() {
                   <span className="text-muted-foreground">{language === "ar" ? "الحالة الاجتماعية" : "Marital Status"}</span>
                   <span>{employee.marital_status || "-"}</span>
                 </div>
+                {(employee as any).address && (
+                  <div className="pt-2 border-t">
+                    <span className="text-muted-foreground text-sm block mb-1">{language === "ar" ? "العنوان" : "Address"}</span>
+                    <span className="text-sm">{(employee as any).address}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -648,6 +679,51 @@ export default function EmployeeProfile() {
               ) : (
                 <p className="text-muted-foreground text-center py-8">
                   {language === "ar" ? "لا يوجد تأمين طبي" : "No medical insurance assigned"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Contacts Tab */}
+        <TabsContent value="contacts">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === "ar" ? "جهات الاتصال" : "Employee Contacts"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {employeeContacts.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                      <TableHead>{language === "ar" ? "الاسم" : "Name"}</TableHead>
+                      <TableHead>{language === "ar" ? "الهاتف" : "Phone"}</TableHead>
+                      <TableHead>{language === "ar" ? "العنوان" : "Address"}</TableHead>
+                      <TableHead>{language === "ar" ? "طوارئ" : "Emergency"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {employeeContacts.map((contact) => (
+                      <TableRow key={contact.id}>
+                        <TableCell className="capitalize">{contact.contact_type}</TableCell>
+                        <TableCell className="font-medium">{contact.contact_name}</TableCell>
+                        <TableCell>{contact.contact_phone || "-"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{contact.contact_address || "-"}</TableCell>
+                        <TableCell>
+                          {contact.is_emergency_contact && (
+                            <span className="text-destructive font-medium">
+                              {language === "ar" ? "نعم" : "Yes"}
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">
+                  {language === "ar" ? "لا توجد جهات اتصال مسجلة" : "No contacts registered"}
                 </p>
               )}
             </CardContent>
