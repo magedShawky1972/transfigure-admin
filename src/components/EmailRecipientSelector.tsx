@@ -361,7 +361,7 @@ export const EmailRecipientSelector = ({ label, value, onChange, isAdmin }: Prop
               </div>
 
               <TabsContent value="users" className="m-0">
-                <ScrollArea className="h-64">
+                <div className="h-64 overflow-y-auto">
                   {loading ? (
                     <div className="p-4 text-center text-muted-foreground">
                       {isArabic ? "جاري التحميل..." : "Loading..."}
@@ -390,7 +390,7 @@ export const EmailRecipientSelector = ({ label, value, onChange, isAdmin }: Prop
                       ))}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </TabsContent>
 
               <TabsContent value="contacts" className="m-0">
@@ -402,7 +402,7 @@ export const EmailRecipientSelector = ({ label, value, onChange, isAdmin }: Prop
                     </Button>
                   </div>
                 )}
-                <ScrollArea className="h-64">
+                <div className="h-64 overflow-y-auto">
                   {loading ? (
                     <div className="p-4 text-center text-muted-foreground">
                       {isArabic ? "جاري التحميل..." : "Loading..."}
@@ -463,11 +463,11 @@ export const EmailRecipientSelector = ({ label, value, onChange, isAdmin }: Prop
                       ))}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </TabsContent>
 
               <TabsContent value="groups" className="m-0">
-                <ScrollArea className="h-64">
+                <div className="h-64 overflow-y-auto">
                   {loading ? (
                     <div className="p-4 text-center text-muted-foreground">
                       {isArabic ? "جاري التحميل..." : "Loading..."}
@@ -509,7 +509,7 @@ export const EmailRecipientSelector = ({ label, value, onChange, isAdmin }: Prop
                       })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </TabsContent>
             </Tabs>
           </PopoverContent>

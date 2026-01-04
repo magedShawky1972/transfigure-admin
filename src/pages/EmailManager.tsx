@@ -62,6 +62,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { EmailRecipientSelector } from "@/components/EmailRecipientSelector";
 
 interface UserEmailConfig {
+  id: string;
   email: string;
   email_password: string | null;
   user_name: string;
@@ -668,6 +669,28 @@ const EmailManager = () => {
       });
 
       if (error) throw error;
+
+      // Save sent email to database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const sentMessageId = `sent-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        await supabase.from("emails").insert({
+          user_id: user.id,
+          config_id: userConfig.id,
+          message_id: sentMessageId,
+          folder: "sent",
+          from_address: userConfig.email,
+          from_name: userConfig.user_name,
+          to_addresses: composeData.to.split(",").map(e => e.trim()),
+          cc_addresses: composeData.cc ? composeData.cc.split(",").map(e => e.trim()) : null,
+          subject: composeData.subject,
+          body_html: composeData.body,
+          body_text: composeData.body.replace(/<[^>]*>/g, ""),
+          email_date: new Date().toISOString(),
+          is_read: true,
+          has_attachments: attachments.length > 0,
+        });
+      }
 
       toast.success(isArabic ? "تم إرسال البريد بنجاح" : "Email sent successfully");
       setIsComposeOpen(false);
