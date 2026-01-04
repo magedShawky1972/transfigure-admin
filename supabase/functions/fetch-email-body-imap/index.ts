@@ -425,14 +425,58 @@ serve(async (req) => {
     const client = new IMAPClient(imapHost, imapPort, imapSecure);
     await client.connect();
     await client.login(email, emailPassword);
-    await client.select(folder);
 
     // Determine seq
     let seq: number | null = null;
     const parts = messageId.split("|");
-    
+
     console.log("Looking for email with messageId:", messageId, "in folder:", folder);
     console.log("Parts:", parts);
+
+    const findByMessageIdAcrossFolders = async (
+      headerValue: string,
+      preferredFolder: string
+    ): Promise<{ seq: number | null; usedFolder: string }> => {
+        const normalized = headerValue.replace(/[<>]/g, "").trim();
+        const foldersToTry = Array.from(
+          new Set([
+            preferredFolder,
+            "INBOX",
+            "INBOX.Junk",
+            "INBOX.Trash",
+            "INBOX.Sent",
+            "INBOX.Drafts",
+          ].filter(Boolean))
+        );
+
+        for (const f of foldersToTry) {
+          try {
+            await client.select(f);
+            console.log("Searching in folder:", f);
+
+            console.log("Trying search with angle brackets:", `<${normalized}>`);
+            let found = await client.searchMessageId(`<${normalized}>`);
+
+            if (!found) {
+              console.log("Trying search without angle brackets:", normalized);
+              found = await client.searchMessageId(normalized);
+            }
+
+            if (!found && !headerValue.startsWith("<")) {
+              console.log("Trying search with original value:", headerValue);
+              found = await client.searchMessageId(headerValue);
+            }
+
+            console.log("Search result seq:", found);
+            if (found) return { seq: found, usedFolder: f };
+          } catch (err) {
+            console.log("Search in folder failed:", f, String(err));
+            // keep trying
+          }
+        }
+
+        return { seq: null, usedFolder: preferredFolder };
+      };
 
     // Our stored message_id format is:
     // - "${email}|${message_id_header}" (if message_id header exists)
@@ -447,30 +491,16 @@ serve(async (req) => {
       }
     }
 
-    // 2) If not found, try searching by Message-ID header
+    // 2) If not found, try searching by Message-ID header (and fall back across folders)
     // Format: "${email}|${message_id_header}"
+    let usedFolder = folder;
     if (!seq && parts.length >= 2) {
-      const headerValue = parts.slice(1).join("|"); // Everything after the first pipe
+      const headerValue = parts.slice(1).join("|");
       console.log("Searching by Message-ID header:", headerValue);
-      
-      // Try with angle brackets variations
-      const normalized = headerValue.replace(/[<>]/g, "").trim();
-      
-      // Try different search variations
-      console.log("Trying search with angle brackets:", `<${normalized}>`);
-      seq = await client.searchMessageId(`<${normalized}>`);
-      
-      if (!seq) {
-        console.log("Trying search without angle brackets:", normalized);
-        seq = await client.searchMessageId(normalized);
-      }
-      
-      if (!seq && !headerValue.startsWith("<")) {
-        console.log("Trying search with original value:", headerValue);
-        seq = await client.searchMessageId(headerValue);
-      }
-      
-      console.log("Search result seq:", seq);
+
+      const res = await findByMessageIdAcrossFolders(headerValue, folder);
+      seq = res.seq;
+      usedFolder = res.usedFolder;
     }
 
     // 3) Legacy fallback: "...-<seq>-<timestamp>" pattern
@@ -493,8 +523,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    
-    console.log("Found email at seq:", seq);
+
+    console.log("Found email at seq:", seq, "folder:", usedFolder);
 
      const raw = await client.fetchFullRaw(seq);
      const { text, html, hasAttachments } = extractBodyFromMime(raw);
