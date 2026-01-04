@@ -174,6 +174,44 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Decrypt password if it's encrypted (starts with AES256:)
+    let actualPassword = password;
+    if (password.startsWith('AES256:')) {
+      console.log('Password is encrypted, decrypting...');
+      try {
+        const { data: decryptedData, error: decryptError } = await supabaseClient
+          .rpc('decrypt_email_password_aes', { encrypted_password: password });
+        
+        if (decryptError) {
+          console.error('Decryption error:', decryptError);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Failed to decrypt password" 
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        actualPassword = decryptedData;
+        console.log('Password decrypted successfully');
+      } catch (e) {
+        console.error('Decryption exception:', e);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Decryption failed" 
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    }
+
     // Get IMAP settings
     const { imapHost, imapPort, imapSecure } = getImapSettings(host);
     console.log(`Using IMAP settings: ${imapHost}:${imapPort} (secure: ${imapSecure})`);
@@ -186,7 +224,7 @@ serve(async (req) => {
       client = new IMAPClient(imapHost, imapPort, imapSecure);
       await client.connect();
       
-      const loginResult = await client.login(email, password);
+      const loginResult = await client.login(email, actualPassword);
       
       if (loginResult.ok) {
         isActive = true;
