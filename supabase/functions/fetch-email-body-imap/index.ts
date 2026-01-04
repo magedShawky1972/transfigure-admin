@@ -307,7 +307,17 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
           if (!textContent && nested.text) textContent = nested.text;
           if (!htmlContent && nested.html) htmlContent = nested.html;
         } else if (pType.includes("text/plain")) {
-          if (!textContent) textContent = decodeBodyByEncoding(ph, pb);
+          if (!textContent) {
+            const decoded = decodeBodyByEncoding(ph, pb);
+            // Outlook often sends calendar invites as text/plain containing VCALENDAR
+            if (/BEGIN:VCALENDAR/i.test(decoded) && !htmlContent) {
+              const parsed = parseICalendar(decoded);
+              textContent = parsed.text;
+              htmlContent = parsed.html;
+            } else {
+              textContent = decoded;
+            }
+          }
         } else if (pType.includes("text/html")) {
           if (!htmlContent) htmlContent = decodeBodyByEncoding(ph, pb);
         } else if (pType.includes("text/calendar")) {
