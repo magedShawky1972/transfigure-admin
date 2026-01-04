@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 interface JobPosition {
   id: string;
   position_name: string;
+  position_name_ar: string | null;
   department_id: string | null;
   is_active: boolean;
   created_at: string;
@@ -57,6 +58,7 @@ const JobSetup = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     position_name: "",
+    position_name_ar: "",
     department_id: "",
     is_active: true,
   });
@@ -102,6 +104,7 @@ const JobSetup = () => {
     setSelectedJob(null);
     setFormData({
       position_name: "",
+      position_name_ar: "",
       department_id: "",
       is_active: true,
     });
@@ -112,6 +115,7 @@ const JobSetup = () => {
     setSelectedJob(job);
     setFormData({
       position_name: job.position_name,
+      position_name_ar: job.position_name_ar || "",
       department_id: job.department_id || "",
       is_active: job.is_active,
     });
@@ -132,6 +136,7 @@ const JobSetup = () => {
     try {
       const jobData = {
         position_name: formData.position_name.trim(),
+        position_name_ar: formData.position_name_ar.trim() || null,
         department_id: formData.department_id || null,
         is_active: formData.is_active,
       };
@@ -255,7 +260,8 @@ const JobSetup = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{language === "ar" ? "اسم الوظيفة" : "Job Name"}</TableHead>
+                <TableHead>{language === "ar" ? "الاسم بالإنجليزية" : "English Name"}</TableHead>
+                <TableHead>{language === "ar" ? "الاسم بالعربية" : "Arabic Name"}</TableHead>
                 <TableHead>{language === "ar" ? "القسم" : "Department"}</TableHead>
                 <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
@@ -265,6 +271,7 @@ const JobSetup = () => {
               {filteredJobs.map((job) => (
                 <TableRow key={job.id}>
                   <TableCell className="font-medium">{job.position_name}</TableCell>
+                  <TableCell>{job.position_name_ar || "-"}</TableCell>
                   <TableCell>{getDepartmentName(job.department_id)}</TableCell>
                   <TableCell>
                     <span
@@ -300,7 +307,7 @@ const JobSetup = () => {
               ))}
               {filteredJobs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
                     {language === "ar" ? "لا توجد وظائف" : "No jobs found"}
                   </TableCell>
                 </TableRow>
@@ -326,11 +333,20 @@ const JobSetup = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>{language === "ar" ? "اسم الوظيفة" : "Job Name"}</Label>
+              <Label>{language === "ar" ? "الاسم بالإنجليزية" : "English Name"}</Label>
               <Input
                 value={formData.position_name}
                 onChange={(e) => setFormData({ ...formData, position_name: e.target.value })}
-                placeholder={language === "ar" ? "أدخل اسم الوظيفة" : "Enter job name"}
+                placeholder={language === "ar" ? "أدخل الاسم بالإنجليزية" : "Enter English name"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الاسم بالعربية" : "Arabic Name"}</Label>
+              <Input
+                value={formData.position_name_ar}
+                onChange={(e) => setFormData({ ...formData, position_name_ar: e.target.value })}
+                placeholder={language === "ar" ? "أدخل الاسم بالعربية" : "Enter Arabic name"}
+                dir="rtl"
               />
             </div>
             <div className="space-y-2">
