@@ -61,42 +61,45 @@ const ClearData = () => {
     try {
       // Normalize table name to lowercase to match database identifiers
       const tableName = selectedTable.toLowerCase();
+      
       // First, check which date column the table has
       const { data: sampleData } = await (supabase as any)
         .from(tableName)
         .select('*')
         .limit(1);
 
-      // Determine which date column to use
-      const dateColumn = sampleData && sampleData[0] && 'created_at_date' in sampleData[0] 
-        ? 'created_at_date' 
-        : 'created_at';
+      // Determine which date column to use - prefer created_at_date_int for efficiency
+      let dateColumn: string;
+      let fromDateValue: number | string;
+      let toDateValue: number | string;
 
-      // Format dates for comparison - set to start and end of day
-      const fromDateStart = new Date(fromDate);
-      fromDateStart.setHours(0, 0, 0, 0);
-      
-      const toDateEnd = new Date(toDate);
-      toDateEnd.setHours(23, 59, 59, 999);
+      if (sampleData && sampleData[0] && 'created_at_date_int' in sampleData[0]) {
+        // Use integer date column (YYYYMMDD format)
+        dateColumn = 'created_at_date_int';
+        fromDateValue = parseInt(format(fromDate, 'yyyyMMdd'));
+        toDateValue = parseInt(format(toDate, 'yyyyMMdd'));
+      } else if (sampleData && sampleData[0] && 'created_at_date' in sampleData[0]) {
+        dateColumn = 'created_at_date';
+        fromDateValue = format(fromDate, 'yyyy-MM-dd') + ' 00:00:00';
+        toDateValue = format(toDate, 'yyyy-MM-dd') + ' 23:59:59';
+      } else {
+        dateColumn = 'created_at';
+        const fromDateStart = new Date(fromDate);
+        fromDateStart.setHours(0, 0, 0, 0);
+        const toDateEnd = new Date(toDate);
+        toDateEnd.setHours(23, 59, 59, 999);
+        fromDateValue = fromDateStart.toISOString();
+        toDateValue = toDateEnd.toISOString();
+      }
 
-      // For created_at_date (timestamp without time zone), use date format without timezone
-      // For created_at (timestamp with time zone), use ISO format
-      const fromDateStr = dateColumn === 'created_at_date' 
-        ? fromDateStart.toISOString().split('T')[0] + ' 00:00:00'
-        : fromDateStart.toISOString();
-      
-      const toDateStr = dateColumn === 'created_at_date'
-        ? toDateEnd.toISOString().split('T')[0] + ' 23:59:59'
-        : toDateEnd.toISOString();
-
-      console.log('Clearing data:', { tableName, dateColumn, fromDateStr, toDateStr });
+      console.log('Clearing data:', { tableName, dateColumn, fromDateValue, toDateValue });
 
       // Delete data within the date range
       const { error, count } = await (supabase as any)
         .from(tableName)
         .delete({ count: 'exact' })
-        .gte(dateColumn, fromDateStr)
-        .lte(dateColumn, toDateStr);
+        .gte(dateColumn, fromDateValue)
+        .lte(dateColumn, toDateValue);
 
       if (error) {
         console.error('Delete error:', error);
