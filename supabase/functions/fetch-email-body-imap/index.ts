@@ -92,6 +92,52 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
     return parts.map((p) => p.trim()).filter(Boolean);
   };
 
+  // Check if content looks like raw MIME that wasn't properly parsed
+  const looksLikeRawMime = (content: string): boolean => {
+    if (!content) return false;
+    // Check for common MIME artifacts
+    const mimePatterns = [
+      /^--_\d{3}_/m, // Boundary patterns
+      /^Content-Type:\s/im,
+      /^Content-Transfer-Encoding:\s/im,
+      /^[A-Za-z0-9+/=]{50,}$/m, // Long base64 lines
+    ];
+    return mimePatterns.some(p => p.test(content.substring(0, 500)));
+  };
+
+  // Clean raw MIME content as fallback
+  const cleanRawMimeContent = (content: string): string => {
+    // Remove MIME boundaries and headers
+    let cleaned = content
+      // Remove boundary lines
+      .replace(/^--[\w\-._]+(?:--)?[\t ]*$/gm, "")
+      // Remove Content-Type headers
+      .replace(/^Content-Type:[^\r\n]*(?:\r?\n[\t ][^\r\n]*)*/gim, "")
+      // Remove Content-Transfer-Encoding headers
+      .replace(/^Content-Transfer-Encoding:[^\r\n]*/gim, "")
+      // Remove Content-Disposition headers
+      .replace(/^Content-Disposition:[^\r\n]*/gim, "")
+      // Remove MIME-Version headers
+      .replace(/^MIME-Version:[^\r\n]*/gim, "")
+      // Remove Content-ID headers
+      .replace(/^Content-ID:[^\r\n]*/gim, "")
+      // Remove empty lines at start
+      .replace(/^[\r\n]+/, "")
+      // Collapse multiple newlines
+      .replace(/(\r?\n){3,}/g, "\n\n")
+      .trim();
+
+    // If still looks like base64 garbage, try to decode it
+    if (/^[A-Za-z0-9+/=\s]{100,}$/.test(cleaned)) {
+      const decoded = decodeBase64(cleaned);
+      if (decoded && !/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(decoded)) {
+        cleaned = decoded;
+      }
+    }
+
+    return cleaned;
+  };
+
   const parseMimeRecursive = (part: string): { text: string; html: string } => {
     const { headers, body } = splitHeadersAndBody(part);
 
@@ -124,6 +170,24 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
           if (!textContent) textContent = decodeBodyByEncoding(ph, pb);
         } else if (pType.includes("text/html")) {
           if (!htmlContent) htmlContent = decodeBodyByEncoding(ph, pb);
+        } else if (pType.includes("text/calendar")) {
+          // Handle calendar invitations - extract summary if possible
+          const decoded = decodeBodyByEncoding(ph, pb);
+          if (!textContent) {
+            // Extract SUMMARY from iCalendar format
+            const summaryMatch = decoded.match(/SUMMARY[;:]([^\r\n]+)/i);
+            const descMatch = decoded.match(/DESCRIPTION[;:]([^\r\n]+)/i);
+            const locationMatch = decoded.match(/LOCATION[;:]([^\r\n]+)/i);
+            const startMatch = decoded.match(/DTSTART[;:]([^\r\n]+)/i);
+            
+            let calendarText = "[Calendar Invitation]\n";
+            if (summaryMatch) calendarText += `Event: ${summaryMatch[1]}\n`;
+            if (startMatch) calendarText += `When: ${startMatch[1]}\n`;
+            if (locationMatch) calendarText += `Location: ${locationMatch[1]}\n`;
+            if (descMatch) calendarText += `Description: ${descMatch[1]}\n`;
+            
+            textContent = calendarText.trim();
+          }
         }
 
         if (textContent && htmlContent) break;
@@ -135,10 +199,20 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
     // Not multipart
     const decoded = decodeBodyByEncoding(headers, body);
     if (contentType.includes("text/html")) return { text: "", html: decoded };
+    if (contentType.includes("text/calendar")) {
+      // Handle standalone calendar
+      const summaryMatch = decoded.match(/SUMMARY[;:]([^\r\n]+)/i);
+      return { text: summaryMatch ? `[Calendar: ${summaryMatch[1]}]` : decoded, html: "" };
+    }
     return { text: decoded, html: "" };
   };
 
   let { text: textContent, html: htmlContent } = parseMimeRecursive(rawBody);
+
+  // Post-process: if text still looks like raw MIME, clean it up
+  if (textContent && looksLikeRawMime(textContent)) {
+    textContent = cleanRawMimeContent(textContent);
+  }
 
   // If only HTML, derive text
   if (!textContent && htmlContent) {
@@ -153,6 +227,11 @@ function extractBodyFromMime(rawBody: string): { text: string; html: string; has
       .replace(/&quot;/g, '"')
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  // Final cleanup: if still looks corrupted, try to salvage
+  if (textContent && looksLikeRawMime(textContent)) {
+    textContent = cleanRawMimeContent(textContent);
   }
 
   return { text: textContent, html: htmlContent, hasAttachments };
