@@ -147,6 +147,17 @@ interface EmployeeContact {
   notes: string | null;
 }
 
+interface EmployeeVacationType {
+  id?: string;
+  employee_id: string;
+  vacation_code_id: string;
+  vacation_code?: VacationCode;
+  balance: number;
+  used_days: number;
+  custom_days: number | null;
+  year: number;
+}
+
 export default function EmployeeSetup() {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -183,6 +194,7 @@ export default function EmployeeSetup() {
   const [editingContact, setEditingContact] = useState<EmployeeContact | null>(null);
   
   const [selectedVacationTypes, setSelectedVacationTypes] = useState<string[]>([]);
+  const [employeeVacationBalances, setEmployeeVacationBalances] = useState<EmployeeVacationType[]>([]);
   
   const [formData, setFormData] = useState({
     employee_number: "",
@@ -405,6 +417,7 @@ export default function EmployeeSetup() {
       address: "",
     });
     setSelectedVacationTypes([]);
+    setEmployeeVacationBalances([]);
     setLoadUsersDialogOpen(false);
     setDialogOpen(true);
   };
@@ -585,6 +598,7 @@ export default function EmployeeSetup() {
       address: "",
     });
     setSelectedVacationTypes([]);
+    setEmployeeVacationBalances([]);
     setDialogOpen(true);
   };
 
@@ -631,16 +645,30 @@ export default function EmployeeSetup() {
 
   const fetchEmployeeVacationTypes = async (employeeId: string) => {
     try {
+      const currentYear = new Date().getFullYear();
       const { data, error } = await supabase
         .from("employee_vacation_types")
-        .select("vacation_code_id")
-        .eq("employee_id", employeeId);
+        .select("*, vacation_codes:vacation_code_id(id, code, name_en, name_ar)")
+        .eq("employee_id", employeeId)
+        .eq("year", currentYear);
       
       if (error) throw error;
-      setSelectedVacationTypes(data?.map(d => d.vacation_code_id) || []);
+      const vacationTypes = (data || []).map(d => ({
+        id: d.id,
+        employee_id: d.employee_id,
+        vacation_code_id: d.vacation_code_id,
+        vacation_code: d.vacation_codes as unknown as VacationCode,
+        balance: d.balance || 0,
+        used_days: d.used_days || 0,
+        custom_days: d.custom_days,
+        year: d.year || currentYear,
+      }));
+      setEmployeeVacationBalances(vacationTypes);
+      setSelectedVacationTypes(vacationTypes.map(d => d.vacation_code_id));
     } catch (error: any) {
       console.error("Error fetching vacation types:", error);
       setSelectedVacationTypes([]);
+      setEmployeeVacationBalances([]);
     }
   };
 
@@ -806,15 +834,20 @@ export default function EmployeeSetup() {
         toast.success(language === "ar" ? "تم إضافة الموظف بنجاح" : "Employee added successfully");
       }
 
-      // Update employee vacation types
-      // First delete existing
-      await supabase.from("employee_vacation_types").delete().eq("employee_id", employeeId);
+      // Update employee vacation types with balances
+      const currentYear = new Date().getFullYear();
+      // First delete existing for current year
+      await supabase.from("employee_vacation_types").delete().eq("employee_id", employeeId).eq("year", currentYear);
       
-      // Then insert new ones
-      if (selectedVacationTypes.length > 0) {
-        const vacationTypeRecords = selectedVacationTypes.map(vcId => ({
+      // Then insert new ones with balances
+      if (employeeVacationBalances.length > 0) {
+        const vacationTypeRecords = employeeVacationBalances.map(vb => ({
           employee_id: employeeId,
-          vacation_code_id: vcId,
+          vacation_code_id: vb.vacation_code_id,
+          balance: vb.balance,
+          used_days: vb.used_days,
+          custom_days: vb.custom_days,
+          year: currentYear,
         }));
         const { error: vacError } = await supabase.from("employee_vacation_types").insert(vacationTypeRecords);
         if (vacError) console.error("Error saving vacation types:", vacError);
@@ -1720,43 +1753,113 @@ export default function EmployeeSetup() {
                   </div>
                 )}
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label>{language === "ar" ? "أنواع الإجازات" : "Vacation Types"}</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 border rounded-md max-h-40 overflow-y-auto">
-                    {vacationCodes.map((vc) => (
-                      <label key={vc.id} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedVacationTypes.includes(vc.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedVacationTypes([...selectedVacationTypes, vc.id]);
-                            } else {
-                              setSelectedVacationTypes(selectedVacationTypes.filter(id => id !== vc.id));
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <span className="text-sm">
-                          {language === "ar" ? vc.name_ar || vc.name_en : vc.name_en} ({vc.code})
-                        </span>
-                      </label>
-                    ))}
+                <div className="space-y-2 md:col-span-3">
+                  <Label>{language === "ar" ? "أنواع الإجازات والأرصدة" : "Vacation Types & Balances"}</Label>
+                  <div className="border rounded-md overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">{language === "ar" ? "تفعيل" : "Enable"}</TableHead>
+                          <TableHead>{language === "ar" ? "نوع الإجازة" : "Vacation Type"}</TableHead>
+                          <TableHead className="w-24">{language === "ar" ? "الرصيد" : "Balance"}</TableHead>
+                          <TableHead className="w-24">{language === "ar" ? "المستخدم" : "Used"}</TableHead>
+                          <TableHead className="w-24">{language === "ar" ? "المتبقي" : "Remaining"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {vacationCodes.map((vc) => {
+                          const existingVac = employeeVacationBalances.find(v => v.vacation_code_id === vc.id);
+                          const isSelected = selectedVacationTypes.includes(vc.id);
+                          return (
+                            <TableRow key={vc.id} className={!isSelected ? "opacity-50" : ""}>
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedVacationTypes([...selectedVacationTypes, vc.id]);
+                                      setEmployeeVacationBalances([...employeeVacationBalances, {
+                                        employee_id: selectedEmployee?.id || "",
+                                        vacation_code_id: vc.id,
+                                        balance: 0,
+                                        used_days: 0,
+                                        custom_days: null,
+                                        year: new Date().getFullYear(),
+                                      }]);
+                                    } else {
+                                      setSelectedVacationTypes(selectedVacationTypes.filter(id => id !== vc.id));
+                                      setEmployeeVacationBalances(employeeVacationBalances.filter(v => v.vacation_code_id !== vc.id));
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-medium">
+                                  {language === "ar" ? vc.name_ar || vc.name_en : vc.name_en}
+                                </span>
+                                <span className="text-muted-foreground ml-2">({vc.code})</span>
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  className="h-8 w-20"
+                                  value={existingVac?.balance || 0}
+                                  disabled={!isSelected}
+                                  onChange={(e) => {
+                                    const newBalance = parseFloat(e.target.value) || 0;
+                                    if (existingVac) {
+                                      setEmployeeVacationBalances(employeeVacationBalances.map(v => 
+                                        v.vacation_code_id === vc.id ? { ...v, balance: newBalance } : v
+                                      ));
+                                    } else {
+                                      setEmployeeVacationBalances([...employeeVacationBalances, {
+                                        employee_id: selectedEmployee?.id || "",
+                                        vacation_code_id: vc.id,
+                                        balance: newBalance,
+                                        used_days: 0,
+                                        custom_days: null,
+                                        year: new Date().getFullYear(),
+                                      }]);
+                                    }
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  className="h-8 w-20"
+                                  value={existingVac?.used_days || 0}
+                                  disabled={!isSelected}
+                                  onChange={(e) => {
+                                    const newUsed = parseFloat(e.target.value) || 0;
+                                    if (existingVac) {
+                                      setEmployeeVacationBalances(employeeVacationBalances.map(v => 
+                                        v.vacation_code_id === vc.id ? { ...v, used_days: newUsed } : v
+                                      ));
+                                    }
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <span className={`font-medium ${(existingVac?.balance || 0) - (existingVac?.used_days || 0) < 0 ? "text-destructive" : "text-green-600"}`}>
+                                  {((existingVac?.balance || 0) - (existingVac?.used_days || 0)).toFixed(1)}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {language === "ar" 
-                      ? `تم تحديد ${selectedVacationTypes.length} نوع إجازة`
-                      : `${selectedVacationTypes.length} vacation type(s) selected`}
+                      ? `تم تحديد ${selectedVacationTypes.length} نوع إجازة للسنة ${new Date().getFullYear()}`
+                      : `${selectedVacationTypes.length} vacation type(s) selected for year ${new Date().getFullYear()}`}
                   </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>{language === "ar" ? "رصيد الإجازات" : "Vacation Balance"}</Label>
-                  <Input
-                    type="number"
-                    value={formData.vacation_balance}
-                    onChange={(e) => setFormData({ ...formData, vacation_balance: e.target.value })}
-                  />
                 </div>
 
                 <div className="space-y-2">
