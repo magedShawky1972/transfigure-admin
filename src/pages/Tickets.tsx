@@ -572,12 +572,12 @@ const Tickets = () => {
         }
       }
 
-      // Send notification
+      // Send notification to first level admins (order 0)
       const { data: firstLevelAdmins } = await supabase
         .from("department_admins")
         .select("user_id")
         .eq("department_id", values.department_id)
-        .eq("admin_order", 1)
+        .eq("admin_order", 0)
         .eq("is_purchase_admin", false);
 
       if (firstLevelAdmins && firstLevelAdmins.length > 0 && ticketData) {
@@ -585,7 +585,7 @@ const Tickets = () => {
           body: {
             type: "ticket_created",
             ticketId: ticketData.id,
-            adminOrder: 1,
+            adminOrder: 0, // Start from admin order 0
             isPurchasePhase: false,
           },
         });
