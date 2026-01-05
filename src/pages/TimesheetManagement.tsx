@@ -33,6 +33,12 @@ import { toast } from "sonner";
 import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
+interface AttendanceType {
+  id: string;
+  fixed_start_time: string | null;
+  fixed_end_time: string | null;
+}
+
 interface Employee {
   id: string;
   employee_number: string;
@@ -42,6 +48,8 @@ interface Employee {
   fixed_shift_start: string | null;
   fixed_shift_end: string | null;
   basic_salary: number | null;
+  attendance_type_id: string | null;
+  attendance_types?: AttendanceType;
 }
 
 interface Timesheet {
@@ -114,7 +122,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, attendance_types(id, fixed_start_time, fixed_end_time)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -245,14 +253,33 @@ export default function TimesheetManagement() {
   const handleEmployeeSelect = (employeeId: string) => {
     const employee = employees.find((e) => e.id === employeeId);
     if (employee) {
+      // Prioritize attendance_type times over employee fixed times
+      const scheduledStart = employee.attendance_types?.fixed_start_time || employee.fixed_shift_start || "";
+      const scheduledEnd = employee.attendance_types?.fixed_end_time || employee.fixed_shift_end || "";
+      
       setFormData({
         ...formData,
         employee_id: employeeId,
-        scheduled_start: employee.fixed_shift_start || "",
-        scheduled_end: employee.fixed_shift_end || "",
+        scheduled_start: scheduledStart,
+        scheduled_end: scheduledEnd,
       });
     }
   };
+
+  // Calculate delay (late minutes) automatically based on actual vs scheduled start
+  const calculateDelay = (): number => {
+    if (!formData.scheduled_start || !formData.actual_start || formData.is_absent) return 0;
+    
+    const scheduledStart = parseISO(`${formData.work_date}T${formData.scheduled_start}`);
+    const actualStart = parseISO(`${formData.work_date}T${formData.actual_start}`);
+    
+    if (actualStart > scheduledStart) {
+      return differenceInMinutes(actualStart, scheduledStart);
+    }
+    return 0;
+  };
+
+  const delayMinutes = calculateDelay();
 
   const handleSave = async () => {
     if (!formData.employee_id || !formData.work_date) {
@@ -598,6 +625,18 @@ export default function TimesheetManagement() {
                     />
                   </div>
                 </div>
+
+                {/* Delay (Late Minutes) - Auto calculated */}
+                {delayMinutes > 0 && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive" />
+                      <span className="font-medium text-destructive">
+                        {language === "ar" ? "التأخير:" : "Delay:"} {delayMinutes} {language === "ar" ? "دقيقة" : "minutes"}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "مدة الاستراحة (دقائق)" : "Break Duration (minutes)"}</Label>
