@@ -37,6 +37,8 @@ interface AttendanceType {
   id: string;
   fixed_start_time: string | null;
   fixed_end_time: string | null;
+  allow_late_minutes: number | null;
+  allow_early_exit_minutes: number | null;
 }
 
 interface Employee {
@@ -122,7 +124,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, attendance_types(id, fixed_start_time, fixed_end_time)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -266,7 +268,13 @@ export default function TimesheetManagement() {
     }
   };
 
+  // Get the selected employee's attendance type settings
+  const currentEmployee = employees.find((e) => e.id === formData.employee_id);
+  const allowLateMinutes = currentEmployee?.attendance_types?.allow_late_minutes || 0;
+  const allowEarlyExitMinutes = currentEmployee?.attendance_types?.allow_early_exit_minutes || 0;
+
   // Calculate delay (late minutes) automatically based on actual vs scheduled start
+  // Only count as delay if it exceeds the allowed late minutes
   const calculateDelay = (): number => {
     if (!formData.scheduled_start || !formData.actual_start || formData.is_absent) return 0;
     
@@ -274,12 +282,16 @@ export default function TimesheetManagement() {
     const actualStart = parseISO(`${formData.work_date}T${formData.actual_start}`);
     
     if (actualStart > scheduledStart) {
-      return differenceInMinutes(actualStart, scheduledStart);
+      const lateMinutes = differenceInMinutes(actualStart, scheduledStart);
+      // Subtract allowed late minutes - only count excess as delay
+      const actualDelay = lateMinutes - allowLateMinutes;
+      return actualDelay > 0 ? actualDelay : 0;
     }
     return 0;
   };
 
   // Calculate early leave (left before scheduled end)
+  // Only count as early leave if it exceeds the allowed early exit minutes
   const calculateEarlyLeave = (): number => {
     if (!formData.scheduled_end || !formData.actual_end || formData.is_absent) return 0;
     
@@ -287,7 +299,10 @@ export default function TimesheetManagement() {
     const actualEnd = parseISO(`${formData.work_date}T${formData.actual_end}`);
     
     if (actualEnd < scheduledEnd) {
-      return differenceInMinutes(scheduledEnd, actualEnd);
+      const earlyMinutes = differenceInMinutes(scheduledEnd, actualEnd);
+      // Subtract allowed early exit minutes - only count excess as early leave
+      const actualEarlyLeave = earlyMinutes - allowEarlyExitMinutes;
+      return actualEarlyLeave > 0 ? actualEarlyLeave : 0;
     }
     return 0;
   };
