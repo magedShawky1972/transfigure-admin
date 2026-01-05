@@ -2218,6 +2218,7 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string
+          email_id: string | null
           id: string
           is_read: boolean
           message: string
@@ -2231,6 +2232,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email_id?: string | null
           id?: string
           is_read?: boolean
           message: string
@@ -2244,6 +2246,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email_id?: string | null
           id?: string
           is_read?: boolean
           message?: string
@@ -2256,6 +2259,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_parent_notification_id_fkey"
             columns: ["parent_notification_id"]

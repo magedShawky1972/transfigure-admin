@@ -20,6 +20,7 @@ type Notification = {
   message: string;
   type: string;
   ticket_id: string | null;
+  email_id: string | null;
   is_read: boolean;
   created_at: string;
   sender_id: string | null;
@@ -140,6 +141,8 @@ const Notifications = () => {
     markAsRead(notification.id);
     if (notification.ticket_id) {
       navigate(`/tickets/${notification.ticket_id}`);
+    } else if (notification.email_id) {
+      navigate(`/email-manager?emailId=${notification.email_id}`);
     }
   };
 
