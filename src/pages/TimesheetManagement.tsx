@@ -279,7 +279,42 @@ export default function TimesheetManagement() {
     return 0;
   };
 
+  // Calculate early leave (left before scheduled end)
+  const calculateEarlyLeave = (): number => {
+    if (!formData.scheduled_end || !formData.actual_end || formData.is_absent) return 0;
+    
+    const scheduledEnd = parseISO(`${formData.work_date}T${formData.scheduled_end}`);
+    const actualEnd = parseISO(`${formData.work_date}T${formData.actual_end}`);
+    
+    if (actualEnd < scheduledEnd) {
+      return differenceInMinutes(scheduledEnd, actualEnd);
+    }
+    return 0;
+  };
+
+  // Calculate total attendance hours
+  const calculateTotalHours = (): { hours: number; minutes: number } => {
+    if (!formData.actual_start || !formData.actual_end || formData.is_absent) {
+      return { hours: 0, minutes: 0 };
+    }
+    
+    const actualStart = parseISO(`${formData.work_date}T${formData.actual_start}`);
+    const actualEnd = parseISO(`${formData.work_date}T${formData.actual_end}`);
+    
+    let totalMinutes = differenceInMinutes(actualEnd, actualStart);
+    totalMinutes -= formData.break_duration_minutes || 0; // Subtract break time
+    
+    if (totalMinutes < 0) totalMinutes = 0;
+    
+    return {
+      hours: Math.floor(totalMinutes / 60),
+      minutes: totalMinutes % 60
+    };
+  };
+
   const delayMinutes = calculateDelay();
+  const earlyLeaveMinutes = calculateEarlyLeave();
+  const totalAttendance = calculateTotalHours();
 
   const handleSave = async () => {
     if (!formData.employee_id || !formData.work_date) {
@@ -626,15 +661,38 @@ export default function TimesheetManagement() {
                   </div>
                 </div>
 
-                {/* Delay (Late Minutes) - Auto calculated */}
-                {delayMinutes > 0 && (
-                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-destructive" />
-                      <span className="font-medium text-destructive">
-                        {language === "ar" ? "التأخير:" : "Delay:"} {delayMinutes} {language === "ar" ? "دقيقة" : "minutes"}
-                      </span>
-                    </div>
+                {/* Attendance Summary - Auto calculated */}
+                {(delayMinutes > 0 || earlyLeaveMinutes > 0 || (totalAttendance.hours > 0 || totalAttendance.minutes > 0)) && (
+                  <div className="p-3 bg-muted/50 border rounded-lg space-y-2">
+                    {/* Total Hours */}
+                    {(totalAttendance.hours > 0 || totalAttendance.minutes > 0) && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-primary" />
+                        <span className="font-medium">
+                          {language === "ar" ? "إجمالي ساعات الحضور:" : "Total Attendance:"} {totalAttendance.hours}{language === "ar" ? " ساعة " : "h "}{totalAttendance.minutes}{language === "ar" ? " دقيقة" : "m"}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Delay */}
+                    {delayMinutes > 0 && (
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                        <span className="font-medium text-destructive">
+                          {language === "ar" ? "التأخير:" : "Delay:"} {delayMinutes} {language === "ar" ? "دقيقة" : "min"}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Early Leave */}
+                    {earlyLeaveMinutes > 0 && (
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <span className="font-medium text-amber-500">
+                          {language === "ar" ? "الانصراف المبكر:" : "Early Leave:"} {earlyLeaveMinutes} {language === "ar" ? "دقيقة" : "min"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
