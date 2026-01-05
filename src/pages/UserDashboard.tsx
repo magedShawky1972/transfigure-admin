@@ -1795,21 +1795,12 @@ const UserDashboard = () => {
   };
   
   // Filter layout: exclude hidden widgets, and in live mode hide empty news widget
-  const filteredLayout = layout.filter(item => {
+  const visibleLayout = layout.filter(item => {
     if (hiddenWidgets.includes(item.i)) return false;
     // In live mode, hide news widget if empty
     if (!isEditMode && item.i === "news" && companyNews.length === 0) return false;
     return true;
   });
-
-  // Transform layout for RTL - react-grid-layout doesn't support RTL natively
-  // We need to mirror the x positions for RTL mode
-  const visibleLayout = language === "ar" 
-    ? filteredLayout.map(item => ({
-        ...item,
-        x: 12 - item.x - item.w // Mirror x position for RTL (12 cols total)
-      }))
-    : filteredLayout;
 
   if (loading) {
     return (
@@ -1910,25 +1901,28 @@ const UserDashboard = () => {
           />
         )}
 
-        <ReactGridLayout
-          className="layout"
-          layout={visibleLayout}
-          cols={12}
-          rowHeight={80}
-          width={containerWidth}
-          onLayoutChange={handleLayoutChange}
-          isDraggable={isEditMode}
-          isResizable={isEditMode}
-          draggableHandle=".drag-handle"
-          resizeHandles={["se", "sw", "ne", "nw"]}
-          margin={[16, 16]}
-          containerPadding={[0, 0]}
-        >
-          {visibleLayout.map((item) => (
-            <div 
-              key={item.i} 
-              className={`relative ${isEditMode ? "ring-2 ring-primary/30 ring-dashed rounded-lg" : ""}`}
-            >
+        {/* Force LTR for grid layout - react-grid-layout doesn't support RTL */}
+        <div dir="ltr">
+          <ReactGridLayout
+            className="layout"
+            layout={visibleLayout}
+            cols={12}
+            rowHeight={80}
+            width={containerWidth}
+            onLayoutChange={handleLayoutChange}
+            isDraggable={isEditMode}
+            isResizable={isEditMode}
+            draggableHandle=".drag-handle"
+            resizeHandles={["se", "sw", "ne", "nw"]}
+            margin={[16, 16]}
+            containerPadding={[0, 0]}
+          >
+            {visibleLayout.map((item) => (
+              <div 
+                key={item.i} 
+                dir={language === "ar" ? "rtl" : "ltr"}
+                className={`relative ${isEditMode ? "ring-2 ring-primary/30 ring-dashed rounded-lg" : ""}`}
+              >
               {isEditMode && (
                 <div className="drag-handle absolute top-0 left-0 right-0 h-8 bg-primary/10 rounded-t-lg cursor-move flex items-center justify-between px-2 z-10">
                   <span className="text-xs font-medium text-primary flex items-center gap-1">
@@ -1966,7 +1960,8 @@ const UserDashboard = () => {
               </div>
             </div>
           ))}
-        </ReactGridLayout>
+          </ReactGridLayout>
+        </div>
       </div>
       
       {/* Rename Dialog */}
