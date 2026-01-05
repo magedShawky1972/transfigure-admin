@@ -160,6 +160,17 @@ interface ShiftFollowUpItem {
   closed_at: string | null;
 }
 
+interface VacationBalance {
+  vacation_name: string;
+  balance: number;
+  used_days: number;
+}
+
+interface DeductionSummary {
+  total_deduction_minutes: number;
+  total_entries: number;
+}
+
 interface UserProfile {
   user_id: string;
   user_name: string;
@@ -199,19 +210,23 @@ const DEFAULT_WIDGET_NAMES: Record<string, { ar: string; en: string }> = {
   shifts: { ar: "الورديات", en: "Shifts" },
   emails: { ar: "رسائل البريد غير المقروءة", en: "Unread Emails" },
   shiftFollowUp: { ar: "متابعة الورديات", en: "Shift Follow Up" },
+  vacationBalance: { ar: "رصيد الإجازات", en: "Vacation Balance" },
+  deductions: { ar: "الخصومات", en: "Deductions" },
 };
 
 // Default layout configuration
 const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "news", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
-  { i: "messages", x: 0, y: 3, w: 3, h: 6, minW: 2, minH: 3 },
-  { i: "tasks", x: 3, y: 3, w: 3, h: 3, minW: 2, minH: 2 },
-  { i: "assignedTickets", x: 6, y: 3, w: 3, h: 3, minW: 2, minH: 2 },
-  { i: "purchaseTickets", x: 9, y: 3, w: 3, h: 3, minW: 2, minH: 2 },
-  { i: "normalTickets", x: 3, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
-  { i: "shifts", x: 6, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
-  { i: "shiftFollowUp", x: 9, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
-  { i: "emails", x: 0, y: 9, w: 12, h: 3, minW: 4, minH: 2 },
+  { i: "vacationBalance", x: 0, y: 3, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "deductions", x: 3, y: 3, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "messages", x: 6, y: 3, w: 3, h: 6, minW: 2, minH: 3 },
+  { i: "tasks", x: 9, y: 3, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "assignedTickets", x: 0, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "purchaseTickets", x: 3, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "normalTickets", x: 9, y: 6, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "shifts", x: 0, y: 9, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "shiftFollowUp", x: 3, y: 9, w: 3, h: 3, minW: 2, minH: 2 },
+  { i: "emails", x: 0, y: 12, w: 12, h: 3, minW: 4, minH: 2 },
 ];
 
 const LAYOUT_STORAGE_KEY = "user-dashboard-layout";
@@ -234,6 +249,8 @@ const UserDashboard = () => {
   const [companyNews, setCompanyNews] = useState<CompanyNewsItem[]>([]);
   const [shiftFollowUpData, setShiftFollowUpData] = useState<ShiftFollowUpItem[]>([]);
   const [shiftFollowUpDate, setShiftFollowUpDate] = useState<Date>(new Date());
+  const [vacationBalances, setVacationBalances] = useState<VacationBalance[]>([]);
+  const [deductionSummary, setDeductionSummary] = useState<DeductionSummary>({ total_deduction_minutes: 0, total_entries: 0 });
   
   // Layout customization state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -411,7 +428,9 @@ const UserDashboard = () => {
         fetchUnreadMessages(user.id),
         fetchCompanyNews(),
         fetchShiftFollowUp(shiftFollowUpDate),
-        fetchChatUsers(user.id)
+        fetchChatUsers(user.id),
+        fetchVacationBalances(user.id),
+        fetchDeductionSummary(user.id)
       ]);
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -762,6 +781,79 @@ const UserDashboard = () => {
       })));
     } else {
       setShiftFollowUpData([]);
+    }
+  };
+
+  const fetchVacationBalances = async (userId: string) => {
+    // First get employee linked to this user
+    const { data: employee } = await supabase
+      .from("employees")
+      .select("id")
+      .eq("user_id", userId)
+      .single();
+
+    if (!employee) {
+      setVacationBalances([]);
+      return;
+    }
+
+    // Fetch vacation balances for current year
+    const currentYear = new Date().getFullYear();
+    const { data } = await supabase
+      .from("employee_vacation_types")
+      .select(`
+        balance,
+        used_days,
+        vacation_codes:vacation_code_id (vacation_name)
+      `)
+      .eq("employee_id", employee.id)
+      .eq("year", currentYear);
+
+    if (data) {
+      setVacationBalances(data.map(v => ({
+        vacation_name: (v.vacation_codes as any)?.vacation_name || "Unknown",
+        balance: v.balance || 0,
+        used_days: v.used_days || 0
+      })));
+    } else {
+      setVacationBalances([]);
+    }
+  };
+
+  const fetchDeductionSummary = async (userId: string) => {
+    // First get employee linked to this user
+    const { data: employee } = await supabase
+      .from("employees")
+      .select("id")
+      .eq("user_id", userId)
+      .single();
+
+    if (!employee) {
+      setDeductionSummary({ total_deduction_minutes: 0, total_entries: 0 });
+      return;
+    }
+
+    // Fetch timesheet data for current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    const { data } = await supabase
+      .from("timesheets")
+      .select("late_minutes, early_leave_minutes, deduction_amount")
+      .eq("employee_id", employee.id)
+      .gte("date", startOfMonth)
+      .lte("date", endOfMonth);
+
+    if (data) {
+      const totalLate = data.reduce((sum, t) => sum + (t.late_minutes || 0), 0);
+      const totalEarly = data.reduce((sum, t) => sum + (t.early_leave_minutes || 0), 0);
+      setDeductionSummary({
+        total_deduction_minutes: totalLate + totalEarly,
+        total_entries: data.length
+      });
+    } else {
+      setDeductionSummary({ total_deduction_minutes: 0, total_entries: 0 });
     }
   };
 
@@ -1309,6 +1401,8 @@ const UserDashboard = () => {
       shifts: <CalendarIcon className="h-4 w-4 text-primary" />,
       emails: <Mail className="h-4 w-4 text-primary" />,
       shiftFollowUp: <ClipboardList className="h-4 w-4 text-primary" />,
+      vacationBalance: <CalendarIcon className="h-4 w-4 text-primary" />,
+      deductions: <Clock className="h-4 w-4 text-primary" />,
     };
     return icons[widgetId] || <Circle className="h-4 w-4 text-primary" />;
   };
@@ -1782,6 +1876,107 @@ const UserDashboard = () => {
     </Card>
   );
 
+  const renderVacationBalanceWidget = () => {
+    const totalBalance = vacationBalances.reduce((sum, v) => sum + v.balance, 0);
+    const totalUsed = vacationBalances.reduce((sum, v) => sum + v.used_days, 0);
+
+    return (
+      <Card className="h-full overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4 text-primary" />
+            {getWidgetName("vacationBalance")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="h-[calc(100%-60px)]">
+          <ScrollArea className="h-full">
+            {vacationBalances.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                <CalendarIcon className="h-6 w-6 mr-2" />
+                {language === "ar" ? "لا توجد بيانات إجازات" : "No vacation data"}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-primary/10 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-primary">{totalBalance}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {language === "ar" ? "الرصيد المتبقي" : "Remaining"}
+                    </div>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold">{totalUsed}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {language === "ar" ? "أيام مستخدمة" : "Days Used"}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Individual vacation types */}
+                <div className="space-y-2">
+                  {vacationBalances.map((v, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 border rounded-lg">
+                      <span className="text-sm">{v.vacation_name}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {language === "ar" ? "رصيد" : "Bal"}: {v.balance}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {language === "ar" ? "مستخدم" : "Used"}: {v.used_days}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderDeductionsWidget = () => {
+    const hours = Math.floor(deductionSummary.total_deduction_minutes / 60);
+    const minutes = deductionSummary.total_deduction_minutes % 60;
+
+    return (
+      <Card className="h-full overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            {getWidgetName("deductions")}
+          </CardTitle>
+          <Badge variant="secondary">
+            {format(new Date(), "MMM yyyy")}
+          </Badge>
+        </CardHeader>
+        <CardContent className="h-[calc(100%-60px)]">
+          <div className="flex flex-col items-center justify-center h-full space-y-4">
+            {/* Total Deduction Hours */}
+            <div className="bg-destructive/10 rounded-lg p-4 text-center w-full">
+              <div className="text-3xl font-bold text-destructive">
+                {hours}:{minutes.toString().padStart(2, '0')}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {language === "ar" ? "إجمالي ساعات الخصم" : "Total Deduction Hours"}
+              </div>
+            </div>
+            
+            {/* Entries Count */}
+            <div className="bg-muted rounded-lg p-3 text-center w-full">
+              <div className="text-xl font-semibold">{deductionSummary.total_entries}</div>
+              <div className="text-xs text-muted-foreground">
+                {language === "ar" ? "عدد أيام الحضور" : "Attendance Days"}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const widgetMap: Record<string, () => JSX.Element> = {
     news: renderNewsWidget,
     messages: renderMessagesWidget,
@@ -1792,6 +1987,8 @@ const UserDashboard = () => {
     shifts: renderShiftsWidget,
     shiftFollowUp: renderShiftFollowUpWidget,
     emails: renderEmailsWidget,
+    vacationBalance: renderVacationBalanceWidget,
+    deductions: renderDeductionsWidget,
   };
   
   // Filter layout: exclude hidden widgets, and in live mode hide empty news widget
