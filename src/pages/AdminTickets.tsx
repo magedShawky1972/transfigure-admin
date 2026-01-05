@@ -145,7 +145,7 @@ const AdminTickets = () => {
     if (!userAdminForDept) return false;
     
     const deptAdmins = allDepartmentAdmins.filter(a => a.department_id === ticket.department_id);
-    const nextOrder = ticket.next_admin_order || 1;
+    const nextOrder = ticket.next_admin_order ?? 0; // Default to 0 since admin_order starts at 0
     
     // For non-purchase tickets: only regular admins are in the approval chain
     if (!ticket.is_purchase_ticket) {
@@ -732,8 +732,8 @@ const AdminTickets = () => {
 
   const handleResendNotification = async (ticket: Ticket) => {
     try {
-      // Get the current approval level from ticket or default to 1
-      const currentOrder = ticket.next_admin_order || 1;
+      // Get the current approval level from ticket or default to 0 (admin_order starts at 0)
+      const currentOrder = ticket.next_admin_order ?? 0;
 
       // Determine if we're in the purchase admin phase
       // First check if there are any regular admins at the current level

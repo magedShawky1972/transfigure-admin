@@ -341,7 +341,7 @@ const TicketDetails = () => {
       if (data && !ticket.approved_at) {
         const adminOrder = data.admin_order;
         const isPurchaseAdmin = data.is_purchase_admin;
-        const ticketNextOrder = ticket.next_admin_order || 1;
+        const ticketNextOrder = ticket.next_admin_order ?? 0; // Default to 0 since admin_order starts at 0
 
         // Determine if this admin is in the current approval phase
         // For regular admins: check if no purchase phase started yet or admin_order matches next_admin_order
