@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'security-dashboard']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard']);
         setLoading(false);
         return;
       }
@@ -171,6 +171,15 @@ const Reports = () => {
         : "View bank statement with filters by transaction date and posting date",
       icon: Landmark,
       route: "/reports/bank-statement",
+    },
+    {
+      id: "bank-statement-as-of",
+      name: language === "ar" ? "كشف حساب البنك حتى تاريخ" : "Bank Statement As Of",
+      description: language === "ar" 
+        ? "عرض كشف حساب البنك حتى تاريخ محدد مع الرصيد الافتتاحي والختامي" 
+        : "View bank statement as of a specific date with opening and closing balances",
+      icon: Landmark,
+      route: "/reports/bank-statement-as-of",
     },
     {
       id: "security-dashboard",
