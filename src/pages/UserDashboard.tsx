@@ -804,14 +804,14 @@ const UserDashboard = () => {
       .select(`
         balance,
         used_days,
-        vacation_codes:vacation_code_id (vacation_name)
+        vacation_codes:vacation_code_id (name_en, name_ar)
       `)
       .eq("employee_id", employee.id)
       .eq("year", currentYear);
 
     if (data) {
       setVacationBalances(data.map(v => ({
-        vacation_name: (v.vacation_codes as any)?.vacation_name || "Unknown",
+        vacation_name: (v.vacation_codes as any)?.name_en || (v.vacation_codes as any)?.name_ar || "Unknown",
         balance: v.balance || 0,
         used_days: v.used_days || 0
       })));
