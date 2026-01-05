@@ -66,7 +66,9 @@ async function sendEmailInBackground(
   emailHtml: string,
   ticketId: string | null = null,
   attachments: EmailAttachment[] = []
-) {
+): Promise<string | null> {
+  let emailId: string | null = null;
+  
   try {
     const smtpClient = new SMTPClient({
       connection: {
@@ -94,7 +96,7 @@ async function sendEmailInBackground(
 
     // Store email in database for the recipient
     const messageId = `ticket-${ticketId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    await supabase.from("emails").insert({
+    const { data: insertedEmail, error: emailError } = await supabase.from("emails").insert({
       user_id: recipientUserId,
       message_id: messageId,
       folder: "inbox",
@@ -110,11 +112,19 @@ async function sendEmailInBackground(
       has_attachments: attachments.length > 0,
       email_date: new Date().toISOString(),
       linked_ticket_id: ticketId,
-    });
-    console.log("Email stored in database for user:", recipientUserId);
+    }).select("id").single();
+    
+    if (!emailError && insertedEmail) {
+      emailId = insertedEmail.id;
+      console.log("Email stored in database for user:", recipientUserId, "with id:", emailId);
+    } else {
+      console.error("Failed to store email:", emailError);
+    }
   } catch (emailError) {
     console.error("Failed to send email to", email, ":", emailError);
   }
+  
+  return emailId;
 }
 
 async function fetchTicketAttachments(supabase: any, ticketId: string): Promise<EmailAttachment[]> {

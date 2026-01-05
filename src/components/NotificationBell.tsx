@@ -23,6 +23,7 @@ type Notification = {
   message: string;
   type: string;
   ticket_id: string | null;
+  email_id: string | null;
   is_read: boolean;
   created_at: string;
   sender_id?: string | null;
@@ -121,6 +122,9 @@ export const NotificationBell = () => {
     if (notification.ticket_id) {
       // For ticket notifications, navigate to ticket
       navigate(`/tickets/${notification.ticket_id}`);
+    } else if (notification.email_id) {
+      // For email notifications, navigate to email manager with the email selected
+      navigate(`/email-manager?emailId=${notification.email_id}`);
     } else {
       // For general notifications, open detail dialog
       setSelectedNotification(notification);
