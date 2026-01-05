@@ -1575,7 +1575,7 @@ const UserDashboard = () => {
                 <div
                   key={ticket.id}
                   className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => !isEditMode && navigate(`/ticket/${ticket.id}`)}
+                  onClick={() => !isEditMode && navigate(`/tickets/${ticket.id}`)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -1615,7 +1615,7 @@ const UserDashboard = () => {
                 <div
                   key={ticket.id}
                   className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => !isEditMode && navigate(`/ticket/${ticket.id}`)}
+                  onClick={() => !isEditMode && navigate(`/tickets/${ticket.id}`)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -1655,7 +1655,7 @@ const UserDashboard = () => {
                 <div
                   key={ticket.id}
                   className="p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => !isEditMode && navigate(`/ticket/${ticket.id}`)}
+                  onClick={() => !isEditMode && navigate(`/tickets/${ticket.id}`)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
