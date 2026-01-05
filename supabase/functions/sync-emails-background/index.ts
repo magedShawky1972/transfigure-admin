@@ -107,19 +107,19 @@ serve(async (req) => {
           })
           .eq('id', config.id);
 
-        // If there are new emails, send push notification
+        // If there are new emails, send push notification AND create in-app notification
         if (newCount > 0) {
-          console.log(`Sending push notification to user ${config.user_id} for ${newCount} new emails`);
+          console.log(`Sending notifications to user ${config.user_id} for ${newCount} new emails`);
 
-          // Get first new email subject for notification
+          // Get new unread emails for notification details
           const { data: newEmails } = await supabase
             .from('emails')
-            .select('subject, from_name, from_address')
+            .select('id, subject, from_name, from_address')
             .eq('user_id', config.user_id)
             .eq('folder', 'inbox')
             .eq('is_read', false)
             .order('email_date', { ascending: false })
-            .limit(1);
+            .limit(5);
 
           const firstEmail = newEmails?.[0];
           const title = newCount === 1 
@@ -129,6 +129,29 @@ serve(async (req) => {
             ? (firstEmail?.subject || 'You have a new email')
             : `You have ${newCount} new unread emails`;
 
+          // Create in-app notifications for each new email (up to 5)
+          if (newEmails && newEmails.length > 0) {
+            const notificationInserts = newEmails.map(email => ({
+              user_id: config.user_id,
+              title: email.from_name || email.from_address || 'New Email',
+              message: email.subject || 'You have a new email',
+              type: 'email',
+              email_id: email.id,
+              is_read: false,
+            }));
+
+            const { error: notifError } = await supabase
+              .from('notifications')
+              .insert(notificationInserts);
+
+            if (notifError) {
+              console.error(`Error creating in-app notifications for ${config.user_id}:`, notifError);
+            } else {
+              console.log(`Created ${notificationInserts.length} in-app notifications for ${config.user_id}`);
+            }
+          }
+
+          // Send push notification
           try {
             await supabase.functions.invoke('send-push-notification', {
               body: {
@@ -143,6 +166,7 @@ serve(async (req) => {
                 },
               },
             });
+            console.log(`Push notification sent to ${config.user_id}`);
           } catch (pushError) {
             console.error(`Error sending push notification to ${config.user_id}:`, pushError);
           }
