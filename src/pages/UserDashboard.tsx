@@ -1795,8 +1795,11 @@ const UserDashboard = () => {
   };
   
   // Filter layout: exclude hidden widgets, and in live mode hide empty news widget
+  // In Arabic mode, only show Tawasoul (messages) widget
   const visibleLayout = layout.filter(item => {
     if (hiddenWidgets.includes(item.i)) return false;
+    // In Arabic mode, only show messages widget
+    if (language === "ar" && item.i !== "messages") return false;
     // In live mode, hide news widget if empty
     if (!isEditMode && item.i === "news" && companyNews.length === 0) return false;
     return true;
