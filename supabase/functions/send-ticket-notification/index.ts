@@ -58,10 +58,13 @@ async function logTicketActivity(
 }
 
 async function sendEmailInBackground(
+  supabase: any,
+  recipientUserId: string,
   email: string,
   userName: string,
   emailSubject: string,
   emailHtml: string,
+  ticketId: string | null = null,
   attachments: EmailAttachment[] = []
 ) {
   try {
@@ -88,6 +91,27 @@ async function sendEmailInBackground(
     });
     await smtpClient.close();
     console.log("Email sent successfully to:", email);
+
+    // Store email in database for the recipient
+    const messageId = `ticket-${ticketId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    await supabase.from("emails").insert({
+      user_id: recipientUserId,
+      message_id: messageId,
+      folder: "inbox",
+      subject: emailSubject,
+      from_address: "edara@asuscards.com",
+      from_name: "Edara Support",
+      to_addresses: [email],
+      body_html: emailHtml,
+      body_text: emailSubject,
+      is_read: false,
+      is_starred: false,
+      is_draft: false,
+      has_attachments: attachments.length > 0,
+      email_date: new Date().toISOString(),
+      linked_ticket_id: ticketId,
+    });
+    console.log("Email stored in database for user:", recipientUserId);
   } catch (emailError) {
     console.error("Failed to send email to", email, ":", emailError);
   }
@@ -315,7 +339,7 @@ const handler = async (req: Request): Promise<Response> => {
           `<p>مرحباً ,</p>`,
           `<p>مرحباً ${profile.user_name},</p>`
         );
-        sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml, emailAttachments);
+        sendEmailInBackground(supabase, profile.user_id, profile.email, profile.user_name, emailSubject, personalizedHtml, ticketId, emailAttachments);
         
         // Log email sent activity
         logTicketActivity(
@@ -475,7 +499,7 @@ const handler = async (req: Request): Promise<Response> => {
           `<p>مرحباً ${profile.user_name},</p>`
         );
         // Fire and forget - emails sent in background
-        sendEmailInBackground(profile.email, profile.user_name, emailSubject, personalizedHtml, emailAttachments);
+        sendEmailInBackground(supabase, profile.user_id, profile.email, profile.user_name, emailSubject, personalizedHtml, ticketId, emailAttachments);
         
         // Log email sent activity
         logTicketActivity(
@@ -613,7 +637,7 @@ const handler = async (req: Request): Promise<Response> => {
       const emailAttachments = await fetchTicketAttachments(supabase, ticketId);
 
       // Send email in background (non-blocking)
-      sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml, emailAttachments);
+      sendEmailInBackground(supabase, recipientUserId, profile.email, profile.user_name, emailSubject, emailHtml, ticketId, emailAttachments);
 
       // Log the activity
       let activityType = type;
