@@ -1795,15 +1795,21 @@ const UserDashboard = () => {
   };
   
   // Filter layout: exclude hidden widgets, and in live mode hide empty news widget
-  // In Arabic mode, only show Tawasoul (messages) widget
-  const visibleLayout = layout.filter(item => {
+  const filteredLayout = layout.filter(item => {
     if (hiddenWidgets.includes(item.i)) return false;
-    // In Arabic mode, only show messages widget
-    if (language === "ar" && item.i !== "messages") return false;
     // In live mode, hide news widget if empty
     if (!isEditMode && item.i === "news" && companyNews.length === 0) return false;
     return true;
   });
+
+  // Transform layout for RTL - react-grid-layout doesn't support RTL natively
+  // We need to mirror the x positions for RTL mode
+  const visibleLayout = language === "ar" 
+    ? filteredLayout.map(item => ({
+        ...item,
+        x: 12 - item.x - item.w // Mirror x position for RTL (12 cols total)
+      }))
+    : filteredLayout;
 
   if (loading) {
     return (
