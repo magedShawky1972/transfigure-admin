@@ -814,7 +814,7 @@ const AdminTickets = () => {
         .from("tickets")
         .update({ 
           department_id: newDepartmentId,
-          next_admin_order: 1, // Reset approval chain
+          next_admin_order: 0, // Reset approval chain to first admin (order 0)
           approved_at: null,
           approved_by: null
         })
@@ -846,7 +846,7 @@ const AdminTickets = () => {
       const { error } = await supabase
         .from("tickets")
         .update({ 
-          next_admin_order: 1, // Reset to first approval level
+          next_admin_order: 0, // Reset to first approval level (order 0)
           approved_at: null,
           approved_by: null,
           status: "Open"
@@ -1108,8 +1108,8 @@ const AdminTickets = () => {
             </Button>
           )}
 
-          {/* Reverse Approval button - for tickets that have partial approval (next_admin_order > 1 or approved_at set) */}
-          {((ticket.next_admin_order || 1) > 1 || ticket.approved_at) && (
+          {/* Reverse Approval button - for tickets that have partial approval (next_admin_order > 0 or approved_at set) */}
+          {((ticket.next_admin_order ?? 0) > 0 || ticket.approved_at) && (
             <Button
               variant="outline"
               size="sm"
