@@ -356,6 +356,13 @@ const AdminTickets = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Get current user's profile for logging
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
       // Get ticket details first
       const { data: ticket } = await supabase
         .from("tickets")
@@ -455,6 +462,17 @@ const AdminTickets = () => {
 
         if (error) throw error;
 
+        // Log the approval action
+        await supabase.from("ticket_activity_logs").insert({
+          ticket_id: ticketId,
+          activity_type: "approved",
+          user_id: user.id,
+          user_name: userProfile?.user_name || user.email,
+          description: language === 'ar' 
+            ? `تمت الموافقة من المستوى ${currentOrder} - تم التمرير للمستوى ${nextAdminOrder}`
+            : `Approved by level ${currentOrder} - passed to level ${nextAdminOrder}`,
+        });
+
         // Send notification to next level admins
         await supabase.functions.invoke("send-ticket-notification", {
           body: {
@@ -481,6 +499,17 @@ const AdminTickets = () => {
           .eq("id", ticketId);
 
         if (error) throw error;
+
+        // Log the final approval action
+        await supabase.from("ticket_activity_logs").insert({
+          ticket_id: ticketId,
+          activity_type: "approved",
+          user_id: user.id,
+          user_name: userProfile?.user_name || user.email,
+          description: language === 'ar' 
+            ? `تمت الموافقة النهائية من المستوى ${currentOrder}`
+            : `Final approval by level ${currentOrder}`,
+        });
 
         // Send notification to ticket creator
         await supabase.functions.invoke("send-ticket-notification", {
