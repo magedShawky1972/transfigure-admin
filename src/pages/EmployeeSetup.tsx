@@ -67,19 +67,21 @@ interface Employee {
   medical_insurance_plan_id: string | null;
   basic_salary: number | null;
   manager_id: string | null;
-  departments?: { department_name: string } | null;
-  job_positions?: { position_name: string } | null;
+  departments?: { department_name: string; department_name_ar: string | null } | null;
+  job_positions?: { position_name: string; position_name_ar: string | null } | null;
   profiles?: { user_name: string } | null;
 }
 
 interface Department {
   id: string;
   department_name: string;
+  department_name_ar: string | null;
 }
 
 interface JobPosition {
   id: string;
   position_name: string;
+  position_name_ar: string | null;
 }
 
 interface Profile {
@@ -290,13 +292,13 @@ export default function EmployeeSetup() {
           .from("employees")
           .select(`
             *,
-            departments(department_name),
-            job_positions(position_name),
+            departments(department_name, department_name_ar),
+            job_positions(position_name, position_name_ar),
             attendance_types(type_name, type_name_ar, is_shift_based)
           `)
           .order("employee_number"),
-        supabase.from("departments").select("id, department_name").eq("is_active", true).order("department_name"),
-        supabase.from("job_positions").select("id, position_name").eq("is_active", true).order("position_name"),
+        supabase.from("departments").select("id, department_name, department_name_ar").eq("is_active", true).order("department_name"),
+        supabase.from("job_positions").select("id, position_name, position_name_ar").eq("is_active", true).order("position_name"),
         supabase.from("profiles").select("user_id, user_name, email").eq("is_active", true).order("user_name"),
         supabase.from("vacation_codes").select("id, code, name_en, name_ar").eq("is_active", true).order("code"),
         supabase.from("medical_insurance_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
@@ -1027,7 +1029,7 @@ export default function EmployeeSetup() {
                   <SelectItem value="all">{language === "ar" ? "كل الأقسام" : "All Departments"}</SelectItem>
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
-                      {dept.department_name}
+                      {language === "ar" ? (dept.department_name_ar || dept.department_name) : dept.department_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1042,7 +1044,7 @@ export default function EmployeeSetup() {
                   <SelectItem value="all">{language === "ar" ? "كل الوظائف" : "All Jobs"}</SelectItem>
                   {jobPositions.map((job) => (
                     <SelectItem key={job.id} value={job.id}>
-                      {job.position_name}
+                      {language === "ar" ? (job.position_name_ar || job.position_name) : job.position_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1126,8 +1128,16 @@ export default function EmployeeSetup() {
                             ? `${emp.first_name_ar || emp.first_name} ${emp.last_name_ar || emp.last_name}`
                             : `${emp.first_name} ${emp.last_name}`}
                         </TableCell>
-                        <TableCell>{emp.departments?.department_name || "-"}</TableCell>
-                        <TableCell>{emp.job_positions?.position_name || "-"}</TableCell>
+                        <TableCell>
+                          {language === "ar"
+                            ? (emp.departments?.department_name_ar || emp.departments?.department_name || "-")
+                            : (emp.departments?.department_name || "-")}
+                        </TableCell>
+                        <TableCell>
+                          {language === "ar"
+                            ? (emp.job_positions?.position_name_ar || emp.job_positions?.position_name || "-")
+                            : (emp.job_positions?.position_name || "-")}
+                        </TableCell>
                         <TableCell>{format(new Date(emp.job_start_date), "yyyy-MM-dd")}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(emp.employment_status)}`}>
@@ -1199,10 +1209,14 @@ export default function EmployeeSetup() {
                         </h3>
                         <p className="text-sm text-muted-foreground">{emp.employee_number}</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {emp.job_positions?.position_name || "-"}
+                          {language === "ar" 
+                            ? (emp.job_positions?.position_name_ar || emp.job_positions?.position_name || "-")
+                            : (emp.job_positions?.position_name || "-")}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {emp.departments?.department_name || "-"}
+                          {language === "ar"
+                            ? (emp.departments?.department_name_ar || emp.departments?.department_name || "-")
+                            : (emp.departments?.department_name || "-")}
                         </p>
                         <Badge className={`mt-2 ${getStatusColor(emp.employment_status)}`}>
                           {emp.employment_status}
