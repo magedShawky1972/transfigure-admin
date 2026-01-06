@@ -13,6 +13,7 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  defaultMonth = new Date(),
   ...props
 }: CalendarProps) {
   return (
