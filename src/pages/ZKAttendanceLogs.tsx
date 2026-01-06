@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -30,11 +31,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -73,8 +82,15 @@ const ZKAttendanceLogs = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    employee_code: "",
+    attendance_date: "",
+    attendance_time: "",
+    record_type: "unknown",
+  });
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -208,6 +224,51 @@ const ZKAttendanceLogs = () => {
   const handleApproveClick = (log: AttendanceLog) => {
     setSelectedLog(log);
     setApproveDialogOpen(true);
+  };
+
+  const handleEditClick = (log: AttendanceLog) => {
+    setSelectedLog(log);
+    setEditFormData({
+      employee_code: log.employee_code,
+      attendance_date: log.attendance_date,
+      attendance_time: log.attendance_time,
+      record_type: log.record_type,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!selectedLog) return;
+    
+    if (!editFormData.employee_code || !editFormData.attendance_date || !editFormData.attendance_time) {
+      toast.error(isArabic ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from("zk_attendance_logs")
+        .update({
+          employee_code: editFormData.employee_code,
+          attendance_date: editFormData.attendance_date,
+          attendance_time: editFormData.attendance_time,
+          record_type: editFormData.record_type,
+        })
+        .eq("id", selectedLog.id);
+
+      if (error) throw error;
+
+      toast.success(isArabic ? "تم تحديث السجل بنجاح" : "Record updated successfully");
+      fetchLogs();
+    } catch (error: any) {
+      console.error("Error updating log:", error);
+      toast.error(isArabic ? "خطأ في تحديث السجل" : "Error updating record");
+    } finally {
+      setActionLoading(false);
+      setEditDialogOpen(false);
+      setSelectedLog(null);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -457,6 +518,15 @@ const ZKAttendanceLogs = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleEditClick(log)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title={isArabic ? "تعديل" : "Edit"}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDeleteClick(log)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               title={isArabic ? "حذف" : "Delete"}
@@ -542,6 +612,83 @@ const ZKAttendanceLogs = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isArabic ? "تعديل سجل الحضور" : "Edit Attendance Record"}
+            </DialogTitle>
+            <DialogDescription>
+              {isArabic ? "قم بتعديل بيانات سجل الحضور" : "Modify the attendance record details"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="employee_code">
+                {isArabic ? "كود الموظف" : "Employee Code"}
+              </Label>
+              <Input
+                id="employee_code"
+                value={editFormData.employee_code}
+                onChange={(e) => setEditFormData({ ...editFormData, employee_code: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="attendance_date">
+                {isArabic ? "التاريخ" : "Date"}
+              </Label>
+              <Input
+                id="attendance_date"
+                type="date"
+                value={editFormData.attendance_date}
+                onChange={(e) => setEditFormData({ ...editFormData, attendance_date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="attendance_time">
+                {isArabic ? "الوقت" : "Time"}
+              </Label>
+              <Input
+                id="attendance_time"
+                type="time"
+                step="1"
+                value={editFormData.attendance_time}
+                onChange={(e) => setEditFormData({ ...editFormData, attendance_time: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="record_type">
+                {isArabic ? "النوع" : "Type"}
+              </Label>
+              <Select
+                value={editFormData.record_type}
+                onValueChange={(value) => setEditFormData({ ...editFormData, record_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entry">{isArabic ? "دخول" : "Entry"}</SelectItem>
+                  <SelectItem value="exit">{isArabic ? "خروج" : "Exit"}</SelectItem>
+                  <SelectItem value="unknown">{isArabic ? "غير محدد" : "Unknown"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={actionLoading}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleEditSave} disabled={actionLoading}>
+              {actionLoading
+                ? isArabic ? "جاري الحفظ..." : "Saving..."
+                : isArabic ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
