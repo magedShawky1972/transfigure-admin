@@ -228,7 +228,8 @@ export default function EmployeeProfile() {
             vacation_codes(code, name_en, name_ar)
           `)
           .eq("employee_id", id)
-          .eq("year", new Date().getFullYear()),
+          .eq("year", new Date().getFullYear())
+          .order("vacation_code_id", { ascending: true }),
         supabase
           .from("employee_contacts")
           .select("id, contact_type, contact_name, contact_phone, contact_address, is_emergency_contact")
