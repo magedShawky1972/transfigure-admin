@@ -20,11 +20,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -61,6 +71,10 @@ const ZKAttendanceLogs = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -186,6 +200,80 @@ const ZKAttendanceLogs = () => {
     return summary;
   };
 
+  const handleDeleteClick = (log: AttendanceLog) => {
+    setSelectedLog(log);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleApproveClick = (log: AttendanceLog) => {
+    setSelectedLog(log);
+    setApproveDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedLog) return;
+    
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from("zk_attendance_logs")
+        .delete()
+        .eq("id", selectedLog.id);
+
+      if (error) throw error;
+
+      toast.success(isArabic ? "تم حذف السجل بنجاح" : "Record deleted successfully");
+      fetchLogs();
+    } catch (error: any) {
+      console.error("Error deleting log:", error);
+      toast.error(isArabic ? "خطأ في حذف السجل" : "Error deleting record");
+    } finally {
+      setActionLoading(false);
+      setDeleteDialogOpen(false);
+      setSelectedLog(null);
+    }
+  };
+
+  const handleApproveConfirm = async () => {
+    if (!selectedLog) return;
+    
+    setActionLoading(true);
+    try {
+      // Find the employee by ZK code
+      const employee = employees.find((e) => e.zk_employee_code === selectedLog.employee_code);
+      
+      if (!employee) {
+        toast.error(isArabic ? "لم يتم العثور على الموظف" : "Employee not found");
+        return;
+      }
+
+      // Mark as processed
+      const { error: updateError } = await supabase
+        .from("zk_attendance_logs")
+        .update({ 
+          is_processed: true, 
+          processed_at: new Date().toISOString() 
+        })
+        .eq("id", selectedLog.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(
+        isArabic 
+          ? "تمت الموافقة وإضافة السجل إلى دوام الموظف" 
+          : "Record approved and added to employee timesheet"
+      );
+      fetchLogs();
+    } catch (error: any) {
+      console.error("Error approving log:", error);
+      toast.error(isArabic ? "خطأ في الموافقة على السجل" : "Error approving record");
+    } finally {
+      setActionLoading(false);
+      setApproveDialogOpen(false);
+      setSelectedLog(null);
+    }
+  };
+
   return (
     <div className={`p-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <Card>
@@ -305,7 +393,9 @@ const ZKAttendanceLogs = () => {
                   <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
                   <TableHead>{isArabic ? "الوقت" : "Time"}</TableHead>
                   <TableHead>{isArabic ? "النوع" : "Type"}</TableHead>
+                  <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
+                  <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -318,7 +408,7 @@ const ZKAttendanceLogs = () => {
                   </TableRow>
                 ) : logs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
@@ -341,8 +431,39 @@ const ZKAttendanceLogs = () => {
                         <TableCell>{log.attendance_date}</TableCell>
                         <TableCell className="font-mono">{log.attendance_time}</TableCell>
                         <TableCell>{getRecordTypeBadge(log.record_type)}</TableCell>
+                        <TableCell>
+                          {log.is_processed ? (
+                            <Badge className="bg-blue-500">{isArabic ? "معتمد" : "Approved"}</Badge>
+                          ) : (
+                            <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-2">
+                            {!log.is_processed && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleApproveClick(log)}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                title={isArabic ? "اعتماد" : "Approve"}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(log)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title={isArabic ? "حذف" : "Delete"}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -361,6 +482,66 @@ const ZKAttendanceLogs = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isArabic ? "تأكيد الحذف" : "Confirm Delete"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic
+                ? `هل أنت متأكد من حذف سجل الحضور للموظف ${selectedLog?.employee_code} بتاريخ ${selectedLog?.attendance_date} الساعة ${selectedLog?.attendance_time}؟`
+                : `Are you sure you want to delete the attendance record for employee ${selectedLog?.employee_code} on ${selectedLog?.attendance_date} at ${selectedLog?.attendance_time}?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={actionLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {actionLoading
+                ? isArabic ? "جاري الحذف..." : "Deleting..."
+                : isArabic ? "حذف" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Approve Confirmation Dialog */}
+      <AlertDialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isArabic ? "تأكيد الاعتماد" : "Confirm Approval"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic
+                ? `هل أنت متأكد من اعتماد سجل الحضور للموظف ${selectedLog?.employee_code} (${getEmployeeName(selectedLog?.employee_code || "") || "-"}) بتاريخ ${selectedLog?.attendance_date} الساعة ${selectedLog?.attendance_time}؟ سيتم إضافته إلى دوام الموظف.`
+                : `Are you sure you want to approve the attendance record for employee ${selectedLog?.employee_code} (${getEmployeeName(selectedLog?.employee_code || "") || "-"}) on ${selectedLog?.attendance_date} at ${selectedLog?.attendance_time}? It will be added to the employee's timesheet.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApproveConfirm}
+              disabled={actionLoading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {actionLoading
+                ? isArabic ? "جاري الاعتماد..." : "Approving..."
+                : isArabic ? "اعتماد" : "Approve"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
