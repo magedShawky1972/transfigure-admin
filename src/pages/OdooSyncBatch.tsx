@@ -9,7 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInSeconds } from "date-fns";
@@ -215,6 +217,7 @@ const OdooSyncBatch = () => {
   const stopRequestedRef = useRef(false);
   const [stopRequested, setStopRequested] = useState(false);
   const [startingBackgroundSync, setStartingBackgroundSync] = useState(false);
+  const [aggregateMode, setAggregateMode] = useState(false);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -417,6 +420,54 @@ const OdooSyncBatch = () => {
     orderGroups.filter(g => g.selected && !g.skipSync).length,
     [orderGroups]
   );
+
+  // Aggregated groups when aggregate mode is on
+  const aggregatedGroups = useMemo(() => {
+    if (!aggregateMode) return null;
+    
+    // Group by: date, product_sku, unit_price, user_name, payment_method, payment_brand
+    const aggMap = new Map<string, {
+      date: string;
+      productSku: string;
+      productName: string;
+      unitPrice: number;
+      userName: string;
+      paymentMethod: string;
+      paymentBrand: string;
+      brandName: string;
+      totalAmount: number;
+      totalQty: number;
+      lines: Transaction[];
+    }>();
+
+    orderGroups.forEach(group => {
+      group.lines.forEach(line => {
+        const key = `${line.created_at_date}|${line.sku || line.product_id || ''}|${line.unit_price}|${line.user_name}|${line.payment_method}|${line.payment_brand}`;
+        const existing = aggMap.get(key);
+        if (existing) {
+          existing.totalAmount += line.total || 0;
+          existing.totalQty += line.qty || 0;
+          existing.lines.push(line);
+        } else {
+          aggMap.set(key, {
+            date: line.created_at_date,
+            productSku: line.sku || line.product_id || '',
+            productName: line.product_name || '',
+            unitPrice: line.unit_price || 0,
+            userName: line.user_name || '',
+            paymentMethod: line.payment_method || '',
+            paymentBrand: line.payment_brand || '',
+            brandName: line.brand_name || '',
+            totalAmount: line.total || 0,
+            totalQty: line.qty || 0,
+            lines: [line],
+          });
+        }
+      });
+    });
+
+    return Array.from(aggMap.values());
+  }, [orderGroups, aggregateMode]);
 
   const allSelected = orderGroups.length > 0 && orderGroups.every(g => g.selected);
 
@@ -1224,11 +1275,29 @@ const OdooSyncBatch = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>{language === 'ar' ? 'الطلبات' : 'Orders'}</span>
+            <div className="flex items-center gap-4">
+              <span>{language === 'ar' ? 'الطلبات' : 'Orders'}</span>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="aggregate-mode"
+                  checked={aggregateMode}
+                  onCheckedChange={setAggregateMode}
+                  disabled={isSyncing}
+                />
+                <Label htmlFor="aggregate-mode" className="text-sm font-normal flex items-center gap-1 cursor-pointer">
+                  <Layers className="h-4 w-4" />
+                  {language === 'ar' ? 'تجميع البيانات' : 'Aggregate Data'}
+                </Label>
+              </div>
+            </div>
             <span className="text-sm font-normal text-muted-foreground">
-              {language === 'ar' 
-                ? `${selectedCount} من ${orderGroups.length} محدد`
-                : `${selectedCount} of ${orderGroups.length} selected`}
+              {aggregateMode 
+                ? (language === 'ar' 
+                    ? `${aggregatedGroups?.length || 0} سطر مجمع`
+                    : `${aggregatedGroups?.length || 0} aggregated rows`)
+                : (language === 'ar' 
+                    ? `${selectedCount} من ${orderGroups.length} محدد`
+                    : `${selectedCount} of ${orderGroups.length} selected`)}
             </span>
           </CardTitle>
         </CardHeader>
@@ -1241,6 +1310,45 @@ const OdooSyncBatch = () => {
             <div className="text-center py-12 text-muted-foreground">
               {language === 'ar' ? 'لا توجد معاملات' : 'No transactions found'}
             </div>
+          ) : aggregateMode && aggregatedGroups ? (
+            <ScrollArea className="h-[600px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'كود المنتج' : 'Product SKU'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المستخدم' : 'User'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'ماركة الدفع' : 'Payment Brand'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aggregatedGroups.map((row, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{row.date ? format(parseISO(row.date), 'yyyy-MM-dd') : '-'}</TableCell>
+                      <TableCell className="font-mono">0000</TableCell>
+                      <TableCell>CASH CUSTOMER</TableCell>
+                      <TableCell className="max-w-[150px] truncate" title={row.productName}>
+                        {row.productName || '-'}
+                      </TableCell>
+                      <TableCell className="font-mono">{row.productSku || '-'}</TableCell>
+                      <TableCell>{row.unitPrice.toFixed(2)}</TableCell>
+                      <TableCell>{row.totalQty}</TableCell>
+                      <TableCell>{row.totalAmount.toFixed(2)} SAR</TableCell>
+                      <TableCell>{row.userName || '-'}</TableCell>
+                      <TableCell>{row.paymentMethod || '-'}</TableCell>
+                      <TableCell>{row.paymentBrand || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           ) : (
             <ScrollArea className="h-[600px]">
               <Table>
