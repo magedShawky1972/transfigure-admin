@@ -347,8 +347,7 @@ export default function EmployeeProfile() {
         const { error: updateError } = await supabase
           .from("employee_vacation_types")
           .update({ 
-            used_days: selectedVacationType.used_days + totalDays,
-            balance: selectedVacationType.balance - totalDays
+            used_days: selectedVacationType.used_days + totalDays
           })
           .eq("id", selectedVacationType.id);
 
