@@ -585,7 +585,21 @@ const OdooSyncBatch = () => {
       return (a.date || '').localeCompare(b.date || '');
     });
 
-    setAggregatedInvoices(result);
+    setAggregatedInvoices(prev => {
+      const prevByOrderNumber = new Map(prev.map(i => [i.orderNumber, i] as const));
+      return result.map(inv => {
+        const prevInv = prevByOrderNumber.get(inv.orderNumber);
+        if (!prevInv) return inv;
+        return {
+          ...inv,
+          selected: prevInv.selected,
+          skipSync: prevInv.skipSync,
+          syncStatus: prevInv.syncStatus,
+          stepStatus: prevInv.stepStatus,
+          errorMessage: prevInv.errorMessage,
+        };
+      });
+    });
   }, [orderGroups, aggregateMode, nonStockSkuSet]);
 
   // Aggregated invoice selection handlers
