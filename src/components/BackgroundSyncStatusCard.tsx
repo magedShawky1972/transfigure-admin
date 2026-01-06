@@ -53,10 +53,13 @@ export const BackgroundSyncStatusCard = () => {
   const [syncDetails, setSyncDetails] = useState<SyncDetail[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [showCompletedJob, setShowCompletedJob] = useState(false);
+  const [isDeleted, setIsDeleted] = useState(false);
 
   useEffect(() => {
     // Fetch active/recent job
     const fetchActiveJob = async () => {
+      if (isDeleted) return;
+      
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user?.id) return;
 
@@ -87,7 +90,13 @@ export const BackgroundSyncStatusCard = () => {
           table: 'background_sync_jobs',
         },
         (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setActiveJob(null);
+            setIsDeleted(true);
+            return;
+          }
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setIsDeleted(false);
             const job = payload.new as BackgroundJob;
             if (job.status === 'pending' || job.status === 'running') {
               setActiveJob(job);
@@ -105,7 +114,7 @@ export const BackgroundSyncStatusCard = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeJob?.id]);
+  }, [isDeleted]);
 
   // Fetch sync details for the job
   const fetchSyncDetails = async (jobId: string) => {
@@ -173,6 +182,7 @@ export const BackgroundSyncStatusCard = () => {
       if (error) throw error;
       
       toast.success(language === 'ar' ? 'تم حذف المهمة' : 'Job deleted');
+      setIsDeleted(true);
       setActiveJob(null);
       setShowCompletedJob(false);
     } catch (error) {
