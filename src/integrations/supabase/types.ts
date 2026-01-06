@@ -238,6 +238,7 @@ export type Database = {
           email_sent: boolean | null
           error_message: string | null
           failed_orders: number | null
+          force_kill: boolean | null
           from_date: string
           id: string
           processed_orders: number | null
@@ -259,6 +260,7 @@ export type Database = {
           email_sent?: boolean | null
           error_message?: string | null
           failed_orders?: number | null
+          force_kill?: boolean | null
           from_date: string
           id?: string
           processed_orders?: number | null
@@ -280,6 +282,7 @@ export type Database = {
           email_sent?: boolean | null
           error_message?: string | null
           failed_orders?: number | null
+          force_kill?: boolean | null
           from_date?: string
           id?: string
           processed_orders?: number | null
