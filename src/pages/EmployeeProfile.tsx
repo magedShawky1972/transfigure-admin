@@ -553,30 +553,30 @@ export default function EmployeeProfile() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
+        <TabsList className="h-auto flex flex-wrap justify-start gap-1 p-1 bg-muted/50">
+          <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-background">
             <User className="h-4 w-4" />
-            {language === "ar" ? "نظرة عامة" : "Overview"}
+            <span className="hidden sm:inline">{language === "ar" ? "نظرة عامة" : "Overview"}</span>
           </TabsTrigger>
-          <TabsTrigger value="job-history" className="flex items-center gap-2">
+          <TabsTrigger value="job-history" className="flex items-center gap-2 data-[state=active]:bg-background">
             <History className="h-4 w-4" />
-            {language === "ar" ? "السجل الوظيفي" : "Job History"}
+            <span className="hidden sm:inline">{language === "ar" ? "السجل الوظيفي" : "Job History"}</span>
           </TabsTrigger>
-          <TabsTrigger value="vacation" className="flex items-center gap-2">
+          <TabsTrigger value="vacation" className="flex items-center gap-2 data-[state=active]:bg-background">
             <Calendar className="h-4 w-4" />
-            {language === "ar" ? "الإجازات" : "Vacations"}
+            <span className="hidden sm:inline">{language === "ar" ? "الإجازات" : "Vacations"}</span>
           </TabsTrigger>
-          <TabsTrigger value="timesheet" className="flex items-center gap-2">
+          <TabsTrigger value="timesheet" className="flex items-center gap-2 data-[state=active]:bg-background">
             <Clock className="h-4 w-4" />
-            {language === "ar" ? "الحضور" : "Timesheet"}
+            <span className="hidden sm:inline">{language === "ar" ? "الحضور" : "Timesheet"}</span>
           </TabsTrigger>
-          <TabsTrigger value="insurance" className="flex items-center gap-2">
+          <TabsTrigger value="insurance" className="flex items-center gap-2 data-[state=active]:bg-background">
             <Shield className="h-4 w-4" />
-            {language === "ar" ? "التأمين" : "Insurance"}
+            <span className="hidden sm:inline">{language === "ar" ? "التأمين" : "Insurance"}</span>
           </TabsTrigger>
-          <TabsTrigger value="contacts" className="flex items-center gap-2">
+          <TabsTrigger value="contacts" className="flex items-center gap-2 data-[state=active]:bg-background">
             <Phone className="h-4 w-4" />
-            {language === "ar" ? "جهات الاتصال" : "Contacts"}
+            <span className="hidden sm:inline">{language === "ar" ? "جهات الاتصال" : "Contacts"}</span>
           </TabsTrigger>
         </TabsList>
 
