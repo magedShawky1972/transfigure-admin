@@ -322,6 +322,21 @@ async function processBackgroundSync(
   );
 
   const scheduleContinuation = async (processedSoFar: number) => {
+    // IMPORTANT: user may have pressed Stop after this chunk finished.
+    // Never auto-resume unless the job is still explicitly running.
+    const { data: jobState } = await supabase
+      .from('background_sync_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .single();
+
+    if (jobState?.status !== 'running') {
+      console.log(
+        `[Aggregated Background Sync] Not scheduling continuation because job ${jobId} status=${jobState?.status}`
+      );
+      return;
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -480,7 +495,21 @@ async function processBackgroundSync(
             current_order_number: null,
           })
           .eq('id', jobId);
-        await scheduleContinuation(processedInvoices);
+
+        // Re-check status right before scheduling (user may have pressed Stop).
+        const { data: jobState } = await supabase
+          .from('background_sync_jobs')
+          .select('status')
+          .eq('id', jobId)
+          .single();
+
+        if (jobState?.status === 'running') {
+          await scheduleContinuation(processedInvoices);
+        } else {
+          console.log(
+            `[Aggregated Background Sync] Continuation skipped because job ${jobId} status=${jobState?.status}`
+          );
+        }
         return;
       }
 
