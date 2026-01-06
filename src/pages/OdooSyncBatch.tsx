@@ -443,9 +443,8 @@ const OdooSyncBatch = () => {
         // Extract date only (YYYY-MM-DD) - handle both "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SS" formats
         const dateOnly = line.created_at_date?.substring(0, 10) || '';
         // Group by date, brand, payment_method, payment_brand, and optionally user_name
-        const invoiceKey = groupByUser 
-          ? `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`
-          : `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
+        const userPart = groupByUser ? `|${line.user_name || ''}` : '';
+        const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}${userPart}`;
         const existing = invoiceMap.get(invoiceKey);
         if (existing) {
           existing.lines.push(line);
