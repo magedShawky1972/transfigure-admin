@@ -303,6 +303,59 @@ const ApiDocumentation = () => {
     return apiConfigs.filter(config => config.api_endpoint === `/api/${apiName}`);
   };
 
+  const generateRequestBodyExample = (fields: any[]) => {
+    // Check if fields contain array notation (e.g., "records[].employee_code")
+    const arrayFields: Record<string, any[]> = {};
+    const regularFields: any[] = [];
+
+    fields.filter((field: any) => field.required).forEach((field: any) => {
+      const match = field.name.match(/^(\w+)\[\]\.(\w+)$/);
+      if (match) {
+        const arrayName = match[1];
+        const propName = match[2];
+        if (!arrayFields[arrayName]) {
+          arrayFields[arrayName] = [];
+        }
+        arrayFields[arrayName].push({ name: propName, type: field.type });
+      } else if (field.type === 'Array') {
+        // This is the array field itself, skip it as we'll handle it via child fields
+        arrayFields[field.name] = arrayFields[field.name] || [];
+      } else {
+        regularFields.push(field);
+      }
+    });
+
+    const getFieldValue = (type: string) => {
+      if (type === 'Text') return '"value"';
+      if (type === 'Int' || type === 'BigInt') return '123';
+      if (type === 'Decimal') return '99.99';
+      if (type === 'Bit') return 'true';
+      if (type === 'Datetime') return '"2024-01-01 12:00:00"';
+      return '"2024-01-01"';
+    };
+
+    let result = '{\n';
+    const parts: string[] = [];
+
+    // Add regular fields first
+    regularFields.forEach((field: any) => {
+      parts.push(`  "${field.name}": ${getFieldValue(field.type)}`);
+    });
+
+    // Add array fields with proper nested structure
+    Object.entries(arrayFields).forEach(([arrayName, props]) => {
+      if (props.length > 0) {
+        const nestedProps = props.map(p => `      "${p.name}": ${getFieldValue(p.type)}`).join(',\n');
+        parts.push(`  "${arrayName}": [\n    {\n${nestedProps}\n    }\n  ]`);
+      } else {
+        parts.push(`  "${arrayName}": []`);
+      }
+    });
+
+    result += parts.join(',\n') + '\n}';
+    return result;
+  };
+
   const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id)).map(api => {
     const dbFields = getApiFields(api.endpoint);
     // Use database fields if available, otherwise fall back to static fields from API_ENDPOINTS
@@ -552,21 +605,7 @@ const ApiDocumentation = () => {
 Authorization: <${apiKey || 'your_api_key_here'}>
 Content-Type: application/json
 
-{
-  ${api.fields
-    .filter((field: any) => field.required)
-    .map((field: any) => {
-      let value;
-      if (field.type === 'Text') value = '"value"';
-      else if (field.type === 'Int' || field.type === 'BigInt') value = '123';
-      else if (field.type === 'Decimal') value = '99.99';
-      else if (field.type === 'Bit') value = 'true';
-      else if (field.type === 'Datetime') value = '"2024-01-01 12:00:00"';
-      else value = '"2024-01-01"';
-      return `"${field.name}": ${value}`;
-    })
-    .join(',\n  ')}
-}`}</pre>
+${generateRequestBodyExample(api.fields)}`}</pre>
               </div>
             </div>
 
