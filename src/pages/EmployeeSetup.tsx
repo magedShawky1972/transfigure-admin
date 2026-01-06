@@ -182,6 +182,9 @@ export default function EmployeeSetup() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "card">("card");
+  const [filterDepartment, setFilterDepartment] = useState<string>("all");
+  const [filterJob, setFilterJob] = useState<string>("all");
+  const [filterLetter, setFilterLetter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
@@ -440,20 +443,73 @@ export default function EmployeeSetup() {
     }
   };
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    if (!term.trim()) {
-      setEmployees(allEmployees);
-    } else {
-      const filtered = allEmployees.filter(
+  const englishLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const arabicLetters = 'أابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+
+  const applyFilters = (
+    term: string, 
+    department: string, 
+    job: string, 
+    letter: string
+  ) => {
+    let filtered = [...allEmployees];
+
+    // Search term filter
+    if (term.trim()) {
+      filtered = filtered.filter(
         (emp) =>
           emp.employee_number.toLowerCase().includes(term.toLowerCase()) ||
           emp.first_name.toLowerCase().includes(term.toLowerCase()) ||
           emp.last_name.toLowerCase().includes(term.toLowerCase()) ||
+          (emp.first_name_ar && emp.first_name_ar.includes(term)) ||
+          (emp.last_name_ar && emp.last_name_ar.includes(term)) ||
           emp.email?.toLowerCase().includes(term.toLowerCase())
       );
-      setEmployees(filtered);
     }
+
+    // Department filter
+    if (department && department !== "all") {
+      filtered = filtered.filter((emp) => emp.department_id === department);
+    }
+
+    // Job filter
+    if (job && job !== "all") {
+      filtered = filtered.filter((emp) => emp.job_position_id === job);
+    }
+
+    // Letter filter
+    if (letter) {
+      filtered = filtered.filter((emp) => {
+        if (language === "ar") {
+          return (emp.first_name_ar && emp.first_name_ar.startsWith(letter)) || 
+                 emp.first_name.toUpperCase().startsWith(letter);
+        }
+        return emp.first_name.toUpperCase().startsWith(letter);
+      });
+    }
+
+    setEmployees(filtered);
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    applyFilters(term, filterDepartment, filterJob, filterLetter);
+  };
+
+  const handleDepartmentFilter = (dept: string) => {
+    setFilterDepartment(dept);
+    applyFilters(searchTerm, dept, filterJob, filterLetter);
+  };
+
+  const handleJobFilter = (job: string) => {
+    setFilterJob(job);
+    applyFilters(searchTerm, filterDepartment, job, filterLetter);
+  };
+
+  const handleLetterFilter = (letter: string) => {
+    const newLetter = filterLetter === letter ? "" : letter;
+    setFilterLetter(newLetter);
+    applyFilters(searchTerm, filterDepartment, filterJob, newLetter);
   };
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -928,15 +984,81 @@ export default function EmployeeSetup() {
         </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={language === "ar" ? "بحث..." : "Search..."}
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10"
-              />
+          <div className="space-y-4 mb-4">
+            {/* Search and Filters Row */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={language === "ar" ? "بحث..." : "Search..."}
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {/* Department Filter */}
+              <Select value={filterDepartment} onValueChange={handleDepartmentFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder={language === "ar" ? "القسم" : "Department"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "كل الأقسام" : "All Departments"}</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.department_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Job Filter */}
+              <Select value={filterJob} onValueChange={handleJobFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder={language === "ar" ? "الوظيفة" : "Job"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "كل الوظائف" : "All Jobs"}</SelectItem>
+                  {jobPositions.map((job) => (
+                    <SelectItem key={job.id} value={job.id}>
+                      {job.position_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Clear Filters */}
+              {(filterDepartment !== "all" || filterJob !== "all" || filterLetter || searchTerm) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setFilterDepartment("all");
+                    setFilterJob("all");
+                    setFilterLetter("");
+                    setEmployees(allEmployees);
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  {language === "ar" ? "مسح" : "Clear"}
+                </Button>
+              )}
+            </div>
+
+            {/* Alphabet Filter Row */}
+            <div className="flex flex-wrap gap-1">
+              {(language === "ar" ? arabicLetters : englishLetters).map((letter) => (
+                <Button
+                  key={letter}
+                  variant={filterLetter === letter ? "default" : "outline"}
+                  size="sm"
+                  className="w-8 h-8 p-0 text-xs font-medium"
+                  onClick={() => handleLetterFilter(letter)}
+                >
+                  {letter}
+                </Button>
+              ))}
             </div>
           </div>
 
