@@ -277,6 +277,88 @@ export default function EmployeeProfile() {
     }
   };
 
+  const translateGender = (gender: string | null) => {
+    if (!gender) return "-";
+    const genderMap: Record<string, { en: string; ar: string }> = {
+      male: { en: "Male", ar: "ذكر" },
+      female: { en: "Female", ar: "أنثى" },
+    };
+    const normalized = gender.toLowerCase();
+    return genderMap[normalized] 
+      ? (language === "ar" ? genderMap[normalized].ar : genderMap[normalized].en) 
+      : gender;
+  };
+
+  const translateNationality = (nationality: string | null) => {
+    if (!nationality) return "-";
+    const nationalityMap: Record<string, { en: string; ar: string }> = {
+      egypt: { en: "Egypt", ar: "مصر" },
+      egyptian: { en: "Egyptian", ar: "مصري" },
+      saudi: { en: "Saudi", ar: "سعودي" },
+      "saudi arabia": { en: "Saudi Arabia", ar: "السعودية" },
+      jordan: { en: "Jordan", ar: "الأردن" },
+      jordanian: { en: "Jordanian", ar: "أردني" },
+      syria: { en: "Syria", ar: "سوريا" },
+      syrian: { en: "Syrian", ar: "سوري" },
+      lebanon: { en: "Lebanon", ar: "لبنان" },
+      lebanese: { en: "Lebanese", ar: "لبناني" },
+      iraq: { en: "Iraq", ar: "العراق" },
+      iraqi: { en: "Iraqi", ar: "عراقي" },
+      uae: { en: "UAE", ar: "الإمارات" },
+      emirati: { en: "Emirati", ar: "إماراتي" },
+      kuwait: { en: "Kuwait", ar: "الكويت" },
+      kuwaiti: { en: "Kuwaiti", ar: "كويتي" },
+      bahrain: { en: "Bahrain", ar: "البحرين" },
+      bahraini: { en: "Bahraini", ar: "بحريني" },
+      qatar: { en: "Qatar", ar: "قطر" },
+      qatari: { en: "Qatari", ar: "قطري" },
+      oman: { en: "Oman", ar: "عمان" },
+      omani: { en: "Omani", ar: "عماني" },
+      yemen: { en: "Yemen", ar: "اليمن" },
+      yemeni: { en: "Yemeni", ar: "يمني" },
+      palestine: { en: "Palestine", ar: "فلسطين" },
+      palestinian: { en: "Palestinian", ar: "فلسطيني" },
+      morocco: { en: "Morocco", ar: "المغرب" },
+      moroccan: { en: "Moroccan", ar: "مغربي" },
+      algeria: { en: "Algeria", ar: "الجزائر" },
+      algerian: { en: "Algerian", ar: "جزائري" },
+      tunisia: { en: "Tunisia", ar: "تونس" },
+      tunisian: { en: "Tunisian", ar: "تونسي" },
+      libya: { en: "Libya", ar: "ليبيا" },
+      libyan: { en: "Libyan", ar: "ليبي" },
+      sudan: { en: "Sudan", ar: "السودان" },
+      sudanese: { en: "Sudanese", ar: "سوداني" },
+      india: { en: "India", ar: "الهند" },
+      indian: { en: "Indian", ar: "هندي" },
+      pakistan: { en: "Pakistan", ar: "باكستان" },
+      pakistani: { en: "Pakistani", ar: "باكستاني" },
+      bangladesh: { en: "Bangladesh", ar: "بنجلاديش" },
+      bangladeshi: { en: "Bangladeshi", ar: "بنجلاديشي" },
+      philippines: { en: "Philippines", ar: "الفلبين" },
+      filipino: { en: "Filipino", ar: "فلبيني" },
+      indonesia: { en: "Indonesia", ar: "إندونيسيا" },
+      indonesian: { en: "Indonesian", ar: "إندونيسي" },
+    };
+    const normalized = nationality.toLowerCase();
+    return nationalityMap[normalized] 
+      ? (language === "ar" ? nationalityMap[normalized].ar : nationalityMap[normalized].en) 
+      : nationality;
+  };
+
+  const translateMaritalStatus = (status: string | null) => {
+    if (!status) return "-";
+    const statusMap: Record<string, { en: string; ar: string }> = {
+      single: { en: "Single", ar: "أعزب" },
+      married: { en: "Married", ar: "متزوج" },
+      divorced: { en: "Divorced", ar: "مطلق" },
+      widowed: { en: "Widowed", ar: "أرمل" },
+    };
+    const normalized = status.toLowerCase();
+    return statusMap[normalized] 
+      ? (language === "ar" ? statusMap[normalized].ar : statusMap[normalized].en) 
+      : status;
+  };
+
   const calculateTotalDays = () => {
     if (!vacationFormData.start_date || !vacationFormData.end_date) return 0;
     const start = new Date(vacationFormData.start_date);
@@ -514,10 +596,10 @@ export default function EmployeeProfile() {
                   <span>{employee.date_of_birth ? format(new Date(employee.date_of_birth), "yyyy-MM-dd") : "-"}</span>
 
                   <span className="text-muted-foreground">{language === "ar" ? "الجنس" : "Gender"}</span>
-                  <span>{employee.gender || "-"}</span>
+                  <span>{translateGender(employee.gender)}</span>
 
                   <span className="text-muted-foreground">{language === "ar" ? "الجنسية" : "Nationality"}</span>
-                  <span>{employee.nationality || "-"}</span>
+                  <span>{translateNationality(employee.nationality)}</span>
 
                   <span className="text-muted-foreground">{language === "ar" ? "رقم الهوية" : "National ID"}</span>
                   <span>{employee.national_id || "-"}</span>
@@ -526,7 +608,7 @@ export default function EmployeeProfile() {
                   <span>{employee.passport_number || "-"}</span>
 
                   <span className="text-muted-foreground">{language === "ar" ? "الحالة الاجتماعية" : "Marital Status"}</span>
-                  <span>{employee.marital_status || "-"}</span>
+                  <span>{translateMaritalStatus(employee.marital_status)}</span>
                 </div>
                 {(employee as any).address && (
                   <div className="pt-2 border-t">
