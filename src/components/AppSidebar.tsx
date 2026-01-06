@@ -312,6 +312,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد الموظفين' : 'Employee Setup', url: "/employee-setup", icon: UserCircle },
         { title: language === 'ar' ? 'إعداد الإجازات' : 'Vacation Setup', url: "/vacation-setup", icon: Palmtree },
         { title: language === 'ar' ? 'إدارة الحضور' : 'Timesheet Management', url: "/timesheet-management", icon: ClipboardList },
+        { title: language === 'ar' ? 'سجلات حضور ZK' : 'ZK Attendance Logs', url: "/zk-attendance-logs", icon: Clock },
         { title: language === 'ar' ? 'قواعد الخصم' : 'Deduction Rules', url: "/deduction-rules-setup", icon: Calculator },
         { title: language === 'ar' ? 'التأمين الطبي' : 'Medical Insurance', url: "/medical-insurance-setup", icon: HeartPulse },
         { title: language === 'ar' ? 'أنواع المستندات' : 'Document Types', url: "/document-type-setup", icon: FileText },

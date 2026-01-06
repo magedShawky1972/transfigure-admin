@@ -96,6 +96,7 @@ export type Database = {
           allow_sales_line: boolean
           allow_supplier: boolean
           allow_supplier_product: boolean
+          allow_zk_attendance: boolean | null
           api_key: string
           created_at: string
           created_by: string | null
@@ -113,6 +114,7 @@ export type Database = {
           allow_sales_line?: boolean
           allow_supplier?: boolean
           allow_supplier_product?: boolean
+          allow_zk_attendance?: boolean | null
           api_key: string
           created_at?: string
           created_by?: string | null
@@ -130,6 +132,7 @@ export type Database = {
           allow_sales_line?: boolean
           allow_supplier?: boolean
           allow_supplier_product?: boolean
+          allow_zk_attendance?: boolean | null
           api_key?: string
           created_at?: string
           created_by?: string | null
@@ -5322,6 +5325,53 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zk_attendance_logs: {
+        Row: {
+          api_key_id: string | null
+          attendance_date: string
+          attendance_time: string
+          created_at: string
+          employee_code: string
+          id: string
+          is_processed: boolean | null
+          processed_at: string | null
+          raw_data: Json | null
+          record_type: string | null
+        }
+        Insert: {
+          api_key_id?: string | null
+          attendance_date: string
+          attendance_time: string
+          created_at?: string
+          employee_code: string
+          id?: string
+          is_processed?: boolean | null
+          processed_at?: string | null
+          raw_data?: Json | null
+          record_type?: string | null
+        }
+        Update: {
+          api_key_id?: string | null
+          attendance_date?: string
+          attendance_time?: string
+          created_at?: string
+          employee_code?: string
+          id?: string
+          is_processed?: boolean | null
+          processed_at?: string | null
+          raw_data?: Json | null
+          record_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zk_attendance_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
             referencedColumns: ["id"]
           },
         ]

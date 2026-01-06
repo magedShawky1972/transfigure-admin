@@ -158,6 +158,20 @@ const API_ENDPOINTS = [
       { name: "ENG_Meta_Description", type: "Text", required: false, note: "" },
     ],
   },
+  {
+    id: "zkattendance",
+    name: "ZK Attendance",
+    endpoint: "https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/api-zk-attendance",
+    method: "POST",
+    description: "Receive attendance data from ZK time attendance machines. Requires x-api-key header with ZK Attendance permission enabled.",
+    fields: [
+      { name: "records", type: "Array", required: true, note: "Array of attendance records" },
+      { name: "records[].employee_code", type: "Text", required: true, note: "Employee code from ZK machine" },
+      { name: "records[].date", type: "Text", required: true, note: "Date in YYYY-MM-DD format" },
+      { name: "records[].time", type: "Text", required: true, note: "Time in HH:MM or HH:MM:SS format" },
+      { name: "records[].record_type", type: "Text", required: false, note: "entry/exit/unknown" },
+    ],
+  },
 ];
 
 interface ApiFieldConfig {

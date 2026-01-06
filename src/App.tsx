@@ -92,6 +92,7 @@ import AuditLogs from "./pages/AuditLogs";
 import JobSetup from "./pages/JobSetup";
 import SecurityDashboard from "./pages/SecurityDashboard";
 import CertificateManagement from "./pages/CertificateManagement";
+import ZKAttendanceLogs from "./pages/ZKAttendanceLogs";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -190,6 +191,7 @@ const App = () => (
               <Route path="/job-setup" element={<JobSetup />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="/certificate-management" element={<CertificateManagement />} />
+              <Route path="/zk-attendance-logs" element={<ZKAttendanceLogs />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
