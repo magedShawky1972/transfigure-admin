@@ -1543,32 +1543,55 @@ const OdooSyncBatch = () => {
 
   // Summary stats
   const summary = useMemo(() => {
-    const total = orderGroups.length;
-    const success = orderGroups.filter(g => g.syncStatus === 'success').length;
-    const failed = orderGroups.filter(g => g.syncStatus === 'failed').length;
-    const skipped = orderGroups.filter(g => g.syncStatus === 'skipped' || g.syncStatus === 'stopped').length;
+    // Use aggregatedInvoices when in aggregate mode, otherwise use orderGroups
+    const sourceData = aggregateMode && aggregatedInvoices.length > 0 ? aggregatedInvoices : orderGroups;
+    
+    const total = sourceData.length;
+    const success = sourceData.filter(g => g.syncStatus === 'success').length;
+    const failed = sourceData.filter(g => g.syncStatus === 'failed').length;
+    const skipped = sourceData.filter(g => g.syncStatus === 'skipped' || g.syncStatus === 'stopped').length;
     
     // Count created items (status === 'created')
-    const customersCreated = orderGroups.filter(g => g.stepStatus.customer === 'created').length;
-    const brandsCreated = orderGroups.filter(g => g.stepStatus.brand === 'created').length;
-    const productsCreated = orderGroups.filter(g => g.stepStatus.product === 'created').length;
-    const ordersCreated = orderGroups.filter(g => g.stepStatus.order === 'sent').length;
-    const purchasesCreated = orderGroups.filter(g => g.stepStatus.purchase === 'created').length;
+    const customersCreated = sourceData.filter(g => g.stepStatus.customer === 'created').length;
+    const brandsCreated = sourceData.filter(g => g.stepStatus.brand === 'created').length;
+    const productsCreated = sourceData.filter(g => g.stepStatus.product === 'created').length;
+    const ordersCreated = sourceData.filter(g => g.stepStatus.order === 'sent').length;
+    const purchasesCreated = sourceData.filter(g => g.stepStatus.purchase === 'created').length;
     
     return { total, success, failed, skipped, customersCreated, brandsCreated, productsCreated, ordersCreated, purchasesCreated };
-  }, [orderGroups]);
+  }, [orderGroups, aggregatedInvoices, aggregateMode]);
 
-  // Get failed orders for dialog
-  const failedOrders = useMemo(() => 
-    orderGroups.filter(g => g.syncStatus === 'failed'),
-    [orderGroups]
-  );
+  // Get failed orders for dialog (keep as OrderGroup for display purposes)
+  const failedOrders = useMemo(() => {
+    if (aggregateMode && aggregatedInvoices.length > 0) {
+      // Convert aggregated invoices to a compatible format for display
+      return aggregatedInvoices.filter(g => g.syncStatus === 'failed').map(inv => ({
+        orderNumber: inv.orderNumber,
+        date: inv.date,
+        customerPhone: '0000',
+        productNames: inv.productLines.map(pl => pl.productName),
+        totalAmount: inv.grandTotal,
+        errorMessage: inv.errorMessage,
+        syncStatus: inv.syncStatus,
+      }));
+    }
+    return orderGroups.filter(g => g.syncStatus === 'failed');
+  }, [orderGroups, aggregatedInvoices, aggregateMode]);
 
   // Get successful orders for dialog
-  const successfulOrders = useMemo(() => 
-    orderGroups.filter(g => g.syncStatus === 'success'),
-    [orderGroups]
-  );
+  const successfulOrders = useMemo(() => {
+    if (aggregateMode && aggregatedInvoices.length > 0) {
+      return aggregatedInvoices.filter(g => g.syncStatus === 'success').map(inv => ({
+        orderNumber: inv.orderNumber,
+        date: inv.date,
+        customerPhone: '0000',
+        productNames: inv.productLines.map(pl => pl.productName),
+        totalAmount: inv.grandTotal,
+        syncStatus: inv.syncStatus,
+      }));
+    }
+    return orderGroups.filter(g => g.syncStatus === 'success');
+  }, [orderGroups, aggregatedInvoices, aggregateMode]);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
