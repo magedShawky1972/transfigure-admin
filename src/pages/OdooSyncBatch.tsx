@@ -438,8 +438,8 @@ const OdooSyncBatch = () => {
 
     orderGroups.forEach(group => {
       group.lines.forEach(line => {
-        // Extract date only (YYYY-MM-DD) from created_at_date which may contain time
-        const dateOnly = line.created_at_date?.split('T')[0] || line.created_at_date;
+        // Extract date only (YYYY-MM-DD) from created_at_date which may contain time (space or T separator)
+        const dateOnly = line.created_at_date?.split(' ')[0]?.split('T')[0] || line.created_at_date;
         // Group by date, brand, payment_method, payment_brand ONLY (no user_name)
         const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
         const existing = invoiceMap.get(invoiceKey);
