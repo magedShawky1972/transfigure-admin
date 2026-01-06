@@ -102,6 +102,37 @@ interface OrderGroup {
   hasNonStock: boolean;
 }
 
+interface AggregatedInvoice {
+  orderNumber: string;
+  date: string;
+  brandName: string;
+  paymentMethod: string;
+  paymentBrand: string;
+  userName: string;
+  productLines: {
+    productSku: string;
+    productName: string;
+    unitPrice: number;
+    totalQty: number;
+    totalAmount: number;
+  }[];
+  grandTotal: number;
+  originalOrderNumbers: string[];
+  originalLines: Transaction[];
+  selected: boolean;
+  skipSync: boolean;
+  syncStatus: 'pending' | 'running' | 'success' | 'failed' | 'skipped' | 'stopped';
+  stepStatus: {
+    customer: 'pending' | 'running' | 'found' | 'created' | 'failed';
+    brand: 'pending' | 'running' | 'found' | 'created' | 'failed';
+    product: 'pending' | 'running' | 'found' | 'created' | 'failed';
+    order: 'pending' | 'running' | 'sent' | 'failed';
+    purchase: 'pending' | 'running' | 'created' | 'skipped' | 'failed';
+  };
+  errorMessage?: string;
+  hasNonStock: boolean;
+}
+
 // Helper function to translate Odoo error messages to Arabic
 const translateOdooError = (error: string, language: string): string => {
   if (language !== 'ar') return error;
@@ -218,6 +249,7 @@ const OdooSyncBatch = () => {
   const [stopRequested, setStopRequested] = useState(false);
   const [startingBackgroundSync, setStartingBackgroundSync] = useState(false);
   const [aggregateMode, setAggregateMode] = useState(false);
+  const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -421,10 +453,12 @@ const OdooSyncBatch = () => {
     [orderGroups]
   );
 
-  // Aggregated groups when aggregate mode is on - grouped by brand, payment_method, payment_brand (NO user_name)
-  // Each group represents one invoice with multiple product lines
-  const aggregatedGroups = useMemo(() => {
-    if (!aggregateMode) return null;
+  // Build aggregated invoices when aggregate mode is on
+  useEffect(() => {
+    if (!aggregateMode || orderGroups.length === 0) {
+      setAggregatedInvoices([]);
+      return;
+    }
     
     // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
     const invoiceMap = new Map<string, {
@@ -439,10 +473,7 @@ const OdooSyncBatch = () => {
 
     orderGroups.forEach(group => {
       group.lines.forEach(line => {
-        // Extract date only (YYYY-MM-DD) - handle both "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SS" formats
         const dateOnly = line.created_at_date?.substring(0, 10) || '';
-
-        // Group by date, brand, payment_method, payment_brand, user_name
         const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`;
 
         const existing = invoiceMap.get(invoiceKey);
@@ -465,41 +496,19 @@ const OdooSyncBatch = () => {
       });
     });
 
-    // Now for each invoice, aggregate product lines by SKU and unit_price
-    const result: {
-      orderNumber: string;
-      date: string;
-      brandName: string;
-      paymentMethod: string;
-      paymentBrand: string;
-      userName: string;
-      productLines: {
-        productSku: string;
-        productName: string;
-        unitPrice: number;
-        totalQty: number;
-        totalAmount: number;
-      }[];
-      grandTotal: number;
-      originalOrderNumbers: string[];
-    }[] = [];
-
-    // Sort invoice keys for consistent ordering
+    // Build result with sync status
+    const result: AggregatedInvoice[] = [];
     const sortedKeys = Array.from(invoiceMap.keys()).sort();
-    
-    // Generate sequential order numbers per date
     const dateSequenceMap = new Map<string, number>();
     
     sortedKeys.forEach(invoiceKey => {
       const invoice = invoiceMap.get(invoiceKey)!;
       const dateStr = invoice.date?.replace(/-/g, '') || format(new Date(), 'yyyyMMdd');
       
-      // Get next sequence for this date
       const currentSeq = dateSequenceMap.get(dateStr) || 0;
       const nextSeq = currentSeq + 1;
       dateSequenceMap.set(dateStr, nextSeq);
       
-      // Generate order number: YYYYMMDD + 4-digit sequence
       const orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
       
       // Aggregate product lines by SKU and unit_price
@@ -531,6 +540,12 @@ const OdooSyncBatch = () => {
       const productLines = Array.from(productMap.values()).sort((a, b) => 
         a.productSku.localeCompare(b.productSku)
       );
+
+      // Check if any product is non-stock
+      const hasNonStock = invoice.lines.some(line => {
+        const sku = line.sku || line.product_id || '';
+        return nonStockSkuSet.has(sku);
+      });
       
       result.push({
         orderNumber,
@@ -542,11 +557,23 @@ const OdooSyncBatch = () => {
         productLines,
         grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
         originalOrderNumbers: invoice.originalOrderNumbers,
+        originalLines: invoice.lines,
+        selected: true,
+        skipSync: false,
+        syncStatus: 'pending',
+        stepStatus: {
+          customer: 'pending',
+          brand: 'pending',
+          product: 'pending',
+          order: 'pending',
+          purchase: 'pending',
+        },
+        hasNonStock,
       });
     });
 
-    // Sort by brand, payment_method, payment_brand, then user_name, then date
-    return result.sort((a, b) => {
+    // Sort
+    result.sort((a, b) => {
       const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
       if (brandCompare !== 0) return brandCompare;
       const methodCompare = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
@@ -557,7 +584,29 @@ const OdooSyncBatch = () => {
       if (userCompare !== 0) return userCompare;
       return (a.date || '').localeCompare(b.date || '');
     });
-  }, [orderGroups, aggregateMode]);
+
+    setAggregatedInvoices(result);
+  }, [orderGroups, aggregateMode, nonStockSkuSet]);
+
+  // Aggregated invoice selection handlers
+  const handleSelectAggregatedRow = (orderNumber: string, checked: boolean) => {
+    setAggregatedInvoices(prev => prev.map(inv => 
+      inv.orderNumber === orderNumber ? { ...inv, selected: checked } : inv
+    ));
+  };
+
+  const handleSelectAllAggregated = (checked: boolean) => {
+    setAggregatedInvoices(prev => prev.map(inv => ({ ...inv, selected: checked })));
+  };
+
+  const handleToggleSkipAggregated = (orderNumber: string) => {
+    setAggregatedInvoices(prev => prev.map(inv => 
+      inv.orderNumber === orderNumber ? { ...inv, skipSync: !inv.skipSync } : inv
+    ));
+  };
+
+  const allAggregatedSelected = aggregatedInvoices.length > 0 && aggregatedInvoices.every(inv => inv.selected);
+  const selectedAggregatedCount = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync).length;
 
   const allSelected = orderGroups.length > 0 && orderGroups.every(g => g.selected);
 
@@ -1082,8 +1131,8 @@ const OdooSyncBatch = () => {
   };
 
   // Get sync status badge
-  const getSyncStatusBadge = (group: OrderGroup) => {
-    switch (group.syncStatus) {
+  const getSyncStatusBadge = (item: { syncStatus: string; errorMessage?: string }) => {
+    switch (item.syncStatus) {
       case 'running':
         return <Badge variant="outline" className="gap-1"><Loader2 className="h-3 w-3 animate-spin" />{language === 'ar' ? 'جاري' : 'Running'}</Badge>;
       case 'success':
@@ -1098,7 +1147,7 @@ const OdooSyncBatch = () => {
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[300px] text-sm">
-                <p>{group.errorMessage || (language === 'ar' ? 'خطأ غير معروف' : 'Unknown error')}</p>
+                <p>{item.errorMessage || (language === 'ar' ? 'خطأ غير معروف' : 'Unknown error')}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -1383,8 +1432,8 @@ const OdooSyncBatch = () => {
             <span className="text-sm font-normal text-muted-foreground">
               {aggregateMode 
                 ? (language === 'ar' 
-                    ? `${aggregatedGroups?.length || 0} فاتورة مجمعة`
-                    : `${aggregatedGroups?.length || 0} aggregated invoices`)
+                    ? `${selectedAggregatedCount} من ${aggregatedInvoices.length} فاتورة مجمعة`
+                    : `${selectedAggregatedCount} of ${aggregatedInvoices.length} aggregated invoices`)
                 : (language === 'ar' 
                     ? `${selectedCount} من ${orderGroups.length} محدد`
                     : `${selectedCount} of ${orderGroups.length} selected`)}
@@ -1400,68 +1449,114 @@ const OdooSyncBatch = () => {
             <div className="text-center py-12 text-muted-foreground">
               {language === 'ar' ? 'لا توجد معاملات' : 'No transactions found'}
             </div>
-          ) : aggregateMode && aggregatedGroups ? (
+          ) : aggregateMode && aggregatedInvoices.length > 0 ? (
             <ScrollArea className="h-[600px]">
-              <div className="space-y-4">
-                {aggregatedGroups.map((invoice, idx) => (
-                  <Card key={idx} className="border-2">
-                    <CardHeader className="py-3 bg-muted/30">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-4">
-                          <Badge variant="outline" className="font-mono text-sm">
-                            {invoice.orderNumber}
-                          </Badge>
-                          <span className="text-sm">
-                            {invoice.date ? format(parseISO(invoice.date), 'yyyy-MM-dd') : '-'}
-                          </span>
-                          <Badge>{invoice.brandName || '-'}</Badge>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox 
+                        checked={allAggregatedSelected}
+                        onCheckedChange={handleSelectAllAggregated}
+                        disabled={isSyncing}
+                      />
+                    </TableHead>
+                    <TableHead>{language === 'ar' ? 'رقم الفاتورة' : 'Invoice Number'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المستخدم' : 'User'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'العميل' : 'Customer'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'العلامة' : 'Brand'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'الطلب' : 'Order'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'الشراء' : 'Purchase'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aggregatedInvoices.map((invoice, idx) => (
+                    <TableRow 
+                      key={invoice.orderNumber}
+                      className={cn(
+                        invoice.syncStatus === 'success' && 'bg-green-50 dark:bg-green-950/20',
+                        invoice.syncStatus === 'failed' && 'bg-red-50 dark:bg-red-950/20',
+                        invoice.syncStatus === 'running' && 'bg-muted/50'
+                      )}
+                    >
+                      <TableCell>
+                        <Checkbox 
+                          checked={invoice.selected}
+                          onCheckedChange={(checked) => handleSelectAggregatedRow(invoice.orderNumber, checked as boolean)}
+                          disabled={isSyncing}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{invoice.orderNumber}</TableCell>
+                      <TableCell className="text-xs">
+                        {invoice.date ? format(parseISO(invoice.date), 'yyyy-MM-dd') : '-'}
+                      </TableCell>
+                      <TableCell className="max-w-[120px] truncate text-xs" title={invoice.brandName}>
+                        {invoice.brandName || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {invoice.paymentMethod}/{invoice.paymentBrand}
+                      </TableCell>
+                      <TableCell className="text-xs text-primary">{invoice.userName || '-'}</TableCell>
+                      <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleSkipAggregated(invoice.orderNumber)}
+                          disabled={isSyncing || invoice.syncStatus !== 'pending'}
+                          className={invoice.skipSync ? 'text-destructive' : ''}
+                        >
+                          {invoice.skipSync ? (
+                            <SkipForward className="h-4 w-4" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {getSyncStatusBadge(invoice)}
+                          {invoice.syncStatus === 'failed' && invoice.errorMessage && (
+                            <span className="text-xs text-destructive max-w-[150px] break-words">
+                              {translateOdooError(invoice.errorMessage, language)}
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{invoice.paymentMethod}</span>
-                          <span>{invoice.paymentBrand}</span>
-                          <span className="text-primary">{invoice.userName || '-'}</span>
-                          <Badge variant="secondary" className="font-bold">
-                            {invoice.grandTotal.toFixed(2)} SAR
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {language === 'ar' ? 'الطلبات الأصلية:' : 'Original Orders:'} {invoice.originalOrderNumbers.length} ({invoice.originalOrderNumbers.slice(0, 3).join(', ')}{invoice.originalOrderNumbers.length > 3 ? '...' : ''})
-                      </div>
-                    </CardHeader>
-                    <CardContent className="py-2">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
-                            <TableHead>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
-                            <TableHead>{language === 'ar' ? 'كود المنتج' : 'Product SKU'}</TableHead>
-                            <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
-                            <TableHead>{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
-                            <TableHead>{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
-                            <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {invoice.productLines.map((line, lineIdx) => (
-                            <TableRow key={lineIdx}>
-                              <TableCell className="font-mono">0000</TableCell>
-                              <TableCell>CASH CUSTOMER</TableCell>
-                              <TableCell className="font-mono">{line.productSku || '-'}</TableCell>
-                              <TableCell className="max-w-[200px] truncate" title={line.productName}>
-                                {line.productName || '-'}
-                              </TableCell>
-                              <TableCell>{line.unitPrice.toFixed(2)}</TableCell>
-                              <TableCell>{line.totalQty}</TableCell>
-                              <TableCell>{line.totalAmount.toFixed(2)} SAR</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getStepIcon(invoice.stepStatus.customer)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getStepIcon(invoice.stepStatus.brand)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getStepIcon(invoice.stepStatus.product)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getStepIcon(invoice.stepStatus.order)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {invoice.hasNonStock ? getStepIcon(invoice.stepStatus.purchase) : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell>
+                        {invoice.errorMessage && (
+                          <p className="text-xs text-destructive truncate max-w-[120px]" title={translateOdooError(invoice.errorMessage, language)}>
+                            {translateOdooError(invoice.errorMessage, language)}
+                          </p>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </ScrollArea>
           ) : (
             <ScrollArea className="h-[600px]">
