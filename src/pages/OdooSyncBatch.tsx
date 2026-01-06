@@ -777,6 +777,179 @@ const OdooSyncBatch = () => {
     }
   };
 
+  // Sync an aggregated invoice to Odoo - sends combined data as ONE order
+  const syncAggregatedInvoice = async (invoice: AggregatedInvoice): Promise<Partial<AggregatedInvoice>> => {
+    const stepStatus = { ...invoice.stepStatus };
+    
+    // Build synthetic transactions from aggregated data for the edge function
+    // We take the first original line to get customer info, then build product lines from aggregated data
+    const firstOriginalLine = invoice.originalLines[0];
+    
+    // Create synthetic transactions that represent the aggregated order
+    // Use 'any' because we only need the fields the edge function uses
+    const syntheticTransactions = invoice.productLines.map((pl) => ({
+      order_number: invoice.orderNumber, // Use aggregated order number
+      customer_name: firstOriginalLine?.customer_name || '',
+      customer_phone: firstOriginalLine?.customer_phone || '',
+      brand_code: firstOriginalLine?.brand_code || '',
+      brand_name: invoice.brandName,
+      product_id: pl.productSku,
+      sku: pl.productSku,
+      product_name: pl.productName,
+      unit_price: pl.unitPrice,
+      total: pl.totalAmount,
+      qty: pl.totalQty,
+      created_at_date: invoice.date,
+      payment_method: invoice.paymentMethod,
+      payment_brand: invoice.paymentBrand,
+      user_name: invoice.userName,
+      cost_price: firstOriginalLine?.cost_price || 0,
+      cost_sold: firstOriginalLine?.cost_sold || 0,
+      vendor_name: firstOriginalLine?.vendor_name || '',
+      company: firstOriginalLine?.company || '',
+    }));
+
+    // Filter non-stock products
+    const nonStockProducts = syntheticTransactions.filter(tx => {
+      const sku = tx.sku || tx.product_id;
+      return sku && nonStockSkuSet.has(sku);
+    });
+
+    const updateAggregatedStepStatus = (newStepStatus: typeof stepStatus) => {
+      setAggregatedInvoices(prev => prev.map(inv => 
+        inv.orderNumber === invoice.orderNumber ? { ...inv, stepStatus: { ...newStepStatus } } : inv
+      ));
+    };
+
+    const executeStep = async (stepId: string): Promise<{ success: boolean; error?: string }> => {
+      console.log(`[Aggregated Sync] Executing step: ${stepId} for invoice: ${invoice.orderNumber}`);
+      try {
+        const response = await supabase.functions.invoke("sync-order-to-odoo-step", {
+          body: { step: stepId, transactions: syntheticTransactions, nonStockProducts },
+        });
+
+        console.log(`[Aggregated Sync] Step ${stepId} response:`, response);
+
+        if (response.error) {
+          console.error(`[Aggregated Sync] Step ${stepId} error:`, response.error);
+          return { success: false, error: response.error.message };
+        }
+
+        const data = response.data;
+        
+        if (data.skipped) {
+          console.log(`[Aggregated Sync] Step ${stepId} skipped`);
+          return { success: true };
+        }
+
+        if (data.success) {
+          console.log(`[Aggregated Sync] Step ${stepId} success:`, data.message);
+          return { success: true };
+        } else {
+          const errorMessage = typeof data.error === 'object' && data.error?.error 
+            ? data.error.error 
+            : (data.error || data.message || 'Failed');
+          console.error(`[Aggregated Sync] Step ${stepId} failed:`, errorMessage);
+          return { success: false, error: errorMessage };
+        }
+      } catch (error: any) {
+        console.error(`[Aggregated Sync] Step ${stepId} exception:`, error);
+        return { success: false, error: error.message || 'Network error' };
+      }
+    };
+
+    try {
+      // Step 1: Sync Customer
+      console.log(`[Aggregated Sync] Starting Customer step for invoice: ${invoice.orderNumber}`);
+      stepStatus.customer = 'running';
+      updateAggregatedStepStatus(stepStatus);
+
+      const customerResult = await executeStep('customer');
+      if (!customerResult.success) {
+        stepStatus.customer = 'failed';
+        updateAggregatedStepStatus(stepStatus);
+        throw new Error(`Customer: ${customerResult.error}`);
+      }
+      stepStatus.customer = 'found';
+      updateAggregatedStepStatus(stepStatus);
+
+      // Step 2: Sync Brand
+      console.log(`[Aggregated Sync] Starting Brand step for invoice: ${invoice.orderNumber}`);
+      stepStatus.brand = 'running';
+      updateAggregatedStepStatus(stepStatus);
+
+      const brandResult = await executeStep('brand');
+      if (!brandResult.success) {
+        stepStatus.brand = 'failed';
+        updateAggregatedStepStatus(stepStatus);
+        throw new Error(`Brand: ${brandResult.error}`);
+      }
+      stepStatus.brand = 'found';
+      updateAggregatedStepStatus(stepStatus);
+
+      // Step 3: Sync Products
+      console.log(`[Aggregated Sync] Starting Product step for invoice: ${invoice.orderNumber}`);
+      stepStatus.product = 'running';
+      updateAggregatedStepStatus(stepStatus);
+
+      const productResult = await executeStep('product');
+      if (!productResult.success) {
+        stepStatus.product = 'failed';
+        updateAggregatedStepStatus(stepStatus);
+        throw new Error(`Product: ${productResult.error}`);
+      }
+      stepStatus.product = 'found';
+      updateAggregatedStepStatus(stepStatus);
+
+      // Step 4: Create Sales Order
+      console.log(`[Aggregated Sync] Starting Order step for invoice: ${invoice.orderNumber}`);
+      stepStatus.order = 'running';
+      updateAggregatedStepStatus(stepStatus);
+
+      const orderResult = await executeStep('order');
+      if (!orderResult.success) {
+        stepStatus.order = 'failed';
+        updateAggregatedStepStatus(stepStatus);
+        throw new Error(`Order: ${orderResult.error}`);
+      }
+      stepStatus.order = 'sent';
+      updateAggregatedStepStatus(stepStatus);
+
+      // Step 5: Create Purchase Order (if non-stock products exist)
+      if (invoice.hasNonStock && nonStockProducts.length > 0) {
+        console.log(`[Aggregated Sync] Starting Purchase step for invoice: ${invoice.orderNumber}`);
+        stepStatus.purchase = 'running';
+        updateAggregatedStepStatus(stepStatus);
+
+        const purchaseResult = await executeStep('purchase');
+        if (!purchaseResult.success) {
+          stepStatus.purchase = 'failed';
+          updateAggregatedStepStatus(stepStatus);
+          throw new Error(`Purchase: ${purchaseResult.error}`);
+        }
+        stepStatus.purchase = 'created';
+        updateAggregatedStepStatus(stepStatus);
+      } else {
+        stepStatus.purchase = 'skipped';
+        updateAggregatedStepStatus(stepStatus);
+      }
+
+      console.log(`[Aggregated Sync] All steps completed for invoice: ${invoice.orderNumber}`);
+      return {
+        syncStatus: 'success',
+        stepStatus,
+      };
+
+    } catch (error) {
+      console.error('[Aggregated Sync] Error syncing invoice:', invoice.orderNumber, error);
+      return {
+        syncStatus: 'failed',
+        stepStatus,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  };
+
   // Create sync run record in database
   const createSyncRun = async (): Promise<string | null> => {
     try {
@@ -943,7 +1116,7 @@ const OdooSyncBatch = () => {
 
   // Start sync process
   const handleStartSync = async () => {
-    // When in aggregate mode, sync based on aggregated invoices selection
+    // When in aggregate mode, sync aggregated invoices directly (not individual orders)
     if (aggregateMode) {
       const selectedAggregated = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
       if (selectedAggregated.length === 0) {
@@ -955,25 +1128,8 @@ const OdooSyncBatch = () => {
         return;
       }
       
-      // Get the order numbers from selected aggregated invoices
-      const selectedOrderNumbers = new Set(
-        selectedAggregated.flatMap(inv => inv.originalOrderNumbers)
-      );
-      
-      // Filter orderGroups to only include orders from selected aggregated invoices
-      const toSync = orderGroups.filter(g => selectedOrderNumbers.has(g.orderNumber));
-      
-      if (toSync.length === 0) {
-        toast({
-          variant: 'destructive',
-          title: language === 'ar' ? 'لا توجد طلبات' : 'No Orders',
-          description: language === 'ar' ? 'لا توجد طلبات في الفواتير المحددة' : 'No orders in selected invoices',
-        });
-        return;
-      }
-      
-      // Continue with sync using the filtered orders
-      await executeSync(toSync);
+      // Sync aggregated invoices directly
+      await executeAggregatedSync(selectedAggregated);
       return;
     }
     
@@ -989,6 +1145,126 @@ const OdooSyncBatch = () => {
     }
     
     await executeSync(toSync);
+  };
+
+  // Execute sync for aggregated invoices
+  const executeAggregatedSync = async (toSync: AggregatedInvoice[]) => {
+    // Reset stop flag
+    stopRequestedRef.current = false;
+    setStopRequested(false);
+
+    // Set start time
+    const syncStartTime = new Date();
+    setStartTime(syncStartTime);
+    setEndTime(null);
+
+    // Create sync run record
+    const runId = await createSyncRun();
+    setCurrentRunId(runId);
+
+    setIsSyncing(true);
+    setSyncProgress(0);
+    setSyncComplete(false);
+
+    let processedCount = 0;
+    let stoppedEarly = false;
+
+    for (let i = 0; i < toSync.length; i++) {
+      // Check if stop was requested
+      if (stopRequestedRef.current) {
+        stoppedEarly = true;
+        // Mark remaining invoices as stopped
+        const remainingInvoices = toSync.slice(i);
+        setAggregatedInvoices(prev => prev.map(inv => {
+          const isRemaining = remainingInvoices.some(r => r.orderNumber === inv.orderNumber);
+          if (isRemaining && inv.syncStatus === 'pending') {
+            return { ...inv, syncStatus: 'stopped' };
+          }
+          return inv;
+        }));
+        break;
+      }
+
+      const invoice = toSync[i];
+
+      // Mark as running
+      setAggregatedInvoices(prev => prev.map(inv => 
+        inv.orderNumber === invoice.orderNumber ? { ...inv, syncStatus: 'running' } : inv
+      ));
+
+      // Sync the aggregated invoice
+      const result = await syncAggregatedInvoice(invoice);
+
+      // Update with result
+      setAggregatedInvoices(prev => prev.map(inv => 
+        inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
+      ));
+
+      // If success, mark all original orders as synced in database
+      if (result.syncStatus === 'success') {
+        for (const originalOrderNumber of invoice.originalOrderNumbers) {
+          await supabase
+            .from('purpletransaction')
+            .update({ sendodoo: true })
+            .eq('order_number', originalOrderNumber);
+        }
+      }
+
+      processedCount++;
+      setSyncProgress(Math.round((processedCount / toSync.length) * 100));
+    }
+
+    // Mark skipped invoices
+    setAggregatedInvoices(prev => prev.map(inv => 
+      inv.skipSync && inv.selected ? { ...inv, syncStatus: 'skipped' } : inv
+    ));
+
+    // Set end time
+    const syncEndTime = new Date();
+    setEndTime(syncEndTime);
+
+    setIsSyncing(false);
+    setSyncComplete(true);
+
+    // Update sync run in database
+    if (runId) {
+      const success = toSync.filter(inv => {
+        const current = aggregatedInvoices.find(a => a.orderNumber === inv.orderNumber);
+        return current?.syncStatus === 'success';
+      }).length;
+      const failed = toSync.filter(inv => {
+        const current = aggregatedInvoices.find(a => a.orderNumber === inv.orderNumber);
+        return current?.syncStatus === 'failed';
+      }).length;
+
+      await supabase
+        .from('odoo_sync_runs')
+        .update({
+          end_time: syncEndTime.toISOString(),
+          successful_orders: success,
+          failed_orders: failed,
+          skipped_orders: stoppedEarly ? toSync.length - processedCount : 0,
+          status: stoppedEarly ? 'stopped' : (failed > 0 ? 'completed_with_errors' : 'completed'),
+        })
+        .eq('id', runId);
+    }
+
+    // Show completion toast
+    const successCount = toSync.filter(inv => {
+      const current = aggregatedInvoices.find(a => a.orderNumber === inv.orderNumber);
+      return current?.syncStatus === 'success';
+    }).length;
+    const failedCount = toSync.filter(inv => {
+      const current = aggregatedInvoices.find(a => a.orderNumber === inv.orderNumber);
+      return current?.syncStatus === 'failed';
+    }).length;
+
+    toast({
+      title: language === 'ar' ? 'اكتملت المزامنة' : 'Sync Complete',
+      description: language === 'ar' 
+        ? `تم: ${successCount} | فشل: ${failedCount}`
+        : `Success: ${successCount} | Failed: ${failedCount}`,
+    });
   };
 
   // Execute sync for given orders
