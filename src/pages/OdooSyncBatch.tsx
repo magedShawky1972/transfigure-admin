@@ -218,6 +218,7 @@ const OdooSyncBatch = () => {
   const [stopRequested, setStopRequested] = useState(false);
   const [startingBackgroundSync, setStartingBackgroundSync] = useState(false);
   const [aggregateMode, setAggregateMode] = useState(false);
+  const [groupByUser, setGroupByUser] = useState(false);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -441,8 +442,10 @@ const OdooSyncBatch = () => {
       group.lines.forEach(line => {
         // Extract date only (YYYY-MM-DD) - handle both "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SS" formats
         const dateOnly = line.created_at_date?.substring(0, 10) || '';
-        // Group by date, brand, payment_method, payment_brand ONLY (no user_name)
-        const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
+        // Group by date, brand, payment_method, payment_brand, and optionally user_name
+        const invoiceKey = groupByUser 
+          ? `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`
+          : `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
         const existing = invoiceMap.get(invoiceKey);
         if (existing) {
           existing.lines.push(line);
@@ -556,7 +559,7 @@ const OdooSyncBatch = () => {
       if (brandPayCompare !== 0) return brandPayCompare;
       return (a.date || '').localeCompare(b.date || '');
     });
-  }, [orderGroups, aggregateMode]);
+  }, [orderGroups, aggregateMode, groupByUser]);
 
   const allSelected = orderGroups.length > 0 && orderGroups.every(g => g.selected);
 
@@ -1377,6 +1380,19 @@ const OdooSyncBatch = () => {
                   <Layers className="h-4 w-4" />
                   {language === 'ar' ? 'تجميع البيانات' : 'Aggregate Data'}
                 </Label>
+                {aggregateMode && (
+                  <>
+                    <Switch
+                      id="group-by-user"
+                      checked={groupByUser}
+                      onCheckedChange={setGroupByUser}
+                      disabled={isSyncing}
+                    />
+                    <Label htmlFor="group-by-user" className="text-sm font-normal cursor-pointer">
+                      {language === 'ar' ? 'تقسيم حسب المستخدم' : 'Split by User'}
+                    </Label>
+                  </>
+                )}
               </div>
             </div>
             <span className="text-sm font-normal text-muted-foreground">
