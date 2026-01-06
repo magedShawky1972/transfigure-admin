@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      aggregated_order_mapping: {
+        Row: {
+          aggregated_order_number: string
+          aggregation_date: string
+          brand_name: string | null
+          created_at: string
+          id: string
+          original_order_number: string
+          payment_brand: string | null
+          payment_method: string | null
+          user_name: string | null
+        }
+        Insert: {
+          aggregated_order_number: string
+          aggregation_date: string
+          brand_name?: string | null
+          created_at?: string
+          id?: string
+          original_order_number: string
+          payment_brand?: string | null
+          payment_method?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          aggregated_order_number?: string
+          aggregation_date?: string
+          brand_name?: string | null
+          created_at?: string
+          id?: string
+          original_order_number?: string
+          payment_brand?: string | null
+          payment_method?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       api_field_configs: {
         Row: {
           api_endpoint: string

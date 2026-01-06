@@ -421,52 +421,137 @@ const OdooSyncBatch = () => {
     [orderGroups]
   );
 
-  // Aggregated groups when aggregate mode is on
+  // Aggregated groups when aggregate mode is on - grouped by brand, payment_method, payment_brand, user_name
+  // Each group represents one invoice with multiple product lines
   const aggregatedGroups = useMemo(() => {
     if (!aggregateMode) return null;
     
-    // Group by: date, product_sku, unit_price, user_name, payment_method, payment_brand
-    const aggMap = new Map<string, {
+    // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
+    const invoiceMap = new Map<string, {
       date: string;
-      productSku: string;
-      productName: string;
-      unitPrice: number;
-      userName: string;
+      brandName: string;
       paymentMethod: string;
       paymentBrand: string;
-      brandName: string;
-      totalAmount: number;
-      totalQty: number;
+      userName: string;
       lines: Transaction[];
+      originalOrderNumbers: string[];
     }>();
 
     orderGroups.forEach(group => {
       group.lines.forEach(line => {
-        const key = `${line.created_at_date}|${line.sku || line.product_id || ''}|${line.unit_price}|${line.user_name}|${line.payment_method}|${line.payment_brand}`;
-        const existing = aggMap.get(key);
+        const invoiceKey = `${line.created_at_date}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name}`;
+        const existing = invoiceMap.get(invoiceKey);
         if (existing) {
-          existing.totalAmount += line.total || 0;
-          existing.totalQty += line.qty || 0;
           existing.lines.push(line);
+          if (!existing.originalOrderNumbers.includes(group.orderNumber)) {
+            existing.originalOrderNumbers.push(group.orderNumber);
+          }
         } else {
-          aggMap.set(key, {
+          invoiceMap.set(invoiceKey, {
             date: line.created_at_date,
-            productSku: line.sku || line.product_id || '',
-            productName: line.product_name || '',
-            unitPrice: line.unit_price || 0,
-            userName: line.user_name || '',
+            brandName: line.brand_name || '',
             paymentMethod: line.payment_method || '',
             paymentBrand: line.payment_brand || '',
-            brandName: line.brand_name || '',
-            totalAmount: line.total || 0,
-            totalQty: line.qty || 0,
+            userName: line.user_name || '',
             lines: [line],
+            originalOrderNumbers: [group.orderNumber],
           });
         }
       });
     });
 
-    return Array.from(aggMap.values());
+    // Now for each invoice, aggregate product lines by SKU and unit_price
+    const result: {
+      orderNumber: string;
+      date: string;
+      brandName: string;
+      paymentMethod: string;
+      paymentBrand: string;
+      userName: string;
+      productLines: {
+        productSku: string;
+        productName: string;
+        unitPrice: number;
+        totalQty: number;
+        totalAmount: number;
+      }[];
+      grandTotal: number;
+      originalOrderNumbers: string[];
+    }[] = [];
+
+    // Sort invoice keys for consistent ordering
+    const sortedKeys = Array.from(invoiceMap.keys()).sort();
+    
+    // Generate sequential order numbers per date
+    const dateSequenceMap = new Map<string, number>();
+    
+    sortedKeys.forEach(invoiceKey => {
+      const invoice = invoiceMap.get(invoiceKey)!;
+      const dateStr = invoice.date?.replace(/-/g, '') || format(new Date(), 'yyyyMMdd');
+      
+      // Get next sequence for this date
+      const currentSeq = dateSequenceMap.get(dateStr) || 0;
+      const nextSeq = currentSeq + 1;
+      dateSequenceMap.set(dateStr, nextSeq);
+      
+      // Generate order number: YYYYMMDD + 4-digit sequence
+      const orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
+      
+      // Aggregate product lines by SKU and unit_price
+      const productMap = new Map<string, {
+        productSku: string;
+        productName: string;
+        unitPrice: number;
+        totalQty: number;
+        totalAmount: number;
+      }>();
+      
+      invoice.lines.forEach(line => {
+        const productKey = `${line.sku || line.product_id || ''}|${line.unit_price}`;
+        const existing = productMap.get(productKey);
+        if (existing) {
+          existing.totalQty += line.qty || 0;
+          existing.totalAmount += line.total || 0;
+        } else {
+          productMap.set(productKey, {
+            productSku: line.sku || line.product_id || '',
+            productName: line.product_name || '',
+            unitPrice: line.unit_price || 0,
+            totalQty: line.qty || 0,
+            totalAmount: line.total || 0,
+          });
+        }
+      });
+      
+      const productLines = Array.from(productMap.values()).sort((a, b) => 
+        a.productSku.localeCompare(b.productSku)
+      );
+      
+      result.push({
+        orderNumber,
+        date: invoice.date,
+        brandName: invoice.brandName,
+        paymentMethod: invoice.paymentMethod,
+        paymentBrand: invoice.paymentBrand,
+        userName: invoice.userName,
+        productLines,
+        grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
+        originalOrderNumbers: invoice.originalOrderNumbers,
+      });
+    });
+
+    // Sort by date, brand, payment_method, payment_brand, user_name
+    return result.sort((a, b) => {
+      const dateCompare = (a.date || '').localeCompare(b.date || '');
+      if (dateCompare !== 0) return dateCompare;
+      const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
+      if (brandCompare !== 0) return brandCompare;
+      const methodCompare = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
+      if (methodCompare !== 0) return methodCompare;
+      const brandPayCompare = (a.paymentBrand || '').localeCompare(b.paymentBrand || '');
+      if (brandPayCompare !== 0) return brandPayCompare;
+      return (a.userName || '').localeCompare(b.userName || '');
+    });
   }, [orderGroups, aggregateMode]);
 
   const allSelected = orderGroups.length > 0 && orderGroups.every(g => g.selected);
@@ -1293,8 +1378,8 @@ const OdooSyncBatch = () => {
             <span className="text-sm font-normal text-muted-foreground">
               {aggregateMode 
                 ? (language === 'ar' 
-                    ? `${aggregatedGroups?.length || 0} سطر مجمع`
-                    : `${aggregatedGroups?.length || 0} aggregated rows`)
+                    ? `${aggregatedGroups?.length || 0} فاتورة مجمعة`
+                    : `${aggregatedGroups?.length || 0} aggregated invoices`)
                 : (language === 'ar' 
                     ? `${selectedCount} من ${orderGroups.length} محدد`
                     : `${selectedCount} of ${orderGroups.length} selected`)}
@@ -1312,42 +1397,66 @@ const OdooSyncBatch = () => {
             </div>
           ) : aggregateMode && aggregatedGroups ? (
             <ScrollArea className="h-[600px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'كود المنتج' : 'Product SKU'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'المستخدم' : 'User'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'ماركة الدفع' : 'Payment Brand'}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {aggregatedGroups.map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{row.date ? format(parseISO(row.date), 'yyyy-MM-dd') : '-'}</TableCell>
-                      <TableCell className="font-mono">0000</TableCell>
-                      <TableCell>CASH CUSTOMER</TableCell>
-                      <TableCell className="max-w-[150px] truncate" title={row.productName}>
-                        {row.productName || '-'}
-                      </TableCell>
-                      <TableCell className="font-mono">{row.productSku || '-'}</TableCell>
-                      <TableCell>{row.unitPrice.toFixed(2)}</TableCell>
-                      <TableCell>{row.totalQty}</TableCell>
-                      <TableCell>{row.totalAmount.toFixed(2)} SAR</TableCell>
-                      <TableCell>{row.userName || '-'}</TableCell>
-                      <TableCell>{row.paymentMethod || '-'}</TableCell>
-                      <TableCell>{row.paymentBrand || '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="space-y-4">
+                {aggregatedGroups.map((invoice, idx) => (
+                  <Card key={idx} className="border-2">
+                    <CardHeader className="py-3 bg-muted/30">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-4">
+                          <Badge variant="outline" className="font-mono text-sm">
+                            {invoice.orderNumber}
+                          </Badge>
+                          <span className="text-sm">
+                            {invoice.date ? format(parseISO(invoice.date), 'yyyy-MM-dd') : '-'}
+                          </span>
+                          <Badge>{invoice.brandName || '-'}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>{invoice.paymentMethod}</span>
+                          <span>{invoice.paymentBrand}</span>
+                          <span>{invoice.userName}</span>
+                          <Badge variant="secondary" className="font-bold">
+                            {invoice.grandTotal.toFixed(2)} SAR
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {language === 'ar' ? 'الطلبات الأصلية:' : 'Original Orders:'} {invoice.originalOrderNumbers.length} ({invoice.originalOrderNumbers.slice(0, 3).join(', ')}{invoice.originalOrderNumbers.length > 3 ? '...' : ''})
+                      </div>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</TableHead>
+                            <TableHead>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
+                            <TableHead>{language === 'ar' ? 'كود المنتج' : 'Product SKU'}</TableHead>
+                            <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                            <TableHead>{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                            <TableHead>{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
+                            <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {invoice.productLines.map((line, lineIdx) => (
+                            <TableRow key={lineIdx}>
+                              <TableCell className="font-mono">0000</TableCell>
+                              <TableCell>CASH CUSTOMER</TableCell>
+                              <TableCell className="font-mono">{line.productSku || '-'}</TableCell>
+                              <TableCell className="max-w-[200px] truncate" title={line.productName}>
+                                {line.productName || '-'}
+                              </TableCell>
+                              <TableCell>{line.unitPrice.toFixed(2)}</TableCell>
+                              <TableCell>{line.totalQty}</TableCell>
+                              <TableCell>{line.totalAmount.toFixed(2)} SAR</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </ScrollArea>
           ) : (
             <ScrollArea className="h-[600px]">
