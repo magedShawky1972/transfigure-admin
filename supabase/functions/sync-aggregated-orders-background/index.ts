@@ -33,6 +33,7 @@ interface BackgroundSyncRequest {
   userName: string;
   resumeFrom?: number;
   selectedOrderNumbers?: string[];
+  aggregatedInvoices?: AggregatedInvoice[];
 }
 
 // Helper to send email via existing SMTP function
@@ -363,7 +364,7 @@ async function processBackgroundSync(
   userEmail: string,
   userName: string,
   resumeFrom: number = 0,
-  selectedOrderNumbers?: string[]
+  prebuiltInvoices?: AggregatedInvoice[]
 ) {
   const MAX_INVOICES_PER_CHUNK = 5;
   const MAX_RUNTIME_MS = 20_000;
@@ -395,7 +396,7 @@ async function processBackgroundSync(
           userEmail,
           userName,
           resumeFrom: processedSoFar,
-          selectedOrderNumbers,
+          aggregatedInvoices: prebuiltInvoices,
         }),
       });
     } catch (e) {
@@ -413,32 +414,16 @@ async function processBackgroundSync(
       await supabase.from('background_sync_jobs').update({ status: 'running' }).eq('id', jobId);
     }
 
-    const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
-    const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
-
-    // Fetch transactions - filter by selected order numbers if provided
-    let query = supabase
-      .from('purpletransaction')
-      .select('*')
-      .gte('created_at_date_int', fromDateInt)
-      .lte('created_at_date_int', toDateInt)
-      .neq('payment_method', 'point')
-      .eq('is_deleted', false)
-      .or('sendodoo.is.null,sendodoo.eq.false');
-
-    // If selectedOrderNumbers is provided, filter to only those orders
-    if (selectedOrderNumbers && selectedOrderNumbers.length > 0) {
-      query = query.in('order_number', selectedOrderNumbers);
-      console.log(`[Aggregated Background Sync] Filtering to ${selectedOrderNumbers.length} selected order numbers`);
+    // Use prebuilt invoices directly - no need to rebuild
+    if (!prebuiltInvoices || prebuiltInvoices.length === 0) {
+      throw new Error('No aggregated invoices provided');
     }
 
-    const { data: transactions, error: txError } = await query.order('created_at_date_int', { ascending: false });
+    const aggregatedInvoices = prebuiltInvoices;
+    const totalInvoices = aggregatedInvoices.length;
+    console.log(`[Aggregated Background Sync] Using ${totalInvoices} prebuilt aggregated invoices`);
 
-    if (txError) {
-      throw new Error(`Failed to fetch transactions: ${txError.message}`);
-    }
-
-    // Get non-stock products
+    // Get non-stock products for the sync step
     const { data: nonStockProducts } = await supabase
       .from('products')
       .select('sku, product_id')
@@ -449,56 +434,6 @@ async function processBackgroundSync(
       if (p.sku) nonStockSet.add(p.sku);
       if (p.product_id) nonStockSet.add(p.product_id);
     });
-
-    // Get all original order numbers
-    const allOrderNumbers = [...new Set((transactions || []).map((tx: any) => tx.order_number).filter(Boolean))];
-
-    // Fetch existing mappings
-    const { data: existingMappingsData } = await supabase
-      .from('aggregated_order_mapping')
-      .select('original_order_number, aggregated_order_number')
-      .in('original_order_number', allOrderNumbers.length > 0 ? allOrderNumbers : ['__none__']);
-
-    const alreadySyncedMap = new Map<string, string>();
-    existingMappingsData?.forEach((m: any) => {
-      alreadySyncedMap.set(m.original_order_number, m.aggregated_order_number);
-    });
-
-    // Fetch max sequence for dates
-    const uniqueDates = new Set<string>();
-    (transactions || []).forEach((tx: any) => {
-      const dateStr = tx.created_at_date?.substring(0, 10)?.replace(/-/g, '') || '';
-      if (dateStr) uniqueDates.add(dateStr);
-    });
-
-    const dateSequenceMap = new Map<string, number>();
-    for (const dateStr of uniqueDates) {
-      const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
-      const { data: existingMappings } = await supabase
-        .from('aggregated_order_mapping')
-        .select('aggregated_order_number')
-        .eq('aggregation_date', formattedDate)
-        .order('aggregated_order_number', { ascending: false })
-        .limit(1);
-
-      if (existingMappings && existingMappings.length > 0) {
-        const lastSeq = parseInt(existingMappings[0].aggregated_order_number.slice(-4), 10) || 0;
-        dateSequenceMap.set(dateStr, lastSeq);
-      } else {
-        dateSequenceMap.set(dateStr, 0);
-      }
-    }
-
-    // Build aggregated invoices
-    const aggregatedInvoices = buildAggregatedInvoices(
-      transactions || [],
-      nonStockSet,
-      alreadySyncedMap,
-      dateSequenceMap
-    );
-
-    const totalInvoices = aggregatedInvoices.length;
-    console.log(`[Aggregated Background Sync] Built ${totalInvoices} aggregated invoices`);
 
     if (!isResume) {
       await supabase.from('background_sync_jobs').update({ total_orders: totalInvoices }).eq('id', jobId);
@@ -807,7 +742,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom, selectedOrderNumbers } =
+    const { jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom, aggregatedInvoices } =
       (await req.json()) as BackgroundSyncRequest;
 
     if (!jobId || !fromDate || !toDate || !userId || !userEmail || !userName) {
@@ -819,8 +754,8 @@ Deno.serve(async (req) => {
 
     const isResume = resumeFrom !== undefined && resumeFrom > 0;
     console.log(`[Aggregated Background Sync] Received ${isResume ? 'resume' : 'start'} request for job ${jobId}`);
-    if (selectedOrderNumbers && selectedOrderNumbers.length > 0) {
-      console.log(`[Aggregated Background Sync] Processing ${selectedOrderNumbers.length} selected order numbers`);
+    if (aggregatedInvoices && aggregatedInvoices.length > 0) {
+      console.log(`[Aggregated Background Sync] Processing ${aggregatedInvoices.length} aggregated invoices`);
     }
 
     const supabase = createClient(
@@ -829,7 +764,7 @@ Deno.serve(async (req) => {
     );
 
     EdgeRuntime.waitUntil(
-      processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom || 0, selectedOrderNumbers)
+      processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom || 0, aggregatedInvoices)
     );
 
     return new Response(

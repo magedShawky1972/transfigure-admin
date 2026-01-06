@@ -1108,8 +1108,21 @@ const OdooSyncBatch = () => {
           throw new Error(jobError?.message || 'Failed to create background job');
         }
 
-        // Collect all original order numbers from selected invoices
-        const selectedOrderNumbers = toSync.flatMap(inv => inv.originalOrderNumbers);
+        // Send the pre-built aggregated invoices directly to avoid re-aggregation issues
+        const selectedAggregatedInvoices = toSync.map(inv => ({
+          orderNumber: inv.orderNumber,
+          date: inv.date,
+          brandName: inv.brandName,
+          brandCode: inv.originalLines[0]?.brand_code || '',
+          paymentMethod: inv.paymentMethod,
+          paymentBrand: inv.paymentBrand,
+          userName: inv.userName,
+          company: inv.originalLines[0]?.company || 'Purple',
+          productLines: inv.productLines,
+          grandTotal: inv.grandTotal,
+          originalOrderNumbers: inv.originalOrderNumbers,
+          hasNonStock: inv.hasNonStock,
+        }));
 
         const { error: funcError } = await supabase.functions.invoke('sync-aggregated-orders-background', {
           body: {
@@ -1119,7 +1132,7 @@ const OdooSyncBatch = () => {
             userId: userData.user.id,
             userEmail: profile.email,
             userName: profile.user_name,
-            selectedOrderNumbers,
+            aggregatedInvoices: selectedAggregatedInvoices,
           },
         });
 
