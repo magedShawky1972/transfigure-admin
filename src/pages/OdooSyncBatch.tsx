@@ -1235,14 +1235,12 @@ const OdooSyncBatch = () => {
         inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
       ));
 
-      // If success, mark all original orders as synced in database
-      if (result.syncStatus === 'success') {
-        for (const originalOrderNumber of invoice.originalOrderNumbers) {
-          await supabase
-            .from('purpletransaction')
-            .update({ sendodoo: true })
-            .eq('order_number', originalOrderNumber);
-        }
+      // If success, mark all original orders as synced in database (batch update)
+      if (result.syncStatus === 'success' && invoice.originalOrderNumbers.length > 0) {
+        await supabase
+          .from('purpletransaction')
+          .update({ sendodoo: true })
+          .in('order_number', invoice.originalOrderNumbers);
       }
 
       processedCount++;
