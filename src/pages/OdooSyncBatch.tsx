@@ -248,7 +248,7 @@ const OdooSyncBatch = () => {
   const stopRequestedRef = useRef(false);
   const [stopRequested, setStopRequested] = useState(false);
   const [startingBackgroundSync, setStartingBackgroundSync] = useState(false);
-  const [aggregateMode, setAggregateMode] = useState(false);
+  const [aggregateMode, setAggregateMode] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
 
   const fromDate = searchParams.get('from');
