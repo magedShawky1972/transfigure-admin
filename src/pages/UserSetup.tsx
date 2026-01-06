@@ -145,6 +145,7 @@ interface UserPermission {
     { key: "certificateManagement", label: "إدارة الشهادات", labelEn: "Certificate Management" },
     { key: "auditLogs", label: "سجلات التدقيق", labelEn: "Audit Logs" },
     { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
+    { key: "zkAttendanceLogs", label: "سجلات حضور ZK", labelEn: "ZK Attendance Logs" },
   ];
 
 const DASHBOARD_COMPONENTS = [
