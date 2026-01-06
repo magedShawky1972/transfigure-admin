@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +158,29 @@ export const BackgroundSyncStatusCard = () => {
   const handleDismiss = () => {
     setActiveJob(null);
     setShowCompletedJob(false);
+  };
+
+  const handleDeleteJob = async () => {
+    if (!activeJob || actionLoading) return;
+    
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('background_sync_jobs')
+        .delete()
+        .eq('id', activeJob.id);
+
+      if (error) throw error;
+      
+      toast.success(language === 'ar' ? 'تم حذف المهمة' : 'Job deleted');
+      setActiveJob(null);
+      setShowCompletedJob(false);
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      toast.error(language === 'ar' ? 'فشل حذف المهمة' : 'Failed to delete job');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handlePauseSync = async () => {
@@ -344,9 +367,21 @@ export const BackgroundSyncStatusCard = () => {
                 </Button>
               )}
               {(showCompletedJob || isPaused || isCancelled) && (
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDismiss}>
-                  <X className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-destructive hover:bg-destructive/10" 
+                    onClick={handleDeleteJob}
+                    disabled={actionLoading}
+                    title={language === 'ar' ? 'حذف' : 'Delete'}
+                  >
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDismiss}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
               )}
             </div>
           </div>
