@@ -101,8 +101,8 @@ export const BackgroundSyncStatusCard = () => {
             if (job.status === 'pending' || job.status === 'running') {
               setActiveJob(job);
               setShowCompletedJob(false);
-            } else if (activeJob?.id === job.id) {
-              // Job completed - show for a while then allow dismissing
+            } else if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+              // Job finished - update UI to show final status
               setActiveJob(job);
               setShowCompletedJob(true);
             }
