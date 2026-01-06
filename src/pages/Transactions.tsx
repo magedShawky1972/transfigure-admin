@@ -91,7 +91,8 @@ const Transactions = () => {
   const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
@@ -324,13 +325,46 @@ const Transactions = () => {
     setTotalCountAll(0);
   }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
 
+  // Only refetch when page changes (after initial load)
   useEffect(() => {
-    fetchTransactions();
-  }, [fromDate, toDate, page, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
+    if (dataLoaded && !isAllDataLoaded) {
+      fetchTransactions();
+    }
+  }, [page]);
 
-  useEffect(() => {
+  const handleLoadData = () => {
+    setDataLoaded(true);
+    fetchTransactions();
     fetchTotals();
-  }, [fromDate, toDate, phoneFilter, orderNumberFilter]);
+  };
+
+  const handleResetData = () => {
+    setTransactions([]);
+    setDataLoaded(false);
+    setIsAllDataLoaded(false);
+    setTotalCount(0);
+    setTotalCountAll(0);
+    setTotalSalesAll(0);
+    setTotalProfitAll(0);
+    setPointTransactionCount(0);
+    setPointSales(0);
+    setBrands([]);
+    setProducts([]);
+    setPaymentMethods([]);
+    setPaymentBrands([]);
+    setCustomers([]);
+    setFilterBrand("all");
+    setFilterProduct("all");
+    setFilterPaymentMethod("all");
+    setFilterPaymentBrand("all");
+    setFilterCustomer("all");
+    setSearchTerm("");
+    setPage(1);
+    toast({
+      title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
+      description: language === 'ar' ? 'تم مسح البيانات من الجدول' : 'Grid data has been cleared',
+    });
+  };
 
   const fetchTransactions = async () => {
     try {
@@ -1348,20 +1382,21 @@ const Transactions = () => {
                 variant="outline" 
                 size="sm" 
                 className="gap-2" 
-                onClick={() => {
-                  setIsAllDataLoaded(false);
-                  setPage(1);
-                  fetchTransactions();
-                  fetchTotals();
-                }}
+                onClick={handleLoadData}
                 disabled={loading}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 {language === 'ar' ? 'تحميل' : 'Load'}
               </Button>
-              <Button variant="outline" size="sm" className="gap-2" onClick={resetLayout}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2" 
+                onClick={handleResetData}
+                disabled={loading || !dataLoaded}
+              >
                 <RotateCcw className="h-4 w-4" />
-                {language === 'ar' ? 'إعادة تعيين' : 'Reset Layout'}
+                {language === 'ar' ? 'إعادة تعيين' : 'Reset'}
               </Button>
               <Popover>
                 <PopoverTrigger asChild>
