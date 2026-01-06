@@ -52,6 +52,7 @@ import { MultiLevelGroupedTransactions } from "@/components/transactions/MultiLe
 import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
 import { BackgroundSyncStatusCard } from "@/components/BackgroundSyncStatusCard";
 import { ResetOdooSyncDialog } from "@/components/ResetOdooSyncDialog";
+import { VirtualizedTransactionTable } from "@/components/transactions/VirtualizedTransactionTable";
 
 interface GroupLevel {
   columnId: string;
@@ -424,8 +425,8 @@ const Transactions = () => {
       setTotalCount(totalRecords);
       setTotalCountAll(totalRecords);
 
-      // Auto-load all data if count is less than 4000
-      const AUTO_LOAD_THRESHOLD = 4000;
+      // Auto-load all data if count is less than 2000 (reduced for performance)
+      const AUTO_LOAD_THRESHOLD = 2000;
       if (totalRecords > 0 && totalRecords < AUTO_LOAD_THRESHOLD && !isAllDataLoaded && !loadingAll) {
         // Set totalCountAll first so display shows correct total
         setTotalCountAll(totalRecords);
@@ -1659,6 +1660,9 @@ const Transactions = () => {
                       formatCurrency={formatCurrency}
                       renderCell={renderCell}
                     />
+                  ) : sortedTransactions.length > 500 ? (
+                    // Use virtualized table for large datasets (>500 rows)
+                    null
                   ) : (
                     <TableBody>
                       {sortedTransactions.map((transaction) => (
@@ -1678,6 +1682,14 @@ const Transactions = () => {
                     </TableBody>
                   )}
                 </Table>
+              )}
+              {/* Virtualized table for large datasets - rendered outside the regular table */}
+              {!loading && sortedTransactions.length > 500 && groupLevels.length === 0 && (
+                <VirtualizedTransactionTable
+                  transactions={sortedTransactions}
+                  visibleColumnIds={visibleColumnIds}
+                  renderCell={renderCell}
+                />
               )}
             </div>
             {!loading && sortedTransactions.length > 0 && (
