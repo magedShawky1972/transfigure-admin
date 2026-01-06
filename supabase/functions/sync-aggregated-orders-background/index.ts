@@ -653,9 +653,9 @@ async function processBackgroundSync(
       });
 
       const stepStatus: Record<string, string> = {
-        customer: 'pending',
-        brand: 'pending',
-        product: 'pending',
+        customer: 'skipped',
+        brand: 'skipped',
+        product: 'skipped',
         order: 'pending',
         purchase: 'pending',
       };
@@ -664,17 +664,8 @@ async function processBackgroundSync(
       let errorMessage = '';
 
       try {
-        const customerResult = await executeStep('customer', syntheticTransactions, nonStockTx, supabaseUrl, supabaseKey);
-        if (!customerResult.success) throw new Error(`Customer: ${customerResult.error}`);
-        stepStatus.customer = 'found';
-
-        const brandResult = await executeStep('brand', syntheticTransactions, nonStockTx, supabaseUrl, supabaseKey);
-        if (!brandResult.success) throw new Error(`Brand: ${brandResult.error}`);
-        stepStatus.brand = 'found';
-
-        const productResult = await executeStep('product', syntheticTransactions, nonStockTx, supabaseUrl, supabaseKey);
-        if (!productResult.success) throw new Error(`Product: ${productResult.error}`);
-        stepStatus.product = 'found';
+        // Skip customer, brand, product checks for aggregated mode - go directly to order
+        console.log(`[Aggregated Background Sync] Skipping customer/brand/product checks for aggregated invoice`);
 
         const orderResult = await executeStep('order', syntheticTransactions, nonStockTx, supabaseUrl, supabaseKey);
         if (!orderResult.success) throw new Error(`Order: ${orderResult.error}`);
