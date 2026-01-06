@@ -181,7 +181,7 @@ export default function EmployeeSetup() {
   
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [viewMode, setViewMode] = useState<"table" | "card">("card");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
