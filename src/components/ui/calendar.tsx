@@ -13,12 +13,34 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
-  defaultMonth = new Date(),
+  defaultMonth,
   ...props
 }: CalendarProps) {
+  // Determine the default month based on the selected date if not explicitly provided
+  const computedDefaultMonth = React.useMemo((): Date => {
+    if (defaultMonth) return defaultMonth;
+    
+    const selected = (props as { selected?: Date | { from?: Date } | Date[] }).selected;
+    
+    if (selected instanceof Date) {
+      return selected;
+    }
+    if (selected && typeof selected === 'object' && 'from' in selected) {
+      const range = selected as { from?: Date; to?: Date };
+      if (range.from instanceof Date) {
+        return range.from;
+      }
+    }
+    if (Array.isArray(selected) && selected.length > 0 && selected[0] instanceof Date) {
+      return selected[0];
+    }
+    return new Date();
+  }, [defaultMonth, props]);
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      defaultMonth={computedDefaultMonth}
       className={cn("p-3 pointer-events-auto", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
