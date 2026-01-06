@@ -303,16 +303,30 @@ const ApiDocumentation = () => {
     return apiConfigs.filter(config => config.api_endpoint === `/api/${apiName}`);
   };
 
-  const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id)).map(api => ({
-    ...api,
-    fields: getApiFields(api.endpoint).map(config => ({
-      name: config.field_name,
-      type: config.field_type,
-      required: editedConfigs[config.id] !== undefined ? editedConfigs[config.id] : config.is_required,
-      note: config.field_note || '',
-      configId: config.id
-    }))
-  }));
+  const filteredApis = API_ENDPOINTS.filter(api => selectedApis.includes(api.id)).map(api => {
+    const dbFields = getApiFields(api.endpoint);
+    // Use database fields if available, otherwise fall back to static fields from API_ENDPOINTS
+    const fields = dbFields.length > 0 
+      ? dbFields.map(config => ({
+          name: config.field_name,
+          type: config.field_type,
+          required: editedConfigs[config.id] !== undefined ? editedConfigs[config.id] : config.is_required,
+          note: config.field_note || '',
+          configId: config.id
+        }))
+      : api.fields.map(field => ({
+          name: field.name,
+          type: field.type,
+          required: field.required,
+          note: field.note || '',
+          configId: undefined
+        }));
+    
+    return {
+      ...api,
+      fields
+    };
+  });
 
   return (
     <div className="print:space-y-0">
