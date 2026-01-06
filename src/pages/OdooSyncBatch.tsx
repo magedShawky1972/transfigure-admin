@@ -1143,6 +1143,9 @@ const OdooSyncBatch = () => {
           throw new Error(jobError?.message || 'Failed to create background job');
         }
 
+        // Collect all original order numbers from selected invoices
+        const selectedOrderNumbers = toSync.flatMap(inv => inv.originalOrderNumbers);
+
         const { error: funcError } = await supabase.functions.invoke('sync-aggregated-orders-background', {
           body: {
             jobId: job.id,
@@ -1151,6 +1154,7 @@ const OdooSyncBatch = () => {
             userId: userData.user.id,
             userEmail: profile.email,
             userName: profile.user_name,
+            selectedOrderNumbers,
           },
         });
 

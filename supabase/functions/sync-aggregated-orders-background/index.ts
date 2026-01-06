@@ -32,6 +32,7 @@ interface BackgroundSyncRequest {
   userEmail: string;
   userName: string;
   resumeFrom?: number;
+  selectedOrderNumbers?: string[];
 }
 
 // Helper to send email via existing SMTP function
@@ -361,7 +362,8 @@ async function processBackgroundSync(
   userId: string,
   userEmail: string,
   userName: string,
-  resumeFrom: number = 0
+  resumeFrom: number = 0,
+  selectedOrderNumbers?: string[]
 ) {
   const MAX_INVOICES_PER_CHUNK = 5;
   const MAX_RUNTIME_MS = 20_000;
@@ -393,6 +395,7 @@ async function processBackgroundSync(
           userEmail,
           userName,
           resumeFrom: processedSoFar,
+          selectedOrderNumbers,
         }),
       });
     } catch (e) {
@@ -413,16 +416,23 @@ async function processBackgroundSync(
     const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
     const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
 
-    // Fetch transactions
-    const { data: transactions, error: txError } = await supabase
+    // Fetch transactions - filter by selected order numbers if provided
+    let query = supabase
       .from('purpletransaction')
       .select('*')
       .gte('created_at_date_int', fromDateInt)
       .lte('created_at_date_int', toDateInt)
       .neq('payment_method', 'point')
       .eq('is_deleted', false)
-      .or('sendodoo.is.null,sendodoo.eq.false')
-      .order('created_at_date_int', { ascending: false });
+      .or('sendodoo.is.null,sendodoo.eq.false');
+
+    // If selectedOrderNumbers is provided, filter to only those orders
+    if (selectedOrderNumbers && selectedOrderNumbers.length > 0) {
+      query = query.in('order_number', selectedOrderNumbers);
+      console.log(`[Aggregated Background Sync] Filtering to ${selectedOrderNumbers.length} selected order numbers`);
+    }
+
+    const { data: transactions, error: txError } = await query.order('created_at_date_int', { ascending: false });
 
     if (txError) {
       throw new Error(`Failed to fetch transactions: ${txError.message}`);
@@ -806,7 +816,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom } =
+    const { jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom, selectedOrderNumbers } =
       (await req.json()) as BackgroundSyncRequest;
 
     if (!jobId || !fromDate || !toDate || !userId || !userEmail || !userName) {
@@ -818,6 +828,9 @@ Deno.serve(async (req) => {
 
     const isResume = resumeFrom !== undefined && resumeFrom > 0;
     console.log(`[Aggregated Background Sync] Received ${isResume ? 'resume' : 'start'} request for job ${jobId}`);
+    if (selectedOrderNumbers && selectedOrderNumbers.length > 0) {
+      console.log(`[Aggregated Background Sync] Processing ${selectedOrderNumbers.length} selected order numbers`);
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -825,7 +838,7 @@ Deno.serve(async (req) => {
     );
 
     EdgeRuntime.waitUntil(
-      processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom || 0)
+      processBackgroundSync(supabase, jobId, fromDate, toDate, userId, userEmail, userName, resumeFrom || 0, selectedOrderNumbers)
     );
 
     return new Response(
