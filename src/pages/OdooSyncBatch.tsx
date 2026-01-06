@@ -1235,12 +1235,28 @@ const OdooSyncBatch = () => {
         inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
       ));
 
-      // If success, mark all original orders as synced in database (batch update)
+      // If success, mark all original orders as synced and save mapping
       if (result.syncStatus === 'success' && invoice.originalOrderNumbers.length > 0) {
+        // Mark original orders as synced
         await supabase
           .from('purpletransaction')
           .update({ sendodoo: true })
           .in('order_number', invoice.originalOrderNumbers);
+
+        // Save aggregated order mapping with payment details
+        const mappings = invoice.originalOrderNumbers.map(originalOrderNumber => ({
+          aggregated_order_number: invoice.orderNumber,
+          original_order_number: originalOrderNumber,
+          aggregation_date: invoice.date,
+          brand_name: invoice.brandName,
+          payment_method: invoice.paymentMethod,
+          payment_brand: invoice.paymentBrand,
+          user_name: invoice.userName,
+        }));
+        
+        await supabase
+          .from('aggregated_order_mapping')
+          .upsert(mappings, { onConflict: 'original_order_number' });
       }
 
       processedCount++;
