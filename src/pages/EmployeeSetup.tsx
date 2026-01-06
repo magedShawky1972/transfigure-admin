@@ -38,6 +38,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 interface Employee {
   id: string;
   employee_number: string;
+  zk_employee_code: string | null;
   user_id: string | null;
   first_name: string;
   first_name_ar: string | null;
@@ -203,6 +204,7 @@ export default function EmployeeSetup() {
   
   const [formData, setFormData] = useState({
     employee_number: "",
+    zk_employee_code: "",
     user_id: "",
     first_name: "",
     first_name_ar: "",
@@ -401,6 +403,7 @@ export default function EmployeeSetup() {
     setSelectedEmployee(null);
     setFormData({
       employee_number: `EMP${Date.now()}`,
+      zk_employee_code: "",
       user_id: user.user_id,
       first_name: firstName,
       first_name_ar: "",
@@ -645,6 +648,7 @@ export default function EmployeeSetup() {
     setSelectedEmployee(null);
     setFormData({
       employee_number: "",
+      zk_employee_code: "",
       user_id: "",
       first_name: "",
       first_name_ar: "",
@@ -685,6 +689,7 @@ export default function EmployeeSetup() {
     setSelectedEmployee(employee);
     setFormData({
       employee_number: employee.employee_number,
+      zk_employee_code: employee.zk_employee_code || "",
       user_id: employee.user_id || "",
       first_name: employee.first_name,
       first_name_ar: employee.first_name_ar || "",
@@ -864,6 +869,7 @@ export default function EmployeeSetup() {
     try {
       const payload = {
         employee_number: formData.employee_number,
+        zk_employee_code: formData.zk_employee_code || null,
         user_id: formData.user_id || null,
         first_name: formData.first_name,
         first_name_ar: formData.first_name_ar || null,
@@ -1318,6 +1324,15 @@ export default function EmployeeSetup() {
                   <Input
                     value={formData.employee_number}
                     onChange={(e) => setFormData({ ...formData, employee_number: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "كود جهاز البصمة" : "ZK Attendance Code"}</Label>
+                  <Input
+                    value={formData.zk_employee_code}
+                    onChange={(e) => setFormData({ ...formData, zk_employee_code: e.target.value })}
+                    placeholder={language === "ar" ? "رقم الموظف في جهاز ZK" : "Employee number in ZK machine"}
                   />
                 </div>
 
