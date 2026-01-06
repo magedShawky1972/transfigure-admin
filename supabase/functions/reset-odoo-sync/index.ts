@@ -43,6 +43,24 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${totalCount} records to reset`);
 
+    // Convert date integers to date strings for aggregated_order_mapping
+    const fromDateStr = `${String(fromDateInt).slice(0, 4)}-${String(fromDateInt).slice(4, 6)}-${String(fromDateInt).slice(6, 8)}`;
+    const toDateStr = `${String(toDateInt).slice(0, 4)}-${String(toDateInt).slice(4, 6)}-${String(toDateInt).slice(6, 8)}`;
+
+    // Delete aggregated order mappings for this date range
+    const { count: deletedMappingsCount, error: mappingError } = await supabase
+      .from('aggregated_order_mapping')
+      .delete({ count: 'exact' })
+      .gte('aggregation_date', fromDateStr)
+      .lte('aggregation_date', toDateStr);
+
+    if (mappingError) {
+      console.error('Error deleting aggregated order mappings:', mappingError);
+      // Don't throw, continue with transaction reset
+    } else {
+      console.log(`Deleted ${deletedMappingsCount || 0} aggregated order mappings`);
+    }
+
     // Perform the batch update (return minimal payload to avoid freezing the client)
     const { count: updatedCount, error } = await supabase
       .from('purpletransaction')
@@ -66,7 +84,8 @@ Deno.serve(async (req) => {
         success: true,
         updatedCount: updatedCount || 0,
         totalCount: totalCount || 0,
-        message: `Reset ${updatedCount || 0} transaction(s) successfully`,
+        deletedMappingsCount: deletedMappingsCount || 0,
+        message: `Reset ${updatedCount || 0} transaction(s) and ${deletedMappingsCount || 0} aggregated mapping(s) successfully`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
