@@ -247,12 +247,18 @@ const ZKAttendanceLogs = () => {
 
     setActionLoading(true);
     try {
+      // Ensure time has seconds format (HH:MM:SS)
+      let timeValue = editFormData.attendance_time;
+      if (timeValue && timeValue.split(":").length === 2) {
+        timeValue = `${timeValue}:00`;
+      }
+
       const { error } = await supabase
         .from("zk_attendance_logs")
         .update({
           employee_code: editFormData.employee_code,
           attendance_date: editFormData.attendance_date,
-          attendance_time: editFormData.attendance_time,
+          attendance_time: timeValue,
           record_type: editFormData.record_type,
         })
         .eq("id", selectedLog.id);
@@ -260,7 +266,7 @@ const ZKAttendanceLogs = () => {
       if (error) throw error;
 
       toast.success(isArabic ? "تم تحديث السجل بنجاح" : "Record updated successfully");
-      fetchLogs();
+      await fetchLogs();
     } catch (error: any) {
       console.error("Error updating log:", error);
       toast.error(isArabic ? "خطأ في تحديث السجل" : "Error updating record");
