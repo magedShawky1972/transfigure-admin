@@ -252,6 +252,13 @@ export default function EmployeeSetup() {
     fetchData();
   }, []);
 
+  // Re-sort when language changes
+  useEffect(() => {
+    if (allEmployees.length > 0) {
+      applyFilters(searchTerm, filterDepartment, filterJob, filterLetter);
+    }
+  }, [language]);
+
   // Handle edit query parameter from Employee Profile
   useEffect(() => {
     const editId = searchParams.get('edit');
@@ -299,8 +306,12 @@ export default function EmployeeSetup() {
       ]);
 
       if (employeesRes.error) throw employeesRes.error;
-      setEmployees(employeesRes.data || []);
-      setAllEmployees(employeesRes.data || []);
+      // Sort employees alphabetically by first name
+      const sortedEmployees = (employeesRes.data || []).sort((a, b) => 
+        a.first_name.localeCompare(b.first_name, 'en')
+      );
+      setEmployees(sortedEmployees);
+      setAllEmployees(sortedEmployees);
       setDepartments(departmentsRes.data || []);
       setJobPositions(positionsRes.data || []);
       setProfiles(profilesRes.data || []);
