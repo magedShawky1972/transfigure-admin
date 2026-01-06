@@ -1086,6 +1086,100 @@ const OdooSyncBatch = () => {
 
   // Start background sync process
   const handleStartBackgroundSync = async () => {
+    // Check if in aggregate mode
+    if (aggregateMode && aggregatedInvoices.length > 0) {
+      const toSync = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync && inv.syncStatus !== 'success');
+      if (toSync.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'لا توجد فواتير' : 'No Invoices',
+          description: language === 'ar' ? 'يرجى اختيار فواتير للمزامنة' : 'Please select invoices to sync',
+        });
+        return;
+      }
+
+      if (!fromDate || !toDate) {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'يجب تحديد نطاق التاريخ' : 'Date range is required',
+        });
+        return;
+      }
+
+      setStartingBackgroundSync(true);
+
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) {
+          throw new Error('User not authenticated');
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_name, email')
+          .eq('user_id', userData.user.id)
+          .single();
+
+        if (!profile) {
+          throw new Error('User profile not found');
+        }
+
+        const { data: job, error: jobError } = await supabase
+          .from('background_sync_jobs')
+          .insert({
+            user_id: userData.user.id,
+            user_email: profile.email,
+            user_name: profile.user_name,
+            from_date: fromDate,
+            to_date: toDate,
+            total_orders: toSync.length,
+            status: 'pending',
+          })
+          .select('id')
+          .single();
+
+        if (jobError || !job) {
+          throw new Error(jobError?.message || 'Failed to create background job');
+        }
+
+        const { error: funcError } = await supabase.functions.invoke('sync-aggregated-orders-background', {
+          body: {
+            jobId: job.id,
+            fromDate,
+            toDate,
+            userId: userData.user.id,
+            userEmail: profile.email,
+            userName: profile.user_name,
+          },
+        });
+
+        if (funcError) {
+          throw new Error(funcError.message);
+        }
+
+        toast({
+          title: language === 'ar' ? 'تم بدء المزامنة المجمعة في الخلفية' : 'Aggregated Background Sync Started',
+          description: language === 'ar'
+            ? 'يمكنك إغلاق هذه الصفحة. سيتم إرسال إشعار بالبريد عند الانتهاء.'
+            : 'You can close this page. An email notification will be sent when complete.',
+        });
+
+        navigate(`/transactions?from=${fromDate}&to=${toDate}`);
+      } catch (error) {
+        console.error('Error starting aggregated background sync:', error);
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: error instanceof Error ? error.message : 'Failed to start background sync',
+        });
+      } finally {
+        setStartingBackgroundSync(false);
+      }
+      return;
+    }
+
+    // Normal (non-aggregate) background sync
     const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
     if (toSync.length === 0) {
       toast({
