@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.sync-emails-background]
 verify_jwt = false
+
+[functions.api-zk-attendance]
+verify_jwt = false

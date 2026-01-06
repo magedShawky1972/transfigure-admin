@@ -68,6 +68,7 @@ const SystemConfig = () => {
     allow_supplier_product: false,
     allow_brand: false,
     allow_product: false,
+    allow_zk_attendance: false,
   });
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
     mobile_number: "",
@@ -334,6 +335,7 @@ const SystemConfig = () => {
       allow_supplier_product: false,
       allow_brand: false,
       allow_product: false,
+      allow_zk_attendance: false,
     });
     loadApiKeys();
   };
@@ -733,6 +735,18 @@ const SystemConfig = () => {
                   />
                   <Label htmlFor="product" className="cursor-pointer text-sm">
                     Product
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="zk_attendance"
+                    checked={permissions.allow_zk_attendance}
+                    onCheckedChange={(checked) =>
+                      setPermissions({ ...permissions, allow_zk_attendance: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="zk_attendance" className="cursor-pointer text-sm">
+                    ZK Attendance
                   </Label>
                 </div>
               </div>
