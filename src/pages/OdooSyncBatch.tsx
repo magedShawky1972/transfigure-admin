@@ -926,49 +926,14 @@ const OdooSyncBatch = () => {
     };
 
     try {
-      // Step 1: Sync Customer
-      console.log(`[Aggregated Sync] Starting Customer step for invoice: ${invoice.orderNumber}`);
-      stepStatus.customer = 'running';
-      updateAggregatedStepStatus(stepStatus);
-
-      const customerResult = await executeStep('customer');
-      if (!customerResult.success) {
-        stepStatus.customer = 'failed';
-        updateAggregatedStepStatus(stepStatus);
-        throw new Error(`Customer: ${customerResult.error}`);
-      }
+      // Skip customer, brand, product checks for aggregated mode - go directly to order
+      console.log(`[Aggregated Sync] Skipping customer/brand/product checks for aggregated invoice: ${invoice.orderNumber}`);
       stepStatus.customer = 'found';
-      updateAggregatedStepStatus(stepStatus);
-
-      // Step 2: Sync Brand
-      console.log(`[Aggregated Sync] Starting Brand step for invoice: ${invoice.orderNumber}`);
-      stepStatus.brand = 'running';
-      updateAggregatedStepStatus(stepStatus);
-
-      const brandResult = await executeStep('brand');
-      if (!brandResult.success) {
-        stepStatus.brand = 'failed';
-        updateAggregatedStepStatus(stepStatus);
-        throw new Error(`Brand: ${brandResult.error}`);
-      }
       stepStatus.brand = 'found';
-      updateAggregatedStepStatus(stepStatus);
-
-      // Step 3: Sync Products
-      console.log(`[Aggregated Sync] Starting Product step for invoice: ${invoice.orderNumber}`);
-      stepStatus.product = 'running';
-      updateAggregatedStepStatus(stepStatus);
-
-      const productResult = await executeStep('product');
-      if (!productResult.success) {
-        stepStatus.product = 'failed';
-        updateAggregatedStepStatus(stepStatus);
-        throw new Error(`Product: ${productResult.error}`);
-      }
       stepStatus.product = 'found';
       updateAggregatedStepStatus(stepStatus);
 
-      // Step 4: Create Sales Order
+      // Step 1: Create Sales Order
       console.log(`[Aggregated Sync] Starting Order step for invoice: ${invoice.orderNumber}`);
       stepStatus.order = 'running';
       updateAggregatedStepStatus(stepStatus);
