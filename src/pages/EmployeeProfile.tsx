@@ -7,6 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -15,6 +18,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -30,8 +47,9 @@ import {
   MapPin,
   Building2,
   Pencil,
+  Plus,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 
 interface Employee {
   id: string;
@@ -117,6 +135,9 @@ interface Timesheet {
 interface EmployeeVacationType {
   id: string;
   vacation_code_id: string;
+  balance: number;
+  used_days: number;
+  year: number;
   vacation_codes?: { code: string; name_en: string; name_ar: string | null } | null;
 }
 
@@ -139,6 +160,16 @@ export default function EmployeeProfile() {
   }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // Vacation dialog state
+  const [vacationDialogOpen, setVacationDialogOpen] = useState(false);
+  const [savingVacation, setSavingVacation] = useState(false);
+  const [vacationFormData, setVacationFormData] = useState({
+    vacation_code_id: "",
+    start_date: "",
+    end_date: "",
+    reason: "",
+  });
 
   useEffect(() => {
     if (id) {
@@ -191,9 +222,13 @@ export default function EmployeeProfile() {
           .select(`
             id,
             vacation_code_id,
+            balance,
+            used_days,
+            year,
             vacation_codes(code, name_en, name_ar)
           `)
-          .eq("employee_id", id),
+          .eq("employee_id", id)
+          .eq("year", new Date().getFullYear()),
         supabase
           .from("employee_contacts")
           .select("id, contact_type, contact_name, contact_phone, contact_address, is_emergency_contact")
@@ -238,6 +273,95 @@ export default function EmployeeProfile() {
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const calculateTotalDays = () => {
+    if (!vacationFormData.start_date || !vacationFormData.end_date) return 0;
+    const start = new Date(vacationFormData.start_date);
+    const end = new Date(vacationFormData.end_date);
+    return differenceInDays(end, start) + 1; // Include both start and end dates
+  };
+
+  const getSelectedVacationTypeBalance = () => {
+    const selectedType = employeeVacationTypes.find(
+      (evt) => evt.vacation_code_id === vacationFormData.vacation_code_id
+    );
+    return selectedType ? selectedType.balance - selectedType.used_days : 0;
+  };
+
+  const openVacationDialog = () => {
+    setVacationFormData({
+      vacation_code_id: "",
+      start_date: "",
+      end_date: "",
+      reason: "",
+    });
+    setVacationDialogOpen(true);
+  };
+
+  const handleAddVacation = async () => {
+    if (!vacationFormData.vacation_code_id || !vacationFormData.start_date || !vacationFormData.end_date) {
+      toast.error(language === "ar" ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
+      return;
+    }
+
+    const totalDays = calculateTotalDays();
+    if (totalDays <= 0) {
+      toast.error(language === "ar" ? "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء" : "End date must be after start date");
+      return;
+    }
+
+    const availableBalance = getSelectedVacationTypeBalance();
+    if (totalDays > availableBalance) {
+      toast.error(
+        language === "ar" 
+          ? `الرصيد المتاح (${availableBalance} يوم) غير كافٍ لعدد الأيام المطلوبة (${totalDays} يوم)` 
+          : `Available balance (${availableBalance} days) is not sufficient for requested days (${totalDays} days)`
+      );
+      return;
+    }
+
+    setSavingVacation(true);
+    try {
+      // Insert vacation request with approved status (automatic)
+      const { error: insertError } = await supabase.from("vacation_requests").insert({
+        employee_id: id,
+        vacation_code_id: vacationFormData.vacation_code_id,
+        start_date: vacationFormData.start_date,
+        end_date: vacationFormData.end_date,
+        total_days: totalDays,
+        status: "approved",
+        reason: vacationFormData.reason || null,
+        approved_at: new Date().toISOString(),
+      });
+
+      if (insertError) throw insertError;
+
+      // Update employee_vacation_types to deduct used_days
+      const selectedVacationType = employeeVacationTypes.find(
+        (evt) => evt.vacation_code_id === vacationFormData.vacation_code_id
+      );
+      
+      if (selectedVacationType) {
+        const { error: updateError } = await supabase
+          .from("employee_vacation_types")
+          .update({ 
+            used_days: selectedVacationType.used_days + totalDays,
+            balance: selectedVacationType.balance - totalDays
+          })
+          .eq("id", selectedVacationType.id);
+
+        if (updateError) throw updateError;
+      }
+
+      toast.success(language === "ar" ? "تم إضافة الإجازة بنجاح" : "Vacation added successfully");
+      setVacationDialogOpen(false);
+      fetchEmployeeData(); // Refresh data
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setSavingVacation(false);
     }
   };
 
@@ -538,53 +662,84 @@ export default function EmployeeProfile() {
 
         {/* Vacation Tab */}
         <TabsContent value="vacation">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{language === "ar" ? "طلبات الإجازة" : "Vacation Requests"}</CardTitle>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {language === "ar" ? "الرصيد:" : "Balance:"}
-                </span>
-                <Badge variant="secondary" className="text-lg">
-                  {employee.vacation_balance || 0} {language === "ar" ? "يوم" : "days"}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
-                    <TableHead>{language === "ar" ? "من" : "From"}</TableHead>
-                    <TableHead>{language === "ar" ? "إلى" : "To"}</TableHead>
-                    <TableHead>{language === "ar" ? "عدد الأيام" : "Days"}</TableHead>
-                    <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vacationRequests.length === 0 ? (
+          <div className="space-y-4">
+            {/* Vacation Balances by Type */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg">{language === "ar" ? "رصيد الإجازات حسب النوع" : "Vacation Balances by Type"}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {employeeVacationTypes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {language === "ar" ? "لا توجد أنواع إجازات محددة لهذا الموظف" : "No vacation types assigned to this employee"}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {employeeVacationTypes.map((evt) => (
+                      <div key={evt.id} className="border rounded-lg p-3 bg-muted/30">
+                        <p className="text-sm font-medium">
+                          {evt.vacation_codes
+                            ? language === "ar"
+                              ? evt.vacation_codes.name_ar || evt.vacation_codes.name_en
+                              : evt.vacation_codes.name_en
+                            : "-"}
+                        </p>
+                        <p className="text-2xl font-bold text-primary">{evt.balance - evt.used_days}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {language === "ar" ? `مستخدم: ${evt.used_days} / ${evt.balance}` : `Used: ${evt.used_days} / ${evt.balance}`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Vacation Requests */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>{language === "ar" ? "طلبات الإجازة" : "Vacation Requests"}</CardTitle>
+                <Button onClick={openVacationDialog} disabled={employeeVacationTypes.length === 0}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {language === "ar" ? "إضافة إجازة" : "Add Vacation"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        {language === "ar" ? "لا توجد طلبات إجازة" : "No vacation requests"}
-                      </TableCell>
+                      <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                      <TableHead>{language === "ar" ? "من" : "From"}</TableHead>
+                      <TableHead>{language === "ar" ? "إلى" : "To"}</TableHead>
+                      <TableHead>{language === "ar" ? "عدد الأيام" : "Days"}</TableHead>
+                      <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                     </TableRow>
-                  ) : (
-                    vacationRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell>{request.vacation_codes?.name_en || "-"}</TableCell>
-                        <TableCell>{format(new Date(request.start_date), "yyyy-MM-dd")}</TableCell>
-                        <TableCell>{format(new Date(request.end_date), "yyyy-MM-dd")}</TableCell>
-                        <TableCell>{request.total_days}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(request.status)}>{request.status}</Badge>
+                  </TableHeader>
+                  <TableBody>
+                    {vacationRequests.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          {language === "ar" ? "لا توجد طلبات إجازة" : "No vacation requests"}
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                    ) : (
+                      vacationRequests.map((request) => (
+                        <TableRow key={request.id}>
+                          <TableCell>{request.vacation_codes?.name_en || "-"}</TableCell>
+                          <TableCell>{format(new Date(request.start_date), "yyyy-MM-dd")}</TableCell>
+                          <TableCell>{format(new Date(request.end_date), "yyyy-MM-dd")}</TableCell>
+                          <TableCell>{request.total_days}</TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(request.status)}>{request.status}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Timesheet Tab */}
@@ -730,6 +885,111 @@ export default function EmployeeProfile() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Add Vacation Dialog */}
+      <Dialog open={vacationDialogOpen} onOpenChange={setVacationDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {language === "ar" ? "إضافة إجازة" : "Add Vacation"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "نوع الإجازة" : "Vacation Type"} *</Label>
+              <Select
+                value={vacationFormData.vacation_code_id}
+                onValueChange={(value) =>
+                  setVacationFormData({ ...vacationFormData, vacation_code_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={language === "ar" ? "اختر نوع الإجازة" : "Select vacation type"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {employeeVacationTypes.map((evt) => (
+                    <SelectItem key={evt.vacation_code_id} value={evt.vacation_code_id}>
+                      {evt.vacation_codes
+                        ? language === "ar"
+                          ? evt.vacation_codes.name_ar || evt.vacation_codes.name_en
+                          : evt.vacation_codes.name_en
+                        : "-"}{" "}
+                      ({language === "ar" ? "متاح:" : "Available:"} {evt.balance - evt.used_days}{" "}
+                      {language === "ar" ? "يوم" : "days"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {vacationFormData.vacation_code_id && (
+                <p className="text-sm text-muted-foreground">
+                  {language === "ar" ? "الرصيد المتاح:" : "Available balance:"}{" "}
+                  <span className="font-bold text-primary">{getSelectedVacationTypeBalance()}</span>{" "}
+                  {language === "ar" ? "يوم" : "days"}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "تاريخ البدء" : "Start Date"} *</Label>
+                <Input
+                  type="date"
+                  value={vacationFormData.start_date}
+                  onChange={(e) =>
+                    setVacationFormData({ ...vacationFormData, start_date: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "تاريخ الانتهاء" : "End Date"} *</Label>
+                <Input
+                  type="date"
+                  value={vacationFormData.end_date}
+                  min={vacationFormData.start_date}
+                  onChange={(e) =>
+                    setVacationFormData({ ...vacationFormData, end_date: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            {vacationFormData.start_date && vacationFormData.end_date && (
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm">
+                  {language === "ar" ? "إجمالي الأيام:" : "Total Days:"}{" "}
+                  <span className="font-bold text-lg">{calculateTotalDays()}</span>{" "}
+                  {language === "ar" ? "يوم" : "days"}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "السبب" : "Reason"}</Label>
+              <Textarea
+                value={vacationFormData.reason}
+                onChange={(e) =>
+                  setVacationFormData({ ...vacationFormData, reason: e.target.value })
+                }
+                placeholder={language === "ar" ? "أدخل سبب الإجازة (اختياري)" : "Enter vacation reason (optional)"}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVacationDialogOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleAddVacation} disabled={savingVacation}>
+              {savingVacation
+                ? language === "ar"
+                  ? "جاري الحفظ..."
+                  : "Saving..."
+                : language === "ar"
+                ? "حفظ"
+                : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
