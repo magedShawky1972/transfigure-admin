@@ -635,8 +635,13 @@ const OdooSyncBatch = () => {
         });
       });
 
-      // Sort
+      // Sort - prioritize date first when separating by day
       result.sort((a, b) => {
+        // When separating by day, sort by date first
+        if (separateByDay) {
+          const dateCompare = (a.date || '').localeCompare(b.date || '');
+          if (dateCompare !== 0) return dateCompare;
+        }
         const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
         if (brandCompare !== 0) return brandCompare;
         const methodCompare = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
@@ -648,21 +653,9 @@ const OdooSyncBatch = () => {
         return (a.date || '').localeCompare(b.date || '');
       });
 
-      setAggregatedInvoices(prev => {
-        const prevByOrderNumber = new Map(prev.map(i => [i.orderNumber, i] as const));
-        return result.map(inv => {
-          const prevInv = prevByOrderNumber.get(inv.orderNumber);
-          if (!prevInv) return inv;
-          return {
-            ...inv,
-            selected: prevInv.selected,
-            skipSync: prevInv.skipSync,
-            syncStatus: prevInv.syncStatus,
-            stepStatus: prevInv.stepStatus,
-            errorMessage: prevInv.errorMessage,
-          };
-        });
-      });
+      // When separateByDay changes, we need to rebuild completely (new order numbers)
+      // So we don't preserve previous state - just set the new result
+      setAggregatedInvoices(result);
     };
 
     buildAggregatedInvoices();
