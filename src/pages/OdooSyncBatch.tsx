@@ -460,146 +460,177 @@ const OdooSyncBatch = () => {
       return;
     }
     
-    // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
-    const invoiceMap = new Map<string, {
-      date: string;
-      brandName: string;
-      paymentMethod: string;
-      paymentBrand: string;
-      userName: string;
-      lines: Transaction[];
-      originalOrderNumbers: string[];
-    }>();
-
-    orderGroups.forEach(group => {
-      group.lines.forEach(line => {
-        const dateOnly = line.created_at_date?.substring(0, 10) || '';
-        const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`;
-
-        const existing = invoiceMap.get(invoiceKey);
-        if (existing) {
-          existing.lines.push(line);
-          if (!existing.originalOrderNumbers.includes(group.orderNumber)) {
-            existing.originalOrderNumbers.push(group.orderNumber);
-          }
-        } else {
-          invoiceMap.set(invoiceKey, {
-            date: dateOnly,
-            brandName: line.brand_name || '',
-            paymentMethod: line.payment_method || '',
-            paymentBrand: line.payment_brand || '',
-            userName: line.user_name || '',
-            lines: [line],
-            originalOrderNumbers: [group.orderNumber],
-          });
-        }
-      });
-    });
-
-    // Build result with sync status
-    const result: AggregatedInvoice[] = [];
-    const sortedKeys = Array.from(invoiceMap.keys()).sort();
-    const dateSequenceMap = new Map<string, number>();
-    
-    sortedKeys.forEach(invoiceKey => {
-      const invoice = invoiceMap.get(invoiceKey)!;
-      const dateStr = invoice.date?.replace(/-/g, '') || format(new Date(), 'yyyyMMdd');
-      
-      const currentSeq = dateSequenceMap.get(dateStr) || 0;
-      const nextSeq = currentSeq + 1;
-      dateSequenceMap.set(dateStr, nextSeq);
-      
-      const orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
-      
-      // Aggregate product lines by SKU and unit_price
-      const productMap = new Map<string, {
-        productSku: string;
-        productName: string;
-        unitPrice: number;
-        totalQty: number;
-        totalAmount: number;
+    const buildAggregatedInvoices = async () => {
+      // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
+      const invoiceMap = new Map<string, {
+        date: string;
+        brandName: string;
+        paymentMethod: string;
+        paymentBrand: string;
+        userName: string;
+        lines: Transaction[];
+        originalOrderNumbers: string[];
       }>();
+
+      orderGroups.forEach(group => {
+        group.lines.forEach(line => {
+          const dateOnly = line.created_at_date?.substring(0, 10) || '';
+          const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`;
+
+          const existing = invoiceMap.get(invoiceKey);
+          if (existing) {
+            existing.lines.push(line);
+            if (!existing.originalOrderNumbers.includes(group.orderNumber)) {
+              existing.originalOrderNumbers.push(group.orderNumber);
+            }
+          } else {
+            invoiceMap.set(invoiceKey, {
+              date: dateOnly,
+              brandName: line.brand_name || '',
+              paymentMethod: line.payment_method || '',
+              paymentBrand: line.payment_brand || '',
+              userName: line.user_name || '',
+              lines: [line],
+              originalOrderNumbers: [group.orderNumber],
+            });
+          }
+        });
+      });
+
+      // Build result with sync status
+      const result: AggregatedInvoice[] = [];
+      const sortedKeys = Array.from(invoiceMap.keys()).sort();
       
-      invoice.lines.forEach(line => {
-        const productKey = `${line.sku || line.product_id || ''}|${line.unit_price}`;
-        const existing = productMap.get(productKey);
-        if (existing) {
-          existing.totalQty += line.qty || 0;
-          existing.totalAmount += line.total || 0;
+      // Get unique dates to fetch max sequence from database
+      const uniqueDates = new Set<string>();
+      sortedKeys.forEach(invoiceKey => {
+        const invoice = invoiceMap.get(invoiceKey)!;
+        const dateStr = invoice.date?.replace(/-/g, '') || format(new Date(), 'yyyyMMdd');
+        uniqueDates.add(dateStr);
+      });
+      
+      // Fetch max sequence for each date from aggregated_order_mapping table
+      const dateSequenceMap = new Map<string, number>();
+      for (const dateStr of uniqueDates) {
+        const { data: existingMappings } = await supabase
+          .from('aggregated_order_mapping')
+          .select('aggregated_order_number')
+          .eq('aggregation_date', `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`)
+          .order('aggregated_order_number', { ascending: false })
+          .limit(1);
+        
+        if (existingMappings && existingMappings.length > 0) {
+          // Extract sequence from order number (last 4 digits)
+          const lastOrderNumber = existingMappings[0].aggregated_order_number;
+          const lastSeq = parseInt(lastOrderNumber.slice(-4), 10) || 0;
+          dateSequenceMap.set(dateStr, lastSeq);
         } else {
-          productMap.set(productKey, {
-            productSku: line.sku || line.product_id || '',
-            productName: line.product_name || '',
-            unitPrice: line.unit_price || 0,
-            totalQty: line.qty || 0,
-            totalAmount: line.total || 0,
-          });
+          dateSequenceMap.set(dateStr, 0);
         }
-      });
+      }
       
-      const productLines = Array.from(productMap.values()).sort((a, b) => 
-        a.productSku.localeCompare(b.productSku)
-      );
+      sortedKeys.forEach(invoiceKey => {
+        const invoice = invoiceMap.get(invoiceKey)!;
+        const dateStr = invoice.date?.replace(/-/g, '') || format(new Date(), 'yyyyMMdd');
+        
+        const currentSeq = dateSequenceMap.get(dateStr) || 0;
+        const nextSeq = currentSeq + 1;
+        dateSequenceMap.set(dateStr, nextSeq);
+        
+        const orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
+        
+        // Aggregate product lines by SKU and unit_price
+        const productMap = new Map<string, {
+          productSku: string;
+          productName: string;
+          unitPrice: number;
+          totalQty: number;
+          totalAmount: number;
+        }>();
+        
+        invoice.lines.forEach(line => {
+          const productKey = `${line.sku || line.product_id || ''}|${line.unit_price}`;
+          const existing = productMap.get(productKey);
+          if (existing) {
+            existing.totalQty += line.qty || 0;
+            existing.totalAmount += line.total || 0;
+          } else {
+            productMap.set(productKey, {
+              productSku: line.sku || line.product_id || '',
+              productName: line.product_name || '',
+              unitPrice: line.unit_price || 0,
+              totalQty: line.qty || 0,
+              totalAmount: line.total || 0,
+            });
+          }
+        });
+        
+        const productLines = Array.from(productMap.values()).sort((a, b) => 
+          a.productSku.localeCompare(b.productSku)
+        );
 
-      // Check if any product is non-stock
-      const hasNonStock = invoice.lines.some(line => {
-        const sku = line.sku || line.product_id || '';
-        return nonStockSkuSet.has(sku);
+        // Check if any product is non-stock
+        const hasNonStock = invoice.lines.some(line => {
+          const sku = line.sku || line.product_id || '';
+          return nonStockSkuSet.has(sku);
+        });
+        
+        result.push({
+          orderNumber,
+          date: invoice.date,
+          brandName: invoice.brandName,
+          paymentMethod: invoice.paymentMethod,
+          paymentBrand: invoice.paymentBrand,
+          userName: invoice.userName,
+          productLines,
+          grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
+          originalOrderNumbers: invoice.originalOrderNumbers,
+          originalLines: invoice.lines,
+          selected: true,
+          skipSync: false,
+          syncStatus: 'pending',
+          stepStatus: {
+            customer: 'pending',
+            brand: 'pending',
+            product: 'pending',
+            order: 'pending',
+            purchase: 'pending',
+          },
+          hasNonStock,
+        });
       });
-      
-      result.push({
-        orderNumber,
-        date: invoice.date,
-        brandName: invoice.brandName,
-        paymentMethod: invoice.paymentMethod,
-        paymentBrand: invoice.paymentBrand,
-        userName: invoice.userName,
-        productLines,
-        grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
-        originalOrderNumbers: invoice.originalOrderNumbers,
-        originalLines: invoice.lines,
-        selected: true,
-        skipSync: false,
-        syncStatus: 'pending',
-        stepStatus: {
-          customer: 'pending',
-          brand: 'pending',
-          product: 'pending',
-          order: 'pending',
-          purchase: 'pending',
-        },
-        hasNonStock,
-      });
-    });
 
-    // Sort
-    result.sort((a, b) => {
-      const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
-      if (brandCompare !== 0) return brandCompare;
-      const methodCompare = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
-      if (methodCompare !== 0) return methodCompare;
-      const brandPayCompare = (a.paymentBrand || '').localeCompare(b.paymentBrand || '');
-      if (brandPayCompare !== 0) return brandPayCompare;
-      const userCompare = (a.userName || '').localeCompare(b.userName || '');
-      if (userCompare !== 0) return userCompare;
-      return (a.date || '').localeCompare(b.date || '');
-    });
-
-    setAggregatedInvoices(prev => {
-      const prevByOrderNumber = new Map(prev.map(i => [i.orderNumber, i] as const));
-      return result.map(inv => {
-        const prevInv = prevByOrderNumber.get(inv.orderNumber);
-        if (!prevInv) return inv;
-        return {
-          ...inv,
-          selected: prevInv.selected,
-          skipSync: prevInv.skipSync,
-          syncStatus: prevInv.syncStatus,
-          stepStatus: prevInv.stepStatus,
-          errorMessage: prevInv.errorMessage,
-        };
+      // Sort
+      result.sort((a, b) => {
+        const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
+        if (brandCompare !== 0) return brandCompare;
+        const methodCompare = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
+        if (methodCompare !== 0) return methodCompare;
+        const brandPayCompare = (a.paymentBrand || '').localeCompare(b.paymentBrand || '');
+        if (brandPayCompare !== 0) return brandPayCompare;
+        const userCompare = (a.userName || '').localeCompare(b.userName || '');
+        if (userCompare !== 0) return userCompare;
+        return (a.date || '').localeCompare(b.date || '');
       });
-    });
+
+      setAggregatedInvoices(prev => {
+        const prevByOrderNumber = new Map(prev.map(i => [i.orderNumber, i] as const));
+        return result.map(inv => {
+          const prevInv = prevByOrderNumber.get(inv.orderNumber);
+          if (!prevInv) return inv;
+          return {
+            ...inv,
+            selected: prevInv.selected,
+            skipSync: prevInv.skipSync,
+            syncStatus: prevInv.syncStatus,
+            stepStatus: prevInv.stepStatus,
+            errorMessage: prevInv.errorMessage,
+          };
+        });
+      });
+    };
+
+    buildAggregatedInvoices();
   }, [orderGroups, aggregateMode, nonStockSkuSet]);
 
   // Aggregated invoice selection handlers
