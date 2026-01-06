@@ -366,13 +366,27 @@ async function processBackgroundSync(
   };
 
   try {
+    // IMPORTANT: never override a user's stop/pause.
+    // If a continuation call arrives after the user stopped the job, exit immediately.
+    const { data: initialJobState } = await supabase
+      .from('background_sync_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .single();
+
+    if (initialJobState?.status === 'paused' || initialJobState?.status === 'cancelled') {
+      console.log(
+        `[Aggregated Background Sync] Exiting immediately because job ${jobId} status=${initialJobState.status}`
+      );
+      return;
+    }
+
+    // On fresh start we move pending -> running. On resume we do NOT force status.
     if (!isResume) {
       await supabase
         .from('background_sync_jobs')
         .update({ status: 'running', started_at: new Date().toISOString() })
         .eq('id', jobId);
-    } else {
-      await supabase.from('background_sync_jobs').update({ status: 'running' }).eq('id', jobId);
     }
 
     // Use prebuilt invoices directly - no need to rebuild
