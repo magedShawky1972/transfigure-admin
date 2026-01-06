@@ -129,6 +129,7 @@ export function AppSidebar() {
     "/certificate-management": "certificateManagement",
     "/security-dashboard": "securityDashboard",
     "/job-setup": "jobSetup",
+    "/zk-attendance-logs": "zkAttendanceLogs",
   };
 
   useEffect(() => {
