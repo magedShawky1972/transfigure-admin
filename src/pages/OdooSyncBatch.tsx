@@ -249,6 +249,7 @@ const OdooSyncBatch = () => {
   const [stopRequested, setStopRequested] = useState(false);
   const [startingBackgroundSync, setStartingBackgroundSync] = useState(false);
   const [aggregateMode, setAggregateMode] = useState(true);
+  const [separateByDay, setSeparateByDay] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
 
   const fromDate = searchParams.get('from');
@@ -475,7 +476,9 @@ const OdooSyncBatch = () => {
       orderGroups.forEach(group => {
         group.lines.forEach(line => {
           const dateOnly = line.created_at_date?.substring(0, 10) || '';
-          const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`;
+          // When separateByDay is false, use a fixed date part to consolidate all days
+          const datePart = separateByDay ? dateOnly : 'ALL';
+          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -663,7 +666,7 @@ const OdooSyncBatch = () => {
     };
 
     buildAggregatedInvoices();
-  }, [orderGroups, aggregateMode, nonStockSkuSet]);
+  }, [orderGroups, aggregateMode, separateByDay, nonStockSkuSet]);
 
   // Aggregated invoice selection handlers
   const handleSelectAggregatedRow = (orderNumber: string, checked: boolean) => {
@@ -1945,6 +1948,19 @@ const OdooSyncBatch = () => {
                   {language === 'ar' ? 'تجميع البيانات' : 'Aggregate Data'}
                 </Label>
               </div>
+              {aggregateMode && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="separate-by-day"
+                    checked={separateByDay}
+                    onCheckedChange={setSeparateByDay}
+                    disabled={isSyncing}
+                  />
+                  <Label htmlFor="separate-by-day" className="text-sm font-normal flex items-center gap-1 cursor-pointer">
+                    {language === 'ar' ? 'فصل حسب اليوم' : 'Separate by Day'}
+                  </Label>
+                </div>
+              )}
             </div>
             <span className="text-sm font-normal text-muted-foreground">
               {aggregateMode 
