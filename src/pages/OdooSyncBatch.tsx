@@ -432,6 +432,7 @@ const OdooSyncBatch = () => {
       brandName: string;
       paymentMethod: string;
       paymentBrand: string;
+      userNames: Set<string>;
       lines: Transaction[];
       originalOrderNumbers: string[];
     }>();
@@ -445,15 +446,19 @@ const OdooSyncBatch = () => {
         const existing = invoiceMap.get(invoiceKey);
         if (existing) {
           existing.lines.push(line);
+          if (line.user_name) existing.userNames.add(line.user_name);
           if (!existing.originalOrderNumbers.includes(group.orderNumber)) {
             existing.originalOrderNumbers.push(group.orderNumber);
           }
         } else {
+          const userNames = new Set<string>();
+          if (line.user_name) userNames.add(line.user_name);
           invoiceMap.set(invoiceKey, {
             date: dateOnly,
             brandName: line.brand_name || '',
             paymentMethod: line.payment_method || '',
             paymentBrand: line.payment_brand || '',
+            userNames,
             lines: [line],
             originalOrderNumbers: [group.orderNumber],
           });
@@ -468,6 +473,7 @@ const OdooSyncBatch = () => {
       brandName: string;
       paymentMethod: string;
       paymentBrand: string;
+      userNames: string[];
       productLines: {
         productSku: string;
         productName: string;
@@ -533,6 +539,7 @@ const OdooSyncBatch = () => {
         brandName: invoice.brandName,
         paymentMethod: invoice.paymentMethod,
         paymentBrand: invoice.paymentBrand,
+        userNames: Array.from(invoice.userNames).sort(),
         productLines,
         grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
         originalOrderNumbers: invoice.originalOrderNumbers,
@@ -1411,6 +1418,7 @@ const OdooSyncBatch = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{invoice.paymentMethod}</span>
                           <span>{invoice.paymentBrand}</span>
+                          <span className="text-primary">{invoice.userNames.join(', ') || '-'}</span>
                           <Badge variant="secondary" className="font-bold">
                             {invoice.grandTotal.toFixed(2)} SAR
                           </Badge>
