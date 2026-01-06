@@ -368,16 +368,28 @@ async function processBackgroundSync(
   try {
     // IMPORTANT: never override a user's stop/pause.
     // If a continuation call arrives after the user stopped the job, exit immediately.
+    // Also check force_kill flag which can be set directly in the database.
     const { data: initialJobState } = await supabase
       .from('background_sync_jobs')
-      .select('status')
+      .select('status, force_kill')
       .eq('id', jobId)
       .single();
 
-    if (initialJobState?.status === 'paused' || initialJobState?.status === 'cancelled') {
+    if (
+      initialJobState?.status === 'paused' ||
+      initialJobState?.status === 'cancelled' ||
+      initialJobState?.force_kill === true
+    ) {
       console.log(
-        `[Aggregated Background Sync] Exiting immediately because job ${jobId} status=${initialJobState.status}`
+        `[Aggregated Background Sync] Exiting immediately because job ${jobId} status=${initialJobState?.status}, force_kill=${initialJobState?.force_kill}`
       );
+      // If force_kill was set, mark as cancelled
+      if (initialJobState?.force_kill) {
+        await supabase
+          .from('background_sync_jobs')
+          .update({ status: 'cancelled', force_kill: false })
+          .eq('id', jobId);
+      }
       return;
     }
 
@@ -510,39 +522,51 @@ async function processBackgroundSync(
           })
           .eq('id', jobId);
 
-        // Re-check status right before scheduling (user may have pressed Stop).
+        // Re-check status and force_kill right before scheduling (user may have pressed Stop or set force_kill).
         const { data: jobState } = await supabase
           .from('background_sync_jobs')
-          .select('status')
+          .select('status, force_kill')
           .eq('id', jobId)
           .single();
 
-        if (jobState?.status === 'running') {
+        if (jobState?.status === 'running' && !jobState?.force_kill) {
           await scheduleContinuation(processedInvoices);
         } else {
           console.log(
-            `[Aggregated Background Sync] Continuation skipped because job ${jobId} status=${jobState?.status}`
+            `[Aggregated Background Sync] Continuation skipped because job ${jobId} status=${jobState?.status}, force_kill=${jobState?.force_kill}`
           );
+          if (jobState?.force_kill) {
+            await supabase
+              .from('background_sync_jobs')
+              .update({ status: 'cancelled', force_kill: false })
+              .eq('id', jobId);
+          }
         }
         return;
       }
 
-      // Check job status once per batch instead of per invoice
+      // Check job status and force_kill once per batch instead of per invoice
       const { data: jobCheck } = await supabase
         .from('background_sync_jobs')
-        .select('status')
+        .select('status, force_kill')
         .eq('id', jobId)
         .single();
 
-      if (jobCheck?.status === 'paused' || jobCheck?.status === 'cancelled') {
-        console.log(`[Aggregated Background Sync] Job ${jobId} ${jobCheck.status}`);
+      if (jobCheck?.status === 'paused' || jobCheck?.status === 'cancelled' || jobCheck?.force_kill === true) {
+        console.log(`[Aggregated Background Sync] Job ${jobId} ${jobCheck?.status}, force_kill=${jobCheck?.force_kill}`);
+        if (jobCheck?.force_kill) {
+          await supabase
+            .from('background_sync_jobs')
+            .update({ status: 'cancelled', force_kill: false })
+            .eq('id', jobId);
+        }
         if (runId) {
           await supabase.from('odoo_sync_runs').update({
             end_time: new Date().toISOString(),
             successful_orders: successfulInvoices,
             failed_orders: failedInvoices,
             skipped_orders: skippedInvoices,
-            status: jobCheck.status,
+            status: 'cancelled',
           }).eq('id', runId);
         }
         return;
