@@ -929,6 +929,41 @@ const OdooSyncBatch = () => {
 
   // Start sync process
   const handleStartSync = async () => {
+    // When in aggregate mode, sync based on aggregated invoices selection
+    if (aggregateMode) {
+      const selectedAggregated = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
+      if (selectedAggregated.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'لا توجد فواتير' : 'No Invoices',
+          description: language === 'ar' ? 'يرجى اختيار فواتير للمزامنة' : 'Please select invoices to sync',
+        });
+        return;
+      }
+      
+      // Get the order numbers from selected aggregated invoices
+      const selectedOrderNumbers = new Set(
+        selectedAggregated.flatMap(inv => inv.originalOrderNumbers)
+      );
+      
+      // Filter orderGroups to only include orders from selected aggregated invoices
+      const toSync = orderGroups.filter(g => selectedOrderNumbers.has(g.orderNumber));
+      
+      if (toSync.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'لا توجد طلبات' : 'No Orders',
+          description: language === 'ar' ? 'لا توجد طلبات في الفواتير المحددة' : 'No orders in selected invoices',
+        });
+        return;
+      }
+      
+      // Continue with sync using the filtered orders
+      await executeSync(toSync);
+      return;
+    }
+    
+    // Normal mode - use orderGroups selection directly
     const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
     if (toSync.length === 0) {
       toast({
@@ -938,6 +973,12 @@ const OdooSyncBatch = () => {
       });
       return;
     }
+    
+    await executeSync(toSync);
+  };
+
+  // Execute sync for given orders
+  const executeSync = async (toSync: OrderGroup[]) => {
 
     // Reset stop flag
     stopRequestedRef.current = false;
