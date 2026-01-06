@@ -421,25 +421,25 @@ const OdooSyncBatch = () => {
     [orderGroups]
   );
 
-  // Aggregated groups when aggregate mode is on - grouped by brand, payment_method, payment_brand, user_name
+  // Aggregated groups when aggregate mode is on - grouped by brand, payment_method, payment_brand (NO user_name)
   // Each group represents one invoice with multiple product lines
   const aggregatedGroups = useMemo(() => {
     if (!aggregateMode) return null;
     
-    // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
+    // First, group by invoice criteria: date, brand, payment_method, payment_brand (excluding user_name)
     const invoiceMap = new Map<string, {
       date: string;
       brandName: string;
       paymentMethod: string;
       paymentBrand: string;
-      userName: string;
       lines: Transaction[];
       originalOrderNumbers: string[];
     }>();
 
     orderGroups.forEach(group => {
       group.lines.forEach(line => {
-        const invoiceKey = `${line.created_at_date}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name}`;
+        // Group by date, brand, payment_method, payment_brand ONLY (no user_name)
+        const invoiceKey = `${line.created_at_date}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
         const existing = invoiceMap.get(invoiceKey);
         if (existing) {
           existing.lines.push(line);
@@ -452,7 +452,6 @@ const OdooSyncBatch = () => {
             brandName: line.brand_name || '',
             paymentMethod: line.payment_method || '',
             paymentBrand: line.payment_brand || '',
-            userName: line.user_name || '',
             lines: [line],
             originalOrderNumbers: [group.orderNumber],
           });
@@ -467,7 +466,6 @@ const OdooSyncBatch = () => {
       brandName: string;
       paymentMethod: string;
       paymentBrand: string;
-      userName: string;
       productLines: {
         productSku: string;
         productName: string;
@@ -533,14 +531,13 @@ const OdooSyncBatch = () => {
         brandName: invoice.brandName,
         paymentMethod: invoice.paymentMethod,
         paymentBrand: invoice.paymentBrand,
-        userName: invoice.userName,
         productLines,
         grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
         originalOrderNumbers: invoice.originalOrderNumbers,
       });
     });
 
-    // Sort by brand, payment_method, payment_brand first, then date and user_name
+    // Sort by brand, payment_method, payment_brand first, then date
     return result.sort((a, b) => {
       const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
       if (brandCompare !== 0) return brandCompare;
@@ -548,9 +545,7 @@ const OdooSyncBatch = () => {
       if (methodCompare !== 0) return methodCompare;
       const brandPayCompare = (a.paymentBrand || '').localeCompare(b.paymentBrand || '');
       if (brandPayCompare !== 0) return brandPayCompare;
-      const dateCompare = (a.date || '').localeCompare(b.date || '');
-      if (dateCompare !== 0) return dateCompare;
-      return (a.userName || '').localeCompare(b.userName || '');
+      return (a.date || '').localeCompare(b.date || '');
     });
   }, [orderGroups, aggregateMode]);
 
@@ -1414,7 +1409,6 @@ const OdooSyncBatch = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{invoice.paymentMethod}</span>
                           <span>{invoice.paymentBrand}</span>
-                          <span>{invoice.userName}</span>
                           <Badge variant="secondary" className="font-bold">
                             {invoice.grandTotal.toFixed(2)} SAR
                           </Badge>
