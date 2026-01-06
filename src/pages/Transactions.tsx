@@ -132,6 +132,7 @@ const Transactions = () => {
   const [totalProfitAll, setTotalProfitAll] = useState<number>(0);
   const [pointTransactionCount, setPointTransactionCount] = useState<number>(0);
   const [pointSales, setPointSales] = useState<number>(0);
+  const [sentToOdooCount, setSentToOdooCount] = useState<number>(0);
   const [groupLevels, setGroupLevels] = useState<GroupLevel[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
@@ -348,6 +349,7 @@ const Transactions = () => {
     setTotalProfitAll(0);
     setPointTransactionCount(0);
     setPointSales(0);
+    setSentToOdooCount(0);
     setBrands([]);
     setProducts([]);
     setPaymentMethods([]);
@@ -442,6 +444,10 @@ const Transactions = () => {
       if (error) throw error;
       const rows = (data as any) as Transaction[];
       setTransactions(rows);
+      
+      // Calculate sent to Odoo count
+      const sentCount = rows.filter(t => t.sendodoo === true).length;
+      setSentToOdooCount(sentCount);
 
       if (page === 1) {
         const uniqueBrands = [...new Set(rows.map(t => t.brand_name).filter(Boolean))];
@@ -589,6 +595,10 @@ const Transactions = () => {
       setIsAllDataLoaded(true);
       // Update totalCountAll to match actual loaded count (don't change totalCount which is for pagination)
       setTotalCountAll(allData.length);
+      
+      // Calculate sent to Odoo count
+      const sentCount = allData.filter(t => t.sendodoo === true).length;
+      setSentToOdooCount(sentCount);
 
       toast({
         title: language === 'ar' ? 'تم تحميل جميع البيانات' : 'All Data Loaded',
@@ -1373,6 +1383,13 @@ const Transactions = () => {
                 {isAllDataLoaded && (
                   <Badge variant="secondary" className="mr-2 ml-2">
                     {language === 'ar' ? 'الكل محمّل' : 'All Loaded'}
+                  </Badge>
+                )}
+                {dataLoaded && (
+                  <Badge variant="outline" className="mr-2 ml-2 text-green-600 border-green-600">
+                    {language === 'ar' 
+                      ? `مرسل لـ Odoo: ${sentToOdooCount.toLocaleString()}`
+                      : `Sent to Odoo: ${sentToOdooCount.toLocaleString()}`}
                   </Badge>
                 )}
               </p>
