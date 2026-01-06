@@ -785,12 +785,16 @@ const OdooSyncBatch = () => {
     // We take the first original line to get customer info, then build product lines from aggregated data
     const firstOriginalLine = invoice.originalLines[0];
     
+    // For aggregated orders, use '0000' as cash customer phone (unified customer for aggregation)
+    const aggregatedCustomerPhone = '0000';
+    const aggregatedCustomerName = 'Cash Customer';
+    
     // Create synthetic transactions that represent the aggregated order
     // Use 'any' because we only need the fields the edge function uses
     const syntheticTransactions = invoice.productLines.map((pl) => ({
       order_number: invoice.orderNumber, // Use aggregated order number
-      customer_name: firstOriginalLine?.customer_name || '',
-      customer_phone: firstOriginalLine?.customer_phone || '',
+      customer_name: aggregatedCustomerName,
+      customer_phone: aggregatedCustomerPhone,
       brand_code: firstOriginalLine?.brand_code || '',
       brand_name: invoice.brandName,
       product_id: pl.productSku,
