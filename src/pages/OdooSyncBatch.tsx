@@ -1740,7 +1740,13 @@ const OdooSyncBatch = () => {
                 <>
                   {format(parseISO(fromDate), 'yyyy-MM-dd')} → {format(parseISO(toDate), 'yyyy-MM-dd')}
                   {' | '}
-                  {language === 'ar' ? `${orderGroups.length} طلب` : `${orderGroups.length} orders`}
+                  {aggregateMode 
+                    ? (language === 'ar' 
+                        ? `${selectedAggregatedCount} من ${aggregatedInvoices.length} فاتورة مجمعة محددة`
+                        : `${selectedAggregatedCount} of ${aggregatedInvoices.length} aggregated invoices selected`)
+                    : (language === 'ar' 
+                        ? `${selectedCount} من ${orderGroups.length} طلب محدد`
+                        : `${selectedCount} of ${orderGroups.length} orders selected`)}
                 </>
               )}
             </p>
