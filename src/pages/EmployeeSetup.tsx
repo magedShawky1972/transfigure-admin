@@ -488,6 +488,16 @@ export default function EmployeeSetup() {
       });
     }
 
+    // Sort alphabetically by first name
+    filtered.sort((a, b) => {
+      if (language === "ar") {
+        const nameA = a.first_name_ar || a.first_name;
+        const nameB = b.first_name_ar || b.first_name;
+        return nameA.localeCompare(nameB, 'ar');
+      }
+      return a.first_name.localeCompare(b.first_name, 'en');
+    });
+
     setEmployees(filtered);
   };
 
