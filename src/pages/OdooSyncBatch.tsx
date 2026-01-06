@@ -218,7 +218,6 @@ const OdooSyncBatch = () => {
   const [stopRequested, setStopRequested] = useState(false);
   const [startingBackgroundSync, setStartingBackgroundSync] = useState(false);
   const [aggregateMode, setAggregateMode] = useState(false);
-  const [groupByUser, setGroupByUser] = useState(false);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -427,13 +426,13 @@ const OdooSyncBatch = () => {
   const aggregatedGroups = useMemo(() => {
     if (!aggregateMode) return null;
     
-    // First, group by invoice criteria: date, brand, payment_method, payment_brand (excluding user_name)
+    // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
     const invoiceMap = new Map<string, {
       date: string;
       brandName: string;
       paymentMethod: string;
       paymentBrand: string;
-      userNames: Set<string>;
+      userName: string;
       lines: Transaction[];
       originalOrderNumbers: string[];
     }>();
@@ -442,25 +441,23 @@ const OdooSyncBatch = () => {
       group.lines.forEach(line => {
         // Extract date only (YYYY-MM-DD) - handle both "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SS" formats
         const dateOnly = line.created_at_date?.substring(0, 10) || '';
-        // Group by date, brand, payment_method, payment_brand, and optionally user_name
-        const userPart = groupByUser ? `|${line.user_name || ''}` : '';
-        const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}${userPart}`;
+
+        // Group by date, brand, payment_method, payment_brand, user_name
+        const invoiceKey = `${dateOnly}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`;
+
         const existing = invoiceMap.get(invoiceKey);
         if (existing) {
           existing.lines.push(line);
-          if (line.user_name) existing.userNames.add(line.user_name);
           if (!existing.originalOrderNumbers.includes(group.orderNumber)) {
             existing.originalOrderNumbers.push(group.orderNumber);
           }
         } else {
-          const userNames = new Set<string>();
-          if (line.user_name) userNames.add(line.user_name);
           invoiceMap.set(invoiceKey, {
             date: dateOnly,
             brandName: line.brand_name || '',
             paymentMethod: line.payment_method || '',
             paymentBrand: line.payment_brand || '',
-            userNames,
+            userName: line.user_name || '',
             lines: [line],
             originalOrderNumbers: [group.orderNumber],
           });
@@ -475,7 +472,7 @@ const OdooSyncBatch = () => {
       brandName: string;
       paymentMethod: string;
       paymentBrand: string;
-      userNames: string[];
+      userName: string;
       productLines: {
         productSku: string;
         productName: string;
@@ -541,14 +538,14 @@ const OdooSyncBatch = () => {
         brandName: invoice.brandName,
         paymentMethod: invoice.paymentMethod,
         paymentBrand: invoice.paymentBrand,
-        userNames: Array.from(invoice.userNames).sort(),
+        userName: invoice.userName,
         productLines,
         grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
         originalOrderNumbers: invoice.originalOrderNumbers,
       });
     });
 
-    // Sort by brand, payment_method, payment_brand first, then date
+    // Sort by brand, payment_method, payment_brand, then user_name, then date
     return result.sort((a, b) => {
       const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
       if (brandCompare !== 0) return brandCompare;
@@ -556,9 +553,11 @@ const OdooSyncBatch = () => {
       if (methodCompare !== 0) return methodCompare;
       const brandPayCompare = (a.paymentBrand || '').localeCompare(b.paymentBrand || '');
       if (brandPayCompare !== 0) return brandPayCompare;
+      const userCompare = (a.userName || '').localeCompare(b.userName || '');
+      if (userCompare !== 0) return userCompare;
       return (a.date || '').localeCompare(b.date || '');
     });
-  }, [orderGroups, aggregateMode, groupByUser]);
+  }, [orderGroups, aggregateMode]);
 
   const allSelected = orderGroups.length > 0 && orderGroups.every(g => g.selected);
 
@@ -1379,19 +1378,6 @@ const OdooSyncBatch = () => {
                   <Layers className="h-4 w-4" />
                   {language === 'ar' ? 'تجميع البيانات' : 'Aggregate Data'}
                 </Label>
-                {aggregateMode && (
-                  <>
-                    <Switch
-                      id="group-by-user"
-                      checked={groupByUser}
-                      onCheckedChange={setGroupByUser}
-                      disabled={isSyncing}
-                    />
-                    <Label htmlFor="group-by-user" className="text-sm font-normal cursor-pointer">
-                      {language === 'ar' ? 'تقسيم حسب المستخدم' : 'Split by User'}
-                    </Label>
-                  </>
-                )}
               </div>
             </div>
             <span className="text-sm font-normal text-muted-foreground">
@@ -1433,7 +1419,7 @@ const OdooSyncBatch = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{invoice.paymentMethod}</span>
                           <span>{invoice.paymentBrand}</span>
-                          <span className="text-primary">{invoice.userNames.join(', ') || '-'}</span>
+                          <span className="text-primary">{invoice.userName || '-'}</span>
                           <Badge variant="secondary" className="font-bold">
                             {invoice.grandTotal.toFixed(2)} SAR
                           </Badge>
