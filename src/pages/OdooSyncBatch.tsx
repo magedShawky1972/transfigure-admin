@@ -540,16 +540,16 @@ const OdooSyncBatch = () => {
       });
     });
 
-    // Sort by date, brand, payment_method, payment_brand, user_name
+    // Sort by brand, payment_method, payment_brand first, then date and user_name
     return result.sort((a, b) => {
-      const dateCompare = (a.date || '').localeCompare(b.date || '');
-      if (dateCompare !== 0) return dateCompare;
       const brandCompare = (a.brandName || '').localeCompare(b.brandName || '');
       if (brandCompare !== 0) return brandCompare;
       const methodCompare = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
       if (methodCompare !== 0) return methodCompare;
       const brandPayCompare = (a.paymentBrand || '').localeCompare(b.paymentBrand || '');
       if (brandPayCompare !== 0) return brandPayCompare;
+      const dateCompare = (a.date || '').localeCompare(b.date || '');
+      if (dateCompare !== 0) return dateCompare;
       return (a.userName || '').localeCompare(b.userName || '');
     });
   }, [orderGroups, aggregateMode]);
