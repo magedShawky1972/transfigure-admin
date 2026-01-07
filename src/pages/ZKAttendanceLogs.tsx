@@ -239,7 +239,7 @@ const ZKAttendanceLogs = () => {
 
   const handleEditSave = async () => {
     if (!selectedLog) return;
-    
+
     if (!editFormData.employee_code || !editFormData.attendance_date || !editFormData.attendance_time) {
       toast.error(isArabic ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
       return;
@@ -253,7 +253,9 @@ const ZKAttendanceLogs = () => {
         timeValue = `${timeValue}:00`;
       }
 
-      const { error } = await supabase
+      // IMPORTANT: ask the backend to return the updated row.
+      // If RLS/filters prevent a match, data will be empty even if no error is thrown.
+      const { data, error } = await supabase
         .from("zk_attendance_logs")
         .update({
           employee_code: editFormData.employee_code,
@@ -261,15 +263,27 @@ const ZKAttendanceLogs = () => {
           attendance_time: timeValue,
           record_type: editFormData.record_type,
         })
-        .eq("id", selectedLog.id);
+        .eq("id", selectedLog.id)
+        .select("id, employee_code, attendance_date, attendance_time, record_type")
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error("Update returned no row (no match or blocked)");
+      }
+
+      // Update UI immediately (and also refresh to stay consistent with filters/order)
+      setLogs((prev) => prev.map((l) => (l.id === data.id ? { ...l, ...data } : l)));
 
       toast.success(isArabic ? "تم تحديث السجل بنجاح" : "Record updated successfully");
       await fetchLogs();
     } catch (error: any) {
       console.error("Error updating log:", error);
-      toast.error(isArabic ? "خطأ في تحديث السجل" : "Error updating record");
+      toast.error(
+        isArabic
+          ? "خطأ في تحديث السجل"
+          : `Error updating record${error?.message ? `: ${error.message}` : ""}`
+      );
     } finally {
       setActionLoading(false);
       setEditDialogOpen(false);
