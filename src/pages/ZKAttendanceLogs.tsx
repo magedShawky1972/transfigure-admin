@@ -374,10 +374,9 @@ const ZKAttendanceLogs = () => {
         query = query.eq("record_type", recordTypeFilter);
       }
 
-      // Execute delete - neq('id', '') is a workaround to ensure the query runs when no other filters
-      if (!searchCode && !selectedDate && recordTypeFilter === "all") {
-        query = query.neq("id", "");
-      }
+      // Use gte on created_at to ensure filter is always present (required for delete)
+      // This ensures all records are matched when no other filters are set
+      query = query.gte("created_at", "1970-01-01");
 
       const { error } = await query;
       
