@@ -43,7 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -69,6 +69,17 @@ interface Employee {
   employee_number: string;
 }
 
+interface SummaryRecord {
+  key: string;
+  employee_code: string;
+  attendance_date: string;
+  in_time: string | null;
+  out_time: string | null;
+  is_processed: boolean;
+  created_at: string;
+  log_ids: string[];
+}
+
 const ZKAttendanceLogs = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
@@ -86,11 +97,19 @@ const ZKAttendanceLogs = () => {
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<"detailed" | "summary">("detailed");
+  const [selectedSummary, setSelectedSummary] = useState<SummaryRecord | null>(null);
   const [editFormData, setEditFormData] = useState({
     employee_code: "",
     attendance_date: "",
     attendance_time: "",
     record_type: "unknown",
+  });
+  const [summaryEditFormData, setSummaryEditFormData] = useState({
+    employee_code: "",
+    attendance_date: "",
+    in_time: "",
+    out_time: "",
   });
 
   const fetchLogs = async () => {
@@ -191,31 +210,72 @@ const ZKAttendanceLogs = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Group logs by employee and date for summary
-  const getDailySummary = () => {
-    const summary: Record<string, { entry: string | null; exit: string | null }> = {};
+  // Group logs by employee and date for summary view
+  const getSummaryRecords = (): SummaryRecord[] => {
+    const grouped: Record<string, { 
+      logs: AttendanceLog[]; 
+      minTime: string | null; 
+      maxTime: string | null;
+      is_processed: boolean;
+      created_at: string;
+    }> = {};
     
     logs.forEach((log) => {
       const key = `${log.employee_code}_${log.attendance_date}`;
-      if (!summary[key]) {
-        summary[key] = { entry: null, exit: null };
+      if (!grouped[key]) {
+        grouped[key] = { 
+          logs: [], 
+          minTime: null, 
+          maxTime: null, 
+          is_processed: log.is_processed,
+          created_at: log.created_at 
+        };
+      }
+      grouped[key].logs.push(log);
+      
+      // Track minimum time (In)
+      if (!grouped[key].minTime || log.attendance_time < grouped[key].minTime!) {
+        grouped[key].minTime = log.attendance_time;
       }
       
-      if (log.record_type === "entry" || (!summary[key].entry && log.record_type !== "exit")) {
-        if (!summary[key].entry || log.attendance_time < summary[key].entry!) {
-          summary[key].entry = log.attendance_time;
-        }
+      // Track maximum time (Out)
+      if (!grouped[key].maxTime || log.attendance_time > grouped[key].maxTime!) {
+        grouped[key].maxTime = log.attendance_time;
       }
       
-      if (log.record_type === "exit" || summary[key].entry) {
-        if (!summary[key].exit || log.attendance_time > summary[key].exit!) {
-          summary[key].exit = log.attendance_time;
-        }
+      // If any log is processed, mark as processed
+      if (log.is_processed) {
+        grouped[key].is_processed = true;
+      }
+      
+      // Use latest created_at
+      if (log.created_at > grouped[key].created_at) {
+        grouped[key].created_at = log.created_at;
       }
     });
     
-    return summary;
+    return Object.entries(grouped).map(([key, data]) => {
+      const [employee_code, attendance_date] = key.split("_");
+      return {
+        key,
+        employee_code,
+        attendance_date,
+        in_time: data.minTime,
+        out_time: data.minTime !== data.maxTime ? data.maxTime : null,
+        is_processed: data.is_processed,
+        created_at: data.created_at,
+        log_ids: data.logs.map(l => l.id),
+      };
+    }).sort((a, b) => {
+      // Sort by date desc, then by employee code
+      if (a.attendance_date !== b.attendance_date) {
+        return b.attendance_date.localeCompare(a.attendance_date);
+      }
+      return a.employee_code.localeCompare(b.employee_code);
+    });
   };
+
+  const summaryRecords = getSummaryRecords();
 
   const handleDeleteClick = (log: AttendanceLog) => {
     setSelectedLog(log);
@@ -405,7 +465,28 @@ const ZKAttendanceLogs = () => {
             <Clock className="h-5 w-5" />
             {isArabic ? "سجلات حضور ZK" : "ZK Attendance Logs"}
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* View Mode Toggle */}
+            <div className="flex border rounded-lg overflow-hidden">
+              <Button
+                variant={viewMode === "detailed" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("detailed")}
+                className="rounded-none"
+              >
+                <List className="h-4 w-4 mr-2" />
+                {isArabic ? "تفصيلي" : "Detailed"}
+              </Button>
+              <Button
+                variant={viewMode === "summary" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("summary")}
+                className="rounded-none"
+              >
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                {isArabic ? "ملخص" : "Summary"}
+              </Button>
+            </div>
             <Button
               variant="destructive"
               size="sm"
@@ -515,110 +596,269 @@ const ZKAttendanceLogs = () => {
             </Card>
           </div>
 
-          {/* Data Table */}
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{isArabic ? "كود الموظف" : "Employee Code"}</TableHead>
-                  <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
-                  <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                  <TableHead>{isArabic ? "الوقت" : "Time"}</TableHead>
-                  <TableHead>{isArabic ? "النوع" : "Type"}</TableHead>
-                  <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                  <TableHead>{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+          {/* Data Table - Detailed View */}
+          {viewMode === "detailed" && (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-                      {isArabic ? "جاري التحميل..." : "Loading..."}
-                    </TableCell>
+                    <TableHead>{isArabic ? "كود الموظف" : "Employee Code"}</TableHead>
+                    <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
+                    <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead>{isArabic ? "الوقت" : "Time"}</TableHead>
+                    <TableHead>{isArabic ? "النوع" : "Type"}</TableHead>
+                    <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                    <TableHead>{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
+                    <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
                   </TableRow>
-                ) : logs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      {isArabic ? "لا توجد سجلات" : "No records found"}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  logs.map((log) => {
-                    const employeeName = getEmployeeName(log.employee_code);
-                    return (
-                      <TableRow key={log.id}>
-                        <TableCell className="font-mono">{log.employee_code}</TableCell>
-                        <TableCell>
-                          {employeeName ? (
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                              {employeeName}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{log.attendance_date}</TableCell>
-                        <TableCell className="font-mono">{log.attendance_time}</TableCell>
-                        <TableCell>{getRecordTypeBadge(log.record_type)}</TableCell>
-                        <TableCell>
-                          {log.is_processed ? (
-                            <Badge className="bg-blue-500">{isArabic ? "معتمد" : "Approved"}</Badge>
-                          ) : (
-                            <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-2">
-                            {!log.is_processed && (
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                        {isArabic ? "جاري التحميل..." : "Loading..."}
+                      </TableCell>
+                    </TableRow>
+                  ) : logs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        {isArabic ? "لا توجد سجلات" : "No records found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    logs.map((log) => {
+                      const employeeName = getEmployeeName(log.employee_code);
+                      return (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-mono">{log.employee_code}</TableCell>
+                          <TableCell>
+                            {employeeName ? (
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                {employeeName}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{log.attendance_date}</TableCell>
+                          <TableCell className="font-mono">{log.attendance_time}</TableCell>
+                          <TableCell>{getRecordTypeBadge(log.record_type)}</TableCell>
+                          <TableCell>
+                            {log.is_processed ? (
+                              <Badge className="bg-blue-500">{isArabic ? "معتمد" : "Approved"}</Badge>
+                            ) : (
+                              <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-2">
+                              {!log.is_processed && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleApproveClick(log)}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  title={isArabic ? "اعتماد" : "Approve"}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleApproveClick(log)}
-                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                title={isArabic ? "اعتماد" : "Approve"}
+                                onClick={() => handleEditClick(log)}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title={isArabic ? "تعديل" : "Edit"}
                               >
-                                <CheckCircle className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(log)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title={isArabic ? "حذف" : "Delete"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* Data Table - Summary View */}
+          {viewMode === "summary" && (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
+                    <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead>{isArabic ? "الدخول" : "In"}</TableHead>
+                    <TableHead>{isArabic ? "الخروج" : "Out"}</TableHead>
+                    <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                    <TableHead>{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
+                    <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                        {isArabic ? "جاري التحميل..." : "Loading..."}
+                      </TableCell>
+                    </TableRow>
+                  ) : summaryRecords.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        {isArabic ? "لا توجد سجلات" : "No records found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    summaryRecords.map((record) => {
+                      const employeeName = getEmployeeName(record.employee_code);
+                      return (
+                        <TableRow key={record.key}>
+                          <TableCell>
+                            {employeeName ? (
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                {employeeName}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground font-mono">{record.employee_code}</span>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditClick(log)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              title={isArabic ? "تعديل" : "Edit"}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(log)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title={isArabic ? "حذف" : "Delete"}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                          </TableCell>
+                          <TableCell>{record.attendance_date}</TableCell>
+                          <TableCell className="font-mono">
+                            {record.in_time ? (
+                              <Badge className="bg-green-500">{record.in_time}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {record.out_time ? (
+                              <Badge className="bg-red-500">{record.out_time}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.is_processed ? (
+                              <Badge className="bg-blue-500">{isArabic ? "معتمد" : "Approved"}</Badge>
+                            ) : (
+                              <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(record.created_at), "yyyy-MM-dd HH:mm:ss")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-2">
+                              {!record.is_processed && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    setActionLoading(true);
+                                    try {
+                                      const { error } = await supabase
+                                        .from("zk_attendance_logs")
+                                        .update({ is_processed: true, processed_at: new Date().toISOString() })
+                                        .in("id", record.log_ids);
+                                      if (error) throw error;
+                                      toast.success(isArabic ? "تم الاعتماد بنجاح" : "Approved successfully");
+                                      fetchLogs();
+                                    } catch (error) {
+                                      toast.error(isArabic ? "خطأ في الاعتماد" : "Error approving");
+                                    } finally {
+                                      setActionLoading(false);
+                                    }
+                                  }}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  title={isArabic ? "اعتماد" : "Approve"}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedSummary(record);
+                                  setSummaryEditFormData({
+                                    employee_code: record.employee_code,
+                                    attendance_date: record.attendance_date,
+                                    in_time: record.in_time || "",
+                                    out_time: record.out_time || "",
+                                  });
+                                  setEditDialogOpen(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title={isArabic ? "تعديل" : "Edit"}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm(isArabic ? "هل أنت متأكد من حذف هذه السجلات؟" : "Are you sure you want to delete these records?")) {
+                                    setActionLoading(true);
+                                    try {
+                                      const { error } = await supabase
+                                        .from("zk_attendance_logs")
+                                        .delete()
+                                        .in("id", record.log_ids);
+                                      if (error) throw error;
+                                      toast.success(isArabic ? "تم الحذف بنجاح" : "Deleted successfully");
+                                      fetchLogs();
+                                    } catch (error) {
+                                      toast.error(isArabic ? "خطأ في الحذف" : "Error deleting");
+                                    } finally {
+                                      setActionLoading(false);
+                                    }
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title={isArabic ? "حذف" : "Delete"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
           {logs.length > 0 && (
             <div className="mt-4 text-sm text-muted-foreground">
-              {isArabic
-                ? `عرض ${logs.length} من ${totalCount} سجل`
-                : `Showing ${logs.length} of ${totalCount} records`}
+              {viewMode === "detailed" 
+                ? (isArabic
+                    ? `عرض ${logs.length} من ${totalCount} سجل`
+                    : `Showing ${logs.length} of ${totalCount} records`)
+                : (isArabic
+                    ? `عرض ${summaryRecords.length} موظف/يوم`
+                    : `Showing ${summaryRecords.length} employee/day records`)
+              }
             </div>
           )}
         </CardContent>
@@ -738,8 +978,13 @@ const ZKAttendanceLogs = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      {/* Edit Dialog - Detailed View */}
+      <Dialog open={editDialogOpen && viewMode === "detailed"} onOpenChange={(open) => {
+        if (!open) {
+          setEditDialogOpen(false);
+          setSelectedLog(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -807,6 +1052,126 @@ const ZKAttendanceLogs = () => {
               {isArabic ? "إلغاء" : "Cancel"}
             </Button>
             <Button onClick={handleEditSave} disabled={actionLoading}>
+              {actionLoading
+                ? isArabic ? "جاري الحفظ..." : "Saving..."
+                : isArabic ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog - Summary View */}
+      <Dialog open={editDialogOpen && viewMode === "summary"} onOpenChange={(open) => {
+        if (!open) {
+          setEditDialogOpen(false);
+          setSelectedSummary(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isArabic ? "تعديل سجل الحضور" : "Edit Attendance Record"}
+            </DialogTitle>
+            <DialogDescription>
+              {isArabic 
+                ? `تعديل أوقات الدخول والخروج للموظف ${getEmployeeName(summaryEditFormData.employee_code) || summaryEditFormData.employee_code}` 
+                : `Edit In/Out times for ${getEmployeeName(summaryEditFormData.employee_code) || summaryEditFormData.employee_code}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{isArabic ? "التاريخ" : "Date"}</Label>
+              <div className="font-medium">{summaryEditFormData.attendance_date}</div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="in_time">
+                {isArabic ? "وقت الدخول (In)" : "In Time"}
+              </Label>
+              <Input
+                id="in_time"
+                type="time"
+                step="1"
+                value={summaryEditFormData.in_time}
+                onChange={(e) => setSummaryEditFormData({ ...summaryEditFormData, in_time: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="out_time">
+                {isArabic ? "وقت الخروج (Out)" : "Out Time"}
+              </Label>
+              <Input
+                id="out_time"
+                type="time"
+                step="1"
+                value={summaryEditFormData.out_time}
+                onChange={(e) => setSummaryEditFormData({ ...summaryEditFormData, out_time: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={actionLoading}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!selectedSummary) return;
+                setActionLoading(true);
+                try {
+                  // Delete existing logs and create new ones with updated times
+                  const { error: deleteError } = await supabase
+                    .from("zk_attendance_logs")
+                    .delete()
+                    .in("id", selectedSummary.log_ids);
+                  
+                  if (deleteError) throw deleteError;
+
+                  const newRecords = [];
+                  
+                  // Add In record
+                  if (summaryEditFormData.in_time) {
+                    let inTime = summaryEditFormData.in_time;
+                    if (inTime.split(":").length === 2) inTime = `${inTime}:00`;
+                    newRecords.push({
+                      employee_code: summaryEditFormData.employee_code,
+                      attendance_date: summaryEditFormData.attendance_date,
+                      attendance_time: inTime,
+                      record_type: "entry",
+                    });
+                  }
+                  
+                  // Add Out record
+                  if (summaryEditFormData.out_time) {
+                    let outTime = summaryEditFormData.out_time;
+                    if (outTime.split(":").length === 2) outTime = `${outTime}:00`;
+                    newRecords.push({
+                      employee_code: summaryEditFormData.employee_code,
+                      attendance_date: summaryEditFormData.attendance_date,
+                      attendance_time: outTime,
+                      record_type: "exit",
+                    });
+                  }
+
+                  if (newRecords.length > 0) {
+                    const { error: insertError } = await supabase
+                      .from("zk_attendance_logs")
+                      .insert(newRecords);
+                    
+                    if (insertError) throw insertError;
+                  }
+
+                  toast.success(isArabic ? "تم تحديث السجل بنجاح" : "Record updated successfully");
+                  fetchLogs();
+                } catch (error: any) {
+                  console.error("Error updating summary record:", error);
+                  toast.error(isArabic ? "خطأ في تحديث السجل" : "Error updating record");
+                } finally {
+                  setActionLoading(false);
+                  setEditDialogOpen(false);
+                  setSelectedSummary(null);
+                }
+              }} 
+              disabled={actionLoading}
+            >
               {actionLoading
                 ? isArabic ? "جاري الحفظ..." : "Saving..."
                 : isArabic ? "حفظ" : "Save"}
