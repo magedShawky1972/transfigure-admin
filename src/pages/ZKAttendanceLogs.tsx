@@ -83,6 +83,7 @@ const ZKAttendanceLogs = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -355,6 +356,48 @@ const ZKAttendanceLogs = () => {
     }
   };
 
+  const handleDeleteAllFiltered = async () => {
+    setActionLoading(true);
+    try {
+      let query = supabase.from("zk_attendance_logs").delete();
+
+      if (searchCode) {
+        query = query.ilike("employee_code", `%${searchCode}%`);
+      }
+
+      if (selectedDate) {
+        const dateStr = format(selectedDate, "yyyy-MM-dd");
+        query = query.eq("attendance_date", dateStr);
+      }
+
+      if (recordTypeFilter !== "all") {
+        query = query.eq("record_type", recordTypeFilter);
+      }
+
+      // Execute delete - neq('id', '') is a workaround to ensure the query runs when no other filters
+      if (!searchCode && !selectedDate && recordTypeFilter === "all") {
+        query = query.neq("id", "");
+      }
+
+      const { error } = await query;
+      
+      if (error) throw error;
+
+      toast.success(
+        isArabic
+          ? `تم حذف ${totalCount} سجل بنجاح`
+          : `Successfully deleted ${totalCount} records`
+      );
+      fetchLogs();
+    } catch (error: any) {
+      console.error("Error deleting filtered logs:", error);
+      toast.error(isArabic ? "خطأ في حذف السجلات" : "Error deleting records");
+    } finally {
+      setActionLoading(false);
+      setDeleteAllDialogOpen(false);
+    }
+  };
+
   return (
     <div className={`p-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <Card>
@@ -364,6 +407,15 @@ const ZKAttendanceLogs = () => {
             {isArabic ? "سجلات حضور ZK" : "ZK Attendance Logs"}
           </CardTitle>
           <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteAllDialogOpen(true)}
+              disabled={logs.length === 0}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {isArabic ? `حذف الكل (${totalCount})` : `Delete All (${totalCount})`}
+            </Button>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               {isArabic ? "تصدير" : "Export"}
@@ -628,6 +680,60 @@ const ZKAttendanceLogs = () => {
               {actionLoading
                 ? isArabic ? "جاري الاعتماد..." : "Approving..."
                 : isArabic ? "اعتماد" : "Approve"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Filtered Dialog */}
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isArabic ? "تأكيد حذف الكل" : "Confirm Delete All"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                {isArabic
+                  ? `هل أنت متأكد من حذف جميع السجلات المطابقة للفلتر الحالي؟`
+                  : `Are you sure you want to delete all records matching the current filter?`}
+              </p>
+              <div className="bg-muted p-3 rounded-md text-sm">
+                <p className="font-semibold mb-1">{isArabic ? "الفلاتر الحالية:" : "Current filters:"}</p>
+                <ul className="list-disc list-inside space-y-1">
+                  {searchCode && (
+                    <li>{isArabic ? `كود الموظف: ${searchCode}` : `Employee code: ${searchCode}`}</li>
+                  )}
+                  {selectedDate && (
+                    <li>{isArabic ? `التاريخ: ${format(selectedDate, "yyyy-MM-dd")}` : `Date: ${format(selectedDate, "yyyy-MM-dd")}`}</li>
+                  )}
+                  {recordTypeFilter !== "all" && (
+                    <li>{isArabic ? `النوع: ${recordTypeFilter}` : `Type: ${recordTypeFilter}`}</li>
+                  )}
+                  {!searchCode && !selectedDate && recordTypeFilter === "all" && (
+                    <li className="text-destructive font-semibold">
+                      {isArabic ? "لا توجد فلاتر - سيتم حذف جميع السجلات!" : "No filters - ALL records will be deleted!"}
+                    </li>
+                  )}
+                </ul>
+                <p className="mt-2 font-semibold text-destructive">
+                  {isArabic ? `عدد السجلات: ${totalCount}` : `Records count: ${totalCount}`}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>
+              {isArabic ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAllFiltered}
+              disabled={actionLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {actionLoading
+                ? isArabic ? "جاري الحذف..." : "Deleting..."
+                : isArabic ? `حذف ${totalCount} سجل` : `Delete ${totalCount} records`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
