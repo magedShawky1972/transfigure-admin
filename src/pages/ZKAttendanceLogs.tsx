@@ -241,12 +241,18 @@ const ZKAttendanceLogs = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Helper to check if time is after midnight (00:00 - 06:00 is treated as "out" from previous shift)
+  const isAfterMidnightEarlyMorning = (time: string): boolean => {
+    const [hours] = time.split(":").map(Number);
+    return hours >= 0 && hours < 6; // 00:00 to 05:59 is considered "out" time
+  };
+
   // Group logs by employee and date for summary view
   const getSummaryRecords = (): SummaryRecord[] => {
     const grouped: Record<string, { 
       logs: AttendanceLog[]; 
-      minTime: string | null; 
-      maxTime: string | null;
+      inTimes: string[];
+      outTimes: string[];
       is_processed: boolean;
       created_at: string;
     }> = {};
@@ -256,22 +262,21 @@ const ZKAttendanceLogs = () => {
       if (!grouped[key]) {
         grouped[key] = { 
           logs: [], 
-          minTime: null, 
-          maxTime: null, 
+          inTimes: [],
+          outTimes: [],
           is_processed: log.is_processed,
           created_at: log.created_at 
         };
       }
       grouped[key].logs.push(log);
       
-      // Track minimum time (In)
-      if (!grouped[key].minTime || log.attendance_time < grouped[key].minTime!) {
-        grouped[key].minTime = log.attendance_time;
-      }
-      
-      // Track maximum time (Out)
-      if (!grouped[key].maxTime || log.attendance_time > grouped[key].maxTime!) {
-        grouped[key].maxTime = log.attendance_time;
+      // Classify time as In or Out based on time of day
+      // Times after midnight (00:00-05:59) are treated as "Out" times
+      if (isAfterMidnightEarlyMorning(log.attendance_time)) {
+        grouped[key].outTimes.push(log.attendance_time);
+      } else {
+        // Regular times: earliest is In, latest is Out
+        grouped[key].inTimes.push(log.attendance_time);
       }
       
       // If any log is processed, mark as processed
@@ -287,9 +292,40 @@ const ZKAttendanceLogs = () => {
     
     return Object.entries(grouped).map(([key, data]) => {
       const [employee_code, attendance_date] = key.split("_");
-      const in_time = data.minTime;
-      const out_time = data.minTime !== data.maxTime ? data.maxTime : null;
-      const total_hours = calculateHoursDiff(in_time, out_time);
+      
+      // Sort times to find min/max
+      const sortedInTimes = data.inTimes.sort();
+      const sortedOutTimes = data.outTimes.sort();
+      
+      // In time: minimum of regular times (not early morning)
+      // Out time: maximum of early morning times OR maximum of regular times (whichever is later in the shift)
+      let in_time: string | null = sortedInTimes.length > 0 ? sortedInTimes[0] : null;
+      let out_time: string | null = null;
+      
+      if (sortedOutTimes.length > 0) {
+        // If there are early morning times, the latest one is the out time
+        out_time = sortedOutTimes[sortedOutTimes.length - 1];
+      } else if (sortedInTimes.length > 1) {
+        // Otherwise, the latest regular time is the out time
+        out_time = sortedInTimes[sortedInTimes.length - 1];
+      }
+      
+      // Calculate total hours - handle overnight shifts
+      let total_hours: number | null = null;
+      if (in_time && out_time) {
+        const [inH, inM] = in_time.split(":").map(Number);
+        const [outH, outM] = out_time.split(":").map(Number);
+        const inMinutes = inH * 60 + inM;
+        let outMinutes = outH * 60 + outM;
+        
+        // If out time is early morning (after midnight), add 24 hours
+        if (isAfterMidnightEarlyMorning(out_time)) {
+          outMinutes += 24 * 60;
+        }
+        
+        total_hours = (outMinutes - inMinutes) / 60;
+      }
+      
       const expected_hours = getExpectedHours(employee_code);
       const difference_hours = total_hours !== null && expected_hours !== null 
         ? total_hours - expected_hours 
