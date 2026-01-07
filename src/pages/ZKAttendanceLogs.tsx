@@ -59,6 +59,13 @@ interface AttendanceLog {
   processed_at: string | null;
 }
 
+interface AttendanceType {
+  id: string;
+  fixed_start_time: string | null;
+  fixed_end_time: string | null;
+  is_shift_based: boolean;
+}
+
 interface Employee {
   id: string;
   first_name: string;
@@ -67,6 +74,8 @@ interface Employee {
   last_name_ar: string | null;
   zk_employee_code: string | null;
   employee_number: string;
+  attendance_type_id: string | null;
+  attendance_types: AttendanceType | null;
 }
 
 interface SummaryRecord {
@@ -78,6 +87,9 @@ interface SummaryRecord {
   is_processed: boolean;
   created_at: string;
   log_ids: string[];
+  total_hours: number | null;
+  expected_hours: number | null;
+  difference_hours: number | null;
 }
 
 const ZKAttendanceLogs = () => {
@@ -153,14 +165,33 @@ const ZKAttendanceLogs = () => {
     try {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number")
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, attendance_types(id, fixed_start_time, fixed_end_time, is_shift_based)")
         .not("zk_employee_code", "is", null);
 
       if (error) throw error;
-      setEmployees(data || []);
+      setEmployees((data || []) as Employee[]);
     } catch (error: any) {
       console.error("Error fetching employees:", error);
     }
+  };
+
+  // Helper to calculate hours between two time strings (HH:MM:SS)
+  const calculateHoursDiff = (startTime: string | null, endTime: string | null): number | null => {
+    if (!startTime || !endTime) return null;
+    const [startH, startM] = startTime.split(":").map(Number);
+    const [endH, endM] = endTime.split(":").map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    return (endMinutes - startMinutes) / 60;
+  };
+
+  // Get expected hours for an employee based on their attendance type
+  const getExpectedHours = (employeeCode: string): number | null => {
+    const employee = employees.find((e) => e.zk_employee_code === employeeCode);
+    if (!employee?.attendance_types) return null;
+    const { fixed_start_time, fixed_end_time, is_shift_based } = employee.attendance_types;
+    if (is_shift_based || !fixed_start_time || !fixed_end_time) return null;
+    return calculateHoursDiff(fixed_start_time, fixed_end_time);
   };
 
   useEffect(() => {
@@ -256,15 +287,26 @@ const ZKAttendanceLogs = () => {
     
     return Object.entries(grouped).map(([key, data]) => {
       const [employee_code, attendance_date] = key.split("_");
+      const in_time = data.minTime;
+      const out_time = data.minTime !== data.maxTime ? data.maxTime : null;
+      const total_hours = calculateHoursDiff(in_time, out_time);
+      const expected_hours = getExpectedHours(employee_code);
+      const difference_hours = total_hours !== null && expected_hours !== null 
+        ? total_hours - expected_hours 
+        : null;
+      
       return {
         key,
         employee_code,
         attendance_date,
-        in_time: data.minTime,
-        out_time: data.minTime !== data.maxTime ? data.maxTime : null,
+        in_time,
+        out_time,
         is_processed: data.is_processed,
         created_at: data.created_at,
         log_ids: data.logs.map(l => l.id),
+        total_hours,
+        expected_hours,
+        difference_hours,
       };
     }).sort((a, b) => {
       // Sort by date desc, then by employee code
@@ -707,6 +749,8 @@ const ZKAttendanceLogs = () => {
                     <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
                     <TableHead>{isArabic ? "الدخول" : "In"}</TableHead>
                     <TableHead>{isArabic ? "الخروج" : "Out"}</TableHead>
+                    <TableHead>{isArabic ? "إجمالي الساعات" : "Total Hours"}</TableHead>
+                    <TableHead>{isArabic ? "الفرق" : "Difference"}</TableHead>
                     <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                     <TableHead>{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
                     <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
@@ -715,14 +759,14 @@ const ZKAttendanceLogs = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                         {isArabic ? "جاري التحميل..." : "Loading..."}
                       </TableCell>
                     </TableRow>
                   ) : summaryRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         {isArabic ? "لا توجد سجلات" : "No records found"}
                       </TableCell>
                     </TableRow>
@@ -752,6 +796,24 @@ const ZKAttendanceLogs = () => {
                           <TableCell className="font-mono">
                             {record.out_time ? (
                               <Badge className="bg-red-500">{record.out_time}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {record.total_hours !== null ? (
+                              <span className="font-semibold">{record.total_hours.toFixed(2)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {record.difference_hours !== null ? (
+                              <Badge 
+                                className={record.difference_hours >= 0 ? "bg-green-500" : "bg-red-500"}
+                              >
+                                {record.difference_hours >= 0 ? "+" : ""}{record.difference_hours.toFixed(2)}
+                              </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
