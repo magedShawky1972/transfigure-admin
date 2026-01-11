@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -19,12 +18,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Download, Printer, RefreshCw, Search } from "lucide-react";
+import { ArrowLeft, Download, Printer, RefreshCw, Search, ChevronDown, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SoldProduct {
   brand_name: string;
@@ -56,11 +57,13 @@ const SoldProductReport = () => {
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState("all");
-  const [selectedProduct, setSelectedProduct] = useState("all");
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<SoldProduct[]>([]);
+  const [brandSearchQuery, setBrandSearchQuery] = useState("");
+  const [productSearchQuery, setProductSearchQuery] = useState("");
 
   // Fetch brands
   const { data: brands = [] } = useQuery({
@@ -76,9 +79,9 @@ const SoldProductReport = () => {
     },
   });
 
-  // Fetch products - filter by selected brand
+  // Fetch products - filter by selected brands
   const { data: products = [] } = useQuery({
-    queryKey: ["products-for-report", selectedBrand],
+    queryKey: ["products-for-report", selectedBrands],
     queryFn: async () => {
       let query = supabase
         .from("products")
@@ -86,8 +89,8 @@ const SoldProductReport = () => {
         .eq("status", "active")
         .order("product_name");
       
-      if (selectedBrand !== "all") {
-        query = query.eq("brand_name", selectedBrand);
+      if (selectedBrands.length > 0) {
+        query = query.in("brand_name", selectedBrands);
       }
       
       const { data, error } = await query;
@@ -96,10 +99,31 @@ const SoldProductReport = () => {
     },
   });
 
-  // Reset product selection when brand changes
-  const handleBrandChange = (value: string) => {
-    setSelectedBrand(value);
-    setSelectedProduct("all");
+  // Reset product selection when brands change
+  const handleBrandToggle = (brandName: string) => {
+    setSelectedBrands((prev) =>
+      prev.includes(brandName)
+        ? prev.filter((b) => b !== brandName)
+        : [...prev, brandName]
+    );
+    setSelectedProducts([]);
+  };
+
+  const handleProductToggle = (productName: string) => {
+    setSelectedProducts((prev) =>
+      prev.includes(productName)
+        ? prev.filter((p) => p !== productName)
+        : [...prev, productName]
+    );
+  };
+
+  const clearBrands = () => {
+    setSelectedBrands([]);
+    setSelectedProducts([]);
+  };
+
+  const clearProducts = () => {
+    setSelectedProducts([]);
   };
 
   const fetchReportData = async () => {
@@ -121,12 +145,12 @@ const SoldProductReport = () => {
         .lte("created_at_date", dateTo)
         .neq("is_deleted", true);
 
-      if (selectedBrand !== "all") {
-        query = query.eq("brand_name", selectedBrand);
+      if (selectedBrands.length > 0) {
+        query = query.in("brand_name", selectedBrands);
       }
 
-      if (selectedProduct !== "all") {
-        query = query.eq("product_name", selectedProduct);
+      if (selectedProducts.length > 0) {
+        query = query.in("product_name", selectedProducts);
       }
 
       const { data, error } = await query.order("brand_name").order("product_name");
@@ -343,35 +367,115 @@ const SoldProductReport = () => {
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "العلامة التجارية" : "Brand"}</Label>
-              <Select value={selectedBrand} onValueChange={handleBrandChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isRTL ? "اختر العلامة" : "Select Brand"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{isRTL ? "الكل" : "All"}</SelectItem>
-                  {brands.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.brand_name}>
-                      {brand.brand_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="truncate">
+                      {selectedBrands.length === 0
+                        ? (isRTL ? "الكل" : "All")
+                        : selectedBrands.length === 1
+                        ? selectedBrands[0]
+                        : `${selectedBrands.length} ${isRTL ? "محدد" : "selected"}`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0 bg-popover border" align="start">
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder={isRTL ? "بحث..." : "Search..."}
+                      value={brandSearchQuery}
+                      onChange={(e) => setBrandSearchQuery(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <ScrollArea className="h-48">
+                    <div className="p-2 space-y-1">
+                      {brands
+                        .filter((brand) =>
+                          brand.brand_name.toLowerCase().includes(brandSearchQuery.toLowerCase())
+                        )
+                        .map((brand) => (
+                          <div
+                            key={brand.id}
+                            className="flex items-center space-x-2 rtl:space-x-reverse p-2 hover:bg-muted rounded cursor-pointer"
+                            onClick={() => handleBrandToggle(brand.brand_name)}
+                          >
+                            <Checkbox
+                              checked={selectedBrands.includes(brand.brand_name)}
+                              onCheckedChange={() => handleBrandToggle(brand.brand_name)}
+                            />
+                            <span className="text-sm">{brand.brand_name}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+                  {selectedBrands.length > 0 && (
+                    <div className="p-2 border-t">
+                      <Button variant="ghost" size="sm" onClick={clearBrands} className="w-full">
+                        <X className="h-4 w-4 me-2" />
+                        {isRTL ? "مسح الكل" : "Clear All"}
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "المنتج" : "Product"}</Label>
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isRTL ? "اختر المنتج" : "Select Product"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{isRTL ? "الكل" : "All"}</SelectItem>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.product_name}>
-                      {product.product_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="truncate">
+                      {selectedProducts.length === 0
+                        ? (isRTL ? "الكل" : "All")
+                        : selectedProducts.length === 1
+                        ? selectedProducts[0]
+                        : `${selectedProducts.length} ${isRTL ? "محدد" : "selected"}`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0 bg-popover border" align="start">
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder={isRTL ? "بحث..." : "Search..."}
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <ScrollArea className="h-48">
+                    <div className="p-2 space-y-1">
+                      {products
+                        .filter((product) =>
+                          product.product_name.toLowerCase().includes(productSearchQuery.toLowerCase())
+                        )
+                        .map((product) => (
+                          <div
+                            key={product.id}
+                            className="flex items-center space-x-2 rtl:space-x-reverse p-2 hover:bg-muted rounded cursor-pointer"
+                            onClick={() => handleProductToggle(product.product_name)}
+                          >
+                            <Checkbox
+                              checked={selectedProducts.includes(product.product_name)}
+                              onCheckedChange={() => handleProductToggle(product.product_name)}
+                            />
+                            <span className="text-sm">{product.product_name}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+                  {selectedProducts.length > 0 && (
+                    <div className="p-2 border-t">
+                      <Button variant="ghost" size="sm" onClick={clearProducts} className="w-full">
+                        <X className="h-4 w-4 me-2" />
+                        {isRTL ? "مسح الكل" : "Clear All"}
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>&nbsp;</Label>
