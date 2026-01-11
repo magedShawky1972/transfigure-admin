@@ -22,8 +22,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Only allow POST
-  if (req.method !== 'POST') {
+  // Only allow POST and GET
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return new Response(
       JSON.stringify({ success: false, error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -78,7 +78,51 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request body
+    // Handle GET request - return latest attendance date/time
+    if (req.method === 'GET') {
+      const { data: latestRecord, error: latestError } = await supabase
+        .from('zk_attendance_logs')
+        .select('attendance_date, attendance_time, employee_code')
+        .order('attendance_date', { ascending: false })
+        .order('attendance_time', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latestError && latestError.code !== 'PGRST116') {
+        console.error('Error fetching latest record:', latestError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to fetch latest record', details: latestError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // If no records exist, return null values
+      if (!latestRecord) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            last_date: null,
+            last_time: null,
+            last_employee_code: null,
+            message: 'No attendance records found'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Returning latest attendance record:', latestRecord);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          last_date: latestRecord.attendance_date,
+          last_time: latestRecord.attendance_time,
+          last_employee_code: latestRecord.employee_code
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle POST request - insert attendance records
     const body: AttendancePayload = await req.json();
     
     if (!body.records || !Array.isArray(body.records) || body.records.length === 0) {
