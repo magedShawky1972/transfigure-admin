@@ -361,39 +361,37 @@ const SoldProductReport = () => {
       {/* Report Table */}
       {reportData.length > 0 && (
         <Card className="print:shadow-none print:border-none">
+          <CardHeader className="print:hidden flex flex-row items-center justify-between">
+            <CardTitle>{isRTL ? "النتائج" : "Results"}</CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={exportToExcel}>
+                <Download className="h-4 w-4 me-2" />
+                {isRTL ? "تصدير Excel" : "Export Excel"}
+              </Button>
+              <Button variant="outline" onClick={handlePrint}>
+                <Printer className="h-4 w-4 me-2" />
+                {isRTL ? "طباعة" : "Print"}
+              </Button>
+            </div>
+          </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table className="print-no-border print-black-text">
                 <TableHeader>
                   <TableRow className="print:border-none">
-                    <TableHead
-                      className="print:border-none"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableHead className="print:border-none font-bold">
                       {isRTL ? "العلامة التجارية" : "Brand"}
                     </TableHead>
-                    <TableHead
-                      className="print:border-none"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableHead className="print:border-none font-bold">
                       {isRTL ? "المنتج" : "Product"}
                     </TableHead>
-                    <TableHead
-                      className="print:border-none text-end"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableHead className="print:border-none text-end font-bold">
                       {isRTL ? "سعر الوحدة" : "Unit Price"}
                     </TableHead>
-                    <TableHead
-                      className="print:border-none text-end"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableHead className="print:border-none text-end font-bold">
                       {isRTL ? "الكمية" : "Qty"}
                     </TableHead>
-                    <TableHead
-                      className="print:border-none text-end"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableHead className="print:border-none text-end font-bold">
                       {isRTL ? "الإجمالي" : "Total"}
                     </TableHead>
                   </TableRow>
@@ -410,57 +408,32 @@ const SoldProductReport = () => {
                             key={`${brandName}-${index}`}
                             className="print:border-none"
                           >
-                            <TableCell
-                              className="print:border-none"
-                              style={{ color: "black" }}
-                            >
+                            <TableCell className="print:border-none">
                               {index === 0 ? item.brand_name : ""}
                             </TableCell>
-                            <TableCell
-                              className="print:border-none"
-                              style={{ color: "black" }}
-                            >
+                            <TableCell className="print:border-none">
                               {item.product_name}
                             </TableCell>
-                            <TableCell
-                              className="print:border-none text-end"
-                              style={{ color: "black" }}
-                            >
+                            <TableCell className="print:border-none text-end">
                               {formatCurrency(item.unit_price)}
                             </TableCell>
-                            <TableCell
-                              className="print:border-none text-end"
-                              style={{ color: "black" }}
-                            >
+                            <TableCell className="print:border-none text-end">
                               {item.qty}
                             </TableCell>
-                            <TableCell
-                              className="print:border-none text-end"
-                              style={{ color: "black" }}
-                            >
+                            <TableCell className="print:border-none text-end">
                               {formatCurrency(item.total)}
                             </TableCell>
                           </TableRow>
                         ))}
                         {/* Brand Total Row */}
                         <TableRow className="print:border-none bg-muted/50 font-semibold">
-                          <TableCell
-                            colSpan={3}
-                            className="print:border-none"
-                            style={{ color: "black", fontWeight: "bold" }}
-                          >
+                          <TableCell colSpan={3} className="print:border-none font-bold">
                             {isRTL ? `إجمالي ${brandName}` : `${brandName} Total`}
                           </TableCell>
-                          <TableCell
-                            className="print:border-none text-end"
-                            style={{ color: "black", fontWeight: "bold" }}
-                          >
+                          <TableCell className="print:border-none text-end font-bold">
                             {brandTotal?.total_qty}
                           </TableCell>
-                          <TableCell
-                            className="print:border-none text-end"
-                            style={{ color: "black", fontWeight: "bold" }}
-                          >
+                          <TableCell className="print:border-none text-end font-bold">
                             {formatCurrency(brandTotal?.total_value || 0)}
                           </TableCell>
                         </TableRow>
@@ -469,23 +442,13 @@ const SoldProductReport = () => {
                   })}
                   {/* Grand Total Row */}
                   <TableRow className="print:border-none bg-primary/10 font-bold">
-                    <TableCell
-                      colSpan={3}
-                      className="print:border-none"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableCell colSpan={3} className="print:border-none font-bold">
                       {isRTL ? "الإجمالي الكلي" : "Grand Total"}
                     </TableCell>
-                    <TableCell
-                      className="print:border-none text-end"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableCell className="print:border-none text-end font-bold">
                       {grandTotals.qty}
                     </TableCell>
-                    <TableCell
-                      className="print:border-none text-end"
-                      style={{ color: "black", fontWeight: "bold" }}
-                    >
+                    <TableCell className="print:border-none text-end font-bold">
                       {formatCurrency(grandTotals.value)}
                     </TableCell>
                   </TableRow>
