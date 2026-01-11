@@ -892,7 +892,8 @@ const UserSetup = () => {
         // Get the most recent permission entry for each report
         const permissions = data?.filter(p => p.menu_item === report.key);
         const latestPermission = permissions && permissions.length > 0 ? permissions[0] : null;
-        permissionsMap[report.key] = latestPermission?.has_access ?? true;
+        // Default to false for security - new reports require explicit access grant
+        permissionsMap[report.key] = latestPermission?.has_access ?? false;
       });
       
       setReportsPermissions(permissionsMap);
@@ -1784,7 +1785,7 @@ const UserSetup = () => {
                     </Label>
                     <Switch
                       id={`report-${report.key}`}
-                      checked={reportsPermissions[report.key] ?? true}
+                      checked={reportsPermissions[report.key] ?? false}
                       onCheckedChange={(checked) => handleReportsPermissionToggle(report.key, checked)}
                     />
                   </div>
