@@ -190,6 +190,7 @@ const REPORTS = [
   { key: "bank-statement", labelEn: "Bank Statement Report", labelAr: "تقرير كشف حساب البنك" },
   { key: "bank-statement-as-of", labelEn: "Bank Statement As Of", labelAr: "كشف حساب البنك حتى تاريخ" },
   { key: "security-dashboard", labelEn: "Security Dashboard", labelAr: "لوحة الأمان" },
+  { key: "sold-product", labelEn: "Sold Product Report", labelAr: "تقرير المنتجات المباعة" },
 ];
 
 const UserSetup = () => {
