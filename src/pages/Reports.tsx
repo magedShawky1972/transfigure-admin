@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product']);
         setLoading(false);
         return;
       }
@@ -189,6 +189,15 @@ const Reports = () => {
         : "Monitor password access patterns and security alert history in real-time",
       icon: Shield,
       route: "/reports/security-dashboard",
+    },
+    {
+      id: "sold-product",
+      name: language === "ar" ? "تقرير المنتجات المباعة" : "Sold Product Report",
+      description: language === "ar" 
+        ? "عرض المبيعات والكميات لكل علامة تجارية ومنتج مع إمكانية التصدير والطباعة" 
+        : "View sales value and quantity per brand and product with export and print",
+      icon: ShoppingCart,
+      route: "/reports/sold-product",
     },
   ];
 
