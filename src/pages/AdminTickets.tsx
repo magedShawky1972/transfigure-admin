@@ -915,6 +915,7 @@ const AdminTickets = () => {
   const openTickets = filteredTickets.filter(t => t.status === "Open");
   const inProgressTickets = filteredTickets.filter(t => t.status === "In Progress");
   const closedTickets = filteredTickets.filter(t => t.status === "Closed");
+  const cancelledTickets = filteredTickets.filter(t => t.status === "Cancelled");
 
   const TicketCard = ({ ticket }: { ticket: Ticket }) => (
     <Card className="hover:shadow-md transition-shadow">
@@ -1237,6 +1238,9 @@ const AdminTickets = () => {
             <TabsTrigger value="closed" className="text-xs sm:text-sm px-2 sm:px-3">
               {language === 'ar' ? `مغلق (${closedTickets.length})` : `Closed (${closedTickets.length})`}
             </TabsTrigger>
+            <TabsTrigger value="cancelled" className="text-xs sm:text-sm px-2 sm:px-3">
+              {language === 'ar' ? `ملغي (${cancelledTickets.length})` : `Cancelled (${cancelledTickets.length})`}
+            </TabsTrigger>
             <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">
               {language === 'ar' ? `الكل (${filteredTickets.length})` : `All (${filteredTickets.length})`}
             </TabsTrigger>
@@ -1275,6 +1279,18 @@ const AdminTickets = () => {
               </Card>
             ) : (
               closedTickets.map(ticket => <TicketCard key={ticket.id} ticket={ticket} />)
+            )}
+          </TabsContent>
+
+          <TabsContent value="cancelled" className="space-y-4">
+            {cancelledTickets.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground">{language === 'ar' ? 'لا توجد تذاكر ملغية' : 'No cancelled tickets'}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              cancelledTickets.map(ticket => <TicketCard key={ticket.id} ticket={ticket} />)
             )}
           </TabsContent>
 
