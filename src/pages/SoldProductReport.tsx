@@ -34,6 +34,14 @@ interface SoldProduct {
   total: number;
 }
 
+interface ProductSummary {
+  brand_name: string;
+  product_name: string;
+  total_qty: number;
+  total_value: number;
+  avg_unit_price: number;
+}
+
 interface BrandTotal {
   brand_name: string;
   total_qty: number;
@@ -68,19 +76,31 @@ const SoldProductReport = () => {
     },
   });
 
-  // Fetch products
+  // Fetch products - filter by selected brand
   const { data: products = [] } = useQuery({
-    queryKey: ["products-for-report"],
+    queryKey: ["products-for-report", selectedBrand],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
-        .select("id, product_name")
+        .select("id, product_name, brand_name")
         .eq("status", "active")
         .order("product_name");
+      
+      if (selectedBrand !== "all") {
+        query = query.eq("brand_name", selectedBrand);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
   });
+
+  // Reset product selection when brand changes
+  const handleBrandChange = (value: string) => {
+    setSelectedBrand(value);
+    setSelectedProduct("all");
+  };
 
   const fetchReportData = async () => {
     if (!dateFrom || !dateTo) {
@@ -152,11 +172,42 @@ const SoldProductReport = () => {
     );
   }, [reportData, searchQuery]);
 
-  // Group by brand and calculate totals
-  const groupedData = useMemo(() => {
-    const brandGroups: Record<string, SoldProduct[]> = {};
+  // Summarize by product (aggregate qty and total for each product)
+  const productSummary = useMemo((): ProductSummary[] => {
+    const summaryMap: Record<string, ProductSummary> = {};
     
     filteredData.forEach((item) => {
+      const key = `${item.brand_name}|${item.product_name}`;
+      if (!summaryMap[key]) {
+        summaryMap[key] = {
+          brand_name: item.brand_name,
+          product_name: item.product_name,
+          total_qty: 0,
+          total_value: 0,
+          avg_unit_price: 0,
+        };
+      }
+      summaryMap[key].total_qty += item.qty;
+      summaryMap[key].total_value += item.total;
+    });
+
+    // Calculate average unit price
+    Object.values(summaryMap).forEach((summary) => {
+      summary.avg_unit_price = summary.total_qty > 0 
+        ? summary.total_value / summary.total_qty 
+        : 0;
+    });
+
+    return Object.values(summaryMap).sort((a, b) => 
+      a.brand_name.localeCompare(b.brand_name) || a.product_name.localeCompare(b.product_name)
+    );
+  }, [filteredData]);
+
+  // Group summarized products by brand
+  const groupedData = useMemo(() => {
+    const brandGroups: Record<string, ProductSummary[]> = {};
+    
+    productSummary.forEach((item) => {
       if (!brandGroups[item.brand_name]) {
         brandGroups[item.brand_name] = [];
       }
@@ -164,14 +215,14 @@ const SoldProductReport = () => {
     });
 
     return brandGroups;
-  }, [filteredData]);
+  }, [productSummary]);
 
   // Calculate brand totals
   const brandTotals = useMemo((): BrandTotal[] => {
     return Object.entries(groupedData).map(([brand_name, items]) => ({
       brand_name,
-      total_qty: items.reduce((sum, item) => sum + item.qty, 0),
-      total_value: items.reduce((sum, item) => sum + item.total, 0),
+      total_qty: items.reduce((sum, item) => sum + item.total_qty, 0),
+      total_value: items.reduce((sum, item) => sum + item.total_value, 0),
     }));
   }, [groupedData]);
 
@@ -198,9 +249,9 @@ const SoldProductReport = () => {
         exportData.push({
           [isRTL ? "العلامة التجارية" : "Brand"]: item.brand_name,
           [isRTL ? "المنتج" : "Product"]: item.product_name,
-          [isRTL ? "سعر الوحدة" : "Unit Price"]: item.unit_price,
-          [isRTL ? "الكمية" : "Qty"]: item.qty,
-          [isRTL ? "الإجمالي" : "Total"]: item.total,
+          [isRTL ? "متوسط سعر الوحدة" : "Avg Unit Price"]: item.avg_unit_price,
+          [isRTL ? "الكمية" : "Qty"]: item.total_qty,
+          [isRTL ? "الإجمالي" : "Total"]: item.total_value,
         });
       });
 
@@ -292,7 +343,7 @@ const SoldProductReport = () => {
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "العلامة التجارية" : "Brand"}</Label>
-              <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+              <Select value={selectedBrand} onValueChange={handleBrandChange}>
                 <SelectTrigger>
                   <SelectValue placeholder={isRTL ? "اختر العلامة" : "Select Brand"} />
                 </SelectTrigger>
@@ -415,13 +466,13 @@ const SoldProductReport = () => {
                               {item.product_name}
                             </TableCell>
                             <TableCell className="print:border-none text-end">
-                              {formatCurrency(item.unit_price)}
+                              {formatCurrency(item.avg_unit_price)}
                             </TableCell>
                             <TableCell className="print:border-none text-end">
-                              {item.qty}
+                              {item.total_qty}
                             </TableCell>
                             <TableCell className="print:border-none text-end">
-                              {formatCurrency(item.total)}
+                              {formatCurrency(item.total_value)}
                             </TableCell>
                           </TableRow>
                         ))}
