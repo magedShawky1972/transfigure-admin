@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search } from "lucide-react";
+import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search, XCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -359,6 +359,15 @@ const Tickets = () => {
   const fetchTickets = async () => {
     try {
       setLoading(true);
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setTickets([]);
+        return;
+      }
+      
+      // Only fetch tickets created by the current user
       const { data, error } = await supabase
         .from("tickets")
         .select(`
@@ -374,6 +383,7 @@ const Tickets = () => {
           )
         `)
         .eq("is_deleted", false)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -626,7 +636,32 @@ const Tickets = () => {
       case "In Progress": return "default";
       case "Closed": return "secondary";
       case "Rejected": return "destructive";
+      case "Cancelled": return "outline";
       default: return "default";
+    }
+  };
+
+  const handleCancelTicket = async (ticketId: string) => {
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ status: "Cancelled" })
+        .eq("id", ticketId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? "نجح" : "Success",
+        description: language === 'ar' ? "تم إلغاء التذكرة بنجاح" : "Ticket cancelled successfully",
+      });
+
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -1189,6 +1224,7 @@ const Tickets = () => {
                   <SelectItem value="In Progress">{language === 'ar' ? 'قيد المعالجة' : 'In Progress'}</SelectItem>
                   <SelectItem value="Closed">{language === 'ar' ? 'مغلق' : 'Closed'}</SelectItem>
                   <SelectItem value="Rejected">{language === 'ar' ? 'مرفوض' : 'Rejected'}</SelectItem>
+                  <SelectItem value="Cancelled">{language === 'ar' ? 'ملغي' : 'Cancelled'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1309,7 +1345,8 @@ const Tickets = () => {
                       {language === 'ar' ? 
                         (ticket.status === 'Open' ? 'مفتوح' : 
                          ticket.status === 'In Progress' ? 'قيد المعالجة' : 
-                         ticket.status === 'Rejected' ? 'مرفوض' : 'مغلق') 
+                         ticket.status === 'Rejected' ? 'مرفوض' :
+                         ticket.status === 'Cancelled' ? 'ملغي' : 'مغلق') 
                         : ticket.status}
                     </Badge>
                     {getApprovalBadge(ticket)}
@@ -1374,7 +1411,7 @@ const Tickets = () => {
                     <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     {language === 'ar' ? 'عرض' : 'View'}
                   </Button>
-                  {!ticket.approved_at && (
+                  {!ticket.approved_at && ticket.status !== 'Cancelled' && ticket.status !== 'Closed' && ticket.status !== 'Rejected' && (
                     <>
                       <Button
                         variant="outline"
@@ -1385,6 +1422,15 @@ const Tickets = () => {
                         <Mail className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         <span className="hidden sm:inline">{language === 'ar' ? 'إعادة إرسال' : 'Resend'}</span>
                         <span className="sm:hidden">{language === 'ar' ? 'إرسال' : 'Send'}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs sm:text-sm border-orange-500 text-orange-600 hover:bg-orange-50"
+                        onClick={() => handleCancelTicket(ticket.id)}
+                      >
+                        <XCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إلغاء' : 'Cancel'}</span>
                       </Button>
                       <Button
                         variant="destructive"
