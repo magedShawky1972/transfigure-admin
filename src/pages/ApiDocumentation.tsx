@@ -160,7 +160,7 @@ const API_ENDPOINTS = [
   },
   {
     id: "zkattendance",
-    name: "ZK Attendance",
+    name: "ZK Attendance (POST)",
     endpoint: "https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/api-zk-attendance",
     method: "POST",
     description: "Receive attendance data from ZK time attendance machines. Requires x-api-key header with ZK Attendance permission enabled.",
@@ -170,6 +170,16 @@ const API_ENDPOINTS = [
       { name: "records[].date", type: "Text", required: true, note: "Date in YYYY-MM-DD format" },
       { name: "records[].time", type: "Text", required: true, note: "Time in HH:MM or HH:MM:SS format" },
       { name: "records[].record_type", type: "Text", required: false, note: "entry/exit/unknown" },
+    ],
+  },
+  {
+    id: "zkattendance-get",
+    name: "ZK Attendance (GET)",
+    endpoint: "https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/api-zk-attendance",
+    method: "GET",
+    description: "Get the latest attendance record date and time. Use this to determine what data to send next (send records newer than the returned date/time). Requires x-api-key header with ZK Attendance permission enabled.",
+    fields: [
+      { name: "x-api-key", type: "Header", required: true, note: "API Key with ZK Attendance permission" },
     ],
   },
 ];
