@@ -26,6 +26,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 
 interface SoldProduct {
   brand_name: string;
@@ -62,6 +63,7 @@ const SoldProductReport = () => {
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const [reportData, setReportData] = useState<SoldProduct[]>([]);
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
   const [productSearchQuery, setProductSearchQuery] = useState("");
@@ -163,45 +165,87 @@ const SoldProductReport = () => {
     }
 
     setLoading(true);
+    setLoadingProgress({ loaded: 0, total: 0 });
+    
     try {
-      let query = supabase
+      const BATCH_SIZE = 1000;
+      let allData: SoldProduct[] = [];
+      let offset = 0;
+      let hasMore = true;
+      
+      // First, get the count
+      let countQuery = supabase
         .from("purpletransaction")
-        .select("brand_name, product_name, unit_price, qty, total")
+        .select("*", { count: "exact", head: true })
         .gte("created_at_date", dateFrom)
         .lte("created_at_date", dateTo)
         .neq("is_deleted", true);
 
       if (selectedBrands.length > 0) {
-        query = query.in("brand_name", selectedBrands);
+        countQuery = countQuery.in("brand_name", selectedBrands);
       }
-
       if (selectedProducts.length > 0) {
-        query = query.in("product_name", selectedProducts);
+        countQuery = countQuery.in("product_name", selectedProducts);
       }
-
       if (selectedPaymentMethods.length > 0) {
-        query = query.in("payment_method", selectedPaymentMethods);
+        countQuery = countQuery.in("payment_method", selectedPaymentMethods);
       }
 
-      const { data, error } = await query.order("brand_name").order("product_name");
+      const { count, error: countError } = await countQuery;
+      if (countError) throw countError;
+      
+      const totalRecords = count || 0;
+      setLoadingProgress({ loaded: 0, total: totalRecords });
 
-      if (error) throw error;
+      // Fetch data in batches
+      while (hasMore) {
+        let query = supabase
+          .from("purpletransaction")
+          .select("brand_name, product_name, unit_price, qty, total")
+          .gte("created_at_date", dateFrom)
+          .lte("created_at_date", dateTo)
+          .neq("is_deleted", true)
+          .order("brand_name")
+          .order("product_name")
+          .range(offset, offset + BATCH_SIZE - 1);
 
-      const processedData: SoldProduct[] = (data || []).map((item) => ({
-        brand_name: item.brand_name || "",
-        product_name: item.product_name || "",
-        unit_price: parseFloat(String(item.unit_price || 0).replace(/,/g, "")) || 0,
-        qty: parseFloat(String(item.qty || 0).replace(/,/g, "")) || 0,
-        total: parseFloat(String(item.total || 0).replace(/,/g, "")) || 0,
-      }));
+        if (selectedBrands.length > 0) {
+          query = query.in("brand_name", selectedBrands);
+        }
+        if (selectedProducts.length > 0) {
+          query = query.in("product_name", selectedProducts);
+        }
+        if (selectedPaymentMethods.length > 0) {
+          query = query.in("payment_method", selectedPaymentMethods);
+        }
 
-      setReportData(processedData);
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const batchData: SoldProduct[] = (data || []).map((item) => ({
+          brand_name: item.brand_name || "",
+          product_name: item.product_name || "",
+          unit_price: parseFloat(String(item.unit_price || 0).replace(/,/g, "")) || 0,
+          qty: parseFloat(String(item.qty || 0).replace(/,/g, "")) || 0,
+          total: parseFloat(String(item.total || 0).replace(/,/g, "")) || 0,
+        }));
+
+        allData = [...allData, ...batchData];
+        offset += BATCH_SIZE;
+        
+        setLoadingProgress({ loaded: allData.length, total: totalRecords });
+
+        // Check if we got less than batch size (no more data)
+        hasMore = (data?.length || 0) === BATCH_SIZE;
+      }
+
+      setReportData(allData);
 
       toast({
         title: isRTL ? "تم" : "Success",
         description: isRTL
-          ? `تم تحميل ${processedData.length} سجل`
-          : `Loaded ${processedData.length} records`,
+          ? `تم تحميل ${allData.length} سجل`
+          : `Loaded ${allData.length} records`,
       });
     } catch (error: any) {
       console.error("Error fetching report:", error);
@@ -212,6 +256,7 @@ const SoldProductReport = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingProgress({ loaded: 0, total: 0 });
     }
   };
 
@@ -576,7 +621,25 @@ const SoldProductReport = () => {
             </div>
           </div>
 
-          {reportData.length > 0 && (
+          {/* Loading Progress */}
+          {loading && loadingProgress.total > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>
+                  {isRTL ? "جاري التحميل..." : "Loading..."}
+                </span>
+                <span>
+                  {loadingProgress.loaded.toLocaleString()} / {loadingProgress.total.toLocaleString()} {isRTL ? "سجل" : "records"}
+                </span>
+              </div>
+              <Progress 
+                value={(loadingProgress.loaded / loadingProgress.total) * 100} 
+                className="h-2"
+              />
+            </div>
+          )}
+
+          {reportData.length > 0 && !loading && (
             <div className="mt-4">
               <Input
                 placeholder={isRTL ? "بحث في النتائج..." : "Search results..."}
