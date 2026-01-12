@@ -101,18 +101,13 @@ const SoldProductReport = () => {
     },
   });
 
-  // Fetch payment methods using distinct
+  // Fetch payment methods using RPC function for efficiency
   const { data: paymentMethods = [] } = useQuery({
     queryKey: ["payment-methods-for-report"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("purpletransaction")
-        .select("payment_method")
-        .neq("payment_method", null);
+      const { data, error } = await supabase.rpc("get_distinct_payment_methods");
       if (error) throw error;
-      // Get unique payment methods from all records
-      const unique = [...new Set((data || []).map(d => d.payment_method).filter(Boolean))];
-      return unique.sort() as string[];
+      return (data || []).map((d: { payment_method: string }) => d.payment_method);
     },
   });
 
