@@ -101,18 +101,18 @@ const SoldProductReport = () => {
     },
   });
 
-  // Fetch payment methods
+  // Fetch payment methods (payment_brand for more detailed info)
   const { data: paymentMethods = [] } = useQuery({
     queryKey: ["payment-methods-for-report"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purpletransaction")
-        .select("payment_method")
-        .neq("payment_method", null)
+        .select("payment_brand")
+        .neq("payment_brand", null)
         .limit(1000);
       if (error) throw error;
-      // Get unique payment methods
-      const unique = [...new Set((data || []).map(d => d.payment_method).filter(Boolean))];
+      // Get unique payment brands
+      const unique = [...new Set((data || []).map(d => d.payment_brand).filter(Boolean))];
       return unique.sort() as string[];
     },
   });
@@ -184,7 +184,7 @@ const SoldProductReport = () => {
       }
 
       if (selectedPaymentMethods.length > 0) {
-        query = query.in("payment_method", selectedPaymentMethods);
+        query = query.in("payment_brand", selectedPaymentMethods);
       }
 
       const { data, error } = await query.order("brand_name").order("product_name");
