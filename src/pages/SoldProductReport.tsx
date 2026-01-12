@@ -34,6 +34,8 @@ interface SoldProduct {
   unit_price: number;
   qty: number;
   total: number;
+  cost_price: number;
+  cost_total: number;
 }
 
 interface ProductSummary {
@@ -42,12 +44,15 @@ interface ProductSummary {
   total_qty: number;
   total_value: number;
   avg_unit_price: number;
+  avg_cost_price: number;
+  total_cost: number;
 }
 
 interface BrandTotal {
   brand_name: string;
   total_qty: number;
   total_value: number;
+  total_cost: number;
 }
 
 const SoldProductReport = () => {
@@ -201,7 +206,7 @@ const SoldProductReport = () => {
       while (hasMore) {
         let query = supabase
           .from("purpletransaction")
-          .select("brand_name, product_name, unit_price, qty, total")
+          .select("brand_name, product_name, unit_price, qty, total, cost_price")
           .gte("created_at_date", dateFrom)
           .lte("created_at_date", dateTo)
           .neq("is_deleted", true)
@@ -222,13 +227,19 @@ const SoldProductReport = () => {
         const { data, error } = await query;
         if (error) throw error;
 
-        const batchData: SoldProduct[] = (data || []).map((item) => ({
-          brand_name: item.brand_name || "",
-          product_name: item.product_name || "",
-          unit_price: parseFloat(String(item.unit_price || 0).replace(/,/g, "")) || 0,
-          qty: parseFloat(String(item.qty || 0).replace(/,/g, "")) || 0,
-          total: parseFloat(String(item.total || 0).replace(/,/g, "")) || 0,
-        }));
+        const batchData: SoldProduct[] = (data || []).map((item) => {
+          const qty = parseFloat(String(item.qty || 0).replace(/,/g, "")) || 0;
+          const costPrice = parseFloat(String(item.cost_price || 0).replace(/,/g, "")) || 0;
+          return {
+            brand_name: item.brand_name || "",
+            product_name: item.product_name || "",
+            unit_price: parseFloat(String(item.unit_price || 0).replace(/,/g, "")) || 0,
+            qty: qty,
+            total: parseFloat(String(item.total || 0).replace(/,/g, "")) || 0,
+            cost_price: costPrice,
+            cost_total: qty * costPrice,
+          };
+        });
 
         allData = [...allData, ...batchData];
         offset += BATCH_SIZE;
@@ -284,16 +295,22 @@ const SoldProductReport = () => {
           total_qty: 0,
           total_value: 0,
           avg_unit_price: 0,
+          avg_cost_price: 0,
+          total_cost: 0,
         };
       }
       summaryMap[key].total_qty += item.qty;
       summaryMap[key].total_value += item.total;
+      summaryMap[key].total_cost += item.cost_total;
     });
 
-    // Calculate average unit price
+    // Calculate average unit price and average cost price
     Object.values(summaryMap).forEach((summary) => {
       summary.avg_unit_price = summary.total_qty > 0 
         ? summary.total_value / summary.total_qty 
+        : 0;
+      summary.avg_cost_price = summary.total_qty > 0 
+        ? summary.total_cost / summary.total_qty 
         : 0;
     });
 
@@ -322,6 +339,7 @@ const SoldProductReport = () => {
       brand_name,
       total_qty: items.reduce((sum, item) => sum + item.total_qty, 0),
       total_value: items.reduce((sum, item) => sum + item.total_value, 0),
+      total_cost: items.reduce((sum, item) => sum + item.total_cost, 0),
     }));
   }, [groupedData]);
 
@@ -330,6 +348,7 @@ const SoldProductReport = () => {
     return {
       qty: brandTotals.reduce((sum, bt) => sum + bt.total_qty, 0),
       value: brandTotals.reduce((sum, bt) => sum + bt.total_value, 0),
+      cost: brandTotals.reduce((sum, bt) => sum + bt.total_cost, 0),
     };
   }, [brandTotals]);
 
@@ -351,6 +370,8 @@ const SoldProductReport = () => {
           [isRTL ? "متوسط سعر الوحدة" : "Avg Unit Price"]: item.avg_unit_price,
           [isRTL ? "الكمية" : "Qty"]: item.total_qty,
           [isRTL ? "الإجمالي" : "Total"]: item.total_value,
+          [isRTL ? "تكلفة الوحدة" : "Unit Cost"]: item.avg_cost_price,
+          [isRTL ? "إجمالي التكلفة" : "Total Cost"]: item.total_cost,
         });
       });
 
@@ -362,6 +383,8 @@ const SoldProductReport = () => {
           [isRTL ? "سعر الوحدة" : "Unit Price"]: "",
           [isRTL ? "الكمية" : "Qty"]: brandTotal.total_qty,
           [isRTL ? "الإجمالي" : "Total"]: brandTotal.total_value,
+          [isRTL ? "تكلفة الوحدة" : "Unit Cost"]: "",
+          [isRTL ? "إجمالي التكلفة" : "Total Cost"]: brandTotal.total_cost,
         });
       }
     });
@@ -372,6 +395,8 @@ const SoldProductReport = () => {
       [isRTL ? "سعر الوحدة" : "Unit Price"]: "",
       [isRTL ? "الكمية" : "Qty"]: grandTotals.qty,
       [isRTL ? "الإجمالي" : "Total"]: grandTotals.value,
+      [isRTL ? "تكلفة الوحدة" : "Unit Cost"]: "",
+      [isRTL ? "إجمالي التكلفة" : "Total Cost"]: grandTotals.cost,
     });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -698,6 +723,12 @@ const SoldProductReport = () => {
                     <TableHead className="print:border-none text-end font-bold">
                       {isRTL ? "الإجمالي" : "Total"}
                     </TableHead>
+                    <TableHead className="print:border-none text-end font-bold">
+                      {isRTL ? "تكلفة الوحدة" : "Unit Cost"}
+                    </TableHead>
+                    <TableHead className="print:border-none text-end font-bold">
+                      {isRTL ? "إجمالي التكلفة" : "Total Cost"}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -727,6 +758,12 @@ const SoldProductReport = () => {
                             <TableCell className="print:border-none text-end">
                               {formatCurrency(item.total_value)}
                             </TableCell>
+                            <TableCell className="print:border-none text-end">
+                              {formatCurrency(item.avg_cost_price)}
+                            </TableCell>
+                            <TableCell className="print:border-none text-end">
+                              {formatCurrency(item.total_cost)}
+                            </TableCell>
                           </TableRow>
                         ))}
                         {/* Brand Total Row */}
@@ -739,6 +776,12 @@ const SoldProductReport = () => {
                           </TableCell>
                           <TableCell className="print:border-none text-end font-bold">
                             {formatCurrency(brandTotal?.total_value || 0)}
+                          </TableCell>
+                          <TableCell className="print:border-none text-end font-bold">
+                            -
+                          </TableCell>
+                          <TableCell className="print:border-none text-end font-bold">
+                            {formatCurrency(brandTotal?.total_cost || 0)}
                           </TableCell>
                         </TableRow>
                       </>
@@ -754,6 +797,12 @@ const SoldProductReport = () => {
                     </TableCell>
                     <TableCell className="print:border-none text-end font-bold">
                       {formatCurrency(grandTotals.value)}
+                    </TableCell>
+                    <TableCell className="print:border-none text-end font-bold">
+                      -
+                    </TableCell>
+                    <TableCell className="print:border-none text-end font-bold">
+                      {formatCurrency(grandTotals.cost)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
