@@ -678,7 +678,9 @@ export default function EmployeeProfile() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
                   <span className="text-muted-foreground">{language === "ar" ? "الرصيد المتبقي" : "Remaining Balance"}</span>
-                  <span className="font-bold text-primary">{employee.vacation_balance || 0} {language === "ar" ? "يوم" : "days"}</span>
+                  <span className="font-bold text-primary">
+                    {employeeVacationTypes.reduce((total, evt) => total + (evt.balance || 0) - (evt.used_days || 0), 0)} {language === "ar" ? "يوم" : "days"}
+                  </span>
                 </div>
               </CardContent>
             </Card>
