@@ -101,42 +101,18 @@ const SoldProductReport = () => {
     },
   });
 
-  // Fetch payment methods - use multiple queries to get all unique values
+  // Fetch payment methods using distinct
   const { data: paymentMethods = [] } = useQuery({
     queryKey: ["payment-methods-for-report"],
     queryFn: async () => {
-      // Fetch distinct payment methods by querying with different filters
-      const allPaymentMethods = new Set<string>();
-      
-      // Query for each potential payment method type to ensure we get all
-      const knownMethods = ['hyperpay', 'salla', 'cod', 'ecom_payment', 'point'];
-      
-      for (const method of knownMethods) {
-        const { data } = await supabase
-          .from("purpletransaction")
-          .select("payment_method")
-          .eq("payment_method", method)
-          .limit(1);
-        if (data && data.length > 0 && data[0].payment_method) {
-          allPaymentMethods.add(data[0].payment_method);
-        }
-      }
-      
-      // Also fetch any other payment methods not in the known list
-      const { data: otherData } = await supabase
+      const { data, error } = await supabase
         .from("purpletransaction")
         .select("payment_method")
-        .not("payment_method", "in", `(${knownMethods.join(",")})`)
-        .neq("payment_method", null)
-        .limit(100);
-      
-      if (otherData) {
-        otherData.forEach(d => {
-          if (d.payment_method) allPaymentMethods.add(d.payment_method);
-        });
-      }
-      
-      return Array.from(allPaymentMethods).sort();
+        .neq("payment_method", null);
+      if (error) throw error;
+      // Get unique payment methods from all records
+      const unique = [...new Set((data || []).map(d => d.payment_method).filter(Boolean))];
+      return unique.sort() as string[];
     },
   });
 
