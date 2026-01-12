@@ -101,23 +101,15 @@ const SoldProductReport = () => {
     },
   });
 
-  // Fetch distinct payment methods from purpletransaction
+  // Fetch distinct payment methods using database function
   const { data: paymentMethods = [] } = useQuery({
     queryKey: ["payment-methods-for-report"],
     queryFn: async () => {
-      // Fetch with a limit high enough to capture all distinct values
-      // by sampling from different parts of the table
-      const { data, error } = await supabase
-        .from("purpletransaction")
-        .select("payment_method")
-        .not("payment_method", "is", null)
-        .limit(50000);
+      const { data, error } = await supabase.rpc("get_distinct_payment_methods");
       
       if (error) throw error;
       
-      // Get distinct values
-      const uniqueMethods = [...new Set((data || []).map(d => d.payment_method).filter(Boolean))] as string[];
-      return uniqueMethods.sort();
+      return (data || []).map((d: { payment_method: string }) => d.payment_method);
     },
   });
 
