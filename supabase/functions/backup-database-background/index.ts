@@ -310,6 +310,22 @@ async function fetchAllTableRows(supabase: any, tableName: string): Promise<unkn
   return allRows;
 }
 
+// Check if force_kill is set
+async function checkForceKill(supabase: any, backupId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('system_backups')
+    .select('force_kill')
+    .eq('id', backupId)
+    .single();
+  
+  if (error) {
+    console.log(`[Background Backup] Error checking force_kill: ${error.message}`);
+    return false;
+  }
+  
+  return data?.force_kill === true;
+}
+
 // Background backup task - creates BOTH structure and data backups
 async function runBackupTask(structureBackupId: string, dataBackupId: string, userId: string | null, isScheduled: boolean) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -417,6 +433,20 @@ async function runBackupTask(structureBackupId: string, dataBackupId: string, us
 
     console.log(`[Background Backup] Found ${tableNames.length} tables, ${totalRowsExpected} total rows`);
 
+    // Check force_kill before starting data export
+    if (await checkForceKill(supabase, dataBackupId) || await checkForceKill(supabase, structureBackupId)) {
+      console.log('[Background Backup] Force kill detected before data export');
+      await supabase
+        .from('system_backups')
+        .update({
+          status: 'failed',
+          progress_phase: 'stopped',
+          error_message: 'Backup was force stopped by user'
+        })
+        .in('id', [structureBackupId, dataBackupId]);
+      return;
+    }
+
     // Build SQL content - fetch ALL rows from each table using proper pagination
     const sqlParts: string[] = [];
     
@@ -459,8 +489,22 @@ async function runBackupTask(structureBackupId: string, dataBackupId: string, us
 
       tablesProcessed++;
 
-      // Update progress every 3 tables
+      // Update progress every 3 tables and check for force_kill
       if (tablesProcessed % 3 === 0 || tablesProcessed === tableNames.length) {
+        // Check for force_kill
+        if (await checkForceKill(supabase, dataBackupId) || await checkForceKill(supabase, structureBackupId)) {
+          console.log(`[Background Backup] Force kill detected at table ${tablesProcessed}/${tableNames.length}`);
+          await supabase
+            .from('system_backups')
+            .update({
+              status: 'failed',
+              progress_phase: 'stopped',
+              error_message: 'Backup was force stopped by user'
+            })
+            .in('id', [structureBackupId, dataBackupId]);
+          return;
+        }
+
         const progressPercent = Math.min(90, Math.floor((rowsProcessed / Math.max(1, totalRowsExpected)) * 85) + 5);
         await supabase
           .from('system_backups')

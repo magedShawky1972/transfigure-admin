@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle, RefreshCw, Trash2, Clock, HardDrive, Play, Calendar, Settings } from "lucide-react";
+import { Download, Database, FileText, Loader2, CheckCircle2, AlertCircle, RefreshCw, Trash2, Clock, HardDrive, Play, Calendar, Settings, StopCircle } from "lucide-react";
 import { BackupProgressDialog } from "@/components/BackupProgressDialog";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -102,6 +102,7 @@ const SystemBackup = () => {
   const [schedule, setSchedule] = useState<BackupSchedule | null>(null);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [forceStoppingBackup, setForceStoppingBackup] = useState(false);
 
   // Check for active background backups on mount
   const checkActiveBackups = async () => {
@@ -303,6 +304,37 @@ const SystemBackup = () => {
       toast.error(isRTL ? 'خطأ في بدء النسخ الاحتياطي' : 'Error starting backup');
     } finally {
       setStartingBackgroundBackup(false);
+    }
+  };
+
+  const handleForceStopBackup = async () => {
+    if (!pollingBackupIds.structure && !pollingBackupIds.data) return;
+    
+    setForceStoppingBackup(true);
+    try {
+      const idsToUpdate = [pollingBackupIds.structure, pollingBackupIds.data].filter(Boolean) as string[];
+      
+      // Set force_kill flag on both backup records
+      const { error } = await supabase
+        .from('system_backups')
+        .update({ force_kill: true } as any)
+        .in('id', idsToUpdate);
+
+      if (error) throw error;
+
+      toast.success(isRTL ? 'تم إرسال طلب إيقاف النسخ الاحتياطي' : 'Backup stop request sent');
+      
+      // Clear polling immediately - the backup will update itself
+      setTimeout(() => {
+        setPollingBackupIds({ structure: null, data: null });
+        setBackgroundProgress(null);
+        fetchBackupHistory();
+      }, 2000);
+    } catch (error) {
+      console.error('Error force stopping backup:', error);
+      toast.error(isRTL ? 'خطأ في إيقاف النسخ الاحتياطي' : 'Error stopping backup');
+    } finally {
+      setForceStoppingBackup(false);
     }
   };
 
@@ -1517,9 +1549,24 @@ const SystemBackup = () => {
                   )}
                 </div>
                 
-                <p className="text-xs text-center text-muted-foreground">
-                  {isRTL ? 'يمكنك إغلاق هذه الصفحة' : 'You can close this page'}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {isRTL ? 'يمكنك إغلاق هذه الصفحة' : 'You can close this page'}
+                  </p>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleForceStopBackup}
+                    disabled={forceStoppingBackup}
+                  >
+                    {forceStoppingBackup ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <StopCircle className="h-4 w-4 mr-2" />
+                    )}
+                    {isRTL ? 'إيقاف' : 'Force Stop'}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -1640,12 +1687,27 @@ const SystemBackup = () => {
                       </div>
                       <Progress value={backgroundProgress.dataProgress} className="h-2" />
                     </div>
-                    <p className="text-xs text-center text-muted-foreground">
-                      {isRTL 
-                        ? 'يمكنك إغلاق هذه الصفحة. سيظهر النسخ في السجل عند الانتهاء.'
-                        : 'You can close this page. Backup will appear in history when complete.'
-                      }
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {isRTL 
+                          ? 'يمكنك إغلاق هذه الصفحة. سيظهر النسخ في السجل عند الانتهاء.'
+                          : 'You can close this page. Backup will appear in history when complete.'
+                        }
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleForceStopBackup}
+                        disabled={forceStoppingBackup}
+                      >
+                        {forceStoppingBackup ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <StopCircle className="h-4 w-4 mr-2" />
+                        )}
+                        {isRTL ? 'إيقاف' : 'Force Stop'}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
