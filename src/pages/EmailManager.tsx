@@ -182,6 +182,8 @@ const EmailManager = () => {
   const [isEmailMaximized, setIsEmailMaximized] = useState(false);
   // reload body
   const [reloadingBodyId, setReloadingBodyId] = useState<string | null>(null);
+  // loading body on select
+  const [loadingBodyId, setLoadingBodyId] = useState<string | null>(null);
   // Compose dialog
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState({
@@ -928,6 +930,9 @@ const EmailManager = () => {
     if (!userConfig?.mail_type || !userConfig.email_password) return;
     if (email.body_html || email.body_text) return;
 
+    // Set loading state
+    setLoadingBodyId(email.id);
+    
     try {
       const folder = activeTab === "sent" ? "INBOX.Sent" : "INBOX";
       const { data, error } = await supabase.functions.invoke("fetch-email-body-imap", {
@@ -945,11 +950,8 @@ const EmailManager = () => {
       if (error) throw error;
 
       if (data?.success && data?.hasBody === false) {
-        toast.error(
-          isArabic
-            ? "لم يتم العثور على محتوى داخل البريد (Body فارغ أو غير قابل للاستخراج)."
-            : "No email body found (empty or could not be parsed)."
-        );
+        // Don't show toast, just let UI show the empty state with retry button
+        console.log("No email body found for:", email.id);
       }
 
       // Refresh selected email from DB
@@ -973,6 +975,8 @@ const EmailManager = () => {
       }
     } catch (e) {
       console.error("Body lazy-load failed:", e);
+    } finally {
+      setLoadingBodyId(null);
     }
   };
 
@@ -1563,14 +1567,32 @@ const EmailManager = () => {
                     </div>
                   ) : (
                     <ScrollArea className="h-full">
-                      {selectedEmail.body_text ? (
+                      {loadingBodyId === selectedEmail.id ? (
+                        <div className="flex flex-col items-center justify-center h-32 gap-2">
+                          <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                          <p className="text-muted-foreground text-sm">
+                            {isArabic ? "جارٍ تحميل المحتوى..." : "Loading content..."}
+                          </p>
+                        </div>
+                      ) : selectedEmail.body_text ? (
                         <pre className="whitespace-pre-wrap text-sm font-sans">
                           {decodeMimeWord(selectedEmail.body_text)}
                         </pre>
                       ) : (
-                        <p className="text-muted-foreground text-sm">
-                          {isArabic ? "لا يوجد محتوى" : "No content available"}
-                        </p>
+                        <div className="flex flex-col items-center justify-center h-32 gap-3">
+                          <p className="text-muted-foreground text-sm">
+                            {isArabic ? "لا يوجد محتوى" : "No content available"}
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => handleReloadBody(selectedEmail, e)}
+                            disabled={reloadingBodyId === selectedEmail.id}
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${reloadingBodyId === selectedEmail.id ? "animate-spin" : ""}`} />
+                            {isArabic ? "إعادة تحميل" : "Reload"}
+                          </Button>
+                        </div>
                       )}
                     </ScrollArea>
                   )}
