@@ -125,26 +125,37 @@ export const EmailRecipientSelector = ({ label, value, onChange, isAdmin }: Prop
 
       if (groupsError) throw groupsError;
 
-      // Fetch group members
-      const groupsWithMembers: UserGroup[] = [];
-      for (const group of groupsData || []) {
-        const { data: members } = await supabase
-          .from("user_group_members")
-          .select(`
-            user_id,
-            profiles!inner(email, user_name)
-          `)
-          .eq("group_id", group.id);
+      // Fetch all group members at once
+      const { data: allMembers } = await supabase
+        .from("user_group_members")
+        .select("group_id, user_id");
 
-        groupsWithMembers.push({
-          ...group,
-          members: (members || []).map((m: any) => ({
-            user_id: m.user_id,
-            email: m.profiles.email,
-            user_name: m.profiles.user_name,
-          })),
-        });
-      }
+      // Get all profiles for members
+      const memberUserIds = [...new Set((allMembers || []).map(m => m.user_id))];
+      const { data: memberProfiles } = await supabase
+        .from("profiles")
+        .select("user_id, email, user_name")
+        .in("user_id", memberUserIds);
+
+      // Create a map for quick profile lookup
+      const profileMap = new Map((memberProfiles || []).map(p => [p.user_id, p]));
+
+      // Build groups with members
+      const groupsWithMembers: UserGroup[] = (groupsData || []).map(group => {
+        const groupMembers = (allMembers || [])
+          .filter(m => m.group_id === group.id)
+          .map(m => {
+            const profile = profileMap.get(m.user_id);
+            return profile ? {
+              user_id: m.user_id,
+              email: profile.email,
+              user_name: profile.user_name,
+            } : null;
+          })
+          .filter(Boolean) as { user_id: string; email: string; user_name: string }[];
+
+        return { ...group, members: groupMembers };
+      });
       setUserGroups(groupsWithMembers);
     } catch (error) {
       console.error("Error fetching data:", error);
