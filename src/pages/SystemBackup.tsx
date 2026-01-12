@@ -1258,11 +1258,16 @@ const SystemBackup = () => {
   const handleDeleteBackup = async (backup: BackupRecord) => {
     setDeletingId(backup.id);
     try {
-      // Delete from storage first (if exists)
-      if (backup.status === 'completed') {
-        await supabase.storage
+      // Delete from storage first (if exists and completed)
+      if (backup.status === 'completed' && backup.file_path) {
+        const { error: storageError } = await supabase.storage
           .from('system-backups')
           .remove([backup.file_path]);
+        
+        if (storageError) {
+          console.error('Storage delete error:', storageError);
+          // Continue to delete database record even if storage delete fails
+        }
       }
 
       // Delete record from database
@@ -1271,7 +1276,10 @@ const SystemBackup = () => {
         .delete()
         .eq('id', backup.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database delete error:', error);
+        throw error;
+      }
 
       toast.success(isRTL ? 'تم حذف النسخة الاحتياطية' : 'Backup deleted');
       fetchBackupHistory();
