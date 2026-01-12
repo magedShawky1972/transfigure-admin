@@ -59,11 +59,13 @@ const SoldProductReport = () => {
   const [dateTo, setDateTo] = useState("");
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<SoldProduct[]>([]);
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
   const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [paymentMethodSearchQuery, setPaymentMethodSearchQuery] = useState("");
 
   // Fetch brands
   const { data: brands = [] } = useQuery({
@@ -99,6 +101,22 @@ const SoldProductReport = () => {
     },
   });
 
+  // Fetch payment methods
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ["payment-methods-for-report"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purpletransaction")
+        .select("payment_method")
+        .neq("payment_method", null)
+        .limit(1000);
+      if (error) throw error;
+      // Get unique payment methods
+      const unique = [...new Set((data || []).map(d => d.payment_method).filter(Boolean))];
+      return unique.sort() as string[];
+    },
+  });
+
   // Reset product selection when brands change
   const handleBrandToggle = (brandName: string) => {
     setSelectedBrands((prev) =>
@@ -126,6 +144,18 @@ const SoldProductReport = () => {
     setSelectedProducts([]);
   };
 
+  const handlePaymentMethodToggle = (method: string) => {
+    setSelectedPaymentMethods((prev) =>
+      prev.includes(method)
+        ? prev.filter((m) => m !== method)
+        : [...prev, method]
+    );
+  };
+
+  const clearPaymentMethods = () => {
+    setSelectedPaymentMethods([]);
+  };
+
   const fetchReportData = async () => {
     if (!dateFrom || !dateTo) {
       toast({
@@ -151,6 +181,10 @@ const SoldProductReport = () => {
 
       if (selectedProducts.length > 0) {
         query = query.in("product_name", selectedProducts);
+      }
+
+      if (selectedPaymentMethods.length > 0) {
+        query = query.in("payment_method", selectedPaymentMethods);
       }
 
       const { data, error } = await query.order("brand_name").order("product_name");
@@ -348,7 +382,7 @@ const SoldProductReport = () => {
           <CardTitle>{isRTL ? "الفلاتر" : "Filters"}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div className="space-y-2">
               <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
               <Input
@@ -469,6 +503,62 @@ const SoldProductReport = () => {
                   {selectedProducts.length > 0 && (
                     <div className="p-2 border-t">
                       <Button variant="ghost" size="sm" onClick={clearProducts} className="w-full">
+                        <X className="h-4 w-4 me-2" />
+                        {isRTL ? "مسح الكل" : "Clear All"}
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "طريقة الدفع" : "Payment Method"}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="truncate">
+                      {selectedPaymentMethods.length === 0
+                        ? (isRTL ? "الكل" : "All")
+                        : selectedPaymentMethods.length === 1
+                        ? selectedPaymentMethods[0]
+                        : `${selectedPaymentMethods.length} ${isRTL ? "محدد" : "selected"}`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0 bg-popover border" align="start">
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder={isRTL ? "بحث..." : "Search..."}
+                      value={paymentMethodSearchQuery}
+                      onChange={(e) => setPaymentMethodSearchQuery(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <ScrollArea className="h-48">
+                    <div className="p-2 space-y-1">
+                      {paymentMethods
+                        .filter((method) =>
+                          method.toLowerCase().includes(paymentMethodSearchQuery.toLowerCase())
+                        )
+                        .map((method) => (
+                          <div
+                            key={method}
+                            className="flex items-center space-x-2 rtl:space-x-reverse p-2 hover:bg-muted rounded cursor-pointer"
+                            onClick={() => handlePaymentMethodToggle(method)}
+                          >
+                            <Checkbox
+                              checked={selectedPaymentMethods.includes(method)}
+                              onCheckedChange={() => handlePaymentMethodToggle(method)}
+                            />
+                            <span className="text-sm">{method}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+                  {selectedPaymentMethods.length > 0 && (
+                    <div className="p-2 border-t">
+                      <Button variant="ghost" size="sm" onClick={clearPaymentMethods} className="w-full">
                         <X className="h-4 w-4 me-2" />
                         {isRTL ? "مسح الكل" : "Clear All"}
                       </Button>
