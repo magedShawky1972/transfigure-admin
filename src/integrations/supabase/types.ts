@@ -4084,6 +4084,7 @@ export type Database = {
           file_name: string
           file_path: string
           file_size: number | null
+          force_kill: boolean | null
           id: string
           parent_backup_id: string | null
           progress_percent: number | null
@@ -4103,6 +4104,7 @@ export type Database = {
           file_name: string
           file_path: string
           file_size?: number | null
+          force_kill?: boolean | null
           id?: string
           parent_backup_id?: string | null
           progress_percent?: number | null
@@ -4122,6 +4124,7 @@ export type Database = {
           file_name?: string
           file_path?: string
           file_size?: number | null
+          force_kill?: boolean | null
           id?: string
           parent_backup_id?: string | null
           progress_percent?: number | null
