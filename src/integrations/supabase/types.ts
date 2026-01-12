@@ -5598,12 +5598,6 @@ export type Database = {
           function_name: string
         }[]
       }
-      get_distinct_payment_methods: {
-        Args: never
-        Returns: {
-          payment_method: string
-        }[]
-      }
       get_email_config_password: {
         Args: { config_id: string }
         Returns: string

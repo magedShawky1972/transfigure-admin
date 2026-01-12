@@ -125,37 +125,26 @@ export const EmailRecipientSelector = ({ label, value, onChange, isAdmin }: Prop
 
       if (groupsError) throw groupsError;
 
-      // Fetch all group members
-      const { data: allMembers, error: membersError } = await supabase
-        .from("user_group_members")
-        .select("group_id, user_id");
+      // Fetch group members
+      const groupsWithMembers: UserGroup[] = [];
+      for (const group of groupsData || []) {
+        const { data: members } = await supabase
+          .from("user_group_members")
+          .select(`
+            user_id,
+            profiles!inner(email, user_name)
+          `)
+          .eq("group_id", group.id);
 
-      if (membersError) throw membersError;
-
-      // Map members to their profiles (use the already fetched users)
-      const userMap = new Map((users || []).map(u => [u.user_id, u]));
-
-      // Build groups with members
-      const groupsWithMembers: UserGroup[] = (groupsData || []).map(group => {
-        const groupMemberUserIds = (allMembers || [])
-          .filter(m => m.group_id === group.id)
-          .map(m => m.user_id);
-
-        const members = groupMemberUserIds
-          .map(userId => userMap.get(userId))
-          .filter((u): u is CompanyUser => !!u)
-          .map(u => ({
-            user_id: u.user_id,
-            email: u.email,
-            user_name: u.user_name,
-          }));
-
-        return {
+        groupsWithMembers.push({
           ...group,
-          members,
-        };
-      });
-
+          members: (members || []).map((m: any) => ({
+            user_id: m.user_id,
+            email: m.profiles.email,
+            user_name: m.profiles.user_name,
+          })),
+        });
+      }
       setUserGroups(groupsWithMembers);
     } catch (error) {
       console.error("Error fetching data:", error);
