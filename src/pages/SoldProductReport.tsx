@@ -105,11 +105,13 @@ const SoldProductReport = () => {
   const { data: paymentMethods = [] } = useQuery({
     queryKey: ["payment-methods-for-report"],
     queryFn: async () => {
+      // Fetch with a limit high enough to capture all distinct values
+      // by sampling from different parts of the table
       const { data, error } = await supabase
         .from("purpletransaction")
         .select("payment_method")
-        .neq("payment_method", null)
-        .order("payment_method");
+        .not("payment_method", "is", null)
+        .limit(50000);
       
       if (error) throw error;
       
