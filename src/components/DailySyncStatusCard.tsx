@@ -237,6 +237,14 @@ export const DailySyncStatusCard = () => {
 
   const dayStatuses = activeJob.day_statuses ? Object.values(activeJob.day_statuses) : [];
 
+  const currentDayStatus = activeJob.current_day ? (activeJob.day_statuses?.[activeJob.current_day] as any) : null;
+  const currentDayTotal = Number(currentDayStatus?.total_orders || 0);
+  const currentDayDone =
+    Number(currentDayStatus?.successful_orders || 0) +
+    Number(currentDayStatus?.failed_orders || 0) +
+    Number(currentDayStatus?.skipped_orders || 0);
+  const currentDayProgress = currentDayTotal > 0 ? Math.round((currentDayDone / currentDayTotal) * 100) : 0;
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
@@ -353,10 +361,19 @@ export const DailySyncStatusCard = () => {
                 </span>
                 <span>{progress}%</span>
               </div>
+
               {activeJob.current_day && isRunning && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {language === 'ar' ? 'اليوم الحالي: ' : 'Current day: '}
-                  {activeJob.current_day}
+                <div className="mt-2 rounded-md border bg-background/40 p-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {language === 'ar' ? 'اليوم الحالي: ' : 'Current day: '}
+                      <span className="font-medium text-foreground">{activeJob.current_day}</span>
+                    </span>
+                    <span className="tabular-nums">
+                      {currentDayDone}/{currentDayTotal}
+                    </span>
+                  </div>
+                  <Progress value={currentDayProgress} className="h-2 mt-2" />
                 </div>
               )}
             </>
@@ -445,6 +462,7 @@ export const DailySyncStatusCard = () => {
                   <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                   <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
+                  <TableHead className="text-center">{language === 'ar' ? 'التقدم' : 'Progress'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'نجح' : 'Success'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'فشل' : 'Failed'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'تخطي' : 'Skipped'}</TableHead>
@@ -453,26 +471,45 @@ export const DailySyncStatusCard = () => {
               <TableBody>
                 {dayStatuses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       {language === 'ar' ? 'لا توجد بيانات' : 'No data available'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  dayStatuses.sort((a, b) => a.date.localeCompare(b.date)).map((day) => (
-                    <TableRow key={day.date} className={day.status === 'running' ? 'bg-blue-50 dark:bg-blue-950/20' : ''}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {day.date}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(day.status)}</TableCell>
-                      <TableCell className="text-center">{day.total_orders}</TableCell>
-                      <TableCell className="text-center text-green-600">{day.successful_orders}</TableCell>
-                      <TableCell className="text-center text-destructive">{day.failed_orders}</TableCell>
-                      <TableCell className="text-center text-muted-foreground">{day.skipped_orders}</TableCell>
-                    </TableRow>
-                  ))
+                  dayStatuses.sort((a, b) => a.date.localeCompare(b.date)).map((day) => {
+                    const total = Number(day.total_orders || 0);
+                    const done =
+                      Number(day.successful_orders || 0) +
+                      Number(day.failed_orders || 0) +
+                      Number(day.skipped_orders || 0);
+                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+                    return (
+                      <TableRow key={day.date} className={day.status === 'running' ? 'bg-blue-50 dark:bg-blue-950/20' : ''}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {day.date}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(day.status)}</TableCell>
+                        <TableCell className="text-center">{total}</TableCell>
+                        <TableCell className="text-center">
+                          {total > 0 ? (
+                            <div className="min-w-[140px]">
+                              <Progress value={pct} className="h-2" />
+                              <div className="mt-1 text-[11px] text-muted-foreground tabular-nums">{done}/{total}</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center text-green-600">{day.successful_orders}</TableCell>
+                        <TableCell className="text-center text-destructive">{day.failed_orders}</TableCell>
+                        <TableCell className="text-center text-muted-foreground">{day.skipped_orders}</TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

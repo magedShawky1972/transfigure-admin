@@ -321,6 +321,49 @@ async function processBackgroundSync(
     `[Aggregated Background Sync] ${isResume ? 'Resuming' : 'Starting'} job ${jobId} for ${fromDate} to ${toDate}`
   );
 
+  // Ensure background job row exists (Daily Sync polls this table for progress)
+  const { data: existingJob } = await supabase
+    .from('background_sync_jobs')
+    .select('id,status')
+    .eq('id', jobId)
+    .maybeSingle();
+
+  if (!existingJob) {
+    const { error: insertErr } = await supabase
+      .from('background_sync_jobs')
+      .insert({
+        id: jobId,
+        from_date: fromDate,
+        to_date: toDate,
+        user_id: userId,
+        user_email: userEmail,
+        user_name: userName,
+        status: 'running',
+        processed_orders: 0,
+        successful_orders: 0,
+        failed_orders: 0,
+        skipped_orders: 0,
+        total_orders: prebuiltInvoices?.length ?? 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (insertErr) {
+      console.error('[Aggregated Background Sync] Failed to create background_sync_jobs row:', insertErr);
+    }
+  } else if (!isResume && existingJob.status === 'pending') {
+    // Fresh start arriving for an existing pending job
+    await supabase.from('background_sync_jobs').update({ status: 'running' }).eq('id', jobId);
+  }
+  // Process 5 invoices in parallel at a time
+  const PARALLEL_BATCH_SIZE = 5;
+
+  const invocationStart = Date.now();
+  const isResume = resumeFrom > 0;
+  console.log(
+    `[Aggregated Background Sync] ${isResume ? 'Resuming' : 'Starting'} job ${jobId} for ${fromDate} to ${toDate}`
+  );
+
   const scheduleContinuation = async (processedSoFar: number) => {
     // IMPORTANT: user may have pressed Stop after this chunk finished.
     // Never auto-resume unless the job is still explicitly running.

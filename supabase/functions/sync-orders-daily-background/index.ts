@@ -430,7 +430,8 @@ async function processDailySync(
   userId: string,
   userEmail: string,
   userName: string,
-  resumeFromDay?: string
+  resumeFromDay?: string,
+  isNewStart: boolean = false
 ) {
   const invocationStart = Date.now();
   const MAX_RUNTIME_MS = 25_000; // 25 seconds max per invocation
@@ -470,14 +471,24 @@ async function processDailySync(
     const allDates = getDatesInRange(fromDate, toDate);
     
     // Get or create job
-    let { data: job } = await supabase
+    let { data: job, error: jobFetchError } = await supabase
       .from('daily_sync_jobs')
       .select('*')
       .eq('id', jobId)
-      .single();
+      .maybeSingle();
+
+    if (jobFetchError) {
+      console.error('[Daily Sync] Failed to fetch job:', jobFetchError);
+    }
 
     if (!job) {
-      // Create new job
+      // If this is a continuation/resume AND job no longer exists (e.g. user deleted it), stop.
+      if (!isNewStart) {
+        console.log(`[Daily Sync] Job ${jobId} not found (likely deleted). Stopping.`);
+        return;
+      }
+
+      // Create new job (fresh start)
       const initialDayStatuses: Record<string, DayStatus> = {};
       allDates.forEach(date => {
         initialDayStatuses[date] = {
@@ -606,7 +617,19 @@ async function processDailySync(
       try {
         // Build aggregated invoices for this day
         const aggregatedInvoices = await buildAggregatedInvoicesForDate(supabase, currentDate, nonStockSkus);
-        
+
+        // Always persist the "will send" count immediately (so UI doesn't show 0)
+        dayStatuses[currentDate] = {
+          ...dayStatuses[currentDate],
+          date: currentDate,
+          total_orders: aggregatedInvoices.length,
+        };
+
+        await supabase
+          .from('daily_sync_jobs')
+          .update({ day_statuses: dayStatuses, current_day: currentDate })
+          .eq('id', jobId);
+
         if (aggregatedInvoices.length === 0) {
           // No orders for this day - mark as completed
           dayStatuses[currentDate] = {
@@ -618,12 +641,29 @@ async function processDailySync(
             skipped_orders: 0,
             completed_at: new Date().toISOString(),
           };
+
+          await supabase
+            .from('daily_sync_jobs')
+            .update({ day_statuses: dayStatuses })
+            .eq('id', jobId);
+
           continue;
         }
 
         // Generate a unique job ID for this day's aggregated sync
         const dayJobId = crypto.randomUUID();
-        
+
+        // Store the background job id for UI tracking
+        (dayStatuses as any)[currentDate] = {
+          ...(dayStatuses as any)[currentDate],
+          background_job_id: dayJobId,
+        };
+
+        await supabase
+          .from('daily_sync_jobs')
+          .update({ day_statuses: dayStatuses })
+          .eq('id', jobId);
+
         // Call the aggregated background sync with pre-built invoices
         const response = await fetch(`${supabaseUrl}/functions/v1/sync-aggregated-orders-background`, {
           method: 'POST',
@@ -638,52 +678,60 @@ async function processDailySync(
             userId,
             userEmail,
             userName,
-            aggregatedInvoices, // Pass the pre-built invoices
+            aggregatedInvoices,
           }),
         });
 
         const result = await response.json().catch(() => ({}));
-        
-        // Wait for the aggregated background sync to complete by polling
+
+        // Poll background job for progress + completion
         if (result.success && result.jobId) {
           let attempts = 0;
-          const maxAttempts = 120; // 10 minutes max wait for aggregated sync
-          
+          const maxAttempts = 120; // 10 minutes max wait
+
           while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-            
+            await new Promise(resolve => setTimeout(resolve, 5000)); // 5s
+
             const { data: bgJob } = await supabase
               .from('background_sync_jobs')
-              .select('*')
+              .select('status,total_orders,processed_orders,successful_orders,failed_orders,skipped_orders,error_message')
               .eq('id', result.jobId)
-              .single();
+              .maybeSingle();
 
-            if (bgJob?.status === 'completed' || bgJob?.status === 'failed' || bgJob?.status === 'cancelled') {
+            if (bgJob) {
+              // Update progress continuously so UI shows a moving progress bar
               dayStatuses[currentDate] = {
                 date: currentDate,
-                status: bgJob.status === 'completed' ? 'completed' : 'failed',
-                total_orders: bgJob.total_orders || 0,
+                status: bgJob.status === 'running' ? 'running' : bgJob.status === 'completed' ? 'completed' : 'failed',
+                total_orders: bgJob.total_orders || aggregatedInvoices.length,
                 successful_orders: bgJob.successful_orders || 0,
                 failed_orders: bgJob.failed_orders || 0,
                 skipped_orders: bgJob.skipped_orders || 0,
-                completed_at: new Date().toISOString(),
+                completed_at:
+                  bgJob.status === 'completed' || bgJob.status === 'failed' || bgJob.status === 'cancelled'
+                    ? new Date().toISOString()
+                    : undefined,
                 error_message: bgJob.error_message,
               };
-              break;
-            }
-            
-            attempts++;
-            
-            // Check if we need to continue later
-            const elapsedMs = Date.now() - invocationStart;
-            if (elapsedMs > MAX_RUNTIME_MS) {
-              // Save current state and continue later
+
               await supabase
                 .from('daily_sync_jobs')
-                .update({
-                  day_statuses: dayStatuses,
-                  current_day: currentDate,
-                })
+                .update({ day_statuses: dayStatuses })
+                .eq('id', jobId);
+
+              if (bgJob.status === 'completed' || bgJob.status === 'failed' || bgJob.status === 'cancelled') {
+                break;
+              }
+            }
+
+            attempts++;
+
+            // If we hit runtime limit, persist state + continue later (same day)
+            const elapsedMs = Date.now() - invocationStart;
+            if (elapsedMs > MAX_RUNTIME_MS) {
+              await supabase
+                .from('daily_sync_jobs')
+                .update({ day_statuses: dayStatuses, current_day: currentDate })
                 .eq('id', jobId);
               await scheduleContinuation(currentDate);
               return;
@@ -694,7 +742,7 @@ async function processDailySync(
           dayStatuses[currentDate] = {
             date: currentDate,
             status: 'failed',
-            total_orders: 0,
+            total_orders: aggregatedInvoices.length,
             successful_orders: 0,
             failed_orders: 0,
             skipped_orders: 0,
@@ -707,7 +755,7 @@ async function processDailySync(
         dayStatuses[currentDate] = {
           date: currentDate,
           status: 'failed',
-          total_orders: 0,
+          total_orders: dayStatuses[currentDate]?.total_orders || 0,
           successful_orders: 0,
           failed_orders: 0,
           skipped_orders: 0,
@@ -804,10 +852,13 @@ Deno.serve(async (req) => {
     // Generate job ID if not provided
     const actualJobId = jobId || crypto.randomUUID();
 
+    // Only create a new DB job row when jobId is not provided (fresh start)
+    const isNewStart = !jobId;
+
     // Start processing in background
     (globalThis as any).EdgeRuntime?.waitUntil?.(
-      processDailySync(supabase, actualJobId, fromDate, toDate, userId, userEmail, userName, resumeFromDay)
-    ) || processDailySync(supabase, actualJobId, fromDate, toDate, userId, userEmail, userName, resumeFromDay);
+      processDailySync(supabase, actualJobId, fromDate, toDate, userId, userEmail, userName, resumeFromDay, isNewStart)
+    ) || processDailySync(supabase, actualJobId, fromDate, toDate, userId, userEmail, userName, resumeFromDay, isNewStart);
 
     return new Response(
       JSON.stringify({
