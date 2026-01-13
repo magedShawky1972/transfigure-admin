@@ -599,7 +599,7 @@ export const BackgroundSyncStatusCard = () => {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-5xl max-h-[80vh]">
+        <DialogContent className="max-w-[95vw] xl:max-w-7xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>
               {language === 'ar' ? 'تفاصيل المزامنة في الخلفية' : 'Background Sync Details'}
