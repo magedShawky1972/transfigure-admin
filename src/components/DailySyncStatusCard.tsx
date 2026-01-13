@@ -265,7 +265,7 @@ export const DailySyncStatusCard = () => {
               {isFailed && <XCircle className="h-4 w-4 text-destructive" />}
               <CalendarDays className="h-4 w-4 text-blue-500" />
               <span className="font-medium">
-                {language === 'ar' ? 'مزامنة يومية لـ Odoo' : 'Daily Odoo Sync'}
+                {language === 'ar' ? 'مزامنة يومية مجمعة لـ Odoo' : 'Daily Aggregated Odoo Sync'}
               </span>
             </div>
             <div className="flex items-center gap-2">

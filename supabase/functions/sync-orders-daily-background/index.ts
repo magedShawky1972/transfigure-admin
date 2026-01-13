@@ -381,30 +381,32 @@ async function processDailySync(
         .eq('id', jobId);
 
       try {
-        // Call the regular background sync for this single day
-        const response = await fetch(`${supabaseUrl}/functions/v1/sync-orders-background`, {
+        // Generate a unique job ID for this day's aggregated sync
+        const dayJobId = crypto.randomUUID();
+        
+        // Call the aggregated background sync for this single day
+        const response = await fetch(`${supabaseUrl}/functions/v1/sync-aggregated-orders-background`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${supabaseKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            jobId: dayJobId,
             fromDate: currentDate,
             toDate: currentDate,
             userId,
             userEmail,
             userName,
-            skipEmail: true, // Don't send individual emails
-            dailyJobId: jobId, // Link to parent job
           }),
         });
 
         const result = await response.json().catch(() => ({}));
         
-        // Wait for the background sync to complete by polling
-        if (result.jobId) {
+        // Wait for the aggregated background sync to complete by polling
+        if (result.success && result.jobId) {
           let attempts = 0;
-          const maxAttempts = 60; // 5 minutes max wait
+          const maxAttempts = 120; // 10 minutes max wait for aggregated sync
           
           while (attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
@@ -447,7 +449,7 @@ async function processDailySync(
             }
           }
         } else {
-          // No job created, mark as failed
+          // No job created or error, mark as failed
           dayStatuses[currentDate] = {
             date: currentDate,
             status: 'failed',
@@ -456,7 +458,7 @@ async function processDailySync(
             failed_orders: 0,
             skipped_orders: 0,
             completed_at: new Date().toISOString(),
-            error_message: 'Failed to start sync job',
+            error_message: result.error || 'Failed to start aggregated sync job',
           };
         }
       } catch (error: any) {
