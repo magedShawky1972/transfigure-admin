@@ -94,6 +94,7 @@ import SecurityDashboard from "./pages/SecurityDashboard";
 import CertificateManagement from "./pages/CertificateManagement";
 import ZKAttendanceLogs from "./pages/ZKAttendanceLogs";
 import SoldProductReport from "./pages/SoldProductReport";
+import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -194,6 +195,7 @@ const App = () => (
               <Route path="/certificate-management" element={<CertificateManagement />} />
               <Route path="/zk-attendance-logs" element={<ZKAttendanceLogs />} />
               <Route path="/reports/sold-product" element={<SoldProductReport />} />
+              <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

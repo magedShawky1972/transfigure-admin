@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status']);
         setLoading(false);
         return;
       }
@@ -198,6 +198,15 @@ const Reports = () => {
         : "View sales value and quantity per brand and product with export and print",
       icon: ShoppingCart,
       route: "/reports/sold-product",
+    },
+    {
+      id: "odoo-sync-status",
+      name: language === "ar" ? "حالة مزامنة Odoo" : "Odoo Sync Status Report",
+      description: language === "ar" 
+        ? "عرض البيانات المرسلة والغير مرسلة إلى Odoo مع رسائل الخطأ" 
+        : "View data sent and not sent to Odoo with error messages",
+      icon: Database,
+      route: "/reports/odoo-sync-status",
     },
   ];
 

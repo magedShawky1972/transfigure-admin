@@ -2404,12 +2404,15 @@ export type Database = {
       }
       odoo_sync_run_details: {
         Row: {
+          brand_name: string | null
           created_at: string
           customer_phone: string | null
           error_message: string | null
           id: string
           order_date: string | null
           order_number: string
+          payment_brand: string | null
+          payment_method: string | null
           product_names: string | null
           run_id: string
           step_brand: string | null
@@ -2421,12 +2424,15 @@ export type Database = {
           total_amount: number | null
         }
         Insert: {
+          brand_name?: string | null
           created_at?: string
           customer_phone?: string | null
           error_message?: string | null
           id?: string
           order_date?: string | null
           order_number: string
+          payment_brand?: string | null
+          payment_method?: string | null
           product_names?: string | null
           run_id: string
           step_brand?: string | null
@@ -2438,12 +2444,15 @@ export type Database = {
           total_amount?: number | null
         }
         Update: {
+          brand_name?: string | null
           created_at?: string
           customer_phone?: string | null
           error_message?: string | null
           id?: string
           order_date?: string | null
           order_number?: string
+          payment_brand?: string | null
+          payment_method?: string | null
           product_names?: string | null
           run_id?: string
           step_brand?: string | null
