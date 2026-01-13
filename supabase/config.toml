@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.api-zk-attendance]
 verify_jwt = false
+
+[functions.sync-orders-daily-background]
+verify_jwt = false
