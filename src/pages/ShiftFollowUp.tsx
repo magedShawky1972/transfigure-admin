@@ -470,41 +470,7 @@ export default function ShiftFollowUp() {
       const { data: { user: adminUser } } = await supabase.auth.getUser();
       if (!adminUser) throw new Error("Admin not authenticated");
 
-      const shiftData = assignmentToOpen.shifts;
-      
-      // Validation 1: Check if shift time has ended (KSA timezone)
-      if (shiftData?.shift_end_time) {
-        // Use centralized KSA time function
-        const currentTimeInMinutes = getKSATimeInMinutes();
-        
-        const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
-        const endTimeInMinutes = endHours * 60 + endMinutes;
-        
-        const [startHours, startMinutes] = (shiftData.shift_start_time || "00:00:00").split(':').map(Number);
-        const startTimeInMinutes = startHours * 60 + startMinutes;
-        
-        const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
-        
-        let isShiftEnded = false;
-        
-        if (isOvernightShift) {
-          if (currentTimeInMinutes > endTimeInMinutes && currentTimeInMinutes < 300) {
-            isShiftEnded = true;
-          }
-        } else {
-          if (currentTimeInMinutes > endTimeInMinutes) {
-            isShiftEnded = true;
-          }
-        }
-        
-        if (isShiftEnded) {
-          toast.error(t("shiftTimeEnded") || "انتهى وقت الوردية - لا يمكن فتح الوردية بعد انتهاء وقتها");
-          setOpeningShift(false);
-          setOpenShiftDialogOpen(false);
-          setAssignmentToOpen(null);
-          return;
-        }
-      }
+      // Admin can open shift at any time - no time/date validation
 
       // Validation 2: Check for existing open session for this assignment
       const { data: existingOpenSession } = await supabase
