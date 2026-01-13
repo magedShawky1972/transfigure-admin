@@ -23,6 +23,155 @@ interface DayStatus {
   completed_at?: string;
 }
 
+interface ProductLine {
+  productSku: string;
+  productName: string;
+  unitPrice: number;
+  totalQty: number;
+  totalAmount: number;
+}
+
+interface AggregatedInvoice {
+  orderNumber: string;
+  date: string;
+  brandName: string;
+  paymentMethod: string;
+  paymentBrand: string;
+  userName: string;
+  productLines: ProductLine[];
+  grandTotal: number;
+  originalOrderNumbers: string[];
+  brandCode: string;
+  company: string;
+  hasNonStock: boolean;
+}
+
+// Build aggregated invoices from order_totals for a specific date
+async function buildAggregatedInvoicesForDate(
+  supabase: any,
+  targetDate: string,
+  nonStockSkus: Set<string>
+): Promise<AggregatedInvoice[]> {
+  // Fetch orders for this date
+  const { data: orders, error } = await supabase
+    .from('order_totals')
+    .select(`
+      order_number, total, qty, sku, product_name, unit_price, brand_name,
+      created_at_date, payment_method, payment_brand, user_name, brand_code, company
+    `)
+    .eq('created_at_date', targetDate)
+    .order('order_number');
+
+  if (error) {
+    console.error(`[Daily Sync] Error fetching orders for ${targetDate}:`, error);
+    return [];
+  }
+
+  if (!orders || orders.length === 0) {
+    console.log(`[Daily Sync] No orders found for ${targetDate}`);
+    return [];
+  }
+
+  console.log(`[Daily Sync] Found ${orders.length} order lines for ${targetDate}`);
+
+  // Group by invoice criteria: brand, payment_method, payment_brand, user_name
+  const invoiceMap = new Map<string, {
+    orders: any[];
+    originalOrderNumbers: Set<string>;
+  }>();
+
+  for (const order of orders) {
+    const key = `${order.brand_name || 'Unknown'}|${order.payment_method || 'Unknown'}|${order.payment_brand || 'Unknown'}|${order.user_name || 'Unknown'}`;
+    
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, {
+        orders: [],
+        originalOrderNumbers: new Set(),
+      });
+    }
+    
+    const group = invoiceMap.get(key)!;
+    group.orders.push(order);
+    if (order.order_number) {
+      group.originalOrderNumbers.add(order.order_number);
+    }
+  }
+
+  // Build aggregated invoices
+  const aggregatedInvoices: AggregatedInvoice[] = [];
+  let invoiceIndex = 1;
+
+  for (const [key, group] of invoiceMap.entries()) {
+    const [brandName, paymentMethod, paymentBrand, userName] = key.split('|');
+    
+    // Group products by SKU
+    const productMap = new Map<string, {
+      productSku: string;
+      productName: string;
+      unitPrice: number;
+      totalQty: number;
+      totalAmount: number;
+    }>();
+
+    let hasNonStock = false;
+
+    for (const order of group.orders) {
+      const sku = order.sku || 'UNKNOWN';
+      const productName = order.product_name || 'Unknown Product';
+      const unitPrice = Number(order.unit_price) || 0;
+      const qty = Number(order.qty) || 0;
+      const total = Number(order.total) || 0;
+
+      if (nonStockSkus.has(sku)) {
+        hasNonStock = true;
+      }
+
+      if (!productMap.has(sku)) {
+        productMap.set(sku, {
+          productSku: sku,
+          productName,
+          unitPrice,
+          totalQty: 0,
+          totalAmount: 0,
+        });
+      }
+
+      const product = productMap.get(sku)!;
+      product.totalQty += qty;
+      product.totalAmount += total;
+    }
+
+    const productLines = Array.from(productMap.values());
+    const grandTotal = productLines.reduce((sum, p) => sum + p.totalAmount, 0);
+    const originalOrderNumbers = Array.from(group.originalOrderNumbers);
+
+    // Generate aggregated order number
+    const brandCode = group.orders[0]?.brand_code || brandName.substring(0, 3).toUpperCase();
+    const dateStr = targetDate.replace(/-/g, '');
+    const orderNumber = `AGG-${brandCode}-${dateStr}-${String(invoiceIndex).padStart(3, '0')}`;
+
+    aggregatedInvoices.push({
+      orderNumber,
+      date: targetDate,
+      brandName,
+      paymentMethod,
+      paymentBrand,
+      userName,
+      productLines,
+      grandTotal,
+      originalOrderNumbers,
+      brandCode,
+      company: group.orders[0]?.company || '',
+      hasNonStock,
+    });
+
+    invoiceIndex++;
+  }
+
+  console.log(`[Daily Sync] Built ${aggregatedInvoices.length} aggregated invoices for ${targetDate}`);
+  return aggregatedInvoices;
+}
+
 // Helper to send email via existing SMTP function
 async function sendCompletionEmail(
   supabase: any,
@@ -320,6 +469,18 @@ async function processDailySync(
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+    // Get non-stock products for aggregation
+    const { data: nonStockProducts } = await supabase
+      .from('products')
+      .select('sku, product_id')
+      .eq('non_stock', true);
+
+    const nonStockSkus = new Set<string>();
+    nonStockProducts?.forEach((p: any) => {
+      if (p.sku) nonStockSkus.add(p.sku);
+      if (p.product_id) nonStockSkus.add(p.product_id);
+    });
+
     // Process each day
     for (let i = startIndex; i < allDates.length; i++) {
       const currentDate = allDates[i];
@@ -381,10 +542,27 @@ async function processDailySync(
         .eq('id', jobId);
 
       try {
+        // Build aggregated invoices for this day
+        const aggregatedInvoices = await buildAggregatedInvoicesForDate(supabase, currentDate, nonStockSkus);
+        
+        if (aggregatedInvoices.length === 0) {
+          // No orders for this day - mark as completed
+          dayStatuses[currentDate] = {
+            date: currentDate,
+            status: 'completed',
+            total_orders: 0,
+            successful_orders: 0,
+            failed_orders: 0,
+            skipped_orders: 0,
+            completed_at: new Date().toISOString(),
+          };
+          continue;
+        }
+
         // Generate a unique job ID for this day's aggregated sync
         const dayJobId = crypto.randomUUID();
         
-        // Call the aggregated background sync for this single day
+        // Call the aggregated background sync with pre-built invoices
         const response = await fetch(`${supabaseUrl}/functions/v1/sync-aggregated-orders-background`, {
           method: 'POST',
           headers: {
@@ -398,6 +576,7 @@ async function processDailySync(
             userId,
             userEmail,
             userName,
+            aggregatedInvoices, // Pass the pre-built invoices
           }),
         });
 
