@@ -249,6 +249,7 @@ export type Database = {
           started_at: string | null
           status: string
           successful_orders: number | null
+          sync_run_id: string | null
           to_date: string
           total_orders: number | null
           updated_at: string
@@ -271,6 +272,7 @@ export type Database = {
           started_at?: string | null
           status?: string
           successful_orders?: number | null
+          sync_run_id?: string | null
           to_date: string
           total_orders?: number | null
           updated_at?: string
@@ -293,6 +295,7 @@ export type Database = {
           started_at?: string | null
           status?: string
           successful_orders?: number | null
+          sync_run_id?: string | null
           to_date?: string
           total_orders?: number | null
           updated_at?: string
@@ -300,7 +303,15 @@ export type Database = {
           user_id?: string
           user_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "background_sync_jobs_sync_run_id_fkey"
+            columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "odoo_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       backup_schedule: {
         Row: {
