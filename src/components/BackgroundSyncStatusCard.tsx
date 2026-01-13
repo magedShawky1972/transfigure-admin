@@ -45,6 +45,8 @@ interface SyncDetail {
   step_product: string | null;
   step_order: string | null;
   step_purchase: string | null;
+  payment_method: string | null;
+  payment_brand: string | null;
 }
 
 export const BackgroundSyncStatusCard = () => {
@@ -269,37 +271,103 @@ export const BackgroundSyncStatusCard = () => {
     
     setRetryingOrderId(detail.id);
     try {
-      // Fetch the transactions for this order from purpletransaction
-      const { data: transactions, error: txError } = await supabase
+      // First try to fetch from purpletransaction
+      let { data: transactions, error: txError } = await supabase
         .from('purpletransaction')
         .select('*')
         .eq('order_number', detail.order_number);
 
-      if (txError || !transactions || transactions.length === 0) {
-        throw new Error(language === 'ar' ? 'لم يتم العثور على معاملات لهذا الطلب' : 'No transactions found for this order');
-      }
+      let formattedTransactions: any[] = [];
 
-      // Format transactions for the sync steps
-      const formattedTransactions = transactions.map((t: any) => ({
-        order_number: t.order_number,
-        customer_name: t.customer_name,
-        customer_phone: t.customer_phone,
-        brand_code: t.brand_code,
-        brand_name: t.brand_name,
-        product_id: t.product_id,
-        product_name: t.product_name,
-        unit_price: t.unit_price,
-        total: t.total,
-        qty: t.qty,
-        created_at_date: t.created_at_date,
-        payment_method: t.payment_method,
-        payment_brand: t.payment_brand,
-        user_name: t.user_name,
-        cost_price: t.cost_price,
-        cost_sold: t.cost_sold,
-        vendor_name: t.vendor_name,
-        company: t.company,
-      }));
+      if (txError || !transactions || transactions.length === 0) {
+        // Transactions not found in purpletransaction, try ordertotals
+        const { data: orderTotals, error: otError } = await supabase
+          .from('ordertotals')
+          .select('*')
+          .eq('order_number', detail.order_number);
+
+        if (otError || !orderTotals || orderTotals.length === 0) {
+          // Reconstruct minimal transaction data from the sync detail itself
+          // This allows retry when original data is archived/deleted
+          const productNames = detail.product_names?.split(', ') || ['Unknown'];
+          
+          // Lookup product info from products table using product name
+          const { data: products } = await supabase
+            .from('products')
+            .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+            .in('product_name', productNames);
+
+          if (!products || products.length === 0) {
+            throw new Error(language === 'ar' ? 'لم يتم العثور على معلومات المنتج' : 'Product information not found');
+          }
+
+          // Build transactions from available data
+          formattedTransactions = products.map((p: any) => ({
+            order_number: detail.order_number,
+            customer_name: 'Customer',
+            customer_phone: detail.customer_phone || '0000',
+            brand_code: p.brand_code || '',
+            brand_name: p.brand_name || '',
+            product_id: p.product_id,
+            product_name: p.product_name,
+            unit_price: p.unit_price || detail.total_amount || 0,
+            total: detail.total_amount || 0,
+            qty: 1,
+            created_at_date: detail.order_date,
+            payment_method: detail.payment_method || '',
+            payment_brand: detail.payment_brand || '',
+            user_name: '',
+            cost_price: p.cost_price || 0,
+            cost_sold: p.cost_price || 0,
+            vendor_name: p.vendor_name || '',
+            company: '',
+          }));
+        } else {
+          // Format from ordertotals
+          formattedTransactions = orderTotals.map((t: any) => ({
+            order_number: t.order_number,
+            customer_name: t.customer_name || 'Customer',
+            customer_phone: t.phone || detail.customer_phone || '0000',
+            brand_code: t.brand_code || '',
+            brand_name: t.brand_name || '',
+            product_id: t.product_id,
+            product_name: t.product_name,
+            unit_price: t.unit_price || 0,
+            total: t.total || 0,
+            qty: t.qty || 1,
+            created_at_date: t.created_at_date || detail.order_date,
+            payment_method: t.payment_method || '',
+            payment_brand: t.payment_brand || '',
+            user_name: t.user_name || '',
+            cost_price: t.cost_price || 0,
+            cost_sold: t.cost_sold || 0,
+            vendor_name: t.vendor_name || '',
+            company: t.company || '',
+          }));
+        }
+      } else {
+        // Format transactions from purpletransaction
+        formattedTransactions = transactions.map((t: any) => ({
+          order_number: t.order_number,
+          customer_name: t.customer_name,
+          customer_phone: t.customer_phone,
+          brand_code: t.brand_code,
+          brand_name: t.brand_name,
+          product_id: t.product_id,
+          product_name: t.product_name,
+          unit_price: t.unit_price,
+          total: t.total,
+          qty: t.qty,
+          created_at_date: t.created_at_date,
+          payment_method: t.payment_method,
+          payment_brand: t.payment_brand,
+          user_name: t.user_name,
+          cost_price: t.cost_price,
+          cost_sold: t.cost_sold,
+          vendor_name: t.vendor_name,
+          company: t.company,
+        }));
+      }
 
       // Update detail status to processing
       await supabase
