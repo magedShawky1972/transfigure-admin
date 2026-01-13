@@ -62,6 +62,55 @@ export const BackgroundSyncStatusCard = () => {
   const [allJobs, setAllJobs] = useState<BackgroundJob[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedHistoryJob, setSelectedHistoryJob] = useState<BackgroundJob | null>(null);
+  const [productsWithoutSku, setProductsWithoutSku] = useState<{ product_name: string; brand_name: string | null; order_count: number }[]>([]);
+
+  // Fetch products without SKU in date range
+  const fetchProductsWithoutSku = async (fromDate: string, toDate: string) => {
+    try {
+      // Get distinct products from purpletransaction that don't have a matching SKU in products table
+      const { data, error } = await supabase
+        .from('purpletransaction')
+        .select('product_name, brand_name, product_id')
+        .gte('created_at_date', fromDate)
+        .lte('created_at_date', `${toDate}T23:59:59`)
+        .is('product_id', null);
+
+      if (error) {
+        console.error('Error fetching products without SKU:', error);
+        return;
+      }
+
+      // Also get products where product_id exists but is empty string
+      const { data: emptySkuData } = await supabase
+        .from('purpletransaction')
+        .select('product_name, brand_name, product_id')
+        .gte('created_at_date', fromDate)
+        .lte('created_at_date', `${toDate}T23:59:59`)
+        .eq('product_id', '');
+
+      const allProducts = [...(data || []), ...(emptySkuData || [])];
+
+      // Group by product name and brand, count occurrences
+      const productMap = new Map<string, { product_name: string; brand_name: string | null; order_count: number }>();
+      
+      allProducts.forEach(p => {
+        const key = `${p.product_name}|${p.brand_name || ''}`;
+        if (productMap.has(key)) {
+          productMap.get(key)!.order_count++;
+        } else {
+          productMap.set(key, {
+            product_name: p.product_name,
+            brand_name: p.brand_name,
+            order_count: 1
+          });
+        }
+      });
+
+      setProductsWithoutSku(Array.from(productMap.values()).sort((a, b) => b.order_count - a.order_count));
+    } catch (error) {
+      console.error('Error fetching products without SKU:', error);
+    }
+  };
 
   useEffect(() => {
     // Fetch active/recent job
@@ -175,7 +224,9 @@ export const BackgroundSyncStatusCard = () => {
     const targetJob = job || activeJob;
     if (targetJob) {
       setSelectedHistoryJob(job || null);
+      setProductsWithoutSku([]); // Reset
       fetchSyncDetails(targetJob.id);
+      fetchProductsWithoutSku(targetJob.from_date, targetJob.to_date);
       setShowDetailsDialog(true);
     }
   };
@@ -635,6 +686,40 @@ export const BackgroundSyncStatusCard = () => {
               )}
             </DialogTitle>
           </DialogHeader>
+
+          {/* Products Without SKU Alert */}
+          {productsWithoutSku.length > 0 && (
+            <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="h-4 w-4 text-orange-500" />
+                <span className="font-medium text-orange-700 dark:text-orange-300">
+                  {language === 'ar' 
+                    ? `${productsWithoutSku.length} منتج بدون SKU` 
+                    : `${productsWithoutSku.length} Products Without SKU`}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[150px] overflow-y-auto">
+                {productsWithoutSku.map((product, index) => (
+                  <div 
+                    key={index} 
+                    className="bg-white dark:bg-gray-800 p-2 rounded border border-orange-200 dark:border-orange-700 text-xs"
+                  >
+                    <div className="font-medium truncate" title={product.product_name}>
+                      {product.product_name}
+                    </div>
+                    {product.brand_name && (
+                      <div className="text-muted-foreground truncate" title={product.brand_name}>
+                        {product.brand_name}
+                      </div>
+                    )}
+                    <div className="text-orange-600 dark:text-orange-400 mt-1">
+                      {language === 'ar' ? `${product.order_count} طلب` : `${product.order_count} orders`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Summary Cards - Calculate from syncDetails */}
           {(() => {
