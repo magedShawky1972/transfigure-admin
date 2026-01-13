@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw, Upload, Loader2, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { Download, CalendarIcon, Settings2, ChevronsLeft, ChevronsRight, RotateCcw, Trash2, RotateCw, Upload, Loader2, RefreshCw, CheckCircle2, XCircle, CalendarDays } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +51,7 @@ import { MultiLevelGroupByZone } from "@/components/transactions/MultiLevelGroup
 import { MultiLevelGroupedTransactions } from "@/components/transactions/MultiLevelGroupedTransactions";
 import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
 import { BackgroundSyncStatusCard } from "@/components/BackgroundSyncStatusCard";
+import { DailySyncStatusCard } from "@/components/DailySyncStatusCard";
 import { ResetOdooSyncDialog } from "@/components/ResetOdooSyncDialog";
 import { VirtualizedTransactionTable } from "@/components/transactions/VirtualizedTransactionTable";
 
@@ -148,6 +149,7 @@ const Transactions = () => {
   const [selectedOdooLines, setSelectedOdooLines] = useState<string[]>([]);
   const [syncingToOdoo, setSyncingToOdoo] = useState(false);
   const [syncingAllToOdoo, setSyncingAllToOdoo] = useState(false);
+  const [syncingDailyToOdoo, setSyncingDailyToOdoo] = useState(false);
   const [odooStepDialogOpen, setOdooStepDialogOpen] = useState(false);
   const [odooStepTransactions, setOdooStepTransactions] = useState<Transaction[]>([]);
   const pageSize = 500;
@@ -1054,6 +1056,63 @@ const Transactions = () => {
     navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
   };
 
+  // Handle Daily Sync to Odoo (day by day background processing)
+  const handleDailySyncToOdoo = async () => {
+    if (!fromDate || !toDate) {
+      toast({
+        title: language === 'ar' ? 'حدد النطاق الزمني' : 'Select Date Range',
+        description: language === 'ar' ? 'يرجى تحديد تاريخ البداية والنهاية' : 'Please select from and to dates',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSyncingDailyToOdoo(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_name, email')
+        .eq('user_id', user.user.id)
+        .single();
+
+      const fromDateStr = format(fromDate, 'yyyy-MM-dd');
+      const toDateStr = format(toDate, 'yyyy-MM-dd');
+
+      const { data, error } = await supabase.functions.invoke('sync-orders-daily-background', {
+        body: {
+          fromDate: fromDateStr,
+          toDate: toDateStr,
+          userId: user.user.id,
+          userEmail: profile?.email || user.user.email || '',
+          userName: profile?.user_name || 'User',
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'بدأت المزامنة اليومية' : 'Daily Sync Started',
+        description: language === 'ar' 
+          ? `سيتم معالجة كل يوم من ${fromDateStr} إلى ${toDateStr} بشكل منفصل`
+          : `Each day from ${fromDateStr} to ${toDateStr} will be processed separately`,
+      });
+    } catch (error: any) {
+      console.error('Error starting daily sync:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error?.message || (language === 'ar' ? 'فشل بدء المزامنة اليومية' : 'Failed to start daily sync'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncingDailyToOdoo(false);
+    }
+  };
+
 
   const renderCell = (transaction: Transaction, columnId: string) => {
     const value = transaction[columnId as keyof Transaction];
@@ -1328,6 +1387,9 @@ const Transactions = () => {
 
       {/* Background Sync Status Card */}
       <BackgroundSyncStatusCard />
+      
+      {/* Daily Sync Status Card */}
+      <DailySyncStatusCard />
 
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
@@ -1472,6 +1534,15 @@ const Transactions = () => {
               >
                 {syncingAllToOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {language === 'ar' ? 'إرسال الكل لـ Odoo' : 'Sync All to Odoo'}
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="gap-2" 
+                onClick={handleDailySyncToOdoo}
+                disabled={syncingDailyToOdoo}
+              >
+                {syncingDailyToOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                {language === 'ar' ? 'مزامنة يوم بيوم' : 'Daily Sync'}
               </Button>
               <ResetOdooSyncDialog fromDate={fromDate} toDate={toDate} language={language} />
             </div>

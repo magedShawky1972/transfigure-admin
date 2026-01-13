@@ -688,6 +688,78 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_sync_jobs: {
+        Row: {
+          completed_at: string | null
+          completed_days: number | null
+          created_at: string
+          current_day: string | null
+          day_statuses: Json | null
+          error_message: string | null
+          failed_days: number | null
+          failed_orders: number | null
+          from_date: string
+          id: string
+          skipped_orders: number | null
+          started_at: string | null
+          status: string
+          successful_orders: number | null
+          to_date: string
+          total_days: number | null
+          total_orders: number | null
+          updated_at: string
+          user_email: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_days?: number | null
+          created_at?: string
+          current_day?: string | null
+          day_statuses?: Json | null
+          error_message?: string | null
+          failed_days?: number | null
+          failed_orders?: number | null
+          from_date: string
+          id?: string
+          skipped_orders?: number | null
+          started_at?: string | null
+          status?: string
+          successful_orders?: number | null
+          to_date: string
+          total_days?: number | null
+          total_orders?: number | null
+          updated_at?: string
+          user_email: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_days?: number | null
+          created_at?: string
+          current_day?: string | null
+          day_statuses?: Json | null
+          error_message?: string | null
+          failed_days?: number | null
+          failed_orders?: number | null
+          from_date?: string
+          id?: string
+          skipped_orders?: number | null
+          started_at?: string | null
+          status?: string
+          successful_orders?: number | null
+          to_date?: string
+          total_days?: number | null
+          total_orders?: number | null
+          updated_at?: string
+          user_email?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       deduction_rules: {
         Row: {
           created_at: string
