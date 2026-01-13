@@ -289,13 +289,45 @@ export const BackgroundSyncStatusCard = () => {
         if (otError || !orderTotals || orderTotals.length === 0) {
           // Reconstruct minimal transaction data from the sync detail itself
           // This allows retry when original data is archived/deleted
-          const productNames = detail.product_names?.split(', ') || ['Unknown'];
-          
-          // Lookup product info from products table using product name
-          const { data: products } = await supabase
-            .from('products')
-            .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
-            .in('product_name', productNames);
+          const rawNames = detail.product_names || '';
+          const productNames = rawNames
+            .split(',')
+            .map((s) => s.replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+
+          const skuOrIdMatch = detail.error_message?.match(/SKU:\s*([A-Za-z0-9_-]+)/i);
+          const skuOrId = skuOrIdMatch?.[1] || null;
+          const numericId = skuOrId && /^\d+$/.test(skuOrId) ? Number(skuOrId) : null;
+
+          // Lookup product info from products table
+          let products: any[] | null = null;
+
+          if (numericId !== null) {
+            const { data } = await supabase
+              .from('products')
+              .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+              .eq('product_id', String(numericId));
+            products = data as any[] | null;
+          }
+
+          if (!products || products.length === 0) {
+            const { data } = await supabase
+              .from('products')
+              .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+              .in('product_name', productNames);
+            products = data as any[] | null;
+          }
+
+          if (!products || products.length === 0) {
+            const fallbackName = productNames[0];
+            if (fallbackName) {
+              const { data } = await supabase
+                .from('products')
+                .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+                .ilike('product_name', `%${fallbackName}%`);
+              products = data as any[] | null;
+            }
+          }
 
           if (!products || products.length === 0) {
             throw new Error(language === 'ar' ? 'لم يتم العثور على معلومات المنتج' : 'Product information not found');
