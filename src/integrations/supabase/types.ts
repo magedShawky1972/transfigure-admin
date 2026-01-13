@@ -1546,6 +1546,7 @@ export type Database = {
           excel_column: string
           id: string
           is_json_column: boolean
+          is_pk: boolean
           json_split_keys: string[] | null
           sheet_id: string
           table_column: string
@@ -1556,6 +1557,7 @@ export type Database = {
           excel_column: string
           id?: string
           is_json_column?: boolean
+          is_pk?: boolean
           json_split_keys?: string[] | null
           sheet_id: string
           table_column: string
@@ -1566,6 +1568,7 @@ export type Database = {
           excel_column?: string
           id?: string
           is_json_column?: boolean
+          is_pk?: boolean
           json_split_keys?: string[] | null
           sheet_id?: string
           table_column?: string

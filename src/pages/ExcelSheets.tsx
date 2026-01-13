@@ -57,6 +57,9 @@ const ExcelSheets = () => {
   const [jsonColumnConfigs, setJsonColumnConfigs] = useState<Record<string, JsonColumnConfig>>({});
   const [sheetJsonConfigs, setSheetJsonConfigs] = useState<Record<string, JsonColumnConfig>>({});
   const [detectedJsonKeys, setDetectedJsonKeys] = useState<Record<string, string[]>>({});
+  // PK column configuration state
+  const [pkColumns, setPkColumns] = useState<Record<string, boolean>>({});
+  const [sheetPkColumns, setSheetPkColumns] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadSheets();
@@ -403,6 +406,7 @@ const ExcelSheets = () => {
               data_type: "text",
               is_json_column: true,
               json_split_keys: jsonConfig.splitKeys,
+              is_pk: pkColumns[colName] || false,
             });
             return;
           }
@@ -415,6 +419,7 @@ const ExcelSheets = () => {
             data_type: "text",
             is_json_column: false,
             json_split_keys: null,
+            is_pk: pkColumns[colName] || false,
           });
         });
 
@@ -441,6 +446,7 @@ const ExcelSheets = () => {
             data_type: "text",
             is_json_column: true,
             json_split_keys: cfg.splitKeys,
+            is_pk: pkColumns[colName] || false,
           });
         });
 
@@ -473,6 +479,7 @@ const ExcelSheets = () => {
       setSkipFirstRow(false);
       setJsonColumnConfigs({});
       setDetectedJsonKeys({});
+      setPkColumns({});
       loadSheets();
     } catch (error: any) {
       toast({
@@ -539,6 +546,7 @@ const ExcelSheets = () => {
     setSheetTargetTable("");
     setSheetTableColumns([]);
     setSheetJsonConfigs({});
+    setSheetPkColumns({});
     
     // Load the target table if it exists
     if (sheet.target_table) {
@@ -565,9 +573,15 @@ const ExcelSheets = () => {
     // Load existing column mappings and JSON configs
     const mappingsMap: Record<string, string> = {};
     const jsonConfigsMap: Record<string, JsonColumnConfig> = {};
+    const pkColumnsMap: Record<string, boolean> = {};
     
     if (mappings && mappings.length > 0) {
       mappings.forEach((m: any) => {
+        // Track PK columns
+        if (m.is_pk) {
+          pkColumnsMap[m.excel_column] = true;
+        }
+        
         if (m.is_json_column && m.json_split_keys && m.json_split_keys.length > 0) {
           // JSON column with split keys
           jsonConfigsMap[m.excel_column] = {
@@ -599,6 +613,7 @@ const ExcelSheets = () => {
       });
       setSheetMappings(mappingsMap);
       setSheetJsonConfigs(jsonConfigsMap);
+      setSheetPkColumns(pkColumnsMap);
       
       // Extract unique excel columns
       const excelCols = mappings.map((m: any) => m.excel_column);
@@ -670,6 +685,7 @@ const ExcelSheets = () => {
             data_type: "text",
             is_json_column: true,
             json_split_keys: jsonConfig.splitKeys,
+            is_pk: sheetPkColumns[colName] || false,
           });
         } else {
           // Regular column mapping
@@ -684,6 +700,7 @@ const ExcelSheets = () => {
             data_type: "text",
             is_json_column: false,
             json_split_keys: null,
+            is_pk: sheetPkColumns[colName] || false,
           });
         }
       });
@@ -945,6 +962,22 @@ const ExcelSheets = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                        {/* PK Checkbox */}
+                        <div className="flex items-center gap-1" title="Mark as Primary Key for upsert">
+                          <Checkbox
+                            id={`new-pk-${excelCol}`}
+                            checked={pkColumns[excelCol] || false}
+                            onCheckedChange={(checked) => {
+                              setPkColumns(prev => ({
+                                ...prev,
+                                [excelCol]: checked === true
+                              }));
+                            }}
+                          />
+                          <Label htmlFor={`new-pk-${excelCol}`} className="text-xs cursor-pointer">
+                            PK
+                          </Label>
                         </div>
                       </div>
                     ))}
@@ -1303,6 +1336,22 @@ const ExcelSheets = () => {
                                 </div>
                               )}
                             </div>
+                            {/* PK Checkbox */}
+                            <div className="flex items-center gap-1" title="Mark as Primary Key for upsert">
+                              <Checkbox
+                                id={`pk-${excelCol}`}
+                                checked={sheetPkColumns[excelCol] || false}
+                                onCheckedChange={(checked) => {
+                                  setSheetPkColumns(prev => ({
+                                    ...prev,
+                                    [excelCol]: checked === true
+                                  }));
+                                }}
+                              />
+                              <Label htmlFor={`pk-${excelCol}`} className="text-xs cursor-pointer">
+                                PK
+                              </Label>
+                            </div>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1322,6 +1371,10 @@ const ExcelSheets = () => {
                                 const newJsonConfigs = { ...sheetJsonConfigs };
                                 delete newJsonConfigs[colToDelete];
                                 setSheetJsonConfigs(newJsonConfigs);
+                                // Remove PK config
+                                const newPkColumns = { ...sheetPkColumns };
+                                delete newPkColumns[colToDelete];
+                                setSheetPkColumns(newPkColumns);
                               }}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />

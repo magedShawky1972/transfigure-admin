@@ -86,10 +86,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the column mappings (including JSON config)
+    // Get the column mappings (including JSON config and PK flag)
     const { data: mappings, error: mappingsError } = await supabase
       .from('excel_column_mappings')
-      .select('excel_column, table_column, data_type, is_json_column, json_split_keys')
+      .select('excel_column, table_column, data_type, is_json_column, json_split_keys, is_pk')
       .eq('sheet_id', sheetId);
 
     if (mappingsError || !mappings || mappings.length === 0) {
@@ -104,6 +104,14 @@ Deno.serve(async (req) => {
     const tableName = sheetConfig.target_table.toLowerCase();
     console.log(`Found ${mappings.length} column mappings for table ${tableName}`);
 
+    // Find PK columns for upsert
+    const pkColumns = mappings
+      .filter((m) => m.is_pk && !m.is_json_column)
+      .map((m) => (m.table_column || '').toLowerCase().trim())
+      .filter((col) => col.length > 0);
+    
+    console.log(`PK columns for upsert: ${pkColumns.length > 0 ? pkColumns.join(', ') : 'none (insert mode)'}`);
+
     // Skip database schema validation (information_schema isn't exposed via REST)
     // Assume mappings are correct and normalize target column names
     const validMappings = mappings
@@ -114,6 +122,7 @@ Deno.serve(async (req) => {
         data_type: (m.data_type || '').toLowerCase().trim(),
         is_json_column: m.is_json_column || false,
         json_split_keys: m.json_split_keys || [],
+        is_pk: m.is_pk || false,
       }));
 
     // Find JSON columns that need to be split and parse their key->column mappings
@@ -504,19 +513,38 @@ Deno.serve(async (req) => {
 
     console.log(`Inserting ${validData.length} rows into ${tableName}`);
 
-    // Insert data with retry logic that removes unknown columns if necessary
+    // Insert or upsert data with retry logic that removes unknown columns if necessary
     let rowsToInsert = validData;
+    const useUpsert = pkColumns.length > 0;
+    
+    console.log(`${useUpsert ? 'Upserting' : 'Inserting'} ${rowsToInsert.length} rows into ${tableName}${useUpsert ? ` with conflict on: ${pkColumns.join(', ')}` : ''}`);
+    
     for (let attempt = 0; attempt < 3; attempt++) {
-      const { error: insertError } = await supabase
-        .from(tableName)
-        .insert(rowsToInsert);
+      let insertError;
+      
+      if (useUpsert) {
+        // Use upsert with onConflict for PK columns
+        const { error } = await supabase
+          .from(tableName)
+          .upsert(rowsToInsert, {
+            onConflict: pkColumns.join(','),
+            ignoreDuplicates: false
+          });
+        insertError = error;
+      } else {
+        // Regular insert
+        const { error } = await supabase
+          .from(tableName)
+          .insert(rowsToInsert);
+        insertError = error;
+      }
 
       if (!insertError) {
-        console.log(`Successfully upserted ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
+        console.log(`Successfully ${useUpsert ? 'upserted' : 'inserted'} ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
         break;
       }
 
-      console.error('Insert error:', insertError);
+      console.error(`${useUpsert ? 'Upsert' : 'Insert'} error:`, insertError);
 
       // Handle undefined column error (Postgres code 42703)
       const message = (insertError as any).message || '';
@@ -534,7 +562,7 @@ Deno.serve(async (req) => {
 
       // Other errors: return immediately
       return new Response(
-        JSON.stringify({ error: `Failed to insert data: ${message}` }),
+        JSON.stringify({ error: `Failed to ${useUpsert ? 'upsert' : 'insert'} data: ${message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
