@@ -302,22 +302,32 @@ export const BackgroundSyncStatusCard = () => {
           // Lookup product info from products table
           let products: any[] | null = null;
 
-          if (numericId !== null) {
+          // 1) Best effort: from SKU in error message OR numeric product_id
+          if (skuOrId || numericId !== null) {
+            const orParts: string[] = [];
+            if (numericId !== null) orParts.push(`product_id.eq.${numericId}`);
+            if (skuOrId) orParts.push(`sku.eq.${skuOrId}`);
+
             const { data } = await supabase
               .from('products')
               .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
-              .eq('product_id', String(numericId));
-            products = data as any[] | null;
+              .or(orParts.join(','));
+
+            products = (data as any[] | null) || null;
           }
 
+          // 2) Exact name matches (handles multiple products)
           if (!products || products.length === 0) {
-            const { data } = await supabase
-              .from('products')
-              .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
-              .in('product_name', productNames);
-            products = data as any[] | null;
+            if (productNames.length > 0) {
+              const { data } = await supabase
+                .from('products')
+                .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+                .in('product_name', productNames);
+              products = (data as any[] | null) || null;
+            }
           }
 
+          // 3) Fuzzy name match as last resort
           if (!products || products.length === 0) {
             const fallbackName = productNames[0];
             if (fallbackName) {
@@ -325,11 +335,12 @@ export const BackgroundSyncStatusCard = () => {
                 .from('products')
                 .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
                 .ilike('product_name', `%${fallbackName}%`);
-              products = data as any[] | null;
+              products = (data as any[] | null) || null;
             }
           }
 
           if (!products || products.length === 0) {
+            console.warn('Retry lookup failed', { order: detail.order_number, productNames, skuOrId, numericId });
             throw new Error(language === 'ar' ? 'لم يتم العثور على معلومات المنتج' : 'Product information not found');
           }
 
