@@ -442,6 +442,23 @@ async function processDailySync(
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+    // If job was deleted/cancelled, do NOT reschedule
+    const { data: jobState } = await supabase
+      .from('daily_sync_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .maybeSingle();
+
+    if (!jobState) {
+      console.log(`[Daily Sync] Not scheduling continuation because job ${jobId} no longer exists`);
+      return;
+    }
+
+    if (jobState.status !== 'running') {
+      console.log(`[Daily Sync] Not scheduling continuation because job ${jobId} status=${jobState.status}`);
+      return;
+    }
+
     console.log(`[Daily Sync] Scheduling continuation (nextDay=${nextDay})`);
 
     try {
@@ -578,9 +595,15 @@ async function processDailySync(
         .from('daily_sync_jobs')
         .select('status')
         .eq('id', jobId)
-        .single();
+        .maybeSingle();
 
-      if (jobCheck?.status === 'paused' || jobCheck?.status === 'cancelled') {
+      // If deleted, stop immediately
+      if (!jobCheck) {
+        console.log(`[Daily Sync] Job ${jobId} deleted. Stopping.`);
+        return;
+      }
+
+      if (jobCheck.status === 'paused' || jobCheck.status === 'cancelled') {
         console.log(`[Daily Sync] Job ${jobId} ${jobCheck.status}`);
         await supabase
           .from('daily_sync_jobs')
