@@ -54,44 +54,62 @@ async function buildAggregatedInvoicesForDate(
 ): Promise<AggregatedInvoice[]> {
   const targetDateInt = Number(targetDate.replace(/-/g, ''));
 
-  // Fetch transaction lines for this date
-  const { data: tx, error } = await supabase
-    .from('purpletransaction')
-    .select(
-      [
-        'order_number',
-        'created_at_date',
-        'created_at_date_int',
-        'brand_name',
-        'brand_code',
-        'payment_method',
-        'payment_brand',
-        'user_name',
-        'product_id',
-        'product_name',
-        'unit_price',
-        'qty',
-        'total',
-        'company',
-        'is_deleted',
-        'sendodoo',
-      ].join(',')
-    )
-    .eq('created_at_date_int', targetDateInt)
-    .neq('payment_method', 'point')
-    .neq('is_deleted', true);
+  // Fetch ALL transaction lines for this date with pagination to avoid 1000 row limit
+  const PAGE_SIZE = 1000;
+  let allTransactions: any[] = [];
+  let page = 0;
+  let hasMore = true;
 
-  if (error) {
-    console.error(`[Daily Sync] Error fetching transactions for ${targetDate}:`, error);
-    return [];
+  while (hasMore) {
+    const { data: tx, error } = await supabase
+      .from('purpletransaction')
+      .select(
+        [
+          'order_number',
+          'created_at_date',
+          'created_at_date_int',
+          'brand_name',
+          'brand_code',
+          'payment_method',
+          'payment_brand',
+          'user_name',
+          'product_id',
+          'product_name',
+          'unit_price',
+          'qty',
+          'total',
+          'company',
+          'is_deleted',
+          'sendodoo',
+        ].join(',')
+      )
+      .eq('created_at_date_int', targetDateInt)
+      .neq('payment_method', 'point')
+      .neq('is_deleted', true)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    if (error) {
+      console.error(`[Daily Sync] Error fetching transactions for ${targetDate} (page ${page}):`, error);
+      break;
+    }
+
+    if (tx && tx.length > 0) {
+      allTransactions = allTransactions.concat(tx);
+      hasMore = tx.length === PAGE_SIZE; // If we got full page, there might be more
+      page++;
+    } else {
+      hasMore = false;
+    }
   }
 
-  const transactions = (tx || []).filter((t: any) => !!t?.order_number);
+  const transactions = allTransactions.filter((t: any) => !!t?.order_number);
 
   if (transactions.length === 0) {
     console.log(`[Daily Sync] No transactions found for ${targetDate}`);
     return [];
   }
+  
+  console.log(`[Daily Sync] Fetched ${transactions.length} total transaction lines for ${targetDate}`);
 
   // Filter out already-synced original orders (aggregated mapping)
   const uniqueOrderNumbers = Array.from(new Set(transactions.map((t: any) => t.order_number)));
