@@ -268,274 +268,29 @@ export const BackgroundSyncStatusCard = () => {
   // Retry failed sync for a single order
   const handleRetrySync = async (detail: SyncDetail) => {
     if (retryingOrderId) return;
-    
+
     setRetryingOrderId(detail.id);
     try {
-      // First try to fetch from purpletransaction
-      let { data: transactions, error: txError } = await supabase
-        .from('purpletransaction')
-        .select('*')
-        .eq('order_number', detail.order_number);
+      const { data, error } = await supabase.functions.invoke('retry-odoo-sync-detail', {
+        body: { detailId: detail.id },
+      });
 
-      let formattedTransactions: any[] = [];
+      if (error) throw error;
 
-      if (txError || !transactions || transactions.length === 0) {
-        // Transactions not found in purpletransaction, try ordertotals
-        const { data: orderTotals, error: otError } = await supabase
-          .from('ordertotals')
-          .select('*')
-          .eq('order_number', detail.order_number);
-
-        if (otError || !orderTotals || orderTotals.length === 0) {
-          // Reconstruct minimal transaction data from the sync detail itself
-          // This allows retry when original data is archived/deleted
-          const rawNames = detail.product_names || '';
-          const productNames = rawNames
-            .split(',')
-            .map((s) => s.replace(/\s+/g, ' ').trim())
-            .filter(Boolean);
-
-          const skuOrIdMatch = detail.error_message?.match(/SKU:\s*([A-Za-z0-9_-]+)/i);
-          const skuOrId = skuOrIdMatch?.[1] || null;
-          const numericId = skuOrId && /^\d+$/.test(skuOrId) ? Number(skuOrId) : null;
-
-          // Lookup product info from products table
-          let products: any[] | null = null;
-
-          const productSelect =
-            'product_id, product_name, brand_name, brand_code, sku, product_price, product_cost, supplier';
-
-          // 1) Best effort: from SKU in error message OR numeric product_id
-          if (skuOrId || numericId !== null) {
-            const orParts: string[] = [];
-            // product_id is text in DB (often numeric-looking)
-            if (numericId !== null) orParts.push(`product_id.eq.${numericId}`);
-            // sku is a separate field (e.g. SW001)
-            if (skuOrId) orParts.push(`sku.eq.${skuOrId}`);
-
-            const { data, error } = await supabase
-              .from('products')
-              .select(productSelect)
-              .or(orParts.join(','));
-
-            if (error) {
-              console.warn('Retry product lookup (id/sku) error', { order: detail.order_number, skuOrId, numericId, error });
-            }
-
-            products = (data as any[] | null) || null;
-          }
-
-          // 2) Exact name matches (handles multiple products)
-          if (!products || products.length === 0) {
-            if (productNames.length > 0) {
-              const { data, error } = await supabase
-                .from('products')
-                .select(productSelect)
-                .in('product_name', productNames);
-
-              if (error) {
-                console.warn('Retry product lookup (name exact) error', { order: detail.order_number, productNames, error });
-              }
-
-              products = (data as any[] | null) || null;
-            }
-          }
-
-          // 3) Fuzzy name match as last resort
-          if (!products || products.length === 0) {
-            const fallbackName = productNames[0];
-            if (fallbackName) {
-              const { data, error } = await supabase
-                .from('products')
-                .select(productSelect)
-                .ilike('product_name', `%${fallbackName}%`);
-
-              if (error) {
-                console.warn('Retry product lookup (name fuzzy) error', { order: detail.order_number, fallbackName, error });
-              }
-
-              products = (data as any[] | null) || null;
-            }
-          }
-
-          if (!products || products.length === 0) {
-            console.warn('Retry lookup failed', { order: detail.order_number, productNames, skuOrId, numericId });
-            throw new Error(language === 'ar' ? 'لم يتم العثور على معلومات المنتج' : 'Product information not found');
-          }
-
-          // Build transactions from available data (match Transaction shape expected by sync-order-to-odoo-step)
-          formattedTransactions = products.map((p: any) => {
-            const unitPrice = Number(p.product_price ?? 0) || Number(detail.total_amount ?? 0) || 0;
-            const costPrice = Number(p.product_cost ?? 0) || 0;
-
-            return {
-              order_number: detail.order_number,
-              customer_name: 'Customer',
-              customer_phone: detail.customer_phone || '0000',
-              brand_code: p.brand_code || '',
-              brand_name: p.brand_name || '',
-              product_id: String(p.product_id ?? ''),
-              product_name: p.product_name,
-              unit_price: unitPrice,
-              total: Number(detail.total_amount ?? unitPrice) || 0,
-              qty: 1,
-              created_at_date: detail.order_date,
-              payment_method: detail.payment_method || '',
-              payment_brand: detail.payment_brand || '',
-              user_name: '',
-              cost_price: costPrice,
-              cost_sold: costPrice,
-              vendor_name: p.supplier || '',
-              company: '',
-            };
-          });
-        } else {
-          // Format from ordertotals
-          formattedTransactions = orderTotals.map((t: any) => ({
-            order_number: t.order_number,
-            customer_name: t.customer_name || 'Customer',
-            customer_phone: t.phone || detail.customer_phone || '0000',
-            brand_code: t.brand_code || '',
-            brand_name: t.brand_name || '',
-            product_id: t.product_id,
-            product_name: t.product_name,
-            unit_price: t.unit_price || 0,
-            total: t.total || 0,
-            qty: t.qty || 1,
-            created_at_date: t.created_at_date || detail.order_date,
-            payment_method: t.payment_method || '',
-            payment_brand: t.payment_brand || '',
-            user_name: t.user_name || '',
-            cost_price: t.cost_price || 0,
-            cost_sold: t.cost_sold || 0,
-            vendor_name: t.vendor_name || '',
-            company: t.company || '',
-          }));
-        }
-      } else {
-        // Format transactions from purpletransaction
-        formattedTransactions = transactions.map((t: any) => ({
-          order_number: t.order_number,
-          customer_name: t.customer_name,
-          customer_phone: t.customer_phone,
-          brand_code: t.brand_code,
-          brand_name: t.brand_name,
-          product_id: t.product_id,
-          product_name: t.product_name,
-          unit_price: t.unit_price,
-          total: t.total,
-          qty: t.qty,
-          created_at_date: t.created_at_date,
-          payment_method: t.payment_method,
-          payment_brand: t.payment_brand,
-          user_name: t.user_name,
-          cost_price: t.cost_price,
-          cost_sold: t.cost_sold,
-          vendor_name: t.vendor_name,
-          company: t.company,
-        }));
-      }
-
-      // Update detail status to processing
-      await supabase
-        .from('odoo_sync_run_details')
-        .update({ sync_status: 'processing', error_message: null })
-        .eq('id', detail.id);
-
-      // Execute all sync steps
-      const steps = ['customer', 'brand', 'product', 'order'];
-      let lastError: string | null = null;
-      let stepStatuses: Record<string, string> = {};
-
-      for (const step of steps) {
-        const { data: result, error: stepError } = await supabase.functions.invoke('sync-order-to-odoo-step', {
-          body: { step, transactions: formattedTransactions }
-        });
-
-        if (stepError) {
-          lastError = stepError.message;
-          stepStatuses[`step_${step}`] = 'failed';
-          break;
-        }
-
-        if (!result?.success) {
-          lastError = result?.error || `${step} step failed`;
-          stepStatuses[`step_${step}`] = 'failed';
-          break;
-        }
-
-        stepStatuses[`step_${step}`] = result?.skipped ? 'skipped' : (result?.method === 'SKIP' ? 'found' : 'sent');
-      }
-
-      // Check for non-stock products and run purchase step if needed
-      if (!lastError) {
-        const productIds = formattedTransactions.map((t: any) => t.product_id).filter(Boolean);
-        const { data: nonStockData, error: nonStockError } = await supabase
-          .from('products')
-          .select('product_id, non_stock')
-          .in('product_id', productIds);
-
-        if (nonStockError) {
-          console.warn('Retry non-stock lookup error', { order: detail.order_number, error: nonStockError });
-        }
-
-        // non_stock=true means it's a non-stock item
-        const nonStockItems = nonStockData?.filter((p: any) => p.non_stock === true) || [];
-
-        if (nonStockItems.length > 0) {
-          const nonStockProductIds = nonStockItems.map((p: any) => p.product_id);
-          const nonStockProducts = formattedTransactions.filter((t: any) =>
-            nonStockProductIds.includes(t.product_id)
-          );
-
-          const { data: purchaseResult, error: purchaseError } = await supabase.functions.invoke('sync-order-to-odoo-step', {
-            body: { step: 'purchase', transactions: formattedTransactions, nonStockProducts }
-          });
-
-          if (purchaseError) {
-            lastError = purchaseError.message;
-            stepStatuses.step_purchase = 'failed';
-          } else if (purchaseResult?.success === false) {
-            lastError = purchaseResult?.error || 'Purchase step failed';
-            stepStatuses.step_purchase = 'failed';
-          } else {
-            stepStatuses.step_purchase = purchaseResult?.skipped ? 'skipped' : 'sent';
-          }
-        } else {
-          stepStatuses.step_purchase = 'skipped';
-        }
-      }
-
-      // Update the sync detail with results
-      const finalStatus = lastError ? 'failed' : 'success';
-      await supabase
-        .from('odoo_sync_run_details')
-        .update({
-          sync_status: finalStatus,
-          error_message: lastError,
-          ...stepStatuses,
-        })
-        .eq('id', detail.id);
-
-      // Refresh the sync details
+      // Refresh the sync details (read-only query from client)
       if (activeJob) {
         await fetchSyncDetails(activeJob.id);
       }
 
-      if (lastError) {
-        toast.error(language === 'ar' ? `فشلت إعادة المحاولة: ${lastError}` : `Retry failed: ${lastError}`);
-      } else {
+      if (data?.success) {
         toast.success(language === 'ar' ? 'تمت إعادة المزامنة بنجاح' : 'Sync retry successful');
+      } else {
+        const msg = data?.error || (language === 'ar' ? 'فشلت إعادة المحاولة' : 'Retry failed');
+        toast.error(language === 'ar' ? `فشلت إعادة المحاولة: ${msg}` : `Retry failed: ${msg}`);
       }
     } catch (error: any) {
       console.error('Error retrying sync:', error);
       toast.error(language === 'ar' ? `فشلت إعادة المحاولة: ${error.message}` : `Retry failed: ${error.message}`);
-      
-      // Update status back to failed
-      await supabase
-        .from('odoo_sync_run_details')
-        .update({ sync_status: 'failed', error_message: error.message })
-        .eq('id', detail.id);
     } finally {
       setRetryingOrderId(null);
     }
