@@ -54,7 +54,7 @@ async function buildAggregatedInvoicesForDate(
 ): Promise<AggregatedInvoice[]> {
   // Fetch orders for this date
   const { data: orders, error } = await supabase
-    .from('order_totals')
+    .from('ordertotals')
     .select(`
       order_number, total, qty, sku, product_name, unit_price, brand_name,
       created_at_date, payment_method, payment_brand, user_name, brand_code, company
