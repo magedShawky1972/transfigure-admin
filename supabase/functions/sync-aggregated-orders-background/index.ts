@@ -355,14 +355,6 @@ async function processBackgroundSync(
     // Fresh start arriving for an existing pending job
     await supabase.from('background_sync_jobs').update({ status: 'running' }).eq('id', jobId);
   }
-  // Process 5 invoices in parallel at a time
-  const PARALLEL_BATCH_SIZE = 5;
-
-  const invocationStart = Date.now();
-  const isResume = resumeFrom > 0;
-  console.log(
-    `[Aggregated Background Sync] ${isResume ? 'Resuming' : 'Starting'} job ${jobId} for ${fromDate} to ${toDate}`
-  );
 
   const scheduleContinuation = async (processedSoFar: number) => {
     // IMPORTANT: user may have pressed Stop after this chunk finished.
