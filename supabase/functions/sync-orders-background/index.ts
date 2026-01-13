@@ -323,10 +323,24 @@ async function processBackgroundSync(
       orderGroups.set(tx.order_number, existing);
     });
 
-    const totalOrders = orderGroups.size;
-    console.log(`[Background Sync] Found ${totalOrders} orders total`);
+    const totalOrdersFound = orderGroups.size;
+    console.log(`[Background Sync] Found ${totalOrdersFound} unsynced orders`);
 
+    // Track effective total for logging/email
+    let totalOrders = totalOrdersFound;
+
+    // On fresh start, set total_orders. On resume, recalculate to include already processed + remaining.
     if (!isResume) {
+      await supabase.from('background_sync_jobs').update({ total_orders: totalOrdersFound }).eq('id', jobId);
+    } else {
+      // When resuming: total = already processed (from saved state) + remaining unsynced
+      const { data: jobData } = await supabase
+        .from('background_sync_jobs')
+        .select('processed_orders')
+        .eq('id', jobId)
+        .single();
+      const alreadyProcessed = jobData?.processed_orders || 0;
+      totalOrders = alreadyProcessed + totalOrdersFound;
       await supabase.from('background_sync_jobs').update({ total_orders: totalOrders }).eq('id', jobId);
     }
 

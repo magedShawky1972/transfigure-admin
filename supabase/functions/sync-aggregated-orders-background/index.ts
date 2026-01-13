@@ -457,9 +457,7 @@ async function processBackgroundSync(
       if (p.product_id) nonStockSet.add(p.product_id);
     });
 
-    if (!isResume) {
-      await supabase.from('background_sync_jobs').update({ total_orders: totalInvoices }).eq('id', jobId);
-    }
+    // total_orders will be updated after filtering already-processed invoices (see below)
 
     // Create sync run record
     let runId: string | null = null;
@@ -546,6 +544,10 @@ async function processBackgroundSync(
     );
 
     console.log(`[Aggregated Background Sync] ${invoicesToProcess.length} invoices to process`);
+
+    // Now set total_orders correctly: already processed + remaining to process
+    const effectiveTotal = processedInvoices + invoicesToProcess.length;
+    await supabase.from('background_sync_jobs').update({ total_orders: effectiveTotal }).eq('id', jobId);
 
     let processedThisChunk = 0;
 

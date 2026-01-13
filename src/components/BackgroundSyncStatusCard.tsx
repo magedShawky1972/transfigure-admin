@@ -394,9 +394,15 @@ export const BackgroundSyncStatusCard = () => {
 
   if (!activeJob) return null;
 
-  const progress = activeJob.total_orders > 0 
-    ? Math.round((activeJob.processed_orders / activeJob.total_orders) * 100) 
+  // Clamp progress to 0-100 to avoid visual bugs when processed > total (re-runs)
+  const rawProgress = activeJob.total_orders > 0 
+    ? (activeJob.processed_orders / activeJob.total_orders) * 100 
     : 0;
+  const progress = Math.min(100, Math.max(0, Math.round(rawProgress)));
+
+  // Display values - cap processed at total to avoid confusion
+  const displayProcessed = Math.min(activeJob.processed_orders, activeJob.total_orders);
+  const displayTotal = activeJob.total_orders;
 
   const isRunning = activeJob.status === 'running' || activeJob.status === 'pending';
   const isPaused = activeJob.status === 'paused';
@@ -545,8 +551,8 @@ export const BackgroundSyncStatusCard = () => {
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>
                   {language === 'ar' 
-                    ? `${activeJob.processed_orders} من ${activeJob.total_orders} طلب`
-                    : `${activeJob.processed_orders} of ${activeJob.total_orders} orders`
+                    ? `${displayProcessed} من ${displayTotal} طلب`
+                    : `${displayProcessed} of ${displayTotal} orders`
                   }
                 </span>
                 <span>{progress}%</span>
