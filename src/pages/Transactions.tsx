@@ -1540,9 +1540,10 @@ const Transactions = () => {
                 className="gap-2" 
                 onClick={handleDailySyncToOdoo}
                 disabled={syncingDailyToOdoo}
+                title={language === 'ar' ? 'مزامنة البيانات المجمعة يوم بيوم' : 'Sync aggregated data day by day'}
               >
                 {syncingDailyToOdoo ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
-                {language === 'ar' ? 'مزامنة يوم بيوم' : 'Daily Sync'}
+                {language === 'ar' ? 'مزامنة يومية مجمعة' : 'Daily Aggregated Sync'}
               </Button>
               <ResetOdooSyncDialog fromDate={fromDate} toDate={toDate} language={language} />
             </div>
