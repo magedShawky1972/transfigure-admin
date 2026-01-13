@@ -460,6 +460,14 @@ async function processBackgroundSync(
         .single();
 
       runId = runData?.id;
+
+      // Link the sync run to the background job
+      if (runId) {
+        await supabase
+          .from('background_sync_jobs')
+          .update({ sync_run_id: runId })
+          .eq('id', jobId);
+      }
     }
 
     let processedInvoices = 0;

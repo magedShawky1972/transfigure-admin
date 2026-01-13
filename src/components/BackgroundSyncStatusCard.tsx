@@ -121,33 +121,41 @@ export const BackgroundSyncStatusCard = () => {
   const fetchSyncDetails = async (jobId: string) => {
     setLoadingDetails(true);
     try {
-      // First, get the sync run that matches this job
+      // First, get the job including sync_run_id
       const { data: job } = await supabase
         .from('background_sync_jobs')
-        .select('from_date, to_date, started_at')
+        .select('from_date, to_date, started_at, sync_run_id')
         .eq('id', jobId)
         .single();
 
       if (!job) return;
 
-      // Get the matching sync run
-      const { data: run } = await supabase
-        .from('odoo_sync_runs')
-        .select('id')
-        .eq('from_date', job.from_date)
-        .eq('to_date', job.to_date)
-        .order('start_time', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      let runId = job.sync_run_id;
 
-      if (run?.id) {
+      // If no direct link, try to find matching sync run by date and time
+      if (!runId) {
+        const { data: run } = await supabase
+          .from('odoo_sync_runs')
+          .select('id')
+          .eq('from_date', job.from_date)
+          .eq('to_date', job.to_date)
+          .order('start_time', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        runId = run?.id;
+      }
+
+      if (runId) {
         const { data: details } = await supabase
           .from('odoo_sync_run_details')
           .select('*')
-          .eq('run_id', run.id)
+          .eq('run_id', runId)
           .order('created_at', { ascending: true });
 
         setSyncDetails((details as SyncDetail[]) || []);
+      } else {
+        setSyncDetails([]);
       }
     } catch (error) {
       console.error('Error fetching sync details:', error);
