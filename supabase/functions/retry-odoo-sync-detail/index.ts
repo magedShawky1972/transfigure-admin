@@ -326,6 +326,40 @@ Deno.serve(async (req) => {
       })
       .eq("id", row.id);
 
+    // Update the background_sync_jobs counts if this detail's status changed
+    // First, find the background job linked to this sync run
+    const { data: bgJob } = await supabase
+      .from("background_sync_jobs")
+      .select("id")
+      .eq("sync_run_id", row.run_id)
+      .maybeSingle();
+
+    if (bgJob?.id) {
+      // Recalculate counts from odoo_sync_run_details
+      const { data: allDetails } = await supabase
+        .from("odoo_sync_run_details")
+        .select("sync_status")
+        .eq("run_id", row.run_id);
+
+      if (allDetails) {
+        const successCount = allDetails.filter(d => d.sync_status === "success").length;
+        const failedCount = allDetails.filter(d => d.sync_status === "failed").length;
+        const skippedCount = allDetails.filter(d => d.sync_status === "skipped").length;
+
+        await supabase
+          .from("background_sync_jobs")
+          .update({
+            successful_orders: successCount,
+            failed_orders: failedCount,
+            skipped_orders: skippedCount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", bgJob.id);
+
+        console.log(`[retry-odoo-sync-detail] Updated job ${bgJob.id} counts: success=${successCount}, failed=${failedCount}, skipped=${skippedCount}`);
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: !lastError, finalStatus, error: lastError }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
