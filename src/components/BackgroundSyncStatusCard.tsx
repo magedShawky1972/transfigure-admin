@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle, Trash2 } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ interface BackgroundJob {
 
 interface SyncDetail {
   id: string;
+  run_id: string;
   order_number: string;
   order_date: string | null;
   customer_phone: string | null;
@@ -163,6 +164,7 @@ export const BackgroundSyncStatusCard = () => {
   };
 
   const [actionLoading, setActionLoading] = useState(false);
+  const [retryingOrderId, setRetryingOrderId] = useState<string | null>(null);
 
   const handleDismiss = () => {
     setActiveJob(null);
@@ -250,6 +252,145 @@ export const BackgroundSyncStatusCard = () => {
       toast.error(language === 'ar' ? 'فشل استئناف المزامنة' : 'Failed to resume sync');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Retry failed sync for a single order
+  const handleRetrySync = async (detail: SyncDetail) => {
+    if (retryingOrderId) return;
+    
+    setRetryingOrderId(detail.id);
+    try {
+      // Fetch the transactions for this order from purpletransaction
+      const { data: transactions, error: txError } = await supabase
+        .from('purpletransaction')
+        .select('*')
+        .eq('order_number', detail.order_number);
+
+      if (txError || !transactions || transactions.length === 0) {
+        throw new Error(language === 'ar' ? 'لم يتم العثور على معاملات لهذا الطلب' : 'No transactions found for this order');
+      }
+
+      // Format transactions for the sync steps
+      const formattedTransactions = transactions.map((t: any) => ({
+        order_number: t.order_number,
+        customer_name: t.customer_name,
+        customer_phone: t.customer_phone,
+        brand_code: t.brand_code,
+        brand_name: t.brand_name,
+        product_id: t.product_id,
+        product_name: t.product_name,
+        unit_price: t.unit_price,
+        total: t.total,
+        qty: t.qty,
+        created_at_date: t.created_at_date,
+        payment_method: t.payment_method,
+        payment_brand: t.payment_brand,
+        user_name: t.user_name,
+        cost_price: t.cost_price,
+        cost_sold: t.cost_sold,
+        vendor_name: t.vendor_name,
+        company: t.company,
+      }));
+
+      // Update detail status to processing
+      await supabase
+        .from('odoo_sync_run_details')
+        .update({ sync_status: 'processing', error_message: null })
+        .eq('id', detail.id);
+
+      // Execute all sync steps
+      const steps = ['customer', 'brand', 'product', 'order'];
+      let lastError: string | null = null;
+      let stepStatuses: Record<string, string> = {};
+
+      for (const step of steps) {
+        const { data: result, error: stepError } = await supabase.functions.invoke('sync-order-to-odoo-step', {
+          body: { step, transactions: formattedTransactions }
+        });
+
+        if (stepError) {
+          lastError = stepError.message;
+          stepStatuses[`step_${step}`] = 'failed';
+          break;
+        }
+
+        if (!result?.success) {
+          lastError = result?.error || `${step} step failed`;
+          stepStatuses[`step_${step}`] = 'failed';
+          break;
+        }
+
+        stepStatuses[`step_${step}`] = result?.skipped ? 'skipped' : (result?.method === 'SKIP' ? 'found' : 'sent');
+      }
+
+      // Check for non-stock products and run purchase step if needed
+      if (!lastError) {
+        const productIds = formattedTransactions.map((t: any) => t.product_id);
+        const { data: nonStockData } = await supabase
+          .from('products')
+          .select('product_id, is_stock_item')
+          .in('product_id', productIds);
+
+        // Filter for non-stock items
+        const nonStockItems = nonStockData?.filter((p: any) => p.is_stock_item === false) || [];
+        
+        if (nonStockItems.length > 0) {
+          const nonStockProductIds = nonStockItems.map((p: any) => p.product_id);
+          const nonStockProducts = formattedTransactions.filter((t: any) => 
+            nonStockProductIds.includes(t.product_id)
+          );
+
+          const { data: purchaseResult, error: purchaseError } = await supabase.functions.invoke('sync-order-to-odoo-step', {
+            body: { step: 'purchase', transactions: formattedTransactions, nonStockProducts }
+          });
+
+          if (purchaseError) {
+            lastError = purchaseError.message;
+            stepStatuses.step_purchase = 'failed';
+          } else if (purchaseResult?.success === false) {
+            lastError = purchaseResult?.error || 'Purchase step failed';
+            stepStatuses.step_purchase = 'failed';
+          } else {
+            stepStatuses.step_purchase = purchaseResult?.skipped ? 'skipped' : 'sent';
+          }
+        } else {
+          stepStatuses.step_purchase = 'skipped';
+        }
+      }
+
+      // Update the sync detail with results
+      const finalStatus = lastError ? 'failed' : 'success';
+      await supabase
+        .from('odoo_sync_run_details')
+        .update({
+          sync_status: finalStatus,
+          error_message: lastError,
+          ...stepStatuses,
+        })
+        .eq('id', detail.id);
+
+      // Refresh the sync details
+      if (activeJob) {
+        await fetchSyncDetails(activeJob.id);
+      }
+
+      if (lastError) {
+        toast.error(language === 'ar' ? `فشلت إعادة المحاولة: ${lastError}` : `Retry failed: ${lastError}`);
+      } else {
+        toast.success(language === 'ar' ? 'تمت إعادة المزامنة بنجاح' : 'Sync retry successful');
+      }
+    } catch (error: any) {
+      console.error('Error retrying sync:', error);
+      toast.error(language === 'ar' ? `فشلت إعادة المحاولة: ${error.message}` : `Retry failed: ${error.message}`);
+      
+      // Update status back to failed
+      await supabase
+        .from('odoo_sync_run_details')
+        .update({ sync_status: 'failed', error_message: error.message })
+        .eq('id', detail.id);
+    } finally {
+      setRetryingOrderId(null);
     }
   };
 
@@ -523,6 +664,7 @@ export const BackgroundSyncStatusCard = () => {
                     <TableHead className="text-center">{language === 'ar' ? 'طلب' : 'Order'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'شراء' : 'Purch'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -558,6 +700,28 @@ export const BackgroundSyncStatusCard = () => {
                       <TableCell className="text-center">{getStepIcon(detail.step_purchase)}</TableCell>
                       <TableCell className="text-xs whitespace-normal break-words max-w-[260px]">
                         {detail.error_message || '-'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {detail.sync_status === 'failed' ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary hover:text-primary/80"
+                            onClick={() => handleRetrySync(detail)}
+                            disabled={retryingOrderId === detail.id}
+                            title={language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+                          >
+                            {retryingOrderId === detail.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3 w-3" />
+                            )}
+                          </Button>
+                        ) : detail.sync_status === 'processing' ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-primary mx-auto" />
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
