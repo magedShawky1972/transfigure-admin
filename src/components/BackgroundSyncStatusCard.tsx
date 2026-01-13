@@ -302,16 +302,25 @@ export const BackgroundSyncStatusCard = () => {
           // Lookup product info from products table
           let products: any[] | null = null;
 
+          const productSelect =
+            'product_id, product_name, brand_name, brand_code, sku, product_price, product_cost, supplier';
+
           // 1) Best effort: from SKU in error message OR numeric product_id
           if (skuOrId || numericId !== null) {
             const orParts: string[] = [];
+            // product_id is text in DB (often numeric-looking)
             if (numericId !== null) orParts.push(`product_id.eq.${numericId}`);
+            // sku is a separate field (e.g. SW001)
             if (skuOrId) orParts.push(`sku.eq.${skuOrId}`);
 
-            const { data } = await supabase
+            const { data, error } = await supabase
               .from('products')
-              .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+              .select(productSelect)
               .or(orParts.join(','));
+
+            if (error) {
+              console.warn('Retry product lookup (id/sku) error', { order: detail.order_number, skuOrId, numericId, error });
+            }
 
             products = (data as any[] | null) || null;
           }
@@ -319,10 +328,15 @@ export const BackgroundSyncStatusCard = () => {
           // 2) Exact name matches (handles multiple products)
           if (!products || products.length === 0) {
             if (productNames.length > 0) {
-              const { data } = await supabase
+              const { data, error } = await supabase
                 .from('products')
-                .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+                .select(productSelect)
                 .in('product_name', productNames);
+
+              if (error) {
+                console.warn('Retry product lookup (name exact) error', { order: detail.order_number, productNames, error });
+              }
+
               products = (data as any[] | null) || null;
             }
           }
@@ -331,10 +345,15 @@ export const BackgroundSyncStatusCard = () => {
           if (!products || products.length === 0) {
             const fallbackName = productNames[0];
             if (fallbackName) {
-              const { data } = await supabase
+              const { data, error } = await supabase
                 .from('products')
-                .select('product_id, product_name, brand_name, brand_code, sku, unit_price, cost_price, vendor_name')
+                .select(productSelect)
                 .ilike('product_name', `%${fallbackName}%`);
+
+              if (error) {
+                console.warn('Retry product lookup (name fuzzy) error', { order: detail.order_number, fallbackName, error });
+              }
+
               products = (data as any[] | null) || null;
             }
           }
@@ -344,27 +363,32 @@ export const BackgroundSyncStatusCard = () => {
             throw new Error(language === 'ar' ? 'لم يتم العثور على معلومات المنتج' : 'Product information not found');
           }
 
-          // Build transactions from available data
-          formattedTransactions = products.map((p: any) => ({
-            order_number: detail.order_number,
-            customer_name: 'Customer',
-            customer_phone: detail.customer_phone || '0000',
-            brand_code: p.brand_code || '',
-            brand_name: p.brand_name || '',
-            product_id: p.product_id,
-            product_name: p.product_name,
-            unit_price: p.unit_price || detail.total_amount || 0,
-            total: detail.total_amount || 0,
-            qty: 1,
-            created_at_date: detail.order_date,
-            payment_method: detail.payment_method || '',
-            payment_brand: detail.payment_brand || '',
-            user_name: '',
-            cost_price: p.cost_price || 0,
-            cost_sold: p.cost_price || 0,
-            vendor_name: p.vendor_name || '',
-            company: '',
-          }));
+          // Build transactions from available data (match Transaction shape expected by sync-order-to-odoo-step)
+          formattedTransactions = products.map((p: any) => {
+            const unitPrice = Number(p.product_price ?? 0) || Number(detail.total_amount ?? 0) || 0;
+            const costPrice = Number(p.product_cost ?? 0) || 0;
+
+            return {
+              order_number: detail.order_number,
+              customer_name: 'Customer',
+              customer_phone: detail.customer_phone || '0000',
+              brand_code: p.brand_code || '',
+              brand_name: p.brand_name || '',
+              product_id: String(p.product_id ?? ''),
+              product_name: p.product_name,
+              unit_price: unitPrice,
+              total: Number(detail.total_amount ?? unitPrice) || 0,
+              qty: 1,
+              created_at_date: detail.order_date,
+              payment_method: detail.payment_method || '',
+              payment_brand: detail.payment_brand || '',
+              user_name: '',
+              cost_price: costPrice,
+              cost_sold: costPrice,
+              vendor_name: p.supplier || '',
+              company: '',
+            };
+          });
         } else {
           // Format from ordertotals
           formattedTransactions = orderTotals.map((t: any) => ({
@@ -445,18 +469,22 @@ export const BackgroundSyncStatusCard = () => {
 
       // Check for non-stock products and run purchase step if needed
       if (!lastError) {
-        const productIds = formattedTransactions.map((t: any) => t.product_id);
-        const { data: nonStockData } = await supabase
+        const productIds = formattedTransactions.map((t: any) => t.product_id).filter(Boolean);
+        const { data: nonStockData, error: nonStockError } = await supabase
           .from('products')
-          .select('product_id, is_stock_item')
+          .select('product_id, non_stock')
           .in('product_id', productIds);
 
-        // Filter for non-stock items
-        const nonStockItems = nonStockData?.filter((p: any) => p.is_stock_item === false) || [];
-        
+        if (nonStockError) {
+          console.warn('Retry non-stock lookup error', { order: detail.order_number, error: nonStockError });
+        }
+
+        // non_stock=true means it's a non-stock item
+        const nonStockItems = nonStockData?.filter((p: any) => p.non_stock === true) || [];
+
         if (nonStockItems.length > 0) {
           const nonStockProductIds = nonStockItems.map((p: any) => p.product_id);
-          const nonStockProducts = formattedTransactions.filter((t: any) => 
+          const nonStockProducts = formattedTransactions.filter((t: any) =>
             nonStockProductIds.includes(t.product_id)
           );
 

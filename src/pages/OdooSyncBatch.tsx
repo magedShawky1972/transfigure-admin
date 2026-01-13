@@ -558,21 +558,17 @@ const OdooSyncBatch = () => {
         const allAlreadySynced = invoice.originalOrderNumbers.every(orderNum => 
           alreadySyncedMap.has(orderNum)
         );
-        
-        // If already synced, use the existing aggregated order number
-        let orderNumber: string;
-        let alreadySyncedOrderNumber: string | null = null;
-        
-        if (allAlreadySynced && invoice.originalOrderNumbers.length > 0) {
-          // Use the existing aggregated order number from the first original order
-          alreadySyncedOrderNumber = alreadySyncedMap.get(invoice.originalOrderNumbers[0]) || null;
-          orderNumber = alreadySyncedOrderNumber || `${dateStr}${String((dateSequenceMap.get(dateStr) || 0) + 1).padStart(4, '0')}`;
-        } else {
-          const currentSeq = dateSequenceMap.get(dateStr) || 0;
-          const nextSeq = currentSeq + 1;
-          dateSequenceMap.set(dateStr, nextSeq);
-          orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
+
+        // If the invoice is already synced, hide it from the list entirely (so it doesn't appear again)
+        if (allAlreadySynced) {
+          return;
         }
+        
+        // Generate a new aggregated order number sequence for this date
+        const currentSeq = dateSequenceMap.get(dateStr) || 0;
+        const nextSeq = currentSeq + 1;
+        dateSequenceMap.set(dateStr, nextSeq);
+        const orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
         
         // Aggregate product lines by SKU and unit_price
         const productMap = new Map<string, {
