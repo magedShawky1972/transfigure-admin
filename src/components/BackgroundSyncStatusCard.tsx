@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle, Trash2, RefreshCw, History, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ interface BackgroundJob {
   user_email: string;
   user_name: string;
   user_id: string;
+  sync_run_id?: string | null;
 }
 
 interface SyncDetail {
@@ -57,6 +58,10 @@ export const BackgroundSyncStatusCard = () => {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [showCompletedJob, setShowCompletedJob] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [allJobs, setAllJobs] = useState<BackgroundJob[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedHistoryJob, setSelectedHistoryJob] = useState<BackgroundJob | null>(null);
 
   useEffect(() => {
     // Fetch active/recent job
@@ -166,11 +171,51 @@ export const BackgroundSyncStatusCard = () => {
     }
   };
 
-  const handleViewDetails = () => {
-    if (activeJob) {
-      fetchSyncDetails(activeJob.id);
+  const handleViewDetails = (job?: BackgroundJob) => {
+    const targetJob = job || activeJob;
+    if (targetJob) {
+      setSelectedHistoryJob(job || null);
+      fetchSyncDetails(targetJob.id);
       setShowDetailsDialog(true);
     }
+  };
+
+  const handleViewCurrentDetails = () => {
+    handleViewDetails();
+  };
+
+  // Fetch all historical jobs
+  const fetchAllJobs = async () => {
+    setLoadingHistory(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) return;
+
+      const { data, error } = await supabase
+        .from('background_sync_jobs')
+        .select('*')
+        .eq('user_id', user.user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (!error && data) {
+        setAllJobs(data as BackgroundJob[]);
+      }
+    } catch (error) {
+      console.error('Error fetching job history:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleShowHistory = () => {
+    fetchAllJobs();
+    setShowHistoryDialog(true);
+  };
+
+  const handleSelectHistoryJob = (job: BackgroundJob) => {
+    setShowHistoryDialog(false);
+    handleViewDetails(job);
   };
 
   const [actionLoading, setActionLoading] = useState(false);
@@ -482,30 +527,122 @@ export const BackgroundSyncStatusCard = () => {
             </div>
           )}
 
-          <div className="mt-3">
-            <Button variant="outline" size="sm" className="w-full gap-1" onClick={handleViewDetails}>
+          <div className="mt-3 flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={handleViewCurrentDetails}>
               <Eye className="h-3 w-3" />
               {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-1" onClick={handleShowHistory}>
+              <History className="h-3 w-3" />
+              {language === 'ar' ? 'السجل' : 'History'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              {language === 'ar' ? 'سجل المزامنة في الخلفية' : 'Background Sync History'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : allJobs.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {language === 'ar' ? 'لا يوجد سجل' : 'No history found'}
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-2">
+                {allJobs.map((job) => (
+                  <Card 
+                    key={job.id} 
+                    className="cursor-pointer hover:bg-accent/50 transition-colors"
+                    onClick={() => handleSelectHistoryJob(job)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-sm">
+                            {job.from_date} → {job.to_date}
+                          </span>
+                        </div>
+                        <Badge 
+                          variant={
+                            job.status === 'completed' ? 'secondary' :
+                            job.status === 'running' || job.status === 'pending' ? 'default' :
+                            job.status === 'failed' ? 'destructive' : 'outline'
+                          }
+                          className="text-xs"
+                        >
+                          {job.status === 'completed' 
+                            ? (language === 'ar' ? 'مكتمل' : 'Completed')
+                            : job.status === 'running' || job.status === 'pending'
+                              ? (language === 'ar' ? 'جاري' : 'Running')
+                              : job.status === 'failed'
+                                ? (language === 'ar' ? 'فشل' : 'Failed')
+                                : job.status === 'paused'
+                                  ? (language === 'ar' ? 'متوقف' : 'Paused')
+                                  : job.status === 'cancelled'
+                                    ? (language === 'ar' ? 'ملغي' : 'Cancelled')
+                                    : job.status
+                          }
+                        </Badge>
+                      </div>
+                      <div className="flex gap-3 text-xs text-muted-foreground">
+                        <span className="text-green-600">✓ {job.successful_orders || 0}</span>
+                        <span className="text-destructive">✗ {job.failed_orders || 0}</span>
+                        <span>⊘ {job.skipped_orders || 0}</span>
+                        <span className="ml-auto">
+                          {new Date(job.created_at).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+      <Dialog open={showDetailsDialog} onOpenChange={(open) => {
+        setShowDetailsDialog(open);
+        if (!open) setSelectedHistoryJob(null);
+      }}>
         <DialogContent className="max-w-[95vw] xl:max-w-7xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
               {language === 'ar' ? 'تفاصيل المزامنة في الخلفية' : 'Background Sync Details'}
+              {(selectedHistoryJob || activeJob) && (
+                <Badge variant="outline" className="ml-2">
+                  {(selectedHistoryJob || activeJob)?.from_date} → {(selectedHistoryJob || activeJob)?.to_date}
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 
           {/* Summary Cards - Calculate from syncDetails */}
           {(() => {
+            const currentJob = selectedHistoryJob || activeJob;
             const successCount = syncDetails.filter(d => d.sync_status === 'success').length;
             const failedCount = syncDetails.filter(d => d.sync_status === 'failed').length;
             const skippedCount = syncDetails.filter(d => d.sync_status === 'skipped').length;
-            const totalCount = syncDetails.length || activeJob.total_orders;
+            const totalCount = syncDetails.length || currentJob?.total_orders || 0;
             
             return (
               <div className="grid grid-cols-4 gap-3 mb-4">
@@ -632,16 +769,19 @@ export const BackgroundSyncStatusCard = () => {
             </ScrollArea>
           )}
 
-          {/* Refresh button for running jobs */}
-          {isRunning && (
+          {/* Refresh button for running jobs or history view */}
+          {(isRunning || selectedHistoryJob) && (
             <div className="flex justify-center mt-2">
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => fetchSyncDetails(activeJob.id)}
+                onClick={() => {
+                  const targetJob = selectedHistoryJob || activeJob;
+                  if (targetJob) fetchSyncDetails(targetJob.id);
+                }}
                 disabled={loadingDetails}
               >
-                {loadingDetails ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {loadingDetails ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                 {language === 'ar' ? 'تحديث' : 'Refresh'}
               </Button>
             </div>
