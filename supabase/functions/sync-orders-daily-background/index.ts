@@ -46,126 +46,188 @@ interface AggregatedInvoice {
   hasNonStock: boolean;
 }
 
-// Build aggregated invoices from order_totals for a specific date
+// Build aggregated invoices from transactions for a specific date
 async function buildAggregatedInvoicesForDate(
   supabase: any,
   targetDate: string,
   nonStockSkus: Set<string>
 ): Promise<AggregatedInvoice[]> {
-  // Fetch orders for this date
-  const { data: orders, error } = await supabase
-    .from('ordertotals')
-    .select(`
-      order_number, total, qty, sku, product_name, unit_price, brand_name,
-      created_at_date, payment_method, payment_brand, user_name, brand_code, company
-    `)
-    .eq('created_at_date', targetDate)
-    .order('order_number');
+  const targetDateInt = Number(targetDate.replace(/-/g, ''));
+
+  // Fetch transaction lines for this date
+  const { data: tx, error } = await supabase
+    .from('purpletransaction')
+    .select(
+      [
+        'order_number',
+        'created_at_date',
+        'created_at_date_int',
+        'brand_name',
+        'brand_code',
+        'payment_method',
+        'payment_brand',
+        'user_name',
+        'product_id',
+        'product_name',
+        'unit_price',
+        'qty',
+        'total',
+        'company',
+        'is_deleted',
+        'sendodoo',
+      ].join(',')
+    )
+    .eq('created_at_date_int', targetDateInt)
+    .neq('payment_method', 'point')
+    .neq('is_deleted', true);
 
   if (error) {
-    console.error(`[Daily Sync] Error fetching orders for ${targetDate}:`, error);
+    console.error(`[Daily Sync] Error fetching transactions for ${targetDate}:`, error);
     return [];
   }
 
-  if (!orders || orders.length === 0) {
-    console.log(`[Daily Sync] No orders found for ${targetDate}`);
+  const transactions = (tx || []).filter((t: any) => !!t?.order_number);
+
+  if (transactions.length === 0) {
+    console.log(`[Daily Sync] No transactions found for ${targetDate}`);
     return [];
   }
 
-  console.log(`[Daily Sync] Found ${orders.length} order lines for ${targetDate}`);
+  // Filter out already-synced original orders (aggregated mapping)
+  const uniqueOrderNumbers = Array.from(new Set(transactions.map((t: any) => t.order_number)));
+  const { data: existingMappings, error: mappingError } = await supabase
+    .from('aggregated_order_mapping')
+    .select('original_order_number')
+    .in('original_order_number', uniqueOrderNumbers);
+
+  if (mappingError) {
+    console.error('[Daily Sync] Error checking aggregated_order_mapping:', mappingError);
+  }
+
+  const alreadyMapped = new Set<string>((existingMappings || []).map((m: any) => m.original_order_number));
+  const unsyncedTransactions = transactions.filter((t: any) => !alreadyMapped.has(t.order_number));
+
+  if (unsyncedTransactions.length === 0) {
+    console.log(`[Daily Sync] All orders for ${targetDate} are already aggregated/synced`);
+    return [];
+  }
+
+  console.log(`[Daily Sync] Found ${unsyncedTransactions.length} transaction lines for ${targetDate}`);
 
   // Group by invoice criteria: brand, payment_method, payment_brand, user_name
-  const invoiceMap = new Map<string, {
-    orders: any[];
-    originalOrderNumbers: Set<string>;
-  }>();
+  const invoiceMap = new Map<
+    string,
+    {
+      brandName: string;
+      paymentMethod: string;
+      paymentBrand: string;
+      userName: string;
+      company: string;
+      brandCode: string;
+      lines: any[];
+      originalOrderNumbers: Set<string>;
+    }
+  >();
 
-  for (const order of orders) {
-    const key = `${order.brand_name || 'Unknown'}|${order.payment_method || 'Unknown'}|${order.payment_brand || 'Unknown'}|${order.user_name || 'Unknown'}`;
-    
+  for (const line of unsyncedTransactions) {
+    const brandName = line.brand_name || '';
+    const paymentMethod = line.payment_method || '';
+    const paymentBrand = line.payment_brand || '';
+    const userName = line.user_name || '';
+    const key = `${brandName}|${paymentMethod}|${paymentBrand}|${userName}`;
+
     if (!invoiceMap.has(key)) {
       invoiceMap.set(key, {
-        orders: [],
+        brandName,
+        paymentMethod,
+        paymentBrand,
+        userName,
+        company: line.company || '',
+        brandCode: line.brand_code || '',
+        lines: [],
         originalOrderNumbers: new Set(),
       });
     }
-    
+
     const group = invoiceMap.get(key)!;
-    group.orders.push(order);
-    if (order.order_number) {
-      group.originalOrderNumbers.add(order.order_number);
-    }
+    group.lines.push(line);
+    group.originalOrderNumbers.add(line.order_number);
   }
 
-  // Build aggregated invoices
-  const aggregatedInvoices: AggregatedInvoice[] = [];
-  let invoiceIndex = 1;
+  // Determine starting sequence for this date from existing mappings
+  const dateStr = targetDate.replace(/-/g, '');
+  let seq = 0;
+  const { data: lastMapping } = await supabase
+    .from('aggregated_order_mapping')
+    .select('aggregated_order_number')
+    .eq('aggregation_date', targetDate)
+    .order('aggregated_order_number', { ascending: false })
+    .limit(1);
 
-  for (const [key, group] of invoiceMap.entries()) {
-    const [brandName, paymentMethod, paymentBrand, userName] = key.split('|');
-    
-    // Group products by SKU
-    const productMap = new Map<string, {
-      productSku: string;
-      productName: string;
-      unitPrice: number;
-      totalQty: number;
-      totalAmount: number;
-    }>();
+  if (lastMapping && lastMapping.length > 0) {
+    const last = String(lastMapping[0].aggregated_order_number || '');
+    const lastSeq = parseInt(last.slice(-4), 10);
+    if (!Number.isNaN(lastSeq)) seq = lastSeq;
+  }
+
+  const aggregatedInvoices: AggregatedInvoice[] = [];
+
+  for (const group of invoiceMap.values()) {
+    // Aggregate product lines by product_id and unit_price (same as batch screen)
+    const productMap = new Map<
+      string,
+      {
+        productSku: string;
+        productName: string;
+        unitPrice: number;
+        totalQty: number;
+        totalAmount: number;
+      }
+    >();
 
     let hasNonStock = false;
 
-    for (const order of group.orders) {
-      const sku = order.sku || 'UNKNOWN';
-      const productName = order.product_name || 'Unknown Product';
-      const unitPrice = Number(order.unit_price) || 0;
-      const qty = Number(order.qty) || 0;
-      const total = Number(order.total) || 0;
+    for (const line of group.lines) {
+      const sku = (line.product_id || '').toString();
+      const unitPrice = Number(line.unit_price) || 0;
+      const productKey = `${sku}|${unitPrice}`;
 
-      if (nonStockSkus.has(sku)) {
-        hasNonStock = true;
-      }
+      if (sku && nonStockSkus.has(sku)) hasNonStock = true;
 
-      if (!productMap.has(sku)) {
-        productMap.set(sku, {
+      const existing = productMap.get(productKey);
+      if (existing) {
+        existing.totalQty += Number(line.qty) || 0;
+        existing.totalAmount += Number(line.total) || 0;
+      } else {
+        productMap.set(productKey, {
           productSku: sku,
-          productName,
+          productName: line.product_name || '',
           unitPrice,
-          totalQty: 0,
-          totalAmount: 0,
+          totalQty: Number(line.qty) || 0,
+          totalAmount: Number(line.total) || 0,
         });
       }
-
-      const product = productMap.get(sku)!;
-      product.totalQty += qty;
-      product.totalAmount += total;
     }
 
-    const productLines = Array.from(productMap.values());
-    const grandTotal = productLines.reduce((sum, p) => sum + p.totalAmount, 0);
-    const originalOrderNumbers = Array.from(group.originalOrderNumbers);
+    const productLines = Array.from(productMap.values()).sort((a, b) => a.productSku.localeCompare(b.productSku));
 
-    // Generate aggregated order number
-    const brandCode = group.orders[0]?.brand_code || brandName.substring(0, 3).toUpperCase();
-    const dateStr = targetDate.replace(/-/g, '');
-    const orderNumber = `AGG-${brandCode}-${dateStr}-${String(invoiceIndex).padStart(3, '0')}`;
+    seq += 1;
+    const orderNumber = `${dateStr}${String(seq).padStart(4, '0')}`;
 
     aggregatedInvoices.push({
       orderNumber,
       date: targetDate,
-      brandName,
-      paymentMethod,
-      paymentBrand,
-      userName,
+      brandName: group.brandName,
+      paymentMethod: group.paymentMethod,
+      paymentBrand: group.paymentBrand,
+      userName: group.userName,
       productLines,
-      grandTotal,
-      originalOrderNumbers,
-      brandCode,
-      company: group.orders[0]?.company || '',
+      grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
+      originalOrderNumbers: Array.from(group.originalOrderNumbers),
+      brandCode: group.brandCode,
+      company: group.company,
       hasNonStock,
     });
-
-    invoiceIndex++;
   }
 
   console.log(`[Daily Sync] Built ${aggregatedInvoices.length} aggregated invoices for ${targetDate}`);
