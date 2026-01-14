@@ -96,6 +96,7 @@ import ZKAttendanceLogs from "./pages/ZKAttendanceLogs";
 import SoldProductReport from "./pages/SoldProductReport";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
+import HRVacationCalendar from "./pages/HRVacationCalendar";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -198,6 +199,7 @@ const App = () => (
               <Route path="/reports/sold-product" element={<SoldProductReport />} />
               <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />
               <Route path="/reports/aggregated-orders" element={<AggregatedOrderReport />} />
+              <Route path="/hr-vacation-calendar" element={<HRVacationCalendar />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
