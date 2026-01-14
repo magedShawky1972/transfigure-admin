@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle, Trash2, RefreshCw, History, Calendar } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Eye, X, Pause, Play, StopCircle, Trash2, RefreshCw, History, Calendar, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { SyncDetailRowDialog } from "./SyncDetailRowDialog";
 
 interface BackgroundJob {
   id: string;
@@ -63,6 +64,7 @@ export const BackgroundSyncStatusCard = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedHistoryJob, setSelectedHistoryJob] = useState<BackgroundJob | null>(null);
   const [productsWithoutSku, setProductsWithoutSku] = useState<{ product_name: string; brand_name: string | null; order_count: number }[]>([]);
+  const [selectedRowDetail, setSelectedRowDetail] = useState<SyncDetail | null>(null);
 
   // Fetch products without SKU in date range
   const fetchProductsWithoutSku = async (fromDate: string, toDate: string) => {
@@ -794,6 +796,7 @@ export const BackgroundSyncStatusCard = () => {
                     <TableHead className="text-center">{language === 'ar' ? 'طلب' : 'Order'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'شراء' : 'Purch'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'تفاصيل' : 'Details'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -830,6 +833,17 @@ export const BackgroundSyncStatusCard = () => {
                       <TableCell className="text-center">{getStepIcon(detail.step_purchase)}</TableCell>
                       <TableCell className="text-xs whitespace-normal break-words max-w-[260px]">
                         {detail.error_message || '-'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-blue-500 hover:text-blue-600 hover:bg-blue-100"
+                          onClick={() => setSelectedRowDetail(detail)}
+                          title={language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+                        >
+                          <FileText className="h-3 w-3" />
+                        </Button>
                       </TableCell>
                       <TableCell className="text-center">
                         {detail.sync_status === 'failed' ? (
@@ -879,6 +893,26 @@ export const BackgroundSyncStatusCard = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Row Detail Dialog */}
+      <SyncDetailRowDialog
+        open={!!selectedRowDetail}
+        onOpenChange={(open) => !open && setSelectedRowDetail(null)}
+        orderNumber={selectedRowDetail?.order_number || ''}
+        orderDate={selectedRowDetail?.order_date || null}
+        customerPhone={selectedRowDetail?.customer_phone || null}
+        productNames={selectedRowDetail?.product_names || null}
+        totalAmount={selectedRowDetail?.total_amount || null}
+        syncStatus={selectedRowDetail?.sync_status || ''}
+        errorMessage={selectedRowDetail?.error_message || null}
+        stepCustomer={selectedRowDetail?.step_customer || null}
+        stepBrand={selectedRowDetail?.step_brand || null}
+        stepProduct={selectedRowDetail?.step_product || null}
+        stepOrder={selectedRowDetail?.step_order || null}
+        stepPurchase={selectedRowDetail?.step_purchase || null}
+        paymentMethod={selectedRowDetail?.payment_method || null}
+        paymentBrand={selectedRowDetail?.payment_brand || null}
+      />
     </>
   );
 };
