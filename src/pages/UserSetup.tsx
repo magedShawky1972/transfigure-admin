@@ -146,6 +146,7 @@ interface UserPermission {
     { key: "auditLogs", label: "سجلات التدقيق", labelEn: "Audit Logs" },
     { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
     { key: "zkAttendanceLogs", label: "سجلات حضور ZK", labelEn: "ZK Attendance Logs" },
+    { key: "hrVacationCalendar", label: "تقويم الإجازات", labelEn: "HR Vacation Calendar" },
   ];
 
 const DASHBOARD_COMPONENTS = [
