@@ -9,9 +9,11 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInSeconds } from "date-fns";
@@ -255,8 +257,134 @@ const OdooSyncBatch = () => {
   const [separateByDay, setSeparateByDay] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
 
+  // Filter states
+  const [filterBrand, setFilterBrand] = useState<string>('');
+  const [filterProduct, setFilterProduct] = useState<string>('');
+  const [filterOrderNumber, setFilterOrderNumber] = useState<string>('');
+  const [filterHasPurchase, setFilterHasPurchase] = useState<string>('all');
+
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
+
+  // Get unique brands and products from order groups for filter dropdowns
+  const uniqueBrands = useMemo(() => {
+    const brands = new Set<string>();
+    orderGroups.forEach(g => {
+      g.lines.forEach(l => {
+        if (l.brand_name) brands.add(l.brand_name);
+      });
+    });
+    return Array.from(brands).sort();
+  }, [orderGroups]);
+
+  const uniqueProducts = useMemo(() => {
+    const products = new Map<string, string>();
+    orderGroups.forEach(g => {
+      g.lines.forEach(l => {
+        if (l.sku || l.product_id) {
+          const key = l.sku || l.product_id || '';
+          if (!products.has(key)) {
+            products.set(key, l.product_name || key);
+          }
+        }
+      });
+    });
+    // Filter by selected brand if applicable
+    if (filterBrand && filterBrand !== 'all_brands') {
+      const filteredProducts = new Map<string, string>();
+      orderGroups.forEach(g => {
+        g.lines.forEach(l => {
+          if (l.brand_name === filterBrand && (l.sku || l.product_id)) {
+            const key = l.sku || l.product_id || '';
+            if (!filteredProducts.has(key)) {
+              filteredProducts.set(key, l.product_name || key);
+            }
+          }
+        });
+      });
+      return Array.from(filteredProducts.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+    }
+    return Array.from(products.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [orderGroups, filterBrand]);
+
+  // Filtered order groups based on filter criteria
+  const filteredOrderGroups = useMemo(() => {
+    return orderGroups.filter(g => {
+      // Filter by brand (skip if 'all_brands' or empty)
+      if (filterBrand && filterBrand !== 'all_brands') {
+        const hasBrand = g.lines.some(l => l.brand_name === filterBrand);
+        if (!hasBrand) return false;
+      }
+      // Filter by product (skip if 'all_products' or empty)
+      if (filterProduct && filterProduct !== 'all_products') {
+        const hasProduct = g.lines.some(l => (l.sku || l.product_id) === filterProduct);
+        if (!hasProduct) return false;
+      }
+      // Filter by order number
+      if (filterOrderNumber) {
+        if (!g.orderNumber.toLowerCase().includes(filterOrderNumber.toLowerCase())) return false;
+      }
+      // Filter by has purchase to send
+      if (filterHasPurchase === 'yes') {
+        if (!g.hasNonStock) return false;
+      } else if (filterHasPurchase === 'no') {
+        if (g.hasNonStock) return false;
+      }
+      return true;
+    });
+  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
+
+  // Filtered aggregated invoices based on filter criteria
+  const filteredAggregatedInvoices = useMemo(() => {
+    return aggregatedInvoices.filter(inv => {
+      // Filter by brand (skip if 'all_brands' or empty)
+      if (filterBrand && filterBrand !== 'all_brands' && inv.brandName !== filterBrand) return false;
+      // Filter by product (skip if 'all_products' or empty)
+      if (filterProduct && filterProduct !== 'all_products') {
+        const hasProduct = inv.productLines.some(pl => pl.productSku === filterProduct);
+        if (!hasProduct) return false;
+      }
+      // Filter by order number (search in original order numbers and aggregated order number)
+      if (filterOrderNumber) {
+        const matchesAggregated = inv.orderNumber.toLowerCase().includes(filterOrderNumber.toLowerCase());
+        const matchesOriginal = inv.originalOrderNumbers.some(o => o.toLowerCase().includes(filterOrderNumber.toLowerCase()));
+        if (!matchesAggregated && !matchesOriginal) return false;
+      }
+      // Filter by has purchase to send
+      if (filterHasPurchase === 'yes') {
+        if (!inv.hasNonStock) return false;
+      } else if (filterHasPurchase === 'no') {
+        if (inv.hasNonStock) return false;
+      }
+      return true;
+    });
+  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
+
+  // Reset product filter when brand changes
+  useEffect(() => {
+    if (filterBrand && filterBrand !== 'all_brands' && filterProduct && filterProduct !== 'all_products') {
+      // Check if the selected product belongs to the selected brand
+      const productBelongsToBrand = orderGroups.some(g =>
+        g.lines.some(l => l.brand_name === filterBrand && (l.sku || l.product_id) === filterProduct)
+      );
+      if (!productBelongsToBrand) {
+        setFilterProduct('');
+      }
+    }
+  }, [filterBrand, filterProduct, orderGroups]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilterBrand('');
+    setFilterProduct('');
+    setFilterOrderNumber('');
+    setFilterHasPurchase('all');
+  };
+
+  const hasActiveFilters = (filterBrand && filterBrand !== 'all_brands') || 
+                           (filterProduct && filterProduct !== 'all_products') || 
+                           filterOrderNumber || 
+                           filterHasPurchase !== 'all';
 
   // Calculate duration in formatted string
   const formatDuration = (start: Date, end: Date): string => {
@@ -432,9 +560,12 @@ const OdooSyncBatch = () => {
     loadTransactions();
   }, [fromDate, toDate, language, navigate]);
 
-  // Toggle select all
+  // Toggle select all (only for filtered items)
   const handleSelectAll = (checked: boolean) => {
-    setOrderGroups(prev => prev.map(g => ({ ...g, selected: checked })));
+    const filteredOrderNumbers = new Set(filteredOrderGroups.map(g => g.orderNumber));
+    setOrderGroups(prev => prev.map(g => 
+      filteredOrderNumbers.has(g.orderNumber) ? { ...g, selected: checked } : g
+    ));
   };
 
   // Toggle single row selection
@@ -451,10 +582,10 @@ const OdooSyncBatch = () => {
     ));
   };
 
-  // Count selected orders
+  // Count selected orders (from filtered)
   const selectedCount = useMemo(() => 
-    orderGroups.filter(g => g.selected && !g.skipSync).length,
-    [orderGroups]
+    filteredOrderGroups.filter(g => g.selected && !g.skipSync).length,
+    [filteredOrderGroups]
   );
 
   // Build aggregated invoices when aggregate mode is on
@@ -667,7 +798,7 @@ const OdooSyncBatch = () => {
     buildAggregatedInvoices();
   }, [orderGroups, aggregateMode, separateByDay, nonStockSkuSet]);
 
-  // Aggregated invoice selection handlers
+  // Aggregated invoice selection handlers (only for filtered items)
   const handleSelectAggregatedRow = (orderNumber: string, checked: boolean) => {
     setAggregatedInvoices(prev => prev.map(inv => 
       inv.orderNumber === orderNumber ? { ...inv, selected: checked } : inv
@@ -675,7 +806,10 @@ const OdooSyncBatch = () => {
   };
 
   const handleSelectAllAggregated = (checked: boolean) => {
-    setAggregatedInvoices(prev => prev.map(inv => ({ ...inv, selected: checked })));
+    const filteredOrderNumbers = new Set(filteredAggregatedInvoices.map(inv => inv.orderNumber));
+    setAggregatedInvoices(prev => prev.map(inv => 
+      filteredOrderNumbers.has(inv.orderNumber) ? { ...inv, selected: checked } : inv
+    ));
   };
 
   const handleToggleSkipAggregated = (orderNumber: string) => {
@@ -684,10 +818,10 @@ const OdooSyncBatch = () => {
     ));
   };
 
-  const allAggregatedSelected = aggregatedInvoices.length > 0 && aggregatedInvoices.every(inv => inv.selected);
-  const selectedAggregatedCount = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync).length;
+  const allAggregatedSelected = filteredAggregatedInvoices.length > 0 && filteredAggregatedInvoices.every(inv => inv.selected);
+  const selectedAggregatedCount = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync).length;
 
-  const allSelected = orderGroups.length > 0 && orderGroups.every(g => g.selected);
+  const allSelected = filteredOrderGroups.length > 0 && filteredOrderGroups.every(g => g.selected);
 
   // Sync a single order to Odoo with step tracking using edge function
   const syncSingleOrder = async (group: OrderGroup): Promise<Partial<OrderGroup>> => {
@@ -1964,13 +2098,83 @@ const OdooSyncBatch = () => {
             <span className="text-sm font-normal text-muted-foreground">
               {aggregateMode 
                 ? (language === 'ar' 
-                    ? `${selectedAggregatedCount} من ${aggregatedInvoices.length} فاتورة مجمعة`
-                    : `${selectedAggregatedCount} of ${aggregatedInvoices.length} aggregated invoices`)
+                    ? `${selectedAggregatedCount} من ${filteredAggregatedInvoices.length} فاتورة مجمعة`
+                    : `${selectedAggregatedCount} of ${filteredAggregatedInvoices.length} aggregated invoices`)
                 : (language === 'ar' 
-                    ? `${selectedCount} من ${orderGroups.length} محدد`
-                    : `${selectedCount} of ${orderGroups.length} selected`)}
+                    ? `${selectedCount} من ${filteredOrderGroups.length} محدد`
+                    : `${selectedCount} of ${filteredOrderGroups.length} selected`)}
             </span>
           </CardTitle>
+
+          {/* Filter Section */}
+          <div className="flex flex-wrap items-center gap-3 pt-4 border-t mt-4">
+            <div className="flex items-center gap-1.5">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{language === 'ar' ? 'تصفية' : 'Filters'}:</span>
+            </div>
+            
+            {/* Order Number Filter */}
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder={language === 'ar' ? 'رقم الطلب...' : 'Order #...'}
+                value={filterOrderNumber}
+                onChange={(e) => setFilterOrderNumber(e.target.value)}
+                className="h-9 w-[140px]"
+                disabled={isSyncing}
+              />
+            </div>
+
+            {/* Brand Filter */}
+            <Select value={filterBrand} onValueChange={setFilterBrand} disabled={isSyncing}>
+              <SelectTrigger className="h-9 w-[180px]">
+                <SelectValue placeholder={language === 'ar' ? 'اختر العلامة التجارية' : 'Select Brand'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_brands">{language === 'ar' ? 'كل العلامات' : 'All Brands'}</SelectItem>
+                {uniqueBrands.map(brand => (
+                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Product Filter */}
+            <Select value={filterProduct} onValueChange={setFilterProduct} disabled={isSyncing}>
+              <SelectTrigger className="h-9 w-[200px]">
+                <SelectValue placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_products">{language === 'ar' ? 'كل المنتجات' : 'All Products'}</SelectItem>
+                {uniqueProducts.map(([sku, name]) => (
+                  <SelectItem key={sku} value={sku}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Has Purchase Filter */}
+            <Select value={filterHasPurchase} onValueChange={setFilterHasPurchase} disabled={isSyncing}>
+              <SelectTrigger className="h-9 w-[150px]">
+                <SelectValue placeholder={language === 'ar' ? 'أمر شراء' : 'Purchase Order'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                <SelectItem value="yes">{language === 'ar' ? 'يوجد شراء' : 'Has Purchase'}</SelectItem>
+                <SelectItem value="no">{language === 'ar' ? 'لا يوجد شراء' : 'No Purchase'}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-9 gap-1 text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+                {language === 'ar' ? 'مسح' : 'Clear'}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -1981,7 +2185,16 @@ const OdooSyncBatch = () => {
             <div className="text-center py-12 text-muted-foreground">
               {language === 'ar' ? 'لا توجد معاملات' : 'No transactions found'}
             </div>
-          ) : aggregateMode && aggregatedInvoices.length > 0 ? (
+          ) : aggregateMode && filteredAggregatedInvoices.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              {language === 'ar' ? 'لا توجد نتائج مطابقة للفلتر' : 'No results match the filter criteria'}
+              {hasActiveFilters && (
+                <Button variant="link" onClick={clearFilters} className="block mx-auto mt-2">
+                  {language === 'ar' ? 'مسح الفلتر' : 'Clear filters'}
+                </Button>
+              )}
+            </div>
+          ) : aggregateMode && filteredAggregatedInvoices.length > 0 ? (
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader>
@@ -2011,7 +2224,7 @@ const OdooSyncBatch = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {aggregatedInvoices.map((invoice, idx) => (
+                  {filteredAggregatedInvoices.map((invoice, idx) => (
                     <TableRow 
                       key={invoice.orderNumber}
                       className={cn(
@@ -2096,6 +2309,15 @@ const OdooSyncBatch = () => {
                 </TableBody>
               </Table>
             </ScrollArea>
+          ) : !aggregateMode && filteredOrderGroups.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              {language === 'ar' ? 'لا توجد نتائج مطابقة للفلتر' : 'No results match the filter criteria'}
+              {hasActiveFilters && (
+                <Button variant="link" onClick={clearFilters} className="block mx-auto mt-2">
+                  {language === 'ar' ? 'مسح الفلتر' : 'Clear filters'}
+                </Button>
+              )}
+            </div>
           ) : (
             <ScrollArea className="h-[600px]">
               <Table>
@@ -2124,7 +2346,7 @@ const OdooSyncBatch = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orderGroups.map((group, idx) => (
+                  {filteredOrderGroups.map((group, idx) => (
                     <TableRow 
                       key={group.orderNumber}
                       className={cn(
