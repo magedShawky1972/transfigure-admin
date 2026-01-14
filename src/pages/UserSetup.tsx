@@ -192,6 +192,7 @@ const REPORTS = [
   { key: "security-dashboard", labelEn: "Security Dashboard", labelAr: "لوحة الأمان" },
   { key: "sold-product", labelEn: "Sold Product Report", labelAr: "تقرير المنتجات المباعة" },
   { key: "odoo-sync-status", labelEn: "Odoo Sync Status", labelAr: "حالة مزامنة Odoo" },
+  { key: "aggregated-orders", labelEn: "Aggregated Order Mapping", labelAr: "مطابقة الطلبات المجمعة" },
 ];
 
 const UserSetup = () => {
