@@ -135,6 +135,7 @@ const Transactions = () => {
   const [pointTransactionCount, setPointTransactionCount] = useState<number>(0);
   const [pointSales, setPointSales] = useState<number>(0);
   const [sentToOdooCount, setSentToOdooCount] = useState<number>(0);
+  const [odooMode, setOdooMode] = useState<'Production' | 'Test' | null>(null);
   const [groupLevels, setGroupLevels] = useState<GroupLevel[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
@@ -212,6 +213,21 @@ const Transactions = () => {
     // Fallbacks
     return pointerCollisions.length ? pointerCollisions : closestCenter(args);
   };
+
+  // Load Odoo mode on mount
+  useEffect(() => {
+    const fetchOdooMode = async () => {
+      const { data } = await supabase
+        .from('odoo_api_config')
+        .select('is_production_mode')
+        .single();
+      
+      if (data) {
+        setOdooMode(data.is_production_mode ? 'Production' : 'Test');
+      }
+    };
+    fetchOdooMode();
+  }, []);
 
   // Load user preferences and ID
   useEffect(() => {
@@ -1383,6 +1399,21 @@ const Transactions = () => {
         <p className="text-muted-foreground">
           {t("transactions.subtitle")}
         </p>
+        {odooMode && (
+          <Badge 
+            variant={odooMode === 'Production' ? 'default' : 'secondary'}
+            className={cn(
+              "mt-2",
+              odooMode === 'Production' 
+                ? "bg-green-600 hover:bg-green-700 text-white" 
+                : "bg-yellow-500 hover:bg-yellow-600 text-black"
+            )}
+          >
+            {language === 'ar' 
+              ? `وضع Odoo: ${odooMode === 'Production' ? 'الإنتاج' : 'الاختبار'}`
+              : `Odoo Mode: ${odooMode}`}
+          </Badge>
+        )}
       </div>
 
       {/* Background Sync Status Card */}
