@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface OfficialHoliday {
   id: string;
@@ -23,6 +24,13 @@ interface OfficialHoliday {
   is_recurring: boolean;
   year: number | null;
   description: string | null;
+  attendance_type_ids?: string[];
+}
+
+interface HolidayAttendanceType {
+  id: string;
+  holiday_id: string;
+  attendance_type_id: string;
 }
 
 interface AttendanceType {
@@ -50,6 +58,7 @@ const HRVacationCalendar = () => {
   const [holidays, setHolidays] = useState<OfficialHoliday[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendanceTypes, setAttendanceTypes] = useState<AttendanceType[]>([]);
+  const [holidayAttendanceTypes, setHolidayAttendanceTypes] = useState<HolidayAttendanceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedAttendanceType, setSelectedAttendanceType] = useState<string>("all");
@@ -63,7 +72,8 @@ const HRVacationCalendar = () => {
     holiday_name_ar: "",
     holiday_date: "",
     is_recurring: false,
-    description: ""
+    description: "",
+    selected_attendance_types: [] as string[]
   });
 
   useEffect(() => {
@@ -73,7 +83,7 @@ const HRVacationCalendar = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch official holidays using raw query
+      // Fetch official holidays
       const { data: holidaysData, error: holidaysError } = await supabase
         .from("official_holidays" as any)
         .select("*")
@@ -81,6 +91,13 @@ const HRVacationCalendar = () => {
         .order("holiday_date", { ascending: true });
 
       if (holidaysError) throw holidaysError;
+
+      // Fetch holiday-attendance type relationships
+      const { data: holidayTypesData, error: holidayTypesError } = await supabase
+        .from("holiday_attendance_types" as any)
+        .select("*");
+
+      if (holidayTypesError) throw holidayTypesError;
 
       // Fetch attendance types
       const { data: typesData, error: typesError } = await supabase
@@ -116,7 +133,18 @@ const HRVacationCalendar = () => {
 
       if (employeesError) throw employeesError;
 
-      setHolidays((holidaysData as unknown as OfficialHoliday[]) || []);
+      const holidayTypesMap = (holidayTypesData as unknown as HolidayAttendanceType[]) || [];
+      setHolidayAttendanceTypes(holidayTypesMap);
+
+      // Map attendance type IDs to each holiday
+      const holidaysWithTypes = ((holidaysData as unknown as OfficialHoliday[]) || []).map(holiday => ({
+        ...holiday,
+        attendance_type_ids: holidayTypesMap
+          .filter(ht => ht.holiday_id === holiday.id)
+          .map(ht => ht.attendance_type_id)
+      }));
+
+      setHolidays(holidaysWithTypes);
       setAttendanceTypes(typesData || []);
       setEmployees(employeesData as Employee[] || []);
     } catch (error) {
@@ -200,7 +228,8 @@ const HRVacationCalendar = () => {
       holiday_name_ar: "",
       holiday_date: "",
       is_recurring: false,
-      description: ""
+      description: "",
+      selected_attendance_types: []
     });
     setDialogOpen(true);
   };
@@ -212,7 +241,8 @@ const HRVacationCalendar = () => {
       holiday_name_ar: holiday.holiday_name_ar || "",
       holiday_date: holiday.holiday_date,
       is_recurring: holiday.is_recurring,
-      description: holiday.description || ""
+      description: holiday.description || "",
+      selected_attendance_types: holiday.attendance_type_ids || []
     });
     setDialogOpen(true);
   };
@@ -220,6 +250,11 @@ const HRVacationCalendar = () => {
   const handleSave = async () => {
     if (!formData.holiday_name || !formData.holiday_date) {
       toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
+      return;
+    }
+
+    if (formData.selected_attendance_types.length === 0) {
+      toast.error(language === "ar" ? "يرجى اختيار نوع حضور واحد على الأقل" : "Please select at least one attendance type");
       return;
     }
 
@@ -233,6 +268,8 @@ const HRVacationCalendar = () => {
         description: formData.description || null
       };
 
+      let holidayId: string;
+
       if (editingHoliday) {
         const { error } = await supabase
           .from("official_holidays" as any)
@@ -240,15 +277,43 @@ const HRVacationCalendar = () => {
           .eq("id", editingHoliday.id);
         
         if (error) throw error;
-        toast.success(language === "ar" ? "تم تحديث الإجازة بنجاح" : "Holiday updated successfully");
+        holidayId = editingHoliday.id;
+
+        // Delete existing attendance type associations
+        await supabase
+          .from("holiday_attendance_types" as any)
+          .delete()
+          .eq("holiday_id", holidayId);
       } else {
-        const { error } = await supabase
+        const { data: newHoliday, error } = await supabase
           .from("official_holidays" as any)
-          .insert(holidayData);
+          .insert(holidayData)
+          .select()
+          .single();
         
         if (error) throw error;
-        toast.success(language === "ar" ? "تمت إضافة الإجازة بنجاح" : "Holiday added successfully");
+        holidayId = (newHoliday as any).id;
       }
+
+      // Insert new attendance type associations
+      if (formData.selected_attendance_types.length > 0) {
+        const associations = formData.selected_attendance_types.map(typeId => ({
+          holiday_id: holidayId,
+          attendance_type_id: typeId
+        }));
+
+        const { error: assocError } = await supabase
+          .from("holiday_attendance_types" as any)
+          .insert(associations);
+
+        if (assocError) throw assocError;
+      }
+
+      toast.success(
+        editingHoliday 
+          ? (language === "ar" ? "تم تحديث الإجازة بنجاح" : "Holiday updated successfully")
+          : (language === "ar" ? "تمت إضافة الإجازة بنجاح" : "Holiday added successfully")
+      );
 
       setDialogOpen(false);
       fetchData();
@@ -470,6 +535,7 @@ const HRVacationCalendar = () => {
               <TableRow>
                 <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                 <TableHead>{language === "ar" ? "اسم الإجازة" : "Holiday Name"}</TableHead>
+                <TableHead>{language === "ar" ? "أنواع الحضور" : "Attendance Types"}</TableHead>
                 <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
                 <TableHead className="text-right">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
               </TableRow>
@@ -477,7 +543,7 @@ const HRVacationCalendar = () => {
             <TableBody>
               {holidays.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد إجازات مسجلة" : "No holidays registered"}
                   </TableCell>
                 </TableRow>
@@ -488,6 +554,24 @@ const HRVacationCalendar = () => {
                       {format(new Date(holiday.holiday_date), "dd/MM/yyyy")}
                     </TableCell>
                     <TableCell>{getHolidayName(holiday)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {holiday.attendance_type_ids && holiday.attendance_type_ids.length > 0 ? (
+                          holiday.attendance_type_ids.map(typeId => {
+                            const type = attendanceTypes.find(t => t.id === typeId);
+                            return type ? (
+                              <Badge key={typeId} variant="outline" className="text-xs">
+                                {language === "ar" && type.type_name_ar ? type.type_name_ar : type.type_name}
+                              </Badge>
+                            ) : null;
+                          })
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            {language === "ar" ? "الكل" : "All"}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={holiday.is_recurring ? "default" : "secondary"}>
                         {holiday.is_recurring 
@@ -588,6 +672,45 @@ const HRVacationCalendar = () => {
                 value={formData.holiday_date}
                 onChange={(e) => setFormData({ ...formData, holiday_date: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "أنواع الحضور المؤهلة" : "Eligible Attendance Types"} *</Label>
+              <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
+                {attendanceTypes.map(type => (
+                  <div key={type.id} className="flex items-center space-x-2 rtl:space-x-reverse">
+                    <Checkbox
+                      id={`type-${type.id}`}
+                      checked={formData.selected_attendance_types.includes(type.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData({
+                            ...formData,
+                            selected_attendance_types: [...formData.selected_attendance_types, type.id]
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            selected_attendance_types: formData.selected_attendance_types.filter(id => id !== type.id)
+                          });
+                        }
+                      }}
+                    />
+                    <label htmlFor={`type-${type.id}`} className="text-sm cursor-pointer">
+                      {language === "ar" && type.type_name_ar ? type.type_name_ar : type.type_name}
+                    </label>
+                  </div>
+                ))}
+                {attendanceTypes.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {language === "ar" ? "لا توجد أنواع حضور" : "No attendance types available"}
+                  </p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {language === "ar" 
+                  ? `تم اختيار ${formData.selected_attendance_types.length} نوع`
+                  : `${formData.selected_attendance_types.length} type(s) selected`}
+              </p>
             </div>
             <div className="flex items-center justify-between">
               <Label>{language === "ar" ? "إجازة سنوية متكررة" : "Recurring Yearly"}</Label>

@@ -1787,6 +1787,42 @@ export type Database = {
           },
         ]
       }
+      holiday_attendance_types: {
+        Row: {
+          attendance_type_id: string
+          created_at: string
+          holiday_id: string
+          id: string
+        }
+        Insert: {
+          attendance_type_id: string
+          created_at?: string
+          holiday_id: string
+          id?: string
+        }
+        Update: {
+          attendance_type_id?: string
+          created_at?: string
+          holiday_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holiday_attendance_types_attendance_type_id_fkey"
+            columns: ["attendance_type_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_attendance_types_holiday_id_fkey"
+            columns: ["holiday_id"]
+            isOneToOne: false
+            referencedRelation: "official_holidays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hyberpaystatement: {
         Row: {
           accountcountry: string | null
