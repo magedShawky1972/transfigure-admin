@@ -120,6 +120,8 @@ const Transactions = () => {
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
   const [filterPaymentBrand, setFilterPaymentBrand] = useState<string>("all");
   const [filterCustomer, setFilterCustomer] = useState<string>("all");
+  const [filterSku, setFilterSku] = useState<string>("");
+  const [productSearchTerm, setProductSearchTerm] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [brands, setBrands] = useState<string[]>([]);
@@ -379,6 +381,8 @@ const Transactions = () => {
     setFilterPaymentMethod("all");
     setFilterPaymentBrand("all");
     setFilterCustomer("all");
+    setFilterSku("");
+    setProductSearchTerm("");
     setSearchTerm("");
     setPage(1);
     toast({
@@ -794,10 +798,44 @@ const Transactions = () => {
       const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
       const matchesPaymentBrand = filterPaymentBrand === "all" || transaction.payment_brand === filterPaymentBrand;
       const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
+      
+      const matchesSku = filterSku === "" || 
+        transaction.sku?.toLowerCase().includes(filterSku.toLowerCase());
+      
+      const matchesProductSearch = productSearchTerm === "" ||
+        transaction.product_name?.toLowerCase().includes(productSearchTerm.toLowerCase());
 
-      return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer;
+      return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch;
     });
-  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer]);
+  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm]);
+
+  // Filter products by selected brand
+  const filteredProducts = useMemo(() => {
+    if (filterBrand === "all") {
+      return products;
+    }
+    // Get products that belong to the selected brand from transactions
+    const brandProducts = [...new Set(
+      transactions
+        .filter(t => t.brand_name === filterBrand)
+        .map(t => t.product_name)
+        .filter(Boolean)
+    )];
+    return brandProducts as string[];
+  }, [products, filterBrand, transactions]);
+
+  // Reset product filter when brand changes
+  useEffect(() => {
+    if (filterBrand !== "all" && filterProduct !== "all") {
+      // Check if current product belongs to selected brand
+      const productBelongsToBrand = transactions.some(
+        t => t.brand_name === filterBrand && t.product_name === filterProduct
+      );
+      if (!productBelongsToBrand) {
+        setFilterProduct("all");
+      }
+    }
+  }, [filterBrand, transactions]);
 
   const sortedTransactions = useMemo(() => {
     return [...filteredTransactions].sort((a, b) => {
@@ -1664,11 +1702,25 @@ const Transactions = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("dashboard.allProducts")}</SelectItem>
-                {products.map(product => (
+                {filteredProducts.map(product => (
                   <SelectItem key={product} value={product}>{product}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            <Input
+              placeholder={language === 'ar' ? 'بحث المنتج' : 'Search Product'}
+              value={productSearchTerm}
+              onChange={(e) => setProductSearchTerm(e.target.value)}
+              className="max-w-[180px]"
+            />
+
+            <Input
+              placeholder={language === 'ar' ? 'فلترة بـ SKU' : 'Filter by SKU'}
+              value={filterSku}
+              onChange={(e) => setFilterSku(e.target.value)}
+              className="max-w-[150px]"
+            />
 
             <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
               <SelectTrigger className="w-[180px]">
