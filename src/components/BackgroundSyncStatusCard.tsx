@@ -741,35 +741,81 @@ export const BackgroundSyncStatusCard = () => {
           {/* Summary Cards - Calculate from syncDetails */}
           {(() => {
             const currentJob = selectedHistoryJob || activeJob;
-            const successCount = syncDetails.filter(d => d.sync_status === 'success').length;
-            const failedCount = syncDetails.filter(d => d.sync_status === 'failed').length;
-            const skippedCount = syncDetails.filter(d => d.sync_status === 'skipped').length;
             const totalCount = syncDetails.length || currentJob?.total_orders || 0;
+            const skippedCount = syncDetails.filter(d => d.sync_status === 'skipped').length;
+            
+            // Order success: sync_status is 'success' OR 'partial' (order worked, purchase failed)
+            // Also count where order_sync_failed is explicitly false
+            const orderSuccessCount = syncDetails.filter(d => 
+              d.sync_status === 'success' || 
+              d.sync_status === 'partial' || 
+              (d.order_sync_failed === false && d.step_order && ['sent', 'created', 'found'].includes(d.step_order))
+            ).length;
+            
+            // Order failed: order_sync_failed is true OR sync_status is 'failed' and step_order is 'failed'
+            const orderFailedCount = syncDetails.filter(d => 
+              d.order_sync_failed === true || 
+              (d.sync_status === 'failed' && d.step_order === 'failed')
+            ).length;
+            
+            // Purchase sent: step_purchase is 'sent' or 'created'
+            const purchaseSentCount = syncDetails.filter(d => 
+              d.step_purchase === 'sent' || d.step_purchase === 'created'
+            ).length;
+            
+            // Purchase success: step_purchase is 'sent' or 'created' and purchase_sync_failed is not true
+            const purchaseSuccessCount = syncDetails.filter(d => 
+              (d.step_purchase === 'sent' || d.step_purchase === 'created') && 
+              d.purchase_sync_failed !== true
+            ).length;
+            
+            // Purchase failed: purchase_sync_failed is true OR step_purchase is 'failed'
+            const purchaseFailedCount = syncDetails.filter(d => 
+              d.purchase_sync_failed === true || d.step_purchase === 'failed'
+            ).length;
             
             return (
-              <div className="grid grid-cols-4 gap-3 mb-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-4">
                 <Card>
-                  <CardContent className="p-3 text-center">
-                    <div className="text-xl font-bold">{totalCount}</div>
-                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                  <CardContent className="p-2 text-center">
+                    <div className="text-lg font-bold">{totalCount}</div>
+                    <div className="text-[10px] text-muted-foreground">{language === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                  </CardContent>
+                </Card>
+                <Card className="border-green-200 dark:border-green-800">
+                  <CardContent className="p-2 text-center">
+                    <div className="text-lg font-bold text-green-500">{orderSuccessCount}</div>
+                    <div className="text-[10px] text-muted-foreground">{language === 'ar' ? 'نجح الطلب' : 'Order Success'}</div>
+                  </CardContent>
+                </Card>
+                <Card className="border-destructive/30">
+                  <CardContent className="p-2 text-center">
+                    <div className="text-lg font-bold text-destructive">{orderFailedCount}</div>
+                    <div className="text-[10px] text-muted-foreground">{language === 'ar' ? 'فشل الطلب' : 'Order Failed'}</div>
+                  </CardContent>
+                </Card>
+                <Card className="border-blue-200 dark:border-blue-800">
+                  <CardContent className="p-2 text-center">
+                    <div className="text-lg font-bold text-blue-500">{purchaseSentCount}</div>
+                    <div className="text-[10px] text-muted-foreground">{language === 'ar' ? 'مشتريات مرسلة' : 'Purchase Sent'}</div>
+                  </CardContent>
+                </Card>
+                <Card className="border-emerald-200 dark:border-emerald-800">
+                  <CardContent className="p-2 text-center">
+                    <div className="text-lg font-bold text-emerald-500">{purchaseSuccessCount}</div>
+                    <div className="text-[10px] text-muted-foreground">{language === 'ar' ? 'نجح الشراء' : 'Purchase Success'}</div>
+                  </CardContent>
+                </Card>
+                <Card className="border-orange-200 dark:border-orange-800">
+                  <CardContent className="p-2 text-center">
+                    <div className="text-lg font-bold text-orange-500">{purchaseFailedCount}</div>
+                    <div className="text-[10px] text-muted-foreground">{language === 'ar' ? 'فشل الشراء' : 'Purchase Failed'}</div>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-3 text-center">
-                    <div className="text-xl font-bold text-green-500">{successCount}</div>
-                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'نجح' : 'Success'}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <div className="text-xl font-bold text-destructive">{failedCount}</div>
-                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'فشل' : 'Failed'}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <div className="text-xl font-bold text-muted-foreground">{skippedCount}</div>
-                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'تخطي' : 'Skipped'}</div>
+                  <CardContent className="p-2 text-center">
+                    <div className="text-lg font-bold text-muted-foreground">{skippedCount}</div>
+                    <div className="text-[10px] text-muted-foreground">{language === 'ar' ? 'تخطي' : 'Skipped'}</div>
                   </CardContent>
                 </Card>
               </div>
