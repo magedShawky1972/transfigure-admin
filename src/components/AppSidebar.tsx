@@ -130,6 +130,7 @@ export function AppSidebar() {
     "/security-dashboard": "securityDashboard",
     "/job-setup": "jobSetup",
     "/zk-attendance-logs": "zkAttendanceLogs",
+    "/hr-vacation-calendar": "hrVacationCalendar",
   };
 
   useEffect(() => {
@@ -319,6 +320,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'أنواع المستندات' : 'Document Types', url: "/document-type-setup", icon: FileText },
         { title: language === 'ar' ? 'أنواع الحضور' : 'Attendance Types', url: "/attendance-type-setup", icon: Clock },
         { title: language === 'ar' ? 'إعداد الوظائف' : 'Job Setup', url: "/job-setup", icon: Briefcase },
+        { title: language === 'ar' ? 'تقويم الإجازات' : 'Vacation Calendar', url: "/hr-vacation-calendar", icon: Palmtree },
       ]
     },
     {

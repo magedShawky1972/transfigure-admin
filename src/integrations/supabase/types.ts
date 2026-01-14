@@ -2619,6 +2619,42 @@ export type Database = {
         }
         Relationships: []
       }
+      official_holidays: {
+        Row: {
+          created_at: string
+          description: string | null
+          holiday_date: string
+          holiday_name: string
+          holiday_name_ar: string | null
+          id: string
+          is_recurring: boolean
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          holiday_date: string
+          holiday_name: string
+          holiday_name_ar?: string | null
+          id?: string
+          is_recurring?: boolean
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          holiday_date?: string
+          holiday_name?: string
+          holiday_name_ar?: string | null
+          id?: string
+          is_recurring?: boolean
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
       order_payment: {
         Row: {
           created_at: string

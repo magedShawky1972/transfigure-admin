@@ -5,12 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Palmtree, Filter } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Palmtree, Filter, Plus, Trash2, Edit2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getYear } from "date-fns";
 import { ar } from "date-fns/locale";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface OfficialHoliday {
   id: string;
@@ -19,6 +22,7 @@ interface OfficialHoliday {
   holiday_date: string;
   is_recurring: boolean;
   year: number | null;
+  description: string | null;
 }
 
 interface AttendanceType {
@@ -50,6 +54,17 @@ const HRVacationCalendar = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedAttendanceType, setSelectedAttendanceType] = useState<string>("all");
   const [selectedYear, setSelectedYear] = useState<number>(getYear(new Date()));
+  
+  // Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState<OfficialHoliday | null>(null);
+  const [formData, setFormData] = useState({
+    holiday_name: "",
+    holiday_name_ar: "",
+    holiday_date: "",
+    is_recurring: false,
+    description: ""
+  });
 
   useEffect(() => {
     fetchData();
@@ -58,9 +73,9 @@ const HRVacationCalendar = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch official holidays
+      // Fetch official holidays using raw query
       const { data: holidaysData, error: holidaysError } = await supabase
-        .from("official_holidays")
+        .from("official_holidays" as any)
         .select("*")
         .or(`year.eq.${selectedYear},is_recurring.eq.true`)
         .order("holiday_date", { ascending: true });
@@ -101,9 +116,9 @@ const HRVacationCalendar = () => {
 
       if (employeesError) throw employeesError;
 
-      setHolidays(holidaysData || []);
+      setHolidays((holidaysData as unknown as OfficialHoliday[]) || []);
       setAttendanceTypes(typesData || []);
-      setEmployees(employeesData || []);
+      setEmployees(employeesData as Employee[] || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في تحميل البيانات" : "Error loading data");
@@ -178,6 +193,91 @@ const HRVacationCalendar = () => {
     return Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
   }, []);
 
+  const openAddDialog = () => {
+    setEditingHoliday(null);
+    setFormData({
+      holiday_name: "",
+      holiday_name_ar: "",
+      holiday_date: "",
+      is_recurring: false,
+      description: ""
+    });
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (holiday: OfficialHoliday) => {
+    setEditingHoliday(holiday);
+    setFormData({
+      holiday_name: holiday.holiday_name,
+      holiday_name_ar: holiday.holiday_name_ar || "",
+      holiday_date: holiday.holiday_date,
+      is_recurring: holiday.is_recurring,
+      description: holiday.description || ""
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.holiday_name || !formData.holiday_date) {
+      toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
+      return;
+    }
+
+    try {
+      const holidayData = {
+        holiday_name: formData.holiday_name,
+        holiday_name_ar: formData.holiday_name_ar || null,
+        holiday_date: formData.holiday_date,
+        is_recurring: formData.is_recurring,
+        year: formData.is_recurring ? null : getYear(new Date(formData.holiday_date)),
+        description: formData.description || null
+      };
+
+      if (editingHoliday) {
+        const { error } = await supabase
+          .from("official_holidays" as any)
+          .update(holidayData)
+          .eq("id", editingHoliday.id);
+        
+        if (error) throw error;
+        toast.success(language === "ar" ? "تم تحديث الإجازة بنجاح" : "Holiday updated successfully");
+      } else {
+        const { error } = await supabase
+          .from("official_holidays" as any)
+          .insert(holidayData);
+        
+        if (error) throw error;
+        toast.success(language === "ar" ? "تمت إضافة الإجازة بنجاح" : "Holiday added successfully");
+      }
+
+      setDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error("Error saving holiday:", error);
+      toast.error(language === "ar" ? "خطأ في حفظ البيانات" : "Error saving data");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(language === "ar" ? "هل أنت متأكد من حذف هذه الإجازة؟" : "Are you sure you want to delete this holiday?")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("official_holidays" as any)
+        .delete()
+        .eq("id", id);
+      
+      if (error) throw error;
+      toast.success(language === "ar" ? "تم حذف الإجازة بنجاح" : "Holiday deleted successfully");
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting holiday:", error);
+      toast.error(language === "ar" ? "خطأ في حذف البيانات" : "Error deleting data");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -230,6 +330,11 @@ const HRVacationCalendar = () => {
               ))}
             </SelectContent>
           </Select>
+
+          <Button onClick={openAddDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "ar" ? "إضافة إجازة" : "Add Holiday"}
+          </Button>
         </div>
       </div>
 
@@ -366,12 +471,13 @@ const HRVacationCalendar = () => {
                 <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                 <TableHead>{language === "ar" ? "اسم الإجازة" : "Holiday Name"}</TableHead>
                 <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                <TableHead className="text-right">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {holidays.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد إجازات مسجلة" : "No holidays registered"}
                   </TableCell>
                 </TableRow>
@@ -388,6 +494,16 @@ const HRVacationCalendar = () => {
                           ? (language === "ar" ? "سنوي" : "Recurring")
                           : (language === "ar" ? "لمرة واحدة" : "One-time")}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(holiday)}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(holiday.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -436,6 +552,69 @@ const HRVacationCalendar = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add/Edit Holiday Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingHoliday 
+                ? (language === "ar" ? "تعديل الإجازة" : "Edit Holiday")
+                : (language === "ar" ? "إضافة إجازة جديدة" : "Add New Holiday")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "اسم الإجازة (إنجليزي)" : "Holiday Name (English)"} *</Label>
+              <Input
+                value={formData.holiday_name}
+                onChange={(e) => setFormData({ ...formData, holiday_name: e.target.value })}
+                placeholder={language === "ar" ? "أدخل اسم الإجازة" : "Enter holiday name"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "اسم الإجازة (عربي)" : "Holiday Name (Arabic)"}</Label>
+              <Input
+                value={formData.holiday_name_ar}
+                onChange={(e) => setFormData({ ...formData, holiday_name_ar: e.target.value })}
+                placeholder={language === "ar" ? "أدخل اسم الإجازة بالعربي" : "Enter holiday name in Arabic"}
+                dir="rtl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "التاريخ" : "Date"} *</Label>
+              <Input
+                type="date"
+                value={formData.holiday_date}
+                onChange={(e) => setFormData({ ...formData, holiday_date: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>{language === "ar" ? "إجازة سنوية متكررة" : "Recurring Yearly"}</Label>
+              <Switch
+                checked={formData.is_recurring}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_recurring: checked })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "ملاحظات" : "Description"}</Label>
+              <Input
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder={language === "ar" ? "أدخل الملاحظات" : "Enter description"}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleSave}>
+                {language === "ar" ? "حفظ" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
