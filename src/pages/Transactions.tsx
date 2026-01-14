@@ -53,6 +53,7 @@ import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
 import { BackgroundSyncStatusCard } from "@/components/BackgroundSyncStatusCard";
 import { DailySyncStatusCard } from "@/components/DailySyncStatusCard";
 import { ResetOdooSyncDialog } from "@/components/ResetOdooSyncDialog";
+import { OdooSyncHistoryDialog } from "@/components/OdooSyncHistoryDialog";
 import { VirtualizedTransactionTable } from "@/components/transactions/VirtualizedTransactionTable";
 
 interface GroupLevel {
@@ -1437,21 +1438,23 @@ const Transactions = () => {
         <p className="text-muted-foreground">
           {t("transactions.subtitle")}
         </p>
-        {odooMode && (
-          <Badge 
-            variant={odooMode === 'Production' ? 'default' : 'secondary'}
-            className={cn(
-              "mt-2",
-              odooMode === 'Production' 
-                ? "bg-green-600 hover:bg-green-700 text-white" 
-                : "bg-yellow-500 hover:bg-yellow-600 text-black"
-            )}
-          >
-            {language === 'ar' 
-              ? `وضع Odoo: ${odooMode === 'Production' ? 'الإنتاج' : 'الاختبار'}`
-              : `Odoo Mode: ${odooMode}`}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2 mt-2">
+          {odooMode && (
+            <Badge 
+              variant={odooMode === 'Production' ? 'default' : 'secondary'}
+              className={cn(
+                odooMode === 'Production' 
+                  ? "bg-green-600 hover:bg-green-700 text-white" 
+                  : "bg-yellow-500 hover:bg-yellow-600 text-black"
+              )}
+            >
+              {language === 'ar' 
+                ? `وضع Odoo: ${odooMode === 'Production' ? 'الإنتاج' : 'الاختبار'}`
+                : `Odoo Mode: ${odooMode}`}
+            </Badge>
+          )}
+          <OdooSyncHistoryDialog language={language} />
+        </div>
       </div>
 
       {/* Background Sync Status Card */}
