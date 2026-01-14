@@ -122,6 +122,7 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
 
       if (mappingError) {
         console.error("Error deleting aggregated mappings:", mappingError);
+        throw mappingError;
       }
 
       // Delete the sync run record
@@ -130,7 +131,10 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
         .delete()
         .eq("id", runToDelete.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting sync run:", error);
+        throw error;
+      }
 
       setHistory((prev) => prev.filter((h) => h.id !== runToDelete.id));
       toast({
@@ -177,6 +181,7 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
 
       if (mappingError) {
         console.error("Error deleting all aggregated mappings:", mappingError);
+        throw mappingError;
       }
 
       // Delete all sync runs
@@ -185,7 +190,10 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
         .delete()
         .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting all sync runs:", error);
+        throw error;
+      }
 
       setHistory([]);
       toast({
