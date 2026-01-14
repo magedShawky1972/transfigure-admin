@@ -17,6 +17,10 @@ interface SyncDetailRow {
   error_message: string | null;
   payment_method: string | null;
   payment_brand: string | null;
+  order_sync_failed: boolean | null;
+  purchase_sync_failed: boolean | null;
+  order_error_message: string | null;
+  purchase_error_message: string | null;
 }
 
 interface Transaction {
@@ -73,13 +77,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { detailId } = await req.json();
+    const { detailId, retryType } = await req.json();
     if (!detailId) {
       return new Response(JSON.stringify({ success: false, error: "Missing detailId" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    
+    // retryType can be: 'all' (default), 'order', or 'purchase'
+    const retry = retryType || 'all';
 
     const { data: detail, error: detailError } = await supabase
       .from("odoo_sync_run_details")
@@ -259,32 +266,54 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Determine what to retry based on the retryType and current state
+    const orderFailed = row.order_sync_failed === true;
+    const purchaseFailed = row.purchase_sync_failed === true;
+    
+    // If retry is 'purchase' only, skip order steps
+    const shouldRetryOrder = retry === 'all' || retry === 'order' || orderFailed;
+    const shouldRetryPurchase = retry === 'all' || retry === 'purchase';
+
     const steps = ["customer", "brand", "product", "order"] as const;
     let lastError: string | null = null;
+    let orderError: string | null = null;
+    let purchaseError: string | null = null;
     const stepStatuses: Record<string, string> = {};
 
-    for (const step of steps) {
-      const { data: result, error: stepError } = await supabase.functions.invoke("sync-order-to-odoo-step", {
-        body: { step, transactions: formattedTransactions },
-      });
+    // Only run order steps if needed
+    if (shouldRetryOrder) {
+      for (const step of steps) {
+        const { data: result, error: stepError } = await supabase.functions.invoke("sync-order-to-odoo-step", {
+          body: { step, transactions: formattedTransactions },
+        });
 
-      if (stepError) {
-        lastError = stepError.message;
-        stepStatuses[`step_${step}`] = "failed";
-        break;
+        if (stepError) {
+          lastError = stepError.message;
+          orderError = stepError.message;
+          stepStatuses[`step_${step}`] = "failed";
+          break;
+        }
+
+        if (!(result as any)?.success) {
+          lastError = (result as any)?.error || `${step} step failed`;
+          orderError = lastError;
+          stepStatuses[`step_${step}`] = "failed";
+          break;
+        }
+
+        stepStatuses[`step_${step}`] = (result as any)?.skipped ? "skipped" : (result as any)?.method === "SKIP" ? "found" : "sent";
       }
-
-      if (!(result as any)?.success) {
-        lastError = (result as any)?.error || `${step} step failed`;
-        stepStatuses[`step_${step}`] = "failed";
-        break;
-      }
-
-      stepStatuses[`step_${step}`] = (result as any)?.skipped ? "skipped" : (result as any)?.method === "SKIP" ? "found" : "sent";
+    } else {
+      // Mark order steps as their previous state (not retrying them)
+      stepStatuses.step_customer = "found";
+      stepStatuses.step_brand = "found";
+      stepStatuses.step_product = "found";
+      stepStatuses.step_order = "sent";
     }
 
-    // Purchase step (non-stock)
-    if (!lastError) {
+    // Purchase step (non-stock) - only if order succeeded (or we're only retrying purchase)
+    const orderSucceeded = !orderError;
+    if (orderSucceeded && shouldRetryPurchase) {
       const productIds = formattedTransactions.map((t) => t.product_id).filter(Boolean);
       const { data: nonStockData } = await supabase
         .from("products")
@@ -297,15 +326,17 @@ Deno.serve(async (req) => {
         const nonStockProductIds = nonStockItems.map((p: any) => p.product_id);
         const nonStockProducts = formattedTransactions.filter((t) => nonStockProductIds.includes(t.product_id));
 
-        const { data: purchaseResult, error: purchaseError } = await supabase.functions.invoke("sync-order-to-odoo-step", {
+        const { data: purchaseResult, error: purchaseStepError } = await supabase.functions.invoke("sync-order-to-odoo-step", {
           body: { step: "purchase", transactions: formattedTransactions, nonStockProducts },
         });
 
-        if (purchaseError) {
-          lastError = purchaseError.message;
+        if (purchaseStepError) {
+          purchaseError = purchaseStepError.message;
+          if (!lastError) lastError = purchaseError;
           stepStatuses.step_purchase = "failed";
         } else if ((purchaseResult as any)?.success === false) {
-          lastError = (purchaseResult as any)?.error || "Purchase step failed";
+          purchaseError = (purchaseResult as any)?.error || "Purchase step failed";
+          if (!lastError) lastError = purchaseError;
           stepStatuses.step_purchase = "failed";
         } else {
           stepStatuses.step_purchase = (purchaseResult as any)?.skipped ? "skipped" : "sent";
@@ -313,15 +344,37 @@ Deno.serve(async (req) => {
       } else {
         stepStatuses.step_purchase = "skipped";
       }
+    } else if (!orderSucceeded) {
+      stepStatuses.step_purchase = "pending";
     }
 
-    const finalStatus = lastError ? "failed" : "success";
+    // Determine final status
+    let finalStatus = 'success';
+    if (orderError) {
+      finalStatus = 'failed';
+    } else if (purchaseError) {
+      finalStatus = 'partial';
+    }
+
+    // Build combined error message
+    let combinedError: string | null = null;
+    if (orderError && purchaseError) {
+      combinedError = `Order: ${orderError} | Purchase: ${purchaseError}`;
+    } else if (orderError) {
+      combinedError = `Order: ${orderError}`;
+    } else if (purchaseError) {
+      combinedError = `Purchase: ${purchaseError}`;
+    }
 
     await supabase
       .from("odoo_sync_run_details")
       .update({
         sync_status: finalStatus,
-        error_message: lastError,
+        error_message: combinedError,
+        order_sync_failed: !!orderError,
+        purchase_sync_failed: !!purchaseError,
+        order_error_message: orderError,
+        purchase_error_message: purchaseError,
         ...stepStatuses,
       })
       .eq("id", row.id);
@@ -343,7 +396,7 @@ Deno.serve(async (req) => {
 
       if (allDetails) {
         const successCount = allDetails.filter(d => d.sync_status === "success").length;
-        const failedCount = allDetails.filter(d => d.sync_status === "failed").length;
+        const failedCount = allDetails.filter(d => d.sync_status === "failed" || d.sync_status === "partial").length;
         const skippedCount = allDetails.filter(d => d.sync_status === "skipped").length;
 
         await supabase
@@ -361,7 +414,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: !lastError, finalStatus, error: lastError }),
+      JSON.stringify({ success: finalStatus === 'success', finalStatus, error: combinedError }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (e) {
