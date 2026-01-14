@@ -239,9 +239,23 @@ export const SyncDetailRowDialog = ({
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : transactionLines.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {language === 'ar' ? 'لا توجد تفاصيل متاحة' : 'No details available'}
-            </div>
+            productNames ? (
+              <div className="space-y-3 p-4">
+                <div className="text-sm text-muted-foreground mb-2">
+                  {language === 'ar' ? 'المنتجات (من بيانات المزامنة):' : 'Products (from sync data):'}
+                </div>
+                {productNames.split(',').map((name, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{name.trim()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                {language === 'ar' ? 'لا توجد تفاصيل متاحة' : 'No details available'}
+              </div>
+            )
           ) : (
             <Table>
               <TableHeader>
