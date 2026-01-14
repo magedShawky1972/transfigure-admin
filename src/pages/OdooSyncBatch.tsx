@@ -115,6 +115,9 @@ interface AggregatedInvoice {
     unitPrice: number;
     totalQty: number;
     totalAmount: number;
+    vendorName?: string;
+    costPrice?: number;
+    costSold?: number;
   }[];
   grandTotal: number;
   originalOrderNumbers: string[];
@@ -577,6 +580,9 @@ const OdooSyncBatch = () => {
           unitPrice: number;
           totalQty: number;
           totalAmount: number;
+          vendorName: string;
+          costPrice: number;
+          costSold: number;
         }>();
         
         invoice.lines.forEach(line => {
@@ -585,6 +591,7 @@ const OdooSyncBatch = () => {
           if (existing) {
             existing.totalQty += line.qty || 0;
             existing.totalAmount += line.total || 0;
+            existing.costSold += line.cost_sold || 0;
           } else {
             productMap.set(productKey, {
               productSku: line.sku || line.product_id || '',
@@ -592,6 +599,9 @@ const OdooSyncBatch = () => {
               unitPrice: line.unit_price || 0,
               totalQty: line.qty || 0,
               totalAmount: line.total || 0,
+              vendorName: line.vendor_name || '',
+              costPrice: line.cost_price || 0,
+              costSold: line.cost_sold || 0,
             });
           }
         });

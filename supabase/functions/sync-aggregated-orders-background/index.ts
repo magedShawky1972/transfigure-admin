@@ -7,6 +7,9 @@ interface ProductLine {
   unitPrice: number;
   totalQty: number;
   totalAmount: number;
+  vendorName?: string;
+  costPrice?: number;
+  costSold?: number;
 }
 
 interface AggregatedInvoice {
@@ -266,6 +269,9 @@ async function processSingleInvoice(
       payment_brand: invoice.paymentBrand,
       user_name: invoice.userName,
       company: invoice.company,
+      vendor_name: pl.vendorName || '',
+      cost_price: pl.costPrice || 0,
+      cost_sold: pl.costSold || 0,
     }));
 
     const nonStockTx = syntheticTransactions.filter((tx: any) => {
