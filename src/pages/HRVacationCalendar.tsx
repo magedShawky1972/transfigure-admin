@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Palmtree, Filter, Plus, Trash2, Edit2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Palmtree, Filter, Plus, Trash2, Edit2, Grid3X3, List } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getYear } from "date-fns";
 import { ar } from "date-fns/locale";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import YearlyCalendarGrid from "@/components/YearlyCalendarGrid";
 
 interface OfficialHoliday {
   id: string;
@@ -63,6 +65,7 @@ const HRVacationCalendar = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedAttendanceType, setSelectedAttendanceType] = useState<string>("all");
   const [selectedYear, setSelectedYear] = useState<number>(getYear(new Date()));
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -368,6 +371,15 @@ const HRVacationCalendar = () => {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as "list" | "calendar")}>
+            <ToggleGroupItem value="list" aria-label="List view">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="calendar" aria-label="Calendar view">
+              <Grid3X3 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+
           <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
             <SelectTrigger className="w-[120px]">
               <SelectValue />
@@ -470,59 +482,70 @@ const HRVacationCalendar = () => {
         </Card>
       </div>
 
-      {/* Calendar Navigation */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
-              {format(selectedMonth, "MMMM yyyy", { locale: language === "ar" ? ar : undefined })}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date())}>
-                {language === "ar" ? "اليوم" : "Today"}
-              </Button>
-              <Button variant="outline" size="icon" onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Holidays in Month */}
-          {holidaysInMonth.length > 0 ? (
-            <div className="space-y-2 mb-4">
-              <h3 className="font-medium text-sm text-muted-foreground">
-                {language === "ar" ? "الإجازات في هذا الشهر:" : "Holidays this month:"}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {holidaysInMonth.map(day => {
-                  const holiday = isHoliday(day);
-                  if (!holiday) return null;
-                  return (
-                    <Badge key={holiday.id} variant="secondary" className="bg-primary/10 text-primary">
-                      {format(day, "d MMM", { locale: language === "ar" ? ar : undefined })} - {getHolidayName(holiday)}
-                      {holiday.is_recurring && (
-                        <span className="ml-1 text-xs opacity-70">
-                          ({language === "ar" ? "سنوي" : "Yearly"})
-                        </span>
-                      )}
-                    </Badge>
-                  );
-                })}
+      {/* Yearly Calendar Grid View */}
+      {viewMode === "calendar" && (
+        <Card>
+          <CardContent className="p-6">
+            <YearlyCalendarGrid year={selectedYear} holidays={holidays} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* List View - Calendar Navigation */}
+      {viewMode === "list" && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">
+                {format(selectedMonth, "MMMM yyyy", { locale: language === "ar" ? ar : undefined })}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setSelectedMonth(new Date())}>
+                  {language === "ar" ? "اليوم" : "Today"}
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-          ) : (
-            <p className="text-muted-foreground text-sm mb-4">
-              {language === "ar" ? "لا توجد إجازات رسمية هذا الشهر" : "No official holidays this month"}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            {/* Holidays in Month */}
+            {holidaysInMonth.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                <h3 className="font-medium text-sm text-muted-foreground">
+                  {language === "ar" ? "الإجازات في هذا الشهر:" : "Holidays this month:"}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {holidaysInMonth.map(day => {
+                    const holiday = isHoliday(day);
+                    if (!holiday) return null;
+                    return (
+                      <Badge key={holiday.id} variant="secondary" className="bg-primary/10 text-primary">
+                        {format(day, "d MMM", { locale: language === "ar" ? ar : undefined })} - {getHolidayName(holiday)}
+                        {holiday.is_recurring && (
+                          <span className="ml-1 text-xs opacity-70">
+                            ({language === "ar" ? "سنوي" : "Yearly"})
+                          </span>
+                        )}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm mb-4">
+                {language === "ar" ? "لا توجد إجازات رسمية هذا الشهر" : "No official holidays this month"}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* All Holidays List */}
+      {/* All Holidays List - show in both views */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
@@ -597,45 +620,47 @@ const HRVacationCalendar = () => {
         </CardContent>
       </Card>
 
-      {/* Employees by Attendance Type */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">
-            {language === "ar" ? "الموظفين حسب نوع الحضور" : "Employees by Attendance Type"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {Object.entries(employeesByType).map(([typeId, emps]) => (
-              <div key={typeId} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-lg">
-                    {getAttendanceTypeName(typeId)}
-                  </h3>
-                  <Badge variant="outline">{emps.length} {language === "ar" ? "موظف" : "employees"}</Badge>
+      {/* Employees by Attendance Type - only in list view */}
+      {viewMode === "list" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {language === "ar" ? "الموظفين حسب نوع الحضور" : "Employees by Attendance Type"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {Object.entries(employeesByType).map(([typeId, emps]) => (
+                <div key={typeId} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-lg">
+                      {getAttendanceTypeName(typeId)}
+                    </h3>
+                    <Badge variant="outline">{emps.length} {language === "ar" ? "موظف" : "employees"}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {emps.map(emp => (
+                      <div 
+                        key={emp.id} 
+                        className="p-2 bg-muted/50 rounded-md text-sm hover:bg-muted transition-colors"
+                      >
+                        <p className="font-medium truncate">{getEmployeeName(emp)}</p>
+                        <p className="text-xs text-muted-foreground">{emp.employee_number}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {emps.map(emp => (
-                    <div 
-                      key={emp.id} 
-                      className="p-2 bg-muted/50 rounded-md text-sm hover:bg-muted transition-colors"
-                    >
-                      <p className="font-medium truncate">{getEmployeeName(emp)}</p>
-                      <p className="text-xs text-muted-foreground">{emp.employee_number}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            
-            {Object.keys(employeesByType).length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                {language === "ar" ? "لا يوجد موظفين" : "No employees found"}
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+              
+              {Object.keys(employeesByType).length === 0 && (
+                <p className="text-center text-muted-foreground py-8">
+                  {language === "ar" ? "لا يوجد موظفين" : "No employees found"}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add/Edit Holiday Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
