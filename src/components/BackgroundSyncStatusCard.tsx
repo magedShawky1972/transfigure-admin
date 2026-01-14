@@ -49,6 +49,10 @@ interface SyncDetail {
   step_purchase: string | null;
   payment_method: string | null;
   payment_brand: string | null;
+  order_sync_failed: boolean | null;
+  purchase_sync_failed: boolean | null;
+  order_error_message: string | null;
+  purchase_error_message: string | null;
 }
 
 export const BackgroundSyncStatusCard = () => {
@@ -364,24 +368,27 @@ export const BackgroundSyncStatusCard = () => {
   };
 
   // Retry failed sync for a single order
-  const handleRetrySync = async (detail: SyncDetail) => {
+  const handleRetrySync = async (detail: SyncDetail, retryType: 'all' | 'order' | 'purchase' = 'all') => {
     if (retryingOrderId) return;
 
     setRetryingOrderId(detail.id);
     try {
       const { data, error } = await supabase.functions.invoke('retry-odoo-sync-detail', {
-        body: { detailId: detail.id },
+        body: { detailId: detail.id, retryType },
       });
 
       if (error) throw error;
 
       // Refresh the sync details (read-only query from client)
-      if (activeJob) {
-        await fetchSyncDetails(activeJob.id);
+      const targetJob = selectedHistoryJob || activeJob;
+      if (targetJob) {
+        await fetchSyncDetails(targetJob.id);
       }
 
       if (data?.success) {
         toast.success(language === 'ar' ? 'تمت إعادة المزامنة بنجاح' : 'Sync retry successful');
+      } else if (data?.finalStatus === 'partial') {
+        toast.warning(language === 'ar' ? 'نجح الطلب، فشل الشراء' : 'Order succeeded, purchase failed');
       } else {
         const msg = data?.error || (language === 'ar' ? 'فشلت إعادة المحاولة' : 'Retry failed');
         toast.error(language === 'ar' ? `فشلت إعادة المحاولة: ${msg}` : `Retry failed: ${msg}`);
@@ -418,6 +425,8 @@ export const BackgroundSyncStatusCard = () => {
         return <Badge className="bg-green-500 gap-1"><CheckCircle2 className="h-3 w-3" />{language === 'ar' ? 'نجح' : 'Success'}</Badge>;
       case 'failed':
         return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />{language === 'ar' ? 'فشل' : 'Failed'}</Badge>;
+      case 'partial':
+        return <Badge className="bg-orange-500 gap-1"><XCircle className="h-3 w-3" />{language === 'ar' ? 'جزئي' : 'Partial'}</Badge>;
       case 'skipped':
         return <Badge variant="secondary">{language === 'ar' ? 'تخطي' : 'Skipped'}</Badge>;
       default:
@@ -846,21 +855,43 @@ export const BackgroundSyncStatusCard = () => {
                         </Button>
                       </TableCell>
                       <TableCell className="text-center">
-                        {detail.sync_status === 'failed' ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-primary hover:text-primary/80"
-                            onClick={() => handleRetrySync(detail)}
-                            disabled={retryingOrderId === detail.id}
-                            title={language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
-                          >
-                            {retryingOrderId === detail.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3 w-3" />
+                        {(detail.sync_status === 'failed' || detail.sync_status === 'partial') ? (
+                          <div className="flex gap-1 justify-center">
+                            {/* Show retry all if order failed */}
+                            {detail.order_sync_failed && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-primary hover:text-primary/80"
+                                onClick={() => handleRetrySync(detail, 'all')}
+                                disabled={retryingOrderId === detail.id}
+                                title={language === 'ar' ? 'إعادة الكل' : 'Retry All'}
+                              >
+                                {retryingOrderId === detail.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3" />
+                                )}
+                              </Button>
                             )}
-                          </Button>
+                            {/* Show retry purchase only if only purchase failed */}
+                            {!detail.order_sync_failed && detail.purchase_sync_failed && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-orange-500 hover:text-orange-600"
+                                onClick={() => handleRetrySync(detail, 'purchase')}
+                                disabled={retryingOrderId === detail.id}
+                                title={language === 'ar' ? 'إعادة الشراء' : 'Retry Purchase'}
+                              >
+                                {retryingOrderId === detail.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         ) : detail.sync_status === 'processing' ? (
                           <Loader2 className="h-3 w-3 animate-spin text-primary mx-auto" />
                         ) : (

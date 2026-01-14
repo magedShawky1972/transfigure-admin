@@ -44,6 +44,10 @@ interface InvoiceSyncResult {
   success: boolean;
   errorMessage: string;
   stepStatus: Record<string, string>;
+  orderSyncFailed?: boolean;
+  purchaseSyncFailed?: boolean;
+  orderErrorMessage?: string;
+  purchaseErrorMessage?: string;
 }
 
 // Helper to send email via existing SMTP function
@@ -249,58 +253,88 @@ async function processSingleInvoice(
   };
 
   let errorMessage = '';
+  let orderSyncFailed = false;
+  let purchaseSyncFailed = false;
+  let orderErrorMessage = '';
+  let purchaseErrorMessage = '';
 
-  try {
-    // Build synthetic transactions for the edge function
-    const syntheticTransactions = invoice.productLines.map((pl) => ({
-      order_number: invoice.orderNumber,
-      customer_name: 'Cash Customer',
-      customer_phone: '0000',
-      brand_code: invoice.brandCode,
-      brand_name: invoice.brandName,
-      product_id: pl.productSku,
-      sku: pl.productSku,
-      product_name: pl.productName,
-      unit_price: pl.unitPrice,
-      total: pl.totalAmount,
-      qty: pl.totalQty,
-      created_at_date: invoice.date,
-      payment_method: invoice.paymentMethod,
-      payment_brand: invoice.paymentBrand,
-      user_name: invoice.userName,
-      company: invoice.company,
-      vendor_name: pl.vendorName || '',
-      cost_price: pl.costPrice || 0,
-      cost_sold: pl.costSold || 0,
-    }));
+  // Build synthetic transactions for the edge function
+  const syntheticTransactions = invoice.productLines.map((pl) => ({
+    order_number: invoice.orderNumber,
+    customer_name: 'Cash Customer',
+    customer_phone: '0000',
+    brand_code: invoice.brandCode,
+    brand_name: invoice.brandName,
+    product_id: pl.productSku,
+    sku: pl.productSku,
+    product_name: pl.productName,
+    unit_price: pl.unitPrice,
+    total: pl.totalAmount,
+    qty: pl.totalQty,
+    created_at_date: invoice.date,
+    payment_method: invoice.paymentMethod,
+    payment_brand: invoice.paymentBrand,
+    user_name: invoice.userName,
+    company: invoice.company,
+    vendor_name: pl.vendorName || '',
+    cost_price: pl.costPrice || 0,
+    cost_sold: pl.costSold || 0,
+  }));
 
-    const nonStockTx = syntheticTransactions.filter((tx: any) => {
-      const sku = tx.sku || tx.product_id;
-      return sku && nonStockSet.has(sku);
-    });
+  const nonStockTx = syntheticTransactions.filter((tx: any) => {
+    const sku = tx.sku || tx.product_id;
+    return sku && nonStockSet.has(sku);
+  });
 
-    // Skip customer, brand, product checks - go directly to order
-    const orderResult = await executeStep('order', syntheticTransactions, nonStockTx, supabaseUrl, supabaseKey);
-    if (!orderResult.success) {
-      throw new Error(`Order: ${orderResult.error}`);
-    }
+  // Try order sync first
+  const orderResult = await executeStep('order', syntheticTransactions, nonStockTx, supabaseUrl, supabaseKey);
+  if (!orderResult.success) {
+    stepStatus.order = 'failed';
+    orderSyncFailed = true;
+    orderErrorMessage = orderResult.error || 'Order sync failed';
+    errorMessage = `Order: ${orderErrorMessage}`;
+  } else {
     stepStatus.order = 'sent';
+  }
 
-    if (invoice.hasNonStock && nonStockTx.length > 0) {
+  // Try purchase sync if needed (regardless of order success - allows retry of just purchase)
+  if (invoice.hasNonStock && nonStockTx.length > 0) {
+    // Only attempt purchase if order succeeded (Odoo requires order first)
+    if (!orderSyncFailed) {
       const purchaseResult = await executeStep('purchase', syntheticTransactions, nonStockTx, supabaseUrl, supabaseKey);
       if (!purchaseResult.success) {
-        throw new Error(`Purchase: ${purchaseResult.error}`);
+        stepStatus.purchase = 'failed';
+        purchaseSyncFailed = true;
+        purchaseErrorMessage = purchaseResult.error || 'Purchase sync failed';
+        if (errorMessage) {
+          errorMessage += ` | Purchase: ${purchaseErrorMessage}`;
+        } else {
+          errorMessage = `Purchase: ${purchaseErrorMessage}`;
+        }
+      } else {
+        stepStatus.purchase = 'created';
       }
-      stepStatus.purchase = 'created';
     } else {
-      stepStatus.purchase = 'skipped';
+      // Order failed, so purchase is pending (can't create without order)
+      stepStatus.purchase = 'pending';
     }
-
-    return { invoice, success: true, errorMessage: '', stepStatus };
-  } catch (error: any) {
-    errorMessage = error.message || 'Unknown error';
-    return { invoice, success: false, errorMessage, stepStatus };
+  } else {
+    stepStatus.purchase = 'skipped';
   }
+
+  // Success only if neither order nor purchase failed
+  const success = !orderSyncFailed && !purchaseSyncFailed;
+
+  return { 
+    invoice, 
+    success, 
+    errorMessage, 
+    stepStatus,
+    orderSyncFailed,
+    purchaseSyncFailed,
+    orderErrorMessage,
+    purchaseErrorMessage
+  };
 }
 
 // Main background sync function - OPTIMIZED FOR SPEED
@@ -638,10 +672,14 @@ async function processBackgroundSync(
       const runDetails: any[] = [];
 
       for (const result of batchResults) {
-        const { invoice, success, errorMessage, stepStatus } = result;
+        const { invoice, success, errorMessage, stepStatus, orderSyncFailed, purchaseSyncFailed, orderErrorMessage, purchaseErrorMessage } = result;
 
-        if (success) {
-          successfulInvoices++;
+        // Count as successful only if order succeeded (purchase failure is tracked separately)
+        // An order with only purchase failure should still mark the transactions as sent
+        const orderSucceeded = !orderSyncFailed;
+        
+        if (orderSucceeded) {
+          // Order succeeded - mark transactions as sent even if purchase failed
           allOriginalOrderNumbers.push(...invoice.originalOrderNumbers);
           
           const mappings = invoice.originalOrderNumbers.map(originalOrderNumber => ({
@@ -654,7 +692,10 @@ async function processBackgroundSync(
             user_name: invoice.userName,
           }));
           allMappings.push(...mappings);
-          
+        }
+        
+        if (success) {
+          successfulInvoices++;
           console.log(`[Aggregated Background Sync] Invoice ${invoice.orderNumber} synced successfully`);
         } else {
           failedInvoices++;
@@ -662,6 +703,17 @@ async function processBackgroundSync(
         }
 
         if (runId) {
+          // Determine sync status: 
+          // - 'success' if both order and purchase succeeded
+          // - 'partial' if order succeeded but purchase failed
+          // - 'failed' if order failed
+          let syncStatus = 'success';
+          if (orderSyncFailed) {
+            syncStatus = 'failed';
+          } else if (purchaseSyncFailed) {
+            syncStatus = 'partial';
+          }
+          
           runDetails.push({
             run_id: runId,
             order_number: invoice.orderNumber,
@@ -669,13 +721,17 @@ async function processBackgroundSync(
             customer_phone: '0000',
             product_names: invoice.productLines.map(p => p.productName).join(', '),
             total_amount: invoice.grandTotal,
-            sync_status: success ? 'success' : 'failed',
+            sync_status: syncStatus,
             error_message: errorMessage || null,
             step_customer: stepStatus.customer,
             step_brand: stepStatus.brand,
             step_product: stepStatus.product,
             step_order: stepStatus.order,
             step_purchase: stepStatus.purchase,
+            order_sync_failed: orderSyncFailed || false,
+            purchase_sync_failed: purchaseSyncFailed || false,
+            order_error_message: orderErrorMessage || null,
+            purchase_error_message: purchaseErrorMessage || null,
           });
         }
 

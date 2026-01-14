@@ -547,52 +547,89 @@ async function processBackgroundSync(
 
       let syncStatus = 'success';
       let errorMessage = '';
+      let orderSyncFailed = false;
+      let purchaseSyncFailed = false;
+      let orderErrorMessage = '';
+      let purchaseErrorMessage = '';
 
-      try {
-        const customerResult = await executeStep('customer', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
-        if (!customerResult.success) {
-          stepStatus.customer = 'failed';
-          throw new Error(`Customer: ${customerResult.error}`);
-        }
+      // Process all steps
+      const customerResult = await executeStep('customer', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
+      if (!customerResult.success) {
+        stepStatus.customer = 'failed';
+        syncStatus = 'failed';
+        errorMessage = `Customer: ${customerResult.error}`;
+        orderSyncFailed = true;
+        orderErrorMessage = customerResult.error || 'Customer sync failed';
+      } else {
         stepStatus.customer = 'found';
+      }
 
+      // Only continue if previous steps succeeded
+      if (!orderSyncFailed) {
         const brandResult = await executeStep('brand', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
         if (!brandResult.success) {
           stepStatus.brand = 'failed';
-          throw new Error(`Brand: ${brandResult.error}`);
+          syncStatus = 'failed';
+          errorMessage = `Brand: ${brandResult.error}`;
+          orderSyncFailed = true;
+          orderErrorMessage = brandResult.error || 'Brand sync failed';
+        } else {
+          stepStatus.brand = 'found';
         }
-        stepStatus.brand = 'found';
+      }
 
+      if (!orderSyncFailed) {
         const productResult = await executeStep('product', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
         if (!productResult.success) {
           stepStatus.product = 'failed';
-          throw new Error(`Product: ${productResult.error}`);
+          syncStatus = 'failed';
+          errorMessage = `Product: ${productResult.error}`;
+          orderSyncFailed = true;
+          orderErrorMessage = productResult.error || 'Product sync failed';
+        } else {
+          stepStatus.product = 'found';
         }
-        stepStatus.product = 'found';
+      }
 
+      if (!orderSyncFailed) {
         const orderResult = await executeStep('order', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
         if (!orderResult.success) {
           stepStatus.order = 'failed';
-          throw new Error(`Order: ${orderResult.error}`);
-        }
-        stepStatus.order = 'sent';
-
-        if (hasNonStock) {
-          const purchaseResult = await executeStep('purchase', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
-          if (!purchaseResult.success) {
-            stepStatus.purchase = 'failed';
-            throw new Error(`Purchase: ${purchaseResult.error}`);
-          }
-          stepStatus.purchase = 'created';
+          syncStatus = 'failed';
+          errorMessage = `Order: ${orderResult.error}`;
+          orderSyncFailed = true;
+          orderErrorMessage = orderResult.error || 'Order sync failed';
         } else {
-          stepStatus.purchase = 'skipped';
+          stepStatus.order = 'sent';
         }
+      }
 
+      // Handle purchase separately - only if order succeeded
+      if (!orderSyncFailed && hasNonStock) {
+        const purchaseResult = await executeStep('purchase', lines, orderNonStockProducts, supabaseUrl, supabaseKey);
+        if (!purchaseResult.success) {
+          stepStatus.purchase = 'failed';
+          purchaseSyncFailed = true;
+          purchaseErrorMessage = purchaseResult.error || 'Purchase sync failed';
+          if (errorMessage) {
+            errorMessage += ` | Purchase: ${purchaseErrorMessage}`;
+          } else {
+            errorMessage = `Purchase: ${purchaseErrorMessage}`;
+          }
+          // Mark as partial instead of failed since order succeeded
+          syncStatus = 'partial';
+        } else {
+          stepStatus.purchase = 'created';
+        }
+      } else if (!hasNonStock) {
+        stepStatus.purchase = 'skipped';
+      }
+
+      // Count success/failure
+      if (!orderSyncFailed && !purchaseSyncFailed) {
         successfulOrders++;
         console.log(`[Background Sync] Order ${orderNumber} synced successfully`);
-      } catch (error: any) {
-        syncStatus = 'failed';
-        errorMessage = error.message || 'Unknown error';
+      } else {
         failedOrders++;
         console.error(`[Background Sync] Order ${orderNumber} failed: ${errorMessage}`);
       }
@@ -612,6 +649,10 @@ async function processBackgroundSync(
           step_product: stepStatus.product,
           step_order: stepStatus.order,
           step_purchase: stepStatus.purchase,
+          order_sync_failed: orderSyncFailed,
+          purchase_sync_failed: purchaseSyncFailed,
+          order_error_message: orderErrorMessage || null,
+          purchase_error_message: purchaseErrorMessage || null,
         });
       }
 

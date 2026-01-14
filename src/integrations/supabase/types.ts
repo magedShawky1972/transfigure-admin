@@ -2493,10 +2493,14 @@ export type Database = {
           error_message: string | null
           id: string
           order_date: string | null
+          order_error_message: string | null
           order_number: string
+          order_sync_failed: boolean | null
           payment_brand: string | null
           payment_method: string | null
           product_names: string | null
+          purchase_error_message: string | null
+          purchase_sync_failed: boolean | null
           run_id: string
           step_brand: string | null
           step_customer: string | null
@@ -2513,10 +2517,14 @@ export type Database = {
           error_message?: string | null
           id?: string
           order_date?: string | null
+          order_error_message?: string | null
           order_number: string
+          order_sync_failed?: boolean | null
           payment_brand?: string | null
           payment_method?: string | null
           product_names?: string | null
+          purchase_error_message?: string | null
+          purchase_sync_failed?: boolean | null
           run_id: string
           step_brand?: string | null
           step_customer?: string | null
@@ -2533,10 +2541,14 @@ export type Database = {
           error_message?: string | null
           id?: string
           order_date?: string | null
+          order_error_message?: string | null
           order_number?: string
+          order_sync_failed?: boolean | null
           payment_brand?: string | null
           payment_method?: string | null
           product_names?: string | null
+          purchase_error_message?: string | null
+          purchase_sync_failed?: boolean | null
           run_id?: string
           step_brand?: string | null
           step_customer?: string | null
