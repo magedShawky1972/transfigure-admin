@@ -235,20 +235,7 @@ export default function PaymentBankLink() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === "ar" ? "نوع الدفع" : "Payment Type"}</TableHead>
-                  <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment Brand"}</TableHead>
-                  <TableHead className="text-center">
-                    {language === "ar" ? "رسوم البوابة %" : "Gateway Fee %"}
-                  </TableHead>
-                  <TableHead className="text-center">
-                    {language === "ar" ? "قيمة ثابتة" : "Fixed Value"}
-                  </TableHead>
-                  <TableHead className="text-center">
-                    {language === "ar" ? "ضريبة %" : "VAT %"}
-                  </TableHead>
-                  <TableHead className="text-center">
-                    {language === "ar" ? "مثال: صافي 1000" : "Example: Net 1000"}
-                  </TableHead>
+                  <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment Method"}</TableHead>
                   <TableHead>{language === "ar" ? "البنك المرتبط" : "Linked Bank"}</TableHead>
                   <TableHead className="text-center">{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 </TableRow>
@@ -256,21 +243,11 @@ export default function PaymentBankLink() {
               <TableBody>
                 {paymentMethods.map((method) => {
                   const currentBankId = getCurrentBankId(method);
-                  const netAmount = calculateNetAmount(1000, method);
                   const hasChange = changes.hasOwnProperty(method.id);
 
                   return (
                     <TableRow key={method.id} className={hasChange ? "bg-primary/5" : ""}>
-                      <TableCell className="font-medium">{method.payment_type}</TableCell>
-                      <TableCell>{method.payment_method}</TableCell>
-                      <TableCell className="text-center">{method.gateway_fee || 0}%</TableCell>
-                      <TableCell className="text-center">{method.fixed_value || 0}</TableCell>
-                      <TableCell className="text-center">{method.vat_fee || 0}%</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="font-mono">
-                          {netAmount.toFixed(2)}
-                        </Badge>
-                      </TableCell>
+                      <TableCell className="font-medium">{method.payment_method}</TableCell>
                       <TableCell>
                         <Select
                           value={currentBankId || "none"}
