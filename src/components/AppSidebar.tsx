@@ -139,6 +139,7 @@ export function AppSidebar() {
     "/treasury-entry": "treasuryEntry",
     "/bank-entry": "bankEntry",
     "/expense-requests": "expenseRequests",
+    "/expense-reports": "expenseReports",
   };
 
   useEffect(() => {
@@ -342,6 +343,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'قيد الخزينة' : 'Treasury Entry', url: "/treasury-entry", icon: FileText },
         { title: language === 'ar' ? 'قيد البنك' : 'Bank Entry', url: "/bank-entry", icon: FileText },
         { title: language === 'ar' ? 'طلبات المصروفات' : 'Expense Requests', url: "/expense-requests", icon: ClipboardList },
+        { title: language === 'ar' ? 'تقارير المصروفات' : 'Expense Reports', url: "/expense-reports", icon: FileBarChart },
       ]
     },
     {
