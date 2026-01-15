@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 interface LoadingOverlayProps {
-  progress: number;
+  progress?: number;
   message?: string;
   timeElapsed?: number;
 }
 
-export const LoadingOverlay = ({ progress, message = "Loading dashboard...", timeElapsed }: LoadingOverlayProps) => {
+export const LoadingOverlay = ({ progress = 0, message = "Loading dashboard...", timeElapsed }: LoadingOverlayProps) => {
   const [displayProgress, setDisplayProgress] = useState(0);
 
   useEffect(() => {

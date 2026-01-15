@@ -97,6 +97,14 @@ import SoldProductReport from "./pages/SoldProductReport";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
 import HRVacationCalendar from "./pages/HRVacationCalendar";
+import BankSetupPage from "./pages/BankSetup";
+import TreasurySetup from "./pages/TreasurySetup";
+import ExpenseCategorySetup from "./pages/ExpenseCategorySetup";
+import ExpenseTypeSetup from "./pages/ExpenseTypeSetup";
+import TreasuryOpeningBalance from "./pages/TreasuryOpeningBalance";
+import TreasuryEntry from "./pages/TreasuryEntry";
+import BankEntry from "./pages/BankEntry";
+import ExpenseRequests from "./pages/ExpenseRequests";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -200,6 +208,14 @@ const App = () => (
               <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />
               <Route path="/reports/aggregated-orders" element={<AggregatedOrderReport />} />
               <Route path="/hr-vacation-calendar" element={<HRVacationCalendar />} />
+              <Route path="/bank-setup" element={<BankSetupPage />} />
+              <Route path="/treasury-setup" element={<TreasurySetup />} />
+              <Route path="/expense-category-setup" element={<ExpenseCategorySetup />} />
+              <Route path="/expense-type-setup" element={<ExpenseTypeSetup />} />
+              <Route path="/treasury-opening-balance" element={<TreasuryOpeningBalance />} />
+              <Route path="/treasury-entry" element={<TreasuryEntry />} />
+              <Route path="/bank-entry" element={<BankEntry />} />
+              <Route path="/expense-requests" element={<ExpenseRequests />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

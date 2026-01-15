@@ -126,6 +126,7 @@ const TreasuryEntry = () => {
         treasury_id: formData.treasury_id,
         entry_date: formData.entry_date,
         entry_type: formData.entry_type,
+        entry_number: "TEMP", // Will be replaced by trigger
         amount: formData.amount,
         expense_request_id: formData.expense_request_id || null,
         description: formData.description || null,
