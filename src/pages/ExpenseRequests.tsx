@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt } from "lucide-react";
+import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +93,14 @@ const ExpenseRequests = () => {
     payment_method: "treasury",
     bank_id: "",
     treasury_id: "",
+  });
+
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newRequest, setNewRequest] = useState({
+    description: "",
+    amount: "",
+    currency_id: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -216,6 +224,51 @@ const ExpenseRequests = () => {
     });
   };
 
+  const generateRequestNumber = () => {
+    const date = new Date();
+    const prefix = "EXP";
+    const timestamp = date.getFullYear().toString().slice(-2) +
+      (date.getMonth() + 1).toString().padStart(2, "0") +
+      date.getDate().toString().padStart(2, "0") +
+      date.getHours().toString().padStart(2, "0") +
+      date.getMinutes().toString().padStart(2, "0") +
+      date.getSeconds().toString().padStart(2, "0");
+    return `${prefix}${timestamp}`;
+  };
+
+  const handleAddRequest = async () => {
+    if (!newRequest.description.trim()) {
+      toast.error(language === "ar" ? "يرجى إدخال الوصف" : "Please enter description");
+      return;
+    }
+    if (!newRequest.amount || parseFloat(newRequest.amount) <= 0) {
+      toast.error(language === "ar" ? "يرجى إدخال مبلغ صحيح" : "Please enter valid amount");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("expense_requests").insert({
+        request_number: generateRequestNumber(),
+        description: newRequest.description.trim(),
+        amount: parseFloat(newRequest.amount),
+        currency_id: newRequest.currency_id || null,
+        notes: newRequest.notes.trim() || null,
+        requester_id: currentUserId,
+        request_date: new Date().toISOString().split("T")[0],
+        status: "pending",
+      });
+
+      if (error) throw error;
+      toast.success(language === "ar" ? "تم إضافة الطلب بنجاح" : "Request added successfully");
+      setAddDialogOpen(false);
+      setNewRequest({ description: "", amount: "", currency_id: "", notes: "" });
+      fetchData();
+    } catch (error: any) {
+      console.error("Error adding request:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في الإضافة" : "Error adding request"));
+    }
+  };
+
   const getStatusLabel = (status: string) => {
     const labels: Record<string, { en: string; ar: string }> = {
       pending: { en: "Pending", ar: "في الانتظار" },
@@ -246,12 +299,18 @@ const ExpenseRequests = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <FileText className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">{language === "ar" ? "طلبات المصروفات" : "Expense Requests"}</h1>
-          <p className="text-muted-foreground">{language === "ar" ? "قائمة انتظار المحاسبة" : "Accounting Queue"}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <FileText className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold">{language === "ar" ? "طلبات المصروفات" : "Expense Requests"}</h1>
+            <p className="text-muted-foreground">{language === "ar" ? "قائمة انتظار المحاسبة" : "Accounting Queue"}</p>
+          </div>
         </div>
+        <Button onClick={() => setAddDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          {language === "ar" ? "إضافة طلب" : "Add Request"}
+        </Button>
       </div>
 
       {/* Summary Cards */}
@@ -504,6 +563,68 @@ const ExpenseRequests = () => {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add New Request Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "إضافة طلب مصروف جديد" : "Add New Expense Request"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الوصف *" : "Description *"}</Label>
+              <Textarea
+                value={newRequest.description}
+                onChange={(e) => setNewRequest({ ...newRequest, description: e.target.value })}
+                placeholder={language === "ar" ? "وصف المصروف" : "Expense description"}
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "المبلغ *" : "Amount *"}</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newRequest.amount}
+                  onChange={(e) => setNewRequest({ ...newRequest, amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "العملة" : "Currency"}</Label>
+                <Select value={newRequest.currency_id} onValueChange={(v) => setNewRequest({ ...newRequest, currency_id: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.currency_code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>
+              <Textarea
+                value={newRequest.notes}
+                onChange={(e) => setNewRequest({ ...newRequest, notes: e.target.value })}
+                placeholder={language === "ar" ? "ملاحظات إضافية" : "Additional notes"}
+                rows={2}
+              />
+            </div>
+
+            <Button onClick={handleAddRequest} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              {language === "ar" ? "إضافة الطلب" : "Add Request"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
