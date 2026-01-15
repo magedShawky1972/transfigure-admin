@@ -66,6 +66,7 @@ interface Currency {
   currency_code: string;
   currency_name: string;
   currency_name_ar: string | null;
+  is_base: boolean;
 }
 
 interface CurrencyRate {
@@ -157,7 +158,7 @@ const BankEntry = () => {
         supabase.from("bank_entries").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar").eq("is_active", true),
+        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, is_base").eq("is_active", true),
         supabase.from("currency_rates").select("*").order("effective_date", { ascending: false }),
         supabase.from("expense_requests").select("id, request_number, description, amount")
           .eq("payment_method", "bank")
@@ -371,19 +372,30 @@ const BankEntry = () => {
   };
 
   // Get the latest rate for a currency (rate_to_base)
+  // Base currency always has rate 1, other currencies use their stored rate
   const getLatestRate = (currencyId: string): number => {
+    // Check if this is the base currency
+    const currency = currencies.find(c => c.id === currencyId);
+    if (currency?.is_base) return 1;
+    
+    // Find the rate from currency_rates table
     const rate = currencyRates.find(r => r.currency_id === currencyId);
     return rate?.rate_to_base || 1;
   };
 
   // Calculate exchange rate between two currencies
+  // rate_to_base means: 1 unit of currency = X units of base currency (SAR)
+  // So if USD rate_to_base = 3.75, then 1 USD = 3.75 SAR
+  // To convert SAR to USD: 100 SAR / 3.75 = 26.67 USD (exchange_rate = 1/3.75)
+  // To convert USD to SAR: 100 USD * 3.75 = 375 SAR (exchange_rate = 3.75)
   const calculateExchangeRate = (fromCurrencyId: string, toCurrencyId: string): number => {
     if (!fromCurrencyId || !toCurrencyId || fromCurrencyId === toCurrencyId) return 1;
     const fromRate = getLatestRate(fromCurrencyId);
     const toRate = getLatestRate(toCurrencyId);
-    // Convert: (1 / fromRate) * toRate = amount in base currency * toRate
-    // If fromRate = 3.75 (SAR to base) and toRate = 1 (USD is base), then 1 SAR = 1/3.75 USD
-    return toRate / fromRate;
+    // Formula: fromRate / toRate
+    // SAR(1) to USD(3.75): 1/3.75 = 0.267 ✓
+    // USD(3.75) to SAR(1): 3.75/1 = 3.75 ✓
+    return fromRate / toRate;
   };
 
   const handleBankSelect = (bankId: string) => {
