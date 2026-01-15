@@ -349,6 +349,155 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_entries: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          balance_after: number | null
+          bank_id: string
+          check_number: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          entry_date: string | null
+          entry_number: string
+          entry_type: string
+          expense_request_id: string | null
+          id: string
+          posted_at: string | null
+          posted_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          balance_after?: number | null
+          bank_id: string
+          check_number?: string | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          entry_date?: string | null
+          entry_number: string
+          entry_type: string
+          expense_request_id?: string | null
+          id?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          balance_after?: number | null
+          bank_id?: string
+          check_number?: string | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          entry_date?: string | null
+          entry_number?: string
+          entry_type?: string
+          expense_request_id?: string | null
+          id?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_entries_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_entries_expense_request_id_fkey"
+            columns: ["expense_request_id"]
+            isOneToOne: false
+            referencedRelation: "expense_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      banks: {
+        Row: {
+          account_number: string | null
+          bank_code: string
+          bank_name: string
+          bank_name_ar: string | null
+          branch_name: string | null
+          created_at: string | null
+          created_by: string | null
+          currency_id: string | null
+          current_balance: number | null
+          iban: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          opening_balance: number | null
+          swift_code: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_number?: string | null
+          bank_code: string
+          bank_name: string
+          bank_name_ar?: string | null
+          branch_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          current_balance?: number | null
+          iban?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          opening_balance?: number | null
+          swift_code?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_number?: string | null
+          bank_code?: string
+          bank_name?: string
+          bank_name_ar?: string | null
+          branch_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          current_balance?: number | null
+          iban?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          opening_balance?: number | null
+          swift_code?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banks_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_closing_training: {
         Row: {
           brand_id: string
@@ -1710,6 +1859,208 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      expense_categories: {
+        Row: {
+          category_code: string
+          category_name: string
+          category_name_ar: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          parent_category_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_code: string
+          category_name: string
+          category_name_ar?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_category_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_code?: string
+          category_name?: string
+          category_name_ar?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_category_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_requests: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          bank_id: string | null
+          classified_at: string | null
+          classified_by: string | null
+          created_at: string | null
+          currency_id: string | null
+          description: string
+          expense_type_id: string | null
+          id: string
+          is_asset: boolean | null
+          notes: string | null
+          paid_at: string | null
+          paid_by: string | null
+          payment_method: string | null
+          request_date: string | null
+          request_number: string
+          requester_id: string
+          status: string | null
+          ticket_id: string | null
+          treasury_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_id?: string | null
+          classified_at?: string | null
+          classified_by?: string | null
+          created_at?: string | null
+          currency_id?: string | null
+          description: string
+          expense_type_id?: string | null
+          id?: string
+          is_asset?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_method?: string | null
+          request_date?: string | null
+          request_number: string
+          requester_id: string
+          status?: string | null
+          ticket_id?: string | null
+          treasury_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_id?: string | null
+          classified_at?: string | null
+          classified_by?: string | null
+          created_at?: string | null
+          currency_id?: string | null
+          description?: string
+          expense_type_id?: string | null
+          id?: string
+          is_asset?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_method?: string | null
+          request_date?: string | null
+          request_number?: string
+          requester_id?: string
+          status?: string | null
+          ticket_id?: string | null
+          treasury_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_requests_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_requests_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_requests_expense_type_id_fkey"
+            columns: ["expense_type_id"]
+            isOneToOne: false
+            referencedRelation: "expense_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_requests_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_requests_treasury_id_fkey"
+            columns: ["treasury_id"]
+            isOneToOne: false
+            referencedRelation: "treasuries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_types: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          default_account_code: string | null
+          expense_code: string
+          expense_name: string
+          expense_name_ar: string | null
+          id: string
+          is_active: boolean | null
+          is_asset: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          default_account_code?: string | null
+          expense_code: string
+          expense_name: string
+          expense_name_ar?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_asset?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          default_account_code?: string | null
+          expense_code?: string
+          expense_name?: string
+          expense_name_ar?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_asset?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_types_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       generated_tables: {
         Row: {
@@ -4849,6 +5200,203 @@ export type Database = {
           },
         ]
       }
+      treasuries: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          currency_id: string | null
+          current_balance: number | null
+          department_id: string | null
+          id: string
+          is_active: boolean | null
+          max_balance: number | null
+          notes: string | null
+          opening_balance: number | null
+          responsible_user_id: string | null
+          treasury_code: string
+          treasury_name: string
+          treasury_name_ar: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          current_balance?: number | null
+          department_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_balance?: number | null
+          notes?: string | null
+          opening_balance?: number | null
+          responsible_user_id?: string | null
+          treasury_code: string
+          treasury_name: string
+          treasury_name_ar?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          current_balance?: number | null
+          department_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_balance?: number | null
+          notes?: string | null
+          opening_balance?: number | null
+          responsible_user_id?: string | null
+          treasury_code?: string
+          treasury_name?: string
+          treasury_name_ar?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treasuries_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasuries_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treasury_entries: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          balance_after: number | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          entry_date: string | null
+          entry_number: string
+          entry_type: string
+          expense_request_id: string | null
+          id: string
+          posted_at: string | null
+          posted_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          status: string | null
+          treasury_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          balance_after?: number | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          entry_date?: string | null
+          entry_number: string
+          entry_type: string
+          expense_request_id?: string | null
+          id?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string | null
+          treasury_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          balance_after?: number | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          entry_date?: string | null
+          entry_number?: string
+          entry_type?: string
+          expense_request_id?: string | null
+          id?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string | null
+          treasury_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treasury_entries_expense_request_id_fkey"
+            columns: ["expense_request_id"]
+            isOneToOne: false
+            referencedRelation: "expense_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_entries_treasury_id_fkey"
+            columns: ["treasury_id"]
+            isOneToOne: false
+            referencedRelation: "treasuries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treasury_opening_balances: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          entered_by: string
+          fiscal_year: number
+          id: string
+          notes: string | null
+          opening_date: string
+          treasury_id: string
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          entered_by: string
+          fiscal_year: number
+          id?: string
+          notes?: string | null
+          opening_date: string
+          treasury_id: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          entered_by?: string
+          fiscal_year?: number
+          id?: string
+          notes?: string | null
+          opening_date?: string
+          treasury_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treasury_opening_balances_treasury_id_fkey"
+            columns: ["treasury_id"]
+            isOneToOne: false
+            referencedRelation: "treasuries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uom: {
         Row: {
           created_at: string
@@ -5749,8 +6297,11 @@ export type Database = {
         Returns: string
       }
       format_date_to_int: { Args: { d: string }; Returns: number }
+      generate_bank_entry_number: { Args: never; Returns: string }
+      generate_expense_request_number: { Args: never; Returns: string }
       generate_ludo_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
+      generate_treasury_entry_number: { Args: never; Returns: string }
       get_audit_logs: {
         Args: {
           p_action?: string
