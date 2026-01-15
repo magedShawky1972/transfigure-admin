@@ -155,7 +155,6 @@ interface UserPermission {
     { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
     { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
     { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
-    { key: "expenseReports", label: "تقارير المصروفات", labelEn: "Expense Reports" },
   ];
 
 const DASHBOARD_COMPONENTS = [
@@ -203,6 +202,8 @@ const REPORTS = [
   { key: "sold-product", labelEn: "Sold Product Report", labelAr: "تقرير المنتجات المباعة" },
   { key: "odoo-sync-status", labelEn: "Odoo Sync Status", labelAr: "حالة مزامنة Odoo" },
   { key: "aggregated-orders", labelEn: "Aggregated Order Mapping", labelAr: "مطابقة الطلبات المجمعة" },
+  { key: "expense-pending", labelEn: "Pending Expenses", labelAr: "المصروفات المعلقة" },
+  { key: "expense-paid", labelEn: "Paid Expenses", labelAr: "المصروفات المدفوعة" },
 ];
 
 const UserSetup = () => {

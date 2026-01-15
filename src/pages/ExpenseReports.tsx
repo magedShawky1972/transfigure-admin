@@ -13,6 +13,7 @@ import { FileText, Download, Filter, Clock, CheckCircle, DollarSign } from "luci
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { useSearchParams } from "react-router-dom";
 
 interface ExpenseRequest {
   id: string;
@@ -35,7 +36,11 @@ interface ExpenseType {
 
 const ExpenseReports = () => {
   const { language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"pending" | "paid">("pending");
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<"pending" | "paid">(
+    tabParam === "paid" ? "paid" : "pending"
+  );
   const [loading, setLoading] = useState(false);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
 
