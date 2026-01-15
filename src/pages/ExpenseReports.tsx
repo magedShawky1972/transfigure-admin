@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Download, Filter, Clock, CheckCircle, DollarSign } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
@@ -311,6 +311,15 @@ const ExpenseReports = () => {
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell colSpan={4} className="text-right">
+                        {language === "ar" ? "الإجمالي:" : "Total:"}
+                      </TableCell>
+                      <TableCell className="text-primary text-lg">{pendingTotal.toLocaleString()}</TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </CardContent>
             </Card>
@@ -430,6 +439,15 @@ const ExpenseReports = () => {
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell colSpan={5} className="text-right">
+                        {language === "ar" ? "الإجمالي:" : "Total:"}
+                      </TableCell>
+                      <TableCell className="text-primary text-lg">{paidTotal.toLocaleString()}</TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </CardContent>
             </Card>
