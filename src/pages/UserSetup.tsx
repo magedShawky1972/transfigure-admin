@@ -155,6 +155,7 @@ interface UserPermission {
     { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
     { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
     { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
+    { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
   ];
 
 const DASHBOARD_COMPONENTS = [

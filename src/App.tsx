@@ -106,6 +106,7 @@ import TreasuryEntry from "./pages/TreasuryEntry";
 import BankEntry from "./pages/BankEntry";
 import ExpenseRequests from "./pages/ExpenseRequests";
 import ExpenseReports from "./pages/ExpenseReports";
+import PaymentBankLink from "./pages/PaymentBankLink";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -218,6 +219,7 @@ const App = () => (
               <Route path="/bank-entry" element={<BankEntry />} />
               <Route path="/expense-requests" element={<ExpenseRequests />} />
               <Route path="/expense-reports" element={<ExpenseReports />} />
+              <Route path="/payment-bank-link" element={<PaymentBankLink />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
