@@ -247,7 +247,7 @@ export default function PaymentBankLink() {
 
                   return (
                     <TableRow key={method.id} className={hasChange ? "bg-primary/5" : ""}>
-                      <TableCell className="font-medium">{method.payment_method}</TableCell>
+                      <TableCell className="font-medium">{method.payment_type?.toUpperCase() || '-'}</TableCell>
                       <TableCell>
                         <Select
                           value={currentBankId || "none"}
