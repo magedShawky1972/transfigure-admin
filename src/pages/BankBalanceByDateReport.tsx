@@ -99,19 +99,40 @@ const BankBalanceByDateReport = () => {
       const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
       const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
 
-      // Fetch from purpletransaction using created_at_date_int and filter by payment_method column (which stores hyperpay, salla, etc.)
+      // Fetch ALL transactions from purpletransaction (no limit) using pagination
       const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
       
       if (paymentTypes.length > 0) {
-        const { data: transactions } = await supabase
-          .from('purpletransaction')
-          .select('id, order_number, created_at_date_int, payment_method, payment_brand, total, bank_fee')
-          .in('payment_method', paymentTypes)
-          .gte('created_at_date_int', fromDateInt)
-          .lte('created_at_date_int', toDateInt);
+        let allTransactions: any[] = [];
+        let page = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data: transactions, error } = await supabase
+            .from('purpletransaction')
+            .select('id, payment_method, total, bank_fee')
+            .in('payment_method', paymentTypes)
+            .gte('created_at_date_int', fromDateInt)
+            .lte('created_at_date_int', toDateInt)
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+          if (error) {
+            console.error('Error fetching transactions:', error);
+            break;
+          }
+
+          if (transactions && transactions.length > 0) {
+            allTransactions = [...allTransactions, ...transactions];
+            hasMore = transactions.length === pageSize;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
 
         // Group by payment_method (hyperpay, salla, etc.)
-        (transactions || []).forEach(tx => {
+        allTransactions.forEach(tx => {
           const pmKey = tx.payment_method || 'other';
           const existing = salesSummaryMap.get(pmKey) || { total: 0, charges: 0, count: 0 };
           existing.total += Number(tx.total) || 0;
@@ -607,6 +628,71 @@ const BankBalanceByDateReport = () => {
           </CardContent>
         </Card>
       ))}
+
+      {/* Grand Total Card */}
+      {(salesRows.length > 0 || (transactionGroups && transactionGroups.length > 0)) && (
+        <Card className="border-2 border-primary">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">
+              {language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">{language === 'ar' ? 'الرصيد الافتتاحي' : 'Opening Balance'}</TableCell>
+                  <TableCell className="text-right font-bold">{formatNumber(openingBalance)}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-green-600">{language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}</TableCell>
+                  <TableCell className="text-right font-bold text-green-600">
+                    +{formatNumber(salesRows.reduce((sum, r) => sum + r.grossAmount, 0))}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-orange-600">{language === 'ar' ? 'إجمالي رسوم البنك' : 'Total Bank Charges'}</TableCell>
+                  <TableCell className="text-right font-bold text-orange-600">
+                    -{formatNumber(grandTotalCharges)}
+                  </TableCell>
+                </TableRow>
+                {transactionGroups.filter(g => g.type === 'deposits').length > 0 && (
+                  <TableRow>
+                    <TableCell className="font-medium text-green-600">{language === 'ar' ? 'إجمالي الإيداعات' : 'Total Deposits'}</TableCell>
+                    <TableCell className="text-right font-bold text-green-600">
+                      +{formatNumber(transactionGroups.filter(g => g.type === 'deposits').reduce((sum, g) => sum + g.subtotal, 0))}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {transactionGroups.filter(g => g.type === 'expenses').length > 0 && (
+                  <TableRow>
+                    <TableCell className="font-medium text-red-600">{language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'}</TableCell>
+                    <TableCell className="text-right font-bold text-red-600">
+                      -{formatNumber(transactionGroups.filter(g => g.type === 'expenses').reduce((sum, g) => sum + g.subtotal, 0))}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {transactionGroups.filter(g => g.type === 'withdrawals').length > 0 && (
+                  <TableRow>
+                    <TableCell className="font-medium text-red-600">{language === 'ar' ? 'إجمالي السحوبات' : 'Total Withdrawals'}</TableCell>
+                    <TableCell className="text-right font-bold text-red-600">
+                      -{formatNumber(transactionGroups.filter(g => g.type === 'withdrawals').reduce((sum, g) => sum + g.subtotal, 0))}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+              <TableFooter>
+                <TableRow className="bg-primary/10">
+                  <TableCell className="font-bold text-lg">{language === 'ar' ? 'الرصيد الختامي' : 'Closing Balance'}</TableCell>
+                  <TableCell className={`text-right font-bold text-lg ${closingBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatNumber(closingBalance)}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Empty State */}
       {salesRows.length === 0 && (!transactionGroups || transactionGroups.length === 0) && !loading && (
