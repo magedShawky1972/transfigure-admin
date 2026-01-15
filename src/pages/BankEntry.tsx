@@ -68,6 +68,13 @@ interface Currency {
   currency_name_ar: string | null;
 }
 
+interface CurrencyRate {
+  id: string;
+  currency_id: string;
+  rate_to_base: number;
+  effective_date: string;
+}
+
 interface ExpenseRequest {
   id: string;
   request_number: string;
@@ -102,6 +109,7 @@ const BankEntry = () => {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
   const [expenseRequests, setExpenseRequests] = useState<ExpenseRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -145,11 +153,12 @@ const BankEntry = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [entriesRes, banksRes, treasuriesRes, currenciesRes, requestsRes] = await Promise.all([
+      const [entriesRes, banksRes, treasuriesRes, currenciesRes, ratesRes, requestsRes] = await Promise.all([
         supabase.from("bank_entries").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar").eq("is_active", true),
+        supabase.from("currency_rates").select("*").order("effective_date", { ascending: false }),
         supabase.from("expense_requests").select("id, request_number, description, amount")
           .eq("payment_method", "bank")
           .eq("status", "approved"),
@@ -159,12 +168,14 @@ const BankEntry = () => {
       if (banksRes.error) throw banksRes.error;
       if (treasuriesRes.error) throw treasuriesRes.error;
       if (currenciesRes.error) throw currenciesRes.error;
+      if (ratesRes.error) throw ratesRes.error;
       if (requestsRes.error) throw requestsRes.error;
 
       setEntries(entriesRes.data || []);
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
+      setCurrencyRates(ratesRes.data || []);
       setExpenseRequests(requestsRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -359,30 +370,55 @@ const BankEntry = () => {
     }
   };
 
+  // Get the latest rate for a currency (rate_to_base)
+  const getLatestRate = (currencyId: string): number => {
+    const rate = currencyRates.find(r => r.currency_id === currencyId);
+    return rate?.rate_to_base || 1;
+  };
+
+  // Calculate exchange rate between two currencies
+  const calculateExchangeRate = (fromCurrencyId: string, toCurrencyId: string): number => {
+    if (!fromCurrencyId || !toCurrencyId || fromCurrencyId === toCurrencyId) return 1;
+    const fromRate = getLatestRate(fromCurrencyId);
+    const toRate = getLatestRate(toCurrencyId);
+    // Convert: (1 / fromRate) * toRate = amount in base currency * toRate
+    // If fromRate = 3.75 (SAR to base) and toRate = 1 (USD is base), then 1 SAR = 1/3.75 USD
+    return toRate / fromRate;
+  };
+
   const handleBankSelect = (bankId: string) => {
     const bank = banks.find(b => b.id === bankId);
+    const newFromCurrencyId = bank?.currency_id || "";
+    const newRate = calculateExchangeRate(newFromCurrencyId, formData.to_currency_id);
     setFormData({
       ...formData,
       bank_id: bankId,
-      from_currency_id: bank?.currency_id || "",
+      from_currency_id: newFromCurrencyId,
+      exchange_rate: newRate,
     });
   };
 
   const handleToBankSelect = (bankId: string) => {
     const bank = banks.find(b => b.id === bankId);
+    const newToCurrencyId = bank?.currency_id || "";
+    const newRate = calculateExchangeRate(formData.from_currency_id, newToCurrencyId);
     setFormData({
       ...formData,
       to_bank_id: bankId,
-      to_currency_id: bank?.currency_id || "",
+      to_currency_id: newToCurrencyId,
+      exchange_rate: newRate,
     });
   };
 
   const handleToTreasurySelect = (treasuryId: string) => {
     const treasury = treasuries.find(t => t.id === treasuryId);
+    const newToCurrencyId = treasury?.currency_id || "";
+    const newRate = calculateExchangeRate(formData.from_currency_id, newToCurrencyId);
     setFormData({
       ...formData,
       to_treasury_id: treasuryId,
-      to_currency_id: treasury?.currency_id || "",
+      to_currency_id: newToCurrencyId,
+      exchange_rate: newRate,
     });
   };
 
