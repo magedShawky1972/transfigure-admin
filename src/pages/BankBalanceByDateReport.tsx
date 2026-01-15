@@ -86,26 +86,27 @@ const BankBalanceByDateReport = () => {
       const selectedBank = banks.find(b => b.id === selectedBankId);
       setOpeningBalance(selectedBank?.opening_balance || 0);
 
-      // Fetch payment methods linked to this bank to get the payment_method names (like MADA, VISA)
+      // Fetch payment methods linked to this bank to get the payment_type names (hyperpay, salla)
       const { data: paymentMethods } = await supabase
         .from('payment_methods')
-        .select('id, payment_method, gateway_fee, fixed_value')
+        .select('id, payment_method, payment_type, gateway_fee, fixed_value')
         .eq('bank_id', selectedBankId);
 
-      const paymentBrandNames = paymentMethods?.map(pm => pm.payment_method) || [];
+      // Get unique payment_types linked to this bank (e.g., hyperpay, salla)
+      const paymentTypes = [...new Set(paymentMethods?.map(pm => pm.payment_type).filter(Boolean))] as string[];
 
       // Convert dates to integer format YYYYMMDD for created_at_date_int filtering
       const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
       const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
 
-      // Fetch from purpletransaction using created_at_date_int and filter by payment_method column
+      // Fetch from purpletransaction using created_at_date_int and filter by payment_method column (which stores hyperpay, salla, etc.)
       const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
       
-      if (paymentBrandNames.length > 0) {
+      if (paymentTypes.length > 0) {
         const { data: transactions } = await supabase
           .from('purpletransaction')
           .select('id, order_number, created_at_date_int, payment_method, payment_brand, total, bank_fee')
-          .in('payment_brand', paymentBrandNames)
+          .in('payment_method', paymentTypes)
           .gte('created_at_date_int', fromDateInt)
           .lte('created_at_date_int', toDateInt);
 
