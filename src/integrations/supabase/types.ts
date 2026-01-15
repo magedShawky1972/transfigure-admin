@@ -355,21 +355,30 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           balance_after: number | null
+          bank_charges: number | null
           bank_id: string
           check_number: string | null
+          converted_amount: number | null
           created_at: string | null
           created_by: string
           description: string | null
           entry_date: string | null
           entry_number: string
           entry_type: string
+          exchange_rate: number | null
           expense_request_id: string | null
+          from_currency_id: string | null
           id: string
+          other_charges: number | null
           posted_at: string | null
           posted_by: string | null
           reference_id: string | null
           reference_type: string | null
           status: string | null
+          to_bank_id: string | null
+          to_currency_id: string | null
+          to_treasury_id: string | null
+          transfer_type: string | null
           updated_at: string | null
         }
         Insert: {
@@ -377,21 +386,30 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           balance_after?: number | null
+          bank_charges?: number | null
           bank_id: string
           check_number?: string | null
+          converted_amount?: number | null
           created_at?: string | null
           created_by: string
           description?: string | null
           entry_date?: string | null
           entry_number: string
           entry_type: string
+          exchange_rate?: number | null
           expense_request_id?: string | null
+          from_currency_id?: string | null
           id?: string
+          other_charges?: number | null
           posted_at?: string | null
           posted_by?: string | null
           reference_id?: string | null
           reference_type?: string | null
           status?: string | null
+          to_bank_id?: string | null
+          to_currency_id?: string | null
+          to_treasury_id?: string | null
+          transfer_type?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -399,21 +417,30 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           balance_after?: number | null
+          bank_charges?: number | null
           bank_id?: string
           check_number?: string | null
+          converted_amount?: number | null
           created_at?: string | null
           created_by?: string
           description?: string | null
           entry_date?: string | null
           entry_number?: string
           entry_type?: string
+          exchange_rate?: number | null
           expense_request_id?: string | null
+          from_currency_id?: string | null
           id?: string
+          other_charges?: number | null
           posted_at?: string | null
           posted_by?: string | null
           reference_id?: string | null
           reference_type?: string | null
           status?: string | null
+          to_bank_id?: string | null
+          to_currency_id?: string | null
+          to_treasury_id?: string | null
+          transfer_type?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -429,6 +456,34 @@ export type Database = {
             columns: ["expense_request_id"]
             isOneToOne: false
             referencedRelation: "expense_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_entries_from_currency_id_fkey"
+            columns: ["from_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_entries_to_bank_id_fkey"
+            columns: ["to_bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_entries_to_currency_id_fkey"
+            columns: ["to_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_entries_to_treasury_id_fkey"
+            columns: ["to_treasury_id"]
+            isOneToOne: false
+            referencedRelation: "treasuries"
             referencedColumns: ["id"]
           },
         ]
@@ -5307,19 +5362,28 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           balance_after: number | null
+          bank_charges: number | null
+          converted_amount: number | null
           created_at: string | null
           created_by: string
           description: string | null
           entry_date: string | null
           entry_number: string
           entry_type: string
+          exchange_rate: number | null
           expense_request_id: string | null
+          from_currency_id: string | null
           id: string
+          other_charges: number | null
           posted_at: string | null
           posted_by: string | null
           reference_id: string | null
           reference_type: string | null
           status: string | null
+          to_bank_id: string | null
+          to_currency_id: string | null
+          to_treasury_id: string | null
+          transfer_type: string | null
           treasury_id: string
           updated_at: string | null
         }
@@ -5328,19 +5392,28 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           balance_after?: number | null
+          bank_charges?: number | null
+          converted_amount?: number | null
           created_at?: string | null
           created_by: string
           description?: string | null
           entry_date?: string | null
           entry_number: string
           entry_type: string
+          exchange_rate?: number | null
           expense_request_id?: string | null
+          from_currency_id?: string | null
           id?: string
+          other_charges?: number | null
           posted_at?: string | null
           posted_by?: string | null
           reference_id?: string | null
           reference_type?: string | null
           status?: string | null
+          to_bank_id?: string | null
+          to_currency_id?: string | null
+          to_treasury_id?: string | null
+          transfer_type?: string | null
           treasury_id: string
           updated_at?: string | null
         }
@@ -5349,19 +5422,28 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           balance_after?: number | null
+          bank_charges?: number | null
+          converted_amount?: number | null
           created_at?: string | null
           created_by?: string
           description?: string | null
           entry_date?: string | null
           entry_number?: string
           entry_type?: string
+          exchange_rate?: number | null
           expense_request_id?: string | null
+          from_currency_id?: string | null
           id?: string
+          other_charges?: number | null
           posted_at?: string | null
           posted_by?: string | null
           reference_id?: string | null
           reference_type?: string | null
           status?: string | null
+          to_bank_id?: string | null
+          to_currency_id?: string | null
+          to_treasury_id?: string | null
+          transfer_type?: string | null
           treasury_id?: string
           updated_at?: string | null
         }
@@ -5371,6 +5453,34 @@ export type Database = {
             columns: ["expense_request_id"]
             isOneToOne: false
             referencedRelation: "expense_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_entries_from_currency_id_fkey"
+            columns: ["from_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_entries_to_bank_id_fkey"
+            columns: ["to_bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_entries_to_currency_id_fkey"
+            columns: ["to_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_entries_to_treasury_id_fkey"
+            columns: ["to_treasury_id"]
+            isOneToOne: false
+            referencedRelation: "treasuries"
             referencedColumns: ["id"]
           },
           {
