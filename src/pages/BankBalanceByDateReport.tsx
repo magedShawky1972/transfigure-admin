@@ -83,23 +83,27 @@ const BankBalanceByDateReport = () => {
 
       const paymentMethodNames = paymentMethods?.map(pm => pm.payment_method) || [];
 
-      // Fetch order totals - use proper date boundaries with T00:00:00 for start
+      // Convert dates to integer format YYYYMMDD for created_at_date_int filtering
+      const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
+      const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
+
+      // Fetch from purpletransaction using created_at_date_int for accurate date filtering
       const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
       
       if (paymentMethodNames.length > 0) {
-        const { data: orderTotals } = await supabase
-          .from('ordertotals')
-          .select('id, order_number, order_date, payment_method, payment_brand, total, bank_fee')
+        const { data: transactions } = await supabase
+          .from('purpletransaction')
+          .select('id, order_number, created_at_date_int, payment_method, payment_brand, total, bank_fee')
           .in('payment_brand', paymentMethodNames)
-          .gte('order_date', fromDate + 'T00:00:00')
-          .lte('order_date', toDate + 'T23:59:59');
+          .gte('created_at_date_int', fromDateInt)
+          .lte('created_at_date_int', toDateInt);
 
         // Group by payment_method (hyperpay, salla, etc.)
-        (orderTotals || []).forEach(ot => {
-          const pmKey = ot.payment_method || 'other';
+        (transactions || []).forEach(tx => {
+          const pmKey = tx.payment_method || 'other';
           const existing = salesSummaryMap.get(pmKey) || { total: 0, charges: 0, count: 0 };
-          existing.total += Number(ot.total) || 0;
-          existing.charges += Number(ot.bank_fee) || 0;
+          existing.total += Number(tx.total) || 0;
+          existing.charges += Number(tx.bank_fee) || 0;
           existing.count += 1;
           salesSummaryMap.set(pmKey, existing);
         });
