@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2 } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid']);
         setLoading(false);
         return;
       }
@@ -216,6 +216,24 @@ const Reports = () => {
         : "View aggregated order to original order mapping for Odoo-Edara reconciliation",
       icon: Link2,
       route: "/reports/aggregated-orders",
+    },
+    {
+      id: "expense-pending",
+      name: language === "ar" ? "المصروفات المعلقة" : "Pending Expenses",
+      description: language === "ar" 
+        ? "عرض جميع المصروفات في الانتظار والمصنفة والمعتمدة مع الإجماليات" 
+        : "View all pending, classified, and approved expenses with totals",
+      icon: DollarSign,
+      route: "/expense-reports?tab=pending",
+    },
+    {
+      id: "expense-paid",
+      name: language === "ar" ? "المصروفات المدفوعة" : "Paid Expenses",
+      description: language === "ar" 
+        ? "تقرير المصروفات المدفوعة خلال فترة محددة مع التصدير" 
+        : "Paid expenses report for a selected period with export",
+      icon: DollarSign,
+      route: "/expense-reports?tab=paid",
     },
   ];
 
