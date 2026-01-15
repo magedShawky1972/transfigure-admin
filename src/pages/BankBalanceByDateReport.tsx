@@ -22,8 +22,6 @@ interface SummaryRow {
   category: string;
   description: string;
   totalAmount: number;
-  totalCharges: number;
-  netAmount: number;
   type: 'income' | 'expense';
   transactionCount: number;
 }
@@ -33,7 +31,6 @@ interface TransactionGroup {
   typeLabel: string;
   rows: SummaryRow[];
   subtotal: number;
-  subtotalCharges: number;
 }
 
 const BankBalanceByDateReport = () => {
@@ -86,7 +83,7 @@ const BankBalanceByDateReport = () => {
 
       const paymentMethodNames = paymentMethods?.map(pm => pm.payment_method) || [];
 
-      // Fetch order totals for sales income using payment_brand field
+      // Fetch order totals - use proper date boundaries with T00:00:00 for start
       const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
       
       if (paymentMethodNames.length > 0) {
@@ -94,7 +91,7 @@ const BankBalanceByDateReport = () => {
           .from('ordertotals')
           .select('id, order_number, order_date, payment_method, payment_brand, total, bank_fee')
           .in('payment_brand', paymentMethodNames)
-          .gte('order_date', fromDate)
+          .gte('order_date', fromDate + 'T00:00:00')
           .lte('order_date', toDate + 'T23:59:59');
 
         // Group by payment_method (hyperpay, salla, etc.)
@@ -108,7 +105,7 @@ const BankBalanceByDateReport = () => {
         });
       }
 
-      // Convert to summary rows
+      // Convert to summary rows - Sales (gross amount)
       const salesRows: SummaryRow[] = Array.from(salesSummaryMap.entries()).map(([pm, data], idx) => ({
         id: `sales-${idx}`,
         category: pm.toUpperCase(),
@@ -116,11 +113,23 @@ const BankBalanceByDateReport = () => {
           ? `مبيعات عبر ${pm.toUpperCase()}` 
           : `Sales via ${pm.toUpperCase()}`,
         totalAmount: data.total,
-        totalCharges: data.charges,
-        netAmount: data.total - data.charges,
         type: 'income' as const,
         transactionCount: data.count,
       }));
+
+      // Bank Charges rows (deductions) - separate section
+      const chargesRows: SummaryRow[] = Array.from(salesSummaryMap.entries())
+        .filter(([_, data]) => data.charges > 0)
+        .map(([pm, data], idx) => ({
+          id: `charges-${idx}`,
+          category: pm.toUpperCase(),
+          description: language === 'ar' 
+            ? `رسوم بنكية - ${pm.toUpperCase()}` 
+            : `Bank Charges - ${pm.toUpperCase()}`,
+          totalAmount: data.charges,
+          type: 'expense' as const,
+          transactionCount: data.count,
+        }));
 
       // Fetch expense payments from this bank - grouped by expense type
       const { data: expensePayments } = await supabase
@@ -128,7 +137,7 @@ const BankBalanceByDateReport = () => {
         .select('id, request_number, paid_at, description, amount, expense_types(expense_name, expense_name_ar)')
         .eq('bank_id', selectedBankId)
         .eq('status', 'paid')
-        .gte('paid_at', fromDate)
+        .gte('paid_at', fromDate + 'T00:00:00')
         .lte('paid_at', toDate + 'T23:59:59');
 
       const expenseSummaryMap = new Map<string, { total: number; count: number; nameAr: string }>();
@@ -146,8 +155,6 @@ const BankBalanceByDateReport = () => {
         category: expType,
         description: language === 'ar' ? data.nameAr : expType,
         totalAmount: data.total,
-        totalCharges: 0,
-        netAmount: data.total,
         type: 'expense' as const,
         transactionCount: data.count,
       }));
@@ -188,8 +195,6 @@ const BankBalanceByDateReport = () => {
         category: entryType,
         description: language === 'ar' ? `إيداع - ${entryType}` : `Deposit - ${entryType}`,
         totalAmount: data.total,
-        totalCharges: data.charges,
-        netAmount: data.total - data.charges,
         type: 'income' as const,
         transactionCount: data.count,
       }));
@@ -199,8 +204,6 @@ const BankBalanceByDateReport = () => {
         category: entryType,
         description: language === 'ar' ? `سحب - ${entryType}` : `Withdrawal - ${entryType}`,
         totalAmount: data.total,
-        totalCharges: data.charges,
-        netAmount: data.total + data.charges,
         type: 'expense' as const,
         transactionCount: data.count,
       }));
@@ -209,49 +212,52 @@ const BankBalanceByDateReport = () => {
       const groups: TransactionGroup[] = [];
 
       if (salesRows.length > 0) {
-        const subtotal = salesRows.reduce((sum, r) => sum + r.netAmount, 0);
-        const subtotalCharges = salesRows.reduce((sum, r) => sum + r.totalCharges, 0);
+        const subtotal = salesRows.reduce((sum, r) => sum + r.totalAmount, 0);
         groups.push({
           type: 'sales',
-          typeLabel: language === 'ar' ? 'مبيعات عبر وسائل الدفع' : 'Sales via Payment Methods',
+          typeLabel: language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales (Gross)',
           rows: salesRows,
           subtotal,
-          subtotalCharges,
+        });
+      }
+
+      if (chargesRows.length > 0) {
+        const subtotal = chargesRows.reduce((sum, r) => sum + r.totalAmount, 0);
+        groups.push({
+          type: 'charges',
+          typeLabel: language === 'ar' ? 'رسوم بنكية (خصومات)' : 'Bank Charges (Deductions)',
+          rows: chargesRows,
+          subtotal,
         });
       }
 
       if (expenseRows.length > 0) {
-        const subtotal = expenseRows.reduce((sum, r) => sum + r.netAmount, 0);
+        const subtotal = expenseRows.reduce((sum, r) => sum + r.totalAmount, 0);
         groups.push({
           type: 'expenses',
           typeLabel: language === 'ar' ? 'مصروفات مدفوعة' : 'Paid Expenses',
           rows: expenseRows,
           subtotal,
-          subtotalCharges: 0,
         });
       }
 
       if (depositRows.length > 0) {
-        const subtotal = depositRows.reduce((sum, r) => sum + r.netAmount, 0);
-        const subtotalCharges = depositRows.reduce((sum, r) => sum + r.totalCharges, 0);
+        const subtotal = depositRows.reduce((sum, r) => sum + r.totalAmount, 0);
         groups.push({
           type: 'deposits',
           typeLabel: language === 'ar' ? 'إيداعات بنكية' : 'Bank Deposits',
           rows: depositRows,
           subtotal,
-          subtotalCharges,
         });
       }
 
       if (withdrawalRows.length > 0) {
-        const subtotal = withdrawalRows.reduce((sum, r) => sum + r.netAmount, 0);
-        const subtotalCharges = withdrawalRows.reduce((sum, r) => sum + r.totalCharges, 0);
+        const subtotal = withdrawalRows.reduce((sum, r) => sum + r.totalAmount, 0);
         groups.push({
           type: 'withdrawals',
           typeLabel: language === 'ar' ? 'سحوبات بنكية' : 'Bank Withdrawals',
           rows: withdrawalRows,
           subtotal,
-          subtotalCharges,
         });
       }
 
@@ -262,11 +268,13 @@ const BankBalanceByDateReport = () => {
         .filter(g => g.type === 'sales' || g.type === 'deposits')
         .reduce((sum, g) => sum + g.subtotal, 0);
       
+      const totalCharges = groups
+        .filter(g => g.type === 'charges')
+        .reduce((sum, g) => sum + g.subtotal, 0);
+
       const totalExpense = groups
         .filter(g => g.type === 'expenses' || g.type === 'withdrawals')
         .reduce((sum, g) => sum + g.subtotal, 0);
-
-      const totalCharges = groups.reduce((sum, g) => sum + g.subtotalCharges, 0);
 
       setGrandTotalIncome(totalIncome);
       setGrandTotalExpense(totalExpense);
@@ -296,19 +304,19 @@ const BankBalanceByDateReport = () => {
 
     (transactionGroups || []).forEach(group => {
       csv += `\n${group.typeLabel}\n`;
-      csv += `${language === 'ar' ? 'الوصف' : 'Description'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'إجمالي المبلغ' : 'Total Amount'},${language === 'ar' ? 'الرسوم' : 'Charges'},${language === 'ar' ? 'الصافي' : 'Net Amount'}\n`;
+      csv += `${language === 'ar' ? 'الوصف' : 'Description'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'المبلغ' : 'Amount'}\n`;
       (group.rows || []).forEach(r => {
-        csv += `${r.description},${r.transactionCount},${r.totalAmount},${r.totalCharges},${r.netAmount}\n`;
+        csv += `${r.description},${r.transactionCount},${r.totalAmount}\n`;
       });
-      csv += `${language === 'ar' ? 'المجموع الفرعي' : 'Subtotal'},,,,${group.subtotal}\n`;
+      csv += `${language === 'ar' ? 'المجموع الفرعي' : 'Subtotal'},,${group.subtotal}\n`;
     });
 
     csv += `\n${language === 'ar' ? 'الملخص' : 'Summary'}\n`;
     csv += `${language === 'ar' ? 'الرصيد الافتتاحي' : 'Opening Balance'},${openingBalance}\n`;
-    csv += `${language === 'ar' ? 'إجمالي الإيرادات' : 'Total Income'},${grandTotalIncome}\n`;
+    csv += `${language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'},${grandTotalIncome}\n`;
+    csv += `${language === 'ar' ? 'إجمالي الرسوم البنكية' : 'Total Bank Charges'},${grandTotalCharges}\n`;
     csv += `${language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'},${grandTotalExpense}\n`;
-    csv += `${language === 'ar' ? 'إجمالي الرسوم' : 'Total Charges'},${grandTotalCharges}\n`;
-    csv += `${language === 'ar' ? 'الرصيد الختامي' : 'Closing Balance'},${openingBalance + grandTotalIncome - grandTotalExpense}\n`;
+    csv += `${language === 'ar' ? 'الرصيد الختامي' : 'Closing Balance'},${closingBalance}\n`;
 
     const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -321,7 +329,19 @@ const BankBalanceByDateReport = () => {
     window.print();
   };
 
-  const closingBalance = openingBalance + grandTotalIncome - grandTotalExpense;
+  const closingBalance = openingBalance + grandTotalIncome - grandTotalCharges - grandTotalExpense;
+
+  const getGroupColor = (type: string) => {
+    switch (type) {
+      case 'sales':
+      case 'deposits':
+        return 'text-green-600';
+      case 'charges':
+        return 'text-orange-600';
+      default:
+        return 'text-red-600';
+    }
+  };
 
   return (
     <div className="space-y-6 print:space-y-4">
@@ -392,10 +412,10 @@ const BankBalanceByDateReport = () => {
                 <Search className="h-4 w-4 mr-2" />
                 {language === 'ar' ? 'بحث' : 'Search'}
               </Button>
-              <Button variant="outline" onClick={exportToExcel} disabled={transactionGroups.length === 0}>
+              <Button variant="outline" onClick={exportToExcel} disabled={(transactionGroups || []).length === 0}>
                 <Download className="h-4 w-4" />
               </Button>
-              <Button variant="outline" onClick={handlePrint} disabled={transactionGroups.length === 0}>
+              <Button variant="outline" onClick={handlePrint} disabled={(transactionGroups || []).length === 0}>
                 <Printer className="h-4 w-4" />
               </Button>
             </div>
@@ -404,7 +424,7 @@ const BankBalanceByDateReport = () => {
       </Card>
 
       {/* Summary Cards */}
-      {transactionGroups.length > 0 && (
+      {(transactionGroups || []).length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-4">
@@ -419,27 +439,27 @@ const BankBalanceByDateReport = () => {
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 text-green-600 text-sm">
                 <ArrowUpCircle className="h-4 w-4" />
-                {language === 'ar' ? 'إجمالي الإيرادات' : 'Total Income'}
+                {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
               </div>
               <div className="text-2xl font-bold text-green-600 mt-1">{formatNumber(grandTotalIncome)}</div>
-            </CardContent>
-          </Card>
-          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-red-600 text-sm">
-                <ArrowDownCircle className="h-4 w-4" />
-                {language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'}
-              </div>
-              <div className="text-2xl font-bold text-red-600 mt-1">{formatNumber(grandTotalExpense)}</div>
             </CardContent>
           </Card>
           <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 text-orange-600 text-sm">
                 <Percent className="h-4 w-4" />
-                {language === 'ar' ? 'إجمالي الرسوم' : 'Total Charges'}
+                {language === 'ar' ? 'الرسوم البنكية' : 'Bank Charges'}
               </div>
-              <div className="text-2xl font-bold text-orange-600 mt-1">{formatNumber(grandTotalCharges)}</div>
+              <div className="text-2xl font-bold text-orange-600 mt-1">-{formatNumber(grandTotalCharges)}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-red-600 text-sm">
+                <ArrowDownCircle className="h-4 w-4" />
+                {language === 'ar' ? 'المصروفات' : 'Expenses'}
+              </div>
+              <div className="text-2xl font-bold text-red-600 mt-1">-{formatNumber(grandTotalExpense)}</div>
             </CardContent>
           </Card>
           <Card className="border-primary bg-primary/5">
@@ -460,7 +480,8 @@ const BankBalanceByDateReport = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center justify-between">
               <span>{group.typeLabel}</span>
-              <span className={`text-lg ${group.type === 'sales' || group.type === 'deposits' ? 'text-green-600' : 'text-red-600'}`}>
+              <span className={`text-lg ${getGroupColor(group.type)}`}>
+                {group.type === 'charges' || group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
                 {formatNumber(group.subtotal)}
               </span>
             </CardTitle>
@@ -471,9 +492,7 @@ const BankBalanceByDateReport = () => {
                 <TableRow>
                   <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'إجمالي المبلغ' : 'Total Amount'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'الرسوم' : 'Charges'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'الصافي' : 'Net Amount'}</TableHead>
+                  <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -481,10 +500,9 @@ const BankBalanceByDateReport = () => {
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.description}</TableCell>
                     <TableCell className="text-center">{r.transactionCount.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{formatNumber(r.totalAmount)}</TableCell>
-                    <TableCell className="text-right text-orange-600">{r.totalCharges > 0 ? formatNumber(r.totalCharges) : '-'}</TableCell>
-                    <TableCell className={`text-right font-medium ${r.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatNumber(r.netAmount)}
+                    <TableCell className={`text-right font-medium ${getGroupColor(group.type)}`}>
+                      {group.type === 'charges' || group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
+                      {formatNumber(r.totalAmount)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -494,9 +512,8 @@ const BankBalanceByDateReport = () => {
                   <TableCell colSpan={2} className="text-right">
                     {language === 'ar' ? 'المجموع الفرعي:' : 'Subtotal:'}
                   </TableCell>
-                  <TableCell className="text-right">{formatNumber((group.rows || []).reduce((s, r) => s + r.totalAmount, 0))}</TableCell>
-                  <TableCell className="text-right text-orange-600">{group.subtotalCharges > 0 ? formatNumber(group.subtotalCharges) : '-'}</TableCell>
-                  <TableCell className={`text-right ${group.type === 'sales' || group.type === 'deposits' ? 'text-green-600' : 'text-red-600'}`}>
+                  <TableCell className={`text-right ${getGroupColor(group.type)}`}>
+                    {group.type === 'charges' || group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
                     {formatNumber(group.subtotal)}
                   </TableCell>
                 </TableRow>
