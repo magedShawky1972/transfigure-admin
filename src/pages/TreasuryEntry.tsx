@@ -65,6 +65,7 @@ interface Currency {
   currency_code: string;
   currency_name: string;
   currency_name_ar: string | null;
+  is_base: boolean;
 }
 
 interface CurrencyRate {
@@ -153,7 +154,7 @@ const TreasuryEntry = () => {
         supabase.from("treasury_entries").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar").eq("is_active", true),
+        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, is_base").eq("is_active", true),
         supabase.from("currency_rates").select("*").order("effective_date", { ascending: false }),
         supabase.from("expense_requests").select("id, request_number, description, amount")
           .eq("payment_method", "treasury")
@@ -361,17 +362,25 @@ const TreasuryEntry = () => {
   };
 
   // Get the latest rate for a currency (rate_to_base)
+  // Base currency always has rate 1, other currencies use their stored rate
   const getLatestRate = (currencyId: string): number => {
+    // Check if this is the base currency
+    const currency = currencies.find(c => c.id === currencyId);
+    if (currency?.is_base) return 1;
+    
+    // Find the rate from currency_rates table
     const rate = currencyRates.find(r => r.currency_id === currencyId);
     return rate?.rate_to_base || 1;
   };
 
   // Calculate exchange rate between two currencies
+  // rate_to_base means: 1 unit of currency = X units of base currency (SAR)
   const calculateExchangeRate = (fromCurrencyId: string, toCurrencyId: string): number => {
     if (!fromCurrencyId || !toCurrencyId || fromCurrencyId === toCurrencyId) return 1;
     const fromRate = getLatestRate(fromCurrencyId);
     const toRate = getLatestRate(toCurrencyId);
-    return toRate / fromRate;
+    // Formula: fromRate / toRate
+    return fromRate / toRate;
   };
 
   const handleTreasurySelect = (treasuryId: string) => {
