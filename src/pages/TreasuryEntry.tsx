@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Vault, Save, Check, Send, Eye } from "lucide-react";
+import { Plus, Vault, Save, Check, Send, ArrowRightLeft } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,15 @@ interface TreasuryEntryType {
   approved_at: string | null;
   posted_by: string | null;
   posted_at: string | null;
+  transfer_type: string | null;
+  to_treasury_id: string | null;
+  to_bank_id: string | null;
+  from_currency_id: string | null;
+  to_currency_id: string | null;
+  exchange_rate: number | null;
+  converted_amount: number | null;
+  bank_charges: number | null;
+  other_charges: number | null;
 }
 
 interface Treasury {
@@ -39,6 +48,23 @@ interface Treasury {
   treasury_name: string;
   treasury_name_ar: string | null;
   current_balance: number;
+  currency_id: string | null;
+}
+
+interface Bank {
+  id: string;
+  bank_code: string;
+  bank_name: string;
+  bank_name_ar: string | null;
+  current_balance: number;
+  currency_id: string | null;
+}
+
+interface Currency {
+  id: string;
+  currency_code: string;
+  currency_name: string;
+  currency_name_ar: string | null;
 }
 
 interface ExpenseRequest {
@@ -54,6 +80,11 @@ const ENTRY_TYPES = [
   { value: "transfer", labelEn: "Transfer", labelAr: "تحويل" },
 ];
 
+const TRANSFER_TYPES = [
+  { value: "treasury_to_treasury", labelEn: "Treasury to Treasury", labelAr: "من خزينة إلى خزينة" },
+  { value: "treasury_to_bank", labelEn: "Treasury to Bank", labelAr: "من الخزينة إلى البنك" },
+];
+
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-800",
   pending_approval: "bg-yellow-100 text-yellow-800",
@@ -66,6 +97,8 @@ const TreasuryEntry = () => {
   const { language } = useLanguage();
   const [entries, setEntries] = useState<TreasuryEntryType[]>([]);
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [expenseRequests, setExpenseRequests] = useState<ExpenseRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -77,12 +110,28 @@ const TreasuryEntry = () => {
     amount: 0,
     expense_request_id: "",
     description: "",
+    transfer_type: "",
+    to_treasury_id: "",
+    to_bank_id: "",
+    from_currency_id: "",
+    to_currency_id: "",
+    exchange_rate: 1,
+    converted_amount: 0,
+    bank_charges: 0,
+    other_charges: 0,
   });
 
   useEffect(() => {
     fetchData();
     getCurrentUser();
   }, []);
+
+  useEffect(() => {
+    // Auto-calculate converted amount
+    const netAmount = formData.amount - formData.bank_charges - formData.other_charges;
+    const converted = netAmount * formData.exchange_rate;
+    setFormData(prev => ({ ...prev, converted_amount: converted }));
+  }, [formData.amount, formData.exchange_rate, formData.bank_charges, formData.other_charges]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -92,9 +141,11 @@ const TreasuryEntry = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [entriesRes, treasuriesRes, requestsRes] = await Promise.all([
+      const [entriesRes, treasuriesRes, banksRes, currenciesRes, requestsRes] = await Promise.all([
         supabase.from("treasury_entries").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance").eq("is_active", true),
+        supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id").eq("is_active", true),
+        supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
+        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar").eq("is_active", true),
         supabase.from("expense_requests").select("id, request_number, description, amount")
           .eq("payment_method", "treasury")
           .eq("status", "approved"),
@@ -102,10 +153,14 @@ const TreasuryEntry = () => {
 
       if (entriesRes.error) throw entriesRes.error;
       if (treasuriesRes.error) throw treasuriesRes.error;
+      if (banksRes.error) throw banksRes.error;
+      if (currenciesRes.error) throw currenciesRes.error;
       if (requestsRes.error) throw requestsRes.error;
 
       setEntries(entriesRes.data || []);
       setTreasuries(treasuriesRes.data || []);
+      setBanks(banksRes.data || []);
+      setCurrencies(currenciesRes.data || []);
       setExpenseRequests(requestsRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -121,17 +176,41 @@ const TreasuryEntry = () => {
       return;
     }
 
+    if (formData.entry_type === "transfer") {
+      if (!formData.transfer_type) {
+        toast.error(language === "ar" ? "يرجى اختيار نوع التحويل" : "Please select transfer type");
+        return;
+      }
+      if (formData.transfer_type === "treasury_to_treasury" && !formData.to_treasury_id) {
+        toast.error(language === "ar" ? "يرجى اختيار الخزينة المحولة إليها" : "Please select destination treasury");
+        return;
+      }
+      if (formData.transfer_type === "treasury_to_bank" && !formData.to_bank_id) {
+        toast.error(language === "ar" ? "يرجى اختيار البنك المحول إليه" : "Please select destination bank");
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase.from("treasury_entries").insert([{
         treasury_id: formData.treasury_id,
         entry_date: formData.entry_date,
         entry_type: formData.entry_type,
-        entry_number: "TEMP", // Will be replaced by trigger
+        entry_number: "TEMP",
         amount: formData.amount,
         expense_request_id: formData.expense_request_id || null,
         description: formData.description || null,
         status: "draft",
         created_by: currentUserId,
+        transfer_type: formData.entry_type === "transfer" ? formData.transfer_type : null,
+        to_treasury_id: formData.transfer_type === "treasury_to_treasury" ? formData.to_treasury_id : null,
+        to_bank_id: formData.transfer_type === "treasury_to_bank" ? formData.to_bank_id : null,
+        from_currency_id: formData.from_currency_id || null,
+        to_currency_id: formData.to_currency_id || null,
+        exchange_rate: formData.exchange_rate,
+        converted_amount: formData.converted_amount,
+        bank_charges: formData.bank_charges,
+        other_charges: formData.other_charges,
       }]);
 
       if (error) throw error;
@@ -156,17 +235,38 @@ const TreasuryEntry = () => {
         updateData.posted_by = currentUserId;
         updateData.posted_at = new Date().toISOString();
         
-        // Update treasury balance
         const entry = entries.find(e => e.id === id);
         if (entry) {
           const treasury = treasuries.find(t => t.id === entry.treasury_id);
           if (treasury) {
+            const totalDeduction = (entry.bank_charges || 0) + (entry.other_charges || 0);
             const newBalance = entry.entry_type === "receipt" 
               ? treasury.current_balance + entry.amount
-              : treasury.current_balance - entry.amount;
+              : treasury.current_balance - entry.amount - totalDeduction;
             
             await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", entry.treasury_id);
             updateData.balance_after = newBalance;
+
+            // Handle transfer destination
+            if (entry.entry_type === "transfer" && entry.transfer_type) {
+              if (entry.transfer_type === "treasury_to_treasury" && entry.to_treasury_id) {
+                const toTreasury = treasuries.find(t => t.id === entry.to_treasury_id);
+                if (toTreasury) {
+                  const creditAmount = entry.converted_amount || entry.amount;
+                  await supabase.from("treasuries").update({ 
+                    current_balance: toTreasury.current_balance + creditAmount 
+                  }).eq("id", entry.to_treasury_id);
+                }
+              } else if (entry.transfer_type === "treasury_to_bank" && entry.to_bank_id) {
+                const toBank = banks.find(b => b.id === entry.to_bank_id);
+                if (toBank) {
+                  const creditAmount = entry.converted_amount || entry.amount;
+                  await supabase.from("banks").update({ 
+                    current_balance: toBank.current_balance + creditAmount 
+                  }).eq("id", entry.to_bank_id);
+                }
+              }
+            }
           }
         }
       }
@@ -190,6 +290,15 @@ const TreasuryEntry = () => {
       amount: 0,
       expense_request_id: "",
       description: "",
+      transfer_type: "",
+      to_treasury_id: "",
+      to_bank_id: "",
+      from_currency_id: "",
+      to_currency_id: "",
+      exchange_rate: 1,
+      converted_amount: 0,
+      bank_charges: 0,
+      other_charges: 0,
     });
   };
 
@@ -200,8 +309,18 @@ const TreasuryEntry = () => {
       : "-";
   };
 
+  const getBankName = (bankId: string) => {
+    const bank = banks.find((b) => b.id === bankId);
+    return bank ? (language === "ar" && bank.bank_name_ar ? bank.bank_name_ar : bank.bank_name) : "-";
+  };
+
   const getEntryTypeLabel = (type: string) => {
     const found = ENTRY_TYPES.find(t => t.value === type);
+    return found ? (language === "ar" ? found.labelAr : found.labelEn) : type;
+  };
+
+  const getTransferTypeLabel = (type: string) => {
+    const found = TRANSFER_TYPES.find(t => t.value === type);
     return found ? (language === "ar" ? found.labelAr : found.labelEn) : type;
   };
 
@@ -230,6 +349,33 @@ const TreasuryEntry = () => {
     }
   };
 
+  const handleTreasurySelect = (treasuryId: string) => {
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    setFormData({
+      ...formData,
+      treasury_id: treasuryId,
+      from_currency_id: treasury?.currency_id || "",
+    });
+  };
+
+  const handleToTreasurySelect = (treasuryId: string) => {
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    setFormData({
+      ...formData,
+      to_treasury_id: treasuryId,
+      to_currency_id: treasury?.currency_id || "",
+    });
+  };
+
+  const handleToBankSelect = (bankId: string) => {
+    const bank = banks.find(b => b.id === bankId);
+    setFormData({
+      ...formData,
+      to_bank_id: bankId,
+      to_currency_id: bank?.currency_id || "",
+    });
+  };
+
   if (loading) return <LoadingOverlay message={language === "ar" ? "جاري التحميل..." : "Loading..."} />;
 
   return (
@@ -246,14 +392,14 @@ const TreasuryEntry = () => {
               {language === "ar" ? "إضافة قيد" : "Add Entry"}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{language === "ar" ? "إضافة قيد خزينة جديد" : "Add New Treasury Entry"}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label>{language === "ar" ? "الخزينة *" : "Treasury *"}</Label>
-                <Select value={formData.treasury_id} onValueChange={(v) => setFormData({ ...formData, treasury_id: v })}>
+                <Label>{language === "ar" ? "الخزينة المصدر *" : "Source Treasury *"}</Label>
+                <Select value={formData.treasury_id} onValueChange={handleTreasurySelect}>
                   <SelectTrigger>
                     <SelectValue placeholder={language === "ar" ? "اختر الخزينة" : "Select Treasury"} />
                   </SelectTrigger>
@@ -269,10 +415,11 @@ const TreasuryEntry = () => {
                   </SelectContent>
                 </Select>
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "نوع القيد *" : "Entry Type *"}</Label>
-                  <Select value={formData.entry_type} onValueChange={(v) => setFormData({ ...formData, entry_type: v })}>
+                  <Select value={formData.entry_type} onValueChange={(v) => setFormData({ ...formData, entry_type: v, transfer_type: "" })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -294,6 +441,133 @@ const TreasuryEntry = () => {
                   />
                 </div>
               </div>
+
+              {formData.entry_type === "transfer" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>{language === "ar" ? "نوع التحويل *" : "Transfer Type *"}</Label>
+                    <Select value={formData.transfer_type} onValueChange={(v) => setFormData({ ...formData, transfer_type: v, to_treasury_id: "", to_bank_id: "" })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "ar" ? "اختر نوع التحويل" : "Select Transfer Type"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TRANSFER_TYPES.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {language === "ar" ? t.labelAr : t.labelEn}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.transfer_type === "treasury_to_treasury" && (
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "الخزينة المحولة إليها *" : "Destination Treasury *"}</Label>
+                      <Select value={formData.to_treasury_id} onValueChange={handleToTreasurySelect}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === "ar" ? "اختر الخزينة" : "Select Treasury"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {treasuries.filter(t => t.id !== formData.treasury_id).map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.treasury_code} - {language === "ar" && t.treasury_name_ar ? t.treasury_name_ar : t.treasury_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {formData.transfer_type === "treasury_to_bank" && (
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "البنك المحول إليه *" : "Destination Bank *"}</Label>
+                      <Select value={formData.to_bank_id} onValueChange={handleToBankSelect}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === "ar" ? "اختر البنك" : "Select Bank"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {banks.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.bank_code} - {language === "ar" && b.bank_name_ar ? b.bank_name_ar : b.bank_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "عملة المصدر" : "Source Currency"}</Label>
+                      <Select value={formData.from_currency_id} onValueChange={(v) => setFormData({ ...formData, from_currency_id: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.currency_code} - {language === "ar" && c.currency_name_ar ? c.currency_name_ar : c.currency_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "عملة الوجهة" : "Destination Currency"}</Label>
+                      <Select value={formData.to_currency_id} onValueChange={(v) => setFormData({ ...formData, to_currency_id: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.currency_code} - {language === "ar" && c.currency_name_ar ? c.currency_name_ar : c.currency_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "سعر الصرف" : "Exchange Rate"}</Label>
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        value={formData.exchange_rate}
+                        onChange={(e) => setFormData({ ...formData, exchange_rate: parseFloat(e.target.value) || 1 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "عمولة البنك" : "Bank Charges"}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.bank_charges}
+                        onChange={(e) => setFormData({ ...formData, bank_charges: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "مصاريف أخرى" : "Other Charges"}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.other_charges}
+                        onChange={(e) => setFormData({ ...formData, other_charges: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">{language === "ar" ? "المبلغ المحول" : "Converted Amount"}</span>
+                      <span className="text-lg font-bold text-primary">{formData.converted_amount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {expenseRequests.length > 0 && (
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "طلب مصروف (اختياري)" : "Expense Request (Optional)"}</Label>
@@ -312,6 +586,7 @@ const TreasuryEntry = () => {
                   </Select>
                 </div>
               )}
+
               <div className="space-y-2">
                 <Label>{language === "ar" ? "المبلغ *" : "Amount *"}</Label>
                 <Input
@@ -321,6 +596,7 @@ const TreasuryEntry = () => {
                   onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                 />
               </div>
+              
               <div className="space-y-2">
                 <Label>{language === "ar" ? "الوصف" : "Description"}</Label>
                 <Textarea
@@ -329,6 +605,7 @@ const TreasuryEntry = () => {
                   rows={3}
                 />
               </div>
+              
               <Button onClick={handleSubmit} className="w-full gap-2">
                 <Save className="h-4 w-4" />
                 {language === "ar" ? "حفظ" : "Save"}
@@ -350,6 +627,7 @@ const TreasuryEntry = () => {
                 <TableHead>{language === "ar" ? "الخزينة" : "Treasury"}</TableHead>
                 <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                 <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                <TableHead>{language === "ar" ? "التحويل إلى" : "Transfer To"}</TableHead>
                 <TableHead>{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
                 <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
@@ -362,14 +640,32 @@ const TreasuryEntry = () => {
                   <TableCell>{getTreasuryName(entry.treasury_id)}</TableCell>
                   <TableCell>{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
                   <TableCell>
-                    <Badge variant={entry.entry_type === "receipt" ? "default" : "secondary"}>
-                      {getEntryTypeLabel(entry.entry_type)}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={entry.entry_type === "receipt" ? "default" : "secondary"}>
+                        {getEntryTypeLabel(entry.entry_type)}
+                      </Badge>
+                      {entry.transfer_type && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <ArrowRightLeft className="h-3 w-3" />
+                          {getTransferTypeLabel(entry.transfer_type)}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {entry.to_treasury_id && getTreasuryName(entry.to_treasury_id)}
+                    {entry.to_bank_id && getBankName(entry.to_bank_id)}
+                    {!entry.to_treasury_id && !entry.to_bank_id && "-"}
                   </TableCell>
                   <TableCell className="font-semibold">
                     <span className={entry.entry_type === "receipt" ? "text-green-600" : "text-red-600"}>
                       {entry.entry_type === "receipt" ? "+" : "-"}{entry.amount.toLocaleString()}
                     </span>
+                    {entry.converted_amount && entry.converted_amount !== entry.amount && (
+                      <div className="text-xs text-muted-foreground">
+                        → {entry.converted_amount.toLocaleString()}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[entry.status] || ""}`}>
@@ -399,7 +695,7 @@ const TreasuryEntry = () => {
               ))}
               {entries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد قيود" : "No entries found"}
                   </TableCell>
                 </TableRow>
