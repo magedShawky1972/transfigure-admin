@@ -294,10 +294,10 @@ const BankBalanceByDateReport = () => {
     csv += `${language === 'ar' ? 'من تاريخ' : 'From Date'},${fromDate}\n`;
     csv += `${language === 'ar' ? 'إلى تاريخ' : 'To Date'},${toDate}\n\n`;
 
-    transactionGroups.forEach(group => {
+    (transactionGroups || []).forEach(group => {
       csv += `\n${group.typeLabel}\n`;
       csv += `${language === 'ar' ? 'الوصف' : 'Description'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'إجمالي المبلغ' : 'Total Amount'},${language === 'ar' ? 'الرسوم' : 'Charges'},${language === 'ar' ? 'الصافي' : 'Net Amount'}\n`;
-      group.rows.forEach(r => {
+      (group.rows || []).forEach(r => {
         csv += `${r.description},${r.transactionCount},${r.totalAmount},${r.totalCharges},${r.netAmount}\n`;
       });
       csv += `${language === 'ar' ? 'المجموع الفرعي' : 'Subtotal'},,,,${group.subtotal}\n`;
@@ -371,7 +371,7 @@ const BankBalanceByDateReport = () => {
                   <SelectValue placeholder={language === 'ar' ? 'اختر البنك' : 'Select Bank'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {banks.map(bank => (
+                  {(banks || []).map(bank => (
                     <SelectItem key={bank.id} value={bank.id}>
                       {language === 'ar' ? bank.bank_name_ar || bank.bank_name : bank.bank_name}
                     </SelectItem>
@@ -455,7 +455,7 @@ const BankBalanceByDateReport = () => {
       )}
 
       {/* Transaction Groups */}
-      {transactionGroups.map((group) => (
+      {(transactionGroups || []).map((group) => (
         <Card key={group.type}>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center justify-between">
@@ -477,7 +477,7 @@ const BankBalanceByDateReport = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {group.rows.map((r) => (
+                {(group.rows || []).map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.description}</TableCell>
                     <TableCell className="text-center">{r.transactionCount.toLocaleString()}</TableCell>
@@ -494,7 +494,7 @@ const BankBalanceByDateReport = () => {
                   <TableCell colSpan={2} className="text-right">
                     {language === 'ar' ? 'المجموع الفرعي:' : 'Subtotal:'}
                   </TableCell>
-                  <TableCell className="text-right">{formatNumber(group.rows.reduce((s, r) => s + r.totalAmount, 0))}</TableCell>
+                  <TableCell className="text-right">{formatNumber((group.rows || []).reduce((s, r) => s + r.totalAmount, 0))}</TableCell>
                   <TableCell className="text-right text-orange-600">{group.subtotalCharges > 0 ? formatNumber(group.subtotalCharges) : '-'}</TableCell>
                   <TableCell className={`text-right ${group.type === 'sales' || group.type === 'deposits' ? 'text-green-600' : 'text-red-600'}`}>
                     {formatNumber(group.subtotal)}
@@ -507,7 +507,7 @@ const BankBalanceByDateReport = () => {
       ))}
 
       {/* Empty State */}
-      {transactionGroups.length === 0 && !loading && (
+      {(!transactionGroups || transactionGroups.length === 0) && !loading && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Landmark className="h-12 w-12 mx-auto mb-4 opacity-50" />
