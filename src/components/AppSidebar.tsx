@@ -131,6 +131,14 @@ export function AppSidebar() {
     "/job-setup": "jobSetup",
     "/zk-attendance-logs": "zkAttendanceLogs",
     "/hr-vacation-calendar": "hrVacationCalendar",
+    "/bank-setup": "bankSetup",
+    "/treasury-setup": "treasurySetup",
+    "/expense-category-setup": "expenseCategorySetup",
+    "/expense-type-setup": "expenseTypeSetup",
+    "/treasury-opening-balance": "treasuryOpeningBalance",
+    "/treasury-entry": "treasuryEntry",
+    "/bank-entry": "bankEntry",
+    "/expense-requests": "expenseRequests",
   };
 
   useEffect(() => {
@@ -321,6 +329,19 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'أنواع الحضور' : 'Attendance Types', url: "/attendance-type-setup", icon: Clock },
         { title: language === 'ar' ? 'إعداد الوظائف' : 'Job Setup', url: "/job-setup", icon: Briefcase },
         { title: language === 'ar' ? 'تقويم الإجازات' : 'Vacation Calendar', url: "/hr-vacation-calendar", icon: Palmtree },
+      ]
+    },
+    {
+      label: language === 'ar' ? 'إدارة النقدية' : 'Cash Management',
+      items: [
+        { title: language === 'ar' ? 'إعداد البنوك' : 'Bank Setup', url: "/bank-setup", icon: Building2 },
+        { title: language === 'ar' ? 'إعداد الخزائن' : 'Treasury Setup', url: "/treasury-setup", icon: DollarSign },
+        { title: language === 'ar' ? 'فئات المصروفات' : 'Expense Categories', url: "/expense-category-setup", icon: Settings },
+        { title: language === 'ar' ? 'أنواع المصروفات' : 'Expense Types', url: "/expense-type-setup", icon: Settings },
+        { title: language === 'ar' ? 'رصيد الخزينة الافتتاحي' : 'Treasury Opening Balance', url: "/treasury-opening-balance", icon: DollarSign },
+        { title: language === 'ar' ? 'قيد الخزينة' : 'Treasury Entry', url: "/treasury-entry", icon: FileText },
+        { title: language === 'ar' ? 'قيد البنك' : 'Bank Entry', url: "/bank-entry", icon: FileText },
+        { title: language === 'ar' ? 'طلبات المصروفات' : 'Expense Requests', url: "/expense-requests", icon: ClipboardList },
       ]
     },
     {

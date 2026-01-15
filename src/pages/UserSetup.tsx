@@ -147,6 +147,14 @@ interface UserPermission {
     { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
     { key: "zkAttendanceLogs", label: "سجلات حضور ZK", labelEn: "ZK Attendance Logs" },
     { key: "hrVacationCalendar", label: "تقويم الإجازات", labelEn: "HR Vacation Calendar" },
+    { key: "bankSetup", label: "إعداد البنوك", labelEn: "Bank Setup" },
+    { key: "treasurySetup", label: "إعداد الخزائن", labelEn: "Treasury Setup" },
+    { key: "expenseCategorySetup", label: "إعداد فئات المصروفات", labelEn: "Expense Category Setup" },
+    { key: "expenseTypeSetup", label: "إعداد أنواع المصروفات", labelEn: "Expense Type Setup" },
+    { key: "treasuryOpeningBalance", label: "رصيد الخزينة الافتتاحي", labelEn: "Treasury Opening Balance" },
+    { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
+    { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
+    { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
   ];
 
 const DASHBOARD_COMPONENTS = [
