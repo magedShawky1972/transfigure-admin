@@ -65,6 +65,19 @@ interface Currency {
   currency_code: string;
 }
 
+interface UOM {
+  id: string;
+  uom_code: string;
+  uom_name: string;
+  uom_name_ar: string | null;
+}
+
+interface PurchaseItem {
+  id: string;
+  item_name: string;
+  item_name_ar: string | null;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   classified: "bg-blue-100 text-blue-800",
@@ -81,6 +94,8 @@ const ExpenseRequests = () => {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [uomList, setUomList] = useState<UOM[]>([]);
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ExpenseRequest | null>(null);
@@ -97,8 +112,14 @@ const ExpenseRequests = () => {
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newRequest, setNewRequest] = useState({
+    expense_type_id: "",
+    is_asset: false,
+    purchase_item_id: "",
     description: "",
-    amount: "",
+    quantity: "1",
+    uom_id: "",
+    unit_price: "",
+    tax_percent: "0",
     currency_id: "",
     notes: "",
   });
@@ -116,12 +137,14 @@ const ExpenseRequests = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [requestsRes, typesRes, banksRes, treasuriesRes, currenciesRes] = await Promise.all([
+      const [requestsRes, typesRes, banksRes, treasuriesRes, currenciesRes, uomRes, itemsRes] = await Promise.all([
         supabase.from("expense_requests").select("*").order("request_date", { ascending: false }),
         supabase.from("expense_types").select("id, expense_name, expense_name_ar, is_asset").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_code, treasury_name").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code").eq("is_active", true),
+        supabase.from("uom").select("id, uom_code, uom_name, uom_name_ar").eq("is_active", true),
+        supabase.from("purchase_items").select("id, item_name, item_name_ar").eq("is_active", true),
       ]);
 
       if (requestsRes.error) throw requestsRes.error;
@@ -129,12 +152,16 @@ const ExpenseRequests = () => {
       if (banksRes.error) throw banksRes.error;
       if (treasuriesRes.error) throw treasuriesRes.error;
       if (currenciesRes.error) throw currenciesRes.error;
+      if (uomRes.error) throw uomRes.error;
+      if (itemsRes.error) throw itemsRes.error;
 
       setRequests(requestsRes.data || []);
       setExpenseTypes(typesRes.data || []);
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
+      setUomList(uomRes.data || []);
+      setPurchaseItems(itemsRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في جلب البيانات" : "Error fetching data");
@@ -237,20 +264,38 @@ const ExpenseRequests = () => {
   };
 
   const handleAddRequest = async () => {
+    if (!newRequest.expense_type_id) {
+      toast.error(language === "ar" ? "يرجى اختيار نوع المصروف" : "Please select expense type");
+      return;
+    }
     if (!newRequest.description.trim()) {
       toast.error(language === "ar" ? "يرجى إدخال الوصف" : "Please enter description");
       return;
     }
-    if (!newRequest.amount || parseFloat(newRequest.amount) <= 0) {
-      toast.error(language === "ar" ? "يرجى إدخال مبلغ صحيح" : "Please enter valid amount");
+    if (!newRequest.unit_price || parseFloat(newRequest.unit_price) <= 0) {
+      toast.error(language === "ar" ? "يرجى إدخال سعر الوحدة" : "Please enter valid unit price");
       return;
     }
+
+    const qty = parseFloat(newRequest.quantity) || 1;
+    const unitPrice = parseFloat(newRequest.unit_price) || 0;
+    const taxPercent = parseFloat(newRequest.tax_percent) || 0;
+    const total = qty * unitPrice;
+    const netTotal = total + (total * taxPercent / 100);
 
     try {
       const { error } = await supabase.from("expense_requests").insert({
         request_number: generateRequestNumber(),
+        expense_type_id: newRequest.expense_type_id,
+        is_asset: newRequest.is_asset,
+        purchase_item_id: newRequest.purchase_item_id || null,
         description: newRequest.description.trim(),
-        amount: parseFloat(newRequest.amount),
+        quantity: qty,
+        uom_id: newRequest.uom_id || null,
+        unit_price: unitPrice,
+        amount: total,
+        tax_percent: taxPercent,
+        net_total: netTotal,
         currency_id: newRequest.currency_id || null,
         notes: newRequest.notes.trim() || null,
         requester_id: currentUserId,
@@ -261,7 +306,10 @@ const ExpenseRequests = () => {
       if (error) throw error;
       toast.success(language === "ar" ? "تم إضافة الطلب بنجاح" : "Request added successfully");
       setAddDialogOpen(false);
-      setNewRequest({ description: "", amount: "", currency_id: "", notes: "" });
+      setNewRequest({ 
+        expense_type_id: "", is_asset: false, purchase_item_id: "", description: "",
+        quantity: "1", uom_id: "", unit_price: "", tax_percent: "0", currency_id: "", notes: "" 
+      });
       fetchData();
     } catch (error: any) {
       console.error("Error adding request:", error);
@@ -568,31 +616,125 @@ const ExpenseRequests = () => {
 
       {/* Add New Request Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{language === "ar" ? "إضافة طلب مصروف جديد" : "Add New Expense Request"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Expense Type */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "نوع المصروف *" : "Expense Type *"}</Label>
+                <Select 
+                  value={newRequest.expense_type_id} 
+                  onValueChange={(v) => {
+                    const type = expenseTypes.find(t => t.id === v);
+                    setNewRequest({ ...newRequest, expense_type_id: v, is_asset: type?.is_asset || false });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر النوع" : "Select Type"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {language === "ar" && t.expense_name_ar ? t.expense_name_ar : t.expense_name}
+                        {t.is_asset && <span className="text-xs text-muted-foreground ml-2">({language === "ar" ? "أصل" : "Asset"})</span>}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "الصنف" : "Item"}</Label>
+                <Select value={newRequest.purchase_item_id} onValueChange={(v) => setNewRequest({ ...newRequest, purchase_item_id: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر الصنف" : "Select Item"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {purchaseItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {language === "ar" && item.item_name_ar ? item.item_name_ar : item.item_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Asset indicator */}
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={newRequest.is_asset}
+                onCheckedChange={(v) => setNewRequest({ ...newRequest, is_asset: v })}
+              />
+              <Label>{language === "ar" ? "أصل ثابت" : "Fixed Asset"}</Label>
+            </div>
+
+            {/* Description */}
             <div className="space-y-2">
               <Label>{language === "ar" ? "الوصف *" : "Description *"}</Label>
               <Textarea
                 value={newRequest.description}
                 onChange={(e) => setNewRequest({ ...newRequest, description: e.target.value })}
                 placeholder={language === "ar" ? "وصف المصروف" : "Expense description"}
-                rows={3}
+                rows={2}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Quantity, UOM, Unit Price */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>{language === "ar" ? "المبلغ *" : "Amount *"}</Label>
+                <Label>{language === "ar" ? "الكمية" : "Quantity"}</Label>
+                <Input
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={newRequest.quantity}
+                  onChange={(e) => setNewRequest({ ...newRequest, quantity: e.target.value })}
+                  placeholder="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "وحدة القياس" : "UOM"}</Label>
+                <Select value={newRequest.uom_id} onValueChange={(v) => setNewRequest({ ...newRequest, uom_id: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر الوحدة" : "Select UOM"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {uomList.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.uom_code} - {language === "ar" && u.uom_name_ar ? u.uom_name_ar : u.uom_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "سعر الوحدة *" : "Unit Price *"}</Label>
                 <Input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={newRequest.amount}
-                  onChange={(e) => setNewRequest({ ...newRequest, amount: e.target.value })}
+                  value={newRequest.unit_price}
+                  onChange={(e) => setNewRequest({ ...newRequest, unit_price: e.target.value })}
                   placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Tax, Currency */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "نسبة الضريبة %" : "Tax %"}</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={newRequest.tax_percent}
+                  onChange={(e) => setNewRequest({ ...newRequest, tax_percent: e.target.value })}
+                  placeholder="0"
                 />
               </div>
               <div className="space-y-2">
@@ -610,6 +752,29 @@ const ExpenseRequests = () => {
               </div>
             </div>
 
+            {/* Calculated Totals */}
+            <div className="bg-muted p-4 rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span>{language === "ar" ? "الإجمالي:" : "Total:"}</span>
+                <span className="font-semibold">
+                  {((parseFloat(newRequest.quantity) || 1) * (parseFloat(newRequest.unit_price) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>{language === "ar" ? "الضريبة:" : "Tax:"}</span>
+                <span>
+                  {(((parseFloat(newRequest.quantity) || 1) * (parseFloat(newRequest.unit_price) || 0)) * (parseFloat(newRequest.tax_percent) || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between text-lg font-bold border-t pt-2">
+                <span>{language === "ar" ? "صافي الإجمالي بعد الضريبة:" : "Net Total After Tax:"}</span>
+                <span className="text-primary">
+                  {(((parseFloat(newRequest.quantity) || 1) * (parseFloat(newRequest.unit_price) || 0)) * (1 + (parseFloat(newRequest.tax_percent) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Notes */}
             <div className="space-y-2">
               <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>
               <Textarea

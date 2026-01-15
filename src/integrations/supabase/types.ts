@@ -1915,16 +1915,22 @@ export type Database = {
           expense_type_id: string | null
           id: string
           is_asset: boolean | null
+          net_total: number | null
           notes: string | null
           paid_at: string | null
           paid_by: string | null
           payment_method: string | null
+          purchase_item_id: string | null
+          quantity: number | null
           request_date: string | null
           request_number: string
           requester_id: string
           status: string | null
+          tax_percent: number | null
           ticket_id: string | null
           treasury_id: string | null
+          unit_price: number | null
+          uom_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1940,16 +1946,22 @@ export type Database = {
           expense_type_id?: string | null
           id?: string
           is_asset?: boolean | null
+          net_total?: number | null
           notes?: string | null
           paid_at?: string | null
           paid_by?: string | null
           payment_method?: string | null
+          purchase_item_id?: string | null
+          quantity?: number | null
           request_date?: string | null
           request_number: string
           requester_id: string
           status?: string | null
+          tax_percent?: number | null
           ticket_id?: string | null
           treasury_id?: string | null
+          unit_price?: number | null
+          uom_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1965,16 +1977,22 @@ export type Database = {
           expense_type_id?: string | null
           id?: string
           is_asset?: boolean | null
+          net_total?: number | null
           notes?: string | null
           paid_at?: string | null
           paid_by?: string | null
           payment_method?: string | null
+          purchase_item_id?: string | null
+          quantity?: number | null
           request_date?: string | null
           request_number?: string
           requester_id?: string
           status?: string | null
+          tax_percent?: number | null
           ticket_id?: string | null
           treasury_id?: string | null
+          unit_price?: number | null
+          uom_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2000,6 +2018,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "expense_requests_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "expense_requests_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
@@ -2011,6 +2036,13 @@ export type Database = {
             columns: ["treasury_id"]
             isOneToOne: false
             referencedRelation: "treasuries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_requests_uom_id_fkey"
+            columns: ["uom_id"]
+            isOneToOne: false
+            referencedRelation: "uom"
             referencedColumns: ["id"]
           },
         ]
