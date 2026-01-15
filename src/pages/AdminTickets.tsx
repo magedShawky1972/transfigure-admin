@@ -366,7 +366,7 @@ const AdminTickets = () => {
       // Get ticket details first
       const { data: ticket } = await supabase
         .from("tickets")
-        .select("user_id, ticket_number, subject, department_id, is_purchase_ticket, next_admin_order")
+        .select("user_id, ticket_number, subject, department_id, is_purchase_ticket, next_admin_order, budget_value, qty, currency_id")
         .eq("id", ticketId)
         .single();
 
@@ -510,6 +510,33 @@ const AdminTickets = () => {
             ? `تمت الموافقة النهائية من المستوى ${currentOrder}`
             : `Final approval by level ${currentOrder}`,
         });
+
+        // AUTO-CREATE EXPENSE REQUEST for purchase tickets
+        if (ticket.is_purchase_ticket && ticket.budget_value) {
+          const date = new Date();
+          const requestNumber = `EXP${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
+          
+          const { error: expenseError } = await supabase.from("expense_requests").insert({
+            request_number: requestNumber,
+            ticket_id: ticketId,
+            description: ticket.subject,
+            amount: ticket.budget_value,
+            quantity: ticket.qty || 1,
+            currency_id: ticket.currency_id || null,
+            requester_id: ticket.user_id,
+            request_date: new Date().toISOString().split("T")[0],
+            status: "pending",
+            notes: language === 'ar' 
+              ? `تم إنشاؤه تلقائياً من تذكرة الشراء رقم ${ticket.ticket_number}`
+              : `Auto-created from purchase ticket ${ticket.ticket_number}`,
+          });
+
+          if (expenseError) {
+            console.error("Error creating expense request:", expenseError);
+          } else {
+            console.log("Expense request created for ticket:", ticket.ticket_number);
+          }
+        }
 
         // Send notification to ticket creator
         await supabase.functions.invoke("send-ticket-notification", {

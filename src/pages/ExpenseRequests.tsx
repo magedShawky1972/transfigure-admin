@@ -209,6 +209,10 @@ const ExpenseRequests = () => {
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
+      // Get the expense request details first
+      const request = requests.find(r => r.id === id);
+      if (!request) throw new Error("Request not found");
+
       const updateData: any = { status: newStatus };
       
       if (newStatus === "approved") {
@@ -217,6 +221,59 @@ const ExpenseRequests = () => {
       } else if (newStatus === "paid") {
         updateData.paid_by = currentUserId;
         updateData.paid_at = new Date().toISOString();
+
+        // AUTO-CREATE BANK or TREASURY ENTRY
+        if (request.payment_method === "bank" && request.bank_id) {
+          // Generate bank entry number
+          const date = new Date();
+          const entryNumber = `BNK${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
+          
+          const { error: bankError } = await supabase.from("bank_entries").insert({
+            entry_number: entryNumber,
+            bank_id: request.bank_id,
+            entry_type: "withdrawal",
+            amount: request.amount,
+            description: `${language === "ar" ? "مصروف: " : "Expense: "}${request.description}`,
+            entry_date: new Date().toISOString().split("T")[0],
+            created_by: currentUserId,
+            expense_request_id: request.id,
+            status: "approved", // Auto-approve the entry
+            approved_by: currentUserId,
+            approved_at: new Date().toISOString(),
+          });
+
+          if (bankError) {
+            console.error("Error creating bank entry:", bankError);
+            toast.error(language === "ar" ? "خطأ في إنشاء قيد البنك" : "Error creating bank entry");
+          } else {
+            toast.success(language === "ar" ? "تم إنشاء قيد البنك" : "Bank entry created");
+          }
+        } else if (request.payment_method === "treasury" && request.treasury_id) {
+          // Generate treasury entry number
+          const date = new Date();
+          const entryNumber = `TRS${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
+          
+          const { error: treasuryError } = await supabase.from("treasury_entries").insert({
+            entry_number: entryNumber,
+            treasury_id: request.treasury_id,
+            entry_type: "withdrawal",
+            amount: request.amount,
+            description: `${language === "ar" ? "مصروف: " : "Expense: "}${request.description}`,
+            entry_date: new Date().toISOString().split("T")[0],
+            created_by: currentUserId,
+            expense_request_id: request.id,
+            status: "approved", // Auto-approve the entry
+            approved_by: currentUserId,
+            approved_at: new Date().toISOString(),
+          });
+
+          if (treasuryError) {
+            console.error("Error creating treasury entry:", treasuryError);
+            toast.error(language === "ar" ? "خطأ في إنشاء قيد الخزينة" : "Error creating treasury entry");
+          } else {
+            toast.success(language === "ar" ? "تم إنشاء قيد الخزينة" : "Treasury entry created");
+          }
+        }
       }
 
       const { error } = await supabase.from("expense_requests").update(updateData).eq("id", id);
