@@ -2657,6 +2657,7 @@ export type Database = {
       }
       official_holidays: {
         Row: {
+          country: string | null
           created_at: string
           description: string | null
           holiday_date: string
@@ -2668,6 +2669,7 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          country?: string | null
           created_at?: string
           description?: string | null
           holiday_date: string
@@ -2679,6 +2681,7 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          country?: string | null
           created_at?: string
           description?: string | null
           holiday_date?: string
