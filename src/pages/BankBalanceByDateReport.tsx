@@ -17,6 +17,15 @@ interface Bank {
   opening_balance: number | null;
 }
 
+interface SalesRow {
+  id: string;
+  paymentMethod: string;
+  grossAmount: number;
+  charges: number;
+  netAmount: number;
+  transactionCount: number;
+}
+
 interface SummaryRow {
   id: string;
   category: string;
@@ -41,10 +50,12 @@ const BankBalanceByDateReport = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [transactionGroups, setTransactionGroups] = useState<TransactionGroup[]>([]);
+  const [salesRows, setSalesRows] = useState<SalesRow[]>([]);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [grandTotalIncome, setGrandTotalIncome] = useState(0);
   const [grandTotalExpense, setGrandTotalExpense] = useState(0);
   const [grandTotalCharges, setGrandTotalCharges] = useState(0);
+  const [grandTotalNetSales, setGrandTotalNetSales] = useState(0);
 
   useEffect(() => {
     fetchBanks();
@@ -75,26 +86,26 @@ const BankBalanceByDateReport = () => {
       const selectedBank = banks.find(b => b.id === selectedBankId);
       setOpeningBalance(selectedBank?.opening_balance || 0);
 
-      // Fetch payment methods linked to this bank
+      // Fetch payment methods linked to this bank to get the payment_method names (like MADA, VISA)
       const { data: paymentMethods } = await supabase
         .from('payment_methods')
         .select('id, payment_method, gateway_fee, fixed_value')
         .eq('bank_id', selectedBankId);
 
-      const paymentMethodNames = paymentMethods?.map(pm => pm.payment_method) || [];
+      const paymentBrandNames = paymentMethods?.map(pm => pm.payment_method) || [];
 
       // Convert dates to integer format YYYYMMDD for created_at_date_int filtering
       const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
       const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
 
-      // Fetch from purpletransaction using created_at_date_int for accurate date filtering
+      // Fetch from purpletransaction using created_at_date_int and filter by payment_method column
       const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
       
-      if (paymentMethodNames.length > 0) {
+      if (paymentBrandNames.length > 0) {
         const { data: transactions } = await supabase
           .from('purpletransaction')
           .select('id, order_number, created_at_date_int, payment_method, payment_brand, total, bank_fee')
-          .in('payment_brand', paymentMethodNames)
+          .in('payment_brand', paymentBrandNames)
           .gte('created_at_date_int', fromDateInt)
           .lte('created_at_date_int', toDateInt);
 
@@ -109,31 +120,23 @@ const BankBalanceByDateReport = () => {
         });
       }
 
-      // Convert to summary rows - Sales (gross amount)
-      const salesRows: SummaryRow[] = Array.from(salesSummaryMap.entries()).map(([pm, data], idx) => ({
+      // Create sales rows with gross, charges, and net in same row
+      const newSalesRows: SalesRow[] = Array.from(salesSummaryMap.entries()).map(([pm, data], idx) => ({
         id: `sales-${idx}`,
-        category: pm.toUpperCase(),
-        description: language === 'ar' 
-          ? `مبيعات عبر ${pm.toUpperCase()}` 
-          : `Sales via ${pm.toUpperCase()}`,
-        totalAmount: data.total,
-        type: 'income' as const,
+        paymentMethod: pm.toUpperCase(),
+        grossAmount: data.total,
+        charges: data.charges,
+        netAmount: data.total - data.charges,
         transactionCount: data.count,
       }));
 
-      // Bank Charges rows (deductions) - separate section
-      const chargesRows: SummaryRow[] = Array.from(salesSummaryMap.entries())
-        .filter(([_, data]) => data.charges > 0)
-        .map(([pm, data], idx) => ({
-          id: `charges-${idx}`,
-          category: pm.toUpperCase(),
-          description: language === 'ar' 
-            ? `رسوم بنكية - ${pm.toUpperCase()}` 
-            : `Bank Charges - ${pm.toUpperCase()}`,
-          totalAmount: data.charges,
-          type: 'expense' as const,
-          transactionCount: data.count,
-        }));
+      setSalesRows(newSalesRows);
+
+      // Calculate sales totals
+      const totalGrossSales = newSalesRows.reduce((sum, r) => sum + r.grossAmount, 0);
+      const totalChargesSales = newSalesRows.reduce((sum, r) => sum + r.charges, 0);
+      const totalNetSales = newSalesRows.reduce((sum, r) => sum + r.netAmount, 0);
+      setGrandTotalNetSales(totalNetSales);
 
       // Fetch expense payments from this bank - grouped by expense type
       const { data: expensePayments } = await supabase
@@ -212,28 +215,8 @@ const BankBalanceByDateReport = () => {
         transactionCount: data.count,
       }));
 
-      // Build groups
+      // Build groups (excluding sales which are now separate)
       const groups: TransactionGroup[] = [];
-
-      if (salesRows.length > 0) {
-        const subtotal = salesRows.reduce((sum, r) => sum + r.totalAmount, 0);
-        groups.push({
-          type: 'sales',
-          typeLabel: language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales (Gross)',
-          rows: salesRows,
-          subtotal,
-        });
-      }
-
-      if (chargesRows.length > 0) {
-        const subtotal = chargesRows.reduce((sum, r) => sum + r.totalAmount, 0);
-        groups.push({
-          type: 'charges',
-          typeLabel: language === 'ar' ? 'رسوم بنكية (خصومات)' : 'Bank Charges (Deductions)',
-          rows: chargesRows,
-          subtotal,
-        });
-      }
 
       if (expenseRows.length > 0) {
         const subtotal = expenseRows.reduce((sum, r) => sum + r.totalAmount, 0);
@@ -268,12 +251,8 @@ const BankBalanceByDateReport = () => {
       setTransactionGroups(groups);
 
       // Calculate grand totals
-      const totalIncome = groups
-        .filter(g => g.type === 'sales' || g.type === 'deposits')
-        .reduce((sum, g) => sum + g.subtotal, 0);
-      
-      const totalCharges = groups
-        .filter(g => g.type === 'charges')
+      const totalIncome = totalNetSales + groups
+        .filter(g => g.type === 'deposits')
         .reduce((sum, g) => sum + g.subtotal, 0);
 
       const totalExpense = groups
@@ -282,7 +261,7 @@ const BankBalanceByDateReport = () => {
 
       setGrandTotalIncome(totalIncome);
       setGrandTotalExpense(totalExpense);
-      setGrandTotalCharges(totalCharges);
+      setGrandTotalCharges(totalChargesSales);
 
       toast.success(language === 'ar' ? 'تم تحميل التقرير' : 'Report loaded');
     } catch (error) {
@@ -306,6 +285,17 @@ const BankBalanceByDateReport = () => {
     csv += `${language === 'ar' ? 'من تاريخ' : 'From Date'},${fromDate}\n`;
     csv += `${language === 'ar' ? 'إلى تاريخ' : 'To Date'},${toDate}\n\n`;
 
+    // Sales section with Gross, Charges, Net
+    if (salesRows.length > 0) {
+      csv += `\n${language === 'ar' ? 'المبيعات' : 'Sales'}\n`;
+      csv += `${language === 'ar' ? 'وسيلة الدفع' : 'Payment Method'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'المبلغ الإجمالي' : 'Gross Amount'},${language === 'ar' ? 'الرسوم' : 'Charges'},${language === 'ar' ? 'صافي المبلغ' : 'Net Amount'}\n`;
+      salesRows.forEach(r => {
+        csv += `${r.paymentMethod},${r.transactionCount},${r.grossAmount},${r.charges},${r.netAmount}\n`;
+      });
+      csv += `${language === 'ar' ? 'المجموع' : 'Total'},${salesRows.reduce((s, r) => s + r.transactionCount, 0)},${salesRows.reduce((s, r) => s + r.grossAmount, 0)},${salesRows.reduce((s, r) => s + r.charges, 0)},${grandTotalNetSales}\n`;
+    }
+
+    // Other groups
     (transactionGroups || []).forEach(group => {
       csv += `\n${group.typeLabel}\n`;
       csv += `${language === 'ar' ? 'الوصف' : 'Description'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'المبلغ' : 'Amount'}\n`;
@@ -317,7 +307,7 @@ const BankBalanceByDateReport = () => {
 
     csv += `\n${language === 'ar' ? 'الملخص' : 'Summary'}\n`;
     csv += `${language === 'ar' ? 'الرصيد الافتتاحي' : 'Opening Balance'},${openingBalance}\n`;
-    csv += `${language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'},${grandTotalIncome}\n`;
+    csv += `${language === 'ar' ? 'صافي المبيعات' : 'Net Sales'},${grandTotalNetSales}\n`;
     csv += `${language === 'ar' ? 'إجمالي الرسوم البنكية' : 'Total Bank Charges'},${grandTotalCharges}\n`;
     csv += `${language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'},${grandTotalExpense}\n`;
     csv += `${language === 'ar' ? 'الرصيد الختامي' : 'Closing Balance'},${closingBalance}\n`;
@@ -416,10 +406,10 @@ const BankBalanceByDateReport = () => {
                 <Search className="h-4 w-4 mr-2" />
                 {language === 'ar' ? 'بحث' : 'Search'}
               </Button>
-              <Button variant="outline" onClick={exportToExcel} disabled={(transactionGroups || []).length === 0}>
+              <Button variant="outline" onClick={exportToExcel} disabled={salesRows.length === 0 && (transactionGroups || []).length === 0}>
                 <Download className="h-4 w-4" />
               </Button>
-              <Button variant="outline" onClick={handlePrint} disabled={(transactionGroups || []).length === 0}>
+              <Button variant="outline" onClick={handlePrint} disabled={salesRows.length === 0 && (transactionGroups || []).length === 0}>
                 <Printer className="h-4 w-4" />
               </Button>
             </div>
@@ -428,7 +418,7 @@ const BankBalanceByDateReport = () => {
       </Card>
 
       {/* Summary Cards */}
-      {(transactionGroups || []).length > 0 && (
+      {(salesRows.length > 0 || (transactionGroups || []).length > 0) && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-4">
@@ -478,14 +468,69 @@ const BankBalanceByDateReport = () => {
         </div>
       )}
 
-      {/* Transaction Groups */}
+      {/* Sales Table with Gross, Charges, Net */}
+      {salesRows.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>{language === 'ar' ? 'المبيعات' : 'Sales'}</span>
+              <span className="text-lg text-green-600">
+                {formatNumber(grandTotalNetSales)}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Method'}</TableHead>
+                  <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
+                  <TableHead className="text-right">{language === 'ar' ? 'المبلغ الإجمالي' : 'Gross Amount'}</TableHead>
+                  <TableHead className="text-right">{language === 'ar' ? 'الرسوم' : 'Charges'}</TableHead>
+                  <TableHead className="text-right">{language === 'ar' ? 'صافي المبلغ' : 'Net Amount'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {salesRows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.paymentMethod}</TableCell>
+                    <TableCell className="text-center">{row.transactionCount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-green-600">{formatNumber(row.grossAmount)}</TableCell>
+                    <TableCell className="text-right text-orange-600">-{formatNumber(row.charges)}</TableCell>
+                    <TableCell className="text-right font-medium text-green-600">{formatNumber(row.netAmount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow className="bg-muted/50 font-bold">
+                  <TableCell>{language === 'ar' ? 'المجموع' : 'Total'}</TableCell>
+                  <TableCell className="text-center">
+                    {salesRows.reduce((sum, r) => sum + r.transactionCount, 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right text-green-600">
+                    {formatNumber(salesRows.reduce((sum, r) => sum + r.grossAmount, 0))}
+                  </TableCell>
+                  <TableCell className="text-right text-orange-600">
+                    -{formatNumber(salesRows.reduce((sum, r) => sum + r.charges, 0))}
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-green-600">
+                    {formatNumber(grandTotalNetSales)}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Other Transaction Groups (Expenses, Deposits, Withdrawals) */}
       {(transactionGroups || []).map((group) => (
         <Card key={group.type}>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center justify-between">
               <span>{group.typeLabel}</span>
               <span className={`text-lg ${getGroupColor(group.type)}`}>
-                {group.type === 'charges' || group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
+                {group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
                 {formatNumber(group.subtotal)}
               </span>
             </CardTitle>
@@ -505,7 +550,7 @@ const BankBalanceByDateReport = () => {
                     <TableCell className="font-medium">{r.description}</TableCell>
                     <TableCell className="text-center">{r.transactionCount.toLocaleString()}</TableCell>
                     <TableCell className={`text-right font-medium ${getGroupColor(group.type)}`}>
-                      {group.type === 'charges' || group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
+                      {group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
                       {formatNumber(r.totalAmount)}
                     </TableCell>
                   </TableRow>
@@ -517,7 +562,7 @@ const BankBalanceByDateReport = () => {
                     {language === 'ar' ? 'المجموع الفرعي:' : 'Subtotal:'}
                   </TableCell>
                   <TableCell className={`text-right ${getGroupColor(group.type)}`}>
-                    {group.type === 'charges' || group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
+                    {group.type === 'expenses' || group.type === 'withdrawals' ? '-' : ''}
                     {formatNumber(group.subtotal)}
                   </TableCell>
                 </TableRow>
@@ -528,7 +573,7 @@ const BankBalanceByDateReport = () => {
       ))}
 
       {/* Empty State */}
-      {(!transactionGroups || transactionGroups.length === 0) && !loading && (
+      {salesRows.length === 0 && (!transactionGroups || transactionGroups.length === 0) && !loading && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Landmark className="h-12 w-12 mx-auto mb-4 opacity-50" />
