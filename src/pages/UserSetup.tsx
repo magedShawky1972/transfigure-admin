@@ -205,6 +205,7 @@ const REPORTS = [
   { key: "aggregated-orders", labelEn: "Aggregated Order Mapping", labelAr: "مطابقة الطلبات المجمعة" },
   { key: "expense-pending", labelEn: "Pending Expenses", labelAr: "المصروفات المعلقة" },
   { key: "expense-paid", labelEn: "Paid Expenses", labelAr: "المصروفات المدفوعة" },
+  { key: "bank-balance-by-date", labelEn: "Bank Balance by Date", labelAr: "تقرير رصيد البنك بالتاريخ" },
 ];
 
 const UserSetup = () => {
