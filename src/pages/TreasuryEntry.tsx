@@ -542,7 +542,10 @@ const TreasuryEntry = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{language === "ar" ? "عملة المصدر" : "Source Currency"}</Label>
-                      <Select value={formData.from_currency_id} onValueChange={(v) => setFormData({ ...formData, from_currency_id: v })}>
+                      <Select value={formData.from_currency_id} onValueChange={(v) => {
+                        const newRate = calculateExchangeRate(v, formData.to_currency_id);
+                        setFormData({ ...formData, from_currency_id: v, exchange_rate: newRate });
+                      }}>
                         <SelectTrigger>
                           <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
                         </SelectTrigger>
@@ -557,7 +560,10 @@ const TreasuryEntry = () => {
                     </div>
                     <div className="space-y-2">
                       <Label>{language === "ar" ? "عملة الوجهة" : "Destination Currency"}</Label>
-                      <Select value={formData.to_currency_id} onValueChange={(v) => setFormData({ ...formData, to_currency_id: v })}>
+                      <Select value={formData.to_currency_id} onValueChange={(v) => {
+                        const newRate = calculateExchangeRate(formData.from_currency_id, v);
+                        setFormData({ ...formData, to_currency_id: v, exchange_rate: newRate });
+                      }}>
                         <SelectTrigger>
                           <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
                         </SelectTrigger>
