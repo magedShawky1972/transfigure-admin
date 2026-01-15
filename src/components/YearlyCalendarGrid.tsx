@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay } from "date-fns";
-import { ar } from "date-fns/locale";
+import { format, endOfMonth, eachDayOfInterval, getDay, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -11,6 +10,7 @@ interface Holiday {
   holiday_name_ar: string | null;
   holiday_date: string;
   is_recurring: boolean;
+  country?: string | null;
 }
 
 interface YearlyCalendarGridProps {
@@ -28,6 +28,19 @@ const MONTHS_AR = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
   "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
 ];
+
+// Holiday colors by country
+const HOLIDAY_COLORS = {
+  all: "bg-purple-500 text-white", // Islamic/shared holidays
+  egypt: "bg-green-600 text-white", // Egypt-specific holidays
+  ksa: "bg-emerald-500 text-white", // KSA-specific holidays
+};
+
+const LEGEND_COLORS = {
+  all: "bg-purple-500",
+  egypt: "bg-green-600",
+  ksa: "bg-emerald-500",
+};
 
 const YearlyCalendarGrid = ({ year, holidays }: YearlyCalendarGridProps) => {
   const { language } = useLanguage();
@@ -49,6 +62,20 @@ const YearlyCalendarGrid = ({ year, holidays }: YearlyCalendarGridProps) => {
     return language === "ar" && holiday.holiday_name_ar 
       ? holiday.holiday_name_ar 
       : holiday.holiday_name;
+  };
+
+  const getHolidayColor = (holiday: Holiday): string => {
+    const country = holiday.country || 'all';
+    return HOLIDAY_COLORS[country as keyof typeof HOLIDAY_COLORS] || HOLIDAY_COLORS.all;
+  };
+
+  const getCountryLabel = (country: string): string => {
+    const labels: Record<string, { en: string; ar: string }> = {
+      all: { en: "All Countries (Islamic)", ar: "جميع الدول (إسلامية)" },
+      egypt: { en: "Egypt", ar: "مصر" },
+      ksa: { en: "Saudi Arabia", ar: "السعودية" },
+    };
+    return language === "ar" ? labels[country]?.ar || country : labels[country]?.en || country;
   };
 
   const monthData = useMemo(() => {
@@ -88,7 +115,7 @@ const YearlyCalendarGrid = ({ year, holidays }: YearlyCalendarGridProps) => {
                     key={idx} 
                     className={cn(
                       "text-center py-1 text-xs font-medium",
-                      (idx === 0 || idx === 6) ? "text-destructive" : "text-muted-foreground"
+                      (idx === 5 || idx === 6) ? "text-destructive" : "text-muted-foreground"
                     )}
                   >
                     {day}
@@ -107,14 +134,14 @@ const YearlyCalendarGrid = ({ year, holidays }: YearlyCalendarGridProps) => {
                 {days.map((date) => {
                   const holiday = isHoliday(date);
                   const dayOfWeek = getDay(date);
-                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                  const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Friday & Saturday for KSA/Egypt
                   
                   const dayCell = (
                     <div
                       className={cn(
                         "h-6 flex items-center justify-center text-xs rounded-sm transition-colors",
                         holiday 
-                          ? "bg-primary text-primary-foreground font-bold" 
+                          ? getHolidayColor(holiday)
                           : isWeekend 
                             ? "text-destructive" 
                             : "text-foreground hover:bg-muted"
@@ -135,6 +162,9 @@ const YearlyCalendarGrid = ({ year, holidays }: YearlyCalendarGridProps) => {
                           <p className="text-xs text-muted-foreground">
                             {format(date, "dd/MM/yyyy")}
                           </p>
+                          <p className="text-xs text-muted-foreground">
+                            {getCountryLabel(holiday.country || 'all')}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     );
@@ -150,9 +180,21 @@ const YearlyCalendarGrid = ({ year, holidays }: YearlyCalendarGridProps) => {
         {/* Legend */}
         <div className="flex flex-wrap items-center justify-center gap-6 pt-4 border-t">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-primary"></div>
+            <div className={cn("w-4 h-4 rounded", LEGEND_COLORS.all)}></div>
             <span className="text-sm text-muted-foreground">
-              {language === "ar" ? "إجازة رسمية" : "Official Holiday"}
+              {language === "ar" ? "إجازة إسلامية (الكل)" : "Islamic Holiday (All)"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={cn("w-4 h-4 rounded", LEGEND_COLORS.egypt)}></div>
+            <span className="text-sm text-muted-foreground">
+              {language === "ar" ? "إجازة مصر" : "Egypt Holiday"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={cn("w-4 h-4 rounded", LEGEND_COLORS.ksa)}></div>
+            <span className="text-sm text-muted-foreground">
+              {language === "ar" ? "إجازة السعودية" : "KSA Holiday"}
             </span>
           </div>
           <div className="flex items-center gap-2">
