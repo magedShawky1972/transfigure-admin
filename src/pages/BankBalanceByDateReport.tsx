@@ -469,14 +469,14 @@ const BankBalanceByDateReport = () => {
         </div>
       )}
 
-      {/* Sales Table with Gross, Charges, Net */}
+      {/* Sales Table */}
       {salesRows.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center justify-between">
               <span>{language === 'ar' ? 'المبيعات' : 'Sales'}</span>
               <span className="text-lg text-green-600">
-                {formatNumber(grandTotalNetSales)}
+                {formatNumber(salesRows.reduce((sum, r) => sum + r.grossAmount, 0))}
               </span>
             </CardTitle>
           </CardHeader>
@@ -486,9 +486,7 @@ const BankBalanceByDateReport = () => {
                 <TableRow>
                   <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Method'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'المبلغ الإجمالي' : 'Gross Amount'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'الرسوم' : 'Charges'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'صافي المبلغ' : 'Net Amount'}</TableHead>
+                  <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -497,8 +495,6 @@ const BankBalanceByDateReport = () => {
                     <TableCell className="font-medium">{row.paymentMethod}</TableCell>
                     <TableCell className="text-center">{row.transactionCount.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-green-600">{formatNumber(row.grossAmount)}</TableCell>
-                    <TableCell className="text-right text-orange-600">-{formatNumber(row.charges)}</TableCell>
-                    <TableCell className="text-right font-medium text-green-600">{formatNumber(row.netAmount)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -511,11 +507,50 @@ const BankBalanceByDateReport = () => {
                   <TableCell className="text-right text-green-600">
                     {formatNumber(salesRows.reduce((sum, r) => sum + r.grossAmount, 0))}
                   </TableCell>
-                  <TableCell className="text-right text-orange-600">
-                    -{formatNumber(salesRows.reduce((sum, r) => sum + r.charges, 0))}
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bank Charges Table */}
+      {grandTotalCharges > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>{language === 'ar' ? 'رسوم البنك' : 'Bank Charges'}</span>
+              <span className="text-lg text-orange-600">
+                -{formatNumber(grandTotalCharges)}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Method'}</TableHead>
+                  <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
+                  <TableHead className="text-right">{language === 'ar' ? 'الرسوم' : 'Charges'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {salesRows.filter(row => row.charges > 0).map((row) => (
+                  <TableRow key={`charges-${row.id}`}>
+                    <TableCell className="font-medium">{row.paymentMethod}</TableCell>
+                    <TableCell className="text-center">{row.transactionCount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-orange-600">-{formatNumber(row.charges)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow className="bg-muted/50 font-bold">
+                  <TableCell>{language === 'ar' ? 'المجموع' : 'Total'}</TableCell>
+                  <TableCell className="text-center">
+                    {salesRows.filter(r => r.charges > 0).reduce((sum, r) => sum + r.transactionCount, 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-right font-bold text-green-600">
-                    {formatNumber(grandTotalNetSales)}
+                  <TableCell className="text-right text-orange-600">
+                    -{formatNumber(grandTotalCharges)}
                   </TableCell>
                 </TableRow>
               </TableFooter>
