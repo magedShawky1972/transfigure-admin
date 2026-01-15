@@ -95,26 +95,26 @@ const BankBalanceByDateReport = () => {
         paymentMethods?.map(pm => [pm.payment_method, pm]) || []
       );
 
-      // Fetch order totals for sales income using payment_method text field
+      // Fetch order totals for sales income using payment_brand field (which matches payment_method names)
       let salesTransactions: TransactionRow[] = [];
       if (paymentMethodNames.length > 0) {
         const { data: orderTotals } = await supabase
           .from('ordertotals')
-          .select('id, order_number, order_date, payment_method, total, bank_fee')
-          .in('payment_method', paymentMethodNames)
+          .select('id, order_number, order_date, payment_brand, total, bank_fee')
+          .in('payment_brand', paymentMethodNames)
           .gte('order_date', fromDate)
           .lte('order_date', toDate + 'T23:59:59')
           .order('order_date');
 
         salesTransactions = (orderTotals || []).map(ot => {
-          const pm = paymentMethodMap.get(ot.payment_method || '');
+          const pm = paymentMethodMap.get(ot.payment_brand || '');
           const charges = ot.bank_fee || 0;
           return {
             id: ot.id,
             date: ot.order_date ? new Date(ot.order_date).toISOString().split('T')[0] : '',
             description: language === 'ar' 
-              ? `مبيعات - ${ot.payment_method || ''}` 
-              : `Sales - ${ot.payment_method || ''}`,
+              ? `مبيعات - ${ot.payment_brand || ''}` 
+              : `Sales - ${ot.payment_brand || ''}`,
             reference: ot.order_number || '',
             amount: Number(ot.total) || 0,
             charges: Number(charges),
