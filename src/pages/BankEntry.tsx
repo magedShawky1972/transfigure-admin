@@ -384,18 +384,17 @@ const BankEntry = () => {
   };
 
   // Calculate exchange rate between two currencies
-  // rate_to_base means: 1 unit of currency = X units of base currency (SAR)
-  // So if USD rate_to_base = 3.75, then 1 USD = 3.75 SAR
-  // To convert SAR to USD: 100 SAR / 3.75 = 26.67 USD (exchange_rate = 1/3.75)
-  // To convert USD to SAR: 100 USD * 3.75 = 375 SAR (exchange_rate = 3.75)
+  // rate_to_base means: 1 SAR = X units of this currency (e.g., USD rate = 0.2667 means 1 SAR = 0.2667 USD)
+  // To convert SAR to USD: 100 SAR * 0.2667 = 26.67 USD (exchange_rate = 0.2667)
+  // To convert USD to SAR: 100 USD / 0.2667 = 375 SAR (exchange_rate = 1/0.2667 = 3.75)
   const calculateExchangeRate = (fromCurrencyId: string, toCurrencyId: string): number => {
     if (!fromCurrencyId || !toCurrencyId || fromCurrencyId === toCurrencyId) return 1;
     const fromRate = getLatestRate(fromCurrencyId);
     const toRate = getLatestRate(toCurrencyId);
-    // Formula: fromRate / toRate
-    // SAR(1) to USD(3.75): 1/3.75 = 0.267 ✓
-    // USD(3.75) to SAR(1): 3.75/1 = 3.75 ✓
-    return fromRate / toRate;
+    // Formula: toRate / fromRate
+    // SAR(1) to USD(0.2667): 0.2667/1 = 0.2667 ✓
+    // USD(0.2667) to SAR(1): 1/0.2667 = 3.75 ✓
+    return toRate / fromRate;
   };
 
   const handleBankSelect = (bankId: string) => {
