@@ -17,29 +17,23 @@ interface Bank {
   opening_balance: number | null;
 }
 
-interface PaymentMethod {
+interface SummaryRow {
   id: string;
-  payment_method: string;
-  gateway_fee: number | null;
-  fixed_value: number | null;
+  category: string;
+  description: string;
+  totalAmount: number;
+  totalCharges: number;
+  netAmount: number;
+  type: 'income' | 'expense';
+  transactionCount: number;
 }
 
 interface TransactionGroup {
   type: string;
   typeLabel: string;
-  transactions: TransactionRow[];
+  rows: SummaryRow[];
   subtotal: number;
-}
-
-interface TransactionRow {
-  id: string;
-  date: string;
-  description: string;
-  reference: string;
-  amount: number;
-  charges: number;
-  netAmount: number;
-  type: 'income' | 'expense';
+  subtotalCharges: number;
 }
 
 const BankBalanceByDateReport = () => {
@@ -91,128 +85,173 @@ const BankBalanceByDateReport = () => {
         .eq('bank_id', selectedBankId);
 
       const paymentMethodNames = paymentMethods?.map(pm => pm.payment_method) || [];
-      const paymentMethodMap = new Map<string, PaymentMethod>(
-        paymentMethods?.map(pm => [pm.payment_method, pm]) || []
-      );
 
-      // Fetch order totals for sales income using payment_brand field (which matches payment_method names)
-      let salesTransactions: TransactionRow[] = [];
+      // Fetch order totals for sales income using payment_brand field
+      const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
+      
       if (paymentMethodNames.length > 0) {
         const { data: orderTotals } = await supabase
           .from('ordertotals')
-          .select('id, order_number, order_date, payment_brand, total, bank_fee')
+          .select('id, order_number, order_date, payment_method, payment_brand, total, bank_fee')
           .in('payment_brand', paymentMethodNames)
           .gte('order_date', fromDate)
-          .lte('order_date', toDate + 'T23:59:59')
-          .order('order_date');
+          .lte('order_date', toDate + 'T23:59:59');
 
-        salesTransactions = (orderTotals || []).map(ot => {
-          const pm = paymentMethodMap.get(ot.payment_brand || '');
-          const charges = ot.bank_fee || 0;
-          return {
-            id: ot.id,
-            date: ot.order_date ? new Date(ot.order_date).toISOString().split('T')[0] : '',
-            description: language === 'ar' 
-              ? `مبيعات - ${ot.payment_brand || ''}` 
-              : `Sales - ${ot.payment_brand || ''}`,
-            reference: ot.order_number || '',
-            amount: Number(ot.total) || 0,
-            charges: Number(charges),
-            netAmount: (Number(ot.total) || 0) - Number(charges),
-            type: 'income' as const,
-          };
+        // Group by payment_method (hyperpay, salla, etc.)
+        (orderTotals || []).forEach(ot => {
+          const pmKey = ot.payment_method || 'other';
+          const existing = salesSummaryMap.get(pmKey) || { total: 0, charges: 0, count: 0 };
+          existing.total += Number(ot.total) || 0;
+          existing.charges += Number(ot.bank_fee) || 0;
+          existing.count += 1;
+          salesSummaryMap.set(pmKey, existing);
         });
       }
 
-      // Fetch expense payments from this bank
+      // Convert to summary rows
+      const salesRows: SummaryRow[] = Array.from(salesSummaryMap.entries()).map(([pm, data], idx) => ({
+        id: `sales-${idx}`,
+        category: pm.toUpperCase(),
+        description: language === 'ar' 
+          ? `مبيعات عبر ${pm.toUpperCase()}` 
+          : `Sales via ${pm.toUpperCase()}`,
+        totalAmount: data.total,
+        totalCharges: data.charges,
+        netAmount: data.total - data.charges,
+        type: 'income' as const,
+        transactionCount: data.count,
+      }));
+
+      // Fetch expense payments from this bank - grouped by expense type
       const { data: expensePayments } = await supabase
         .from('expense_requests')
         .select('id, request_number, paid_at, description, amount, expense_types(expense_name, expense_name_ar)')
         .eq('bank_id', selectedBankId)
         .eq('status', 'paid')
         .gte('paid_at', fromDate)
-        .lte('paid_at', toDate + 'T23:59:59')
-        .order('paid_at');
+        .lte('paid_at', toDate + 'T23:59:59');
 
-      const expenseTransactions: TransactionRow[] = (expensePayments || []).map(ep => ({
-        id: ep.id,
-        date: ep.paid_at?.split('T')[0] || '',
-        description: language === 'ar' 
-          ? `مصروفات - ${(ep.expense_types as any)?.expense_name_ar || (ep.expense_types as any)?.expense_name || ep.description}` 
-          : `Expense - ${(ep.expense_types as any)?.expense_name || ep.description}`,
-        reference: ep.request_number,
-        amount: ep.amount,
-        charges: 0,
-        netAmount: ep.amount,
+      const expenseSummaryMap = new Map<string, { total: number; count: number; nameAr: string }>();
+      (expensePayments || []).forEach(ep => {
+        const expType = (ep.expense_types as any)?.expense_name || ep.description || 'Other';
+        const expTypeAr = (ep.expense_types as any)?.expense_name_ar || expType;
+        const existing = expenseSummaryMap.get(expType) || { total: 0, count: 0, nameAr: expTypeAr };
+        existing.total += ep.amount;
+        existing.count += 1;
+        expenseSummaryMap.set(expType, existing);
+      });
+
+      const expenseRows: SummaryRow[] = Array.from(expenseSummaryMap.entries()).map(([expType, data], idx) => ({
+        id: `expense-${idx}`,
+        category: expType,
+        description: language === 'ar' ? data.nameAr : expType,
+        totalAmount: data.total,
+        totalCharges: 0,
+        netAmount: data.total,
         type: 'expense' as const,
+        transactionCount: data.count,
       }));
 
-      // Fetch bank entries (transfers, charges, etc.)
+      // Fetch bank entries - grouped by entry_type
       const { data: bankEntries } = await supabase
         .from('bank_entries')
         .select('id, entry_number, entry_date, entry_type, description, amount, bank_charges, other_charges')
         .eq('bank_id', selectedBankId)
         .gte('entry_date', fromDate)
-        .lte('entry_date', toDate)
-        .order('entry_date');
+        .lte('entry_date', toDate);
 
-      const bankEntryTransactions: TransactionRow[] = (bankEntries || []).map(be => {
+      const depositSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
+      const withdrawalSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
+
+      (bankEntries || []).forEach(be => {
         const totalCharges = (be.bank_charges || 0) + (be.other_charges || 0);
         const isExpense = ['withdrawal', 'transfer_out', 'expense'].includes(be.entry_type);
-        return {
-          id: be.id,
-          date: be.entry_date || '',
-          description: language === 'ar' 
-            ? `قيد بنكي - ${be.description || be.entry_type}` 
-            : `Bank Entry - ${be.description || be.entry_type}`,
-          reference: be.entry_number,
-          amount: be.amount,
-          charges: totalCharges,
-          netAmount: isExpense ? be.amount + totalCharges : be.amount - totalCharges,
-          type: isExpense ? 'expense' as const : 'income' as const,
-        };
+        const entryLabel = be.entry_type || 'other';
+        
+        if (isExpense) {
+          const existing = withdrawalSummaryMap.get(entryLabel) || { total: 0, charges: 0, count: 0 };
+          existing.total += be.amount;
+          existing.charges += totalCharges;
+          existing.count += 1;
+          withdrawalSummaryMap.set(entryLabel, existing);
+        } else {
+          const existing = depositSummaryMap.get(entryLabel) || { total: 0, charges: 0, count: 0 };
+          existing.total += be.amount;
+          existing.charges += totalCharges;
+          existing.count += 1;
+          depositSummaryMap.set(entryLabel, existing);
+        }
       });
 
-      // Group transactions by type
+      const depositRows: SummaryRow[] = Array.from(depositSummaryMap.entries()).map(([entryType, data], idx) => ({
+        id: `deposit-${idx}`,
+        category: entryType,
+        description: language === 'ar' ? `إيداع - ${entryType}` : `Deposit - ${entryType}`,
+        totalAmount: data.total,
+        totalCharges: data.charges,
+        netAmount: data.total - data.charges,
+        type: 'income' as const,
+        transactionCount: data.count,
+      }));
+
+      const withdrawalRows: SummaryRow[] = Array.from(withdrawalSummaryMap.entries()).map(([entryType, data], idx) => ({
+        id: `withdrawal-${idx}`,
+        category: entryType,
+        description: language === 'ar' ? `سحب - ${entryType}` : `Withdrawal - ${entryType}`,
+        totalAmount: data.total,
+        totalCharges: data.charges,
+        netAmount: data.total + data.charges,
+        type: 'expense' as const,
+        transactionCount: data.count,
+      }));
+
+      // Build groups
       const groups: TransactionGroup[] = [];
 
-      if (salesTransactions.length > 0) {
+      if (salesRows.length > 0) {
+        const subtotal = salesRows.reduce((sum, r) => sum + r.netAmount, 0);
+        const subtotalCharges = salesRows.reduce((sum, r) => sum + r.totalCharges, 0);
         groups.push({
           type: 'sales',
           typeLabel: language === 'ar' ? 'مبيعات عبر وسائل الدفع' : 'Sales via Payment Methods',
-          transactions: salesTransactions,
-          subtotal: salesTransactions.reduce((sum, t) => sum + t.netAmount, 0),
+          rows: salesRows,
+          subtotal,
+          subtotalCharges,
         });
       }
 
-      if (expenseTransactions.length > 0) {
+      if (expenseRows.length > 0) {
+        const subtotal = expenseRows.reduce((sum, r) => sum + r.netAmount, 0);
         groups.push({
           type: 'expenses',
           typeLabel: language === 'ar' ? 'مصروفات مدفوعة' : 'Paid Expenses',
-          transactions: expenseTransactions,
-          subtotal: expenseTransactions.reduce((sum, t) => sum + t.amount, 0),
+          rows: expenseRows,
+          subtotal,
+          subtotalCharges: 0,
         });
       }
 
-      // Group bank entries by entry_type
-      const depositEntries = bankEntryTransactions.filter(t => t.type === 'income');
-      const withdrawalEntries = bankEntryTransactions.filter(t => t.type === 'expense');
-
-      if (depositEntries.length > 0) {
+      if (depositRows.length > 0) {
+        const subtotal = depositRows.reduce((sum, r) => sum + r.netAmount, 0);
+        const subtotalCharges = depositRows.reduce((sum, r) => sum + r.totalCharges, 0);
         groups.push({
           type: 'deposits',
           typeLabel: language === 'ar' ? 'إيداعات بنكية' : 'Bank Deposits',
-          transactions: depositEntries,
-          subtotal: depositEntries.reduce((sum, t) => sum + t.netAmount, 0),
+          rows: depositRows,
+          subtotal,
+          subtotalCharges,
         });
       }
 
-      if (withdrawalEntries.length > 0) {
+      if (withdrawalRows.length > 0) {
+        const subtotal = withdrawalRows.reduce((sum, r) => sum + r.netAmount, 0);
+        const subtotalCharges = withdrawalRows.reduce((sum, r) => sum + r.totalCharges, 0);
         groups.push({
           type: 'withdrawals',
           typeLabel: language === 'ar' ? 'سحوبات بنكية' : 'Bank Withdrawals',
-          transactions: withdrawalEntries,
-          subtotal: withdrawalEntries.reduce((sum, t) => sum + t.netAmount, 0),
+          rows: withdrawalRows,
+          subtotal,
+          subtotalCharges,
         });
       }
 
@@ -227,8 +266,7 @@ const BankBalanceByDateReport = () => {
         .filter(g => g.type === 'expenses' || g.type === 'withdrawals')
         .reduce((sum, g) => sum + g.subtotal, 0);
 
-      const totalCharges = [...salesTransactions, ...bankEntryTransactions]
-        .reduce((sum, t) => sum + t.charges, 0);
+      const totalCharges = groups.reduce((sum, g) => sum + g.subtotalCharges, 0);
 
       setGrandTotalIncome(totalIncome);
       setGrandTotalExpense(totalExpense);
@@ -258,11 +296,11 @@ const BankBalanceByDateReport = () => {
 
     transactionGroups.forEach(group => {
       csv += `\n${group.typeLabel}\n`;
-      csv += `${language === 'ar' ? 'التاريخ' : 'Date'},${language === 'ar' ? 'الوصف' : 'Description'},${language === 'ar' ? 'المرجع' : 'Reference'},${language === 'ar' ? 'المبلغ' : 'Amount'},${language === 'ar' ? 'الرسوم' : 'Charges'},${language === 'ar' ? 'الصافي' : 'Net Amount'}\n`;
-      group.transactions.forEach(t => {
-        csv += `${t.date},${t.description},${t.reference},${t.amount},${t.charges},${t.netAmount}\n`;
+      csv += `${language === 'ar' ? 'الوصف' : 'Description'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'إجمالي المبلغ' : 'Total Amount'},${language === 'ar' ? 'الرسوم' : 'Charges'},${language === 'ar' ? 'الصافي' : 'Net Amount'}\n`;
+      group.rows.forEach(r => {
+        csv += `${r.description},${r.transactionCount},${r.totalAmount},${r.totalCharges},${r.netAmount}\n`;
       });
-      csv += `${language === 'ar' ? 'المجموع الفرعي' : 'Subtotal'},,,,,${group.subtotal}\n`;
+      csv += `${language === 'ar' ? 'المجموع الفرعي' : 'Subtotal'},,,,${group.subtotal}\n`;
     });
 
     csv += `\n${language === 'ar' ? 'الملخص' : 'Summary'}\n`;
@@ -310,8 +348,8 @@ const BankBalanceByDateReport = () => {
           </h1>
           <p className="text-muted-foreground">
             {language === 'ar' 
-              ? 'عرض جميع المعاملات حسب النوع مع الرسوم والإجماليات' 
-              : 'View all transactions by type with charges and totals'}
+              ? 'ملخص المعاملات حسب وسيلة الدفع مع الرسوم والإجماليات' 
+              : 'Transaction summary by payment method with charges and totals'}
           </p>
         </div>
       </div>
@@ -431,33 +469,33 @@ const BankBalanceByDateReport = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                   <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'المرجع' : 'Reference'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                  <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
+                  <TableHead className="text-right">{language === 'ar' ? 'إجمالي المبلغ' : 'Total Amount'}</TableHead>
                   <TableHead className="text-right">{language === 'ar' ? 'الرسوم' : 'Charges'}</TableHead>
                   <TableHead className="text-right">{language === 'ar' ? 'الصافي' : 'Net Amount'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {group.transactions.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell>{t.date}</TableCell>
-                    <TableCell>{t.description}</TableCell>
-                    <TableCell className="font-mono text-sm">{t.reference}</TableCell>
-                    <TableCell className="text-right">{formatNumber(t.amount)}</TableCell>
-                    <TableCell className="text-right text-orange-600">{t.charges > 0 ? formatNumber(t.charges) : '-'}</TableCell>
-                    <TableCell className={`text-right font-medium ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatNumber(t.netAmount)}
+                {group.rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.description}</TableCell>
+                    <TableCell className="text-center">{r.transactionCount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{formatNumber(r.totalAmount)}</TableCell>
+                    <TableCell className="text-right text-orange-600">{r.totalCharges > 0 ? formatNumber(r.totalCharges) : '-'}</TableCell>
+                    <TableCell className={`text-right font-medium ${r.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatNumber(r.netAmount)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-muted/50 font-bold">
-                  <TableCell colSpan={5} className="text-right">
+                  <TableCell colSpan={2} className="text-right">
                     {language === 'ar' ? 'المجموع الفرعي:' : 'Subtotal:'}
                   </TableCell>
+                  <TableCell className="text-right">{formatNumber(group.rows.reduce((s, r) => s + r.totalAmount, 0))}</TableCell>
+                  <TableCell className="text-right text-orange-600">{group.subtotalCharges > 0 ? formatNumber(group.subtotalCharges) : '-'}</TableCell>
                   <TableCell className={`text-right ${group.type === 'sales' || group.type === 'deposits' ? 'text-green-600' : 'text-red-600'}`}>
                     {formatNumber(group.subtotal)}
                   </TableCell>
