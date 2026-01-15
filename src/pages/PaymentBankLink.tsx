@@ -29,6 +29,12 @@ interface Bank {
   is_active: boolean;
 }
 
+interface GroupedPaymentType {
+  payment_type: string;
+  bank_id: string | null;
+  method_ids: string[];
+}
+
 export default function PaymentBankLink() {
   const { language } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -36,6 +42,23 @@ export default function PaymentBankLink() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [changes, setChanges] = useState<Record<string, string | null>>({});
+
+  // Group payment methods by payment_type
+  const groupedPaymentTypes: GroupedPaymentType[] = (() => {
+    const groups = new Map<string, { bank_id: string | null; method_ids: string[] }>();
+    paymentMethods.forEach((pm) => {
+      const key = pm.payment_type || 'OTHER';
+      if (!groups.has(key)) {
+        groups.set(key, { bank_id: pm.bank_id, method_ids: [] });
+      }
+      groups.get(key)!.method_ids.push(pm.id);
+    });
+    return Array.from(groups.entries()).map(([payment_type, data]) => ({
+      payment_type,
+      bank_id: data.bank_id,
+      method_ids: data.method_ids,
+    }));
+  })();
 
   useEffect(() => {
     fetchData();
@@ -70,11 +93,27 @@ export default function PaymentBankLink() {
     }
   };
 
-  const handleBankChange = (paymentMethodId: string, bankId: string | null) => {
-    setChanges((prev) => ({
-      ...prev,
-      [paymentMethodId]: bankId,
-    }));
+  const handleBankChange = (paymentType: string, bankId: string | null) => {
+    // Find all method IDs for this payment type
+    const group = groupedPaymentTypes.find((g) => g.payment_type === paymentType);
+    if (group) {
+      const newChanges = { ...changes };
+      group.method_ids.forEach((id) => {
+        newChanges[id] = bankId;
+      });
+      setChanges(newChanges);
+    }
+  };
+
+  const getCurrentBankIdForType = (paymentType: string): string | null => {
+    const group = groupedPaymentTypes.find((g) => g.payment_type === paymentType);
+    if (!group) return null;
+    // Check if any method in this group has a pending change
+    const firstMethodWithChange = group.method_ids.find((id) => changes.hasOwnProperty(id));
+    if (firstMethodWithChange) {
+      return changes[firstMethodWithChange];
+    }
+    return group.bank_id;
   };
 
   const getCurrentBankId = (paymentMethod: PaymentMethod): string | null => {
@@ -212,7 +251,7 @@ export default function PaymentBankLink() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {paymentMethods.filter((pm) => getCurrentBankId(pm)).length}
+                  {groupedPaymentTypes.filter((g) => getCurrentBankIdForType(g.payment_type)).length}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {language === "ar" ? "طرق دفع مرتبطة" : "Linked Methods"}
@@ -241,18 +280,18 @@ export default function PaymentBankLink() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paymentMethods.map((method) => {
-                  const currentBankId = getCurrentBankId(method);
-                  const hasChange = changes.hasOwnProperty(method.id);
+                {groupedPaymentTypes.map((group) => {
+                  const currentBankId = getCurrentBankIdForType(group.payment_type);
+                  const hasChange = group.method_ids.some((id) => changes.hasOwnProperty(id));
 
                   return (
-                    <TableRow key={method.id} className={hasChange ? "bg-primary/5" : ""}>
-                      <TableCell className="font-medium">{method.payment_type?.toUpperCase() || '-'}</TableCell>
+                    <TableRow key={group.payment_type} className={hasChange ? "bg-primary/5" : ""}>
+                      <TableCell className="font-medium">{group.payment_type?.toUpperCase() || '-'}</TableCell>
                       <TableCell>
                         <Select
                           value={currentBankId || "none"}
                           onValueChange={(value) =>
-                            handleBankChange(method.id, value === "none" ? null : value)
+                            handleBankChange(group.payment_type, value === "none" ? null : value)
                           }
                         >
                           <SelectTrigger className="w-[200px]">
@@ -298,7 +337,7 @@ export default function PaymentBankLink() {
             </Table>
           </div>
 
-          {paymentMethods.length === 0 && (
+          {groupedPaymentTypes.length === 0 && (
             <div className="text-center py-10 text-muted-foreground">
               {language === "ar" ? "لا توجد طرق دفع نشطة" : "No active payment methods found"}
             </div>
