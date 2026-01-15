@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date']);
         setLoading(false);
         return;
       }
@@ -234,6 +234,15 @@ const Reports = () => {
         : "Paid expenses report for a selected period with export",
       icon: DollarSign,
       route: "/expense-reports?tab=paid",
+    },
+    {
+      id: "bank-balance-by-date",
+      name: language === "ar" ? "تقرير رصيد البنك بالتاريخ" : "Bank Balance by Date",
+      description: language === "ar" 
+        ? "عرض جميع المعاملات البنكية حسب النوع مع الرسوم والإجماليات" 
+        : "View all bank transactions by type with charges and totals",
+      icon: Landmark,
+      route: "/reports/bank-balance-by-date",
     },
   ];
 
