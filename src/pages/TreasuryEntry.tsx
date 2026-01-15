@@ -374,13 +374,13 @@ const TreasuryEntry = () => {
   };
 
   // Calculate exchange rate between two currencies
-  // rate_to_base means: 1 unit of currency = X units of base currency (SAR)
+  // rate_to_base means: 1 SAR = X units of this currency (e.g., USD rate = 0.2667 means 1 SAR = 0.2667 USD)
   const calculateExchangeRate = (fromCurrencyId: string, toCurrencyId: string): number => {
     if (!fromCurrencyId || !toCurrencyId || fromCurrencyId === toCurrencyId) return 1;
     const fromRate = getLatestRate(fromCurrencyId);
     const toRate = getLatestRate(toCurrencyId);
-    // Formula: fromRate / toRate
-    return fromRate / toRate;
+    // Formula: toRate / fromRate
+    return toRate / fromRate;
   };
 
   const handleTreasurySelect = (treasuryId: string) => {
