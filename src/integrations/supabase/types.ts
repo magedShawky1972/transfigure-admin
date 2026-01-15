@@ -3233,6 +3233,7 @@ export type Database = {
       }
       payment_methods: {
         Row: {
+          bank_id: string | null
           created_at: string
           fixed_value: number
           gateway_fee: number
@@ -3244,6 +3245,7 @@ export type Database = {
           vat_fee: number
         }
         Insert: {
+          bank_id?: string | null
           created_at?: string
           fixed_value?: number
           gateway_fee?: number
@@ -3255,6 +3257,7 @@ export type Database = {
           vat_fee?: number
         }
         Update: {
+          bank_id?: string | null
           created_at?: string
           fixed_value?: number
           gateway_fee?: number
@@ -3265,7 +3268,15 @@ export type Database = {
           updated_at?: string
           vat_fee?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_transactions: {
         Row: {
