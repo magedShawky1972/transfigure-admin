@@ -103,6 +103,8 @@ const ZKAttendanceLogs = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -127,12 +129,15 @@ const ZKAttendanceLogs = () => {
   const fetchLogs = async () => {
     setLoading(true);
     try {
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from("zk_attendance_logs")
         .select("*", { count: "exact" })
         .order("attendance_date", { ascending: false })
         .order("attendance_time", { ascending: false })
-        .limit(500);
+        .range(from, to);
 
       if (searchCode) {
         query = query.ilike("employee_code", `%${searchCode}%`);
@@ -197,6 +202,11 @@ const ZKAttendanceLogs = () => {
   useEffect(() => {
     fetchLogs();
     fetchEmployees();
+  }, [searchCode, selectedDate, recordTypeFilter, currentPage, pageSize]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
   }, [searchCode, selectedDate, recordTypeFilter]);
 
   const getEmployeeName = (code: string) => {
@@ -947,16 +957,81 @@ const ZKAttendanceLogs = () => {
             </div>
           )}
 
-          {logs.length > 0 && (
-            <div className="mt-4 text-sm text-muted-foreground">
-              {viewMode === "detailed" 
-                ? (isArabic
-                    ? `عرض ${logs.length} من ${totalCount} سجل`
-                    : `Showing ${logs.length} of ${totalCount} records`)
-                : (isArabic
-                    ? `عرض ${summaryRecords.length} موظف/يوم`
-                    : `Showing ${summaryRecords.length} employee/day records`)
-              }
+          {/* Pagination Controls */}
+          {totalCount > 0 && (
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-muted-foreground">
+                {viewMode === "detailed" 
+                  ? (isArabic
+                      ? `عرض ${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, totalCount)} من ${totalCount} سجل`
+                      : `Showing ${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, totalCount)} of ${totalCount} records`)
+                  : (isArabic
+                      ? `عرض ${summaryRecords.length} موظف/يوم`
+                      : `Showing ${summaryRecords.length} employee/day records`)
+                }
+              </div>
+              
+              <div className="flex items-center gap-4">
+                {/* Page Size Selector */}
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">{isArabic ? "عدد الصفوف:" : "Rows:"}</Label>
+                  <Select value={pageSize.toString()} onValueChange={(val) => setPageSize(Number(val))}>
+                    <SelectTrigger className="w-20 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
+                      <SelectItem value="500">500</SelectItem>
+                      <SelectItem value="1000">1000</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Page Navigation */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    {isArabic ? "الأولى" : "First"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    {isArabic ? "السابق" : "Prev"}
+                  </Button>
+                  <span className="text-sm px-2">
+                    {isArabic 
+                      ? `صفحة ${currentPage} من ${Math.ceil(totalCount / pageSize)}`
+                      : `Page ${currentPage} of ${Math.ceil(totalCount / pageSize)}`
+                    }
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
+                    disabled={currentPage >= Math.ceil(totalCount / pageSize) || loading}
+                  >
+                    {isArabic ? "التالي" : "Next"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.ceil(totalCount / pageSize))}
+                    disabled={currentPage >= Math.ceil(totalCount / pageSize) || loading}
+                  >
+                    {isArabic ? "الأخيرة" : "Last"}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
