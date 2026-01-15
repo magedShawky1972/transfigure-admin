@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus } from "lucide-react";
+import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus, Printer } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { ExpensePaymentPrint } from "@/components/ExpensePaymentPrint";
 
 interface ExpenseRequest {
   id: string;
@@ -52,12 +53,14 @@ interface Bank {
   id: string;
   bank_code: string;
   bank_name: string;
+  current_balance: number;
 }
 
 interface Treasury {
   id: string;
   treasury_code: string;
   treasury_name: string;
+  current_balance: number;
 }
 
 interface Currency {
@@ -140,8 +143,8 @@ const ExpenseRequests = () => {
       const [requestsRes, typesRes, banksRes, treasuriesRes, currenciesRes, uomRes, itemsRes] = await Promise.all([
         supabase.from("expense_requests").select("*").order("request_date", { ascending: false }),
         supabase.from("expense_types").select("id, expense_name, expense_name_ar, is_asset").eq("is_active", true),
-        supabase.from("banks").select("id, bank_code, bank_name").eq("is_active", true),
-        supabase.from("treasuries").select("id, treasury_code, treasury_name").eq("is_active", true),
+        supabase.from("banks").select("id, bank_code, bank_name, current_balance").eq("is_active", true),
+        supabase.from("treasuries").select("id, treasury_code, treasury_name, current_balance").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code").eq("is_active", true),
         supabase.from("uom").select("id, uom_code, uom_name, uom_name_ar").eq("is_active", true),
         supabase.from("purchase_items").select("id, item_name, item_name_ar").eq("is_active", true),
@@ -219,12 +222,35 @@ const ExpenseRequests = () => {
         updateData.approved_by = currentUserId;
         updateData.approved_at = new Date().toISOString();
       } else if (newStatus === "paid") {
+        // VALIDATE BALANCE BEFORE PAYMENT
+        if (request.payment_method === "bank" && request.bank_id) {
+          const bank = banks.find(b => b.id === request.bank_id);
+          if (bank && (bank.current_balance || 0) < request.amount) {
+            toast.error(
+              language === "ar" 
+                ? `رصيد البنك غير كافي! الرصيد الحالي: ${(bank.current_balance || 0).toLocaleString()} - المطلوب: ${request.amount.toLocaleString()}`
+                : `Insufficient bank balance! Current: ${(bank.current_balance || 0).toLocaleString()} - Required: ${request.amount.toLocaleString()}`
+            );
+            return;
+          }
+        } else if (request.payment_method === "treasury" && request.treasury_id) {
+          const treasury = treasuries.find(t => t.id === request.treasury_id);
+          if (treasury && (treasury.current_balance || 0) < request.amount) {
+            toast.error(
+              language === "ar" 
+                ? `رصيد الخزينة غير كافي! الرصيد الحالي: ${(treasury.current_balance || 0).toLocaleString()} - المطلوب: ${request.amount.toLocaleString()}`
+                : `Insufficient treasury balance! Current: ${(treasury.current_balance || 0).toLocaleString()} - Required: ${request.amount.toLocaleString()}`
+            );
+            return;
+          }
+        }
+
         updateData.paid_by = currentUserId;
         updateData.paid_at = new Date().toISOString();
 
         // AUTO-CREATE BANK or TREASURY ENTRY
         if (request.payment_method === "bank" && request.bank_id) {
-          // Generate bank entry number
+          const bank = banks.find(b => b.id === request.bank_id);
           const date = new Date();
           const entryNumber = `BNK${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
           
@@ -237,7 +263,7 @@ const ExpenseRequests = () => {
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
             expense_request_id: request.id,
-            status: "approved", // Auto-approve the entry
+            status: "approved",
             approved_by: currentUserId,
             approved_at: new Date().toISOString(),
           });
@@ -245,11 +271,16 @@ const ExpenseRequests = () => {
           if (bankError) {
             console.error("Error creating bank entry:", bankError);
             toast.error(language === "ar" ? "خطأ في إنشاء قيد البنك" : "Error creating bank entry");
-          } else {
-            toast.success(language === "ar" ? "تم إنشاء قيد البنك" : "Bank entry created");
+            return;
           }
+
+          // Update bank balance
+          const newBalance = (bank?.current_balance || 0) - request.amount;
+          await supabase.from("banks").update({ current_balance: newBalance }).eq("id", request.bank_id);
+          
+          toast.success(language === "ar" ? "تم إنشاء قيد البنك وخصم الرصيد" : "Bank entry created and balance deducted");
         } else if (request.payment_method === "treasury" && request.treasury_id) {
-          // Generate treasury entry number
+          const treasury = treasuries.find(t => t.id === request.treasury_id);
           const date = new Date();
           const entryNumber = `TRS${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
           
@@ -262,7 +293,7 @@ const ExpenseRequests = () => {
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
             expense_request_id: request.id,
-            status: "approved", // Auto-approve the entry
+            status: "approved",
             approved_by: currentUserId,
             approved_at: new Date().toISOString(),
           });
@@ -270,9 +301,14 @@ const ExpenseRequests = () => {
           if (treasuryError) {
             console.error("Error creating treasury entry:", treasuryError);
             toast.error(language === "ar" ? "خطأ في إنشاء قيد الخزينة" : "Error creating treasury entry");
-          } else {
-            toast.success(language === "ar" ? "تم إنشاء قيد الخزينة" : "Treasury entry created");
+            return;
           }
+
+          // Update treasury balance
+          const newBalance = (treasury?.current_balance || 0) - request.amount;
+          await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", request.treasury_id);
+          
+          toast.success(language === "ar" ? "تم إنشاء قيد الخزينة وخصم الرصيد" : "Treasury entry created and balance deducted");
         }
       }
 
@@ -552,6 +588,32 @@ const ExpenseRequests = () => {
                         <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, "paid")}>
                           {language === "ar" ? "دفع" : "Pay"}
                         </Button>
+                      )}
+                      {request.status === "paid" && request.paid_at && (
+                        <ExpensePaymentPrint
+                          request={{
+                            request_number: request.request_number,
+                            request_date: request.request_date,
+                            description: request.description,
+                            amount: request.amount,
+                            payment_method: request.payment_method,
+                            paid_at: request.paid_at,
+                            notes: request.notes,
+                          }}
+                          paymentDetails={{
+                            entryNumber: request.payment_method === "bank" 
+                              ? `BNK${format(new Date(request.paid_at), "yyMMddHHmmss")}`
+                              : `TRS${format(new Date(request.paid_at), "yyMMddHHmmss")}`,
+                            sourceType: request.payment_method === "bank" 
+                              ? (language === "ar" ? "بنك" : "Bank")
+                              : (language === "ar" ? "خزينة" : "Treasury"),
+                            sourceName: request.payment_method === "bank"
+                              ? (banks.find(b => b.id === request.bank_id)?.bank_name || "-")
+                              : (treasuries.find(t => t.id === request.treasury_id)?.treasury_name || "-"),
+                            paymentDate: request.paid_at,
+                          }}
+                          language={language}
+                        />
                       )}
                     </div>
                   </TableCell>
