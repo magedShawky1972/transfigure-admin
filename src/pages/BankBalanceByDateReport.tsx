@@ -63,17 +63,24 @@ const BankBalanceByDateReport = () => {
   }, []);
 
   const fetchBanks = async () => {
-    const { data, error } = await supabase
-      .from('banks')
-      .select('id, bank_code, bank_name, bank_name_ar, opening_balance')
-      .eq('is_active', true)
-      .order('bank_name');
+    try {
+      const { data, error } = await supabase
+        .from('banks')
+        .select('id, bank_code, bank_name, bank_name_ar, opening_balance')
+        .eq('is_active', true)
+        .order('bank_name');
 
-    if (error) {
+      if (error) {
+        console.error('Error fetching banks:', error);
+        toast.error(language === 'ar' ? 'خطأ في جلب البنوك' : 'Error fetching banks');
+        return;
+      }
+      console.log('Banks loaded:', data);
+      setBanks(data || []);
+    } catch (err) {
+      console.error('Exception fetching banks:', err);
       toast.error(language === 'ar' ? 'خطأ في جلب البنوك' : 'Error fetching banks');
-      return;
     }
-    setBanks(data || []);
   };
 
   const fetchReport = async () => {
