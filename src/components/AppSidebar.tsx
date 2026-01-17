@@ -38,7 +38,8 @@ import {
   CalendarClock,
   ClipboardCheck,
   FileKey,
-  Briefcase
+  Briefcase,
+  Receipt
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -139,6 +140,7 @@ export function AppSidebar() {
     "/treasury-entry": "treasuryEntry",
     "/bank-entry": "bankEntry",
     "/expense-requests": "expenseRequests",
+    "/expense-entry": "expenseEntry",
     "/payment-bank-link": "paymentBankLink",
   };
 
@@ -342,6 +344,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'رصيد الخزينة الافتتاحي' : 'Treasury Opening Balance', url: "/treasury-opening-balance", icon: DollarSign },
         { title: language === 'ar' ? 'قيد الخزينة' : 'Treasury Entry', url: "/treasury-entry", icon: FileText },
         { title: language === 'ar' ? 'قيد البنك' : 'Bank Entry', url: "/bank-entry", icon: FileText },
+        { title: language === 'ar' ? 'قيد المصروفات' : 'Expense Entry', url: "/expense-entry", icon: Receipt },
         { title: language === 'ar' ? 'طلبات المصروفات' : 'Expense Requests', url: "/expense-requests", icon: ClipboardList },
         { title: language === 'ar' ? 'ربط طرق الدفع بالبنوك' : 'Payment Bank Link', url: "/payment-bank-link", icon: Link2 },
       ]

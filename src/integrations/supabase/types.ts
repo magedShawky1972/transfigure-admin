@@ -1956,6 +1956,160 @@ export type Database = {
           },
         ]
       }
+      expense_entries: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          bank_id: string | null
+          created_at: string | null
+          created_by: string | null
+          currency_id: string | null
+          entry_date: string
+          entry_number: string
+          exchange_rate: number | null
+          expense_reference: string | null
+          grand_total: number | null
+          id: string
+          notes: string | null
+          paid_at: string | null
+          paid_by: string | null
+          payment_method: string
+          status: string | null
+          subtotal: number | null
+          total_vat: number | null
+          treasury_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          entry_date?: string
+          entry_number: string
+          exchange_rate?: number | null
+          expense_reference?: string | null
+          grand_total?: number | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_method: string
+          status?: string | null
+          subtotal?: number | null
+          total_vat?: number | null
+          treasury_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          entry_date?: string
+          entry_number?: string
+          exchange_rate?: number | null
+          expense_reference?: string | null
+          grand_total?: number | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_method?: string
+          status?: string | null
+          subtotal?: number | null
+          total_vat?: number | null
+          treasury_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_entries_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_entries_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_entries_treasury_id_fkey"
+            columns: ["treasury_id"]
+            isOneToOne: false
+            referencedRelation: "treasuries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_entry_lines: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          expense_entry_id: string
+          expense_type_id: string | null
+          id: string
+          line_number: number
+          line_total: number | null
+          quantity: number | null
+          total: number | null
+          unit_price: number | null
+          vat_amount: number | null
+          vat_percent: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          expense_entry_id: string
+          expense_type_id?: string | null
+          id?: string
+          line_number: number
+          line_total?: number | null
+          quantity?: number | null
+          total?: number | null
+          unit_price?: number | null
+          vat_amount?: number | null
+          vat_percent?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          expense_entry_id?: string
+          expense_type_id?: string | null
+          id?: string
+          line_number?: number
+          line_total?: number | null
+          quantity?: number | null
+          total?: number | null
+          unit_price?: number | null
+          vat_amount?: number | null
+          vat_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_entry_lines_expense_entry_id_fkey"
+            columns: ["expense_entry_id"]
+            isOneToOne: false
+            referencedRelation: "expense_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_entry_lines_expense_type_id_fkey"
+            columns: ["expense_type_id"]
+            isOneToOne: false
+            referencedRelation: "expense_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_requests: {
         Row: {
           amount: number
