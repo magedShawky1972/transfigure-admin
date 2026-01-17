@@ -154,6 +154,7 @@ interface UserPermission {
     { key: "treasuryOpeningBalance", label: "رصيد الخزينة الافتتاحي", labelEn: "Treasury Opening Balance" },
     { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
     { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
+    { key: "expenseEntry", label: "قيد المصروفات", labelEn: "Expense Entry" },
     { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
     { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
   ];
