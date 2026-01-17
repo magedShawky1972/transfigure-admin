@@ -510,6 +510,7 @@ const ExpenseEntryForm = () => {
         grandTotal={grandTotal}
         notes={notes}
         createdBy={currentUserName}
+        status={status}
       />
     );
   }

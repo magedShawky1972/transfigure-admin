@@ -36,6 +36,7 @@ interface ExpenseEntryPrintProps {
   grandTotal: number;
   notes: string;
   createdBy: string;
+  status?: string;
 }
 
 export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintProps>(
@@ -57,6 +58,7 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
       grandTotal,
       notes,
       createdBy,
+      status = "draft",
     },
     ref
   ) => {
@@ -70,22 +72,50 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
     };
 
     const isRtl = language === "ar";
+    const isDraft = status === "draft";
+    const isPending = status === "pending";
+
+    const getStatusLabel = () => {
+      if (isDraft) return isRtl ? "مسودة" : "DRAFT";
+      if (isPending) return isRtl ? "في الانتظار" : "PENDING";
+      return "";
+    };
 
     return (
       <div
         ref={ref}
-        className="bg-white p-8 min-h-screen print:p-4"
+        className="bg-white p-8 min-h-screen print:p-4 relative"
         dir={isRtl ? "rtl" : "ltr"}
         style={{ fontFamily: "Arial, sans-serif" }}
       >
+        {/* Watermark for Draft/Pending */}
+        {(isDraft || isPending) && (
+          <div 
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ zIndex: 0 }}
+          >
+            <div 
+              className="text-8xl font-bold opacity-10 transform -rotate-45 select-none"
+              style={{ color: isDraft ? "#666" : "#f59e0b" }}
+            >
+              {getStatusLabel()}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
-        <div className="text-center border-b-2 border-black pb-4 mb-6">
+        <div className="text-center border-b-2 border-black pb-4 mb-6 relative" style={{ zIndex: 1 }}>
           <h1 className="text-2xl font-bold mb-2">
             {isRtl ? "سند صرف مصروفات" : "Expense Payment Voucher"}
           </h1>
           <p className="text-sm text-gray-600">
             {isRtl ? "نسخة أصلية" : "Original Copy"}
           </p>
+          {(isDraft || isPending) && (
+            <div className={`inline-block mt-2 px-3 py-1 text-sm font-semibold rounded ${isDraft ? "bg-gray-200 text-gray-700" : "bg-yellow-100 text-yellow-800"}`}>
+              {getStatusLabel()}
+            </div>
+          )}
         </div>
 
         {/* Entry Info */}
