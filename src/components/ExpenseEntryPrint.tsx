@@ -84,9 +84,10 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
     return (
       <div
         ref={ref}
+        data-print-content="true"
         className="bg-white p-8 min-h-screen print:p-4 relative"
         dir={isRtl ? "rtl" : "ltr"}
-        style={{ fontFamily: "Arial, sans-serif" }}
+        style={{ fontFamily: "Arial, sans-serif", color: "#000" }}
       >
         {/* Watermark for Draft/Pending */}
         {(isDraft || isPending) && (
@@ -261,18 +262,61 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
         {/* Print Styles */}
         <style>{`
           @media print {
-            body * {
-              visibility: hidden;
+            html, body {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              background: white !important;
             }
-            #root {
-              visibility: visible;
+            
+            /* Hide everything except the print content */
+            body > *:not(#root) {
+              display: none !important;
             }
-            #root > * {
-              visibility: visible;
+            
+            #root > *:not([data-print-content="true"]) {
+              display: none !important;
             }
+            
+            /* Ensure print content is visible */
+            [data-print-content="true"],
+            [data-print-content="true"] * {
+              visibility: visible !important;
+              display: block;
+            }
+            
+            [data-print-content="true"] {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              background: white !important;
+            }
+            
             @page {
               size: A4;
               margin: 10mm;
+            }
+            
+            /* Ensure tables display properly */
+            table {
+              display: table !important;
+            }
+            thead {
+              display: table-header-group !important;
+            }
+            tbody {
+              display: table-row-group !important;
+            }
+            tr {
+              display: table-row !important;
+            }
+            td, th {
+              display: table-cell !important;
+            }
+            
+            /* Ensure grid displays */
+            .grid {
+              display: grid !important;
             }
           }
         `}</style>
