@@ -6486,7 +6486,6 @@ export type Database = {
           p_to_date_int: number
         }
         Returns: {
-          bank_charges: number
           description: string
           order_count: number
           payment_type: string

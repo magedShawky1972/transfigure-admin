@@ -18,13 +18,12 @@ interface Bank {
   opening_balance: number | null;
 }
 
-interface SalesRow {
+interface ReportRow {
   id: string;
-  paymentMethod: string;
-  grossAmount: number;
-  charges: number;
-  netAmount: number;
-  transactionCount: number;
+  description: string;
+  paymentType: string;
+  totalAmount: number;
+  orderCount: number;
 }
 
 interface SummaryRow {
@@ -51,7 +50,7 @@ const BankBalanceByDateReport = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [transactionGroups, setTransactionGroups] = useState<TransactionGroup[]>([]);
-  const [salesRows, setSalesRows] = useState<SalesRow[]>([]);
+  const [reportRows, setReportRows] = useState<ReportRow[]>([]);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [grandTotalIncome, setGrandTotalIncome] = useState(0);
   const [grandTotalExpense, setGrandTotalExpense] = useState(0);
@@ -122,22 +121,24 @@ const BankBalanceByDateReport = () => {
 
       console.log('Report data:', reportData);
 
-      // Create sales rows from the database function result
-      const newSalesRows: SalesRow[] = (reportData || []).map((row: any, idx: number) => ({
-        id: `sales-${idx}`,
-        paymentMethod: (row.payment_type || 'other').toUpperCase(),
-        grossAmount: Number(row.total_amount) || 0,
-        charges: Number(row.bank_charges) || 0,
-        netAmount: (Number(row.total_amount) || 0) - (Number(row.bank_charges) || 0),
-        transactionCount: Number(row.order_count) || 0,
+      // Create report rows from the database function result (Sales and Bank Charges rows)
+      const newReportRows: ReportRow[] = (reportData || []).map((row: any, idx: number) => ({
+        id: `row-${idx}`,
+        description: row.description || '',
+        paymentType: (row.payment_type || 'other').toUpperCase(),
+        totalAmount: Number(row.total_amount) || 0,
+        orderCount: Number(row.order_count) || 0,
       }));
 
-      setSalesRows(newSalesRows);
+      setReportRows(newReportRows);
 
-      // Calculate sales totals
-      const totalGrossSales = newSalesRows.reduce((sum, r) => sum + r.grossAmount, 0);
-      const totalChargesSales = newSalesRows.reduce((sum, r) => sum + r.charges, 0);
-      const totalNetSales = newSalesRows.reduce((sum, r) => sum + r.netAmount, 0);
+      // Calculate totals from Sales rows only
+      const salesOnlyRows = newReportRows.filter(r => r.description === 'Sales');
+      const chargesOnlyRows = newReportRows.filter(r => r.description === 'Bank Charges');
+      
+      const totalGrossSales = salesOnlyRows.reduce((sum, r) => sum + r.totalAmount, 0);
+      const totalChargesSales = chargesOnlyRows.reduce((sum, r) => sum + r.totalAmount, 0);
+      const totalNetSales = totalGrossSales - totalChargesSales;
       setGrandTotalNetSales(totalNetSales);
 
       // Fetch expense payments from this bank - grouped by expense type
@@ -287,14 +288,18 @@ const BankBalanceByDateReport = () => {
     csv += `${language === 'ar' ? 'من تاريخ' : 'From Date'},${fromDate}\n`;
     csv += `${language === 'ar' ? 'إلى تاريخ' : 'To Date'},${toDate}\n\n`;
 
-    // Sales section with Gross, Charges, Net
-    if (salesRows.length > 0) {
-      csv += `\n${language === 'ar' ? 'المبيعات' : 'Sales'}\n`;
-      csv += `${language === 'ar' ? 'وسيلة الدفع' : 'Payment Method'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'المبلغ الإجمالي' : 'Gross Amount'},${language === 'ar' ? 'الرسوم' : 'Charges'},${language === 'ar' ? 'صافي المبلغ' : 'Net Amount'}\n`;
-      salesRows.forEach(r => {
-        csv += `${r.paymentMethod},${r.transactionCount},${r.grossAmount},${r.charges},${r.netAmount}\n`;
+    // Report data section
+    if (reportRows.length > 0) {
+      csv += `\n${language === 'ar' ? 'البيانات' : 'Report Data'}\n`;
+      csv += `${language === 'ar' ? 'الوصف' : 'Description'},${language === 'ar' ? 'طريقة الدفع' : 'Payment Type'},${language === 'ar' ? 'عدد المعاملات' : 'Count'},${language === 'ar' ? 'المبلغ' : 'Amount'}\n`;
+      reportRows.forEach(r => {
+        csv += `${r.description},${r.paymentType},${r.orderCount},${r.totalAmount}\n`;
       });
-      csv += `${language === 'ar' ? 'المجموع' : 'Total'},${salesRows.reduce((s, r) => s + r.transactionCount, 0)},${salesRows.reduce((s, r) => s + r.grossAmount, 0)},${salesRows.reduce((s, r) => s + r.charges, 0)},${grandTotalNetSales}\n`;
+      const salesTotal = reportRows.filter(r => r.description === 'Sales').reduce((s, r) => s + r.totalAmount, 0);
+      const chargesTotal = reportRows.filter(r => r.description === 'Bank Charges').reduce((s, r) => s + r.totalAmount, 0);
+      csv += `${language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'},,${reportRows.filter(r => r.description === 'Sales').reduce((s, r) => s + r.orderCount, 0)},${salesTotal}\n`;
+      csv += `${language === 'ar' ? 'إجمالي الرسوم' : 'Total Charges'},,${reportRows.filter(r => r.description === 'Bank Charges').reduce((s, r) => s + r.orderCount, 0)},${chargesTotal}\n`;
+      csv += `${language === 'ar' ? 'الصافي' : 'Net'},,,-${grandTotalNetSales}\n`;
     }
 
     // Other groups
@@ -414,10 +419,10 @@ const BankBalanceByDateReport = () => {
                 <Search className="h-4 w-4 mr-2" />
                 {language === 'ar' ? 'بحث' : 'Search'}
               </Button>
-              <Button variant="outline" onClick={exportToExcel} disabled={salesRows.length === 0 && (transactionGroups || []).length === 0}>
+              <Button variant="outline" onClick={exportToExcel} disabled={reportRows.length === 0 && (transactionGroups || []).length === 0}>
                 <Download className="h-4 w-4" />
               </Button>
-              <Button variant="outline" onClick={handlePrint} disabled={salesRows.length === 0 && (transactionGroups || []).length === 0}>
+              <Button variant="outline" onClick={handlePrint} disabled={reportRows.length === 0 && (transactionGroups || []).length === 0}>
                 <Printer className="h-4 w-4" />
               </Button>
             </div>
@@ -426,7 +431,7 @@ const BankBalanceByDateReport = () => {
       </Card>
 
       {/* Summary Cards */}
-      {(salesRows.length > 0 || (transactionGroups || []).length > 0) && (
+      {(reportRows.length > 0 || (transactionGroups || []).length > 0) && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-4">
@@ -476,88 +481,63 @@ const BankBalanceByDateReport = () => {
         </div>
       )}
 
-      {/* Sales Table */}
-      {salesRows.length > 0 && (
+      {/* Report Data Table - Shows Sales and Bank Charges in same grid */}
+      {reportRows.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center justify-between">
-              <span>{language === 'ar' ? 'المبيعات' : 'Sales'}</span>
-              <span className="text-lg text-green-600">
-                {formatNumber(salesRows.reduce((sum, r) => sum + r.grossAmount, 0))}
-              </span>
+              <span>{language === 'ar' ? 'بيانات التقرير' : 'Report Data'}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Method'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment Type'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
                   <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {salesRows.map((row) => (
+                {reportRows.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell className="font-medium">{row.paymentMethod}</TableCell>
-                    <TableCell className="text-center">{row.transactionCount.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-green-600">{formatNumber(row.grossAmount)}</TableCell>
+                    <TableCell className="font-medium">
+                      {language === 'ar' 
+                        ? (row.description === 'Sales' ? 'المبيعات' : 'رسوم البنك')
+                        : row.description}
+                    </TableCell>
+                    <TableCell>{row.paymentType}</TableCell>
+                    <TableCell className="text-center">{row.orderCount.toLocaleString()}</TableCell>
+                    <TableCell className={`text-right ${row.description === 'Sales' ? 'text-green-600' : 'text-orange-600'}`}>
+                      {row.description === 'Bank Charges' ? '-' : ''}{formatNumber(row.totalAmount)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
-                <TableRow className="bg-muted/50 font-bold">
-                  <TableCell>{language === 'ar' ? 'المجموع' : 'Total'}</TableCell>
-                  <TableCell className="text-center">
-                    {salesRows.reduce((sum, r) => sum + r.transactionCount, 0).toLocaleString()}
+                <TableRow className="bg-green-50 dark:bg-green-950/20">
+                  <TableCell colSpan={2} className="font-bold text-green-600">{language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}</TableCell>
+                  <TableCell className="text-center font-bold">
+                    {reportRows.filter(r => r.description === 'Sales').reduce((sum, r) => sum + r.orderCount, 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-right text-green-600">
-                    {formatNumber(salesRows.reduce((sum, r) => sum + r.grossAmount, 0))}
+                  <TableCell className="text-right font-bold text-green-600">
+                    {formatNumber(reportRows.filter(r => r.description === 'Sales').reduce((sum, r) => sum + r.totalAmount, 0))}
                   </TableCell>
                 </TableRow>
-              </TableFooter>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Bank Charges Table */}
-      {grandTotalCharges > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center justify-between">
-              <span>{language === 'ar' ? 'رسوم البنك' : 'Bank Charges'}</span>
-              <span className="text-lg text-orange-600">
-                -{formatNumber(grandTotalCharges)}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{language === 'ar' ? 'وسيلة الدفع' : 'Payment Method'}</TableHead>
-                  <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'الرسوم' : 'Charges'}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {salesRows.filter(row => row.charges > 0).map((row) => (
-                  <TableRow key={`charges-${row.id}`}>
-                    <TableCell className="font-medium">{row.paymentMethod}</TableCell>
-                    <TableCell className="text-center">{row.transactionCount.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-orange-600">-{formatNumber(row.charges)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow className="bg-muted/50 font-bold">
-                  <TableCell>{language === 'ar' ? 'المجموع' : 'Total'}</TableCell>
-                  <TableCell className="text-center">
-                    {salesRows.filter(r => r.charges > 0).reduce((sum, r) => sum + r.transactionCount, 0).toLocaleString()}
+                <TableRow className="bg-orange-50 dark:bg-orange-950/20">
+                  <TableCell colSpan={2} className="font-bold text-orange-600">{language === 'ar' ? 'إجمالي الرسوم' : 'Total Bank Charges'}</TableCell>
+                  <TableCell className="text-center font-bold">
+                    {reportRows.filter(r => r.description === 'Bank Charges').reduce((sum, r) => sum + r.orderCount, 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-right text-orange-600">
-                    -{formatNumber(grandTotalCharges)}
+                  <TableCell className="text-right font-bold text-orange-600">
+                    -{formatNumber(reportRows.filter(r => r.description === 'Bank Charges').reduce((sum, r) => sum + r.totalAmount, 0))}
+                  </TableCell>
+                </TableRow>
+                <TableRow className="bg-primary/10">
+                  <TableCell colSpan={3} className="font-bold text-lg">{language === 'ar' ? 'صافي المبيعات' : 'Net Sales'}</TableCell>
+                  <TableCell className="text-right font-bold text-lg text-green-600">
+                    {formatNumber(grandTotalNetSales)}
                   </TableCell>
                 </TableRow>
               </TableFooter>
@@ -616,7 +596,7 @@ const BankBalanceByDateReport = () => {
       ))}
 
       {/* Grand Total Card */}
-      {(salesRows.length > 0 || (transactionGroups && transactionGroups.length > 0)) && (
+      {(reportRows.length > 0 || (transactionGroups && transactionGroups.length > 0)) && (
         <Card className="border-2 border-primary">
           <CardHeader className="pb-2">
             <CardTitle className="text-xl">
@@ -633,7 +613,7 @@ const BankBalanceByDateReport = () => {
                 <TableRow>
                   <TableCell className="font-medium text-green-600">{language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}</TableCell>
                   <TableCell className="text-right font-bold text-green-600">
-                    +{formatNumber(salesRows.reduce((sum, r) => sum + r.grossAmount, 0))}
+                    +{formatNumber(reportRows.filter(r => r.description === 'Sales').reduce((sum, r) => sum + r.totalAmount, 0))}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -681,7 +661,7 @@ const BankBalanceByDateReport = () => {
       )}
 
       {/* Empty State */}
-      {salesRows.length === 0 && (!transactionGroups || transactionGroups.length === 0) && !loading && (
+      {reportRows.length === 0 && (!transactionGroups || transactionGroups.length === 0) && !loading && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Landmark className="h-12 w-12 mx-auto mb-4 opacity-50" />
