@@ -105,44 +105,52 @@ const BankBalanceByDateReport = () => {
         .select('payment_type')
         .eq('bank_id', selectedBankId);
 
-      const paymentTypesForBank = [...new Set(paymentMethodsForBank?.map(pm => pm.payment_type).filter(Boolean))] as string[];
+      // Get payment types in lowercase for case-insensitive matching
+      const paymentTypesForBank = [...new Set(paymentMethodsForBank?.map(pm => pm.payment_type?.toLowerCase()).filter(Boolean))] as string[];
+
+      console.log('Bank ID:', selectedBankId);
+      console.log('Payment types for bank:', paymentTypesForBank);
 
       // Fetch ALL ordertotals for sales calculation using pagination
+      // We need to fetch all and filter client-side due to case-sensitivity issues
       let allOrderTotals: any[] = [];
       let page = 0;
       const pageSize = 1000;
       let hasMore = true;
 
-      if (paymentTypesForBank.length > 0) {
-        while (hasMore) {
-          const { data: orderTotalsPage, error } = await supabase
-            .from('ordertotals')
-            .select('payment_type, total, bank_fee')
-            .in('payment_type', paymentTypesForBank)
-            .gte('order_date_int', fromDateInt)
-            .lte('order_date_int', toDateInt)
-            .range(page * pageSize, (page + 1) * pageSize - 1);
+      while (hasMore) {
+        const { data: orderTotalsPage, error } = await supabase
+          .from('ordertotals')
+          .select('payment_type, total, bank_fee')
+          .gte('order_date_int', fromDateInt)
+          .lte('order_date_int', toDateInt)
+          .range(page * pageSize, (page + 1) * pageSize - 1);
 
-          if (error) {
-            console.error('Error fetching ordertotals:', error);
-            break;
-          }
+        if (error) {
+          console.error('Error fetching ordertotals:', error);
+          break;
+        }
 
-          if (orderTotalsPage && orderTotalsPage.length > 0) {
-            allOrderTotals = [...allOrderTotals, ...orderTotalsPage];
-            hasMore = orderTotalsPage.length === pageSize;
-            page++;
-          } else {
-            hasMore = false;
-          }
+        if (orderTotalsPage && orderTotalsPage.length > 0) {
+          // Filter by payment type case-insensitively
+          const filteredPage = orderTotalsPage.filter(order => 
+            paymentTypesForBank.includes(order.payment_type?.toLowerCase())
+          );
+          allOrderTotals = [...allOrderTotals, ...filteredPage];
+          hasMore = orderTotalsPage.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
         }
       }
+
+      console.log('Total orders found:', allOrderTotals.length);
 
       // Group by payment_type to get sales and bank charges
       const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
       
       allOrderTotals.forEach(order => {
-        const pmKey = order.payment_type || 'other';
+        const pmKey = (order.payment_type || 'other').toLowerCase();
         const existing = salesSummaryMap.get(pmKey) || { total: 0, charges: 0, count: 0 };
         existing.total += Number(order.total) || 0;
         existing.charges += Number(order.bank_fee) || 0;
