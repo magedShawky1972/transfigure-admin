@@ -677,14 +677,14 @@ const ExpenseEntryForm = () => {
                           <Input value={line.description} onChange={(e) => updateLine(index, "description", e.target.value)} placeholder={language === "ar" ? "وصف" : "Description"} />
                         </TableCell>
                         <TableCell>
-                          <Input type="number" value={line.quantity} onChange={(e) => updateLine(index, "quantity", e.target.value)} min="0" step="0.001" />
+                          <Input type="number" value={String(line.quantity)} onChange={(e) => updateLine(index, "quantity", e.target.value)} min="0" step="0.001" className="w-20" />
                         </TableCell>
                         <TableCell>
-                          <Input type="number" value={line.unit_price} onChange={(e) => updateLine(index, "unit_price", e.target.value)} min="0" step="0.01" />
+                          <Input type="number" value={String(line.unit_price)} onChange={(e) => updateLine(index, "unit_price", e.target.value)} min="0" step="0.01" className="w-24" />
                         </TableCell>
                         <TableCell className="font-mono text-right">{formatNumber(line.total)}</TableCell>
                         <TableCell>
-                          <Input type="number" value={line.vat_percent} onChange={(e) => updateLine(index, "vat_percent", e.target.value)} min="0" max="100" step="0.01" />
+                          <Input type="number" value={String(line.vat_percent)} onChange={(e) => updateLine(index, "vat_percent", e.target.value)} min="0" max="100" step="0.01" className="w-16" />
                         </TableCell>
                         <TableCell className="font-mono text-right">{formatNumber(line.vat_amount)}</TableCell>
                         <TableCell className="font-mono text-right font-semibold">{formatNumber(line.line_total)}</TableCell>
