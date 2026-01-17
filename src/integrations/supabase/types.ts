@@ -3162,6 +3162,7 @@ export type Database = {
           created_at: string
           id: string
           order_date: string | null
+          order_date_int: number | null
           order_number: string
           payment_brand: string | null
           payment_method: string | null
@@ -3174,6 +3175,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_date?: string | null
+          order_date_int?: number | null
           order_number: string
           payment_brand?: string | null
           payment_method?: string | null
@@ -3186,6 +3188,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_date?: string | null
+          order_date_int?: number | null
           order_number?: string
           payment_brand?: string | null
           payment_method?: string | null
