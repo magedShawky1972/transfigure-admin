@@ -649,7 +649,19 @@ const ExpenseEntry = () => {
             </div>
             <div>
               <Label>{language === "ar" ? "العملة" : "Currency"}</Label>
-              <Input value={getCurrencyCode(selectedCurrencyId)} disabled className="bg-muted" />
+              <Select value={selectedCurrencyId} onValueChange={(v) => {
+                setSelectedCurrencyId(v);
+                loadExchangeRate(v);
+              }}>
+                <SelectTrigger><SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} /></SelectTrigger>
+                <SelectContent>
+                  {currencies.map(currency => (
+                    <SelectItem key={currency.id} value={currency.id}>
+                      {currency.currency_code} - {currency.currency_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>{language === "ar" ? "سعر الصرف" : "Exchange Rate"}</Label>
