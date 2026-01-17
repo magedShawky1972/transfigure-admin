@@ -60,7 +60,7 @@ const BankBalanceByDateReport = () => {
 
   useEffect(() => {
     fetchBanks();
-  }, []);
+  }, [language]);
 
   const fetchBanks = async () => {
     try {
@@ -387,11 +387,17 @@ const BankBalanceByDateReport = () => {
                   <SelectValue placeholder={language === 'ar' ? 'اختر البنك' : 'Select Bank'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(banks || []).map(bank => (
-                    <SelectItem key={bank.id} value={bank.id}>
-                      {language === 'ar' ? bank.bank_name_ar || bank.bank_name : bank.bank_name}
+                  {(banks || []).length === 0 ? (
+                    <SelectItem value="__no_banks__" disabled>
+                      {language === 'ar' ? 'لا توجد بنوك محمّلة' : 'No banks loaded'}
                     </SelectItem>
-                  ))}
+                  ) : (
+                    (banks || []).map((bank) => (
+                      <SelectItem key={bank.id} value={bank.id}>
+                        {language === 'ar' ? bank.bank_name_ar || bank.bank_name : bank.bank_name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
