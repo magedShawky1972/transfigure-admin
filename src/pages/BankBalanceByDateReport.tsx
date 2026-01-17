@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 interface Bank {
   id: string;
+  bank_code: string;
   bank_name: string;
   bank_name_ar: string | null;
   opening_balance: number | null;
@@ -64,7 +65,7 @@ const BankBalanceByDateReport = () => {
   const fetchBanks = async () => {
     const { data, error } = await supabase
       .from('banks')
-      .select('id, bank_name, bank_name_ar, opening_balance')
+      .select('id, bank_code, bank_name, bank_name_ar, opening_balance')
       .eq('is_active', true)
       .order('bank_name');
 
@@ -85,62 +86,69 @@ const BankBalanceByDateReport = () => {
     try {
       const selectedBank = banks.find(b => b.id === selectedBankId);
       setOpeningBalance(selectedBank?.opening_balance || 0);
+      const selectedBankCode = selectedBank?.bank_code;
 
-      // Fetch payment methods linked to this bank to get the payment_type names (hyperpay, salla)
-      const { data: paymentMethods } = await supabase
-        .from('payment_methods')
-        .select('id, payment_method, payment_type, gateway_fee, fixed_value')
-        .eq('bank_id', selectedBankId);
+      if (!selectedBankCode) {
+        toast.error(language === 'ar' ? 'رمز البنك غير موجود' : 'Bank code not found');
+        setLoading(false);
+        return;
+      }
 
-      // Get unique payment_types linked to this bank (e.g., hyperpay, salla)
-      const paymentTypes = [...new Set(paymentMethods?.map(pm => pm.payment_type).filter(Boolean))] as string[];
-
-      // Convert dates to integer format YYYYMMDD for created_at_date_int filtering
+      // Convert dates to integer format YYYYMMDD for order_date_int filtering
       const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
       const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
 
-      // Fetch ALL transactions from purpletransaction (no limit) using pagination
-      const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
-      
-      if (paymentTypes.length > 0) {
-        let allTransactions: any[] = [];
-        let page = 0;
-        const pageSize = 1000;
-        let hasMore = true;
+      // Fetch sales and bank charges from ordertotals using the new query structure
+      // First, get payment_types linked to this bank
+      const { data: paymentMethodsForBank } = await supabase
+        .from('payment_methods')
+        .select('payment_type')
+        .eq('bank_id', selectedBankId);
 
+      const paymentTypesForBank = [...new Set(paymentMethodsForBank?.map(pm => pm.payment_type).filter(Boolean))] as string[];
+
+      // Fetch ALL ordertotals for sales calculation using pagination
+      let allOrderTotals: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      if (paymentTypesForBank.length > 0) {
         while (hasMore) {
-          const { data: transactions, error } = await supabase
-            .from('purpletransaction')
-            .select('id, payment_method, total, bank_fee')
-            .in('payment_method', paymentTypes)
-            .gte('created_at_date_int', fromDateInt)
-            .lte('created_at_date_int', toDateInt)
+          const { data: orderTotalsPage, error } = await supabase
+            .from('ordertotals')
+            .select('payment_type, total, bank_fee')
+            .in('payment_type', paymentTypesForBank)
+            .gte('order_date_int', fromDateInt)
+            .lte('order_date_int', toDateInt)
             .range(page * pageSize, (page + 1) * pageSize - 1);
 
           if (error) {
-            console.error('Error fetching transactions:', error);
+            console.error('Error fetching ordertotals:', error);
             break;
           }
 
-          if (transactions && transactions.length > 0) {
-            allTransactions = [...allTransactions, ...transactions];
-            hasMore = transactions.length === pageSize;
+          if (orderTotalsPage && orderTotalsPage.length > 0) {
+            allOrderTotals = [...allOrderTotals, ...orderTotalsPage];
+            hasMore = orderTotalsPage.length === pageSize;
             page++;
           } else {
             hasMore = false;
           }
         }
-
-        // Group by payment_method (hyperpay, salla, etc.)
-        allTransactions.forEach(tx => {
-          const pmKey = tx.payment_method || 'other';
-          const existing = salesSummaryMap.get(pmKey) || { total: 0, charges: 0, count: 0 };
-          existing.total += Number(tx.total) || 0;
-          existing.charges += Number(tx.bank_fee) || 0;
-          existing.count += 1;
-          salesSummaryMap.set(pmKey, existing);
-        });
       }
+
+      // Group by payment_type to get sales and bank charges
+      const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
+      
+      allOrderTotals.forEach(order => {
+        const pmKey = order.payment_type || 'other';
+        const existing = salesSummaryMap.get(pmKey) || { total: 0, charges: 0, count: 0 };
+        existing.total += Number(order.total) || 0;
+        existing.charges += Number(order.bank_fee) || 0;
+        existing.count += 1;
+        salesSummaryMap.set(pmKey, existing);
+      });
 
       // Create sales rows with gross, charges, and net in same row
       const newSalesRows: SalesRow[] = Array.from(salesSummaryMap.entries()).map(([pm, data], idx) => ({
