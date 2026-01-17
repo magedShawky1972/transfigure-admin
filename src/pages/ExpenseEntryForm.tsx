@@ -397,12 +397,17 @@ const ExpenseEntryForm = () => {
     }
   };
 
+  useEffect(() => {
+    if (!showPrint) return;
+    const handleAfterPrint = () => setShowPrint(false);
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, [showPrint]);
+
   const handlePrint = () => {
     setShowPrint(true);
-    setTimeout(() => {
-      window.print();
-      setShowPrint(false);
-    }, 100);
+    // Give React time to render the print layout before opening the print dialog
+    setTimeout(() => window.print(), 400);
   };
 
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
