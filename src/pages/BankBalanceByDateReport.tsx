@@ -359,6 +359,28 @@ const BankBalanceByDateReport = () => {
         @media print {
           .no-print { display: none !important; }
           .print-only { display: block !important; }
+          
+          /* Clean print styles - no borders, black font */
+          * {
+            color: black !important;
+            background: white !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+          }
+          
+          table, th, td {
+            border: none !important;
+            border-bottom: 1px solid #e5e5e5 !important;
+          }
+          
+          .text-green-600, .text-orange-600, .text-red-600, .text-primary {
+            color: black !important;
+          }
+          
+          body {
+            font-size: 12pt !important;
+            line-height: 1.4 !important;
+          }
         }
       `}</style>
 
@@ -494,7 +516,6 @@ const BankBalanceByDateReport = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment Type'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'عدد المعاملات' : 'Count'}</TableHead>
                   <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                 </TableRow>
@@ -507,7 +528,6 @@ const BankBalanceByDateReport = () => {
                         ? (row.description === 'Sales' ? 'المبيعات' : 'رسوم البنك')
                         : row.description}
                     </TableCell>
-                    <TableCell>{row.paymentType}</TableCell>
                     <TableCell className="text-center">{row.orderCount.toLocaleString()}</TableCell>
                     <TableCell className={`text-right ${row.description === 'Sales' ? 'text-green-600' : 'text-orange-600'}`}>
                       {row.description === 'Bank Charges' ? '-' : ''}{formatNumber(row.totalAmount)}
@@ -517,7 +537,7 @@ const BankBalanceByDateReport = () => {
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-green-50 dark:bg-green-950/20">
-                  <TableCell colSpan={2} className="font-bold text-green-600">{language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}</TableCell>
+                  <TableCell className="font-bold text-green-600">{language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}</TableCell>
                   <TableCell className="text-center font-bold">
                     {reportRows.filter(r => r.description === 'Sales').reduce((sum, r) => sum + r.orderCount, 0).toLocaleString()}
                   </TableCell>
@@ -526,7 +546,7 @@ const BankBalanceByDateReport = () => {
                   </TableCell>
                 </TableRow>
                 <TableRow className="bg-orange-50 dark:bg-orange-950/20">
-                  <TableCell colSpan={2} className="font-bold text-orange-600">{language === 'ar' ? 'إجمالي الرسوم' : 'Total Bank Charges'}</TableCell>
+                  <TableCell className="font-bold text-orange-600">{language === 'ar' ? 'إجمالي الرسوم' : 'Total Bank Charges'}</TableCell>
                   <TableCell className="text-center font-bold">
                     {reportRows.filter(r => r.description === 'Bank Charges').reduce((sum, r) => sum + r.orderCount, 0).toLocaleString()}
                   </TableCell>
@@ -535,7 +555,7 @@ const BankBalanceByDateReport = () => {
                   </TableCell>
                 </TableRow>
                 <TableRow className="bg-primary/10">
-                  <TableCell colSpan={3} className="font-bold text-lg">{language === 'ar' ? 'صافي المبيعات' : 'Net Sales'}</TableCell>
+                  <TableCell colSpan={2} className="font-bold text-lg">{language === 'ar' ? 'صافي المبيعات' : 'Net Sales'}</TableCell>
                   <TableCell className="text-right font-bold text-lg text-green-600">
                     {formatNumber(grandTotalNetSales)}
                   </TableCell>
