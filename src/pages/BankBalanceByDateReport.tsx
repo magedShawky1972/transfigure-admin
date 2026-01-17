@@ -98,74 +98,31 @@ const BankBalanceByDateReport = () => {
       const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
       const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
 
-      // Fetch sales and bank charges from ordertotals using the new query structure
-      // First, get payment_types linked to this bank
-      const { data: paymentMethodsForBank } = await supabase
-        .from('payment_methods')
-        .select('payment_type')
-        .eq('bank_id', selectedBankId);
+      // Use the optimized database function for fast aggregation
+      const { data: reportData, error: reportError } = await supabase
+        .rpc('get_bank_balance_report', {
+          p_bank_id: selectedBankId,
+          p_from_date_int: fromDateInt,
+          p_to_date_int: toDateInt
+        });
 
-      // Get payment types in lowercase for case-insensitive matching
-      const paymentTypesForBank = [...new Set(paymentMethodsForBank?.map(pm => pm.payment_type?.toLowerCase()).filter(Boolean))] as string[];
-
-      console.log('Bank ID:', selectedBankId);
-      console.log('Payment types for bank:', paymentTypesForBank);
-
-      // Fetch ALL ordertotals for sales calculation using pagination
-      // We need to fetch all and filter client-side due to case-sensitivity issues
-      let allOrderTotals: any[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data: orderTotalsPage, error } = await supabase
-          .from('ordertotals')
-          .select('payment_type, total, bank_fee')
-          .gte('order_date_int', fromDateInt)
-          .lte('order_date_int', toDateInt)
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (error) {
-          console.error('Error fetching ordertotals:', error);
-          break;
-        }
-
-        if (orderTotalsPage && orderTotalsPage.length > 0) {
-          // Filter by payment type case-insensitively
-          const filteredPage = orderTotalsPage.filter(order => 
-            paymentTypesForBank.includes(order.payment_type?.toLowerCase())
-          );
-          allOrderTotals = [...allOrderTotals, ...filteredPage];
-          hasMore = orderTotalsPage.length === pageSize;
-          page++;
-        } else {
-          hasMore = false;
-        }
+      if (reportError) {
+        console.error('Error fetching report data:', reportError);
+        toast.error(language === 'ar' ? 'خطأ في جلب البيانات' : 'Error fetching data');
+        setLoading(false);
+        return;
       }
 
-      console.log('Total orders found:', allOrderTotals.length);
+      console.log('Report data:', reportData);
 
-      // Group by payment_type to get sales and bank charges
-      const salesSummaryMap = new Map<string, { total: number; charges: number; count: number }>();
-      
-      allOrderTotals.forEach(order => {
-        const pmKey = (order.payment_type || 'other').toLowerCase();
-        const existing = salesSummaryMap.get(pmKey) || { total: 0, charges: 0, count: 0 };
-        existing.total += Number(order.total) || 0;
-        existing.charges += Number(order.bank_fee) || 0;
-        existing.count += 1;
-        salesSummaryMap.set(pmKey, existing);
-      });
-
-      // Create sales rows with gross, charges, and net in same row
-      const newSalesRows: SalesRow[] = Array.from(salesSummaryMap.entries()).map(([pm, data], idx) => ({
+      // Create sales rows from the database function result
+      const newSalesRows: SalesRow[] = (reportData || []).map((row: any, idx: number) => ({
         id: `sales-${idx}`,
-        paymentMethod: pm.toUpperCase(),
-        grossAmount: data.total,
-        charges: data.charges,
-        netAmount: data.total - data.charges,
-        transactionCount: data.count,
+        paymentMethod: (row.payment_type || 'other').toUpperCase(),
+        grossAmount: Number(row.total_amount) || 0,
+        charges: Number(row.bank_charges) || 0,
+        netAmount: (Number(row.total_amount) || 0) - (Number(row.bank_charges) || 0),
+        transactionCount: Number(row.order_count) || 0,
       }));
 
       setSalesRows(newSalesRows);

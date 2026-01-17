@@ -6479,6 +6479,20 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_bank_balance_report: {
+        Args: {
+          p_bank_id: string
+          p_from_date_int: number
+          p_to_date_int: number
+        }
+        Returns: {
+          bank_charges: number
+          description: string
+          order_count: number
+          payment_type: string
+          total_amount: number
+        }[]
+      }
       get_cost_of_sales: {
         Args: { date_from: string; date_to: string }
         Returns: number
