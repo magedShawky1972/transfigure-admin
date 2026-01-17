@@ -267,57 +267,38 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
               print-color-adjust: exact !important;
               background: white !important;
             }
-            
-            /* Hide everything except the print content */
-            body > *:not(#root) {
-              display: none !important;
+
+            /* Hide everything */
+            body * {
+              visibility: hidden !important;
             }
-            
-            #root > *:not([data-print-content="true"]) {
-              display: none !important;
-            }
-            
-            /* Ensure print content is visible */
+
+            /* Show only print content */
             [data-print-content="true"],
             [data-print-content="true"] * {
               visibility: visible !important;
-              display: block;
             }
-            
+
+            /* Place print content at top-left */
             [data-print-content="true"] {
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
+              position: fixed !important;
+              inset: 0 !important;
               width: 100% !important;
+              height: auto !important;
               background: white !important;
             }
-            
+
             @page {
               size: A4;
               margin: 10mm;
             }
-            
-            /* Ensure tables display properly */
-            table {
-              display: table !important;
-            }
-            thead {
-              display: table-header-group !important;
-            }
-            tbody {
-              display: table-row-group !important;
-            }
-            tr {
-              display: table-row !important;
-            }
-            td, th {
-              display: table-cell !important;
-            }
-            
-            /* Ensure grid displays */
-            .grid {
-              display: grid !important;
-            }
+
+            /* Ensure table elements keep their layout in print */
+            table { display: table !important; }
+            thead { display: table-header-group !important; }
+            tbody { display: table-row-group !important; }
+            tr { display: table-row !important; }
+            td, th { display: table-cell !important; }
           }
         `}</style>
       </div>
