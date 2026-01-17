@@ -56,6 +56,7 @@ const BankBalanceByDateReport = () => {
   const [grandTotalExpense, setGrandTotalExpense] = useState(0);
   const [grandTotalCharges, setGrandTotalCharges] = useState(0);
   const [grandTotalNetSales, setGrandTotalNetSales] = useState(0);
+  const [grandTotalGrossSales, setGrandTotalGrossSales] = useState(0);
 
   useEffect(() => {
     fetchBanks();
@@ -140,6 +141,7 @@ const BankBalanceByDateReport = () => {
       const totalChargesSales = chargesOnlyRows.reduce((sum, r) => sum + r.totalAmount, 0);
       const totalNetSales = totalGrossSales - totalChargesSales;
       setGrandTotalNetSales(totalNetSales);
+      setGrandTotalGrossSales(totalGrossSales);
 
       // Fetch expense payments from this bank - grouped by expense type
       const { data: expensePayments } = await supabase
@@ -253,10 +255,12 @@ const BankBalanceByDateReport = () => {
 
       setTransactionGroups(groups);
 
-      // Calculate grand totals
-      const totalIncome = totalNetSales + groups
+      // Calculate grand totals - use gross sales for income card
+      const depositTotal = groups
         .filter(g => g.type === 'deposits')
         .reduce((sum, g) => sum + g.subtotal, 0);
+      
+      const totalIncome = totalGrossSales + depositTotal;
 
       const totalExpense = groups
         .filter(g => g.type === 'expenses' || g.type === 'withdrawals')
@@ -330,7 +334,8 @@ const BankBalanceByDateReport = () => {
     window.print();
   };
 
-  const closingBalance = openingBalance + grandTotalIncome - grandTotalCharges - grandTotalExpense;
+  // Closing balance: Opening + Gross Sales - Bank Charges - Expenses
+  const closingBalance = openingBalance + grandTotalGrossSales - grandTotalCharges - grandTotalExpense;
 
   const getGroupColor = (type: string) => {
     switch (type) {
@@ -470,7 +475,7 @@ const BankBalanceByDateReport = () => {
                 <ArrowUpCircle className="h-4 w-4" />
                 {language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}
               </div>
-              <div className="text-2xl font-bold text-green-600 mt-1">{formatNumber(grandTotalIncome)}</div>
+              <div className="text-2xl font-bold text-green-600 mt-1">{formatNumber(grandTotalGrossSales)}</div>
             </CardContent>
           </Card>
           <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
