@@ -488,6 +488,72 @@ export type Database = {
           },
         ]
       }
+      bank_ledger: {
+        Row: {
+          balance_after: number | null
+          bank_id: string
+          created_at: string
+          created_by: string | null
+          currency_id: string | null
+          description: string | null
+          entry_date: string
+          exchange_rate: number | null
+          id: string
+          in_amount: number | null
+          out_amount: number | null
+          reference_id: string | null
+          reference_number: string | null
+          reference_type: string
+        }
+        Insert: {
+          balance_after?: number | null
+          bank_id: string
+          created_at?: string
+          created_by?: string | null
+          currency_id?: string | null
+          description?: string | null
+          entry_date?: string
+          exchange_rate?: number | null
+          id?: string
+          in_amount?: number | null
+          out_amount?: number | null
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type: string
+        }
+        Update: {
+          balance_after?: number | null
+          bank_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency_id?: string | null
+          description?: string | null
+          entry_date?: string
+          exchange_rate?: number | null
+          id?: string
+          in_amount?: number | null
+          out_amount?: number | null
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_ledger_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_ledger_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banks: {
         Row: {
           account_number: string | null
