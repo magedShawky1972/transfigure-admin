@@ -22,7 +22,7 @@ const DataLoadingStatus = () => {
   const isRTL = language === "ar";
   
   const [loading, setLoading] = useState(false);
-  const [dataSource, setDataSource] = useState<"riyadbank" | "hyberpay" | "purpletransaction">("hyberpay");
+  const [dataSource, setDataSource] = useState<"riyadbank" | "hyberpay" | "purpletransaction" | "orderpayment">("hyberpay");
   const [startDate, setStartDate] = useState(format(new Date(new Date().setDate(1)), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
@@ -40,8 +40,8 @@ const DataLoadingStatus = () => {
 
       const PAGE_SIZE = 1000;
       const fetchDateValuesPaged = async (opts: {
-        table: "hyberpaystatement" | "riyadbankstatement" | "purpletransaction";
-        column: "request_date" | "txn_date_only" | "created_at_date";
+        table: "hyberpaystatement" | "riyadbankstatement" | "purpletransaction" | "order_payment";
+        column: "request_date" | "txn_date_only" | "created_at_date" | "order_date";
       }) => {
         let from = 0;
         while (true) {
@@ -72,6 +72,8 @@ const DataLoadingStatus = () => {
         await fetchDateValuesPaged({ table: "riyadbankstatement", column: "txn_date_only" });
       } else if (dataSource === "purpletransaction") {
         await fetchDateValuesPaged({ table: "purpletransaction", column: "created_at_date" });
+      } else if (dataSource === "orderpayment") {
+        await fetchDateValuesPaged({ table: "order_payment", column: "order_date" });
       }
 
       // Build status array
@@ -142,6 +144,8 @@ const DataLoadingStatus = () => {
         return isRTL ? 'بنك الرياض' : 'Riyad Bank';
       case 'purpletransaction':
         return isRTL ? 'المعاملات' : 'Transactions';
+      case 'orderpayment':
+        return isRTL ? 'مدفوعات الطلبات' : 'Order Payment';
       default:
         return source;
     }
@@ -170,7 +174,7 @@ const DataLoadingStatus = () => {
           <div className="flex flex-wrap gap-4 items-end">
             <div className="space-y-2">
               <Label>{isRTL ? "مصدر البيانات" : "Data Source"}</Label>
-              <Select value={dataSource} onValueChange={(value: "riyadbank" | "hyberpay" | "purpletransaction") => setDataSource(value)}>
+              <Select value={dataSource} onValueChange={(value: "riyadbank" | "hyberpay" | "purpletransaction" | "orderpayment") => setDataSource(value)}>
                 <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
@@ -178,6 +182,7 @@ const DataLoadingStatus = () => {
                   <SelectItem value="hyberpay">{isRTL ? "هايبرباي" : "Hyberpay"}</SelectItem>
                   <SelectItem value="riyadbank">{isRTL ? "بنك الرياض" : "Riyad Bank"}</SelectItem>
                   <SelectItem value="purpletransaction">{isRTL ? "المعاملات" : "Transactions"}</SelectItem>
+                  <SelectItem value="orderpayment">{isRTL ? "مدفوعات الطلبات" : "Order Payment"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
