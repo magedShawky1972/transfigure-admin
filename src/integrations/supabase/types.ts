@@ -510,6 +510,7 @@ export type Database = {
           reference_type: string
           result: string | null
           riskfrauddescription: string | null
+          transaction_receipt: string | null
           transactionid: string | null
         }
         Insert: {
@@ -533,6 +534,7 @@ export type Database = {
           reference_type: string
           result?: string | null
           riskfrauddescription?: string | null
+          transaction_receipt?: string | null
           transactionid?: string | null
         }
         Update: {
@@ -556,6 +558,7 @@ export type Database = {
           reference_type?: string
           result?: string | null
           riskfrauddescription?: string | null
+          transaction_receipt?: string | null
           transactionid?: string | null
         }
         Relationships: [
