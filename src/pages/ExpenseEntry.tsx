@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
-import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2 } from "lucide-react";
+import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import * as XLSX from "xlsx";
 
 interface Bank {
   id: string;
@@ -57,11 +58,14 @@ const ExpenseEntryPage = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Master data
   const [banks, setBanks] = useState<Bank[]>([]);
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [expenseTypes, setExpenseTypes] = useState<{ id: string; expense_code: string; expense_name: string }[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   
   // Entries list
@@ -86,19 +90,22 @@ const ExpenseEntryPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [banksRes, treasuriesRes, currenciesRes] = await Promise.all([
+      const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes] = await Promise.all([
         supabase.from("banks").select("id, bank_name, bank_name_ar").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_name, treasury_name_ar").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code").eq("is_active", true),
+        supabase.from("expense_types").select("id, expense_code, expense_name").eq("is_active", true),
       ]);
 
       if (banksRes.error) throw banksRes.error;
       if (treasuriesRes.error) throw treasuriesRes.error;
       if (currenciesRes.error) throw currenciesRes.error;
+      if (expenseTypesRes.error) throw expenseTypesRes.error;
 
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
+      setExpenseTypes(expenseTypesRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في جلب البيانات" : "Error fetching data");
@@ -238,7 +245,18 @@ const ExpenseEntryPage = () => {
 
   const handleDeleteEntry = async (entryId: string) => {
     try {
-      // First delete entry lines
+      // First delete treasury ledger entries
+      const { error: ledgerError } = await supabase
+        .from("treasury_ledger")
+        .delete()
+        .eq("reference_type", "expense_entry")
+        .eq("reference_id", entryId);
+      
+      if (ledgerError) {
+        console.error("Error deleting ledger entries:", ledgerError);
+      }
+
+      // Delete entry lines
       const { error: linesError } = await supabase
         .from("expense_entry_lines")
         .delete()
@@ -259,6 +277,130 @@ const ExpenseEntryPage = () => {
     } catch (error: any) {
       console.error("Error deleting entry:", error);
       toast.error(error.message || (language === "ar" ? "خطأ في حذف القيد" : "Error deleting entry"));
+    }
+  };
+
+  const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+      if (jsonData.length === 0) {
+        toast.error(language === "ar" ? "الملف فارغ" : "File is empty");
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of jsonData) {
+        try {
+          // Parse row data - expected columns: entry_date, expense_reference, payment_method, bank_name/treasury_name, currency_code, expense_type, quantity, unit_price, vat_percent
+          const entryDate = row.entry_date || row.التاريخ || new Date().toISOString().split("T")[0];
+          const reference = row.expense_reference || row.المرجع || "";
+          const paymentMethod = (row.payment_method || row.طريقة_الدفع || "treasury").toLowerCase();
+          
+          // Find bank or treasury
+          let bankId = null;
+          let treasuryId = null;
+          if (paymentMethod === "bank") {
+            const bankName = row.bank_name || row.البنك;
+            const bank = banks.find(b => b.bank_name.toLowerCase() === bankName?.toLowerCase() || b.bank_name_ar === bankName);
+            bankId = bank?.id || null;
+          } else {
+            const treasuryName = row.treasury_name || row.الخزينة;
+            const treasury = treasuries.find(t => t.treasury_name.toLowerCase() === treasuryName?.toLowerCase() || t.treasury_name_ar === treasuryName);
+            treasuryId = treasury?.id || treasuries[0]?.id;
+          }
+
+          // Find currency
+          const currencyCode = row.currency_code || row.العملة || "SAR";
+          const currency = currencies.find(c => c.currency_code.toLowerCase() === currencyCode.toLowerCase());
+          const currencyId = currency?.id || currencies[0]?.id;
+
+          // Find expense type
+          const expenseCode = row.expense_type || row.expense_code || row.نوع_المصروف;
+          const expenseType = expenseTypes.find(e => 
+            e.expense_code.toLowerCase() === expenseCode?.toLowerCase() || 
+            e.expense_name.toLowerCase() === expenseCode?.toLowerCase()
+          );
+
+          // Parse amounts
+          const quantity = parseFloat(row.quantity || row.الكمية || 1) || 1;
+          const unitPrice = parseFloat(row.unit_price || row.سعر_الوحدة || row.amount || row.المبلغ || 0) || 0;
+          const vatPercent = parseFloat(row.vat_percent || row.نسبة_الضريبة || 0) || 0;
+          const lineTotal = quantity * unitPrice;
+          const vatAmount = lineTotal * (vatPercent / 100);
+          const grandTotal = lineTotal + vatAmount;
+
+          // Generate entry number
+          const now = new Date();
+          const entryNumber = `EXE${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}${String(successCount).padStart(3, "0")}`;
+
+          // Create expense entry
+          const { data: entryData, error: entryError } = await supabase
+            .from("expense_entries")
+            .insert({
+              entry_number: entryNumber,
+              entry_date: entryDate,
+              expense_reference: reference,
+              payment_method: paymentMethod,
+              bank_id: bankId,
+              treasury_id: treasuryId,
+              currency_id: currencyId,
+              exchange_rate: 1,
+              subtotal: lineTotal,
+              total_vat: vatAmount,
+              grand_total: grandTotal,
+              status: "draft",
+              created_by: currentUserId,
+            })
+            .select("id")
+            .single();
+
+          if (entryError) throw entryError;
+
+          // Create expense line
+          await supabase.from("expense_entry_lines").insert({
+            expense_entry_id: entryData.id,
+            line_number: 1,
+            expense_type_id: expenseType?.id || null,
+            description: row.description || row.الوصف || "",
+            quantity: quantity,
+            unit_price: unitPrice,
+            total: lineTotal,
+            vat_percent: vatPercent,
+            vat_amount: vatAmount,
+            line_total: grandTotal,
+          });
+
+          successCount++;
+        } catch (rowError) {
+          console.error("Error importing row:", rowError);
+          errorCount++;
+        }
+      }
+
+      toast.success(
+        language === "ar" 
+          ? `تم استيراد ${successCount} قيد بنجاح${errorCount > 0 ? ` (${errorCount} فشل)` : ""}`
+          : `Imported ${successCount} entries${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
+      );
+      fetchEntries();
+    } catch (error: any) {
+      console.error("Error importing Excel:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في استيراد الملف" : "Error importing file"));
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -294,7 +436,7 @@ const ExpenseEntryPage = () => {
     return currency?.currency_code || "-";
   };
 
-  if (loading) return <LoadingOverlay />;
+  if (loading || importing) return <LoadingOverlay />;
 
   return (
     <div className="container mx-auto p-4 space-y-4" dir={language === "ar" ? "rtl" : "ltr"}>
@@ -304,10 +446,23 @@ const ExpenseEntryPage = () => {
             <Receipt className="h-5 w-5" />
             {language === "ar" ? "قيد المصروفات" : "Expense Entry"}
           </CardTitle>
-          <Button onClick={() => navigate("/expense-entry/new")}>
-            <Plus className="h-4 w-4 mr-1" />
-            {language === "ar" ? "قيد جديد" : "New Entry"}
-          </Button>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".xlsx,.xls"
+              onChange={handleExcelImport}
+              className="hidden"
+            />
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-4 w-4 mr-1" />
+              {language === "ar" ? "استيراد Excel" : "Import Excel"}
+            </Button>
+            <Button onClick={() => navigate("/expense-entry/new")}>
+              <Plus className="h-4 w-4 mr-1" />
+              {language === "ar" ? "قيد جديد" : "New Entry"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Filters */}
