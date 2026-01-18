@@ -10,8 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
-import { Plus, Check, X, DollarSign, FileText, Eye, Receipt } from "lucide-react";
+import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface Bank {
   id: string;
@@ -203,6 +204,32 @@ const ExpenseEntryPage = () => {
     }
   };
 
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      // First delete entry lines
+      const { error: linesError } = await supabase
+        .from("expense_entry_lines")
+        .delete()
+        .eq("expense_entry_id", entryId);
+      
+      if (linesError) throw linesError;
+
+      // Then delete the entry
+      const { error } = await supabase
+        .from("expense_entries")
+        .delete()
+        .eq("id", entryId);
+      
+      if (error) throw error;
+
+      toast.success(language === "ar" ? "تم حذف القيد بنجاح" : "Entry deleted successfully");
+      fetchEntries();
+    } catch (error: any) {
+      console.error("Error deleting entry:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في حذف القيد" : "Error deleting entry"));
+    }
+  };
+
   const formatNumber = (num: number) => num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const getStatusLabel = (status: string) => {
@@ -333,9 +360,41 @@ const ExpenseEntryPage = () => {
                             <Eye className="h-3 w-3" />
                           </Button>
                           {entry.status === "draft" && (
-                            <Button size="sm" variant="outline" onClick={() => handleStatusChange(entry.id, "pending")}>
-                              <FileText className="h-3 w-3" />
-                            </Button>
+                            <>
+                              <Button size="sm" variant="outline" onClick={() => handleStatusChange(entry.id, "pending")}>
+                                <FileText className="h-3 w-3" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      {language === "ar" ? "تأكيد الحذف" : "Confirm Delete"}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {language === "ar" 
+                                        ? `هل أنت متأكد من حذف القيد رقم ${entry.entry_number}؟ لا يمكن التراجع عن هذا الإجراء.`
+                                        : `Are you sure you want to delete entry ${entry.entry_number}? This action cannot be undone.`}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      {language === "ar" ? "إلغاء" : "Cancel"}
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteEntry(entry.id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      {language === "ar" ? "حذف" : "Delete"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </>
                           )}
                           {entry.status === "pending" && (
                             <>
