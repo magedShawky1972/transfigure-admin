@@ -161,6 +161,15 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Reject future dates
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const recordDate = new Date(record.date);
+      if (recordDate > today) {
+        validationErrors.push(`Record ${i + 1}: future date (${record.date}) is not allowed`);
+        continue;
+      }
+
       // Validate time format (HH:MM or HH:MM:SS)
       const timeRegex = /^\d{2}:\d{2}(:\d{2})?$/;
       if (!timeRegex.test(record.time)) {
