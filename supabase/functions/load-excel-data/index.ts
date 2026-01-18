@@ -569,57 +569,90 @@ Deno.serve(async (req) => {
 
 
     // After successful insert, update bank_ledger with hyberpaystatement data if this is the hyberpaystatement table
+    // Linking: bank_ledger.reference_number (order_number) -> order_payment.ordernumber -> order_payment.paymentrefrence -> hyberpaystatement.transactionid
     if (tableName === 'hyberpaystatement') {
-      console.log('Matching hyberpaystatement with bank_ledger entries...');
+      console.log('Matching hyberpaystatement with bank_ledger entries via order_payment bridge...');
       
-      // Get all transaction_receipt values from the inserted data
-      const transactionReceipts = validData
-        .filter((row: any) => row.transaction_receipt)
+      // Get all transactionid values from the inserted data (transactionid links to order_payment.paymentrefrence)
+      const hyperpayRecords = validData
+        .filter((row: any) => row.transactionid)
         .map((row: any) => ({
-          transaction_receipt: row.transaction_receipt,
-          transactionid: row.transactionid || null,
+          transactionid: row.transactionid,
+          transaction_receipt: row.transaction_receipt || null,
           result: row.result || null,
           customercountry: row.customercountry || null,
           riskfrauddescription: row.riskfrauddescription || null,
           clearinginstitutename: row.clearinginstitutename || null
         }));
       
-      if (transactionReceipts.length > 0) {
-        console.log(`Found ${transactionReceipts.length} hyberpay records with transaction_receipt`);
+      if (hyperpayRecords.length > 0) {
+        console.log(`Found ${hyperpayRecords.length} hyberpay records with transactionid`);
         
-        // Process in batches of 500 to avoid timeout
+        // Create a map of transactionid -> hyperpay data for quick lookup
+        const transactionIdToHyperpay = new Map(
+          hyperpayRecords.map(r => [r.transactionid, r])
+        );
+        const transactionIds = Array.from(transactionIdToHyperpay.keys());
+        
+        // Step 1: Find order_payment records where paymentrefrence matches transactionid
+        // Process in batches to handle large datasets
         const batchSize = 500;
-        let updatedCount = 0;
+        let totalUpdated = 0;
         
-        for (let i = 0; i < transactionReceipts.length; i += batchSize) {
-          const batch = transactionReceipts.slice(i, i + batchSize);
+        for (let i = 0; i < transactionIds.length; i += batchSize) {
+          const batchTransactionIds = transactionIds.slice(i, i + batchSize);
           
-          // Update bank_ledger entries matching transaction_receipt = reference_number
-          for (const record of batch) {
-            if (record.transaction_receipt) {
-              const { error: updateError, count } = await supabase
-                .from('bank_ledger')
-                .update({
-                  transactionid: record.transactionid,
-                  result: record.result,
-                  customercountry: record.customercountry,
-                  riskfrauddescription: record.riskfrauddescription,
-                  clearinginstitutename: record.clearinginstitutename
-                })
-                .eq('reference_number', record.transaction_receipt);
-              
-              if (updateError) {
-                console.error(`Error updating bank_ledger for ${record.transaction_receipt}:`, updateError);
-              } else {
-                updatedCount++;
-              }
+          // Get order_payment records for this batch
+          const { data: orderPayments, error: opError } = await supabase
+            .from('order_payment')
+            .select('ordernumber, paymentrefrence')
+            .in('paymentrefrence', batchTransactionIds);
+          
+          if (opError) {
+            console.error('Error fetching order_payment:', opError);
+            continue;
+          }
+          
+          if (!orderPayments || orderPayments.length === 0) {
+            console.log(`No order_payment records found for batch ${Math.floor(i / batchSize) + 1}`);
+            continue;
+          }
+          
+          console.log(`Found ${orderPayments.length} order_payment records for batch ${Math.floor(i / batchSize) + 1}`);
+          
+          // Step 2: Create mapping: ordernumber -> hyperpay data
+          const orderToHyperpay = new Map<string, any>();
+          for (const op of orderPayments) {
+            const hyperpayData = transactionIdToHyperpay.get(op.paymentrefrence);
+            if (hyperpayData && op.ordernumber) {
+              orderToHyperpay.set(op.ordernumber, hyperpayData);
             }
           }
           
-          console.log(`Processed batch ${Math.floor(i / batchSize) + 1}, updated ${updatedCount} bank_ledger entries so far`);
+          // Step 3: Update bank_ledger entries by reference_number (which is order_number)
+          for (const [orderNumber, record] of orderToHyperpay) {
+            const { error: updateError, count } = await supabase
+              .from('bank_ledger')
+              .update({
+                transactionid: record.transactionid,
+                result: record.result,
+                customercountry: record.customercountry,
+                riskfrauddescription: record.riskfrauddescription,
+                clearinginstitutename: record.clearinginstitutename
+              })
+              .eq('reference_number', orderNumber);
+            
+            if (updateError) {
+              console.error(`Error updating bank_ledger for order ${orderNumber}:`, updateError);
+            } else {
+              totalUpdated++;
+            }
+          }
+          
+          console.log(`Batch ${Math.floor(i / batchSize) + 1} complete, updated ${totalUpdated} bank_ledger entries so far`);
         }
         
-        console.log(`Finished matching: updated ${updatedCount} bank_ledger entries with hyberpay data`);
+        console.log(`Finished matching: updated ${totalUpdated} bank_ledger entries with hyberpay data via order_payment bridge`);
       }
     }
 
