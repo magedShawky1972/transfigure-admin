@@ -165,7 +165,7 @@ const Reports = () => {
     },
     {
       id: "bank-statement",
-      name: language === "ar" ? "تقرير كشف حساب البنك" : "Bank Statement Report",
+      name: language === "ar" ? "كشف حساب بنك الرياض" : "RIYAD BANK Statement",
       description: language === "ar" 
         ? "عرض كشف حساب البنك مع الفلترة حسب تاريخ المعاملة وتاريخ الترحيل" 
         : "View bank statement with filters by transaction date and posting date",
