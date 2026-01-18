@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Search, FileSpreadsheet, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,11 +18,18 @@ interface DateStatus {
   loaded: boolean;
 }
 
+interface ProgressState {
+  current: number;
+  total: number;
+  message: string;
+}
+
 const DataLoadingStatus = () => {
   const { language } = useLanguage();
   const isRTL = language === "ar";
   
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<ProgressState>({ current: 0, total: 0, message: '' });
   const [dataSource, setDataSource] = useState<"riyadbank" | "hyberpay" | "purpletransaction" | "orderpayment">("hyberpay");
   const [startDate, setStartDate] = useState(format(new Date(new Date().setDate(1)), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -30,6 +38,8 @@ const DataLoadingStatus = () => {
 
   const fetchDateStatuses = async () => {
     setLoading(true);
+    setProgress({ current: 0, total: 0, message: isRTL ? 'جاري التهيئة...' : 'Initializing...' });
+    
     try {
       // Generate all dates in range
       const start = parseISO(startDate);
@@ -39,12 +49,31 @@ const DataLoadingStatus = () => {
       const loadedDates = new Set<string>();
 
       const PAGE_SIZE = 1000;
+      let totalRecordsFetched = 0;
+      
       const fetchDateValuesPaged = async (opts: {
         table: "hyberpaystatement" | "riyadbankstatement" | "purpletransaction" | "order_payment";
         column: "request_date" | "txn_date_only" | "created_at_date" | "order_date";
       }) => {
         let from = 0;
+        let pageNum = 1;
+        
+        // First, get estimated count
+        setProgress({ 
+          current: 0, 
+          total: 100, 
+          message: isRTL ? 'جاري حساب عدد السجلات...' : 'Counting records...' 
+        });
+        
         while (true) {
+          setProgress(prev => ({ 
+            ...prev, 
+            current: Math.min(90, pageNum * 10), 
+            message: isRTL 
+              ? `جاري جلب الصفحة ${pageNum} (${totalRecordsFetched.toLocaleString()} سجل)...` 
+              : `Fetching page ${pageNum} (${totalRecordsFetched.toLocaleString()} records)...`
+          }));
+          
           const { data, error } = await supabase
             .from(opts.table)
             .select(opts.column)
@@ -61,8 +90,11 @@ const DataLoadingStatus = () => {
             loadedDates.add(String(value).slice(0, 10));
           });
 
+          totalRecordsFetched += data?.length || 0;
+
           if (!data || data.length < PAGE_SIZE) break;
           from += PAGE_SIZE;
+          pageNum++;
         }
       };
 
@@ -75,6 +107,12 @@ const DataLoadingStatus = () => {
       } else if (dataSource === "orderpayment") {
         await fetchDateValuesPaged({ table: "order_payment", column: "order_date" });
       }
+
+      setProgress({ 
+        current: 95, 
+        total: 100, 
+        message: isRTL ? 'جاري معالجة النتائج...' : 'Processing results...' 
+      });
 
       // Build status array
       const statuses: DateStatus[] = allDates.map((date) => {
@@ -90,6 +128,12 @@ const DataLoadingStatus = () => {
       const missingCount = statuses.filter((s) => !s.loaded).length;
       const loadedCount = statuses.filter((s) => s.loaded).length;
 
+      setProgress({ 
+        current: 100, 
+        total: 100, 
+        message: isRTL ? 'اكتمل!' : 'Complete!' 
+      });
+
       toast.success(
         isRTL
           ? `تم العثور على ${loadedCount} تاريخ محمل و ${missingCount} تاريخ مفقود`
@@ -98,6 +142,7 @@ const DataLoadingStatus = () => {
     } catch (error) {
       console.error("Error fetching date statuses:", error);
       toast.error(isRTL ? "خطأ في جلب البيانات" : "Error fetching data");
+      setProgress({ current: 0, total: 0, message: '' });
     } finally {
       setLoading(false);
     }
@@ -205,12 +250,34 @@ const DataLoadingStatus = () => {
               />
             </div>
             <Button onClick={fetchDateStatuses} disabled={loading}>
-              <Search className="h-4 w-4 mr-2" />
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4 mr-2" />
+              )}
               {loading ? (isRTL ? "جاري البحث..." : "Searching...") : (isRTL ? "بحث" : "Search")}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Progress Bar */}
+      {loading && (
+        <Card className="border-primary/50">
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {progress.message || (isRTL ? 'جاري التحميل...' : 'Loading...')}
+                </span>
+                <span className="font-medium">{Math.round((progress.current / Math.max(progress.total, 1)) * 100)}%</span>
+              </div>
+              <Progress value={(progress.current / Math.max(progress.total, 1)) * 100} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       {dateStatuses.length > 0 && (
