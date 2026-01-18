@@ -497,6 +497,7 @@ export type Database = {
           currency_id: string | null
           description: string | null
           entry_date: string
+          entry_date_int: number | null
           exchange_rate: number | null
           id: string
           in_amount: number | null
@@ -513,6 +514,7 @@ export type Database = {
           currency_id?: string | null
           description?: string | null
           entry_date?: string
+          entry_date_int?: number | null
           exchange_rate?: number | null
           id?: string
           in_amount?: number | null
@@ -529,6 +531,7 @@ export type Database = {
           currency_id?: string | null
           description?: string | null
           entry_date?: string
+          entry_date_int?: number | null
           exchange_rate?: number | null
           id?: string
           in_amount?: number | null
