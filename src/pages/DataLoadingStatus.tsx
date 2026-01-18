@@ -53,7 +53,7 @@ const DataLoadingStatus = () => {
       
       const fetchDateValuesPaged = async (opts: {
         table: "hyberpaystatement" | "riyadbankstatement" | "purpletransaction" | "order_payment";
-        column: "request_date" | "txn_date_only" | "created_at_date" | "order_date";
+        column: "request_date" | "txn_date_only" | "created_at_date" | "created_at";
       }) => {
         let from = 0;
         let pageNum = 1;
@@ -105,7 +105,7 @@ const DataLoadingStatus = () => {
       } else if (dataSource === "purpletransaction") {
         await fetchDateValuesPaged({ table: "purpletransaction", column: "created_at_date" });
       } else if (dataSource === "orderpayment") {
-        await fetchDateValuesPaged({ table: "order_payment", column: "order_date" });
+        await fetchDateValuesPaged({ table: "order_payment", column: "created_at" });
       }
 
       setProgress({ 
