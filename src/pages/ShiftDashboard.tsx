@@ -101,15 +101,20 @@ export default function ShiftDashboard() {
       const totalShifts = shiftsData?.length || 0;
       const activeShifts = shiftsData?.filter(s => s.is_active).length || 0;
 
-      // Fetch assignments count
+      // Get today's date for filtering
+      const today = format(new Date(), "yyyy-MM-dd");
+
+      // Fetch assignments count (only current and future)
       const { count: assignmentsCount } = await supabase
         .from("shift_assignments")
-        .select("*", { count: "exact", head: true });
+        .select("*", { count: "exact", head: true })
+        .gte("assignment_date", today);
 
-      // Fetch session statistics
+      // Fetch session statistics (only for current and future assignments)
       const { data: sessionsData } = await supabase
         .from("shift_sessions")
-        .select("status");
+        .select("status, shift_assignments!inner(assignment_date)")
+        .gte("shift_assignments.assignment_date", today);
 
       const openSessions = sessionsData?.filter(s => s.status === "open").length || 0;
       const closedSessions = sessionsData?.filter(s => s.status === "closed").length || 0;
@@ -235,7 +240,8 @@ export default function ShiftDashboard() {
           status: s.status,
         })) || []);
       } else if (type === "pending") {
-        // Pending = assignments without sessions
+        // Pending = assignments without sessions (only current and future)
+        const today = format(new Date(), "yyyy-MM-dd");
         const { data: assignmentsData } = await supabase
           .from("shift_assignments")
           .select(`
@@ -245,12 +251,16 @@ export default function ShiftDashboard() {
             shifts(shift_name),
             shift_sessions(id)
           `)
-          .order("assignment_date", { ascending: false })
+          .gte("assignment_date", today)
+          .order("assignment_date", { ascending: true })
           .limit(100);
 
-        const pendingAssignments = assignmentsData?.filter(a => 
-          !(a.shift_sessions as any)?.length
-        ) || [];
+        const pendingAssignments = assignmentsData?.filter(a => {
+          const sessions = a.shift_sessions;
+          if (!sessions) return true;
+          if (Array.isArray(sessions)) return sessions.length === 0;
+          return false; // single object means session exists
+        }) || [];
 
         const userIds = pendingAssignments.map(a => a.user_id);
         const { data: profilesData } = await supabase
