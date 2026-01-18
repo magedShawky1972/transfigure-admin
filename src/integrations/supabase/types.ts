@@ -504,6 +504,7 @@ export type Database = {
           id: string
           in_amount: number | null
           out_amount: number | null
+          paymentrefrence: string | null
           reference_id: string | null
           reference_number: string | null
           reference_type: string
@@ -526,6 +527,7 @@ export type Database = {
           id?: string
           in_amount?: number | null
           out_amount?: number | null
+          paymentrefrence?: string | null
           reference_id?: string | null
           reference_number?: string | null
           reference_type: string
@@ -548,6 +550,7 @@ export type Database = {
           id?: string
           in_amount?: number | null
           out_amount?: number | null
+          paymentrefrence?: string | null
           reference_id?: string | null
           reference_number?: string | null
           reference_type?: string

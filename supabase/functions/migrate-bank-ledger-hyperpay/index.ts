@@ -107,19 +107,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 3: Create mapping: ordernumber -> hyperpay data
-    const orderToHyperpay = new Map<string, any>();
+    // Step 3: Create mapping: ordernumber -> {hyperpay data, paymentrefrence}
+    const orderToData = new Map<string, { hyperpay: any, paymentrefrence: string }>();
     for (const op of allOrderPayments) {
       const hyperpayData = transactionIdToHyperpay.get(op.paymentrefrence);
       if (hyperpayData && op.ordernumber) {
-        orderToHyperpay.set(op.ordernumber, hyperpayData);
+        orderToData.set(op.ordernumber, {
+          hyperpay: hyperpayData,
+          paymentrefrence: op.paymentrefrence
+        });
       }
     }
 
-    console.log(`Created mapping for ${orderToHyperpay.size} order numbers`);
+    console.log(`Created mapping for ${orderToData.size} order numbers`);
 
     // Step 4: Update bank_ledger entries in batches
-    const orderNumbers = Array.from(orderToHyperpay.keys());
+    const orderNumbers = Array.from(orderToData.keys());
     const updateBatchSize = 100;
     let totalUpdated = 0;
     let totalErrors = 0;
@@ -128,16 +131,18 @@ Deno.serve(async (req) => {
       const batchOrderNumbers = orderNumbers.slice(i, i + updateBatchSize);
       
       for (const orderNumber of batchOrderNumbers) {
-        const hyperpayData = orderToHyperpay.get(orderNumber);
+        const data = orderToData.get(orderNumber);
+        if (!data) continue;
         
         const { error: updateError, count } = await supabase
           .from('bank_ledger')
           .update({
-            transactionid: hyperpayData.transactionid,
-            result: hyperpayData.result,
-            customercountry: hyperpayData.customercountry,
-            riskfrauddescription: hyperpayData.riskfrauddescription,
-            clearinginstitutename: hyperpayData.clearinginstitutename
+            transactionid: data.hyperpay.transactionid,
+            result: data.hyperpay.result,
+            customercountry: data.hyperpay.customercountry,
+            riskfrauddescription: data.hyperpay.riskfrauddescription,
+            clearinginstitutename: data.hyperpay.clearinginstitutename,
+            paymentrefrence: data.paymentrefrence
           })
           .eq('reference_number', orderNumber);
 
@@ -170,7 +175,7 @@ Deno.serve(async (req) => {
       success: true,
       processed: hyperpayRecords.length,
       matchedOrderPayments: allOrderPayments.length,
-      mappedOrders: orderToHyperpay.size,
+      mappedOrders: orderToData.size,
       updated: totalUpdated,
       errors: totalErrors,
       lastCursorId: lastId,

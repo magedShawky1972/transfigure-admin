@@ -631,6 +631,10 @@ Deno.serve(async (req) => {
           
           // Step 3: Update bank_ledger entries by reference_number (which is order_number)
           for (const [orderNumber, record] of orderToHyperpay) {
+            // Get the paymentrefrence (transactionid from order_payment)
+            const orderPayment = orderPayments.find(op => op.ordernumber === orderNumber);
+            const paymentRefrence = orderPayment?.paymentrefrence || null;
+            
             const { error: updateError, count } = await supabase
               .from('bank_ledger')
               .update({
@@ -638,7 +642,8 @@ Deno.serve(async (req) => {
                 result: record.result,
                 customercountry: record.customercountry,
                 riskfrauddescription: record.riskfrauddescription,
-                clearinginstitutename: record.clearinginstitutename
+                clearinginstitutename: record.clearinginstitutename,
+                paymentrefrence: paymentRefrence
               })
               .eq('reference_number', orderNumber);
             
