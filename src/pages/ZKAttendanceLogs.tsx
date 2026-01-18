@@ -102,6 +102,7 @@ const ZKAttendanceLogs = () => {
   const [searchCode, setSearchCode] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("all");
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -150,6 +151,10 @@ const ZKAttendanceLogs = () => {
 
       if (recordTypeFilter !== "all") {
         query = query.eq("record_type", recordTypeFilter);
+      }
+
+      if (selectedEmployee !== "all") {
+        query = query.eq("employee_code", selectedEmployee);
       }
 
       const { data, error, count } = await query;
@@ -202,12 +207,12 @@ const ZKAttendanceLogs = () => {
   useEffect(() => {
     fetchLogs();
     fetchEmployees();
-  }, [searchCode, selectedDate, recordTypeFilter, currentPage, pageSize]);
+  }, [searchCode, selectedDate, recordTypeFilter, selectedEmployee, currentPage, pageSize]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchCode, selectedDate, recordTypeFilter]);
+  }, [searchCode, selectedDate, recordTypeFilter, selectedEmployee]);
 
   const getEmployeeName = (code: string) => {
     const employee = employees.find((e) => e.zk_employee_code === code);
@@ -648,6 +653,23 @@ const ZKAttendanceLogs = () => {
                 <SelectItem value="entry">{isArabic ? "دخول" : "Entry"}</SelectItem>
                 <SelectItem value="exit">{isArabic ? "خروج" : "Exit"}</SelectItem>
                 <SelectItem value="unknown">{isArabic ? "غير محدد" : "Unknown"}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+              <SelectTrigger className="w-[250px]">
+                <User className="h-4 w-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "اختر الموظف" : "Select Employee"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "جميع الموظفين" : "All Employees"}</SelectItem>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.zk_employee_code || ""}>
+                    {emp.zk_employee_code} - {isArabic && emp.first_name_ar 
+                      ? `${emp.first_name_ar} ${emp.last_name_ar || ""}`.trim()
+                      : `${emp.first_name} ${emp.last_name}`.trim()}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
