@@ -647,16 +647,24 @@ const UserDashboard = () => {
       .order("assignment_date", { ascending: true });
 
     if (assignments) {
-      setShifts(assignments.map(a => ({
-        id: a.id,
-        assignment_date: a.assignment_date,
-        shift_name: (a.shifts as any)?.shift_name || "",
-        shift_start_time: (a.shifts as any)?.shift_start_time || "",
-        shift_end_time: (a.shifts as any)?.shift_end_time || "",
-        color: (a.shifts as any)?.color || "#3b82f6",
-        has_session: (a.shift_sessions as any[])?.length > 0,
-        session_status: (a.shift_sessions as any[])?.[0]?.status
-      })));
+      setShifts(assignments.map(a => {
+        // shift_sessions can be array or single object due to unique constraint
+        const sessions = Array.isArray(a.shift_sessions) 
+          ? a.shift_sessions 
+          : a.shift_sessions 
+            ? [a.shift_sessions] 
+            : [];
+        return {
+          id: a.id,
+          assignment_date: a.assignment_date,
+          shift_name: (a.shifts as any)?.shift_name || "",
+          shift_start_time: (a.shifts as any)?.shift_start_time || "",
+          shift_end_time: (a.shifts as any)?.shift_end_time || "",
+          color: (a.shifts as any)?.color || "#3b82f6",
+          has_session: sessions.length > 0,
+          session_status: sessions[0]?.status
+        };
+      }));
     }
   };
 
@@ -769,16 +777,24 @@ const UserDashboard = () => {
         
       const profileMap = new Map(profiles?.map(p => [p.user_id, p.user_name]) || []);
       
-      setShiftFollowUpData(assignments.map(a => ({
-        id: a.id,
-        user_name: profileMap.get(a.user_id) || "Unknown",
-        shift_name: (a.shifts as any)?.shift_name || "",
-        assignment_date: a.assignment_date,
-        color: (a.shifts as any)?.color || "#3b82f6",
-        session_status: (a.shift_sessions as any[])?.[0]?.status || null,
-        opened_at: (a.shift_sessions as any[])?.[0]?.opened_at || null,
-        closed_at: (a.shift_sessions as any[])?.[0]?.closed_at || null,
-      })));
+      setShiftFollowUpData(assignments.map(a => {
+        // shift_sessions can be array or single object due to unique constraint
+        const sessions = Array.isArray(a.shift_sessions) 
+          ? a.shift_sessions 
+          : a.shift_sessions 
+            ? [a.shift_sessions] 
+            : [];
+        return {
+          id: a.id,
+          user_name: profileMap.get(a.user_id) || "Unknown",
+          shift_name: (a.shifts as any)?.shift_name || "",
+          assignment_date: a.assignment_date,
+          color: (a.shifts as any)?.color || "#3b82f6",
+          session_status: sessions[0]?.status || null,
+          opened_at: sessions[0]?.opened_at || null,
+          closed_at: sessions[0]?.closed_at || null,
+        };
+      }));
     } else {
       setShiftFollowUpData([]);
     }

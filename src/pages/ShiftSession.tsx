@@ -93,6 +93,9 @@ const ShiftSession = () => {
     imagePath: string;
     type: 'opening' | 'closing';
   } | null>(null);
+  
+  // Loading state for open shift button to prevent double-clicks
+  const [openingShift, setOpeningShift] = useState(false);
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -567,7 +570,12 @@ const ShiftSession = () => {
   };
 
   const handleOpenShift = async () => {
+    // Prevent double-clicks
+    if (openingShift) return;
+    
     try {
+      setOpeningShift(true);
+      
       // Validate Purple First Order Number is mandatory
       if (!firstOrderNumber.trim()) {
         toast({
@@ -754,6 +762,8 @@ const ShiftSession = () => {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setOpeningShift(false);
     }
   };
 
@@ -1511,8 +1521,8 @@ const ShiftSession = () => {
                 </p>
               </div>
 
-              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim()}>
-                {t("openShift")}
+              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim() || openingShift}>
+                {openingShift ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />{t("opening") || "جاري الفتح..."}</> : t("openShift")}
               </Button>
             </div>
           ) : (
