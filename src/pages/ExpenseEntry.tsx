@@ -140,16 +140,16 @@ const ExpenseEntryPage = () => {
         updateData.paid_by = currentUserId;
         updateData.paid_at = new Date().toISOString();
 
-        // Fetch full entry to get grand_total
+        // Fetch full entry to get grand_total and currency_id
         const { data: fullEntry } = await supabase
           .from("expense_entries")
-          .select("grand_total")
+          .select("grand_total, currency_id, exchange_rate")
           .eq("id", entryId)
           .single();
 
         const grandTotal = fullEntry?.grand_total || 0;
 
-        // Create bank or treasury entry
+        // Create bank or treasury entry and post to ledger
         if (entry.payment_method === "bank" && entry.bank_id) {
           const entryNumber = `BNK${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}${String(new Date().getSeconds()).padStart(2, "0")}`;
           
@@ -170,6 +170,22 @@ const ExpenseEntryPage = () => {
           const { data: bankData } = await supabase.from("banks").select("current_balance").eq("id", entry.bank_id).single();
           const newBalance = (bankData?.current_balance || 0) - grandTotal;
           await supabase.from("banks").update({ current_balance: newBalance }).eq("id", entry.bank_id);
+
+          // Post to treasury ledger (bank)
+          await supabase.from("treasury_ledger").insert({
+            bank_id: entry.bank_id,
+            entry_date: new Date().toISOString(),
+            reference_type: "expense_entry",
+            reference_id: entryId,
+            reference_number: entry.entry_number,
+            description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
+            credit_amount: grandTotal,
+            debit_amount: 0,
+            balance_after: newBalance,
+            currency_id: fullEntry?.currency_id,
+            exchange_rate: fullEntry?.exchange_rate || 1,
+            created_by: currentUserId,
+          });
         } else if (entry.payment_method === "treasury" && entry.treasury_id) {
           const entryNumber = `TRS${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}${String(new Date().getSeconds()).padStart(2, "0")}`;
           
@@ -190,6 +206,22 @@ const ExpenseEntryPage = () => {
           const { data: treasuryData } = await supabase.from("treasuries").select("current_balance").eq("id", entry.treasury_id).single();
           const newBalance = (treasuryData?.current_balance || 0) - grandTotal;
           await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", entry.treasury_id);
+
+          // Post to treasury ledger
+          await supabase.from("treasury_ledger").insert({
+            treasury_id: entry.treasury_id,
+            entry_date: new Date().toISOString(),
+            reference_type: "expense_entry",
+            reference_id: entryId,
+            reference_number: entry.entry_number,
+            description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
+            credit_amount: grandTotal,
+            debit_amount: 0,
+            balance_after: newBalance,
+            currency_id: fullEntry?.currency_id,
+            exchange_rate: fullEntry?.exchange_rate || 1,
+            created_by: currentUserId,
+          });
         }
       }
 

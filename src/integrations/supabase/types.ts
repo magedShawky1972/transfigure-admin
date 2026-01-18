@@ -5660,6 +5660,82 @@ export type Database = {
           },
         ]
       }
+      treasury_ledger: {
+        Row: {
+          balance_after: number | null
+          bank_id: string | null
+          created_at: string
+          created_by: string | null
+          credit_amount: number | null
+          currency_id: string | null
+          debit_amount: number | null
+          description: string | null
+          entry_date: string
+          exchange_rate: number | null
+          id: string
+          reference_id: string
+          reference_number: string | null
+          reference_type: string
+          treasury_id: string | null
+        }
+        Insert: {
+          balance_after?: number | null
+          bank_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_amount?: number | null
+          currency_id?: string | null
+          debit_amount?: number | null
+          description?: string | null
+          entry_date?: string
+          exchange_rate?: number | null
+          id?: string
+          reference_id: string
+          reference_number?: string | null
+          reference_type: string
+          treasury_id?: string | null
+        }
+        Update: {
+          balance_after?: number | null
+          bank_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_amount?: number | null
+          currency_id?: string | null
+          debit_amount?: number | null
+          description?: string | null
+          entry_date?: string
+          exchange_rate?: number | null
+          id?: string
+          reference_id?: string
+          reference_number?: string | null
+          reference_type?: string
+          treasury_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treasury_ledger_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_ledger_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_ledger_treasury_id_fkey"
+            columns: ["treasury_id"]
+            isOneToOne: false
+            referencedRelation: "treasuries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       treasury_opening_balances: {
         Row: {
           amount: number
