@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.sync-orders-daily-background]
 verify_jwt = false
+
+[functions.migrate-bank-ledger-hyperpay]
+verify_jwt = false
