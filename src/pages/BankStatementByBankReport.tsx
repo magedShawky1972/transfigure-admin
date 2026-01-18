@@ -50,6 +50,7 @@ const BankStatementByBankReport = () => {
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [ledgerData, setLedgerData] = useState<LedgerEntry[]>([]);
+  const [openingBalance, setOpeningBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
@@ -125,6 +126,21 @@ const BankStatementByBankReport = () => {
 
     setLoading(true);
     try {
+      // Fetch opening balance (sum of all transactions before fromDate)
+      const { data: priorData, error: priorError } = await supabase
+        .from('bank_ledger')
+        .select('in_amount, out_amount')
+        .eq('bank_id', selectedBank)
+        .lt('entry_date', fromDate);
+
+      if (priorError) throw priorError;
+
+      const openingBal = (priorData || []).reduce((sum, entry) => {
+        return sum + (entry.in_amount || 0) - (entry.out_amount || 0);
+      }, 0);
+      setOpeningBalance(openingBal);
+
+      // Fetch transactions in date range
       const { data, error } = await supabase
         .from('bank_ledger')
         .select('id, entry_date, description, in_amount, out_amount, balance_after, reference_number')
@@ -152,8 +168,8 @@ const BankStatementByBankReport = () => {
         return aIsSales - bIsSales;
       });
       
-      // Calculate running balance
-      let runningBalance = 0;
+      // Calculate running balance starting from opening balance
+      let runningBalance = openingBal;
       const dataWithBalance = sortedData.map(entry => {
         runningBalance += (entry.in_amount || 0) - (entry.out_amount || 0);
         return { ...entry, runningBalance };
@@ -179,7 +195,10 @@ const BankStatementByBankReport = () => {
     const headers = ['Date', 'Description', 'Reference', 'Dr. (In)', 'Cr. (Out)', 'Balance'];
     const csvRows = [headers.join(',')];
 
-    let runningBal = 0;
+    // Add opening balance row
+    csvRows.push([fromDate, 'Opening Balance', '', '', '', openingBalance.toFixed(2)].join(','));
+
+    let runningBal = openingBalance;
     ledgerData.forEach(entry => {
       runningBal += (entry.in_amount || 0) - (entry.out_amount || 0);
       const row = [
@@ -336,6 +355,17 @@ const BankStatementByBankReport = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* Opening Balance Row */}
+                  <TableRow className="bg-blue-50 dark:bg-blue-950/30 font-semibold">
+                    <TableCell className="whitespace-nowrap">{fromDate}</TableCell>
+                    <TableCell>{language === 'ar' ? 'الرصيد الافتتاحي' : 'Opening Balance'}</TableCell>
+                    <TableCell>-</TableCell>
+                    <TableCell className="text-right">-</TableCell>
+                    <TableCell className="text-right">-</TableCell>
+                    <TableCell className="text-right font-bold text-blue-600">
+                      {openingBalance.toLocaleString('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                  </TableRow>
                   {ledgerData.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="whitespace-nowrap">
@@ -366,8 +396,8 @@ const BankStatementByBankReport = () => {
                     <TableCell className="text-right text-red-600">
                       {formatCurrency(totals.totalOut)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(totals.totalIn - totals.totalOut)}
+                    <TableCell className="text-right font-bold">
+                      {formatCurrency(openingBalance + totals.totalIn - totals.totalOut)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
