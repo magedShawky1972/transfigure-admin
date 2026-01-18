@@ -39,6 +39,7 @@ interface LedgerEntry {
   out_amount: number | null;
   balance_after: number | null;
   reference_number: string | null;
+  runningBalance?: number;
 }
 
 const BankStatementByBankReport = () => {
@@ -130,11 +131,36 @@ const BankStatementByBankReport = () => {
         .eq('bank_id', selectedBank)
         .gte('entry_date', fromDate)
         .lte('entry_date', toDate)
-        .order('entry_date', { ascending: true });
+        .order('entry_date', { ascending: true })
+        .order('reference_number', { ascending: true });
 
       if (error) throw error;
-      setLedgerData(data || []);
-      toast.success(language === 'ar' ? `تم جلب ${data?.length || 0} سجل` : `Fetched ${data?.length || 0} records`);
+      
+      // Sort to put "Sales In" before "Bank Fee" for same reference
+      const sortedData = (data || []).sort((a, b) => {
+        // First by date
+        const dateCompare = a.entry_date.localeCompare(b.entry_date);
+        if (dateCompare !== 0) return dateCompare;
+        
+        // Then by reference number
+        const refCompare = (a.reference_number || '').localeCompare(b.reference_number || '');
+        if (refCompare !== 0) return refCompare;
+        
+        // Then "Sales In" before "Bank Fee"
+        const aIsSales = a.description?.toLowerCase().includes('sales in') ? 0 : 1;
+        const bIsSales = b.description?.toLowerCase().includes('sales in') ? 0 : 1;
+        return aIsSales - bIsSales;
+      });
+      
+      // Calculate running balance
+      let runningBalance = 0;
+      const dataWithBalance = sortedData.map(entry => {
+        runningBalance += (entry.in_amount || 0) - (entry.out_amount || 0);
+        return { ...entry, runningBalance };
+      });
+      
+      setLedgerData(dataWithBalance);
+      toast.success(language === 'ar' ? `تم جلب ${dataWithBalance.length} سجل` : `Fetched ${dataWithBalance.length} records`);
     } catch (error) {
       console.error('Error running report:', error);
       toast.error(language === 'ar' ? 'خطأ في تشغيل التقرير' : 'Error running report');
@@ -153,14 +179,16 @@ const BankStatementByBankReport = () => {
     const headers = ['Date', 'Description', 'Reference', 'Dr. (In)', 'Cr. (Out)', 'Balance'];
     const csvRows = [headers.join(',')];
 
+    let runningBal = 0;
     ledgerData.forEach(entry => {
+      runningBal += (entry.in_amount || 0) - (entry.out_amount || 0);
       const row = [
         entry.entry_date,
         `"${(entry.description || '').replace(/"/g, '""')}"`,
         entry.reference_number || '',
         entry.in_amount?.toFixed(2) || '0.00',
         entry.out_amount?.toFixed(2) || '0.00',
-        entry.balance_after?.toFixed(2) || '0.00',
+        runningBal.toFixed(2),
       ];
       csvRows.push(row.join(','));
     });
@@ -324,7 +352,7 @@ const BankStatementByBankReport = () => {
                         {formatCurrency(entry.out_amount)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(entry.balance_after)}
+                        {formatCurrency(entry.runningBalance ?? null)}
                       </TableCell>
                     </TableRow>
                   ))}
