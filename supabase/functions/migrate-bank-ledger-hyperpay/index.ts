@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
           .from('bank_ledger')
           .update({
             transactionid: data.hyperpay.transactionid,
+            transaction_receipt: data.hyperpay.transaction_receipt,
             result: data.hyperpay.result,
             customercountry: data.hyperpay.customercountry,
             riskfrauddescription: data.hyperpay.riskfrauddescription,

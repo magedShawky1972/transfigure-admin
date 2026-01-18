@@ -639,6 +639,7 @@ Deno.serve(async (req) => {
               .from('bank_ledger')
               .update({
                 transactionid: record.transactionid,
+                transaction_receipt: record.transaction_receipt,
                 result: record.result,
                 customercountry: record.customercountry,
                 riskfrauddescription: record.riskfrauddescription,
