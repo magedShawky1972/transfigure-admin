@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowLeft, FileDown, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
@@ -52,6 +53,8 @@ const BankStatementByBankReport = () => {
   const [ledgerData, setLedgerData] = useState<LedgerEntry[]>([]);
   const [openingBalance, setOpeningBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState<string>("");
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
 
@@ -125,9 +128,15 @@ const BankStatementByBankReport = () => {
     }
 
     setLoading(true);
+    setLoadingProgress(0);
+    setLoadingStatus(language === 'ar' ? 'جاري حساب الرصيد الافتتاحي...' : 'Calculating opening balance...');
+    
     try {
-      // Helper function to fetch all records with pagination
-      const fetchAllRecords = async (query: any) => {
+      // Helper function to fetch all records with pagination and progress updates
+      const fetchAllRecords = async (
+        query: any, 
+        onProgress?: (fetched: number) => void
+      ) => {
         const pageSize = 1000;
         let allData: any[] = [];
         let from = 0;
@@ -141,6 +150,7 @@ const BankStatementByBankReport = () => {
             allData = [...allData, ...data];
             from += pageSize;
             hasMore = data.length === pageSize;
+            if (onProgress) onProgress(allData.length);
           } else {
             hasMore = false;
           }
@@ -154,13 +164,23 @@ const BankStatementByBankReport = () => {
           .from('bank_ledger')
           .select('in_amount, out_amount')
           .eq('bank_id', selectedBank)
-          .lt('entry_date', fromDate)
+          .lt('entry_date', fromDate),
+        (count) => {
+          setLoadingStatus(language === 'ar' 
+            ? `جاري حساب الرصيد الافتتاحي... (${count.toLocaleString()} سجل)` 
+            : `Calculating opening balance... (${count.toLocaleString()} records)`
+          );
+        }
       );
 
+      setLoadingProgress(30);
       const openingBal = priorData.reduce((sum, entry) => {
         return sum + (entry.in_amount || 0) - (entry.out_amount || 0);
       }, 0);
       setOpeningBalance(openingBal);
+
+      setLoadingStatus(language === 'ar' ? 'جاري جلب المعاملات...' : 'Fetching transactions...');
+      setLoadingProgress(40);
 
       // Fetch transactions in date range with pagination
       const data = await fetchAllRecords(
@@ -171,9 +191,19 @@ const BankStatementByBankReport = () => {
           .gte('entry_date', fromDate)
           .lte('entry_date', toDate)
           .order('entry_date', { ascending: true })
-          .order('reference_number', { ascending: true })
+          .order('reference_number', { ascending: true }),
+        (count) => {
+          setLoadingStatus(language === 'ar' 
+            ? `جاري جلب المعاملات... (${count.toLocaleString()} سجل)` 
+            : `Fetching transactions... (${count.toLocaleString()} records)`
+          );
+          setLoadingProgress(40 + Math.min(40, count / 100));
+        }
       );
       
+      setLoadingStatus(language === 'ar' ? 'جاري ترتيب البيانات...' : 'Sorting data...');
+      setLoadingProgress(85);
+
       // Sort to put "Sales In" before "Bank Fee" for same reference
       const sortedData = data.sort((a, b) => {
         // First by date
@@ -190,6 +220,9 @@ const BankStatementByBankReport = () => {
         return aIsSales - bIsSales;
       });
       
+      setLoadingStatus(language === 'ar' ? 'جاري حساب الأرصدة...' : 'Calculating balances...');
+      setLoadingProgress(95);
+
       // Calculate running balance starting from opening balance
       let runningBalance = openingBal;
       const dataWithBalance = sortedData.map(entry => {
@@ -197,13 +230,16 @@ const BankStatementByBankReport = () => {
         return { ...entry, runningBalance };
       });
       
+      setLoadingProgress(100);
       setLedgerData(dataWithBalance);
-      toast.success(language === 'ar' ? `تم جلب ${dataWithBalance.length} سجل` : `Fetched ${dataWithBalance.length} records`);
+      toast.success(language === 'ar' ? `تم جلب ${dataWithBalance.length.toLocaleString()} سجل` : `Fetched ${dataWithBalance.length.toLocaleString()} records`);
     } catch (error) {
       console.error('Error running report:', error);
       toast.error(language === 'ar' ? 'خطأ في تشغيل التقرير' : 'Error running report');
     } finally {
       setLoading(false);
+      setLoadingStatus("");
+      setLoadingProgress(0);
     }
   };
 
@@ -346,6 +382,24 @@ const BankStatementByBankReport = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Loading Progress */}
+      {loading && (
+        <Card className="border-primary/50">
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {loadingStatus}
+                </span>
+                <span className="font-medium">{Math.round(loadingProgress)}%</span>
+              </div>
+              <Progress value={loadingProgress} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       {ledgerData.length > 0 && (
