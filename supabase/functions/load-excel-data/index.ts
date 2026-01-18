@@ -597,10 +597,10 @@ Deno.serve(async (req) => {
         }
       });
 
-      // Fetch payment methods for bank fee calculation
+      // Fetch payment methods for bank fee calculation (including bank_id)
       const { data: paymentMethods, error: pmError } = await supabase
         .from('payment_methods')
-        .select('payment_method, gateway_fee, fixed_value, vat_fee')
+        .select('payment_method, gateway_fee, fixed_value, vat_fee, bank_id')
         .eq('is_active', true);
 
       if (pmError) {
@@ -610,6 +610,7 @@ Deno.serve(async (req) => {
       // Calculate bank fees for each order
       const orderTotalsToUpsert = Array.from(orderTotalsMap.values()).map((order: any) => {
         let bankFee = 0;
+        let bankId = null;
         if (order.payment_method !== 'point' && paymentMethods) {
           const brand = (order.payment_brand || '').trim().toLowerCase();
           const paymentMethod = paymentMethods.find((pm: any) => 
@@ -622,22 +623,25 @@ Deno.serve(async (req) => {
             const fixed = Number(paymentMethod.fixed_value) || 0;
             const gatewayFee = (totalNum * gatewayPct) / 100;
             bankFee = (gatewayFee + fixed) * 1.15;
+            bankId = paymentMethod.bank_id;
           }
         }
         
         return {
           ...order,
-          bank_fee: bankFee
+          bank_fee: bankFee,
+          _bank_id: bankId // temporary field for bank ledger processing
         };
       });
 
       console.log(`Upserting ${orderTotalsToUpsert.length} order totals...`);
 
-      // Upsert order totals
+      // Upsert order totals (without _bank_id)
       if (orderTotalsToUpsert.length > 0) {
+        const orderTotalsClean = orderTotalsToUpsert.map(({ _bank_id, ...rest }) => rest);
         const { error: orderTotalsError } = await supabase
           .from('ordertotals')
-          .upsert(orderTotalsToUpsert, {
+          .upsert(orderTotalsClean, {
             onConflict: 'order_number',
             ignoreDuplicates: false
           });
@@ -646,6 +650,105 @@ Deno.serve(async (req) => {
           console.error('Error upserting order totals:', orderTotalsError);
         } else {
           console.log(`Successfully upserted ${orderTotalsToUpsert.length} order totals`);
+        }
+      }
+
+      // Post to bank_ledger for orders that have a bank_id
+      console.log('Processing bank ledger entries...');
+      const bankLedgerEntries: any[] = [];
+      
+      // Get current bank balances for all relevant banks
+      const bankIds = [...new Set(orderTotalsToUpsert.map(o => o._bank_id).filter(id => id))];
+      
+      if (bankIds.length > 0) {
+        // Fetch current bank balances
+        const { data: banks, error: banksError } = await supabase
+          .from('banks')
+          .select('id, current_balance')
+          .in('id', bankIds);
+        
+        if (banksError) {
+          console.error('Error fetching bank balances:', banksError);
+        }
+        
+        const bankBalanceMap = new Map(
+          (banks || []).map(b => [b.id, Number(b.current_balance) || 0])
+        );
+        
+        // Process each order and create ledger entries
+        for (const order of orderTotalsToUpsert) {
+          if (!order._bank_id) continue;
+          
+          const orderTotal = Number(order.total) || 0;
+          const bankFee = Number(order.bank_fee) || 0;
+          const currentBalance = bankBalanceMap.get(order._bank_id) || 0;
+          
+          // Sales In entry (In)
+          const balanceAfterSalesIn = currentBalance + orderTotal;
+          bankLedgerEntries.push({
+            bank_id: order._bank_id,
+            entry_date: order.order_date || new Date().toISOString(),
+            reference_type: 'sales_in',
+            reference_number: order.order_number,
+            description: `Sales In - ${order.order_number}`,
+            in_amount: orderTotal,
+            out_amount: 0,
+            balance_after: balanceAfterSalesIn
+          });
+          
+          // Bank Fee entry (Out) - only if there's a fee
+          if (bankFee > 0) {
+            const balanceAfterFee = balanceAfterSalesIn - bankFee;
+            bankLedgerEntries.push({
+              bank_id: order._bank_id,
+              entry_date: order.order_date || new Date().toISOString(),
+              reference_type: 'bank_fee',
+              reference_number: order.order_number,
+              description: `Bank Fee - ${order.payment_brand || order.payment_method}`,
+              in_amount: 0,
+              out_amount: bankFee,
+              balance_after: balanceAfterFee
+            });
+            
+            // Update the tracked balance for subsequent entries
+            bankBalanceMap.set(order._bank_id, balanceAfterFee);
+          } else {
+            bankBalanceMap.set(order._bank_id, balanceAfterSalesIn);
+          }
+        }
+        
+        // Insert bank ledger entries in batches
+        if (bankLedgerEntries.length > 0) {
+          console.log(`Inserting ${bankLedgerEntries.length} bank ledger entries...`);
+          
+          // Process in batches of 500
+          const batchSize = 500;
+          for (let i = 0; i < bankLedgerEntries.length; i += batchSize) {
+            const batch = bankLedgerEntries.slice(i, i + batchSize);
+            const { error: ledgerError } = await supabase
+              .from('bank_ledger')
+              .insert(batch);
+            
+            if (ledgerError) {
+              console.error(`Error inserting bank ledger batch ${i / batchSize + 1}:`, ledgerError);
+            }
+          }
+          
+          console.log(`Successfully inserted ${bankLedgerEntries.length} bank ledger entries`);
+          
+          // Update bank current_balance with final balances
+          for (const [bankId, finalBalance] of bankBalanceMap.entries()) {
+            const { error: updateError } = await supabase
+              .from('banks')
+              .update({ current_balance: finalBalance })
+              .eq('id', bankId);
+            
+            if (updateError) {
+              console.error(`Error updating bank balance for ${bankId}:`, updateError);
+            }
+          }
+          
+          console.log('Bank balances updated successfully');
         }
       }
     }
