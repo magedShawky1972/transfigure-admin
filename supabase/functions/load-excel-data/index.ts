@@ -662,6 +662,77 @@ Deno.serve(async (req) => {
       }
     }
 
+    // After successful insert, update bank_ledger with riyadbankstatement data if this is the riyadbankstatement table
+    // Linking: bank_ledger.reference_number (order_number) -> order_payment.ordernumber -> order_payment.paymentrefrence -> riyadbankstatement.acquirer_private_data
+    if (tableName === 'riyadbankstatement') {
+      console.log('Matching riyadbankstatement with bank_ledger entries via order_payment bridge...');
+      
+      // Get all acquirer_private_data values from the inserted data (acquirer_private_data links to order_payment.paymentrefrence)
+      const riyadRecords = validData
+        .filter((row: any) => row.acquirer_private_data && row.txn_number)
+        .map((row: any) => ({
+          acquirer_private_data: row.acquirer_private_data,
+          txn_number: row.txn_number
+        }));
+      
+      if (riyadRecords.length > 0) {
+        console.log(`Found ${riyadRecords.length} riyad records with acquirer_private_data`);
+        
+        // Create a map of acquirer_private_data -> txn_number for quick lookup
+        const acquirerToTxn = new Map(
+          riyadRecords.map((r: any) => [r.acquirer_private_data, r.txn_number])
+        );
+        const acquirerIds = Array.from(acquirerToTxn.keys());
+        
+        // Process in batches to handle large datasets
+        const batchSize = 500;
+        let totalUpdated = 0;
+        
+        for (let i = 0; i < acquirerIds.length; i += batchSize) {
+          const batchAcquirerIds = acquirerIds.slice(i, i + batchSize);
+          
+          // Get order_payment records where paymentrefrence matches acquirer_private_data
+          const { data: orderPayments, error: opError } = await supabase
+            .from('order_payment')
+            .select('ordernumber, paymentrefrence')
+            .in('paymentrefrence', batchAcquirerIds);
+          
+          if (opError) {
+            console.error('Error fetching order_payment for riyad:', opError);
+            continue;
+          }
+          
+          if (!orderPayments || orderPayments.length === 0) {
+            console.log(`No order_payment records found for riyad batch ${Math.floor(i / batchSize) + 1}`);
+            continue;
+          }
+          
+          console.log(`Found ${orderPayments.length} order_payment records for riyad batch ${Math.floor(i / batchSize) + 1}`);
+          
+          // Update bank_ledger entries by reference_number (which is order_number)
+          for (const op of orderPayments) {
+            const txnNumber = acquirerToTxn.get(op.paymentrefrence);
+            if (txnNumber && op.ordernumber) {
+              const { error: updateError } = await supabase
+                .from('bank_ledger')
+                .update({ transaction_receipt: txnNumber })
+                .eq('reference_number', op.ordernumber);
+              
+              if (updateError) {
+                console.error(`Error updating bank_ledger for order ${op.ordernumber}:`, updateError);
+              } else {
+                totalUpdated++;
+              }
+            }
+          }
+          
+          console.log(`Riyad batch ${Math.floor(i / batchSize) + 1} complete, updated ${totalUpdated} bank_ledger entries so far`);
+        }
+        
+        console.log(`Finished matching: updated ${totalUpdated} bank_ledger entries with riyad bank transaction_receipt`);
+      }
+    }
+
     // After successful insert, handle ordertotals if this is the transaction table
     if (tableName === 'purpletransaction') {
       // Group transactions by order_number and create ordertotals
