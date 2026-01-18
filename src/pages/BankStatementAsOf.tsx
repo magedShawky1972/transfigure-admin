@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Printer, Loader2, Wallet, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,31 +12,22 @@ import { format } from "date-fns";
 
 type SortDirection = "asc" | "desc" | null;
 type SortConfig = {
-  column: keyof BankLedgerRow | null;
+  column: keyof BankStatementRow | null;
   direction: SortDirection;
 };
 
-interface BankLedgerRow {
+interface BankStatementRow {
   id: string;
-  entry_date: string;
-  entry_date_int: number | null;
-  reference_number: string | null;
-  reference_type: string;
-  description: string | null;
-  in_amount: number | null;
-  out_amount: number | null;
-  transactionid: string | null;
-  transaction_receipt: string | null;
-  result: string | null;
-  paymentrefrence: string | null;
-  bank_id: string;
-  bank_name?: string;
-}
-
-interface Bank {
-  id: string;
-  bank_name: string;
-  bank_name_ar: string | null;
+  txn_date_only: string | null;
+  posting_date: string | null;
+  net_amount: string | null;
+  txn_amount: string | null;
+  fee: string | null;
+  vat: string | null;
+  card_type: string | null;
+  merchant_name: string | null;
+  terminal_id: string | null;
+  auth_code: string | null;
 }
 
 const formatNumber = (num: number): string => {
@@ -53,31 +43,24 @@ const BankStatementAsOf = () => {
   
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
-  const [data, setData] = useState<BankLedgerRow[]>([]);
+  const [data, setData] = useState<BankStatementRow[]>([]);
   const [asOfDate, setAsOfDate] = useState("");
   const [openingBalance, setOpeningBalance] = useState(0);
   const [closingBalance, setClosingBalance] = useState(0);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ column: null, direction: null });
-  const [banks, setBanks] = useState<Bank[]>([]);
-  const [selectedBankId, setSelectedBankId] = useState<string>("");
 
-  useEffect(() => {
-    fetchBanks();
-  }, []);
+  // Parse posting_date from DD/MM/YYYY format to Date object
+  const parsePostingDate = (dateStr: string | null): Date | null => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    const [day, month, year] = parts.map(Number);
+    return new Date(year, month - 1, day);
+  };
 
-  const fetchBanks = async () => {
-    const { data: banksData, error } = await supabase
-      .from('banks')
-      .select('id, bank_name, bank_name_ar')
-      .eq('is_active', true)
-      .order('bank_name');
-    
-    if (error) {
-      console.error('Error fetching banks:', error);
-      return;
-    }
-    
-    setBanks(banksData || []);
+  // Convert YYYY-MM-DD to Date for comparison
+  const parseFilterDate = (dateStr: string): Date => {
+    return new Date(dateStr + "T00:00:00");
   };
 
   const fetchData = async () => {
@@ -86,25 +69,16 @@ const BankStatementAsOf = () => {
       return;
     }
 
-    if (!selectedBankId) {
-      toast.error(isRTL ? "يرجى اختيار البنك" : "Please select a bank");
-      return;
-    }
-
     setLoading(true);
     setLoadingMessage(isRTL ? "جاري تحميل البيانات..." : "Loading data...");
     
     try {
-      // Convert asOfDate to integer format YYYYMMDD for comparison
-      const asOfDateInt = parseInt(asOfDate.replace(/-/g, ''));
-      
       const pageSize = 1000;
-      const allRows: BankLedgerRow[] = [];
+      const allRows: BankStatementRow[] = [];
       let hasMore = true;
       let from = 0;
       let pageNum = 1;
 
-      // Fetch all records for the selected bank
       while (hasMore) {
         setLoadingMessage(
           isRTL 
@@ -113,35 +87,22 @@ const BankStatementAsOf = () => {
         );
 
         const query = supabase
-          .from("bank_ledger")
-          .select(`
-            id, 
-            entry_date, 
-            entry_date_int,
-            reference_number, 
-            reference_type, 
-            description, 
-            in_amount, 
-            out_amount, 
-            transactionid,
-            transaction_receipt,
-            result,
-            paymentrefrence,
-            bank_id
-          `)
-          .eq('bank_id', selectedBankId)
-          .order("entry_date", { ascending: false })
+          .from("riyadbankstatement")
+          .select(
+            "id, txn_date_only, posting_date, net_amount, txn_amount, fee, vat, card_type, merchant_name, terminal_id, auth_code"
+          )
+          .order("txn_date_only", { ascending: false })
           .range(from, from + pageSize - 1);
 
         const { data: page, error } = await query;
 
         if (error) {
-          console.error("Error fetching bank ledger:", error);
+          console.error("Error fetching bank statement:", error);
           toast.error(isRTL ? "خطأ في جلب البيانات" : "Error fetching data");
           return;
         }
 
-        const pageRows = (page || []) as BankLedgerRow[];
+        const pageRows = (page || []) as BankStatementRow[];
         allRows.push(...pageRows);
 
         if (pageRows.length < pageSize) {
@@ -152,29 +113,36 @@ const BankStatementAsOf = () => {
         }
       }
 
-      // Calculate opening balance: sum of (in_amount - out_amount) for all transactions BEFORE the selected date
+      const filterDate = parseFilterDate(asOfDate);
+      filterDate.setHours(23, 59, 59, 999);
+
+      // Calculate opening balance: sum of net_amount for all transactions BEFORE the selected date
       let openingSum = 0;
-      const transactionsOnDate: BankLedgerRow[] = [];
+      const transactionsOnDate: BankStatementRow[] = [];
 
       allRows.forEach((row) => {
-        const entryDateInt = row.entry_date_int || parseInt(row.entry_date.replace(/-/g, ''));
-        const inAmount = row.in_amount || 0;
-        const outAmount = row.out_amount || 0;
-        const netAmount = inAmount - outAmount;
+        const postDate = parsePostingDate(row.posting_date);
+        if (!postDate) return;
+
+        const netAmount = parseFloat(String(row.net_amount || "0").replace(/,/g, "")) || 0;
 
         // Before selected date - add to opening balance
-        if (entryDateInt < asOfDateInt) {
+        if (postDate < parseFilterDate(asOfDate)) {
           openingSum += netAmount;
         }
         // On selected date - include in transactions list
-        else if (entryDateInt === asOfDateInt) {
+        else if (
+          postDate.getFullYear() === filterDate.getFullYear() &&
+          postDate.getMonth() === filterDate.getMonth() &&
+          postDate.getDate() === filterDate.getDate()
+        ) {
           transactionsOnDate.push(row);
         }
       });
 
       // Calculate total net amount for transactions on the selected date
       const dayTotal = transactionsOnDate.reduce((sum, row) => {
-        return sum + ((row.in_amount || 0) - (row.out_amount || 0));
+        return sum + (parseFloat(String(row.net_amount || "0").replace(/,/g, "")) || 0);
       }, 0);
 
       setOpeningBalance(openingSum);
@@ -192,7 +160,7 @@ const BankStatementAsOf = () => {
     }
   };
 
-  const handleSort = (column: keyof BankLedgerRow) => {
+  const handleSort = (column: keyof BankStatementRow) => {
     let direction: SortDirection = "asc";
     if (sortConfig.column === column) {
       if (sortConfig.direction === "asc") direction = "desc";
@@ -201,7 +169,7 @@ const BankStatementAsOf = () => {
     setSortConfig({ column: direction ? column : null, direction });
   };
 
-  const getSortIcon = (column: keyof BankLedgerRow) => {
+  const getSortIcon = (column: keyof BankStatementRow) => {
     if (sortConfig.column !== column) {
       return <ArrowUpDown className="h-4 w-4 opacity-50" />;
     }
@@ -220,9 +188,9 @@ const BankStatementAsOf = () => {
     if (aVal === null || aVal === undefined) return 1;
     if (bVal === null || bVal === undefined) return -1;
     
-    if (sortConfig.column === "in_amount" || sortConfig.column === "out_amount") {
-      const aNum = Number(aVal) || 0;
-      const bNum = Number(bVal) || 0;
+    if (sortConfig.column === "net_amount" || sortConfig.column === "txn_amount" || sortConfig.column === "fee" || sortConfig.column === "vat") {
+      const aNum = parseFloat(String(aVal).replace(/,/g, "")) || 0;
+      const bNum = parseFloat(String(bVal).replace(/,/g, "")) || 0;
       return sortConfig.direction === "asc" ? aNum - bNum : bNum - aNum;
     }
     
@@ -232,11 +200,13 @@ const BankStatementAsOf = () => {
 
   const totals = sortedData.reduce(
     (acc, row) => {
-      acc.inAmount += row.in_amount || 0;
-      acc.outAmount += row.out_amount || 0;
+      acc.netAmount += parseFloat(String(row.net_amount || "0").replace(/,/g, "")) || 0;
+      acc.txnAmount += parseFloat(String(row.txn_amount || "0").replace(/,/g, "")) || 0;
+      acc.fee += parseFloat(String(row.fee || "0").replace(/,/g, "")) || 0;
+      acc.vat += parseFloat(String(row.vat || "0").replace(/,/g, "")) || 0;
       return acc;
     },
-    { inAmount: 0, outAmount: 0 }
+    { netAmount: 0, txnAmount: 0, fee: 0, vat: 0 }
   );
 
   const exportToExcel = () => {
@@ -245,53 +215,36 @@ const BankStatementAsOf = () => {
       return;
     }
 
-    const selectedBank = banks.find(b => b.id === selectedBankId);
-    const bankName = isRTL ? (selectedBank?.bank_name_ar || selectedBank?.bank_name) : selectedBank?.bank_name;
-
     const headers = [
-      isRTL ? "التاريخ" : "Date",
-      isRTL ? "رقم المرجع" : "Reference Number",
-      isRTL ? "نوع المرجع" : "Reference Type",
-      isRTL ? "الوصف" : "Description",
-      isRTL ? "وارد" : "In Amount",
-      isRTL ? "صادر" : "Out Amount",
-      isRTL ? "رقم المعاملة" : "Transaction ID",
-      isRTL ? "إيصال المعاملة" : "Transaction Receipt",
-      isRTL ? "النتيجة" : "Result",
+      isRTL ? "تاريخ المعاملة" : "Transaction Date",
+      isRTL ? "تاريخ الترحيل" : "Posting Date",
+      isRTL ? "مبلغ المعاملة" : "Transaction Amount",
+      isRTL ? "الرسوم" : "Fee",
+      isRTL ? "الضريبة" : "VAT",
+      isRTL ? "صافي المبلغ" : "Net Amount",
+      isRTL ? "نوع البطاقة" : "Card Type",
+      isRTL ? "اسم التاجر" : "Merchant Name",
+      isRTL ? "رقم الجهاز" : "Terminal ID",
+      isRTL ? "كود التفويض" : "Auth Code",
     ];
 
     const rows = sortedData.map(row => [
-      row.entry_date || "",
-      row.reference_number || "",
-      row.reference_type || "",
-      row.description || "",
-      formatNumber(row.in_amount || 0),
-      formatNumber(row.out_amount || 0),
-      row.transactionid || "",
-      row.transaction_receipt || "",
-      row.result || "",
+      row.txn_date_only || "",
+      row.posting_date ? row.posting_date.split("T")[0] : "",
+      row.txn_amount || "",
+      row.fee || "",
+      row.vat || "",
+      row.net_amount || "",
+      row.card_type || "",
+      row.merchant_name || "",
+      row.terminal_id || "",
+      row.auth_code || "",
     ]);
 
     // Add summary rows
-    rows.unshift([
-      isRTL ? "الرصيد الافتتاحي" : "Opening Balance", 
-      "", "", "", 
-      formatNumber(openingBalance), 
-      "", "", "", ""
-    ]);
-    rows.push([
-      isRTL ? "الإجمالي" : "Total", 
-      "", "", "", 
-      formatNumber(totals.inAmount), 
-      formatNumber(totals.outAmount), 
-      "", "", ""
-    ]);
-    rows.push([
-      isRTL ? "الرصيد الختامي" : "Closing Balance", 
-      "", "", "", 
-      formatNumber(closingBalance), 
-      "", "", "", ""
-    ]);
+    rows.unshift([isRTL ? "الرصيد الافتتاحي" : "Opening Balance", "", "", "", "", formatNumber(openingBalance), "", "", "", ""]);
+    rows.push([isRTL ? "الإجمالي" : "Total", "", formatNumber(totals.txnAmount), formatNumber(totals.fee), formatNumber(totals.vat), formatNumber(totals.netAmount), "", "", "", ""]);
+    rows.push([isRTL ? "الرصيد الختامي" : "Closing Balance", "", "", "", "", formatNumber(closingBalance), "", "", "", ""]);
 
     const csvContent = [headers, ...rows]
       .map(row => row.map(cell => `"${cell}"`).join(","))
@@ -301,7 +254,7 @@ const BankStatementAsOf = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `bank_ledger_${bankName}_${asOfDate}.csv`;
+    link.download = `bank_statement_as_of_${asOfDate}.csv`;
     link.click();
     URL.revokeObjectURL(url);
     
@@ -310,12 +263,6 @@ const BankStatementAsOf = () => {
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const getSelectedBankName = () => {
-    const bank = banks.find(b => b.id === selectedBankId);
-    if (!bank) return "";
-    return isRTL ? (bank.bank_name_ar || bank.bank_name) : bank.bank_name;
   };
 
   return (
@@ -360,21 +307,6 @@ const BankStatementAsOf = () => {
             {/* Filter */}
             <div className="flex flex-wrap gap-4 items-end no-print">
               <div className="space-y-2">
-                <Label>{isRTL ? "البنك" : "Bank"}</Label>
-                <Select value={selectedBankId} onValueChange={setSelectedBankId}>
-                  <SelectTrigger className="w-[250px]">
-                    <SelectValue placeholder={isRTL ? "اختر البنك" : "Select Bank"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {banks.map((bank) => (
-                      <SelectItem key={bank.id} value={bank.id}>
-                        {isRTL ? (bank.bank_name_ar || bank.bank_name) : bank.bank_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
                 <Label>{isRTL ? "كما في تاريخ" : "As Of Date"}</Label>
                 <Input
                   type="date"
@@ -396,13 +328,6 @@ const BankStatementAsOf = () => {
                 {isRTL ? "طباعة" : "Print"}
               </Button>
             </div>
-
-            {/* Bank Name Header for Print */}
-            {data.length > 0 && selectedBankId && (
-              <div className="text-lg font-semibold text-center border-b pb-2">
-                {getSelectedBankName()} - {asOfDate}
-              </div>
-            )}
 
             {/* Balance Cards */}
             {data.length > 0 && (
@@ -455,103 +380,92 @@ const BankStatementAsOf = () => {
                   <TableRow>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleSort("entry_date")}
+                      onClick={() => handleSort("txn_date_only")}
                     >
                       <div className="flex items-center gap-1">
-                        {isRTL ? "التاريخ" : "Date"}
-                        {getSortIcon("entry_date")}
+                        {isRTL ? "تاريخ المعاملة" : "Txn Date"}
+                        {getSortIcon("txn_date_only")}
                       </div>
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleSort("reference_number")}
+                      onClick={() => handleSort("posting_date")}
                     >
                       <div className="flex items-center gap-1">
-                        {isRTL ? "رقم المرجع" : "Reference #"}
-                        {getSortIcon("reference_number")}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleSort("reference_type")}
-                    >
-                      <div className="flex items-center gap-1">
-                        {isRTL ? "النوع" : "Type"}
-                        {getSortIcon("reference_type")}
-                      </div>
-                    </TableHead>
-                    <TableHead>{isRTL ? "الوصف" : "Description"}</TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 text-right"
-                      onClick={() => handleSort("in_amount")}
-                    >
-                      <div className="flex items-center gap-1 justify-end">
-                        {isRTL ? "وارد" : "In"}
-                        {getSortIcon("in_amount")}
+                        {isRTL ? "تاريخ الترحيل" : "Posting Date"}
+                        {getSortIcon("posting_date")}
                       </div>
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50 text-right"
-                      onClick={() => handleSort("out_amount")}
+                      onClick={() => handleSort("txn_amount")}
                     >
                       <div className="flex items-center gap-1 justify-end">
-                        {isRTL ? "صادر" : "Out"}
-                        {getSortIcon("out_amount")}
+                        {isRTL ? "مبلغ المعاملة" : "Txn Amount"}
+                        {getSortIcon("txn_amount")}
                       </div>
                     </TableHead>
-                    <TableHead>{isRTL ? "رقم المعاملة" : "Txn ID"}</TableHead>
-                    <TableHead>{isRTL ? "الإيصال" : "Receipt"}</TableHead>
-                    <TableHead>{isRTL ? "النتيجة" : "Result"}</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 text-right"
+                      onClick={() => handleSort("fee")}
+                    >
+                      <div className="flex items-center gap-1 justify-end">
+                        {isRTL ? "الرسوم" : "Fee"}
+                        {getSortIcon("fee")}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 text-right"
+                      onClick={() => handleSort("vat")}
+                    >
+                      <div className="flex items-center gap-1 justify-end">
+                        {isRTL ? "الضريبة" : "VAT"}
+                        {getSortIcon("vat")}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 text-right"
+                      onClick={() => handleSort("net_amount")}
+                    >
+                      <div className="flex items-center gap-1 justify-end">
+                        {isRTL ? "صافي المبلغ" : "Net Amount"}
+                        {getSortIcon("net_amount")}
+                      </div>
+                    </TableHead>
+                    <TableHead>{isRTL ? "نوع البطاقة" : "Card Type"}</TableHead>
+                    <TableHead>{isRTL ? "اسم التاجر" : "Merchant"}</TableHead>
+                    <TableHead>{isRTL ? "رقم الجهاز" : "Terminal"}</TableHead>
+                    <TableHead>{isRTL ? "كود التفويض" : "Auth Code"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                        {isRTL ? "لا توجد بيانات" : "No data available"}
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                        {isRTL ? "لا توجد بيانات. حدد التاريخ ثم اضغط بحث" : "No data. Select date and click Search"}
                       </TableCell>
                     </TableRow>
                   ) : (
                     sortedData.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono text-sm">{row.entry_date}</TableCell>
-                        <TableCell className="font-mono text-sm">{row.reference_number}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            row.reference_type === 'sales_in' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                            row.reference_type === 'bank_fee' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
-                            row.reference_type === 'transfer_in' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                            row.reference_type === 'transfer_out' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' :
-                            'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                          }`}>
-                            {row.reference_type}
-                          </span>
+                        <TableCell>{row.txn_date_only || "-"}</TableCell>
+                        <TableCell>{row.posting_date ? row.posting_date.split("T")[0] : "-"}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {row.txn_amount ? formatNumber(parseFloat(String(row.txn_amount).replace(/,/g, ""))) : "-"}
                         </TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={row.description || ""}>
-                          {row.description}
+                        <TableCell className="text-right font-mono">
+                          {row.fee ? formatNumber(parseFloat(String(row.fee).replace(/,/g, ""))) : "-"}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-green-600 dark:text-green-400">
-                          {row.in_amount ? formatNumber(row.in_amount) : "-"}
+                        <TableCell className="text-right font-mono">
+                          {row.vat ? formatNumber(parseFloat(String(row.vat).replace(/,/g, ""))) : "-"}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-red-600 dark:text-red-400">
-                          {row.out_amount ? formatNumber(row.out_amount) : "-"}
+                        <TableCell className="text-right font-mono">
+                          {row.net_amount ? formatNumber(parseFloat(String(row.net_amount).replace(/,/g, ""))) : "-"}
                         </TableCell>
-                        <TableCell className="font-mono text-xs max-w-[120px] truncate" title={row.transactionid || ""}>
-                          {row.transactionid}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs max-w-[120px] truncate" title={row.transaction_receipt || ""}>
-                          {row.transaction_receipt}
-                        </TableCell>
-                        <TableCell>
-                          {row.result && (
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              row.result === 'ACK' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                              'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                            }`}>
-                              {row.result}
-                            </span>
-                          )}
-                        </TableCell>
+                        <TableCell>{row.card_type || "-"}</TableCell>
+                        <TableCell>{row.merchant_name || "-"}</TableCell>
+                        <TableCell>{row.terminal_id || "-"}</TableCell>
+                        <TableCell>{row.auth_code || "-"}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -559,16 +473,12 @@ const BankStatementAsOf = () => {
                 {sortedData.length > 0 && (
                   <TableFooter>
                     <TableRow className="font-bold bg-muted/50">
-                      <TableCell colSpan={4} className="text-right">
-                        {isRTL ? "الإجمالي" : "Total"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-green-600 dark:text-green-400">
-                        {formatNumber(totals.inAmount)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-red-600 dark:text-red-400">
-                        {formatNumber(totals.outAmount)}
-                      </TableCell>
-                      <TableCell colSpan={3}></TableCell>
+                      <TableCell colSpan={2}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                      <TableCell className="text-right font-mono">{formatNumber(totals.txnAmount)}</TableCell>
+                      <TableCell className="text-right font-mono">{formatNumber(totals.fee)}</TableCell>
+                      <TableCell className="text-right font-mono">{formatNumber(totals.vat)}</TableCell>
+                      <TableCell className="text-right font-mono">{formatNumber(totals.netAmount)}</TableCell>
+                      <TableCell colSpan={4}></TableCell>
                     </TableRow>
                   </TableFooter>
                 )}
