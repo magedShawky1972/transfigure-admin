@@ -325,6 +325,63 @@ const BankStatementByBankReport = () => {
         </CardContent>
       </Card>
 
+      {/* Summary Cards */}
+      {ledgerData.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                {language === 'ar' ? 'الرصيد الافتتاحي' : 'Opening Balance'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {openingBalance.toLocaleString('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
+                {language === 'ar' ? 'إجمالي الوارد' : 'Total In (Dr.)'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {totals.totalIn.toLocaleString('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
+                {language === 'ar' ? 'إجمالي الصادر' : 'Total Out (Cr.)'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                {totals.totalOut.toLocaleString('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                {language === 'ar' ? 'الرصيد الختامي' : 'Closing Balance'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {(openingBalance + totals.totalIn - totals.totalOut).toLocaleString('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
