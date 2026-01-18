@@ -126,34 +126,56 @@ const BankStatementByBankReport = () => {
 
     setLoading(true);
     try {
+      // Helper function to fetch all records with pagination
+      const fetchAllRecords = async (query: any) => {
+        const pageSize = 1000;
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await query.range(from, from + pageSize - 1);
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            from += pageSize;
+            hasMore = data.length === pageSize;
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
       // Fetch opening balance (sum of all transactions before fromDate)
-      const { data: priorData, error: priorError } = await supabase
-        .from('bank_ledger')
-        .select('in_amount, out_amount')
-        .eq('bank_id', selectedBank)
-        .lt('entry_date', fromDate);
+      const priorData = await fetchAllRecords(
+        supabase
+          .from('bank_ledger')
+          .select('in_amount, out_amount')
+          .eq('bank_id', selectedBank)
+          .lt('entry_date', fromDate)
+      );
 
-      if (priorError) throw priorError;
-
-      const openingBal = (priorData || []).reduce((sum, entry) => {
+      const openingBal = priorData.reduce((sum, entry) => {
         return sum + (entry.in_amount || 0) - (entry.out_amount || 0);
       }, 0);
       setOpeningBalance(openingBal);
 
-      // Fetch transactions in date range
-      const { data, error } = await supabase
-        .from('bank_ledger')
-        .select('id, entry_date, description, in_amount, out_amount, balance_after, reference_number')
-        .eq('bank_id', selectedBank)
-        .gte('entry_date', fromDate)
-        .lte('entry_date', toDate)
-        .order('entry_date', { ascending: true })
-        .order('reference_number', { ascending: true });
-
-      if (error) throw error;
+      // Fetch transactions in date range with pagination
+      const data = await fetchAllRecords(
+        supabase
+          .from('bank_ledger')
+          .select('id, entry_date, description, in_amount, out_amount, balance_after, reference_number')
+          .eq('bank_id', selectedBank)
+          .gte('entry_date', fromDate)
+          .lte('entry_date', toDate)
+          .order('entry_date', { ascending: true })
+          .order('reference_number', { ascending: true })
+      );
       
       // Sort to put "Sales In" before "Bank Fee" for same reference
-      const sortedData = (data || []).sort((a, b) => {
+      const sortedData = data.sort((a, b) => {
         // First by date
         const dateCompare = a.entry_date.localeCompare(b.entry_date);
         if (dateCompare !== 0) return dateCompare;
