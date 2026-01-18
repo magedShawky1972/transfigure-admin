@@ -66,22 +66,33 @@ Deno.serve(async (req) => {
     const transactionIds = Array.from(transactionIdToHyperpay.keys());
 
     // Step 2: Find order_payment records where paymentrefrence matches transactionid
-    const { data: orderPayments, error: opError } = await supabase
-      .from('order_payment')
-      .select('ordernumber, paymentrefrence')
-      .in('paymentrefrence', transactionIds);
+    // Process in batches to avoid URL length issues
+    const queryBatchSize = 100;
+    let allOrderPayments: any[] = [];
 
-    if (opError) {
-      console.error('Error fetching order_payment:', opError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch order_payment records' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    console.log(`Querying order_payment in batches of ${queryBatchSize} for ${transactionIds.length} transaction IDs...`);
+
+    for (let i = 0; i < transactionIds.length; i += queryBatchSize) {
+      const batchIds = transactionIds.slice(i, i + queryBatchSize);
+      
+      const { data: batchPayments, error: batchError } = await supabase
+        .from('order_payment')
+        .select('ordernumber, paymentrefrence')
+        .in('paymentrefrence', batchIds);
+      
+      if (batchError) {
+        console.error(`Error fetching order_payment batch ${Math.floor(i / queryBatchSize) + 1}:`, batchError);
+        continue;
+      }
+      
+      if (batchPayments && batchPayments.length > 0) {
+        allOrderPayments = allOrderPayments.concat(batchPayments);
+      }
     }
 
-    console.log(`Found ${orderPayments?.length || 0} matching order_payment records`);
+    console.log(`Found ${allOrderPayments.length} matching order_payment records`);
 
-    if (!orderPayments || orderPayments.length === 0) {
+    if (allOrderPayments.length === 0) {
       const lastId = hyperpayRecords[hyperpayRecords.length - 1]?.id;
       return new Response(
         JSON.stringify({ 
@@ -98,7 +109,7 @@ Deno.serve(async (req) => {
 
     // Step 3: Create mapping: ordernumber -> hyperpay data
     const orderToHyperpay = new Map<string, any>();
-    for (const op of orderPayments) {
+    for (const op of allOrderPayments) {
       const hyperpayData = transactionIdToHyperpay.get(op.paymentrefrence);
       if (hyperpayData && op.ordernumber) {
         orderToHyperpay.set(op.ordernumber, hyperpayData);
@@ -158,7 +169,7 @@ Deno.serve(async (req) => {
     const response = {
       success: true,
       processed: hyperpayRecords.length,
-      matchedOrderPayments: orderPayments.length,
+      matchedOrderPayments: allOrderPayments.length,
       mappedOrders: orderToHyperpay.size,
       updated: totalUpdated,
       errors: totalErrors,
