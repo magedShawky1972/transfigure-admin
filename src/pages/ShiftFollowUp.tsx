@@ -46,6 +46,15 @@ import {
 import ShiftClosingDetailsDialog from "@/components/ShiftClosingDetailsDialog";
 import { getKSADateString, formatKSADateTime, isOnKSADate, getKSATimeInMinutes } from "@/lib/ksaTime";
 
+interface ShiftSession {
+  id: string;
+  status: string;
+  opened_at: string;
+  closed_at: string | null;
+  closing_notes: string | null;
+  admin_notes: string | null;
+}
+
 interface ShiftAssignment {
   id: string;
   assignment_date: string;
@@ -63,16 +72,17 @@ interface ShiftAssignment {
     user_name: string;
     job_position_id: string | null;
   };
-  shift_sessions: Array<{
-    id: string;
-    status: string;
-    opened_at: string;
-    closed_at: string | null;
-    closing_notes: string | null;
-    admin_notes: string | null;
-  }>;
+  // Can be array or single object due to unique constraint
+  shift_sessions: ShiftSession[] | ShiftSession | null;
   shift_job_positions?: string[];
 }
+
+// Helper to normalize shift_sessions to array
+const normalizeSessionsToArray = (sessions: ShiftSession[] | ShiftSession | null): ShiftSession[] => {
+  if (!sessions) return [];
+  if (Array.isArray(sessions)) return sessions;
+  return [sessions];
+};
 
 interface User {
   id: string;
@@ -285,7 +295,7 @@ export default function ShiftFollowUp() {
     const selectedDateStart = new Date(selectedDate + 'T00:00:00');
     const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
     
-    const sessionsForDate = (assignmentToReopen.shift_sessions || []).filter(session => {
+    const sessionsForDate = normalizeSessionsToArray(assignmentToReopen.shift_sessions).filter(session => {
       if (!session.opened_at) return false;
       const openedDate = new Date(session.opened_at);
       return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
@@ -397,7 +407,7 @@ export default function ShiftFollowUp() {
     const selectedDateStart = new Date(selectedDate + 'T00:00:00');
     const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
     
-    const sessionsForDate = (assignmentToHardClose.shift_sessions || []).filter(session => {
+    const sessionsForDate = normalizeSessionsToArray(assignmentToHardClose.shift_sessions).filter(session => {
       if (!session.opened_at) return false;
       const openedDate = new Date(session.opened_at);
       return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
@@ -573,7 +583,7 @@ export default function ShiftFollowUp() {
     setAdminNoteValue("");
   };
 
-  const getStatusBadge = (session: ShiftAssignment["shift_sessions"][0] | null) => {
+  const getStatusBadge = (session: ShiftSession | null) => {
     if (!session) {
       return <Badge variant="secondary">{t("Not Started")}</Badge>;
     }
@@ -659,7 +669,7 @@ export default function ShiftFollowUp() {
                 <TableBody>
                   {assignments.map((assignment) => {
                     // Filter sessions to only those opened on the selected date (using KSA timezone)
-                    const sessionsForDate = (assignment.shift_sessions || []).filter(session => {
+                    const sessionsForDate = normalizeSessionsToArray(assignment.shift_sessions).filter(session => {
                       if (!session.opened_at) return false;
                       // Use centralized KSA date checking
                       return isOnKSADate(session.opened_at, selectedDate);
@@ -864,7 +874,7 @@ export default function ShiftFollowUp() {
           if (!selectedAssignment?.shift_sessions) return null;
           
           // Filter sessions to only those opened on the selected date (using KSA timezone)
-          const sessionsForDate = selectedAssignment.shift_sessions.filter(session => {
+          const sessionsForDate = normalizeSessionsToArray(selectedAssignment.shift_sessions).filter(session => {
             if (!session.opened_at) return false;
             return isOnKSADate(session.opened_at, selectedDate);
           });
