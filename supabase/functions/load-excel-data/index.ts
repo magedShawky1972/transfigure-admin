@@ -568,6 +568,61 @@ Deno.serve(async (req) => {
     }
 
 
+    // After successful insert, update bank_ledger with hyberpaystatement data if this is the hyberpaystatement table
+    if (tableName === 'hyberpaystatement') {
+      console.log('Matching hyberpaystatement with bank_ledger entries...');
+      
+      // Get all transaction_receipt values from the inserted data
+      const transactionReceipts = validData
+        .filter((row: any) => row.transaction_receipt)
+        .map((row: any) => ({
+          transaction_receipt: row.transaction_receipt,
+          transactionid: row.transactionid || null,
+          result: row.result || null,
+          customercountry: row.customercountry || null,
+          riskfrauddescription: row.riskfrauddescription || null,
+          clearinginstitutename: row.clearinginstitutename || null
+        }));
+      
+      if (transactionReceipts.length > 0) {
+        console.log(`Found ${transactionReceipts.length} hyberpay records with transaction_receipt`);
+        
+        // Process in batches of 500 to avoid timeout
+        const batchSize = 500;
+        let updatedCount = 0;
+        
+        for (let i = 0; i < transactionReceipts.length; i += batchSize) {
+          const batch = transactionReceipts.slice(i, i + batchSize);
+          
+          // Update bank_ledger entries matching transaction_receipt = reference_number
+          for (const record of batch) {
+            if (record.transaction_receipt) {
+              const { error: updateError, count } = await supabase
+                .from('bank_ledger')
+                .update({
+                  transactionid: record.transactionid,
+                  result: record.result,
+                  customercountry: record.customercountry,
+                  riskfrauddescription: record.riskfrauddescription,
+                  clearinginstitutename: record.clearinginstitutename
+                })
+                .eq('reference_number', record.transaction_receipt);
+              
+              if (updateError) {
+                console.error(`Error updating bank_ledger for ${record.transaction_receipt}:`, updateError);
+              } else {
+                updatedCount++;
+              }
+            }
+          }
+          
+          console.log(`Processed batch ${Math.floor(i / batchSize) + 1}, updated ${updatedCount} bank_ledger entries so far`);
+        }
+        
+        console.log(`Finished matching: updated ${updatedCount} bank_ledger entries with hyberpay data`);
+      }
+    }
+
     // After successful insert, handle ordertotals if this is the transaction table
     if (tableName === 'purpletransaction') {
       // Group transactions by order_number and create ordertotals

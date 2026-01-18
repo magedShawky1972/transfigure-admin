@@ -492,9 +492,11 @@ export type Database = {
         Row: {
           balance_after: number | null
           bank_id: string
+          clearinginstitutename: string | null
           created_at: string
           created_by: string | null
           currency_id: string | null
+          customercountry: string | null
           description: string | null
           entry_date: string
           entry_date_int: number | null
@@ -505,13 +507,18 @@ export type Database = {
           reference_id: string | null
           reference_number: string | null
           reference_type: string
+          result: string | null
+          riskfrauddescription: string | null
+          transactionid: string | null
         }
         Insert: {
           balance_after?: number | null
           bank_id: string
+          clearinginstitutename?: string | null
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          customercountry?: string | null
           description?: string | null
           entry_date?: string
           entry_date_int?: number | null
@@ -522,13 +529,18 @@ export type Database = {
           reference_id?: string | null
           reference_number?: string | null
           reference_type: string
+          result?: string | null
+          riskfrauddescription?: string | null
+          transactionid?: string | null
         }
         Update: {
           balance_after?: number | null
           bank_id?: string
+          clearinginstitutename?: string | null
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          customercountry?: string | null
           description?: string | null
           entry_date?: string
           entry_date_int?: number | null
@@ -539,6 +551,9 @@ export type Database = {
           reference_id?: string | null
           reference_number?: string | null
           reference_type?: string
+          result?: string | null
+          riskfrauddescription?: string | null
+          transactionid?: string | null
         }
         Relationships: [
           {
