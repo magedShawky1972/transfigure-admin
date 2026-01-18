@@ -4717,7 +4717,7 @@ export type Database = {
           {
             foreignKeyName: "shift_sessions_shift_assignment_id_fkey"
             columns: ["shift_assignment_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "shift_assignments"
             referencedColumns: ["id"]
           },

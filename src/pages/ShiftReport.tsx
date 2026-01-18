@@ -105,7 +105,13 @@ const ShiftReport = () => {
       // Flatten to sessions with assignment info
       const sessionsData: any[] = [];
       assignmentsData?.forEach(assignment => {
-        assignment.shift_sessions?.forEach(session => {
+        // shift_sessions is now a single object due to unique constraint (or null)
+        const sessions = Array.isArray(assignment.shift_sessions) 
+          ? assignment.shift_sessions 
+          : assignment.shift_sessions 
+            ? [assignment.shift_sessions] 
+            : [];
+        sessions.forEach(session => {
           sessionsData.push({
             ...session,
             shift_assignment_id: assignment.id,
