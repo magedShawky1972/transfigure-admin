@@ -517,6 +517,27 @@ Deno.serve(async (req) => {
     let rowsToInsert = validData;
     const useUpsert = pkColumns.length > 0;
     
+    // Deduplicate rows by PK columns to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+    if (useUpsert && pkColumns.length > 0) {
+      const pkKey = (row: any) => pkColumns.map(col => row[col] ?? '').join('|');
+      const uniqueRowsMap = new Map<string, any>();
+      
+      // Iterate through rows - later occurrences will overwrite earlier ones
+      for (const row of rowsToInsert) {
+        const key = pkKey(row);
+        if (key && key !== pkColumns.map(() => '').join('|')) { // Skip rows with empty PK values
+          uniqueRowsMap.set(key, row);
+        }
+      }
+      
+      const originalCount = rowsToInsert.length;
+      rowsToInsert = Array.from(uniqueRowsMap.values());
+      
+      if (originalCount !== rowsToInsert.length) {
+        console.log(`Deduplicated ${originalCount} rows to ${rowsToInsert.length} unique rows by PK columns: ${pkColumns.join(', ')}`);
+      }
+    }
+    
     console.log(`${useUpsert ? 'Upserting' : 'Inserting'} ${rowsToInsert.length} rows into ${tableName}${useUpsert ? ` with conflict on: ${pkColumns.join(', ')}` : ''}`);
     
     for (let attempt = 0; attempt < 3; attempt++) {
