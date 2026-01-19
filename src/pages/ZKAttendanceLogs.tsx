@@ -1103,15 +1103,21 @@ const ZKAttendanceLogs = () => {
       } else if (record.record_status === 'vacation') {
         existing.vacation_days += 1;
       } else {
-        existing.present_days += 1;
-        if (record.total_hours !== null) {
-          existing.total_worked_hours += record.total_hours;
-        }
-        if (record.expected_hours !== null) {
-          existing.total_expected_hours += record.expected_hours;
-        }
-        if (record.difference_hours !== null) {
-          existing.total_difference_hours += record.difference_hours;
+        // Only count as present if there's actual attendance (in_time or out_time)
+        if (record.in_time || record.out_time) {
+          existing.present_days += 1;
+          if (record.total_hours !== null) {
+            existing.total_worked_hours += record.total_hours;
+          }
+          if (record.expected_hours !== null) {
+            existing.total_expected_hours += record.expected_hours;
+          }
+          if (record.difference_hours !== null) {
+            existing.total_difference_hours += record.difference_hours;
+          }
+        } else {
+          // No actual attendance data - count as absent
+          existing.absent_days += 1;
         }
       }
     }
