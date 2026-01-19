@@ -220,6 +220,7 @@ export default function EmployeeSetup() {
     national_id: "",
     passport_number: "",
     marital_status: "",
+    religion: "",
     department_id: "",
     job_position_id: "",
     job_start_date: "",
@@ -420,6 +421,7 @@ export default function EmployeeSetup() {
       national_id: "",
       passport_number: "",
       marital_status: "",
+      religion: "",
       department_id: "",
       job_position_id: "",
       job_start_date: new Date().toISOString().split('T')[0],
@@ -666,6 +668,7 @@ export default function EmployeeSetup() {
       national_id: "",
       passport_number: "",
       marital_status: "",
+      religion: "",
       department_id: "",
       job_position_id: "",
       job_start_date: "",
@@ -708,6 +711,7 @@ export default function EmployeeSetup() {
       national_id: employee.national_id || "",
       passport_number: (employee as any).passport_number || "",
       marital_status: (employee as any).marital_status || "",
+      religion: (employee as any).religion || "",
       department_id: employee.department_id || "",
       job_position_id: employee.job_position_id || "",
       job_start_date: employee.job_start_date,
@@ -890,6 +894,7 @@ export default function EmployeeSetup() {
         national_id: formData.national_id || null,
         passport_number: formData.passport_number || null,
         marital_status: formData.marital_status || null,
+        religion: formData.religion || null,
         department_id: formData.department_id || null,
         job_position_id: formData.job_position_id || null,
         job_start_date: formData.job_start_date,
@@ -1543,6 +1548,24 @@ export default function EmployeeSetup() {
                       <SelectItem value="married">{language === "ar" ? "متزوج" : "Married"}</SelectItem>
                       <SelectItem value="divorced">{language === "ar" ? "مطلق" : "Divorced"}</SelectItem>
                       <SelectItem value="widowed">{language === "ar" ? "أرمل" : "Widowed"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الديانة" : "Religion"}</Label>
+                  <Select
+                    value={formData.religion || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, religion: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      <SelectItem value="muslim">{language === "ar" ? "مسلم" : "Muslim"}</SelectItem>
+                      <SelectItem value="christian">{language === "ar" ? "مسيحي" : "Christian"}</SelectItem>
+                      <SelectItem value="other">{language === "ar" ? "أخرى" : "Other"}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
