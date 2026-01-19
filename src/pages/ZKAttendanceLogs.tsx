@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -204,7 +204,7 @@ const ZKAttendanceLogs = () => {
     }
   };
 
-  const SortableHeader = ({ column, children }: { column: string; children: React.ReactNode }) => (
+  const SortableHeader = ({ column, children }: { column: string; children: ReactNode }) => (
     <TableHead 
       className="cursor-pointer hover:bg-muted/50 select-none"
       onClick={() => handleSort(column)}
@@ -475,33 +475,44 @@ const ZKAttendanceLogs = () => {
       }
       return `${employee.first_name} ${employee.last_name}`.trim();
     };
-    
+
+    const dateToNumber = (d: string) => {
+      const t = Date.parse(d);
+      return Number.isNaN(t) ? 0 : t;
+    };
+
+    const timeToMinutes = (t: string | null) => {
+      if (!t) return -1;
+      const [hh, mm, ss] = t.split(":").map((x) => Number(x));
+      if (Number.isNaN(hh) || Number.isNaN(mm)) return -1;
+      return hh * 60 + mm + (Number.isNaN(ss) ? 0 : ss / 60);
+    };
+
     return [...records].sort((a, b) => {
       const dir = sortDirection === "asc" ? 1 : -1;
-      
+
       switch (sortColumn) {
-        case "employee_name":
+        case "employee_name": {
           const nameA = getEmployeeNameForSort(a.employee_code);
           const nameB = getEmployeeNameForSort(b.employee_code);
           return nameA.localeCompare(nameB) * dir;
+        }
         case "attendance_date":
-          return a.attendance_date.localeCompare(b.attendance_date) * dir;
+          return (dateToNumber(a.attendance_date) - dateToNumber(b.attendance_date)) * dir;
         case "in_time":
-          const inA = a.in_time || "";
-          const inB = b.in_time || "";
-          return inA.localeCompare(inB) * dir;
+          return (timeToMinutes(a.in_time) - timeToMinutes(b.in_time)) * dir;
         case "out_time":
-          const outA = a.out_time || "";
-          const outB = b.out_time || "";
-          return outA.localeCompare(outB) * dir;
-        case "total_hours":
+          return (timeToMinutes(a.out_time) - timeToMinutes(b.out_time)) * dir;
+        case "total_hours": {
           const totalA = a.total_hours ?? -999;
           const totalB = b.total_hours ?? -999;
           return (totalA - totalB) * dir;
-        case "difference_hours":
+        }
+        case "difference_hours": {
           const diffA = a.difference_hours ?? -999;
           const diffB = b.difference_hours ?? -999;
           return (diffA - diffB) * dir;
+        }
         case "is_processed":
           return (Number(a.is_processed) - Number(b.is_processed)) * dir;
         case "created_at":
@@ -514,20 +525,31 @@ const ZKAttendanceLogs = () => {
 
   // Sort detailed logs based on current sort column and direction
   const sortedLogs = useMemo(() => {
+    const dateToNumber = (d: string) => {
+      const t = Date.parse(d);
+      return Number.isNaN(t) ? 0 : t;
+    };
+
+    const timeToKey = (t: string) => {
+      // keep as string if format is HH:mm:ss; otherwise fallback
+      return t || "";
+    };
+
     return [...logs].sort((a, b) => {
       const dir = sortDirection === "asc" ? 1 : -1;
-      
+
       switch (sortColumn) {
         case "employee_code":
           return a.employee_code.localeCompare(b.employee_code) * dir;
-        case "employee_name":
+        case "employee_name": {
           const nameA = getEmployeeName(a.employee_code) || a.employee_code;
           const nameB = getEmployeeName(b.employee_code) || b.employee_code;
           return nameA.localeCompare(nameB) * dir;
+        }
         case "attendance_date":
-          return a.attendance_date.localeCompare(b.attendance_date) * dir;
+          return (dateToNumber(a.attendance_date) - dateToNumber(b.attendance_date)) * dir;
         case "attendance_time":
-          return a.attendance_time.localeCompare(b.attendance_time) * dir;
+          return timeToKey(a.attendance_time).localeCompare(timeToKey(b.attendance_time)) * dir;
         case "record_type":
           return a.record_type.localeCompare(b.record_type) * dir;
         case "is_processed":
