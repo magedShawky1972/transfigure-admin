@@ -130,6 +130,9 @@ const printStyles = `
     body * {
       visibility: hidden;
     }
+    body {
+      counter-reset: page-number;
+    }
     .print-area, .print-area * {
       visibility: visible;
       color: black !important;
@@ -191,6 +194,7 @@ const printStyles = `
     @page {
       size: A4 landscape;
       margin: 15mm 10mm 25mm 10mm;
+      counter-increment: page-number;
     }
     .print-footer {
       display: block !important;
@@ -204,6 +208,14 @@ const printStyles = `
       padding: 8px;
       background: white;
       border-top: 1px solid #eee;
+    }
+    .print-footer::after {
+      content: " - Page " counter(page);
+      font-weight: 500;
+    }
+    .print-footer[data-arabic="true"]::after {
+      content: " - صفحة " counter(page);
+      font-weight: 500;
     }
     /* Ensure last table row is not cut off */
     table {
@@ -1615,7 +1627,7 @@ const ZKAttendanceLogs = () => {
               </Table>
               </div>
               {/* Print Footer - only visible when printing */}
-              <div className="print-footer hidden">
+              <div className="print-footer hidden" data-arabic={isArabic ? "true" : "false"}>
                 {isArabic ? "تقرير سجلات الحضور - نظام إدارة" : "Attendance Logs Report - Edara System"}
               </div>
             </div>
