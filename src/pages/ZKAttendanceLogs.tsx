@@ -165,7 +165,8 @@ const ZKAttendanceLogs = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchCode, setSearchCode] = useState("");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("all");
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
@@ -209,9 +210,14 @@ const ZKAttendanceLogs = () => {
         query = query.ilike("employee_code", `%${searchCode}%`);
       }
 
-      if (selectedDate) {
-        const dateStr = format(selectedDate, "yyyy-MM-dd");
-        query = query.eq("attendance_date", dateStr);
+      if (fromDate) {
+        const fromDateStr = format(fromDate, "yyyy-MM-dd");
+        query = query.gte("attendance_date", fromDateStr);
+      }
+
+      if (toDate) {
+        const toDateStr = format(toDate, "yyyy-MM-dd");
+        query = query.lte("attendance_date", toDateStr);
       }
 
       if (recordTypeFilter !== "all") {
@@ -272,12 +278,12 @@ const ZKAttendanceLogs = () => {
   useEffect(() => {
     fetchLogs();
     fetchEmployees();
-  }, [searchCode, selectedDate, recordTypeFilter, selectedEmployee, currentPage, pageSize]);
+  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, currentPage, pageSize]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchCode, selectedDate, recordTypeFilter, selectedEmployee]);
+  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee]);
 
   const getEmployeeName = (code: string) => {
     const employee = employees.find((e) => e.zk_employee_code === code);
@@ -583,9 +589,14 @@ const ZKAttendanceLogs = () => {
         query = query.ilike("employee_code", `%${searchCode}%`);
       }
 
-      if (selectedDate) {
-        const dateStr = format(selectedDate, "yyyy-MM-dd");
-        query = query.eq("attendance_date", dateStr);
+      if (fromDate) {
+        const fromDateStr = format(fromDate, "yyyy-MM-dd");
+        query = query.gte("attendance_date", fromDateStr);
+      }
+
+      if (toDate) {
+        const toDateStr = format(toDate, "yyyy-MM-dd");
+        query = query.lte("attendance_date", toDateStr);
       }
 
       if (recordTypeFilter !== "all") {
@@ -689,31 +700,60 @@ const ZKAttendanceLogs = () => {
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-[200px] justify-start text-left font-normal",
-                    !selectedDate && "text-muted-foreground"
+                    "w-[160px] justify-start text-left font-normal",
+                    !fromDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? (
-                    format(selectedDate, "PPP", { locale: isArabic ? ar : undefined })
+                  {fromDate ? (
+                    format(fromDate, "yyyy-MM-dd")
                   ) : (
-                    <span>{isArabic ? "اختر التاريخ" : "Pick a date"}</span>
+                    <span>{isArabic ? "من تاريخ" : "From Date"}</span>
                   )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
                 <Calendar
                   mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
+                  selected={fromDate}
+                  onSelect={setFromDate}
                   initialFocus
+                  className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
 
-            {selectedDate && (
-              <Button variant="ghost" size="sm" onClick={() => setSelectedDate(undefined)}>
-                {isArabic ? "مسح التاريخ" : "Clear Date"}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[160px] justify-start text-left font-normal",
+                    !toDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {toDate ? (
+                    format(toDate, "yyyy-MM-dd")
+                  ) : (
+                    <span>{isArabic ? "إلى تاريخ" : "To Date"}</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={toDate}
+                  onSelect={setToDate}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+
+            {(fromDate || toDate) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFromDate(undefined); setToDate(undefined); }}>
+                {isArabic ? "مسح التاريخ" : "Clear Dates"}
               </Button>
             )}
 
@@ -887,8 +927,8 @@ const ZKAttendanceLogs = () => {
               <div className="print-header hidden print:block">
                 <h1>{isArabic ? "تقرير سجلات الحضور" : "Attendance Logs Report"}</h1>
                 <p>
-                  {selectedDate 
-                    ? format(selectedDate, "PPP", { locale: isArabic ? ar : undefined })
+                  {fromDate || toDate
+                    ? `${fromDate ? format(fromDate, "yyyy-MM-dd") : ""} ${toDate ? `- ${format(toDate, "yyyy-MM-dd")}` : ""}`
                     : isArabic ? "جميع التواريخ" : "All Dates"
                   }
                   {selectedEmployee !== "all" && ` - ${getEmployeeName(selectedEmployee) || selectedEmployee}`}
@@ -1225,13 +1265,16 @@ const ZKAttendanceLogs = () => {
                   {searchCode && (
                     <li>{isArabic ? `كود الموظف: ${searchCode}` : `Employee code: ${searchCode}`}</li>
                   )}
-                  {selectedDate && (
-                    <li>{isArabic ? `التاريخ: ${format(selectedDate, "yyyy-MM-dd")}` : `Date: ${format(selectedDate, "yyyy-MM-dd")}`}</li>
+                  {fromDate && (
+                    <li>{isArabic ? `من تاريخ: ${format(fromDate, "yyyy-MM-dd")}` : `From: ${format(fromDate, "yyyy-MM-dd")}`}</li>
+                  )}
+                  {toDate && (
+                    <li>{isArabic ? `إلى تاريخ: ${format(toDate, "yyyy-MM-dd")}` : `To: ${format(toDate, "yyyy-MM-dd")}`}</li>
                   )}
                   {recordTypeFilter !== "all" && (
                     <li>{isArabic ? `النوع: ${recordTypeFilter}` : `Type: ${recordTypeFilter}`}</li>
                   )}
-                  {!searchCode && !selectedDate && recordTypeFilter === "all" && (
+                  {!searchCode && !fromDate && !toDate && recordTypeFilter === "all" && (
                     <li className="text-destructive font-semibold">
                       {isArabic ? "لا توجد فلاتر - سيتم حذف جميع السجلات!" : "No filters - ALL records will be deleted!"}
                     </li>
