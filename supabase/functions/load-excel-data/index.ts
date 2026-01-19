@@ -56,7 +56,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { sheetId, data, brandTypeSelections, checkBrand = true, checkProduct = true } = await req.json();
+    const { 
+      sheetId, 
+      data, 
+      brandTypeSelections, 
+      checkBrand = true, 
+      checkProduct = true,
+      checkDuplicates = false, // New: check for duplicates before inserting
+      duplicateAction = 'update' // New: 'update' | 'skip' - what to do with duplicates
+    } = await req.json();
 
     if (!sheetId || !data || !Array.isArray(data)) {
       return new Response(
@@ -65,7 +73,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${data.length} rows for sheet ${sheetId}, checkBrand=${checkBrand}, checkProduct=${checkProduct}`);
+    console.log(`Processing ${data.length} rows for sheet ${sheetId}, checkBrand=${checkBrand}, checkProduct=${checkProduct}, checkDuplicates=${checkDuplicates}, duplicateAction=${duplicateAction}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -535,6 +543,164 @@ Deno.serve(async (req) => {
       
       if (originalCount !== rowsToInsert.length) {
         console.log(`Deduplicated ${originalCount} rows to ${rowsToInsert.length} unique rows by PK columns: ${pkColumns.join(', ')}`);
+      }
+    }
+    
+    // Helper function to check for existing records using direct fetch
+    const checkExistingRecords = async (
+      tbl: string, 
+      pkCols: string[], 
+      values: Array<Record<string, any>>
+    ): Promise<Set<string>> => {
+      const existingSet = new Set<string>();
+      const pkKeyFn = (row: any) => pkCols.map(c => row[c] ?? '').join('|');
+      
+      if (pkCols.length === 1 && values.length > 0) {
+        const pkCol = pkCols[0];
+        const uniqueVals = [...new Set(values.map(v => v[pkCol]).filter(v => v != null))];
+        
+        // Check in batches using POST to REST API
+        const batchSize = 500;
+        for (let i = 0; i < uniqueVals.length; i += batchSize) {
+          const batch = uniqueVals.slice(i, i + batchSize);
+          const inClause = batch.map(v => typeof v === 'string' ? `"${v}"` : v).join(',');
+          
+          try {
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/${tbl}?select=${pkCol}&${pkCol}=in.(${encodeURIComponent(inClause)})`,
+              {
+                headers: {
+                  'apikey': supabaseServiceKey,
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                },
+              }
+            );
+            
+            if (response.ok) {
+              const existing = await response.json();
+              existing.forEach((row: any) => existingSet.add(String(row[pkCol])));
+            }
+          } catch (e) {
+            console.error('Error checking existing records:', e);
+          }
+        }
+      } else if (pkCols.length > 1) {
+        // For composite keys, sample check
+        const sampleSize = Math.min(100, values.length);
+        for (let i = 0; i < sampleSize; i++) {
+          const item = values[i];
+          const filters = pkCols.map(c => `${c}=eq.${encodeURIComponent(item[c])}`).join('&');
+          
+          try {
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/${tbl}?select=${pkCols.join(',')}&${filters}&limit=1`,
+              {
+                headers: {
+                  'apikey': supabaseServiceKey,
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                },
+              }
+            );
+            
+            if (response.ok) {
+              const existing = await response.json();
+              if (existing && existing.length > 0) {
+                existingSet.add(pkKeyFn(item));
+              }
+            }
+          } catch (e) {
+            console.error('Error checking composite key:', e);
+          }
+        }
+      }
+      
+      return existingSet;
+    };
+    
+    const pkKeyFn = (row: any) => pkColumns.map(col => row[col] ?? '').join('|');
+    
+    // Check for duplicates in database if checkDuplicates is enabled
+    if (checkDuplicates && useUpsert && pkColumns.length > 0) {
+      console.log('Checking for duplicate records in database...');
+      
+      const pkValuesFromData = rowsToInsert.map(row => 
+        pkColumns.reduce((acc, col) => {
+          acc[col] = row[col];
+          return acc;
+        }, {} as Record<string, any>)
+      ).filter(item => pkKeyFn(item) !== pkColumns.map(() => '').join('|'));
+      
+      const existingKeys = await checkExistingRecords(tableName, pkColumns, pkValuesFromData);
+      const duplicateCount = existingKeys.size;
+      
+      if (duplicateCount > 0) {
+        console.log(`Found ${duplicateCount} duplicate records`);
+        
+        const duplicateInfo = Array.from(existingKeys).slice(0, 100).map(key => ({
+          key,
+          existingCount: 1,
+          newCount: 1
+        }));
+        
+        return new Response(
+          JSON.stringify({
+            requiresDuplicateDecision: true,
+            totalRecords: rowsToInsert.length,
+            duplicateCount,
+            newRecordCount: rowsToInsert.length - duplicateCount,
+            duplicates: duplicateInfo
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log('No duplicates found, proceeding with insert');
+    }
+    
+    // Handle duplicate action - if user chose to skip duplicates
+    if (duplicateAction === 'skip' && useUpsert && pkColumns.length > 0) {
+      console.log('User chose to skip duplicates - checking which records to insert...');
+      
+      const pkValuesFromData = rowsToInsert.map(row => ({
+        row,
+        pkValues: pkColumns.reduce((acc, col) => {
+          acc[col] = row[col];
+          return acc;
+        }, {} as Record<string, any>)
+      })).filter(item => pkKeyFn(item.pkValues) !== pkColumns.map(() => '').join('|'));
+      
+      const existingKeys = await checkExistingRecords(
+        tableName, 
+        pkColumns, 
+        pkValuesFromData.map(i => i.pkValues)
+      );
+      
+      // Filter out existing records
+      const originalCount = rowsToInsert.length;
+      rowsToInsert = pkValuesFromData
+        .filter(item => {
+          const key = pkColumns.length === 1 
+            ? String(item.pkValues[pkColumns[0]]) 
+            : pkKeyFn(item.pkValues);
+          return !existingKeys.has(key);
+        })
+        .map(item => item.row);
+      
+      console.log(`Filtered ${originalCount} rows to ${rowsToInsert.length} new rows (skipped ${existingKeys.size} duplicates)`);
+      
+      if (rowsToInsert.length === 0) {
+        console.log('All records are duplicates, nothing to insert');
+        return new Response(
+          JSON.stringify({
+            count: 0,
+            totalValue: 0,
+            productsUpserted: productsUpserted,
+            brandsUpserted: brandsUpserted,
+            skippedDuplicates: existingKeys.size,
+            message: 'All records already exist in database'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
     
