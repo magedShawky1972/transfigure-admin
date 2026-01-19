@@ -608,8 +608,18 @@ const ZKAttendanceLogs = () => {
       // Create a set of existing records for quick lookup
       const existingKeys = new Set(summaryRecords.map(r => r.key));
 
+      // Helper to check if a date is a weekend (Friday = 5, Saturday = 6)
+      const isWeekend = (dateStr: string): boolean => {
+        const date = new Date(dateStr);
+        const day = date.getDay();
+        return day === 5 || day === 6; // Friday or Saturday
+      };
+
       for (const emp of requiredEmployees) {
         for (const dateStr of dateRange) {
+          // Skip weekends (Friday and Saturday)
+          if (isWeekend(dateStr)) continue;
+          
           const key = `${emp.zk_employee_code}_${dateStr}`;
           
           // Skip if record already exists
