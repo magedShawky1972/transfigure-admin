@@ -181,7 +181,12 @@ Deno.serve(async (req) => {
         
         if (excelValue !== undefined && excelValue !== null && excelValue !== '') {
           // If the destination column is a timestamp/date-like column, ensure Excel serial numbers are converted
-          const targetLooksDateTime = targetColumn.includes('timestamp') || targetColumn.endsWith('_date') || targetColumn.endsWith('date');
+          const targetLooksDateTime = targetColumn.includes('timestamp') || 
+            targetColumn.endsWith('_date') || 
+            targetColumn.endsWith('date') ||
+            targetColumn === 'created_at' ||
+            targetColumn === 'updated_at' ||
+            targetColumn.endsWith('_at');
           const valueIsNumericString = typeof excelValue === 'string' && /^\d+(\.\d+)?$/.test(excelValue.trim());
           const valueIsNumber = typeof excelValue === 'number' || valueIsNumericString;
 
