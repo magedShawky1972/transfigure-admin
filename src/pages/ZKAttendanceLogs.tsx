@@ -125,6 +125,18 @@ interface SummaryRecord {
   vacation_type?: string;
 }
 
+interface EmployeeTotalRecord {
+  employee_code: string;
+  employee_name: string;
+  total_days: number;
+  present_days: number;
+  absent_days: number;
+  vacation_days: number;
+  total_worked_hours: number;
+  total_expected_hours: number;
+  total_difference_hours: number;
+}
+
 const printStyles = `
   /* default: hide print-only paginated layout */
   .print-only-pages {
@@ -273,7 +285,7 @@ const ZKAttendanceLogs = () => {
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<"detailed" | "summary">("detailed");
+  const [viewMode, setViewMode] = useState<"detailed" | "summary" | "employee-totals">("detailed");
   const [selectedSummary, setSelectedSummary] = useState<SummaryRecord | null>(null);
   const [editFormData, setEditFormData] = useState({
     employee_code: "",
@@ -944,6 +956,86 @@ const ZKAttendanceLogs = () => {
     return pages;
   }, [sortedSummaryRecords]);
 
+  // Employee totals aggregation for the selected period
+  const employeeTotals = useMemo((): EmployeeTotalRecord[] => {
+    const totalsMap = new Map<string, EmployeeTotalRecord>();
+
+    for (const record of sortedSummaryRecords) {
+      const empCode = record.employee_code;
+      let existing = totalsMap.get(empCode);
+
+      if (!existing) {
+        existing = {
+          employee_code: empCode,
+          employee_name: getEmployeeName(empCode) || empCode,
+          total_days: 0,
+          present_days: 0,
+          absent_days: 0,
+          vacation_days: 0,
+          total_worked_hours: 0,
+          total_expected_hours: 0,
+          total_difference_hours: 0,
+        };
+        totalsMap.set(empCode, existing);
+      }
+
+      existing.total_days += 1;
+
+      if (record.record_status === 'absent') {
+        existing.absent_days += 1;
+      } else if (record.record_status === 'vacation') {
+        existing.vacation_days += 1;
+      } else {
+        existing.present_days += 1;
+        if (record.total_hours !== null) {
+          existing.total_worked_hours += record.total_hours;
+        }
+        if (record.expected_hours !== null) {
+          existing.total_expected_hours += record.expected_hours;
+        }
+        if (record.difference_hours !== null) {
+          existing.total_difference_hours += record.difference_hours;
+        }
+      }
+    }
+
+    // Sort by employee name
+    const results = Array.from(totalsMap.values());
+    return results.sort((a, b) => {
+      const dir = sortDirection === "asc" ? 1 : -1;
+      switch (sortColumn) {
+        case "employee_name":
+          return a.employee_name.localeCompare(b.employee_name) * dir;
+        case "total_days":
+          return (a.total_days - b.total_days) * dir;
+        case "present_days":
+          return (a.present_days - b.present_days) * dir;
+        case "absent_days":
+          return (a.absent_days - b.absent_days) * dir;
+        case "vacation_days":
+          return (a.vacation_days - b.vacation_days) * dir;
+        case "total_worked_hours":
+          return (a.total_worked_hours - b.total_worked_hours) * dir;
+        case "total_expected_hours":
+          return (a.total_expected_hours - b.total_expected_hours) * dir;
+        case "total_difference_hours":
+        case "difference_hours":
+          return (a.total_difference_hours - b.total_difference_hours) * dir;
+        default:
+          return a.employee_name.localeCompare(b.employee_name);
+      }
+    });
+  }, [sortedSummaryRecords, sortColumn, sortDirection]);
+
+  // Print pages for employee totals
+  const printEmployeeTotalsPages = useMemo(() => {
+    const pages: EmployeeTotalRecord[][] = [];
+    for (let i = 0; i < employeeTotals.length; i += ROWS_PER_PRINT_PAGE) {
+      pages.push(employeeTotals.slice(i, i + ROWS_PER_PRINT_PAGE));
+    }
+    return pages;
+  }, [employeeTotals]);
+
   // Sort detailed logs based on current sort column and direction
   const sortedLogs = useMemo(() => {
     const dateToNumber = (d: string) => {
@@ -1199,6 +1291,15 @@ const ZKAttendanceLogs = () => {
                 <LayoutGrid className="h-4 w-4 mr-2" />
                 {isArabic ? "ملخص" : "Summary"}
               </Button>
+              <Button
+                variant={viewMode === "employee-totals" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("employee-totals")}
+                className="rounded-none"
+              >
+                <User className="h-4 w-4 mr-2" />
+                {isArabic ? "إجماليات الموظفين" : "Employee Totals"}
+              </Button>
             </div>
             <Button
               variant="destructive"
@@ -1209,7 +1310,7 @@ const ZKAttendanceLogs = () => {
               <Trash2 className="h-4 w-4 mr-2" />
               {isArabic ? `حذف الكل (${totalCount})` : `Delete All (${totalCount})`}
             </Button>
-            {viewMode === "summary" && (
+            {(viewMode === "summary" || viewMode === "employee-totals") && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1765,6 +1866,217 @@ const ZKAttendanceLogs = () => {
             </div>
           )}
 
+          {/* Employee Totals View */}
+          {viewMode === "employee-totals" && (
+            <div className="print-area">
+              {/* Print Header */}
+              <div className="print-header hidden print:block">
+                <h1>{isArabic ? "تقرير إجماليات الموظفين" : "Employee Totals Report"}</h1>
+                <p>
+                  {fromDate || toDate
+                    ? `${fromDate ? format(fromDate, "yyyy-MM-dd") : ""} ${toDate ? `- ${format(toDate, "yyyy-MM-dd")}` : ""}`
+                    : isArabic ? "جميع التواريخ" : "All Dates"}
+                  {attendanceTypeFilter !== "all" && ` - ${attendanceTypes.find(t => t.id === attendanceTypeFilter)?.[isArabic ? "type_name_ar" : "type_name"] || attendanceTypeFilter}`}
+                </p>
+                <p>
+                  {isArabic
+                    ? `عدد الموظفين: ${employeeTotals.length}`
+                    : `Employees: ${employeeTotals.length}`}
+                </p>
+                <p className="print-date">
+                  {isArabic
+                    ? `تاريخ الطباعة: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`
+                    : `Print Date: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
+                </p>
+              </div>
+
+              {/* On-screen table */}
+              <div className="screen-only border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHeader column="employee_name">{isArabic ? "اسم الموظف" : "Employee Name"}</SortableHeader>
+                      <SortableHeader column="total_days">{isArabic ? "إجمالي الأيام" : "Total Days"}</SortableHeader>
+                      <SortableHeader column="present_days">{isArabic ? "أيام الحضور" : "Present Days"}</SortableHeader>
+                      <SortableHeader column="absent_days">{isArabic ? "أيام الغياب" : "Absent Days"}</SortableHeader>
+                      <SortableHeader column="vacation_days">{isArabic ? "أيام الإجازة" : "Vacation Days"}</SortableHeader>
+                      <SortableHeader column="total_worked_hours">{isArabic ? "ساعات العمل" : "Worked Hours"}</SortableHeader>
+                      <SortableHeader column="total_expected_hours">{isArabic ? "الساعات المتوقعة" : "Expected Hours"}</SortableHeader>
+                      <SortableHeader column="total_difference_hours">{isArabic ? "الفرق (تأخير/إضافي)" : "Difference (Delay/Extra)"}</SortableHeader>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8">
+                          <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                          {isArabic ? "جاري التحميل..." : "Loading..."}
+                        </TableCell>
+                      </TableRow>
+                    ) : employeeTotals.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          {isArabic ? "لا توجد سجلات" : "No records found"}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      <>
+                        {employeeTotals.map((emp) => (
+                          <TableRow key={emp.employee_code}>
+                            <TableCell className="font-medium">{emp.employee_name}</TableCell>
+                            <TableCell>{emp.total_days}</TableCell>
+                            <TableCell>
+                              <Badge className="bg-green-500">{emp.present_days}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {emp.absent_days > 0 ? (
+                                <Badge className="bg-orange-500">{emp.absent_days}</Badge>
+                              ) : (
+                                <span className="text-muted-foreground">0</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {emp.vacation_days > 0 ? (
+                                <Badge className="bg-purple-500">{emp.vacation_days}</Badge>
+                              ) : (
+                                <span className="text-muted-foreground">0</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-mono">{emp.total_worked_hours.toFixed(2)}</TableCell>
+                            <TableCell className="font-mono">{emp.total_expected_hours.toFixed(2)}</TableCell>
+                            <TableCell className="font-mono">
+                              <Badge className={emp.total_difference_hours >= 0 ? "bg-green-500" : "bg-red-500"}>
+                                {emp.total_difference_hours >= 0 ? "+" : ""}{emp.total_difference_hours.toFixed(2)}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {/* Totals Row */}
+                        <TableRow className="bg-muted/50 font-bold border-t-2">
+                          <TableCell>{isArabic ? "الإجمالي" : "Total"}</TableCell>
+                          <TableCell>{employeeTotals.reduce((sum, e) => sum + e.total_days, 0)}</TableCell>
+                          <TableCell>{employeeTotals.reduce((sum, e) => sum + e.present_days, 0)}</TableCell>
+                          <TableCell>{employeeTotals.reduce((sum, e) => sum + e.absent_days, 0)}</TableCell>
+                          <TableCell>{employeeTotals.reduce((sum, e) => sum + e.vacation_days, 0)}</TableCell>
+                          <TableCell className="font-mono">{employeeTotals.reduce((sum, e) => sum + e.total_worked_hours, 0).toFixed(2)}</TableCell>
+                          <TableCell className="font-mono">{employeeTotals.reduce((sum, e) => sum + e.total_expected_hours, 0).toFixed(2)}</TableCell>
+                          <TableCell className="font-mono">
+                            {(() => {
+                              const total = employeeTotals.reduce((sum, e) => sum + e.total_difference_hours, 0);
+                              return (
+                                <Badge className={total >= 0 ? "bg-green-500" : "bg-red-500"}>
+                                  {total >= 0 ? "+" : ""}{total.toFixed(2)}
+                                </Badge>
+                              );
+                            })()}
+                          </TableCell>
+                        </TableRow>
+                      </>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Print-only paginated layout */}
+              <div className="print-only-pages">
+                {loading ? (
+                  <div className="print-page">
+                    <div className="print-header">
+                      <h1>{isArabic ? "تقرير إجماليات الموظفين" : "Employee Totals Report"}</h1>
+                      <p className="print-date">{isArabic ? "جاري التحميل..." : "Loading..."}</p>
+                    </div>
+                  </div>
+                ) : employeeTotals.length === 0 ? (
+                  <div className="print-page">
+                    <div className="print-header">
+                      <h1>{isArabic ? "تقرير إجماليات الموظفين" : "Employee Totals Report"}</h1>
+                      <p className="print-date">{isArabic ? "لا توجد سجلات" : "No records found"}</p>
+                    </div>
+                  </div>
+                ) : (
+                  printEmployeeTotalsPages.map((pageRecords, idx) => {
+                    const pageNumber = idx + 1;
+                    const totalPages = printEmployeeTotalsPages.length;
+                    const isLastPage = idx === printEmployeeTotalsPages.length - 1;
+                    return (
+                      <div className="print-page" key={`print-emp-page-${pageNumber}`}>
+                        <div className="print-header">
+                          <h1>{isArabic ? "تقرير إجماليات الموظفين" : "Employee Totals Report"}</h1>
+                          <p>
+                            {fromDate || toDate
+                              ? `${fromDate ? format(fromDate, "yyyy-MM-dd") : ""} ${toDate ? `- ${format(toDate, "yyyy-MM-dd")}` : ""}`
+                              : isArabic ? "جميع التواريخ" : "All Dates"}
+                            {attendanceTypeFilter !== "all" && ` - ${attendanceTypes.find(t => t.id === attendanceTypeFilter)?.[isArabic ? "type_name_ar" : "type_name"] || attendanceTypeFilter}`}
+                          </p>
+                          <p className="print-date">
+                            {isArabic
+                              ? `تاريخ الطباعة: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`
+                              : `Print Date: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
+                          </p>
+                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
+                              <TableHead>{isArabic ? "إجمالي الأيام" : "Total Days"}</TableHead>
+                              <TableHead>{isArabic ? "أيام الحضور" : "Present"}</TableHead>
+                              <TableHead>{isArabic ? "أيام الغياب" : "Absent"}</TableHead>
+                              <TableHead>{isArabic ? "أيام الإجازة" : "Vacation"}</TableHead>
+                              <TableHead>{isArabic ? "ساعات العمل" : "Worked"}</TableHead>
+                              <TableHead>{isArabic ? "الساعات المتوقعة" : "Expected"}</TableHead>
+                              <TableHead>{isArabic ? "الفرق" : "Difference"}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pageRecords.map((emp) => (
+                              <TableRow key={`${emp.employee_code}-${pageNumber}`}>
+                                <TableCell className="font-medium">{emp.employee_name}</TableCell>
+                                <TableCell>{emp.total_days}</TableCell>
+                                <TableCell>{emp.present_days}</TableCell>
+                                <TableCell>{emp.absent_days}</TableCell>
+                                <TableCell>{emp.vacation_days}</TableCell>
+                                <TableCell className="font-mono">{emp.total_worked_hours.toFixed(2)}</TableCell>
+                                <TableCell className="font-mono">{emp.total_expected_hours.toFixed(2)}</TableCell>
+                                <TableCell className="font-mono">
+                                  {emp.total_difference_hours >= 0 ? "+" : ""}{emp.total_difference_hours.toFixed(2)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {/* Show totals on the last page */}
+                            {isLastPage && (
+                              <TableRow className="font-bold border-t-2">
+                                <TableCell>{isArabic ? "الإجمالي" : "Total"}</TableCell>
+                                <TableCell>{employeeTotals.reduce((sum, e) => sum + e.total_days, 0)}</TableCell>
+                                <TableCell>{employeeTotals.reduce((sum, e) => sum + e.present_days, 0)}</TableCell>
+                                <TableCell>{employeeTotals.reduce((sum, e) => sum + e.absent_days, 0)}</TableCell>
+                                <TableCell>{employeeTotals.reduce((sum, e) => sum + e.vacation_days, 0)}</TableCell>
+                                <TableCell className="font-mono">{employeeTotals.reduce((sum, e) => sum + e.total_worked_hours, 0).toFixed(2)}</TableCell>
+                                <TableCell className="font-mono">{employeeTotals.reduce((sum, e) => sum + e.total_expected_hours, 0).toFixed(2)}</TableCell>
+                                <TableCell className="font-mono">
+                                  {(() => {
+                                    const total = employeeTotals.reduce((sum, e) => sum + e.total_difference_hours, 0);
+                                    return `${total >= 0 ? "+" : ""}${total.toFixed(2)}`;
+                                  })()}
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+
+                        <div className="print-page-footer">
+                          {isArabic
+                            ? `تقرير إجماليات الموظفين - نظام إدارة - صفحة ${pageNumber} من ${totalPages}`
+                            : `Employee Totals Report - Edara System - Page ${pageNumber} of ${totalPages}`}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Pagination Controls */}
           {totalCount > 0 && (
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1773,9 +2085,13 @@ const ZKAttendanceLogs = () => {
                   ? (isArabic
                       ? `عرض ${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, totalCount)} من ${totalCount} سجل`
                       : `Showing ${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, totalCount)} of ${totalCount} records`)
-                  : (isArabic
-                      ? `عرض ${sortedSummaryRecords.length} موظف/يوم`
-                      : `Showing ${sortedSummaryRecords.length} employee/day records`)
+                  : viewMode === "summary"
+                    ? (isArabic
+                        ? `عرض ${sortedSummaryRecords.length} موظف/يوم`
+                        : `Showing ${sortedSummaryRecords.length} employee/day records`)
+                    : (isArabic
+                        ? `عرض ${employeeTotals.length} موظف`
+                        : `Showing ${employeeTotals.length} employees`)
                 }
               </div>
               
