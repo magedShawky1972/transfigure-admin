@@ -463,33 +463,31 @@ const SavedAttendance = () => {
     };
   };
 
-  // Calculate excuse status based on difference hours and allowances
-  const getExcuseStatus = (record: SavedAttendanceRecord): { isExcused: boolean; reason: string } => {
-    if (record.record_status !== "present" || record.difference_hours === null) {
-      return { isExcused: false, reason: "" };
+  // Calculate correct time status based on difference hours and allowances
+  const getCorrectTimeStatus = (record: SavedAttendanceRecord): { isCorrect: boolean; hasAllowance: boolean } => {
+    if (record.record_status !== "present") {
+      return { isCorrect: false, hasAllowance: false };
+    }
+
+    // If no difference or positive difference (on time or overtime), it's correct
+    if (record.difference_hours === null || record.difference_hours >= 0) {
+      return { isCorrect: true, hasAllowance: true };
     }
 
     const allowances = getEmployeeAttendanceAllowances(record.employee_code);
+    
+    // If no allowance configured, check if difference is 0 or positive
     if (allowances.allowLate === null && allowances.allowEarly === null) {
-      return { isExcused: false, reason: "" };
+      return { isCorrect: record.difference_hours >= 0, hasAllowance: false };
     }
 
     // Convert difference hours to minutes (negative difference = late/early exit)
     const diffMinutes = Math.abs(record.difference_hours * 60);
     
-    // If difference is positive (overtime), no excuse needed
-    if (record.difference_hours >= 0) {
-      return { isExcused: true, reason: isArabic ? "وقت إضافي" : "Overtime" };
-    }
-
     // For negative difference, check against combined allowance
     const totalAllowance = (allowances.allowLate || 0) + (allowances.allowEarly || 0);
     
-    if (diffMinutes <= totalAllowance) {
-      return { isExcused: true, reason: isArabic ? "معذور" : "Excused" };
-    }
-
-    return { isExcused: false, reason: isArabic ? "غير معذور" : "Not Excused" };
+    return { isCorrect: diffMinutes <= totalAllowance, hasAllowance: true };
   };
 
   const sortedRecords = useMemo(() => {
@@ -1241,7 +1239,7 @@ const SavedAttendance = () => {
                     <SortableHeader column="out_time">{isArabic ? "الخروج" : "Out"}</SortableHeader>
                     <SortableHeader column="total_hours">{isArabic ? "إجمالي الساعات" : "Total Hours"}</SortableHeader>
                     <SortableHeader column="difference_hours">{isArabic ? "الفرق" : "Difference"}</SortableHeader>
-                    <TableHead className="text-center">{isArabic ? "حالة العذر" : "Excuse"}</TableHead>
+                    <TableHead className="text-center">{isArabic ? "الوقت الصحيح" : "Correct Time"}</TableHead>
                     <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                     <SortableHeader column="deduction_amount">{isArabic ? "الخصم" : "Deduction"}</SortableHeader>
                     <SortableHeader column="is_confirmed">{isArabic ? "الاعتماد" : "Confirmed"}</SortableHeader>
@@ -1264,7 +1262,7 @@ const SavedAttendance = () => {
                     </TableRow>
                   ) : (
                     sortedRecords.map((record) => {
-                      const excuseStatus = getExcuseStatus(record);
+                      const correctTimeStatus = getCorrectTimeStatus(record);
                       
                       return (
                         <TableRow key={record.id} className={record.is_confirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
@@ -1290,14 +1288,12 @@ const SavedAttendance = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {record.record_status === "present" && record.difference_hours !== null && record.difference_hours < 0 ? (
-                              excuseStatus.isExcused ? (
+                            {record.record_status === "present" ? (
+                              correctTimeStatus.isCorrect ? (
                                 <Check className="h-5 w-5 text-green-600 mx-auto" />
                               ) : (
                                 <X className="h-5 w-5 text-red-500 mx-auto" />
                               )
-                            ) : record.record_status === "present" && record.difference_hours !== null && record.difference_hours >= 0 ? (
-                              <Check className="h-5 w-5 text-green-600 mx-auto" />
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
