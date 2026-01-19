@@ -93,6 +93,7 @@ import JobSetup from "./pages/JobSetup";
 import SecurityDashboard from "./pages/SecurityDashboard";
 import CertificateManagement from "./pages/CertificateManagement";
 import ZKAttendanceLogs from "./pages/ZKAttendanceLogs";
+import SavedAttendance from "./pages/SavedAttendance";
 import SoldProductReport from "./pages/SoldProductReport";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
@@ -210,6 +211,7 @@ const App = () => (
               <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="/certificate-management" element={<CertificateManagement />} />
               <Route path="/zk-attendance-logs" element={<ZKAttendanceLogs />} />
+              <Route path="/saved-attendance" element={<SavedAttendance />} />
               <Route path="/reports/sold-product" element={<SoldProductReport />} />
               <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />
               <Route path="/reports/aggregated-orders" element={<AggregatedOrderReport />} />
