@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BrandTypeSelectionDialog } from "@/components/BrandTypeSelectionDialog";
+import { DuplicateRecordsDialog } from "@/components/DuplicateRecordsDialog";
 import { Badge } from "@/components/ui/badge";
 
 interface ExcelSheet {
@@ -90,6 +91,15 @@ const LoadData = () => {
   const [brandTypeSelections, setBrandTypeSelections] = useState<{ brand_name: string; brand_type_id: string }[]>([]);
   const keepAliveRef = useRef<NodeJS.Timeout | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  
+  // Duplicate detection state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    duplicates: { key: string; existingCount: number; newCount: number }[];
+    totalRecords: number;
+    duplicateCount: number;
+  } | null>(null);
+  const [pendingDuplicateAction, setPendingDuplicateAction] = useState<'update' | 'skip' | null>(null);
 
   // Keep session alive during long processing
   const startKeepAlive = () => {
@@ -200,6 +210,32 @@ const LoadData = () => {
 
     // Continue with remaining files
     continueProcessingFiles();
+  };
+
+  const handleDuplicateAction = (action: 'update' | 'skip' | 'cancel') => {
+    setShowDuplicateDialog(false);
+    setDuplicateInfo(null);
+    
+    if (action === 'cancel') {
+      if (pendingFileId) {
+        setFileItems(prev => prev.map(f => 
+          f.id === pendingFileId ? { ...f, status: 'error', error: 'Upload cancelled by user' } : f
+        ));
+      }
+      setPendingFileId(null);
+      setPendingFileIndex(null);
+      setPendingUploadData(null);
+      continueProcessingFiles();
+      return;
+    }
+    
+    // Set the action and continue with the upload
+    setPendingDuplicateAction(action);
+    
+    const idx = pendingFileIndex ?? currentFileIndex;
+    if (pendingUploadData && pendingFileId) {
+      processFileUpload(pendingFileId, pendingUploadData, idx, undefined, action);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -374,7 +410,8 @@ const LoadData = () => {
     fileId: string,
     jsonData: any[],
     queueIndex: number,
-    brandSelections?: { brand_name: string; brand_type_id: string }[]
+    brandSelections?: { brand_name: string; brand_type_id: string }[],
+    duplicateAction?: 'update' | 'skip'
   ) => {
     const fileItem = fileItemsRef.current.find((f) => f.id === fileId);
     if (!fileItem) return;
@@ -494,6 +531,9 @@ const LoadData = () => {
         setCurrentBatch(i + 1);
         setUploadStatus(`${fileItem.file.name}: Batch ${i + 1}/${batches.length}`);
 
+        // For first batch, check for duplicates if no action was provided yet
+        const shouldCheckDuplicates = i === 0 && !duplicateAction && !pendingDuplicateAction;
+
         const { data: result, error } = await supabase.functions.invoke("load-excel-data", {
           body: {
             sheetId: fileItem.sheetId,
@@ -501,10 +541,26 @@ const LoadData = () => {
             brandTypeSelections: brandSelections || brandTypeSelections.length > 0 ? (brandSelections || brandTypeSelections) : undefined,
             checkBrand: shouldCheckBrand,
             checkProduct: shouldCheckProduct,
+            checkDuplicates: shouldCheckDuplicates,
+            duplicateAction: duplicateAction || pendingDuplicateAction || 'update',
           },
         });
 
         if (error) throw error;
+
+        // Handle duplicate decision request
+        if (result.requiresDuplicateDecision) {
+          setDuplicateInfo({
+            duplicates: result.duplicates || [],
+            totalRecords: result.totalRecords || 0,
+            duplicateCount: result.duplicateCount || 0,
+          });
+          setPendingUploadData(jsonData);
+          setPendingFileId(fileId);
+          setPendingFileIndex(queueIndex);
+          setShowDuplicateDialog(true);
+          return;
+        }
 
         if (result.requiresBrandTypeSelection && result.newBrands) {
           setNewBrandsDetected(result.newBrands);
@@ -515,7 +571,7 @@ const LoadData = () => {
           return;
         }
 
-        totalProcessed += result.count;
+        totalProcessed += result.count || 0;
         setProcessedRows(totalProcessed);
         totalValue += result.totalValue || 0;
         totalProductsUpserted += result.productsUpserted || 0;
@@ -529,6 +585,9 @@ const LoadData = () => {
           f.id === fileId ? { ...f, progress: progressPercent } : f
         ));
       }
+      
+      // Reset duplicate action after successful upload
+      setPendingDuplicateAction(null);
 
       // Update log
       const sortedDates = allDates.sort();
@@ -891,6 +950,15 @@ const LoadData = () => {
         newBrands={newBrandsDetected}
         onConfirm={handleBrandTypeConfirm}
         onCancel={handleBrandTypeCancel}
+      />
+
+      <DuplicateRecordsDialog
+        open={showDuplicateDialog}
+        onOpenChange={setShowDuplicateDialog}
+        duplicates={duplicateInfo?.duplicates || []}
+        totalNewRecords={duplicateInfo?.totalRecords || 0}
+        totalDuplicates={duplicateInfo?.duplicateCount || 0}
+        onAction={handleDuplicateAction}
       />
     </div>
   );
