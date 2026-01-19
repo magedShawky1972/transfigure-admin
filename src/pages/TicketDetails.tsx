@@ -1153,11 +1153,29 @@ const TicketDetails = () => {
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                 <div>
-                  <CardTitle className="text-lg sm:text-2xl">
-                    {canViewDetails 
-                      ? ticket.subject 
-                      : (language === 'ar' ? '--- محتوى مخفي ---' : '--- Hidden Content ---')}
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg sm:text-2xl">
+                      {canViewDetails 
+                        ? ticket.subject 
+                        : (language === 'ar' ? '--- محتوى مخفي ---' : '--- Hidden Content ---')}
+                    </CardTitle>
+                    {canViewDetails && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          navigator.clipboard.writeText(ticket.subject);
+                          toast({
+                            title: language === 'ar' ? 'تم النسخ' : 'Copied',
+                            description: language === 'ar' ? 'تم نسخ العنوان' : 'Title copied to clipboard',
+                          });
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                     {t("ticketDetails.ticketNumber")}{ticket.ticket_number}
                   </p>
@@ -1233,7 +1251,25 @@ const TicketDetails = () => {
           <div className="space-y-4">
             {!isEditing && (
               <div>
-                <h3 className="font-semibold mb-2">{t("ticketDetails.description")}</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-semibold">{t("ticketDetails.description")}</h3>
+                  {canViewDetails && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(ticket.description);
+                        toast({
+                          title: language === 'ar' ? 'تم النسخ' : 'Copied',
+                          description: language === 'ar' ? 'تم نسخ الوصف' : 'Description copied to clipboard',
+                        });
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
                 {canViewDetails ? (
                   <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
                 ) : (
