@@ -94,6 +94,15 @@ interface Employee {
   last_name_ar: string | null;
   zk_employee_code: string | null;
   employee_number: string;
+  attendance_type_id: string | null;
+}
+
+interface AttendanceType {
+  id: string;
+  type_name: string;
+  type_name_ar: string | null;
+  allow_late_minutes: number | null;
+  allow_early_exit_minutes: number | null;
 }
 
 interface EmployeeTotalRecord {
@@ -131,6 +140,7 @@ const SavedAttendance = () => {
 
   const [records, setRecords] = useState<SavedAttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [attendanceTypes, setAttendanceTypes] = useState<AttendanceType[]>([]);
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchCode, setSearchCode] = useState("");
@@ -330,13 +340,26 @@ const SavedAttendance = () => {
     try {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number")
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id")
         .not("zk_employee_code", "is", null);
 
       if (error) throw error;
       setEmployees(data || []);
     } catch (error) {
       console.error("Error fetching employees:", error);
+    }
+  };
+
+  const fetchAttendanceTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("attendance_types")
+        .select("id, type_name, type_name_ar, allow_late_minutes, allow_early_exit_minutes");
+
+      if (error) throw error;
+      setAttendanceTypes(data || []);
+    } catch (error) {
+      console.error("Error fetching attendance types:", error);
     }
   };
 
@@ -356,6 +379,7 @@ const SavedAttendance = () => {
 
   useEffect(() => {
     fetchEmployees();
+    fetchAttendanceTypes();
     fetchDeductionRules();
   }, []);
 
@@ -423,6 +447,49 @@ const SavedAttendance = () => {
     const rule = deductionRules.find(r => r.id === ruleId);
     if (!rule) return "-";
     return isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name;
+  };
+
+  // Get employee attendance type allowances
+  const getEmployeeAttendanceAllowances = (employeeCode: string): { allowLate: number | null; allowEarly: number | null } => {
+    const emp = employees.find(e => e.zk_employee_code === employeeCode);
+    if (!emp || !emp.attendance_type_id) return { allowLate: null, allowEarly: null };
+    
+    const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
+    if (!attType) return { allowLate: null, allowEarly: null };
+    
+    return {
+      allowLate: attType.allow_late_minutes,
+      allowEarly: attType.allow_early_exit_minutes
+    };
+  };
+
+  // Calculate excuse status based on difference hours and allowances
+  const getExcuseStatus = (record: SavedAttendanceRecord): { isExcused: boolean; reason: string } => {
+    if (record.record_status !== "present" || record.difference_hours === null) {
+      return { isExcused: false, reason: "" };
+    }
+
+    const allowances = getEmployeeAttendanceAllowances(record.employee_code);
+    if (allowances.allowLate === null && allowances.allowEarly === null) {
+      return { isExcused: false, reason: "" };
+    }
+
+    // Convert difference hours to minutes (negative difference = late/early exit)
+    const diffMinutes = Math.abs(record.difference_hours * 60);
+    
+    // If difference is positive (overtime), no excuse needed
+    if (record.difference_hours >= 0) {
+      return { isExcused: true, reason: isArabic ? "وقت إضافي" : "Overtime" };
+    }
+
+    // For negative difference, check against combined allowance
+    const totalAllowance = (allowances.allowLate || 0) + (allowances.allowEarly || 0);
+    
+    if (diffMinutes <= totalAllowance) {
+      return { isExcused: true, reason: isArabic ? "معذور" : "Excused" };
+    }
+
+    return { isExcused: false, reason: isArabic ? "غير معذور" : "Not Excused" };
   };
 
   const sortedRecords = useMemo(() => {
@@ -1174,6 +1241,9 @@ const SavedAttendance = () => {
                     <SortableHeader column="out_time">{isArabic ? "الخروج" : "Out"}</SortableHeader>
                     <SortableHeader column="total_hours">{isArabic ? "إجمالي الساعات" : "Total Hours"}</SortableHeader>
                     <SortableHeader column="difference_hours">{isArabic ? "الفرق" : "Difference"}</SortableHeader>
+                    <TableHead className="text-center">{isArabic ? "سماح التأخير" : "Late Allow"}</TableHead>
+                    <TableHead className="text-center">{isArabic ? "سماح الخروج المبكر" : "Early Allow"}</TableHead>
+                    <TableHead className="text-center">{isArabic ? "حالة العذر" : "Excuse Status"}</TableHead>
                     <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                     <SortableHeader column="deduction_amount">{isArabic ? "الخصم" : "Deduction"}</SortableHeader>
                     <SortableHeader column="is_confirmed">{isArabic ? "الاعتماد" : "Confirmed"}</SortableHeader>
@@ -1183,64 +1253,95 @@ const SavedAttendance = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8">
+                      <TableCell colSpan={13} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                         {isArabic ? "جاري التحميل..." : "Loading..."}
                       </TableCell>
                     </TableRow>
                   ) : sortedRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                         {isArabic ? "لا توجد سجلات" : "No records found"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    sortedRecords.map((record) => (
-                      <TableRow key={record.id} className={record.is_confirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
-                        <TableCell className="font-medium">{getEmployeeName(record.employee_code)}</TableCell>
-                        <TableCell>{record.attendance_date}</TableCell>
-                        <TableCell className="font-mono">{record.in_time || <span className="text-muted-foreground">-</span>}</TableCell>
-                        <TableCell className="font-mono">{record.out_time || <span className="text-muted-foreground">-</span>}</TableCell>
-                        <TableCell className="font-mono">
-                          {record.total_hours !== null ? (
-                            <span className="font-semibold">{record.total_hours.toFixed(2)}</span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono">
-                          {record.difference_hours !== null ? (
-                            <Badge className={record.difference_hours >= 0 ? "bg-green-500" : "bg-red-500"}>
-                              {record.difference_hours >= 0 ? "+" : ""}
-                              {record.difference_hours.toFixed(2)}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {record.record_status === "absent" ? (
-                            <Badge className="bg-orange-500">{isArabic ? "غائب" : "Absent"}</Badge>
-                          ) : record.record_status === "vacation" ? (
-                            <Badge className="bg-purple-500">{record.vacation_type || (isArabic ? "إجازة" : "Vacation")}</Badge>
-                          ) : (
-                            <Badge variant="outline">{isArabic ? "حاضر" : "Present"}</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {record.deduction_amount && record.deduction_amount > 0 ? (
-                            <Badge className="bg-red-500">{record.deduction_amount.toFixed(2)}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {record.is_confirmed ? (
-                            <Badge className="bg-green-500">{isArabic ? "معتمد" : "Confirmed"}</Badge>
-                          ) : (
-                            <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
-                          )}
-                        </TableCell>
+                    sortedRecords.map((record) => {
+                      const allowances = getEmployeeAttendanceAllowances(record.employee_code);
+                      const excuseStatus = getExcuseStatus(record);
+                      
+                      return (
+                        <TableRow key={record.id} className={record.is_confirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
+                          <TableCell className="font-medium">{getEmployeeName(record.employee_code)}</TableCell>
+                          <TableCell>{record.attendance_date}</TableCell>
+                          <TableCell className="font-mono">{record.in_time || <span className="text-muted-foreground">-</span>}</TableCell>
+                          <TableCell className="font-mono">{record.out_time || <span className="text-muted-foreground">-</span>}</TableCell>
+                          <TableCell className="font-mono">
+                            {record.total_hours !== null ? (
+                              <span className="font-semibold">{record.total_hours.toFixed(2)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {record.difference_hours !== null ? (
+                              <Badge className={record.difference_hours >= 0 ? "bg-green-500" : "bg-red-500"}>
+                                {record.difference_hours >= 0 ? "+" : ""}
+                                {record.difference_hours.toFixed(2)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center font-mono">
+                            {allowances.allowLate !== null ? (
+                              <span>{allowances.allowLate} {isArabic ? "د" : "m"}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center font-mono">
+                            {allowances.allowEarly !== null ? (
+                              <span>{allowances.allowEarly} {isArabic ? "د" : "m"}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {record.record_status === "present" && record.difference_hours !== null && record.difference_hours < 0 ? (
+                              excuseStatus.isExcused ? (
+                                <Badge className="bg-green-500">{excuseStatus.reason}</Badge>
+                              ) : (
+                                <Badge className="bg-red-500">{excuseStatus.reason}</Badge>
+                              )
+                            ) : record.record_status === "present" && record.difference_hours !== null && record.difference_hours >= 0 ? (
+                              <Badge variant="outline" className="text-green-600">{isArabic ? "طبيعي" : "OK"}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.record_status === "absent" ? (
+                              <Badge className="bg-orange-500">{isArabic ? "غائب" : "Absent"}</Badge>
+                            ) : record.record_status === "vacation" ? (
+                              <Badge className="bg-purple-500">{record.vacation_type || (isArabic ? "إجازة" : "Vacation")}</Badge>
+                            ) : (
+                              <Badge variant="outline">{isArabic ? "حاضر" : "Present"}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.deduction_amount && record.deduction_amount > 0 ? (
+                              <Badge className="bg-red-500">{record.deduction_amount.toFixed(2)}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.is_confirmed ? (
+                              <Badge className="bg-green-500">{isArabic ? "معتمد" : "Confirmed"}</Badge>
+                            ) : (
+                              <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
+                            )}
+                          </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 justify-center">
                             {!record.is_confirmed && (
@@ -1276,7 +1377,8 @@ const SavedAttendance = () => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
