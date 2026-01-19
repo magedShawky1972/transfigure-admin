@@ -68,6 +68,7 @@ interface Employee {
   medical_insurance_plan_id: string | null;
   basic_salary: number | null;
   manager_id: string | null;
+  requires_attendance_signin: boolean | null;
   departments?: { department_name: string; department_name_ar: string | null } | null;
   job_positions?: { position_name: string; position_name_ar: string | null } | null;
   profiles?: { user_name: string } | null;
@@ -235,6 +236,7 @@ export default function EmployeeSetup() {
     manager_id: "",
     photo_url: "",
     address: "",
+    requires_attendance_signin: true,
   });
 
   const [contactFormData, setContactFormData] = useState({
@@ -434,6 +436,7 @@ export default function EmployeeSetup() {
       manager_id: "",
       photo_url: "",
       address: "",
+      requires_attendance_signin: true,
     });
     setSelectedVacationTypes([]);
     setEmployeeVacationBalances([]);
@@ -679,6 +682,7 @@ export default function EmployeeSetup() {
       manager_id: "",
       photo_url: "",
       address: "",
+      requires_attendance_signin: true,
     });
     setSelectedVacationTypes([]);
     setEmployeeVacationBalances([]);
@@ -720,6 +724,7 @@ export default function EmployeeSetup() {
       manager_id: employee.manager_id || "",
       photo_url: employee.photo_url || "",
       address: (employee as any).address || "",
+      requires_attendance_signin: employee.requires_attendance_signin !== false,
     });
     // Fetch employee vacation types and contacts
     fetchEmployeeVacationTypes(employee.id);
@@ -900,6 +905,7 @@ export default function EmployeeSetup() {
         basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : null,
         manager_id: formData.manager_id || null,
         address: formData.address || null,
+        requires_attendance_signin: formData.requires_attendance_signin,
       };
 
       let employeeId: string;
@@ -1859,6 +1865,19 @@ export default function EmployeeSetup() {
                       ? "إذا كان نوع الحضور مبني على الورديات، سيتم ربطه تلقائياً بتقويم جلسات الورديات"
                       : "If attendance type is shift-based, it will be linked to shift session calendar"}
                   </p>
+                </div>
+
+                <div className="space-y-2 flex items-center gap-3 pt-6">
+                  <input
+                    type="checkbox"
+                    id="requires_attendance_signin"
+                    checked={formData.requires_attendance_signin}
+                    onChange={(e) => setFormData({ ...formData, requires_attendance_signin: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="requires_attendance_signin" className="cursor-pointer">
+                    {language === "ar" ? "يتطلب تسجيل الحضور" : "Requires Attendance Sign-in"}
+                  </Label>
                 </div>
 
                 {/* Show fixed time fields only if attendance type is NOT shift-based */}
