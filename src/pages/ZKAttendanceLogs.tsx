@@ -99,6 +99,9 @@ const printStyles = `
     }
     .print-area, .print-area * {
       visibility: visible;
+      color: black !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .print-area {
       position: absolute;
@@ -144,10 +147,7 @@ const printStyles = `
       font-size: 12px;
       color: black !important;
     }
-    .badge-print {
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 11px;
+    span, div, p, td, th {
       color: black !important;
     }
     @page {
