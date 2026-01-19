@@ -465,7 +465,10 @@ const SavedAttendance = () => {
 
   // Calculate correct time status based on difference hours and allowances
   const getCorrectTimeStatus = (record: SavedAttendanceRecord): { isCorrect: boolean; hasAllowance: boolean } => {
-    if (record.record_status !== "present") {
+    // Check for normal/present status (database stores "normal" for present employees)
+    const isPresent = record.record_status === "present" || record.record_status === "normal";
+    
+    if (!isPresent) {
       return { isCorrect: false, hasAllowance: false };
     }
 
@@ -1288,7 +1291,7 @@ const SavedAttendance = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {record.record_status === "present" ? (
+                            {(record.record_status === "present" || record.record_status === "normal") ? (
                               correctTimeStatus.isCorrect ? (
                                 <Check className="h-5 w-5 text-green-600 mx-auto" />
                               ) : (
