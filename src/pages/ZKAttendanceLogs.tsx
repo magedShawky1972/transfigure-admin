@@ -43,7 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -91,6 +91,71 @@ interface SummaryRecord {
   expected_hours: number | null;
   difference_hours: number | null;
 }
+
+const printStyles = `
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    .print-area, .print-area * {
+      visibility: visible;
+    }
+    .print-area {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      padding: 20px;
+    }
+    .no-print {
+      display: none !important;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: none !important;
+      padding: 8px 12px;
+      text-align: left;
+      color: black !important;
+      font-size: 12px;
+    }
+    th {
+      background-color: #f3f4f6 !important;
+      font-weight: 600;
+      color: black !important;
+    }
+    tr:nth-child(even) {
+      background-color: #f9fafb !important;
+    }
+    .print-header {
+      text-align: center;
+      margin-bottom: 20px;
+      color: black !important;
+    }
+    .print-header h1 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: black !important;
+    }
+    .print-header p {
+      font-size: 12px;
+      color: black !important;
+    }
+    .badge-print {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: black !important;
+    }
+    @page {
+      size: A4 landscape;
+      margin: 10mm;
+    }
+  }
+`;
 
 const ZKAttendanceLogs = () => {
   const { language } = useLanguage();
@@ -551,7 +616,9 @@ const ZKAttendanceLogs = () => {
   };
 
   return (
-    <div className={`p-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
+    <>
+      <style>{printStyles}</style>
+      <div className={`p-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -589,6 +656,12 @@ const ZKAttendanceLogs = () => {
               <Trash2 className="h-4 w-4 mr-2" />
               {isArabic ? `حذف الكل (${totalCount})` : `Delete All (${totalCount})`}
             </Button>
+            {viewMode === "summary" && (
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer className="h-4 w-4 mr-2" />
+                {isArabic ? "طباعة" : "Print"}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               {isArabic ? "تصدير" : "Export"}
@@ -809,21 +882,34 @@ const ZKAttendanceLogs = () => {
 
           {/* Data Table - Summary View */}
           {viewMode === "summary" && (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
-                    <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                    <TableHead>{isArabic ? "الدخول" : "In"}</TableHead>
-                    <TableHead>{isArabic ? "الخروج" : "Out"}</TableHead>
-                    <TableHead>{isArabic ? "إجمالي الساعات" : "Total Hours"}</TableHead>
-                    <TableHead>{isArabic ? "الفرق" : "Difference"}</TableHead>
-                    <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                    <TableHead>{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
-                    <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
-                  </TableRow>
-                </TableHeader>
+            <div className="print-area">
+              {/* Print Header - only visible when printing */}
+              <div className="print-header hidden print:block">
+                <h1>{isArabic ? "تقرير سجلات الحضور" : "Attendance Logs Report"}</h1>
+                <p>
+                  {selectedDate 
+                    ? format(selectedDate, "PPP", { locale: isArabic ? ar : undefined })
+                    : isArabic ? "جميع التواريخ" : "All Dates"
+                  }
+                  {selectedEmployee !== "all" && ` - ${getEmployeeName(selectedEmployee) || selectedEmployee}`}
+                </p>
+                <p>{isArabic ? `إجمالي السجلات: ${summaryRecords.length}` : `Total Records: ${summaryRecords.length}`}</p>
+              </div>
+              <div className="border rounded-lg overflow-hidden print:border-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
+                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead>{isArabic ? "الدخول" : "In"}</TableHead>
+                      <TableHead>{isArabic ? "الخروج" : "Out"}</TableHead>
+                      <TableHead>{isArabic ? "إجمالي الساعات" : "Total Hours"}</TableHead>
+                      <TableHead>{isArabic ? "الفرق" : "Difference"}</TableHead>
+                      <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                      <TableHead className="no-print">{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
+                      <TableHead className="text-center no-print">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
@@ -893,10 +979,10 @@ const ZKAttendanceLogs = () => {
                               <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className="text-sm text-muted-foreground no-print">
                             {format(new Date(record.created_at), "yyyy-MM-dd HH:mm:ss")}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="no-print">
                             <div className="flex items-center justify-center gap-2">
                               {!record.is_processed && (
                                 <Button
@@ -976,6 +1062,7 @@ const ZKAttendanceLogs = () => {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </div>
           )}
 
@@ -1375,6 +1462,7 @@ const ZKAttendanceLogs = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 };
 
