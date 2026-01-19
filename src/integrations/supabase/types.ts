@@ -3353,6 +3353,7 @@ export type Database = {
           holiday_name_ar: string | null
           id: string
           is_recurring: boolean
+          religion: string | null
           updated_at: string
           year: number | null
         }
@@ -3365,6 +3366,7 @@ export type Database = {
           holiday_name_ar?: string | null
           id?: string
           is_recurring?: boolean
+          religion?: string | null
           updated_at?: string
           year?: number | null
         }
@@ -3377,6 +3379,7 @@ export type Database = {
           holiday_name_ar?: string | null
           id?: string
           is_recurring?: boolean
+          religion?: string | null
           updated_at?: string
           year?: number | null
         }

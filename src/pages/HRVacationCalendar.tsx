@@ -26,6 +26,7 @@ interface OfficialHoliday {
   is_recurring: boolean;
   year: number | null;
   description: string | null;
+  religion: string | null;
   attendance_type_ids?: string[];
 }
 
@@ -76,6 +77,7 @@ const HRVacationCalendar = () => {
     holiday_date: "",
     is_recurring: false,
     description: "",
+    religion: "all",
     selected_attendance_types: [] as string[]
   });
 
@@ -232,6 +234,7 @@ const HRVacationCalendar = () => {
       holiday_date: "",
       is_recurring: false,
       description: "",
+      religion: "all",
       selected_attendance_types: []
     });
     setDialogOpen(true);
@@ -245,6 +248,7 @@ const HRVacationCalendar = () => {
       holiday_date: holiday.holiday_date,
       is_recurring: holiday.is_recurring,
       description: holiday.description || "",
+      religion: holiday.religion || "all",
       selected_attendance_types: holiday.attendance_type_ids || []
     });
     setDialogOpen(true);
@@ -268,7 +272,8 @@ const HRVacationCalendar = () => {
         holiday_date: formData.holiday_date,
         is_recurring: formData.is_recurring,
         year: formData.is_recurring ? null : getYear(new Date(formData.holiday_date)),
-        description: formData.description || null
+        description: formData.description || null,
+        religion: formData.religion || "all"
       };
 
       let holidayId: string;
@@ -735,6 +740,28 @@ const HRVacationCalendar = () => {
                 {language === "ar" 
                   ? `تم اختيار ${formData.selected_attendance_types.length} نوع`
                   : `${formData.selected_attendance_types.length} type(s) selected`}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الديانة" : "Religion"}</Label>
+              <Select
+                value={formData.religion}
+                onValueChange={(value) => setFormData({ ...formData, religion: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+                  <SelectItem value="muslim">{language === "ar" ? "مسلم" : "Muslim"}</SelectItem>
+                  <SelectItem value="christian">{language === "ar" ? "مسيحي" : "Christian"}</SelectItem>
+                  <SelectItem value="other">{language === "ar" ? "أخرى" : "Other"}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {language === "ar" 
+                  ? "اختر 'الكل' إذا كانت الإجازة لجميع الموظفين، أو حدد ديانة معينة"
+                  : "Select 'All' if this holiday applies to everyone, or specify a religion"}
               </p>
             </div>
             <div className="flex items-center justify-between">

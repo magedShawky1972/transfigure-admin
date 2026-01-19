@@ -77,6 +77,7 @@ interface Employee {
   attendance_type_id: string | null;
   attendance_types: AttendanceType | null;
   requires_attendance_signin: boolean | null;
+  religion: string | null;
 }
 
 interface VacationRequest {
@@ -100,6 +101,7 @@ interface OfficialHoliday {
   holiday_date: string;
   is_recurring: boolean;
   year: number | null;
+  religion: string | null;
 }
 
 interface HolidayAttendanceType {
@@ -361,7 +363,7 @@ const ZKAttendanceLogs = () => {
     try {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, requires_attendance_signin, attendance_types(id, fixed_start_time, fixed_end_time, is_shift_based)");
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, requires_attendance_signin, religion, attendance_types(id, fixed_start_time, fixed_end_time, is_shift_based)");
 
       if (error) throw error;
       setEmployees((data || []) as Employee[]);
@@ -409,7 +411,7 @@ const ZKAttendanceLogs = () => {
       // Fetch official holidays within date range or recurring ones
       const { data: holidaysData, error: holidaysError } = await supabase
         .from("official_holidays" as any)
-        .select("id, holiday_name, holiday_name_ar, holiday_date, is_recurring, year")
+        .select("id, holiday_name, holiday_name_ar, holiday_date, is_recurring, year, religion")
         .or(`holiday_date.gte.${fromDateStr},is_recurring.eq.true`)
         .or(`holiday_date.lte.${toDateStr},is_recurring.eq.true`);
 
@@ -684,8 +686,8 @@ const ZKAttendanceLogs = () => {
         return day === 5 || day === 6; // Friday or Saturday
       };
 
-      // Helper to check if a date is an official holiday for the employee's attendance type
-      const isOfficialHoliday = (attendanceTypeId: string, dateStr: string): OfficialHoliday | null => {
+      // Helper to check if a date is an official holiday for the employee's attendance type and religion
+      const isOfficialHoliday = (attendanceTypeId: string, employeeReligion: string | null, dateStr: string): OfficialHoliday | null => {
         const targetDate = new Date(dateStr);
         
         for (const holiday of officialHolidays) {
@@ -699,6 +701,14 @@ const ZKAttendanceLogs = () => {
           
           const appliesToThisType = appliesTo.some(h => h.attendance_type_id === attendanceTypeId);
           if (!appliesToThisType) continue;
+          
+          // Check if holiday is religion-specific
+          if (holiday.religion && holiday.religion !== 'all') {
+            // Holiday is for a specific religion, check if employee matches
+            if (!employeeReligion || employeeReligion !== holiday.religion) {
+              continue; // Skip this holiday if employee's religion doesn't match
+            }
+          }
           
           // Check date match
           if (holiday.is_recurring) {
@@ -730,8 +740,8 @@ const ZKAttendanceLogs = () => {
           // Skip if record already exists
           if (existingKeys.has(key)) continue;
 
-          // Check if this date is an official holiday for this employee's attendance type
-          const holiday = emp.attendance_type_id ? isOfficialHoliday(emp.attendance_type_id, dateStr) : null;
+          // Check if this date is an official holiday for this employee's attendance type and religion
+          const holiday = emp.attendance_type_id ? isOfficialHoliday(emp.attendance_type_id, emp.religion, dateStr) : null;
           
           if (holiday) {
             // Add official holiday row
