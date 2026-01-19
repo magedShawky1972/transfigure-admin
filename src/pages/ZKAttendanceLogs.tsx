@@ -467,13 +467,22 @@ const ZKAttendanceLogs = () => {
   // Sort summary records based on current sort column and direction
   const sortedSummaryRecords = useMemo(() => {
     const records = getSummaryRecords();
-    return records.sort((a, b) => {
+    const getEmployeeNameForSort = (code: string) => {
+      const employee = employees.find((e) => e.zk_employee_code === code);
+      if (!employee) return code;
+      if (isArabic && employee.first_name_ar) {
+        return `${employee.first_name_ar} ${employee.last_name_ar || ""}`.trim();
+      }
+      return `${employee.first_name} ${employee.last_name}`.trim();
+    };
+    
+    return [...records].sort((a, b) => {
       const dir = sortDirection === "asc" ? 1 : -1;
       
       switch (sortColumn) {
         case "employee_name":
-          const nameA = getEmployeeName(a.employee_code) || a.employee_code;
-          const nameB = getEmployeeName(b.employee_code) || b.employee_code;
+          const nameA = getEmployeeNameForSort(a.employee_code);
+          const nameB = getEmployeeNameForSort(b.employee_code);
           return nameA.localeCompare(nameB) * dir;
         case "attendance_date":
           return a.attendance_date.localeCompare(b.attendance_date) * dir;
@@ -501,7 +510,7 @@ const ZKAttendanceLogs = () => {
           return 0;
       }
     });
-  }, [logs, employees, sortColumn, sortDirection]);
+  }, [logs, employees, sortColumn, sortDirection, isArabic]);
 
   // Sort detailed logs based on current sort column and direction
   const sortedLogs = useMemo(() => {
