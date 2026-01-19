@@ -706,11 +706,14 @@ Deno.serve(async (req) => {
     
     console.log(`${useUpsert ? 'Upserting' : 'Inserting'} ${rowsToInsert.length} rows into ${tableName}${useUpsert ? ` with conflict on: ${pkColumns.join(', ')}` : ''}`);
     
+    // Track if we need to fallback to manual upsert
+    let useManualUpsert = false;
+    
     for (let attempt = 0; attempt < 3; attempt++) {
       let insertError;
       
-      if (useUpsert) {
-        // Use upsert with onConflict for PK columns
+      if (useUpsert && !useManualUpsert) {
+        // Try upsert with onConflict for PK columns
         const { error } = await supabase
           .from(tableName)
           .upsert(rowsToInsert, {
@@ -718,6 +721,94 @@ Deno.serve(async (req) => {
             ignoreDuplicates: false
           });
         insertError = error;
+        
+        // Check if error is due to missing unique constraint
+        const message = (insertError as any)?.message || '';
+        if (message.includes('no unique or exclusion constraint matching')) {
+          console.warn('No unique constraint found, falling back to manual upsert...');
+          useManualUpsert = true;
+          // Don't count this as an attempt, retry with manual approach
+          attempt--;
+          continue;
+        }
+      } else if (useUpsert && useManualUpsert) {
+        // Manual upsert: check each record and update or insert using REST API
+        console.log('Using manual upsert approach for records without unique constraint...');
+        let successCount = 0;
+        let updateCount = 0;
+        let insertCount = 0;
+        
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        
+        for (const row of rowsToInsert) {
+          // Build filter string for checking existence
+          const filterParts: string[] = [];
+          for (const col of pkColumns) {
+            if (row[col] !== undefined && row[col] !== null) {
+              filterParts.push(`${col}=eq.${encodeURIComponent(String(row[col]))}`);
+            }
+          }
+          
+          if (filterParts.length === 0) {
+            // No PK values, just insert
+            const { error: insertErr } = await supabase.from(tableName).insert(row);
+            if (!insertErr) {
+              insertCount++;
+              successCount++;
+            }
+            continue;
+          }
+          
+          // Check if record exists using REST API
+          const checkUrl = `${supabaseUrl}/rest/v1/${tableName}?${filterParts.join('&')}&select=*&limit=1`;
+          const checkResponse = await fetch(checkUrl, {
+            method: 'GET',
+            headers: {
+              'apikey': supabaseServiceKey,
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Prefer': 'count=exact'
+            }
+          });
+          
+          const countHeader = checkResponse.headers.get('content-range');
+          const existingCount = countHeader ? parseInt(countHeader.split('/')[1] || '0') : 0;
+          
+          if (existingCount > 0) {
+            // Record exists - update it using REST API
+            const updateUrl = `${supabaseUrl}/rest/v1/${tableName}?${filterParts.join('&')}`;
+            const updateResponse = await fetch(updateUrl, {
+              method: 'PATCH',
+              headers: {
+                'apikey': supabaseServiceKey,
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify(row)
+            });
+            
+            if (updateResponse.ok) {
+              updateCount++;
+              successCount++;
+            } else {
+              const errText = await updateResponse.text();
+              console.error('Update error:', errText);
+            }
+          } else {
+            // Record doesn't exist - insert it
+            const { error: insertErr } = await supabase.from(tableName).insert(row);
+            if (!insertErr) {
+              insertCount++;
+              successCount++;
+            } else {
+              console.error('Insert error:', insertErr);
+            }
+          }
+        }
+        
+        console.log(`Manual upsert completed: ${updateCount} updated, ${insertCount} inserted, ${successCount} total successful`);
+        insertError = null; // Clear error since we handled it manually
       } else {
         // Regular insert
         const { error } = await supabase
@@ -727,7 +818,7 @@ Deno.serve(async (req) => {
       }
 
       if (!insertError) {
-        console.log(`Successfully ${useUpsert ? 'upserted' : 'inserted'} ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
+        console.log(`Successfully ${useUpsert ? (useManualUpsert ? 'manually upserted' : 'upserted') : 'inserted'} ${rowsToInsert.length} rows on attempt ${attempt + 1}`);
         break;
       }
 
