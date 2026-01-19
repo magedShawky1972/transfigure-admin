@@ -1096,8 +1096,8 @@ const ZKAttendanceLogs = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{isArabic ? "جميع الموظفين" : "All Employees"}</SelectItem>
-                {employees.map((emp) => (
-                  <SelectItem key={emp.id} value={emp.zk_employee_code || ""}>
+                {employees.filter(emp => emp.zk_employee_code).map((emp) => (
+                  <SelectItem key={emp.id} value={emp.zk_employee_code!}>
                     {emp.zk_employee_code} - {isArabic && emp.first_name_ar 
                       ? `${emp.first_name_ar} ${emp.last_name_ar || ""}`.trim()
                       : `${emp.first_name} ${emp.last_name}`.trim()}
