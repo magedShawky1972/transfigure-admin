@@ -443,8 +443,8 @@ const ZKAttendanceLogs = () => {
         }
       }
 
-      if (viewMode === "summary") {
-        // Summary view needs enough rows to represent the full date range, otherwise sorting/grouping looks broken.
+      if (viewMode === "summary" || viewMode === "employee-totals") {
+        // Summary/Employee totals need the FULL dataset (not paginated), otherwise grouping/absence looks wrong.
         const all: AttendanceLog[] = [];
         let from = 0;
         let total: number | null = null;
