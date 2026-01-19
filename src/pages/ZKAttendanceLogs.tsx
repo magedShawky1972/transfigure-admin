@@ -142,7 +142,6 @@ const printStyles = `
       top: 0;
       width: 100%;
       padding: 20px;
-      padding-bottom: 60px;
     }
     .no-print {
       display: none !important;
@@ -191,12 +190,7 @@ const printStyles = `
     }
     @page {
       size: A4 landscape;
-      margin: 15mm 10mm 20mm 10mm;
-      @bottom-center {
-        content: counter(page) " / " counter(pages);
-        font-size: 10px;
-        color: #666;
-      }
+      margin: 15mm 10mm 25mm 10mm;
     }
     .print-footer {
       display: block !important;
@@ -207,8 +201,20 @@ const printStyles = `
       text-align: center;
       font-size: 10px;
       color: #666 !important;
-      padding: 10px;
+      padding: 8px;
       background: white;
+      border-top: 1px solid #eee;
+    }
+    /* Ensure last table row is not cut off */
+    table {
+      page-break-inside: auto;
+    }
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+    thead {
+      display: table-header-group;
     }
   }
 `;
