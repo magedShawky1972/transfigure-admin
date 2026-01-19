@@ -836,29 +836,43 @@ const SavedAttendance = () => {
       headers = [
         isArabic ? "رمز الموظف" : "Employee Code",
         isArabic ? "اسم الموظف" : "Employee Name",
+        isArabic ? "اليوم" : "Day",
         isArabic ? "التاريخ" : "Date",
         isArabic ? "الدخول" : "In Time",
         isArabic ? "الخروج" : "Out Time",
         isArabic ? "إجمالي الساعات" : "Total Hours",
         isArabic ? "الفرق" : "Difference",
+        isArabic ? "الوقت الصحيح" : "Correct Time",
         isArabic ? "الحالة" : "Status",
         isArabic ? "قاعدة الخصم" : "Deduction Rule",
         isArabic ? "قيمة الخصم" : "Deduction Amount",
         isArabic ? "معتمد" : "Confirmed",
       ];
-      rows = sortedRecords.map((rec) => [
-        rec.employee_code,
-        getEmployeeName(rec.employee_code),
-        rec.attendance_date,
-        rec.in_time || "-",
-        rec.out_time || "-",
-        rec.total_hours?.toFixed(2) || "-",
-        rec.difference_hours !== null ? `${rec.difference_hours >= 0 ? "+" : ""}${rec.difference_hours.toFixed(2)}` : "-",
-        rec.record_status,
-        getDeductionRuleName(rec.deduction_rule_id),
-        rec.deduction_amount?.toString() || "0",
-        rec.is_confirmed ? (isArabic ? "نعم" : "Yes") : (isArabic ? "لا" : "No"),
-      ]);
+      rows = sortedRecords.map((rec) => {
+        const correctStatus = getCorrectTimeStatus(rec);
+        const isPresent = rec.record_status === "present" || rec.record_status === "normal";
+        const correctTimeValue = isPresent 
+          ? (correctStatus.isCorrect ? (isArabic ? "نعم" : "Yes") : (isArabic ? "لا" : "No"))
+          : "-";
+        
+        return [
+          rec.employee_code,
+          getEmployeeName(rec.employee_code),
+          getWeekday(rec.attendance_date),
+          rec.attendance_date,
+          rec.in_time || "-",
+          rec.out_time || "-",
+          rec.total_hours?.toFixed(2) || "-",
+          rec.difference_hours !== null ? `${rec.difference_hours >= 0 ? "+" : ""}${rec.difference_hours.toFixed(2)}` : "-",
+          correctTimeValue,
+          rec.record_status === "absent" ? (isArabic ? "غائب" : "Absent") 
+            : rec.record_status === "vacation" ? (rec.vacation_type || (isArabic ? "إجازة" : "Vacation"))
+            : (isArabic ? "حاضر" : "Present"),
+          getDeductionRuleName(rec.deduction_rule_id),
+          rec.deduction_amount?.toFixed(2) || "0",
+          rec.is_confirmed ? (isArabic ? "نعم" : "Yes") : (isArabic ? "لا" : "No"),
+        ];
+      });
       filename = `saved_attendance_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`;
     } else {
       headers = [
