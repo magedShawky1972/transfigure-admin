@@ -163,12 +163,14 @@ const ZKAttendanceLogs = () => {
 
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [attendanceTypes, setAttendanceTypes] = useState<{ id: string; type_name: string; type_name_ar: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchCode, setSearchCode] = useState("");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("all");
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
+  const [attendanceTypeFilter, setAttendanceTypeFilter] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -258,6 +260,26 @@ const ZKAttendanceLogs = () => {
         baseQuery = baseQuery.eq("employee_code", selectedEmployee);
       }
 
+      // Filter by attendance type - get employee codes with that type
+      if (attendanceTypeFilter !== "all") {
+        const employeesWithType = employees.filter(
+          (emp) => emp.attendance_type_id === attendanceTypeFilter
+        );
+        const employeeCodes = employeesWithType
+          .map((emp) => emp.zk_employee_code)
+          .filter(Boolean) as string[];
+        
+        if (employeeCodes.length > 0) {
+          baseQuery = baseQuery.in("employee_code", employeeCodes);
+        } else {
+          // No employees match this attendance type, return empty
+          setLogs([]);
+          setTotalCount(0);
+          setLoading(false);
+          return;
+        }
+      }
+
       if (viewMode === "summary") {
         // Summary view needs enough rows to represent the full date range, otherwise sorting/grouping looks broken.
         const all: AttendanceLog[] = [];
@@ -315,6 +337,21 @@ const ZKAttendanceLogs = () => {
     }
   };
 
+  const fetchAttendanceTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("attendance_types")
+        .select("id, type_name, type_name_ar")
+        .eq("is_active", true)
+        .order("type_name");
+
+      if (error) throw error;
+      setAttendanceTypes(data || []);
+    } catch (error: any) {
+      console.error("Error fetching attendance types:", error);
+    }
+  };
+
   // Helper to calculate hours between two time strings (HH:MM:SS)
   const calculateHoursDiff = (startTime: string | null, endTime: string | null): number | null => {
     if (!startTime || !endTime) return null;
@@ -337,12 +374,13 @@ const ZKAttendanceLogs = () => {
   useEffect(() => {
     fetchLogs();
     fetchEmployees();
-  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, viewMode, currentPage, pageSize]);
+    fetchAttendanceTypes();
+  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, attendanceTypeFilter, viewMode, currentPage, pageSize]);
 
   // Reset to page 1 when filters / view changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, viewMode]);
+  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, attendanceTypeFilter, viewMode]);
 
   const getEmployeeName = (code: string) => {
     const employee = employees.find((e) => e.zk_employee_code === code);
@@ -930,6 +968,21 @@ const ZKAttendanceLogs = () => {
                     {emp.zk_employee_code} - {isArabic && emp.first_name_ar 
                       ? `${emp.first_name_ar} ${emp.last_name_ar || ""}`.trim()
                       : `${emp.first_name} ${emp.last_name}`.trim()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={attendanceTypeFilter} onValueChange={setAttendanceTypeFilter}>
+              <SelectTrigger className="w-[200px]">
+                <Clock className="h-4 w-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "نوع الدوام" : "Attendance Type"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "جميع الأنواع" : "All Types"}</SelectItem>
+                {attendanceTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {isArabic && type.type_name_ar ? type.type_name_ar : type.type_name}
                   </SelectItem>
                 ))}
               </SelectContent>
