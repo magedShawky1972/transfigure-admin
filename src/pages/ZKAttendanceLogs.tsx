@@ -43,7 +43,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X, Save, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -265,6 +266,8 @@ const printStyles = `
 const ZKAttendanceLogs = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
+  const navigate = useNavigate();
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -1400,6 +1403,75 @@ const ZKAttendanceLogs = () => {
     }
   };
 
+  // Save summary records to saved_attendance table
+  const handleSaveSummary = async () => {
+    if (!fromDate || !toDate) {
+      toast.error(isArabic ? "يرجى تحديد نطاق التاريخ" : "Please select a date range");
+      return;
+    }
+
+    if (sortedSummaryRecords.length === 0) {
+      toast.error(isArabic ? "لا توجد سجلات للحفظ" : "No records to save");
+      return;
+    }
+
+    setSaveLoading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        toast.error(isArabic ? "يجب تسجيل الدخول" : "You must be logged in");
+        return;
+      }
+
+      const batchId = crypto.randomUUID();
+      const fromDateStr = format(fromDate, "yyyy-MM-dd");
+      const toDateStr = format(toDate, "yyyy-MM-dd");
+
+      // Prepare records for insertion
+      const recordsToSave = sortedSummaryRecords.map(record => ({
+        employee_code: record.employee_code,
+        attendance_date: record.attendance_date,
+        in_time: record.in_time,
+        out_time: record.out_time,
+        total_hours: record.total_hours,
+        expected_hours: record.expected_hours,
+        difference_hours: record.difference_hours,
+        record_status: record.record_status || 'normal',
+        vacation_type: record.vacation_type,
+        saved_by: userData.user.id,
+        saved_at: new Date().toISOString(),
+        filter_from_date: fromDateStr,
+        filter_to_date: toDateStr,
+        batch_id: batchId,
+        is_confirmed: false,
+      }));
+
+      // Use upsert to handle existing records (based on unique constraint)
+      const { error } = await supabase
+        .from("saved_attendance")
+        .upsert(recordsToSave, { 
+          onConflict: 'employee_code,attendance_date,batch_id',
+          ignoreDuplicates: false 
+        });
+
+      if (error) throw error;
+
+      toast.success(
+        isArabic 
+          ? `تم حفظ ${recordsToSave.length} سجل بنجاح` 
+          : `Successfully saved ${recordsToSave.length} records`
+      );
+
+      // Navigate to saved attendance page
+      navigate("/saved-attendance");
+    } catch (error: any) {
+      console.error("Error saving summary:", error);
+      toast.error(isArabic ? "خطأ في حفظ السجلات" : "Error saving records");
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   // Print single employee summary with delay/overtime details
   const handlePrintEmployeeSummary = (emp: EmployeeTotalRecord) => {
     // Get the employee's daily records from sortedSummaryRecords
@@ -1634,6 +1706,26 @@ const ZKAttendanceLogs = () => {
                 {isArabic ? "طباعة" : "Print"}
               </Button>
             )}
+            {viewMode === "summary" && fromDate && toDate && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSaveSummary}
+                disabled={saveLoading || sortedSummaryRecords.length === 0}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Save className={`h-4 w-4 mr-2 ${saveLoading ? "animate-spin" : ""}`} />
+                {isArabic ? "حفظ الملخص" : "Save Summary"}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/saved-attendance")}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              {isArabic ? "الحضور المحفوظ" : "Saved Attendance"}
+            </Button>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               {isArabic ? "تصدير" : "Export"}

@@ -4292,6 +4292,92 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_attendance: {
+        Row: {
+          attendance_date: string
+          batch_id: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          deduction_amount: number | null
+          deduction_rule_id: string | null
+          difference_hours: number | null
+          employee_code: string
+          expected_hours: number | null
+          filter_from_date: string | null
+          filter_to_date: string | null
+          id: string
+          in_time: string | null
+          is_confirmed: boolean | null
+          notes: string | null
+          out_time: string | null
+          record_status: string | null
+          saved_at: string
+          saved_by: string
+          total_hours: number | null
+          updated_at: string
+          vacation_type: string | null
+        }
+        Insert: {
+          attendance_date: string
+          batch_id?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          deduction_amount?: number | null
+          deduction_rule_id?: string | null
+          difference_hours?: number | null
+          employee_code: string
+          expected_hours?: number | null
+          filter_from_date?: string | null
+          filter_to_date?: string | null
+          id?: string
+          in_time?: string | null
+          is_confirmed?: boolean | null
+          notes?: string | null
+          out_time?: string | null
+          record_status?: string | null
+          saved_at?: string
+          saved_by: string
+          total_hours?: number | null
+          updated_at?: string
+          vacation_type?: string | null
+        }
+        Update: {
+          attendance_date?: string
+          batch_id?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          deduction_amount?: number | null
+          deduction_rule_id?: string | null
+          difference_hours?: number | null
+          employee_code?: string
+          expected_hours?: number | null
+          filter_from_date?: string | null
+          filter_to_date?: string | null
+          id?: string
+          in_time?: string | null
+          is_confirmed?: boolean | null
+          notes?: string | null
+          out_time?: string | null
+          record_status?: string | null
+          saved_at?: string
+          saved_by?: string
+          total_hours?: number | null
+          updated_at?: string
+          vacation_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_attendance_deduction_rule_id_fkey"
+            columns: ["deduction_rule_id"]
+            isOneToOne: false
+            referencedRelation: "deduction_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       security_alert_config: {
         Row: {
           alert_recipients: string[] | null
