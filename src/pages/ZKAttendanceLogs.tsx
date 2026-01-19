@@ -93,6 +93,20 @@ interface VacationRequest {
   } | null;
 }
 
+interface OfficialHoliday {
+  id: string;
+  holiday_name: string;
+  holiday_name_ar: string | null;
+  holiday_date: string;
+  is_recurring: boolean;
+  year: number | null;
+}
+
+interface HolidayAttendanceType {
+  holiday_id: string;
+  attendance_type_id: string;
+}
+
 interface SummaryRecord {
   key: string;
   employee_code: string;
@@ -214,6 +228,8 @@ const ZKAttendanceLogs = () => {
   const [sortColumn, setSortColumn] = useState<string>("attendance_date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
+  const [officialHolidays, setOfficialHolidays] = useState<OfficialHoliday[]>([]);
+  const [holidayAttendanceTypes, setHolidayAttendanceTypes] = useState<HolidayAttendanceType[]>([]);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -377,6 +393,58 @@ const ZKAttendanceLogs = () => {
     }
   };
 
+  const fetchOfficialHolidays = async () => {
+    if (!fromDate || !toDate) {
+      setOfficialHolidays([]);
+      setHolidayAttendanceTypes([]);
+      return;
+    }
+    
+    try {
+      const fromDateStr = format(fromDate, "yyyy-MM-dd");
+      const toDateStr = format(toDate, "yyyy-MM-dd");
+      const fromYear = fromDate.getFullYear();
+      const toYear = toDate.getFullYear();
+      
+      // Fetch official holidays within date range or recurring ones
+      const { data: holidaysData, error: holidaysError } = await supabase
+        .from("official_holidays" as any)
+        .select("id, holiday_name, holiday_name_ar, holiday_date, is_recurring, year")
+        .or(`holiday_date.gte.${fromDateStr},is_recurring.eq.true`)
+        .or(`holiday_date.lte.${toDateStr},is_recurring.eq.true`);
+
+      if (holidaysError) throw holidaysError;
+      
+      // Filter holidays within date range (accounting for recurring)
+      const filteredHolidays = (holidaysData || []).filter((h: any) => {
+        const holidayDate = new Date(h.holiday_date);
+        if (h.is_recurring) {
+          // For recurring, check if the month/day falls within range for any year
+          for (let year = fromYear; year <= toYear; year++) {
+            const thisYearDate = new Date(year, holidayDate.getMonth(), holidayDate.getDate());
+            if (thisYearDate >= fromDate && thisYearDate <= toDate) {
+              return true;
+            }
+          }
+          return false;
+        }
+        return holidayDate >= fromDate && holidayDate <= toDate;
+      });
+      
+      setOfficialHolidays(filteredHolidays as unknown as OfficialHoliday[]);
+
+      // Fetch holiday-attendance type associations
+      const { data: holidayTypesData, error: holidayTypesError } = await supabase
+        .from("holiday_attendance_types" as any)
+        .select("holiday_id, attendance_type_id");
+
+      if (holidayTypesError) throw holidayTypesError;
+      setHolidayAttendanceTypes((holidayTypesData || []) as unknown as HolidayAttendanceType[]);
+    } catch (error: any) {
+      console.error("Error fetching official holidays:", error);
+    }
+  };
+
   const fetchAttendanceTypes = async () => {
     try {
       const { data, error } = await supabase
@@ -416,6 +484,7 @@ const ZKAttendanceLogs = () => {
     fetchEmployees();
     fetchAttendanceTypes();
     fetchVacationRequests();
+    fetchOfficialHolidays();
   }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, attendanceTypeFilter, viewMode, currentPage, pageSize]);
 
   // Reset to page 1 when filters / view changes
@@ -615,6 +684,42 @@ const ZKAttendanceLogs = () => {
         return day === 5 || day === 6; // Friday or Saturday
       };
 
+      // Helper to check if a date is an official holiday for the employee's attendance type
+      const isOfficialHoliday = (attendanceTypeId: string, dateStr: string): OfficialHoliday | null => {
+        const targetDate = new Date(dateStr);
+        
+        for (const holiday of officialHolidays) {
+          const holidayDate = new Date(holiday.holiday_date);
+          
+          // Check if this holiday applies to the employee's attendance type
+          const appliesTo = holidayAttendanceTypes.filter(h => h.holiday_id === holiday.id);
+          
+          // If no specific attendance types, skip (or if you want it to apply to all, change logic)
+          if (appliesTo.length === 0) continue;
+          
+          const appliesToThisType = appliesTo.some(h => h.attendance_type_id === attendanceTypeId);
+          if (!appliesToThisType) continue;
+          
+          // Check date match
+          if (holiday.is_recurring) {
+            // For recurring holidays, match month and day
+            if (holidayDate.getMonth() === targetDate.getMonth() && 
+                holidayDate.getDate() === targetDate.getDate()) {
+              return holiday;
+            }
+          } else {
+            // For non-recurring, match exact date
+            if (holidayDate.getFullYear() === targetDate.getFullYear() &&
+                holidayDate.getMonth() === targetDate.getMonth() &&
+                holidayDate.getDate() === targetDate.getDate()) {
+              return holiday;
+            }
+          }
+        }
+        
+        return null;
+      };
+
       for (const emp of requiredEmployees) {
         for (const dateStr of dateRange) {
           // Skip weekends (Friday and Saturday)
@@ -624,6 +729,33 @@ const ZKAttendanceLogs = () => {
           
           // Skip if record already exists
           if (existingKeys.has(key)) continue;
+
+          // Check if this date is an official holiday for this employee's attendance type
+          const holiday = emp.attendance_type_id ? isOfficialHoliday(emp.attendance_type_id, dateStr) : null;
+          
+          if (holiday) {
+            // Add official holiday row
+            const holidayName = isArabic 
+              ? holiday.holiday_name_ar || holiday.holiday_name
+              : holiday.holiday_name;
+            
+            summaryRecords.push({
+              key,
+              employee_code: emp.zk_employee_code!,
+              attendance_date: dateStr,
+              in_time: null,
+              out_time: null,
+              is_processed: true,
+              created_at: new Date().toISOString(),
+              log_ids: [],
+              total_hours: null,
+              expected_hours: getExpectedHours(emp.zk_employee_code!),
+              difference_hours: null,
+              record_status: 'vacation',
+              vacation_type: holidayName,
+            });
+            continue;
+          }
 
           // Check if employee has vacation on this date
           const vacation = getVacationForDate(emp.id, dateStr);
