@@ -1340,6 +1340,171 @@ const ZKAttendanceLogs = () => {
     }
   };
 
+  // Print single employee summary with delay/overtime details
+  const handlePrintEmployeeSummary = (emp: EmployeeTotalRecord) => {
+    // Get the employee's daily records from sortedSummaryRecords
+    const employeeRecords = sortedSummaryRecords.filter(r => r.employee_code === emp.employee_code);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error(isArabic ? "تعذر فتح نافذة الطباعة" : "Could not open print window");
+      return;
+    }
+
+    const dateRangeText = fromDate || toDate
+      ? `${fromDate ? format(fromDate, "yyyy-MM-dd") : ""} ${toDate ? `- ${format(toDate, "yyyy-MM-dd")}` : ""}`
+      : isArabic ? "جميع التواريخ" : "All Dates";
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="${isArabic ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${isArabic ? 'ملخص حضور الموظف' : 'Employee Attendance Summary'}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            direction: ${isArabic ? 'rtl' : 'ltr'};
+            color: black;
+          }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+          .header h1 { font-size: 24px; margin-bottom: 5px; }
+          .header p { font-size: 14px; color: #666; }
+          .summary-box { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 15px; 
+            margin-bottom: 30px; 
+            background: #f5f5f5; 
+            padding: 20px; 
+            border-radius: 8px; 
+          }
+          .summary-item { text-align: center; }
+          .summary-item .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+          .summary-item .value { font-size: 18px; font-weight: bold; }
+          .summary-item .value.positive { color: #16a34a; }
+          .summary-item .value.negative { color: #dc2626; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: ${isArabic ? 'right' : 'left'}; font-size: 12px; }
+          th { background: #333; color: white; font-weight: 600; }
+          tr:nth-child(even) { background: #f9f9f9; }
+          .mono { font-family: monospace; }
+          .status-absent { color: #ea580c; font-weight: 600; }
+          .status-vacation { color: #9333ea; font-weight: 600; }
+          .status-normal { color: #16a34a; }
+          .diff-positive { color: #16a34a; font-weight: 600; }
+          .diff-negative { color: #dc2626; font-weight: 600; }
+          .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #ddd; padding-top: 15px; }
+          @media print {
+            body { padding: 10px; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${isArabic ? 'ملخص حضور الموظف' : 'Employee Attendance Summary'}</h1>
+          <p><strong>${emp.employee_name}</strong></p>
+          <p>${dateRangeText}</p>
+          <p>${isArabic ? 'تاريخ الطباعة:' : 'Print Date:'} ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}</p>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'إجمالي الأيام' : 'Total Days'}</div>
+            <div class="value">${emp.total_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'أيام الحضور' : 'Present Days'}</div>
+            <div class="value positive">${emp.present_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'أيام الغياب' : 'Absent Days'}</div>
+            <div class="value ${emp.absent_days > 0 ? 'negative' : ''}">${emp.absent_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'أيام الإجازة' : 'Vacation Days'}</div>
+            <div class="value">${emp.vacation_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'ساعات العمل' : 'Worked Hours'}</div>
+            <div class="value">${emp.total_worked_hours.toFixed(2)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'الساعات المتوقعة' : 'Expected Hours'}</div>
+            <div class="value">${emp.total_expected_hours.toFixed(2)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'إجمالي التأخير' : 'Total Delay'}</div>
+            <div class="value ${emp.total_difference_hours < 0 ? 'negative' : ''}">${emp.total_difference_hours < 0 ? Math.abs(emp.total_difference_hours).toFixed(2) : '0.00'}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'إجمالي الإضافي' : 'Total Overtime'}</div>
+            <div class="value ${emp.total_difference_hours > 0 ? 'positive' : ''}">${emp.total_difference_hours > 0 ? emp.total_difference_hours.toFixed(2) : '0.00'}</div>
+          </div>
+        </div>
+
+        <h3 style="margin-bottom: 10px;">${isArabic ? 'تفاصيل الحضور اليومي' : 'Daily Attendance Details'}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>${isArabic ? 'التاريخ' : 'Date'}</th>
+              <th>${isArabic ? 'الدخول' : 'In'}</th>
+              <th>${isArabic ? 'الخروج' : 'Out'}</th>
+              <th>${isArabic ? 'ساعات العمل' : 'Worked'}</th>
+              <th>${isArabic ? 'المتوقع' : 'Expected'}</th>
+              <th>${isArabic ? 'الفرق' : 'Difference'}</th>
+              <th>${isArabic ? 'الحالة' : 'Status'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${employeeRecords.sort((a, b) => a.attendance_date.localeCompare(b.attendance_date)).map(record => {
+              const statusClass = record.record_status === 'absent' ? 'status-absent' : 
+                                  record.record_status === 'vacation' ? 'status-vacation' : 'status-normal';
+              const statusText = record.record_status === 'absent' 
+                ? (isArabic ? 'غائب' : 'Absent')
+                : record.record_status === 'vacation'
+                  ? (record.vacation_type || (isArabic ? 'إجازة' : 'Vacation'))
+                  : (isArabic ? 'حاضر' : 'Present');
+              const diffClass = record.difference_hours !== null 
+                ? (record.difference_hours >= 0 ? 'diff-positive' : 'diff-negative') 
+                : '';
+              return `
+                <tr>
+                  <td>${record.attendance_date}</td>
+                  <td class="mono">${record.in_time || '-'}</td>
+                  <td class="mono">${record.out_time || '-'}</td>
+                  <td class="mono">${record.total_hours !== null ? record.total_hours.toFixed(2) : '-'}</td>
+                  <td class="mono">${record.expected_hours !== null ? record.expected_hours.toFixed(2) : '-'}</td>
+                  <td class="mono ${diffClass}">${record.difference_hours !== null 
+                    ? `${record.difference_hours >= 0 ? '+' : ''}${record.difference_hours.toFixed(2)}` 
+                    : '-'}</td>
+                  <td class="${statusClass}">${statusText}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          ${isArabic ? 'ملخص حضور الموظف - نظام إدارة' : 'Employee Attendance Summary - Edara System'}
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+  };
+
   return (
     <>
       <style>{printStyles}</style>
@@ -2059,19 +2224,20 @@ const ZKAttendanceLogs = () => {
                       <SortableHeader column="total_worked_hours">{isArabic ? "ساعات العمل" : "Worked Hours"}</SortableHeader>
                       <SortableHeader column="total_expected_hours">{isArabic ? "الساعات المتوقعة" : "Expected Hours"}</SortableHeader>
                       <SortableHeader column="total_difference_hours">{isArabic ? "الفرق (تأخير/إضافي)" : "Difference (Delay/Extra)"}</SortableHeader>
+                      <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8">
+                        <TableCell colSpan={9} className="text-center py-8">
                           <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                           {isArabic ? "جاري التحميل..." : "Loading..."}
                         </TableCell>
                       </TableRow>
                     ) : employeeTotals.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           {isArabic ? "لا توجد سجلات" : "No records found"}
                         </TableCell>
                       </TableRow>
@@ -2105,6 +2271,16 @@ const ZKAttendanceLogs = () => {
                                 {emp.total_difference_hours >= 0 ? "+" : ""}{emp.total_difference_hours.toFixed(2)}
                               </Badge>
                             </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePrintEmployeeSummary(emp)}
+                                title={isArabic ? "طباعة ملخص الموظف" : "Print Employee Summary"}
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                         {/* Totals Row */}
@@ -2126,6 +2302,7 @@ const ZKAttendanceLogs = () => {
                               );
                             })()}
                           </TableCell>
+                          <TableCell></TableCell>
                         </TableRow>
                       </>
                     )}
