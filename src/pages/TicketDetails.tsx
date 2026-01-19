@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus, Edit, X, Save } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus, Edit, X, Save, Copy } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -1011,7 +1011,23 @@ const TicketDetails = () => {
               </div>
               
               <div>
-                <label className="text-sm font-medium">{language === 'ar' ? 'الموضوع' : 'Subject'}</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">{language === 'ar' ? 'الموضوع' : 'Subject'}</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(editData.subject);
+                      toast({
+                        title: language === 'ar' ? 'تم النسخ' : 'Copied',
+                        description: language === 'ar' ? 'تم نسخ الموضوع' : 'Subject copied to clipboard',
+                      });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 <Input
                   value={editData.subject}
                   onChange={(e) => setEditData(prev => ({ ...prev, subject: e.target.value }))}
@@ -1020,7 +1036,23 @@ const TicketDetails = () => {
               </div>
               
               <div>
-                <label className="text-sm font-medium">{language === 'ar' ? 'الوصف' : 'Description'}</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">{language === 'ar' ? 'الوصف' : 'Description'}</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(editData.description);
+                      toast({
+                        title: language === 'ar' ? 'تم النسخ' : 'Copied',
+                        description: language === 'ar' ? 'تم نسخ الوصف' : 'Description copied to clipboard',
+                      });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 <Textarea
                   value={editData.description}
                   onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
