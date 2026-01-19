@@ -159,9 +159,10 @@ const SavedAttendance = () => {
     notes: "",
   });
 
-  // Multi-column sorting state
+  // Multi-column sorting state - default sort by employee_name then attendance_date
   const [sortColumns, setSortColumns] = useState<Array<{ column: string; direction: "asc" | "desc" }>>([
-    { column: "attendance_date", direction: "desc" }
+    { column: "employee_name", direction: "asc" },
+    { column: "attendance_date", direction: "asc" }
   ]);
 
   const handleSort = (column: string, event?: React.MouseEvent) => {
