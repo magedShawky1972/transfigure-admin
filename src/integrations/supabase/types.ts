@@ -1750,6 +1750,7 @@ export type Database = {
           passport_number: string | null
           phone: string | null
           photo_url: string | null
+          religion: string | null
           requires_attendance_signin: boolean | null
           shift_plan_id: string | null
           shift_type: Database["public"]["Enums"]["shift_type"]
@@ -1793,6 +1794,7 @@ export type Database = {
           passport_number?: string | null
           phone?: string | null
           photo_url?: string | null
+          religion?: string | null
           requires_attendance_signin?: boolean | null
           shift_plan_id?: string | null
           shift_type?: Database["public"]["Enums"]["shift_type"]
@@ -1836,6 +1838,7 @@ export type Database = {
           passport_number?: string | null
           phone?: string | null
           photo_url?: string | null
+          religion?: string | null
           requires_attendance_signin?: boolean | null
           shift_plan_id?: string | null
           shift_type?: Database["public"]["Enums"]["shift_type"]
