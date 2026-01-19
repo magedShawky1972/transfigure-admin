@@ -1349,7 +1349,7 @@ const SavedAttendance = () => {
                             ) : record.record_status === "vacation" ? (
                               <Badge className="bg-purple-500">{record.vacation_type || (isArabic ? "إجازة" : "Vacation")}</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-black dark:text-black">{isArabic ? "حاضر" : "Present"}</Badge>
+                              <Badge variant="outline">{isArabic ? "حاضر" : "Present"}</Badge>
                             )}
                           </TableCell>
                           <TableCell>
