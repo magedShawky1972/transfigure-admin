@@ -142,6 +142,7 @@ const printStyles = `
       top: 0;
       width: 100%;
       padding: 20px;
+      padding-bottom: 60px;
     }
     .no-print {
       display: none !important;
@@ -180,12 +181,34 @@ const printStyles = `
       font-size: 12px;
       color: black !important;
     }
+    .print-date {
+      font-size: 10px;
+      color: #666 !important;
+      margin-top: 5px;
+    }
     span, div, p, td, th {
       color: black !important;
     }
     @page {
       size: A4 landscape;
-      margin: 10mm;
+      margin: 15mm 10mm 20mm 10mm;
+      @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-size: 10px;
+        color: #666;
+      }
+    }
+    .print-footer {
+      display: block !important;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 10px;
+      color: #666 !important;
+      padding: 10px;
+      background: white;
     }
   }
 `;
@@ -1421,6 +1444,9 @@ const ZKAttendanceLogs = () => {
                   {selectedEmployee !== "all" && ` - ${getEmployeeName(selectedEmployee) || selectedEmployee}`}
                 </p>
                 <p>{isArabic ? `إجمالي السجلات: ${sortedSummaryRecords.length}` : `Total Records: ${sortedSummaryRecords.length}`}</p>
+                <p className="print-date">
+                  {isArabic ? `تاريخ الطباعة: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}` : `Print Date: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
+                </p>
               </div>
               <div className="border rounded-lg overflow-hidden print:border-0">
                 <Table>
@@ -1453,33 +1479,16 @@ const ZKAttendanceLogs = () => {
                     </TableRow>
                   ) : (
                     sortedSummaryRecords.map((record) => {
-                      const employeeName = getEmployeeName(record.employee_code);
+                      const expectedHours = record.expected_hours || 8;
                       return (
-                        <TableRow key={record.key}>
-                          <TableCell>
-                            {employeeName ? (
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                {employeeName}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground font-mono">{record.employee_code}</span>
-                            )}
-                          </TableCell>
+                        <TableRow key={`${record.employee_code}-${record.attendance_date}`}>
+                          <TableCell className="font-medium">{getEmployeeName(record.employee_code) || record.employee_code}</TableCell>
                           <TableCell>{record.attendance_date}</TableCell>
                           <TableCell className="font-mono">
-                            {record.in_time ? (
-                              <Badge className="bg-green-500">{record.in_time}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                            {record.in_time || <span className="text-muted-foreground">-</span>}
                           </TableCell>
                           <TableCell className="font-mono">
-                            {record.out_time ? (
-                              <Badge className="bg-red-500">{record.out_time}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                            {record.out_time || <span className="text-muted-foreground">-</span>}
                           </TableCell>
                           <TableCell className="font-mono">
                             {record.total_hours !== null ? (
@@ -1517,11 +1526,12 @@ const ZKAttendanceLogs = () => {
                           </TableCell>
                           <TableCell className="no-print">
                             {record.record_status !== 'absent' && record.record_status !== 'vacation' && (
-                              <div className="flex items-center justify-center gap-2">
+                              <div className="flex items-center gap-1 justify-center">
                                 {!record.is_processed && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
+                                    disabled={actionLoading}
                                     onClick={async () => {
                                       setActionLoading(true);
                                       try {
@@ -1597,6 +1607,10 @@ const ZKAttendanceLogs = () => {
                   )}
                 </TableBody>
               </Table>
+              </div>
+              {/* Print Footer - only visible when printing */}
+              <div className="print-footer hidden">
+                {isArabic ? "تقرير سجلات الحضور - نظام إدارة" : "Attendance Logs Report - Edara System"}
               </div>
             </div>
           )}
