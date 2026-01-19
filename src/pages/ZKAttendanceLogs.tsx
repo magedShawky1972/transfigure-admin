@@ -2007,81 +2007,118 @@ const ZKAttendanceLogs = () => {
                               : format(new Date(record.created_at), "yyyy-MM-dd HH:mm:ss")}
                           </TableCell>
                           <TableCell className="no-print">
-                            {record.record_status !== "absent" && record.record_status !== "vacation" && (
-                              <div className="flex items-center gap-1 justify-center">
-                                {!record.is_processed && (
+                            <div className="flex items-center gap-1 justify-center">
+                              {/* Print Summary for this employee */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  // Get all records for this employee
+                                  const empRecords = sortedSummaryRecords.filter(r => r.employee_code === record.employee_code);
+                                  const empName = getEmployeeName(record.employee_code) || record.employee_code;
+                                  
+                                  // Calculate totals
+                                  const totalDays = empRecords.length;
+                                  const presentDays = empRecords.filter(r => r.record_status === 'normal' && (r.in_time || r.out_time)).length;
+                                  const absentDays = empRecords.filter(r => r.record_status === 'absent').length;
+                                  const vacationDays = empRecords.filter(r => r.record_status === 'vacation').length;
+                                  const totalWorked = empRecords.reduce((sum, r) => sum + (r.total_hours || 0), 0);
+                                  const totalExpected = empRecords.reduce((sum, r) => sum + (r.expected_hours || 0), 0);
+                                  const totalDiff = empRecords.reduce((sum, r) => sum + (r.difference_hours || 0), 0);
+                                  
+                                  handlePrintEmployeeSummary({
+                                    employee_code: record.employee_code,
+                                    employee_name: empName,
+                                    total_days: totalDays,
+                                    present_days: presentDays,
+                                    absent_days: absentDays,
+                                    vacation_days: vacationDays,
+                                    total_worked_hours: totalWorked,
+                                    total_expected_hours: totalExpected,
+                                    total_difference_hours: totalDiff,
+                                  });
+                                }}
+                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                title={isArabic ? "طباعة ملخص الموظف" : "Print Employee Summary"}
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              {record.record_status !== "absent" && record.record_status !== "vacation" && (
+                                <>
+                                  {!record.is_processed && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={actionLoading}
+                                      onClick={async () => {
+                                        setActionLoading(true);
+                                        try {
+                                          const { error } = await supabase
+                                            .from("zk_attendance_logs")
+                                            .update({ is_processed: true, processed_at: new Date().toISOString() })
+                                            .in("id", record.log_ids);
+                                          if (error) throw error;
+                                          toast.success(isArabic ? "تم الاعتماد بنجاح" : "Approved successfully");
+                                          fetchLogs();
+                                        } catch (error) {
+                                          toast.error(isArabic ? "خطأ في الاعتماد" : "Error approving");
+                                        } finally {
+                                          setActionLoading(false);
+                                        }
+                                      }}
+                                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      title={isArabic ? "اعتماد" : "Approve"}
+                                    >
+                                      <CheckCircle className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    disabled={actionLoading}
+                                    onClick={() => {
+                                      setSelectedSummary(record);
+                                      setSummaryEditFormData({
+                                        employee_code: record.employee_code,
+                                        attendance_date: record.attendance_date,
+                                        in_time: record.in_time || "",
+                                        out_time: record.out_time || "",
+                                      });
+                                      setEditDialogOpen(true);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    title={isArabic ? "تعديل" : "Edit"}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={async () => {
-                                      setActionLoading(true);
-                                      try {
-                                        const { error } = await supabase
-                                          .from("zk_attendance_logs")
-                                          .update({ is_processed: true, processed_at: new Date().toISOString() })
-                                          .in("id", record.log_ids);
-                                        if (error) throw error;
-                                        toast.success(isArabic ? "تم الاعتماد بنجاح" : "Approved successfully");
-                                        fetchLogs();
-                                      } catch (error) {
-                                        toast.error(isArabic ? "خطأ في الاعتماد" : "Error approving");
-                                      } finally {
-                                        setActionLoading(false);
+                                      if (confirm(isArabic ? "هل أنت متأكد من حذف هذه السجلات؟" : "Are you sure you want to delete these records?")) {
+                                        setActionLoading(true);
+                                        try {
+                                          const { error } = await supabase
+                                            .from("zk_attendance_logs")
+                                            .delete()
+                                            .in("id", record.log_ids);
+                                          if (error) throw error;
+                                          toast.success(isArabic ? "تم الحذف بنجاح" : "Deleted successfully");
+                                          fetchLogs();
+                                        } catch (error) {
+                                          toast.error(isArabic ? "خطأ في الحذف" : "Error deleting");
+                                        } finally {
+                                          setActionLoading(false);
+                                        }
                                       }
                                     }}
-                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                    title={isArabic ? "اعتماد" : "Approve"}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    title={isArabic ? "حذف" : "Delete"}
                                   >
-                                    <CheckCircle className="h-4 w-4" />
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
-                                )}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedSummary(record);
-                                    setSummaryEditFormData({
-                                      employee_code: record.employee_code,
-                                      attendance_date: record.attendance_date,
-                                      in_time: record.in_time || "",
-                                      out_time: record.out_time || "",
-                                    });
-                                    setEditDialogOpen(true);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  title={isArabic ? "تعديل" : "Edit"}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async () => {
-                                    if (confirm(isArabic ? "هل أنت متأكد من حذف هذه السجلات؟" : "Are you sure you want to delete these records?")) {
-                                      setActionLoading(true);
-                                      try {
-                                        const { error } = await supabase
-                                          .from("zk_attendance_logs")
-                                          .delete()
-                                          .in("id", record.log_ids);
-                                        if (error) throw error;
-                                        toast.success(isArabic ? "تم الحذف بنجاح" : "Deleted successfully");
-                                        fetchLogs();
-                                      } catch (error) {
-                                        toast.error(isArabic ? "خطأ في الحذف" : "Error deleting");
-                                      } finally {
-                                        setActionLoading(false);
-                                      }
-                                    }
-                                  }}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  title={isArabic ? "حذف" : "Delete"}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
+                                </>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
