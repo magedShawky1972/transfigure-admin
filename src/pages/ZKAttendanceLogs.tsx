@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -192,6 +192,37 @@ const ZKAttendanceLogs = () => {
     in_time: "",
     out_time: "",
   });
+  const [sortColumn, setSortColumn] = useState<string>("attendance_date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortableHeader = ({ column, children }: { column: string; children: React.ReactNode }) => (
+    <TableHead 
+      className="cursor-pointer hover:bg-muted/50 select-none"
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortColumn === column ? (
+          sortDirection === "asc" ? (
+            <ArrowUp className="h-4 w-4" />
+          ) : (
+            <ArrowDown className="h-4 w-4" />
+          )
+        ) : (
+          <ArrowUpDown className="h-4 w-4 opacity-30" />
+        )}
+      </div>
+    </TableHead>
+  );
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -430,16 +461,75 @@ const ZKAttendanceLogs = () => {
         expected_hours,
         difference_hours,
       };
-    }).sort((a, b) => {
-      // Sort by date desc, then by employee code
-      if (a.attendance_date !== b.attendance_date) {
-        return b.attendance_date.localeCompare(a.attendance_date);
-      }
-      return a.employee_code.localeCompare(b.employee_code);
     });
   };
 
-  const summaryRecords = getSummaryRecords();
+  // Sort summary records based on current sort column and direction
+  const sortedSummaryRecords = useMemo(() => {
+    const records = getSummaryRecords();
+    return records.sort((a, b) => {
+      const dir = sortDirection === "asc" ? 1 : -1;
+      
+      switch (sortColumn) {
+        case "employee_name":
+          const nameA = getEmployeeName(a.employee_code) || a.employee_code;
+          const nameB = getEmployeeName(b.employee_code) || b.employee_code;
+          return nameA.localeCompare(nameB) * dir;
+        case "attendance_date":
+          return a.attendance_date.localeCompare(b.attendance_date) * dir;
+        case "in_time":
+          const inA = a.in_time || "";
+          const inB = b.in_time || "";
+          return inA.localeCompare(inB) * dir;
+        case "out_time":
+          const outA = a.out_time || "";
+          const outB = b.out_time || "";
+          return outA.localeCompare(outB) * dir;
+        case "total_hours":
+          const totalA = a.total_hours ?? -999;
+          const totalB = b.total_hours ?? -999;
+          return (totalA - totalB) * dir;
+        case "difference_hours":
+          const diffA = a.difference_hours ?? -999;
+          const diffB = b.difference_hours ?? -999;
+          return (diffA - diffB) * dir;
+        case "is_processed":
+          return (Number(a.is_processed) - Number(b.is_processed)) * dir;
+        case "created_at":
+          return a.created_at.localeCompare(b.created_at) * dir;
+        default:
+          return 0;
+      }
+    });
+  }, [logs, employees, sortColumn, sortDirection]);
+
+  // Sort detailed logs based on current sort column and direction
+  const sortedLogs = useMemo(() => {
+    return [...logs].sort((a, b) => {
+      const dir = sortDirection === "asc" ? 1 : -1;
+      
+      switch (sortColumn) {
+        case "employee_code":
+          return a.employee_code.localeCompare(b.employee_code) * dir;
+        case "employee_name":
+          const nameA = getEmployeeName(a.employee_code) || a.employee_code;
+          const nameB = getEmployeeName(b.employee_code) || b.employee_code;
+          return nameA.localeCompare(nameB) * dir;
+        case "attendance_date":
+          return a.attendance_date.localeCompare(b.attendance_date) * dir;
+        case "attendance_time":
+          return a.attendance_time.localeCompare(b.attendance_time) * dir;
+        case "record_type":
+          return a.record_type.localeCompare(b.record_type) * dir;
+        case "is_processed":
+          return (Number(a.is_processed) - Number(b.is_processed)) * dir;
+        case "created_at":
+          return a.created_at.localeCompare(b.created_at) * dir;
+        default:
+          return 0;
+      }
+    });
+  }, [logs, employees, sortColumn, sortDirection]);
 
   const handleDeleteClick = (log: AttendanceLog) => {
     setSelectedLog(log);
@@ -825,13 +915,13 @@ const ZKAttendanceLogs = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{isArabic ? "كود الموظف" : "Employee Code"}</TableHead>
-                    <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
-                    <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                    <TableHead>{isArabic ? "الوقت" : "Time"}</TableHead>
-                    <TableHead>{isArabic ? "النوع" : "Type"}</TableHead>
-                    <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                    <TableHead>{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
+                    <SortableHeader column="employee_code">{isArabic ? "كود الموظف" : "Employee Code"}</SortableHeader>
+                    <SortableHeader column="employee_name">{isArabic ? "اسم الموظف" : "Employee Name"}</SortableHeader>
+                    <SortableHeader column="attendance_date">{isArabic ? "التاريخ" : "Date"}</SortableHeader>
+                    <SortableHeader column="attendance_time">{isArabic ? "الوقت" : "Time"}</SortableHeader>
+                    <SortableHeader column="record_type">{isArabic ? "النوع" : "Type"}</SortableHeader>
+                    <SortableHeader column="is_processed">{isArabic ? "الحالة" : "Status"}</SortableHeader>
+                    <SortableHeader column="created_at">{isArabic ? "تاريخ الاستلام" : "Received At"}</SortableHeader>
                     <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -850,7 +940,7 @@ const ZKAttendanceLogs = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    logs.map((log) => {
+                    sortedLogs.map((log) => {
                       const employeeName = getEmployeeName(log.employee_code);
                       return (
                         <TableRow key={log.id}>
@@ -933,19 +1023,19 @@ const ZKAttendanceLogs = () => {
                   }
                   {selectedEmployee !== "all" && ` - ${getEmployeeName(selectedEmployee) || selectedEmployee}`}
                 </p>
-                <p>{isArabic ? `إجمالي السجلات: ${summaryRecords.length}` : `Total Records: ${summaryRecords.length}`}</p>
+                <p>{isArabic ? `إجمالي السجلات: ${sortedSummaryRecords.length}` : `Total Records: ${sortedSummaryRecords.length}`}</p>
               </div>
               <div className="border rounded-lg overflow-hidden print:border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
-                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                      <TableHead>{isArabic ? "الدخول" : "In"}</TableHead>
-                      <TableHead>{isArabic ? "الخروج" : "Out"}</TableHead>
-                      <TableHead>{isArabic ? "إجمالي الساعات" : "Total Hours"}</TableHead>
-                      <TableHead>{isArabic ? "الفرق" : "Difference"}</TableHead>
-                      <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                      <SortableHeader column="employee_name">{isArabic ? "اسم الموظف" : "Employee Name"}</SortableHeader>
+                      <SortableHeader column="attendance_date">{isArabic ? "التاريخ" : "Date"}</SortableHeader>
+                      <SortableHeader column="in_time">{isArabic ? "الدخول" : "In"}</SortableHeader>
+                      <SortableHeader column="out_time">{isArabic ? "الخروج" : "Out"}</SortableHeader>
+                      <SortableHeader column="total_hours">{isArabic ? "إجمالي الساعات" : "Total Hours"}</SortableHeader>
+                      <SortableHeader column="difference_hours">{isArabic ? "الفرق" : "Difference"}</SortableHeader>
+                      <SortableHeader column="is_processed">{isArabic ? "الحالة" : "Status"}</SortableHeader>
                       <TableHead className="no-print">{isArabic ? "تاريخ الاستلام" : "Received At"}</TableHead>
                       <TableHead className="text-center no-print">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
                     </TableRow>
@@ -958,14 +1048,14 @@ const ZKAttendanceLogs = () => {
                         {isArabic ? "جاري التحميل..." : "Loading..."}
                       </TableCell>
                     </TableRow>
-                  ) : summaryRecords.length === 0 ? (
+                  ) : sortedSummaryRecords.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         {isArabic ? "لا توجد سجلات" : "No records found"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    summaryRecords.map((record) => {
+                    sortedSummaryRecords.map((record) => {
                       const employeeName = getEmployeeName(record.employee_code);
                       return (
                         <TableRow key={record.key}>
@@ -1115,8 +1205,8 @@ const ZKAttendanceLogs = () => {
                       ? `عرض ${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, totalCount)} من ${totalCount} سجل`
                       : `Showing ${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, totalCount)} of ${totalCount} records`)
                   : (isArabic
-                      ? `عرض ${summaryRecords.length} موظف/يوم`
-                      : `Showing ${summaryRecords.length} employee/day records`)
+                      ? `عرض ${sortedSummaryRecords.length} موظف/يوم`
+                      : `Showing ${sortedSummaryRecords.length} employee/day records`)
                 }
               </div>
               
