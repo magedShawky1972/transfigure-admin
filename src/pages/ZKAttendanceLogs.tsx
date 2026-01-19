@@ -126,31 +126,60 @@ interface SummaryRecord {
 }
 
 const printStyles = `
+  /* default: hide print-only paginated layout */
+  .print-only-pages {
+    display: none;
+  }
+
   @media print {
     body * {
       visibility: hidden;
     }
+
+    /* show only our printable area */
     .print-area, .print-area * {
       visibility: visible;
       color: black !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
+
+    /* IMPORTANT: keep normal flow so the browser can paginate */
     .print-area {
-      position: absolute;
-      left: 0;
-      top: 0;
+      position: static;
       width: 100%;
-      padding: 20px;
-      padding-bottom: 40px;
+      padding: 0;
     }
+
     .no-print {
       display: none !important;
     }
+
+    /* hide the on-screen (non-paginated) table; show our paginated pages */
+    .screen-only {
+      display: none !important;
+    }
+    .print-only-pages {
+      display: block !important;
+    }
+
+    /* each "page" is a separate block with a footer */
+    .print-page {
+      position: relative;
+      padding: 20px;
+      padding-bottom: 44px;
+      page-break-after: always;
+    }
+    .print-page:last-child {
+      page-break-after: auto;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
+      page-break-inside: auto;
     }
+
     th, td {
       border: none !important;
       padding: 8px 12px;
@@ -158,59 +187,65 @@ const printStyles = `
       color: black !important;
       font-size: 12px;
     }
+
     th {
       background-color: #f3f4f6 !important;
       font-weight: 600;
       color: black !important;
     }
+
     tr:nth-child(even) {
       background-color: #f9fafb !important;
     }
+
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+
+    thead {
+      display: table-header-group;
+    }
+
     .print-header {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       color: black !important;
     }
+
     .print-header h1 {
       font-size: 18px;
       font-weight: bold;
       margin-bottom: 5px;
       color: black !important;
     }
+
     .print-header p {
       font-size: 12px;
       color: black !important;
     }
+
     .print-date {
       font-size: 10px;
       color: #666 !important;
       margin-top: 5px;
     }
-    span, div, p, td, th {
-      color: black !important;
-    }
-    @page {
-      size: A4 landscape;
-      margin: 15mm 10mm 20mm 10mm;
-    }
-    .print-footer {
-      display: block !important;
-      position: running(footer);
+
+    .print-page-footer {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 14px;
       text-align: center;
       font-size: 10px;
       color: #666 !important;
-      padding: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #eee;
     }
-    /* Ensure last table row is not cut off */
-    table {
-      page-break-inside: auto;
-    }
-    tr {
-      page-break-inside: avoid;
-      page-break-after: auto;
-    }
-    thead {
-      display: table-header-group;
+
+    @page {
+      size: A4 landscape;
+      margin: 12mm 10mm 12mm 10mm;
     }
   }
 `;
@@ -899,6 +934,16 @@ const ZKAttendanceLogs = () => {
     });
   }, [logs, employees, vacationRequests, attendanceTypeFilter, fromDate, toDate, sortColumn, sortDirection, isArabic]);
 
+  // Print pagination (manual + reliable): render fixed-size pages in print mode
+  const ROWS_PER_PRINT_PAGE = 18;
+  const printSummaryPages = useMemo(() => {
+    const pages: SummaryRecord[][] = [];
+    for (let i = 0; i < sortedSummaryRecords.length; i += ROWS_PER_PRINT_PAGE) {
+      pages.push(sortedSummaryRecords.slice(i, i + ROWS_PER_PRINT_PAGE));
+    }
+    return pages;
+  }, [sortedSummaryRecords]);
+
   // Sort detailed logs based on current sort column and direction
   const sortedLogs = useMemo(() => {
     const dateToNumber = (d: string) => {
@@ -1165,7 +1210,20 @@ const ZKAttendanceLogs = () => {
               {isArabic ? `حذف الكل (${totalCount})` : `Delete All (${totalCount})`}
             </Button>
             {viewMode === "summary" && (
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Give the browser a tick to finish the click handler before opening print dialog
+                  requestAnimationFrame(() => {
+                    try {
+                      window.print();
+                    } catch {
+                      // ignore
+                    }
+                  });
+                }}
+              >
                 <Printer className="h-4 w-4 mr-2" />
                 {isArabic ? "طباعة" : "Print"}
               </Button>
@@ -1441,16 +1499,23 @@ const ZKAttendanceLogs = () => {
                 <p>
                   {fromDate || toDate
                     ? `${fromDate ? format(fromDate, "yyyy-MM-dd") : ""} ${toDate ? `- ${format(toDate, "yyyy-MM-dd")}` : ""}`
-                    : isArabic ? "جميع التواريخ" : "All Dates"
-                  }
+                    : isArabic ? "جميع التواريخ" : "All Dates"}
                   {selectedEmployee !== "all" && ` - ${getEmployeeName(selectedEmployee) || selectedEmployee}`}
                 </p>
-                <p>{isArabic ? `إجمالي السجلات: ${sortedSummaryRecords.length}` : `Total Records: ${sortedSummaryRecords.length}`}</p>
+                <p>
+                  {isArabic
+                    ? `إجمالي السجلات: ${sortedSummaryRecords.length}`
+                    : `Total Records: ${sortedSummaryRecords.length}`}
+                </p>
                 <p className="print-date">
-                  {isArabic ? `تاريخ الطباعة: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}` : `Print Date: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
+                  {isArabic
+                    ? `تاريخ الطباعة: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`
+                    : `Print Date: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
                 </p>
               </div>
-              <div className="border rounded-lg overflow-hidden print:border-0">
+
+              {/* On-screen table (single continuous table) */}
+              <div className="screen-only border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1465,33 +1530,27 @@ const ZKAttendanceLogs = () => {
                       <TableHead className="text-center no-print">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
                     </TableRow>
                   </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
-                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-                        {isArabic ? "جاري التحميل..." : "Loading..."}
-                      </TableCell>
-                    </TableRow>
-                  ) : sortedSummaryRecords.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                        {isArabic ? "لا توجد سجلات" : "No records found"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedSummaryRecords.map((record) => {
-                      const expectedHours = record.expected_hours || 8;
-                      return (
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8">
+                          <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                          {isArabic ? "جاري التحميل..." : "Loading..."}
+                        </TableCell>
+                      </TableRow>
+                    ) : sortedSummaryRecords.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          {isArabic ? "لا توجد سجلات" : "No records found"}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      sortedSummaryRecords.map((record) => (
                         <TableRow key={`${record.employee_code}-${record.attendance_date}`}>
                           <TableCell className="font-medium">{getEmployeeName(record.employee_code) || record.employee_code}</TableCell>
                           <TableCell>{record.attendance_date}</TableCell>
-                          <TableCell className="font-mono">
-                            {record.in_time || <span className="text-muted-foreground">-</span>}
-                          </TableCell>
-                          <TableCell className="font-mono">
-                            {record.out_time || <span className="text-muted-foreground">-</span>}
-                          </TableCell>
+                          <TableCell className="font-mono">{record.in_time || <span className="text-muted-foreground">-</span>}</TableCell>
+                          <TableCell className="font-mono">{record.out_time || <span className="text-muted-foreground">-</span>}</TableCell>
                           <TableCell className="font-mono">
                             {record.total_hours !== null ? (
                               <span className="font-semibold">{record.total_hours.toFixed(2)}</span>
@@ -1501,19 +1560,18 @@ const ZKAttendanceLogs = () => {
                           </TableCell>
                           <TableCell className="font-mono">
                             {record.difference_hours !== null ? (
-                              <Badge 
-                                className={record.difference_hours >= 0 ? "bg-green-500" : "bg-red-500"}
-                              >
-                                {record.difference_hours >= 0 ? "+" : ""}{record.difference_hours.toFixed(2)}
+                              <Badge className={record.difference_hours >= 0 ? "bg-green-500" : "bg-red-500"}>
+                                {record.difference_hours >= 0 ? "+" : ""}
+                                {record.difference_hours.toFixed(2)}
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell>
-                            {record.record_status === 'absent' ? (
+                            {record.record_status === "absent" ? (
                               <Badge className="bg-orange-500">{isArabic ? "غائب" : "Absent"}</Badge>
-                            ) : record.record_status === 'vacation' ? (
+                            ) : record.record_status === "vacation" ? (
                               <Badge className="bg-purple-500">{record.vacation_type || (isArabic ? "إجازة" : "Vacation")}</Badge>
                             ) : record.is_processed ? (
                               <Badge className="bg-blue-500">{isArabic ? "معتمد" : "Approved"}</Badge>
@@ -1522,12 +1580,12 @@ const ZKAttendanceLogs = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground no-print">
-                            {record.record_status === 'absent' || record.record_status === 'vacation' 
-                              ? '-' 
+                            {record.record_status === "absent" || record.record_status === "vacation"
+                              ? "-"
                               : format(new Date(record.created_at), "yyyy-MM-dd HH:mm:ss")}
                           </TableCell>
                           <TableCell className="no-print">
-                            {record.record_status !== 'absent' && record.record_status !== 'vacation' && (
+                            {record.record_status !== "absent" && record.record_status !== "vacation" && (
                               <div className="flex items-center gap-1 justify-center">
                                 {!record.is_processed && (
                                   <Button
@@ -1604,15 +1662,105 @@ const ZKAttendanceLogs = () => {
                             )}
                           </TableCell>
                         </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-              {/* Print Footer - only visible when printing */}
-              <div className="print-footer hidden" data-arabic={isArabic ? "true" : "false"}>
-                {isArabic ? "تقرير سجلات الحضور - نظام إدارة" : "Attendance Logs Report - Edara System"}
+
+              {/* Print-only paginated layout with manual page numbers */}
+              <div className="print-only-pages">
+                {loading ? (
+                  <div className="print-page">
+                    <div className="print-header">
+                      <h1>{isArabic ? "تقرير سجلات الحضور" : "Attendance Logs Report"}</h1>
+                      <p className="print-date">{isArabic ? "جاري التحميل..." : "Loading..."}</p>
+                    </div>
+                  </div>
+                ) : sortedSummaryRecords.length === 0 ? (
+                  <div className="print-page">
+                    <div className="print-header">
+                      <h1>{isArabic ? "تقرير سجلات الحضور" : "Attendance Logs Report"}</h1>
+                      <p className="print-date">{isArabic ? "لا توجد سجلات" : "No records found"}</p>
+                    </div>
+                  </div>
+                ) : (
+                  printSummaryPages.map((pageRecords, idx) => {
+                    const pageNumber = idx + 1;
+                    const totalPages = printSummaryPages.length;
+                    return (
+                      <div className="print-page" key={`print-page-${pageNumber}`}>
+                        <div className="print-header">
+                          <h1>{isArabic ? "تقرير سجلات الحضور" : "Attendance Logs Report"}</h1>
+                          <p>
+                            {fromDate || toDate
+                              ? `${fromDate ? format(fromDate, "yyyy-MM-dd") : ""} ${toDate ? `- ${format(toDate, "yyyy-MM-dd")}` : ""}`
+                              : isArabic ? "جميع التواريخ" : "All Dates"}
+                            {selectedEmployee !== "all" && ` - ${getEmployeeName(selectedEmployee) || selectedEmployee}`}
+                          </p>
+                          <p className="print-date">
+                            {isArabic
+                              ? `تاريخ الطباعة: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`
+                              : `Print Date: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
+                          </p>
+                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>{isArabic ? "اسم الموظف" : "Employee Name"}</TableHead>
+                              <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                              <TableHead>{isArabic ? "الدخول" : "In"}</TableHead>
+                              <TableHead>{isArabic ? "الخروج" : "Out"}</TableHead>
+                              <TableHead>{isArabic ? "إجمالي الساعات" : "Total Hours"}</TableHead>
+                              <TableHead>{isArabic ? "الفرق" : "Difference"}</TableHead>
+                              <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pageRecords.map((record) => (
+                              <TableRow key={`${record.employee_code}-${record.attendance_date}-${pageNumber}`}>
+                                <TableCell className="font-medium">{getEmployeeName(record.employee_code) || record.employee_code}</TableCell>
+                                <TableCell>{record.attendance_date}</TableCell>
+                                <TableCell className="font-mono">{record.in_time || "-"}</TableCell>
+                                <TableCell className="font-mono">{record.out_time || "-"}</TableCell>
+                                <TableCell className="font-mono">
+                                  {record.total_hours !== null ? record.total_hours.toFixed(2) : "-"}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                  {record.difference_hours !== null
+                                    ? `${record.difference_hours >= 0 ? "+" : ""}${record.difference_hours.toFixed(2)}`
+                                    : "-"}
+                                </TableCell>
+                                <TableCell>
+                                  {record.record_status === "absent"
+                                    ? isArabic
+                                      ? "غائب"
+                                      : "Absent"
+                                    : record.record_status === "vacation"
+                                      ? record.vacation_type || (isArabic ? "إجازة" : "Vacation")
+                                      : record.is_processed
+                                        ? isArabic
+                                          ? "معتمد"
+                                          : "Approved"
+                                        : isArabic
+                                          ? "قيد الانتظار"
+                                          : "Pending"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+
+                        <div className="print-page-footer">
+                          {isArabic
+                            ? `تقرير سجلات الحضور - نظام إدارة - صفحة ${pageNumber} من ${totalPages}`
+                            : `Attendance Logs Report - Edara System - Page ${pageNumber} of ${totalPages}`}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}
