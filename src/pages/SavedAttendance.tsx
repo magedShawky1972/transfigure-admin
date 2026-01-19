@@ -45,7 +45,7 @@ import { ar } from "date-fns/locale";
 import { 
   CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, 
   Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X,
-  ExternalLink, Check
+  ExternalLink, Check, History, FolderOpen, ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -109,10 +109,25 @@ interface EmployeeTotalRecord {
   total_deduction: number;
 }
 
+interface SavedBatch {
+  batch_id: string;
+  filter_from_date: string;
+  filter_to_date: string;
+  saved_at: string;
+  record_count: number;
+  confirmed_count: number;
+  pending_count: number;
+}
+
 const SavedAttendance = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
   const navigate = useNavigate();
+
+  // View mode: "history" shows batch list, "records" shows records for selected batch
+  const [pageMode, setPageMode] = useState<"history" | "records">("history");
+  const [batches, setBatches] = useState<SavedBatch[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
   const [records, setRecords] = useState<SavedAttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -130,6 +145,8 @@ const SavedAttendance = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [deleteBatchDialogOpen, setDeleteBatchDialogOpen] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<SavedAttendanceRecord | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"summary" | "employee-totals">("summary");
@@ -218,26 +235,70 @@ const SavedAttendance = () => {
     );
   };
 
+  // Fetch batches for history view
+  const fetchBatches = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("saved_attendance")
+        .select("batch_id, filter_from_date, filter_to_date, saved_at, is_confirmed");
+
+      if (error) throw error;
+
+      // Group by batch_id
+      const batchMap = new Map<string, SavedBatch>();
+      
+      (data || []).forEach(record => {
+        if (!record.batch_id) return;
+        
+        const existing = batchMap.get(record.batch_id);
+        if (existing) {
+          existing.record_count += 1;
+          if (record.is_confirmed) {
+            existing.confirmed_count += 1;
+          } else {
+            existing.pending_count += 1;
+          }
+        } else {
+          batchMap.set(record.batch_id, {
+            batch_id: record.batch_id,
+            filter_from_date: record.filter_from_date || "",
+            filter_to_date: record.filter_to_date || "",
+            saved_at: record.saved_at,
+            record_count: 1,
+            confirmed_count: record.is_confirmed ? 1 : 0,
+            pending_count: record.is_confirmed ? 0 : 1,
+          });
+        }
+      });
+
+      // Sort by saved_at descending
+      const batchList = Array.from(batchMap.values()).sort((a, b) => 
+        new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime()
+      );
+
+      setBatches(batchList);
+    } catch (error: any) {
+      console.error("Error fetching batches:", error);
+      toast.error(isArabic ? "خطأ في تحميل البيانات" : "Error loading data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchRecords = async () => {
+    if (!selectedBatchId) return;
+    
     setLoading(true);
     try {
       let query = supabase
         .from("saved_attendance")
         .select("*", { count: "exact" })
+        .eq("batch_id", selectedBatchId)
         .order("attendance_date", { ascending: false });
 
       if (searchCode) {
         query = query.ilike("employee_code", `%${searchCode}%`);
-      }
-
-      if (fromDate) {
-        const fromDateStr = format(fromDate, "yyyy-MM-dd");
-        query = query.gte("attendance_date", fromDateStr);
-      }
-
-      if (toDate) {
-        const toDateStr = format(toDate, "yyyy-MM-dd");
-        query = query.lte("attendance_date", toDateStr);
       }
 
       if (selectedEmployee !== "all") {
@@ -293,10 +354,59 @@ const SavedAttendance = () => {
   };
 
   useEffect(() => {
-    fetchRecords();
     fetchEmployees();
     fetchDeductionRules();
-  }, [fromDate, toDate, searchCode, selectedEmployee, confirmedFilter]);
+  }, []);
+
+  useEffect(() => {
+    if (pageMode === "history") {
+      fetchBatches();
+    }
+  }, [pageMode]);
+
+  useEffect(() => {
+    if (pageMode === "records" && selectedBatchId) {
+      fetchRecords();
+    }
+  }, [pageMode, selectedBatchId, searchCode, selectedEmployee, confirmedFilter]);
+
+  const handleSelectBatch = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    setPageMode("records");
+  };
+
+  const handleBackToHistory = () => {
+    setPageMode("history");
+    setSelectedBatchId(null);
+    setRecords([]);
+    setSearchCode("");
+    setSelectedEmployee("all");
+    setConfirmedFilter("all");
+  };
+
+  const handleDeleteBatch = async () => {
+    if (!batchToDelete) return;
+    
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from("saved_attendance")
+        .delete()
+        .eq("batch_id", batchToDelete);
+
+      if (error) throw error;
+
+      toast.success(isArabic ? "تم حذف الدفعة بنجاح" : "Batch deleted successfully");
+      fetchBatches();
+    } catch (error: any) {
+      console.error("Error deleting batch:", error);
+      toast.error(isArabic ? "خطأ في حذف الدفعة" : "Error deleting batch");
+    } finally {
+      setActionLoading(false);
+      setDeleteBatchDialogOpen(false);
+      setBatchToDelete(null);
+    }
+  };
 
   const getEmployeeName = (code: string): string => {
     const emp = employees.find(e => e.zk_employee_code === code);
@@ -707,77 +817,203 @@ const SavedAttendance = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            {isArabic ? "الحضور المحفوظ" : "Saved Attendance"}
-          </CardTitle>
-          <div className="flex gap-2 flex-wrap">
-            {/* View Mode Toggle */}
-            <div className="flex border rounded-lg overflow-hidden">
-              <Button
-                variant={viewMode === "summary" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("summary")}
-                className="rounded-none"
-              >
-                <LayoutGrid className="h-4 w-4 mr-2" />
-                {isArabic ? "ملخص" : "Summary"}
-              </Button>
-              <Button
-                variant={viewMode === "employee-totals" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("employee-totals")}
-                className="rounded-none"
-              >
-                <User className="h-4 w-4 mr-2" />
-                {isArabic ? "إجماليات الموظفين" : "Employee Totals"}
-              </Button>
-            </div>
-
-            {pendingCount > 0 && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleConfirmAll}
-                disabled={actionLoading}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {isArabic ? `اعتماد الكل (${pendingCount})` : `Confirm All (${pendingCount})`}
+            {pageMode === "records" && (
+              <Button variant="ghost" size="sm" onClick={handleBackToHistory} className="mr-2">
+                <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
+            <History className="h-5 w-5" />
+            {pageMode === "history" 
+              ? (isArabic ? "سجل الحضور المحفوظ" : "Saved Attendance History")
+              : (isArabic ? "تفاصيل الحضور المحفوظ" : "Saved Attendance Details")
+            }
+          </CardTitle>
+          <div className="flex gap-2 flex-wrap">
+            {pageMode === "history" ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/zk-attendance-logs")}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  {isArabic ? "سجلات ZK" : "ZK Logs"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={fetchBatches}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  {isArabic ? "تحديث" : "Refresh"}
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* View Mode Toggle */}
+                <div className="flex border rounded-lg overflow-hidden">
+                  <Button
+                    variant={viewMode === "summary" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("summary")}
+                    className="rounded-none"
+                  >
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    {isArabic ? "ملخص" : "Summary"}
+                  </Button>
+                  <Button
+                    variant={viewMode === "employee-totals" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("employee-totals")}
+                    className="rounded-none"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    {isArabic ? "إجماليات الموظفين" : "Employee Totals"}
+                  </Button>
+                </div>
 
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setDeleteAllDialogOpen(true)}
-              disabled={sortedRecords.length === 0}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {isArabic ? `حذف الكل (${sortedRecords.length})` : `Delete All (${sortedRecords.length})`}
-            </Button>
+                {pendingCount > 0 && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleConfirmAll}
+                    disabled={actionLoading}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {isArabic ? `اعتماد الكل (${pendingCount})` : `Confirm All (${pendingCount})`}
+                  </Button>
+                )}
 
-            <Button variant="outline" size="sm" onClick={exportToCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              {isArabic ? "تصدير" : "Export"}
-            </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteAllDialogOpen(true)}
+                  disabled={sortedRecords.length === 0}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {isArabic ? `حذف الكل (${sortedRecords.length})` : `Delete All (${sortedRecords.length})`}
+                </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/zk-attendance-logs")}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              {isArabic ? "سجلات ZK" : "ZK Logs"}
-            </Button>
+                <Button variant="outline" size="sm" onClick={exportToCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {isArabic ? "تصدير" : "Export"}
+                </Button>
 
-            <Button variant="outline" size="sm" onClick={fetchRecords}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              {isArabic ? "تحديث" : "Refresh"}
-            </Button>
+                <Button variant="outline" size="sm" onClick={fetchRecords}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  {isArabic ? "تحديث" : "Refresh"}
+                </Button>
+              </>
+            )}
           </div>
         </CardHeader>
 
         <CardContent>
+          {pageMode === "history" ? (
+            /* History View - List of Batches */
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                  {isArabic ? "جاري التحميل..." : "Loading..."}
+                </div>
+              ) : batches.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">{isArabic ? "لا توجد سجلات محفوظة" : "No saved attendance records"}</p>
+                  <p className="text-sm mt-2">
+                    {isArabic 
+                      ? "اذهب إلى سجلات ZK واحفظ ملخص الحضور"
+                      : "Go to ZK Logs and save attendance summary"}
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => navigate("/zk-attendance-logs")}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {isArabic ? "الذهاب إلى سجلات ZK" : "Go to ZK Logs"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{isArabic ? "الفترة" : "Period"}</TableHead>
+                        <TableHead>{isArabic ? "تاريخ الحفظ" : "Saved At"}</TableHead>
+                        <TableHead className="text-center">{isArabic ? "السجلات" : "Records"}</TableHead>
+                        <TableHead className="text-center">{isArabic ? "معتمد" : "Confirmed"}</TableHead>
+                        <TableHead className="text-center">{isArabic ? "قيد الانتظار" : "Pending"}</TableHead>
+                        <TableHead className="text-center">{isArabic ? "الإجراءات" : "Actions"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {batches.map((batch) => (
+                        <TableRow 
+                          key={batch.batch_id} 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleSelectBatch(batch.batch_id)}
+                        >
+                          <TableCell className="font-medium">
+                            {batch.filter_from_date} - {batch.filter_to_date}
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(batch.saved_at), "yyyy-MM-dd HH:mm")}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline">{batch.record_count}</Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge className="bg-green-500">{batch.confirmed_count}</Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {batch.pending_count > 0 ? (
+                              <Badge className="bg-yellow-500">{batch.pending_count}</Badge>
+                            ) : (
+                              <Badge variant="outline">0</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSelectBatch(batch.batch_id)}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title={isArabic ? "فتح" : "Open"}
+                              >
+                                <FolderOpen className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setBatchToDelete(batch.batch_id);
+                                  setDeleteBatchDialogOpen(true);
+                                }}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title={isArabic ? "حذف" : "Delete"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Records View */
+            <>
+              {/* Show batch info */}
+              {selectedBatchId && records.length > 0 && (
+                <div className="bg-muted/50 p-3 rounded-lg mb-4">
+                  <span className="text-sm text-muted-foreground">
+                    {isArabic ? "الفترة:" : "Period:"} {records[0]?.filter_from_date} - {records[0]?.filter_to_date}
+                  </span>
+                </div>
+              )}
           {/* Filters */}
           <div className="flex flex-wrap gap-4 mb-6">
             <div className="flex-1 min-w-[200px]">
@@ -1109,6 +1345,8 @@ const SavedAttendance = () => {
               </Table>
             </div>
           )}
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -1147,6 +1385,26 @@ const SavedAttendance = () => {
             <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAllFiltered} disabled={actionLoading} className="bg-destructive text-destructive-foreground">
               {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : (isArabic ? "حذف الكل" : "Delete All")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Batch Dialog */}
+      <AlertDialog open={deleteBatchDialogOpen} onOpenChange={setDeleteBatchDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isArabic ? "تأكيد حذف الدفعة" : "Confirm Delete Batch"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic 
+                ? "هل أنت متأكد من حذف هذه الدفعة بالكامل؟ لا يمكن التراجع عن هذا الإجراء."
+                : "Are you sure you want to delete this entire batch? This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBatch} disabled={actionLoading} className="bg-destructive text-destructive-foreground">
+              {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : (isArabic ? "حذف الدفعة" : "Delete Batch")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
