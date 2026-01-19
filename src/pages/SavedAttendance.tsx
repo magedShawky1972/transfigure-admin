@@ -452,6 +452,16 @@ const SavedAttendance = () => {
     return days[date.getDay()];
   };
 
+  // Convert decimal hours to HH:MM format for display
+  const formatDecimalHoursToHHMM = (decimalHours: number): string => {
+    const isNegative = decimalHours < 0;
+    const absHours = Math.abs(decimalHours);
+    const hours = Math.floor(absHours);
+    const minutes = Math.round((absHours - hours) * 60);
+    const sign = isNegative ? "-" : "";
+    return `${sign}${hours}:${minutes.toString().padStart(2, "0")}`;
+  };
+
   const getDeductionRuleName = (ruleId: string | null): string => {
     if (!ruleId) return "-";
     const rule = deductionRules.find(r => r.id === ruleId);
@@ -862,8 +872,8 @@ const SavedAttendance = () => {
           rec.attendance_date,
           rec.in_time || "-",
           rec.out_time || "-",
-          rec.total_hours?.toFixed(2) || "-",
-          rec.difference_hours !== null ? `${rec.difference_hours >= 0 ? "+" : ""}${rec.difference_hours.toFixed(2)}` : "-",
+          rec.total_hours !== null ? formatDecimalHoursToHHMM(rec.total_hours) : "-",
+          rec.difference_hours !== null ? `${rec.difference_hours >= 0 ? "+" : ""}${formatDecimalHoursToHHMM(rec.difference_hours)}` : "-",
           correctTimeValue,
           rec.record_status === "absent" ? (isArabic ? "غائب" : "Absent") 
             : rec.record_status === "vacation" ? (rec.vacation_type || (isArabic ? "إجازة" : "Vacation"))
@@ -894,9 +904,9 @@ const SavedAttendance = () => {
         emp.present_days.toString(),
         emp.absent_days.toString(),
         emp.vacation_days.toString(),
-        emp.total_worked_hours.toFixed(2),
-        emp.total_expected_hours.toFixed(2),
-        `${emp.total_difference_hours >= 0 ? "+" : ""}${emp.total_difference_hours.toFixed(2)}`,
+        formatDecimalHoursToHHMM(emp.total_worked_hours),
+        formatDecimalHoursToHHMM(emp.total_expected_hours),
+        `${emp.total_difference_hours >= 0 ? "+" : ""}${formatDecimalHoursToHHMM(emp.total_difference_hours)}`,
         emp.total_deduction.toFixed(2),
       ]);
       filename = `saved_attendance_totals_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`;
@@ -1317,7 +1327,7 @@ const SavedAttendance = () => {
                           <TableCell className="font-mono">{record.out_time || <span className="text-muted-foreground">-</span>}</TableCell>
                           <TableCell className="font-mono">
                             {record.total_hours !== null ? (
-                              <span className="font-semibold">{record.total_hours.toFixed(2)}</span>
+                              <span className="font-semibold">{formatDecimalHoursToHHMM(record.total_hours)}</span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
@@ -1326,7 +1336,7 @@ const SavedAttendance = () => {
                             {record.difference_hours !== null ? (
                               <Badge className={record.difference_hours >= 0 ? "bg-green-500" : "bg-red-500"}>
                                 {record.difference_hours >= 0 ? "+" : ""}
-                                {record.difference_hours.toFixed(2)}
+                                {formatDecimalHoursToHHMM(record.difference_hours)}
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
