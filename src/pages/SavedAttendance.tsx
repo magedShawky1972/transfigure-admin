@@ -463,34 +463,50 @@ const SavedAttendance = () => {
     };
   };
 
-  // Calculate correct time status based on difference hours and allowances
-  const getCorrectTimeStatus = (record: SavedAttendanceRecord): { isCorrect: boolean; hasAllowance: boolean } => {
+  // Calculate correct time status based on difference hours, allowances, and manual excuse selection
+  const getCorrectTimeStatus = (
+    record: SavedAttendanceRecord
+  ): { isCorrect: boolean; hasAllowance: boolean; forcedByExcuse: boolean } => {
     // Check for normal/present status (database stores "normal" for present employees)
     const isPresent = record.record_status === "present" || record.record_status === "normal";
-    
+
     if (!isPresent) {
-      return { isCorrect: false, hasAllowance: false };
+      return { isCorrect: false, hasAllowance: false, forcedByExcuse: false };
+    }
+
+    // If user selected an "Excuse" rule (0 deduction) treat as correct time (no late deduction)
+    if (record.deduction_rule_id) {
+      const rule = deductionRules.find((r) => r.id === record.deduction_rule_id);
+      const isExcuseRule = !!rule && (
+        rule.deduction_value === 0 ||
+        rule.rule_name.toLowerCase().includes("excuse") ||
+        (rule.rule_name_ar ? rule.rule_name_ar.includes("سماح") || rule.rule_name_ar.includes("عذر") : false)
+      );
+
+      if (isExcuseRule) {
+        return { isCorrect: true, hasAllowance: true, forcedByExcuse: true };
+      }
     }
 
     // If no difference or positive difference (on time or overtime), it's correct
     if (record.difference_hours === null || record.difference_hours >= 0) {
-      return { isCorrect: true, hasAllowance: true };
+      return { isCorrect: true, hasAllowance: true, forcedByExcuse: false };
     }
 
     const allowances = getEmployeeAttendanceAllowances(record.employee_code);
-    
-    // If no allowance configured, check if difference is 0 or positive
+
+    // If no allowance configured, we cannot mark it correct for negative differences
     if (allowances.allowLate === null && allowances.allowEarly === null) {
-      return { isCorrect: record.difference_hours >= 0, hasAllowance: false };
+      return { isCorrect: false, hasAllowance: false, forcedByExcuse: false };
     }
 
     // Convert difference hours to minutes (negative difference = late/early exit)
     const diffMinutes = Math.abs(record.difference_hours * 60);
-    
+
     // For negative difference, check against combined allowance
     const totalAllowance = (allowances.allowLate || 0) + (allowances.allowEarly || 0);
-    
-    return { isCorrect: diffMinutes <= totalAllowance, hasAllowance: true };
+
+    return { isCorrect: diffMinutes <= totalAllowance, hasAllowance: true, forcedByExcuse: false };
   };
 
   const sortedRecords = useMemo(() => {
