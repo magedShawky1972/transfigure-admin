@@ -643,22 +643,76 @@ const ZKAttendanceLogs = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ["Employee Code", "Employee Name", "Date", "Time", "Type", "Received At"];
-    const rows = logs.map((log) => [
-      log.employee_code,
-      getEmployeeName(log.employee_code) || "-",
-      log.attendance_date,
-      log.attendance_time,
-      log.record_type,
-      format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss"),
-    ]);
+    let headers: string[] = [];
+    let rows: string[][] = [];
+    let filename = "";
 
-    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    if (viewMode === "detailed") {
+      // Export detailed logs
+      headers = isArabic 
+        ? ["كود الموظف", "اسم الموظف", "التاريخ", "الوقت", "النوع", "الحالة", "تاريخ الاستلام"]
+        : ["Employee Code", "Employee Name", "Date", "Time", "Type", "Status", "Received At"];
+      rows = sortedLogs.map((log) => [
+        log.employee_code,
+        getEmployeeName(log.employee_code) || "-",
+        log.attendance_date,
+        log.attendance_time,
+        log.record_type,
+        log.is_processed ? (isArabic ? "معتمد" : "Approved") : (isArabic ? "قيد الانتظار" : "Pending"),
+        format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss"),
+      ]);
+      filename = `zk_attendance_detailed_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`;
+    } else if (viewMode === "summary") {
+      // Export summary view
+      headers = isArabic 
+        ? ["اسم الموظف", "التاريخ", "الدخول", "الخروج", "إجمالي الساعات", "الساعات المتوقعة", "الفرق", "الحالة"]
+        : ["Employee Name", "Date", "In", "Out", "Total Hours", "Expected Hours", "Difference", "Status"];
+      rows = sortedSummaryRecords.map((record) => {
+        const statusText = record.record_status === "absent" 
+          ? (isArabic ? "غائب" : "Absent")
+          : record.record_status === "vacation"
+            ? (record.vacation_type || (isArabic ? "إجازة" : "Vacation"))
+            : record.is_processed 
+              ? (isArabic ? "معتمد" : "Approved") 
+              : (isArabic ? "قيد الانتظار" : "Pending");
+        return [
+          getEmployeeName(record.employee_code) || record.employee_code,
+          record.attendance_date,
+          record.in_time || "-",
+          record.out_time || "-",
+          record.total_hours !== null ? record.total_hours.toFixed(2) : "-",
+          record.expected_hours !== null ? record.expected_hours.toFixed(2) : "-",
+          record.difference_hours !== null ? `${record.difference_hours >= 0 ? "+" : ""}${record.difference_hours.toFixed(2)}` : "-",
+          statusText,
+        ];
+      });
+      filename = `zk_attendance_summary_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`;
+    } else if (viewMode === "employee-totals") {
+      // Export employee totals view
+      headers = isArabic 
+        ? ["اسم الموظف", "إجمالي الأيام", "أيام الحضور", "أيام الغياب", "أيام الإجازة", "ساعات العمل", "الساعات المتوقعة", "الفرق (تأخير/إضافي)"]
+        : ["Employee Name", "Total Days", "Present Days", "Absent Days", "Vacation Days", "Worked Hours", "Expected Hours", "Difference (Delay/Extra)"];
+      rows = employeeTotals.map((emp) => [
+        emp.employee_name,
+        emp.total_days.toString(),
+        emp.present_days.toString(),
+        emp.absent_days.toString(),
+        emp.vacation_days.toString(),
+        emp.total_worked_hours.toFixed(2),
+        emp.total_expected_hours.toFixed(2),
+        `${emp.total_difference_hours >= 0 ? "+" : ""}${emp.total_difference_hours.toFixed(2)}`,
+      ]);
+      filename = `zk_attendance_employee_totals_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`;
+    }
+
+    // Add BOM for proper Arabic encoding in Excel
+    const BOM = "\uFEFF";
+    const csvContent = BOM + [headers.join(","), ...rows.map((r) => r.map(cell => `"${cell}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `zk_attendance_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   };
