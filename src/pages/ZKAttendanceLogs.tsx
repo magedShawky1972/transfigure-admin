@@ -43,7 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -299,40 +299,95 @@ const ZKAttendanceLogs = () => {
     in_time: "",
     out_time: "",
   });
-  const [sortColumn, setSortColumn] = useState<string>("attendance_date");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  // Multi-column sorting state: array of {column, direction} in priority order
+  const [sortColumns, setSortColumns] = useState<Array<{ column: string; direction: "asc" | "desc" }>>([
+    { column: "attendance_date", direction: "desc" }
+  ]);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
   const [officialHolidays, setOfficialHolidays] = useState<OfficialHoliday[]>([]);
   const [holidayAttendanceTypes, setHolidayAttendanceTypes] = useState<HolidayAttendanceType[]>([]);
 
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortColumn(column);
-      setSortDirection("asc");
-    }
+  // Handle multi-column sorting:
+  // - Click: add/toggle column as primary sort
+  // - Ctrl/Cmd + Click: add column to existing sort levels
+  const handleSort = (column: string, event?: React.MouseEvent) => {
+    const isMultiSort = event?.ctrlKey || event?.metaKey;
+    
+    setSortColumns(prev => {
+      const existingIndex = prev.findIndex(s => s.column === column);
+      
+      if (isMultiSort) {
+        // Multi-sort mode: add or toggle existing
+        if (existingIndex >= 0) {
+          // Toggle direction for existing column
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            direction: updated[existingIndex].direction === "asc" ? "desc" : "asc"
+          };
+          return updated;
+        } else {
+          // Add new column to sort
+          return [...prev, { column, direction: "asc" }];
+        }
+      } else {
+        // Single-sort mode: replace all with this column
+        if (existingIndex >= 0 && prev.length === 1) {
+          // Toggle direction if clicking the same single column
+          return [{ column, direction: prev[0].direction === "asc" ? "desc" : "asc" }];
+        }
+        return [{ column, direction: "asc" }];
+      }
+    });
   };
 
-  const SortableHeader = ({ column, children }: { column: string; children: ReactNode }) => (
-    <TableHead 
-      className="cursor-pointer hover:bg-muted/50 select-none"
-      onClick={() => handleSort(column)}
-    >
-      <div className="flex items-center gap-1">
-        {children}
-        {sortColumn === column ? (
-          sortDirection === "asc" ? (
-            <ArrowUp className="h-4 w-4" />
+  // Remove a specific sort column
+  const removeSortColumn = (column: string) => {
+    setSortColumns(prev => {
+      const filtered = prev.filter(s => s.column !== column);
+      // Keep at least one sort column (default to attendance_date)
+      return filtered.length > 0 ? filtered : [{ column: "attendance_date", direction: "desc" }];
+    });
+  };
+
+  // Clear all sort columns back to default
+  const clearAllSorts = () => {
+    setSortColumns([{ column: "attendance_date", direction: "desc" }]);
+  };
+
+  const SortableHeader = ({ column, children }: { column: string; children: ReactNode }) => {
+    const sortIndex = sortColumns.findIndex(s => s.column === column);
+    const sortConfig = sortIndex >= 0 ? sortColumns[sortIndex] : null;
+    const showIndex = sortColumns.length > 1 && sortIndex >= 0;
+    
+    return (
+      <TableHead 
+        className="cursor-pointer hover:bg-muted/50 select-none"
+        onClick={(e) => handleSort(column, e)}
+        title={isArabic ? "اضغط للترتيب، Ctrl+اضغط للترتيب المتعدد" : "Click to sort, Ctrl+Click for multi-sort"}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          {sortConfig ? (
+            <span className="flex items-center">
+              {sortConfig.direction === "asc" ? (
+                <ArrowUp className="h-4 w-4" />
+              ) : (
+                <ArrowDown className="h-4 w-4" />
+              )}
+              {showIndex && (
+                <span className="text-xs bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center ml-0.5">
+                  {sortIndex + 1}
+                </span>
+              )}
+            </span>
           ) : (
-            <ArrowDown className="h-4 w-4" />
-          )
-        ) : (
-          <ArrowUpDown className="h-4 w-4 opacity-30" />
-        )}
-      </div>
-    </TableHead>
-  );
+            <ArrowUpDown className="h-4 w-4 opacity-30" />
+          )}
+        </div>
+      </TableHead>
+    );
+  };
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -911,10 +966,9 @@ const ZKAttendanceLogs = () => {
       return hh * 60 + mm + (Number.isNaN(ss) ? 0 : ss / 60);
     };
 
-    return [...records].sort((a, b) => {
-      const dir = sortDirection === "asc" ? 1 : -1;
-
-      switch (sortColumn) {
+    // Multi-column sort comparator
+    const compareByColumn = (a: SummaryRecord, b: SummaryRecord, column: string, dir: number): number => {
+      switch (column) {
         case "employee_name": {
           const nameA = getEmployeeNameForSort(a.employee_code);
           const nameB = getEmployeeNameForSort(b.employee_code);
@@ -943,8 +997,17 @@ const ZKAttendanceLogs = () => {
         default:
           return 0;
       }
+    };
+
+    return [...records].sort((a, b) => {
+      for (const { column, direction } of sortColumns) {
+        const dir = direction === "asc" ? 1 : -1;
+        const result = compareByColumn(a, b, column, dir);
+        if (result !== 0) return result;
+      }
+      return 0;
     });
-  }, [logs, employees, vacationRequests, attendanceTypeFilter, fromDate, toDate, sortColumn, sortDirection, isArabic]);
+  }, [logs, employees, vacationRequests, attendanceTypeFilter, fromDate, toDate, sortColumns, isArabic]);
 
   // Print pagination (manual + reliable): render fixed-size pages in print mode
   const ROWS_PER_PRINT_PAGE = 18;
@@ -1001,9 +1064,9 @@ const ZKAttendanceLogs = () => {
 
     // Sort by employee name
     const results = Array.from(totalsMap.values());
-    return results.sort((a, b) => {
-      const dir = sortDirection === "asc" ? 1 : -1;
-      switch (sortColumn) {
+    // Multi-column sort comparator for employee totals
+    const compareByColumn = (a: EmployeeTotalRecord, b: EmployeeTotalRecord, column: string, dir: number): number => {
+      switch (column) {
         case "employee_name":
           return a.employee_name.localeCompare(b.employee_name) * dir;
         case "total_days":
@@ -1024,8 +1087,17 @@ const ZKAttendanceLogs = () => {
         default:
           return a.employee_name.localeCompare(b.employee_name);
       }
+    };
+
+    return results.sort((a, b) => {
+      for (const { column, direction } of sortColumns) {
+        const dir = direction === "asc" ? 1 : -1;
+        const result = compareByColumn(a, b, column, dir);
+        if (result !== 0) return result;
+      }
+      return 0;
     });
-  }, [sortedSummaryRecords, sortColumn, sortDirection]);
+  }, [sortedSummaryRecords, sortColumns]);
 
   // Print pages for employee totals
   const printEmployeeTotalsPages = useMemo(() => {
@@ -1048,10 +1120,9 @@ const ZKAttendanceLogs = () => {
       return t || "";
     };
 
-    return [...logs].sort((a, b) => {
-      const dir = sortDirection === "asc" ? 1 : -1;
-
-      switch (sortColumn) {
+    // Multi-column sort comparator for detailed logs
+    const compareByColumn = (a: AttendanceLog, b: AttendanceLog, column: string, dir: number): number => {
+      switch (column) {
         case "employee_code":
           return a.employee_code.localeCompare(b.employee_code) * dir;
         case "employee_name": {
@@ -1072,8 +1143,17 @@ const ZKAttendanceLogs = () => {
         default:
           return 0;
       }
+    };
+
+    return [...logs].sort((a, b) => {
+      for (const { column, direction } of sortColumns) {
+        const dir = direction === "asc" ? 1 : -1;
+        const result = compareByColumn(a, b, column, dir);
+        if (result !== 0) return result;
+      }
+      return 0;
     });
-  }, [logs, employees, sortColumn, sortDirection]);
+  }, [logs, employees, sortColumns]);
 
   const handleDeleteClick = (log: AttendanceLog) => {
     setSelectedLog(log);
@@ -1457,6 +1537,82 @@ const ZKAttendanceLogs = () => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Active Sort Columns Indicator */}
+          {sortColumns.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm font-medium text-muted-foreground">
+                {isArabic ? "الترتيب:" : "Sort by:"}
+              </span>
+              {sortColumns.map((sort, index) => {
+                const columnLabels: Record<string, { en: string; ar: string }> = {
+                  employee_code: { en: "Employee Code", ar: "رمز الموظف" },
+                  employee_name: { en: "Employee Name", ar: "اسم الموظف" },
+                  attendance_date: { en: "Date", ar: "التاريخ" },
+                  attendance_time: { en: "Time", ar: "الوقت" },
+                  record_type: { en: "Type", ar: "النوع" },
+                  is_processed: { en: "Status", ar: "الحالة" },
+                  created_at: { en: "Received At", ar: "تاريخ الاستلام" },
+                  in_time: { en: "In", ar: "الدخول" },
+                  out_time: { en: "Out", ar: "الخروج" },
+                  total_hours: { en: "Total Hours", ar: "إجمالي الساعات" },
+                  difference_hours: { en: "Difference", ar: "الفرق" },
+                  total_days: { en: "Total Days", ar: "إجمالي الأيام" },
+                  present_days: { en: "Present Days", ar: "أيام الحضور" },
+                  absent_days: { en: "Absent Days", ar: "أيام الغياب" },
+                  vacation_days: { en: "Vacation Days", ar: "أيام الإجازة" },
+                  total_worked_hours: { en: "Worked Hours", ar: "ساعات العمل" },
+                  total_expected_hours: { en: "Expected Hours", ar: "الساعات المتوقعة" },
+                  total_difference_hours: { en: "Difference Hours", ar: "فرق الساعات" },
+                };
+                const label = columnLabels[sort.column] 
+                  ? (isArabic ? columnLabels[sort.column].ar : columnLabels[sort.column].en)
+                  : sort.column;
+                
+                return (
+                  <Badge 
+                    key={sort.column} 
+                    variant="secondary" 
+                    className="flex items-center gap-1 pr-1"
+                  >
+                    <span className="text-xs bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center">
+                      {index + 1}
+                    </span>
+                    {label}
+                    {sort.direction === "asc" ? (
+                      <ArrowUp className="h-3 w-3" />
+                    ) : (
+                      <ArrowDown className="h-3 w-3" />
+                    )}
+                    {sortColumns.length > 1 && (
+                      <button
+                        onClick={() => removeSortColumn(sort.column)}
+                        className="ml-1 hover:bg-muted rounded p-0.5"
+                        title={isArabic ? "إزالة" : "Remove"}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                );
+              })}
+              {sortColumns.length > 1 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearAllSorts}
+                  className="h-6 px-2 text-xs"
+                >
+                  {isArabic ? "مسح الكل" : "Clear All"}
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {isArabic 
+                  ? "(Ctrl+اضغط على العمود للترتيب المتعدد)" 
+                  : "(Ctrl+Click column for multi-sort)"}
+              </span>
+            </div>
+          )}
 
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
