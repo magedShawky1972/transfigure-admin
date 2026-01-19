@@ -1241,9 +1241,7 @@ const SavedAttendance = () => {
                     <SortableHeader column="out_time">{isArabic ? "الخروج" : "Out"}</SortableHeader>
                     <SortableHeader column="total_hours">{isArabic ? "إجمالي الساعات" : "Total Hours"}</SortableHeader>
                     <SortableHeader column="difference_hours">{isArabic ? "الفرق" : "Difference"}</SortableHeader>
-                    <TableHead className="text-center">{isArabic ? "سماح التأخير" : "Late Allow"}</TableHead>
-                    <TableHead className="text-center">{isArabic ? "سماح الخروج المبكر" : "Early Allow"}</TableHead>
-                    <TableHead className="text-center">{isArabic ? "حالة العذر" : "Excuse Status"}</TableHead>
+                    <TableHead className="text-center">{isArabic ? "حالة العذر" : "Excuse"}</TableHead>
                     <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                     <SortableHeader column="deduction_amount">{isArabic ? "الخصم" : "Deduction"}</SortableHeader>
                     <SortableHeader column="is_confirmed">{isArabic ? "الاعتماد" : "Confirmed"}</SortableHeader>
@@ -1253,20 +1251,19 @@ const SavedAttendance = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8">
+                      <TableCell colSpan={11} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                         {isArabic ? "جاري التحميل..." : "Loading..."}
                       </TableCell>
                     </TableRow>
                   ) : sortedRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                         {isArabic ? "لا توجد سجلات" : "No records found"}
                       </TableCell>
                     </TableRow>
                   ) : (
                     sortedRecords.map((record) => {
-                      const allowances = getEmployeeAttendanceAllowances(record.employee_code);
                       const excuseStatus = getExcuseStatus(record);
                       
                       return (
@@ -1292,29 +1289,15 @@ const SavedAttendance = () => {
                               <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-center font-mono">
-                            {allowances.allowLate !== null ? (
-                              <span>{allowances.allowLate} {isArabic ? "د" : "m"}</span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center font-mono">
-                            {allowances.allowEarly !== null ? (
-                              <span>{allowances.allowEarly} {isArabic ? "د" : "m"}</span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
                           <TableCell className="text-center">
                             {record.record_status === "present" && record.difference_hours !== null && record.difference_hours < 0 ? (
                               excuseStatus.isExcused ? (
-                                <Badge className="bg-green-500">{excuseStatus.reason}</Badge>
+                                <Check className="h-5 w-5 text-green-600 mx-auto" />
                               ) : (
-                                <Badge className="bg-red-500">{excuseStatus.reason}</Badge>
+                                <X className="h-5 w-5 text-red-500 mx-auto" />
                               )
                             ) : record.record_status === "present" && record.difference_hours !== null && record.difference_hours >= 0 ? (
-                              <Badge variant="outline" className="text-green-600">{isArabic ? "طبيعي" : "OK"}</Badge>
+                              <Check className="h-5 w-5 text-green-600 mx-auto" />
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
