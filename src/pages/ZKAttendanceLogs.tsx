@@ -227,44 +227,72 @@ const ZKAttendanceLogs = () => {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const from = (currentPage - 1) * pageSize;
-      const to = from + pageSize - 1;
+      const batchSize = 1000;
 
-      let query = supabase
+      // Base query (filters applied), pagination applied depending on viewMode
+      let baseQuery = supabase
         .from("zk_attendance_logs")
         .select("*", { count: "exact" })
         .order("attendance_date", { ascending: false })
-        .order("attendance_time", { ascending: false })
-        .range(from, to);
+        .order("attendance_time", { ascending: false });
 
       if (searchCode) {
-        query = query.ilike("employee_code", `%${searchCode}%`);
+        baseQuery = baseQuery.ilike("employee_code", `%${searchCode}%`);
       }
 
       if (fromDate) {
         const fromDateStr = format(fromDate, "yyyy-MM-dd");
-        query = query.gte("attendance_date", fromDateStr);
+        baseQuery = baseQuery.gte("attendance_date", fromDateStr);
       }
 
       if (toDate) {
         const toDateStr = format(toDate, "yyyy-MM-dd");
-        query = query.lte("attendance_date", toDateStr);
+        baseQuery = baseQuery.lte("attendance_date", toDateStr);
       }
 
       if (recordTypeFilter !== "all") {
-        query = query.eq("record_type", recordTypeFilter);
+        baseQuery = baseQuery.eq("record_type", recordTypeFilter);
       }
 
       if (selectedEmployee !== "all") {
-        query = query.eq("employee_code", selectedEmployee);
+        baseQuery = baseQuery.eq("employee_code", selectedEmployee);
       }
 
-      const { data, error, count } = await query;
+      if (viewMode === "summary") {
+        // Summary view needs enough rows to represent the full date range, otherwise sorting/grouping looks broken.
+        const all: AttendanceLog[] = [];
+        let from = 0;
+        let total: number | null = null;
 
-      if (error) throw error;
+        while (true) {
+          const to = from + batchSize - 1;
+          const { data, error, count } = await baseQuery.range(from, to);
+          if (error) throw error;
+          if (total === null) total = count ?? null;
 
-      setLogs(data || []);
-      setTotalCount(count || 0);
+          const chunk = (data || []) as AttendanceLog[];
+          all.push(...chunk);
+
+          if (chunk.length < batchSize) break;
+          from += batchSize;
+
+          // Safety guard
+          if (from > 50000) break;
+        }
+
+        setLogs(all);
+        setTotalCount(total ?? all.length);
+      } else {
+        // Detailed view uses normal pagination
+        const from = (currentPage - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error, count } = await baseQuery.range(from, to);
+        if (error) throw error;
+
+        setLogs((data || []) as AttendanceLog[]);
+        setTotalCount(count || 0);
+      }
     } catch (error: any) {
       toast.error(isArabic ? "خطأ في تحميل البيانات" : "Error loading data");
       console.error("Error fetching logs:", error);
@@ -309,12 +337,12 @@ const ZKAttendanceLogs = () => {
   useEffect(() => {
     fetchLogs();
     fetchEmployees();
-  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, currentPage, pageSize]);
+  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, viewMode, currentPage, pageSize]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters / view changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee]);
+  }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, viewMode]);
 
   const getEmployeeName = (code: string) => {
     const employee = employees.find((e) => e.zk_employee_code === code);
