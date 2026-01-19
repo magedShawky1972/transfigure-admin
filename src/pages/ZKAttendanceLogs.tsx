@@ -76,6 +76,21 @@ interface Employee {
   employee_number: string;
   attendance_type_id: string | null;
   attendance_types: AttendanceType | null;
+  requires_attendance_signin: boolean | null;
+}
+
+interface VacationRequest {
+  id: string;
+  employee_id: string;
+  vacation_code_id: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  vacation_codes: {
+    code: string;
+    name_en: string;
+    name_ar: string;
+  } | null;
 }
 
 interface SummaryRecord {
@@ -90,6 +105,8 @@ interface SummaryRecord {
   total_hours: number | null;
   expected_hours: number | null;
   difference_hours: number | null;
+  record_status?: 'normal' | 'absent' | 'vacation';
+  vacation_type?: string;
 }
 
 const printStyles = `
@@ -196,6 +213,7 @@ const ZKAttendanceLogs = () => {
   });
   const [sortColumn, setSortColumn] = useState<string>("attendance_date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -327,13 +345,35 @@ const ZKAttendanceLogs = () => {
     try {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, attendance_types(id, fixed_start_time, fixed_end_time, is_shift_based)")
-        .not("zk_employee_code", "is", null);
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, requires_attendance_signin, attendance_types(id, fixed_start_time, fixed_end_time, is_shift_based)");
 
       if (error) throw error;
       setEmployees((data || []) as Employee[]);
     } catch (error: any) {
       console.error("Error fetching employees:", error);
+    }
+  };
+
+  const fetchVacationRequests = async () => {
+    if (!fromDate || !toDate) {
+      setVacationRequests([]);
+      return;
+    }
+    
+    try {
+      const fromDateStr = format(fromDate, "yyyy-MM-dd");
+      const toDateStr = format(toDate, "yyyy-MM-dd");
+      
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .select("id, employee_id, vacation_code_id, start_date, end_date, status, vacation_codes(code, name_en, name_ar)")
+        .eq("status", "approved")
+        .or(`start_date.lte.${toDateStr},end_date.gte.${fromDateStr}`);
+
+      if (error) throw error;
+      setVacationRequests((data || []) as VacationRequest[]);
+    } catch (error: any) {
+      console.error("Error fetching vacation requests:", error);
     }
   };
 
@@ -375,6 +415,7 @@ const ZKAttendanceLogs = () => {
     fetchLogs();
     fetchEmployees();
     fetchAttendanceTypes();
+    fetchVacationRequests();
   }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, attendanceTypeFilter, viewMode, currentPage, pageSize]);
 
   // Reset to page 1 when filters / view changes
@@ -430,6 +471,28 @@ const ZKAttendanceLogs = () => {
     return hours >= 0 && hours < 6; // 00:00 to 05:59 is considered "out" time
   };
 
+  // Helper to get all dates between two dates
+  const getDateRange = (start: Date, end: Date): string[] => {
+    const dates: string[] = [];
+    const current = new Date(start);
+    while (current <= end) {
+      dates.push(format(current, "yyyy-MM-dd"));
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  };
+
+  // Check if an employee has vacation on a specific date
+  const getVacationForDate = (employeeId: string, dateStr: string): VacationRequest | null => {
+    return vacationRequests.find(vr => {
+      if (vr.employee_id !== employeeId) return false;
+      const startDate = new Date(vr.start_date);
+      const endDate = new Date(vr.end_date);
+      const checkDate = new Date(dateStr);
+      return checkDate >= startDate && checkDate <= endDate;
+    }) || null;
+  };
+
   // Group logs by employee and date for summary view
   const getSummaryRecords = (): SummaryRecord[] => {
     const grouped: Record<string, { 
@@ -473,7 +536,7 @@ const ZKAttendanceLogs = () => {
       }
     });
     
-    return Object.entries(grouped).map(([key, data]) => {
+    const summaryRecords: SummaryRecord[] = Object.entries(grouped).map(([key, data]) => {
       const [employee_code, attendance_date] = key.split("_");
       
       // Sort times to find min/max
@@ -526,8 +589,78 @@ const ZKAttendanceLogs = () => {
         total_hours,
         expected_hours,
         difference_hours,
+        record_status: 'normal' as const,
       };
     });
+
+    // Add absent/vacation rows for employees who require attendance sign-in but didn't sign
+    // Only when attendance type filter is selected and date range is provided
+    if (attendanceTypeFilter !== "all" && fromDate && toDate) {
+      const dateRange = getDateRange(fromDate, toDate);
+      
+      // Get employees who match the attendance type filter and require sign-in
+      const requiredEmployees = employees.filter(emp => 
+        emp.attendance_type_id === attendanceTypeFilter && 
+        emp.requires_attendance_signin === true &&
+        emp.zk_employee_code
+      );
+
+      // Create a set of existing records for quick lookup
+      const existingKeys = new Set(summaryRecords.map(r => r.key));
+
+      for (const emp of requiredEmployees) {
+        for (const dateStr of dateRange) {
+          const key = `${emp.zk_employee_code}_${dateStr}`;
+          
+          // Skip if record already exists
+          if (existingKeys.has(key)) continue;
+
+          // Check if employee has vacation on this date
+          const vacation = getVacationForDate(emp.id, dateStr);
+          
+          if (vacation) {
+            // Add vacation row
+            const vacationType = isArabic 
+              ? vacation.vacation_codes?.name_ar || vacation.vacation_codes?.name_en || 'إجازة'
+              : vacation.vacation_codes?.name_en || 'Vacation';
+            
+            summaryRecords.push({
+              key,
+              employee_code: emp.zk_employee_code!,
+              attendance_date: dateStr,
+              in_time: null,
+              out_time: null,
+              is_processed: true,
+              created_at: new Date().toISOString(),
+              log_ids: [],
+              total_hours: null,
+              expected_hours: getExpectedHours(emp.zk_employee_code!),
+              difference_hours: null,
+              record_status: 'vacation',
+              vacation_type: vacationType,
+            });
+          } else {
+            // Add absent row
+            summaryRecords.push({
+              key,
+              employee_code: emp.zk_employee_code!,
+              attendance_date: dateStr,
+              in_time: null,
+              out_time: null,
+              is_processed: false,
+              created_at: new Date().toISOString(),
+              log_ids: [],
+              total_hours: 0,
+              expected_hours: getExpectedHours(emp.zk_employee_code!),
+              difference_hours: null,
+              record_status: 'absent',
+            });
+          }
+        }
+      }
+    }
+
+    return summaryRecords;
   };
 
   // Sort summary records based on current sort column and direction
@@ -587,7 +720,7 @@ const ZKAttendanceLogs = () => {
           return 0;
       }
     });
-  }, [logs, employees, sortColumn, sortDirection, isArabic]);
+  }, [logs, employees, vacationRequests, attendanceTypeFilter, fromDate, toDate, sortColumn, sortDirection, isArabic]);
 
   // Sort detailed logs based on current sort column and direction
   const sortedLogs = useMemo(() => {
@@ -1215,88 +1348,96 @@ const ZKAttendanceLogs = () => {
                             )}
                           </TableCell>
                           <TableCell>
-                            {record.is_processed ? (
+                            {record.record_status === 'absent' ? (
+                              <Badge className="bg-orange-500">{isArabic ? "غائب" : "Absent"}</Badge>
+                            ) : record.record_status === 'vacation' ? (
+                              <Badge className="bg-purple-500">{record.vacation_type || (isArabic ? "إجازة" : "Vacation")}</Badge>
+                            ) : record.is_processed ? (
                               <Badge className="bg-blue-500">{isArabic ? "معتمد" : "Approved"}</Badge>
                             ) : (
                               <Badge variant="outline">{isArabic ? "قيد الانتظار" : "Pending"}</Badge>
                             )}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground no-print">
-                            {format(new Date(record.created_at), "yyyy-MM-dd HH:mm:ss")}
+                            {record.record_status === 'absent' || record.record_status === 'vacation' 
+                              ? '-' 
+                              : format(new Date(record.created_at), "yyyy-MM-dd HH:mm:ss")}
                           </TableCell>
                           <TableCell className="no-print">
-                            <div className="flex items-center justify-center gap-2">
-                              {!record.is_processed && (
+                            {record.record_status !== 'absent' && record.record_status !== 'vacation' && (
+                              <div className="flex items-center justify-center gap-2">
+                                {!record.is_processed && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async () => {
+                                      setActionLoading(true);
+                                      try {
+                                        const { error } = await supabase
+                                          .from("zk_attendance_logs")
+                                          .update({ is_processed: true, processed_at: new Date().toISOString() })
+                                          .in("id", record.log_ids);
+                                        if (error) throw error;
+                                        toast.success(isArabic ? "تم الاعتماد بنجاح" : "Approved successfully");
+                                        fetchLogs();
+                                      } catch (error) {
+                                        toast.error(isArabic ? "خطأ في الاعتماد" : "Error approving");
+                                      } finally {
+                                        setActionLoading(false);
+                                      }
+                                    }}
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title={isArabic ? "اعتماد" : "Approve"}
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedSummary(record);
+                                    setSummaryEditFormData({
+                                      employee_code: record.employee_code,
+                                      attendance_date: record.attendance_date,
+                                      in_time: record.in_time || "",
+                                      out_time: record.out_time || "",
+                                    });
+                                    setEditDialogOpen(true);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  title={isArabic ? "تعديل" : "Edit"}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={async () => {
-                                    setActionLoading(true);
-                                    try {
-                                      const { error } = await supabase
-                                        .from("zk_attendance_logs")
-                                        .update({ is_processed: true, processed_at: new Date().toISOString() })
-                                        .in("id", record.log_ids);
-                                      if (error) throw error;
-                                      toast.success(isArabic ? "تم الاعتماد بنجاح" : "Approved successfully");
-                                      fetchLogs();
-                                    } catch (error) {
-                                      toast.error(isArabic ? "خطأ في الاعتماد" : "Error approving");
-                                    } finally {
-                                      setActionLoading(false);
+                                    if (confirm(isArabic ? "هل أنت متأكد من حذف هذه السجلات؟" : "Are you sure you want to delete these records?")) {
+                                      setActionLoading(true);
+                                      try {
+                                        const { error } = await supabase
+                                          .from("zk_attendance_logs")
+                                          .delete()
+                                          .in("id", record.log_ids);
+                                        if (error) throw error;
+                                        toast.success(isArabic ? "تم الحذف بنجاح" : "Deleted successfully");
+                                        fetchLogs();
+                                      } catch (error) {
+                                        toast.error(isArabic ? "خطأ في الحذف" : "Error deleting");
+                                      } finally {
+                                        setActionLoading(false);
+                                      }
                                     }
                                   }}
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  title={isArabic ? "اعتماد" : "Approve"}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title={isArabic ? "حذف" : "Delete"}
                                 >
-                                  <CheckCircle className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSummary(record);
-                                  setSummaryEditFormData({
-                                    employee_code: record.employee_code,
-                                    attendance_date: record.attendance_date,
-                                    in_time: record.in_time || "",
-                                    out_time: record.out_time || "",
-                                  });
-                                  setEditDialogOpen(true);
-                                }}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                title={isArabic ? "تعديل" : "Edit"}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  if (confirm(isArabic ? "هل أنت متأكد من حذف هذه السجلات؟" : "Are you sure you want to delete these records?")) {
-                                    setActionLoading(true);
-                                    try {
-                                      const { error } = await supabase
-                                        .from("zk_attendance_logs")
-                                        .delete()
-                                        .in("id", record.log_ids);
-                                      if (error) throw error;
-                                      toast.success(isArabic ? "تم الحذف بنجاح" : "Deleted successfully");
-                                      fetchLogs();
-                                    } catch (error) {
-                                      toast.error(isArabic ? "خطأ في الحذف" : "Error deleting");
-                                    } finally {
-                                      setActionLoading(false);
-                                    }
-                                  }
-                                }}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                title={isArabic ? "حذف" : "Delete"}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
