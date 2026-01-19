@@ -1468,13 +1468,14 @@ const SavedAttendance = () => {
             <div className="space-y-2">
               <Label>{isArabic ? "قاعدة الخصم" : "Deduction Rule"}</Label>
               <Select 
-                value={editFormData.deduction_rule_id} 
+                value={editFormData.deduction_rule_id || "none"} 
                 onValueChange={(value) => {
-                  const rule = deductionRules.find(r => r.id === value);
+                  const actualValue = value === "none" ? "" : value;
+                  const rule = deductionRules.find(r => r.id === actualValue);
                   setEditFormData(prev => ({ 
                     ...prev, 
-                    deduction_rule_id: value,
-                    deduction_amount: rule ? rule.deduction_value : prev.deduction_amount
+                    deduction_rule_id: actualValue,
+                    deduction_amount: rule ? rule.deduction_value : 0
                   }));
                 }}
               >
@@ -1482,7 +1483,7 @@ const SavedAttendance = () => {
                   <SelectValue placeholder={isArabic ? "اختر قاعدة خصم" : "Select deduction rule"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{isArabic ? "بدون خصم" : "No deduction"}</SelectItem>
+                  <SelectItem value="none">{isArabic ? "بدون خصم" : "No deduction"}</SelectItem>
                   {deductionRules.map(rule => (
                     <SelectItem key={rule.id} value={rule.id}>
                       {isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name} ({rule.deduction_value})
