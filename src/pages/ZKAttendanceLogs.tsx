@@ -130,9 +130,6 @@ const printStyles = `
     body * {
       visibility: hidden;
     }
-    body {
-      counter-reset: page-number;
-    }
     .print-area, .print-area * {
       visibility: visible;
       color: black !important;
@@ -145,6 +142,7 @@ const printStyles = `
       top: 0;
       width: 100%;
       padding: 20px;
+      padding-bottom: 40px;
     }
     .no-print {
       display: none !important;
@@ -193,29 +191,15 @@ const printStyles = `
     }
     @page {
       size: A4 landscape;
-      margin: 15mm 10mm 25mm 10mm;
-      counter-increment: page-number;
+      margin: 15mm 10mm 20mm 10mm;
     }
     .print-footer {
       display: block !important;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      position: running(footer);
       text-align: center;
       font-size: 10px;
       color: #666 !important;
       padding: 8px;
-      background: white;
-      border-top: 1px solid #eee;
-    }
-    .print-footer::after {
-      content: " - Page " counter(page);
-      font-weight: 500;
-    }
-    .print-footer[data-arabic="true"]::after {
-      content: " - صفحة " counter(page);
-      font-weight: 500;
     }
     /* Ensure last table row is not cut off */
     table {
