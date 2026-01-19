@@ -442,6 +442,16 @@ const SavedAttendance = () => {
     return `${emp.first_name} ${emp.last_name}`.trim();
   };
 
+  // Get weekday abbreviation from date string
+  const getWeekday = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "-";
+    const days = isArabic 
+      ? ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"]
+      : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return days[date.getDay()];
+  };
+
   const getDeductionRuleName = (ruleId: string | null): string => {
     if (!ruleId) return "-";
     const rule = deductionRules.find(r => r.id === ruleId);
@@ -1253,6 +1263,7 @@ const SavedAttendance = () => {
                 <TableHeader>
                   <TableRow>
                     <SortableHeader column="employee_name">{isArabic ? "اسم الموظف" : "Employee Name"}</SortableHeader>
+                    <TableHead>{isArabic ? "اليوم" : "Day"}</TableHead>
                     <SortableHeader column="attendance_date">{isArabic ? "التاريخ" : "Date"}</SortableHeader>
                     <SortableHeader column="in_time">{isArabic ? "الدخول" : "In"}</SortableHeader>
                     <SortableHeader column="out_time">{isArabic ? "الخروج" : "Out"}</SortableHeader>
@@ -1268,14 +1279,14 @@ const SavedAttendance = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8">
+                      <TableCell colSpan={12} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                         {isArabic ? "جاري التحميل..." : "Loading..."}
                       </TableCell>
                     </TableRow>
                   ) : sortedRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                         {isArabic ? "لا توجد سجلات" : "No records found"}
                       </TableCell>
                     </TableRow>
@@ -1286,6 +1297,7 @@ const SavedAttendance = () => {
                       return (
                         <TableRow key={record.id} className={record.is_confirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
                           <TableCell className="font-medium">{getEmployeeName(record.employee_code)}</TableCell>
+                          <TableCell className="text-center font-medium">{getWeekday(record.attendance_date)}</TableCell>
                           <TableCell>{record.attendance_date}</TableCell>
                           <TableCell className="font-mono">{record.in_time || <span className="text-muted-foreground">-</span>}</TableCell>
                           <TableCell className="font-mono">{record.out_time || <span className="text-muted-foreground">-</span>}</TableCell>
