@@ -641,7 +641,22 @@ Deno.serve(async (req) => {
       if (duplicateCount > 0) {
         console.log(`Found ${duplicateCount} duplicate records`);
         
-        const duplicateInfo = Array.from(existingKeys).slice(0, 100).map(key => ({
+        // Get the actual PK values for duplicates (order numbers, etc.)
+        const duplicateKeys = Array.from(existingKeys);
+        const duplicateValues = duplicateKeys.slice(0, 50); // Show up to 50 for display
+        
+        // For single PK column, show the actual values (e.g., order numbers)
+        const pkColumnName = pkColumns.length === 1 ? pkColumns[0] : pkColumns.join(', ');
+        const displayValues = duplicateValues.map(key => {
+          // For composite keys, the key is joined with '|', split it back
+          if (pkColumns.length > 1) {
+            const parts = key.split('|');
+            return pkColumns.map((col, i) => `${col}: ${parts[i]}`).join(', ');
+          }
+          return key;
+        });
+        
+        const duplicateInfo = duplicateKeys.slice(0, 100).map(key => ({
           key,
           existingCount: 1,
           newCount: 1
@@ -653,7 +668,12 @@ Deno.serve(async (req) => {
             totalRecords: rowsToInsert.length,
             duplicateCount,
             newRecordCount: rowsToInsert.length - duplicateCount,
-            duplicates: duplicateInfo
+            duplicates: duplicateInfo,
+            duplicateKeyColumn: pkColumnName,
+            duplicateKeyValues: displayValues,
+            duplicateMessage: duplicateCount > 50 
+              ? `Found ${duplicateCount} duplicate ${pkColumnName}(s). First 50: ${displayValues.join(', ')}...`
+              : `Found ${duplicateCount} duplicate ${pkColumnName}(s): ${displayValues.join(', ')}`
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
