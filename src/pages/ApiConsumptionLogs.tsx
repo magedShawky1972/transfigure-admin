@@ -92,26 +92,15 @@ const ApiConsumptionLogs = () => {
           return;
         }
 
-        // Check if user is admin
-        const { data: roles } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'admin')
-          .single();
+        // Enforce page permission even if user has admin role.
+        // (Admin users can still be granted access via User Setup permissions.)
 
-        if (roles) {
-          setHasAccess(true);
-          return;
-        }
-
-        // Check specific permission - use same logic as AppSidebar (parent_menu is null)
+        // Check most recent permission record for this page (regardless of parent_menu)
         const { data: permissions, error: permError } = await supabase
           .from('user_permissions')
           .select('has_access, created_at')
           .eq('user_id', user.id)
           .eq('menu_item', 'apiConsumptionLogs')
-          .is('parent_menu', null)
           .order('created_at', { ascending: false })
           .limit(1);
 
