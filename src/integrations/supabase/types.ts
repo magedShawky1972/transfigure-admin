@@ -5343,6 +5343,39 @@ export type Database = {
           },
         ]
       }
+      testsuppliers: {
+        Row: {
+          created_at: string
+          id: string
+          status: number | null
+          supplier_code: string | null
+          supplier_email: string | null
+          supplier_name: string | null
+          supplier_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: number | null
+          supplier_code?: string | null
+          supplier_email?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: number | null
+          supplier_code?: string | null
+          supplier_email?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ticket_activity_logs: {
         Row: {
           activity_type: string
