@@ -669,15 +669,27 @@ const SavedAttendance = () => {
         }
       }
 
+      // Determine the new record status based on times
+      // If both in and out times are present, status should be 'normal' (not absent)
+      // Unless it was already vacation or another special status
+      let newRecordStatus = record.record_status;
+      if (inTime && outTime && record.record_status === 'absent') {
+        newRecordStatus = 'normal';
+      } else if (!inTime && !outTime && record.record_status === 'normal') {
+        // If times are cleared on a normal record, don't change status automatically
+        // Keep it as normal unless user explicitly changes it
+      }
+
       // Recalculate deduction rule
       const lateMinutes = calculateLateMinutes(record.employee_code, inTime);
       const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, outTime);
-      const rule = findDeductionRule(lateMinutes, earlyExitMinutes, record.record_status || 'normal');
+      const rule = findDeductionRule(lateMinutes, earlyExitMinutes, newRecordStatus || 'normal');
 
       const updateData: any = {
         [field]: newValue || null,
         total_hours: totalHours,
         difference_hours: differenceHours,
+        record_status: newRecordStatus,
         deduction_rule_id: rule?.id || null,
         deduction_amount: rule?.deduction_value || 0,
         updated_by: userId,
