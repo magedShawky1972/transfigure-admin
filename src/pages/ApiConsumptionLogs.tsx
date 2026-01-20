@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, ShieldX } from "lucide-react";
 import { format } from "date-fns";
 
 interface ApiLog {
@@ -55,8 +56,10 @@ interface ApiStats {
 const ApiConsumptionLogs = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [logs, setLogs] = useState<ApiLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [stats, setStats] = useState<ApiStats>({ total: 0, success: 0, failed: 0, avgTime: 0 });
   const [selectedLog, setSelectedLog] = useState<ApiLog | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -79,9 +82,57 @@ const ApiConsumptionLogs = () => {
     "api-zk-attendance",
   ];
 
+  // Check user access permission
   useEffect(() => {
-    fetchLogs();
-  }, [endpointFilter, statusFilter, dateFilter]);
+    const checkAccess = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate('/auth');
+          return;
+        }
+
+        // Check if user is admin
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .single();
+
+        if (roles) {
+          setHasAccess(true);
+          return;
+        }
+
+        // Check specific permission
+        const { data: permission } = await supabase
+          .from('user_permissions')
+          .select('has_access')
+          .eq('user_id', user.id)
+          .eq('menu_item', 'apiConsumptionLogs')
+          .eq('parent_menu', 'Admin')
+          .single();
+
+        if (permission?.has_access) {
+          setHasAccess(true);
+        } else {
+          setHasAccess(false);
+        }
+      } catch (error) {
+        console.error('Error checking access:', error);
+        setHasAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (hasAccess) {
+      fetchLogs();
+    }
+  }, [endpointFilter, statusFilter, dateFilter, hasAccess]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -199,6 +250,35 @@ const ApiConsumptionLogs = () => {
     setSelectedLog(log);
     setDetailDialogOpen(true);
   };
+
+  // Show loading state while checking access
+  if (hasAccess === null) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Show Access Denied page
+  if (hasAccess === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <ShieldX className="h-16 w-16 text-destructive" />
+        <h1 className="text-2xl font-bold text-destructive">
+          {language === "ar" ? "الوصول مرفوض" : "Access Denied"}
+        </h1>
+        <p className="text-muted-foreground text-center max-w-md">
+          {language === "ar" 
+            ? "ليس لديك صلاحية للوصول إلى هذه الصفحة. يرجى التواصل مع مسؤول النظام إذا كنت تعتقد أن هذا خطأ."
+            : "You don't have permission to access this page. Please contact your system administrator if you believe this is an error."}
+        </p>
+        <Button onClick={() => navigate("/")} variant="outline">
+          {language === "ar" ? "العودة للرئيسية" : "Go to Home"}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
