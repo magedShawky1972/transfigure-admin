@@ -617,6 +617,7 @@ const LoadData = () => {
             total_value: totalValue,
             date_range_start: sortedDates[0] || null,
             date_range_end: sortedDates[sortedDates.length - 1] || null,
+            duplicate_records_count: totalInFileDuplicates,
           })
           .eq("id", uploadLogId);
       }
