@@ -3385,39 +3385,6 @@ export type Database = {
         }
         Relationships: []
       }
-      order_payment: {
-        Row: {
-          create_at: string | null
-          create_at_int: number | null
-          created_at: string
-          created_at_int: number | null
-          id: string
-          ordernumber: string
-          paymentrefrence: string | null
-          updated_at: string
-        }
-        Insert: {
-          create_at?: string | null
-          create_at_int?: number | null
-          created_at?: string
-          created_at_int?: number | null
-          id?: string
-          ordernumber: string
-          paymentrefrence?: string | null
-          updated_at?: string
-        }
-        Update: {
-          create_at?: string | null
-          create_at_int?: number | null
-          created_at?: string
-          created_at_int?: number | null
-          id?: string
-          ordernumber?: string
-          paymentrefrence?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       ordertotals: {
         Row: {
           bank_fee: number | null
