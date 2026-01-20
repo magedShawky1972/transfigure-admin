@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SavedAttendanceRecord {
@@ -152,6 +153,16 @@ interface OfficialHoliday {
   religion: string | null;
 }
 
+interface VacationCode {
+  id: string;
+  code: string;
+  name_en: string;
+  name_ar: string | null;
+  default_days: number;
+  is_paid: boolean;
+  is_active: boolean;
+}
+
 const SavedAttendance = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
@@ -167,6 +178,7 @@ const SavedAttendance = () => {
   const [attendanceTypes, setAttendanceTypes] = useState<AttendanceType[]>([]);
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [vacationCodes, setVacationCodes] = useState<VacationCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchCode, setSearchCode] = useState("");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
@@ -197,6 +209,10 @@ const SavedAttendance = () => {
     deduction_rule_id: "",
     deduction_amount: 0,
     notes: "",
+    record_status: "normal" as string,
+    is_vacation: false,
+    vacation_code_id: "",
+    deduct_from_balance: false,
   });
 
   // Multi-column sorting state - default sort by employee_name then attendance_date
@@ -421,6 +437,20 @@ const SavedAttendance = () => {
     }
   };
 
+  const fetchVacationCodes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("vacation_codes")
+        .select("id, code, name_en, name_ar, default_days, is_paid, is_active")
+        .eq("is_active", true)
+        .order("name_en");
+      if (error) throw error;
+      setVacationCodes(data || []);
+    } catch (error) {
+      console.error("Error fetching vacation codes:", error);
+    }
+  };
+
   // Get expected start time for an employee based on their attendance type
   const getExpectedStartTime = (employeeCode: string): string | null => {
     const emp = employees.find(e => e.zk_employee_code === employeeCode);
@@ -548,6 +578,7 @@ const SavedAttendance = () => {
     fetchAttendanceTypes();
     fetchDeductionRules();
     fetchProfiles();
+    fetchVacationCodes();
   }, []);
 
   useEffect(() => {
@@ -1182,6 +1213,10 @@ const SavedAttendance = () => {
       deduction_rule_id: record.deduction_rule_id || "",
       deduction_amount: record.deduction_amount || 0,
       notes: record.notes || "",
+      record_status: record.record_status || "normal",
+      is_vacation: record.record_status === "vacation",
+      vacation_code_id: "",
+      deduct_from_balance: false,
     });
     setEditDialogOpen(true);
   };
@@ -1212,6 +1247,59 @@ const SavedAttendance = () => {
         }
       }
 
+      // Determine record status and vacation type
+      let recordStatus = editFormData.record_status;
+      let vacationType: string | null = null;
+      
+      if (editFormData.is_vacation && editFormData.vacation_code_id) {
+        recordStatus = "vacation";
+        const selectedVacation = vacationCodes.find(v => v.id === editFormData.vacation_code_id);
+        vacationType = selectedVacation ? (isArabic && selectedVacation.name_ar ? selectedVacation.name_ar : selectedVacation.name_en) : null;
+        
+        // Deduct from employee vacation balance if checkbox is checked
+        if (editFormData.deduct_from_balance && selectedVacation) {
+          const emp = employees.find(e => e.zk_employee_code === selectedRecord.employee_code);
+          if (emp) {
+            const currentYear = new Date(selectedRecord.attendance_date).getFullYear();
+            
+            // Check if employee has this vacation type assigned
+            const { data: empVacationType } = await supabase
+              .from("employee_vacation_types")
+              .select("id, balance, used_days")
+              .eq("employee_id", emp.id)
+              .eq("vacation_code_id", editFormData.vacation_code_id)
+              .eq("year", currentYear)
+              .maybeSingle();
+            
+            if (empVacationType) {
+              // Update existing vacation balance
+              await supabase
+                .from("employee_vacation_types")
+                .update({
+                  used_days: (empVacationType.used_days || 0) + 1,
+                  balance: (empVacationType.balance || 0) - 1,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", empVacationType.id);
+            } else {
+              // Create new vacation type entry for this employee
+              await supabase
+                .from("employee_vacation_types")
+                .insert({
+                  employee_id: emp.id,
+                  vacation_code_id: editFormData.vacation_code_id,
+                  year: currentYear,
+                  balance: selectedVacation.default_days - 1,
+                  used_days: 1,
+                });
+            }
+          }
+        }
+      } else if (!editFormData.is_vacation && selectedRecord.record_status === "vacation") {
+        // Changed from vacation to something else
+        recordStatus = "normal";
+      }
+
       const { error } = await supabase
         .from("saved_attendance")
         .update({
@@ -1222,6 +1310,8 @@ const SavedAttendance = () => {
           deduction_rule_id: editFormData.deduction_rule_id || null,
           deduction_amount: editFormData.deduction_amount,
           notes: editFormData.notes || null,
+          record_status: recordStatus,
+          vacation_type: vacationType,
         })
         .eq("id", selectedRecord.id);
 
@@ -2633,6 +2723,72 @@ const SavedAttendance = () => {
                 value={editFormData.deduction_amount}
                 onChange={(e) => setEditFormData(prev => ({ ...prev, deduction_amount: parseFloat(e.target.value) || 0 }))}
               />
+            </div>
+
+            {/* Vacation Section */}
+            <div className="space-y-3 p-3 border rounded-lg bg-purple-50 dark:bg-purple-900/20">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <Checkbox
+                  id="is_vacation"
+                  checked={editFormData.is_vacation}
+                  onCheckedChange={(checked) => {
+                    setEditFormData(prev => ({
+                      ...prev,
+                      is_vacation: checked === true,
+                      vacation_code_id: checked ? prev.vacation_code_id : "",
+                      deduct_from_balance: checked ? prev.deduct_from_balance : false,
+                    }));
+                  }}
+                />
+                <Label htmlFor="is_vacation" className="font-medium text-purple-700 dark:text-purple-300">
+                  {isArabic ? "تسجيل كإجازة" : "Mark as Vacation"}
+                </Label>
+              </div>
+
+              {editFormData.is_vacation && (
+                <>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "نوع الإجازة" : "Vacation Type"}</Label>
+                    <Select
+                      value={editFormData.vacation_code_id || "none"}
+                      onValueChange={(value) => {
+                        setEditFormData(prev => ({
+                          ...prev,
+                          vacation_code_id: value === "none" ? "" : value,
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={isArabic ? "اختر نوع الإجازة" : "Select vacation type"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{isArabic ? "اختر..." : "Select..."}</SelectItem>
+                        {vacationCodes.map(vc => (
+                          <SelectItem key={vc.id} value={vc.id}>
+                            {isArabic && vc.name_ar ? vc.name_ar : vc.name_en} ({vc.default_days} {isArabic ? "يوم" : "days"})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                    <Checkbox
+                      id="deduct_from_balance"
+                      checked={editFormData.deduct_from_balance}
+                      onCheckedChange={(checked) => {
+                        setEditFormData(prev => ({
+                          ...prev,
+                          deduct_from_balance: checked === true,
+                        }));
+                      }}
+                    />
+                    <Label htmlFor="deduct_from_balance" className="text-sm">
+                      {isArabic ? "خصم من رصيد الإجازات" : "Deduct from vacation balance"}
+                    </Label>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="space-y-2">
