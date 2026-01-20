@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SavedAttendanceRecord {
   id: string;
@@ -75,6 +76,14 @@ interface SavedAttendanceRecord {
   batch_id: string | null;
   notes: string | null;
   created_at: string;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+interface Profile {
+  user_id: string;
+  user_name: string | null;
+  email: string | null;
 }
 
 interface DeductionRule {
@@ -147,6 +156,7 @@ const SavedAttendance = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendanceTypes, setAttendanceTypes] = useState<AttendanceType[]>([]);
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchCode, setSearchCode] = useState("");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
@@ -165,6 +175,8 @@ const SavedAttendance = () => {
   const [selectedRecord, setSelectedRecord] = useState<SavedAttendanceRecord | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"summary" | "employee-totals">("summary");
+  const [editingCell, setEditingCell] = useState<{ recordId: string; field: "in_time" | "out_time" } | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
   
   const [editFormData, setEditFormData] = useState({
     in_time: "",
@@ -384,6 +396,18 @@ const SavedAttendance = () => {
     }
   };
 
+  const fetchProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, user_name, email");
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (error) {
+      console.error("Error fetching profiles:", error);
+    }
+  };
+
   // Get expected start time for an employee based on their attendance type
   const getExpectedStartTime = (employeeCode: string): string | null => {
     const emp = employees.find(e => e.zk_employee_code === employeeCode);
@@ -510,6 +534,7 @@ const SavedAttendance = () => {
     fetchEmployees();
     fetchAttendanceTypes();
     fetchDeductionRules();
+    fetchProfiles();
   }, []);
 
   useEffect(() => {
@@ -596,6 +621,351 @@ const SavedAttendance = () => {
     const rule = deductionRules.find(r => r.id === ruleId);
     if (!rule) return "-";
     return isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name;
+  };
+
+  // Get profile name by user_id
+  const getProfileName = (userId: string | null): string => {
+    if (!userId) return "-";
+    const profile = profiles.find(p => p.user_id === userId);
+    return profile?.user_name || profile?.email || userId;
+  };
+
+  // Inline edit handlers
+  const handleInlineEditStart = (recordId: string, field: "in_time" | "out_time", currentValue: string | null) => {
+    setEditingCell({ recordId, field });
+    setEditingValue(currentValue || "");
+  };
+
+  const handleInlineEditSave = async (record: SavedAttendanceRecord, field: "in_time" | "out_time", newValue: string) => {
+    if (newValue === (record[field] || "")) {
+      setEditingCell(null);
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+
+      // Calculate new totals
+      const inTime = field === "in_time" ? newValue : record.in_time;
+      const outTime = field === "out_time" ? newValue : record.out_time;
+
+      let totalHours = record.total_hours;
+      let differenceHours = record.difference_hours;
+
+      if (inTime && outTime) {
+        const [inH, inM] = inTime.split(":").map(Number);
+        const [outH, outM] = outTime.split(":").map(Number);
+        let inMinutes = inH * 60 + inM;
+        let outMinutes = outH * 60 + outM;
+
+        if (outMinutes < inMinutes) {
+          outMinutes += 24 * 60;
+        }
+
+        totalHours = (outMinutes - inMinutes) / 60;
+        if (record.expected_hours !== null) {
+          differenceHours = totalHours - record.expected_hours;
+        }
+      }
+
+      // Recalculate deduction rule
+      const lateMinutes = calculateLateMinutes(record.employee_code, inTime);
+      const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, outTime);
+      const rule = findDeductionRule(lateMinutes, earlyExitMinutes, record.record_status || 'normal');
+
+      const updateData: any = {
+        [field]: newValue || null,
+        total_hours: totalHours,
+        difference_hours: differenceHours,
+        deduction_rule_id: rule?.id || null,
+        deduction_amount: rule?.deduction_value || 0,
+        updated_by: userId,
+      };
+
+      const { error } = await supabase
+        .from("saved_attendance")
+        .update(updateData)
+        .eq("id", record.id);
+
+      if (error) throw error;
+
+      toast.success(isArabic ? "تم حفظ التغييرات" : "Changes saved");
+      fetchRecords();
+    } catch (error: any) {
+      console.error("Error updating record:", error);
+      toast.error(isArabic ? "خطأ في حفظ التغييرات" : "Error saving changes");
+    } finally {
+      setEditingCell(null);
+    }
+  };
+
+  const handleInlineEditKeyDown = (e: React.KeyboardEvent, record: SavedAttendanceRecord, field: "in_time" | "out_time") => {
+    if (e.key === "Enter") {
+      handleInlineEditSave(record, field, editingValue);
+    } else if (e.key === "Escape") {
+      setEditingCell(null);
+    }
+  };
+
+  // Print all records
+  const handlePrintAll = () => {
+    const dateRangeText = records.length > 0 
+      ? `${records[0]?.filter_from_date} - ${records[0]?.filter_to_date}` 
+      : "";
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="${isArabic ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${isArabic ? 'سجل الحضور المحفوظ' : 'Saved Attendance Report'}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            direction: ${isArabic ? 'rtl' : 'ltr'};
+            color: black;
+          }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+          .header h1 { font-size: 24px; margin-bottom: 5px; }
+          .header p { font-size: 14px; color: #666; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: ${isArabic ? 'right' : 'left'}; font-size: 11px; }
+          th { background: #333; color: white; font-weight: 600; }
+          tr:nth-child(even) { background: #f9f9f9; }
+          .mono { font-family: monospace; }
+          .status-absent { color: #ea580c; font-weight: 600; }
+          .status-vacation { color: #9333ea; font-weight: 600; }
+          .diff-positive { color: #16a34a; }
+          .diff-negative { color: #dc2626; }
+          .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #ddd; padding-top: 15px; }
+          @media print {
+            body { padding: 10px; }
+            @page { size: A4 landscape; margin: 10mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${isArabic ? 'سجل الحضور المحفوظ' : 'Saved Attendance Report'}</h1>
+          <p>${dateRangeText}</p>
+          <p>${isArabic ? 'تاريخ الطباعة:' : 'Print Date:'} ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>${isArabic ? 'اسم الموظف' : 'Employee Name'}</th>
+              <th>${isArabic ? 'اليوم' : 'Day'}</th>
+              <th>${isArabic ? 'التاريخ' : 'Date'}</th>
+              <th>${isArabic ? 'الدخول' : 'In'}</th>
+              <th>${isArabic ? 'الخروج' : 'Out'}</th>
+              <th>${isArabic ? 'الإجمالي' : 'Total'}</th>
+              <th>${isArabic ? 'الفرق' : 'Diff'}</th>
+              <th>${isArabic ? 'الحالة' : 'Status'}</th>
+              <th>${isArabic ? 'الخصم' : 'Deduction'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedRecords.map(rec => {
+              const statusClass = rec.record_status === 'absent' ? 'status-absent' : rec.record_status === 'vacation' ? 'status-vacation' : '';
+              const statusText = rec.record_status === 'absent' ? (isArabic ? 'غائب' : 'Absent') : rec.record_status === 'vacation' ? (rec.vacation_type || (isArabic ? 'إجازة' : 'Vacation')) : (isArabic ? 'حاضر' : 'Present');
+              const diffClass = rec.difference_hours !== null ? (rec.difference_hours >= 0 ? 'diff-positive' : 'diff-negative') : '';
+              const rule = rec.deduction_rule_id ? deductionRules.find(r => r.id === rec.deduction_rule_id) : null;
+              const deductionText = rule ? `${isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name} (${rule.deduction_value})` : '-';
+              
+              return `<tr>
+                <td>${getEmployeeName(rec.employee_code)}</td>
+                <td class="mono">${getWeekday(rec.attendance_date)}</td>
+                <td class="mono">${rec.attendance_date}</td>
+                <td class="mono">${rec.in_time || '-'}</td>
+                <td class="mono">${rec.out_time || '-'}</td>
+                <td class="mono">${rec.total_hours !== null ? formatDecimalHoursToHHMM(rec.total_hours) : '-'}</td>
+                <td class="mono ${diffClass}">${rec.difference_hours !== null ? `${rec.difference_hours >= 0 ? '+' : ''}${formatDecimalHoursToHHMM(rec.difference_hours)}` : '-'}</td>
+                <td class="${statusClass}">${statusText}</td>
+                <td>${deductionText}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>${isArabic ? 'إجمالي السجلات:' : 'Total Records:'} ${sortedRecords.length}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
+  // Print single employee summary
+  const handlePrintEmployeeSummary = (employeeCode: string) => {
+    const empRecords = sortedRecords.filter(r => r.employee_code === employeeCode);
+    if (empRecords.length === 0) return;
+
+    const emp = {
+      employee_code: employeeCode,
+      employee_name: getEmployeeName(employeeCode),
+      total_days: empRecords.length,
+      present_days: empRecords.filter(r => r.record_status === 'normal' || r.record_status === 'present').length,
+      absent_days: empRecords.filter(r => r.record_status === 'absent').length,
+      vacation_days: empRecords.filter(r => r.record_status === 'vacation').length,
+      total_worked_hours: empRecords.reduce((sum, r) => sum + (r.total_hours || 0), 0),
+      total_expected_hours: empRecords.reduce((sum, r) => sum + (r.expected_hours || 0), 0),
+      total_difference_hours: empRecords.reduce((sum, r) => sum + (r.difference_hours || 0), 0),
+      total_deduction: empRecords.reduce((sum, r) => sum + (r.deduction_amount || 0), 0),
+    };
+
+    const dateRangeText = empRecords.length > 0 
+      ? `${empRecords[0]?.filter_from_date} - ${empRecords[0]?.filter_to_date}` 
+      : "";
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="${isArabic ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${isArabic ? 'ملخص حضور الموظف' : 'Employee Attendance Summary'}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            direction: ${isArabic ? 'rtl' : 'ltr'};
+            color: black;
+          }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+          .header h1 { font-size: 24px; margin-bottom: 5px; }
+          .header p { font-size: 14px; color: #666; }
+          .summary-box { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 15px; 
+            margin-bottom: 30px; 
+            background: #f5f5f5; 
+            padding: 20px; 
+            border-radius: 8px; 
+          }
+          .summary-item { text-align: center; }
+          .summary-item .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+          .summary-item .value { font-size: 18px; font-weight: bold; }
+          .summary-item .value.positive { color: #16a34a; }
+          .summary-item .value.negative { color: #dc2626; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: ${isArabic ? 'right' : 'left'}; font-size: 12px; }
+          th { background: #333; color: white; font-weight: 600; }
+          tr:nth-child(even) { background: #f9f9f9; }
+          .mono { font-family: monospace; }
+          .status-absent { color: #ea580c; font-weight: 600; }
+          .status-vacation { color: #9333ea; font-weight: 600; }
+          .diff-positive { color: #16a34a; font-weight: 600; }
+          .diff-negative { color: #dc2626; font-weight: 600; }
+          .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #ddd; padding-top: 15px; }
+          @media print {
+            body { padding: 10px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${isArabic ? 'ملخص حضور الموظف' : 'Employee Attendance Summary'}</h1>
+          <p><strong>${emp.employee_name}</strong></p>
+          <p>${dateRangeText}</p>
+          <p>${isArabic ? 'تاريخ الطباعة:' : 'Print Date:'} ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}</p>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'إجمالي الأيام' : 'Total Days'}</div>
+            <div class="value">${emp.total_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'أيام الحضور' : 'Present Days'}</div>
+            <div class="value positive">${emp.present_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'أيام الغياب' : 'Absent Days'}</div>
+            <div class="value ${emp.absent_days > 0 ? 'negative' : ''}">${emp.absent_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'أيام الإجازة' : 'Vacation Days'}</div>
+            <div class="value">${emp.vacation_days}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'ساعات العمل' : 'Worked Hours'}</div>
+            <div class="value">${emp.total_worked_hours.toFixed(2)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'الساعات المتوقعة' : 'Expected Hours'}</div>
+            <div class="value">${emp.total_expected_hours.toFixed(2)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'الفرق' : 'Difference'}</div>
+            <div class="value ${emp.total_difference_hours >= 0 ? 'positive' : 'negative'}">${emp.total_difference_hours >= 0 ? '+' : ''}${emp.total_difference_hours.toFixed(2)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">${isArabic ? 'إجمالي الخصومات' : 'Total Deductions'}</div>
+            <div class="value ${emp.total_deduction > 0 ? 'negative' : ''}">${emp.total_deduction.toFixed(2)}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>${isArabic ? 'اليوم' : 'Day'}</th>
+              <th>${isArabic ? 'التاريخ' : 'Date'}</th>
+              <th>${isArabic ? 'الدخول' : 'In'}</th>
+              <th>${isArabic ? 'الخروج' : 'Out'}</th>
+              <th>${isArabic ? 'الإجمالي' : 'Total'}</th>
+              <th>${isArabic ? 'الفرق' : 'Diff'}</th>
+              <th>${isArabic ? 'الحالة' : 'Status'}</th>
+              <th>${isArabic ? 'الخصم' : 'Deduction'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${empRecords.map(rec => {
+              const statusClass = rec.record_status === 'absent' ? 'status-absent' : rec.record_status === 'vacation' ? 'status-vacation' : '';
+              const statusText = rec.record_status === 'absent' ? (isArabic ? 'غائب' : 'Absent') : rec.record_status === 'vacation' ? (rec.vacation_type || (isArabic ? 'إجازة' : 'Vacation')) : (isArabic ? 'حاضر' : 'Present');
+              const diffClass = rec.difference_hours !== null ? (rec.difference_hours >= 0 ? 'diff-positive' : 'diff-negative') : '';
+              const rule = rec.deduction_rule_id ? deductionRules.find(r => r.id === rec.deduction_rule_id) : null;
+              const deductionText = rule ? `${isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name}` : '-';
+              
+              return `<tr>
+                <td class="mono">${getWeekday(rec.attendance_date)}</td>
+                <td class="mono">${rec.attendance_date}</td>
+                <td class="mono">${rec.in_time || '-'}</td>
+                <td class="mono">${rec.out_time || '-'}</td>
+                <td class="mono">${rec.total_hours !== null ? formatDecimalHoursToHHMM(rec.total_hours) : '-'}</td>
+                <td class="mono ${diffClass}">${rec.difference_hours !== null ? `${rec.difference_hours >= 0 ? '+' : ''}${formatDecimalHoursToHHMM(rec.difference_hours)}` : '-'}</td>
+                <td class="${statusClass}">${statusText}</td>
+                <td>${deductionText}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>${isArabic ? 'إجمالي السجلات:' : 'Total Records:'} ${empRecords.length}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
   };
 
   // Calculate correct time status based on difference hours, allowances, and manual excuse selection
@@ -1190,6 +1560,11 @@ const SavedAttendance = () => {
                   {isArabic ? "تصدير" : "Export"}
                 </Button>
 
+                <Button variant="outline" size="sm" onClick={handlePrintAll} disabled={sortedRecords.length === 0}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  {isArabic ? "طباعة" : "Print"}
+                </Button>
+
                 <Button variant="outline" size="sm" onClick={fetchRecords}>
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                   {isArabic ? "تحديث" : "Refresh"}
@@ -1498,8 +1873,74 @@ const SavedAttendance = () => {
                           <TableCell className="font-medium">{getEmployeeName(record.employee_code)}</TableCell>
                           <TableCell className="text-center font-medium">{getWeekday(record.attendance_date)}</TableCell>
                           <TableCell>{record.attendance_date}</TableCell>
-                          <TableCell className="font-mono">{record.in_time || <span className="text-muted-foreground">-</span>}</TableCell>
-                          <TableCell className="font-mono">{record.out_time || <span className="text-muted-foreground">-</span>}</TableCell>
+                          <TableCell className="font-mono">
+                            {editingCell?.recordId === record.id && editingCell?.field === "in_time" ? (
+                              <Input
+                                type="time"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onBlur={() => handleInlineEditSave(record, "in_time", editingValue)}
+                                onKeyDown={(e) => handleInlineEditKeyDown(e, record, "in_time")}
+                                className="w-24 h-7 text-xs"
+                                autoFocus
+                              />
+                            ) : (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span 
+                                      className="cursor-pointer hover:bg-muted px-1 py-0.5 rounded"
+                                      onClick={() => handleInlineEditStart(record.id, "in_time", record.in_time)}
+                                    >
+                                      {record.in_time || <span className="text-muted-foreground">-</span>}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{isArabic ? "انقر للتعديل" : "Click to edit"}</p>
+                                    {record.updated_by && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {isArabic ? "آخر تعديل:" : "Last edit:"} {getProfileName(record.updated_by)}
+                                      </p>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {editingCell?.recordId === record.id && editingCell?.field === "out_time" ? (
+                              <Input
+                                type="time"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onBlur={() => handleInlineEditSave(record, "out_time", editingValue)}
+                                onKeyDown={(e) => handleInlineEditKeyDown(e, record, "out_time")}
+                                className="w-24 h-7 text-xs"
+                                autoFocus
+                              />
+                            ) : (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span 
+                                      className="cursor-pointer hover:bg-muted px-1 py-0.5 rounded"
+                                      onClick={() => handleInlineEditStart(record.id, "out_time", record.out_time)}
+                                    >
+                                      {record.out_time || <span className="text-muted-foreground">-</span>}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{isArabic ? "انقر للتعديل" : "Click to edit"}</p>
+                                    {record.updated_by && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {isArabic ? "آخر تعديل:" : "Last edit:"} {getProfileName(record.updated_by)}
+                                      </p>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </TableCell>
                           <TableCell className="font-mono">
                             {record.total_hours !== null ? (
                               <span className="font-semibold">{formatDecimalHoursToHHMM(record.total_hours)}</span>
@@ -1596,6 +2037,15 @@ const SavedAttendance = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handlePrintEmployeeSummary(record.employee_code)}
+                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              title={isArabic ? "طباعة ملخص الموظف" : "Print Employee Summary"}
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDeleteClick(record)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               title={isArabic ? "حذف" : "Delete"}
@@ -1626,19 +2076,20 @@ const SavedAttendance = () => {
                     <TableHead className="text-center">{isArabic ? "المتوقع" : "Expected"}</TableHead>
                     <TableHead className="text-center">{isArabic ? "الفرق" : "Difference"}</TableHead>
                     <TableHead className="text-center">{isArabic ? "الخصومات" : "Deductions"}</TableHead>
+                    <TableHead className="text-center">{isArabic ? "طباعة" : "Print"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
+                      <TableCell colSpan={10} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                         {isArabic ? "جاري التحميل..." : "Loading..."}
                       </TableCell>
                     </TableRow>
                   ) : employeeTotals.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         {isArabic ? "لا توجد سجلات" : "No records found"}
                       </TableCell>
                     </TableRow>
@@ -1668,6 +2119,17 @@ const SavedAttendance = () => {
                           <Badge className={emp.total_deduction > 0 ? "bg-red-500" : "bg-gray-200 text-gray-700"}>
                             {emp.total_deduction.toFixed(2)}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePrintEmployeeSummary(emp.employee_code)}
+                            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                            title={isArabic ? "طباعة ملخص الموظف" : "Print Employee Summary"}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))

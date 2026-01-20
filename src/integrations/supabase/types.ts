@@ -4316,6 +4316,7 @@ export type Database = {
           saved_by: string
           total_hours: number | null
           updated_at: string
+          updated_by: string | null
           vacation_type: string | null
         }
         Insert: {
@@ -4341,6 +4342,7 @@ export type Database = {
           saved_by: string
           total_hours?: number | null
           updated_at?: string
+          updated_by?: string | null
           vacation_type?: string | null
         }
         Update: {
@@ -4366,6 +4368,7 @@ export type Database = {
           saved_by?: string
           total_hours?: number | null
           updated_at?: string
+          updated_by?: string | null
           vacation_type?: string | null
         }
         Relationships: [
