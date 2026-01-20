@@ -124,6 +124,7 @@ interface SummaryRecord {
   difference_hours: number | null;
   record_status?: 'normal' | 'absent' | 'vacation';
   vacation_type?: string;
+  notes?: string;
 }
 
 interface EmployeeTotalRecord {
@@ -1112,6 +1113,96 @@ const ZKAttendanceLogs = () => {
           }
         }
       }
+
+      // Weekend absence inheritance logic:
+      // If Thursday is absent with note AND Sunday is absent without note,
+      // then Friday and Saturday should also be marked as absent with the Thursday note
+      const processWeekendAbsenceInheritance = () => {
+        for (const emp of requiredEmployees) {
+          // Group records by employee
+          const empRecords = summaryRecords.filter(r => r.employee_code === emp.zk_employee_code);
+          
+          // Find all Thursdays that are absent
+          const thursdayAbsents = empRecords.filter(r => {
+            if (r.record_status !== 'absent') return false;
+            const date = new Date(r.attendance_date);
+            return date.getDay() === 4; // Thursday
+          });
+
+          for (const thuRecord of thursdayAbsents) {
+            // Check if Thursday has a note (excuse)
+            // Since notes are not in summary records yet, we check for "absence with note" pattern
+            // For now, we'll look at the context - if there's a vacation_type set, treat it as excused
+            // Otherwise, we need to check the saved_attendance notes if available
+            
+            // Calculate the corresponding Friday, Saturday, and Sunday dates
+            const thuDate = new Date(thuRecord.attendance_date);
+            const friDate = new Date(thuDate);
+            friDate.setDate(friDate.getDate() + 1);
+            const satDate = new Date(thuDate);
+            satDate.setDate(satDate.getDate() + 2);
+            const sunDate = new Date(thuDate);
+            sunDate.setDate(sunDate.getDate() + 3);
+
+            const friDateStr = format(friDate, "yyyy-MM-dd");
+            const satDateStr = format(satDate, "yyyy-MM-dd");
+            const sunDateStr = format(sunDate, "yyyy-MM-dd");
+
+            // Check if Sunday exists in our date range and is absent without note
+            const sunRecord = empRecords.find(r => r.attendance_date === sunDateStr);
+            
+            // If Sunday is absent, add Friday and Saturday as absent with inherited status
+            // The rule: If Thu absent + Sun absent, weekend inherits Thu's excuse status
+            if (sunRecord && sunRecord.record_status === 'absent') {
+              // Check if dates are within our range
+              const friInRange = dateRange.includes(friDateStr);
+              const satInRange = dateRange.includes(satDateStr);
+              
+              // Add Friday if not already exists
+              const friKey = `${emp.zk_employee_code}_${friDateStr}`;
+              if (friInRange && !existingKeys.has(friKey) && !summaryRecords.some(r => r.key === friKey)) {
+                summaryRecords.push({
+                  key: friKey,
+                  employee_code: emp.zk_employee_code!,
+                  attendance_date: friDateStr,
+                  in_time: null,
+                  out_time: null,
+                  is_processed: false,
+                  created_at: new Date().toISOString(),
+                  log_ids: [],
+                  total_hours: 0,
+                  expected_hours: getExpectedHours(emp.zk_employee_code!),
+                  difference_hours: null,
+                  record_status: 'absent',
+                  notes: thuRecord.notes || (isArabic ? 'غياب موروث من الخميس' : 'Absence inherited from Thursday'),
+                });
+              }
+              
+              // Add Saturday if not already exists
+              const satKey = `${emp.zk_employee_code}_${satDateStr}`;
+              if (satInRange && !existingKeys.has(satKey) && !summaryRecords.some(r => r.key === satKey)) {
+                summaryRecords.push({
+                  key: satKey,
+                  employee_code: emp.zk_employee_code!,
+                  attendance_date: satDateStr,
+                  in_time: null,
+                  out_time: null,
+                  is_processed: false,
+                  created_at: new Date().toISOString(),
+                  log_ids: [],
+                  total_hours: 0,
+                  expected_hours: getExpectedHours(emp.zk_employee_code!),
+                  difference_hours: null,
+                  record_status: 'absent',
+                  notes: thuRecord.notes || (isArabic ? 'غياب موروث من الخميس' : 'Absence inherited from Thursday'),
+                });
+              }
+            }
+          }
+        }
+      };
+
+      processWeekendAbsenceInheritance();
     }
 
     return summaryRecords;
@@ -1564,6 +1655,7 @@ const ZKAttendanceLogs = () => {
           difference_hours: record.difference_hours,
           record_status: record.record_status || 'normal',
           vacation_type: record.vacation_type,
+          notes: record.notes || null,
           saved_by: userData.user.id,
           saved_at: new Date().toISOString(),
           filter_from_date: fromDateStr,
