@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePageAccess } from "@/hooks/usePageAccess";
+import { AccessDenied } from "@/components/AccessDenied";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, ShieldX } from "lucide-react";
+import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface ApiLog {
@@ -56,10 +57,9 @@ interface ApiStats {
 const ApiConsumptionLogs = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const { hasAccess, isLoading: accessLoading } = usePageAccess();
   const [logs, setLogs] = useState<ApiLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [stats, setStats] = useState<ApiStats>({ total: 0, success: 0, failed: 0, avgTime: 0 });
   const [selectedLog, setSelectedLog] = useState<ApiLog | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -81,48 +81,6 @@ const ApiConsumptionLogs = () => {
     "api-product",
     "api-zk-attendance",
   ];
-
-  // Check user access permission
-  useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          navigate('/auth');
-          return;
-        }
-
-        // Enforce page permission even if user has admin role.
-        // (Admin users can still be granted access via User Setup permissions.)
-
-        // Check most recent permission record for this page (regardless of parent_menu)
-        const { data: permissions, error: permError } = await supabase
-          .from('user_permissions')
-          .select('has_access, created_at')
-          .eq('user_id', user.id)
-          .eq('menu_item', 'apiConsumptionLogs')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (permError) {
-          console.error('Error checking permission:', permError);
-          setHasAccess(false);
-          return;
-        }
-
-        if (permissions && permissions.length > 0 && permissions[0].has_access) {
-          setHasAccess(true);
-        } else {
-          setHasAccess(false);
-        }
-      } catch (error) {
-        console.error('Error checking access:', error);
-        setHasAccess(false);
-      }
-    };
-
-    checkAccess();
-  }, [navigate]);
 
   useEffect(() => {
     if (hasAccess) {
@@ -247,33 +205,13 @@ const ApiConsumptionLogs = () => {
     setDetailDialogOpen(true);
   };
 
-  // Show loading state while checking access
-  if (hasAccess === null) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+  // Show loading or access denied
+  if (accessLoading || hasAccess === null) {
+    return <AccessDenied isLoading={true} />;
   }
 
-  // Show Access Denied page
   if (hasAccess === false) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <ShieldX className="h-16 w-16 text-destructive" />
-        <h1 className="text-2xl font-bold text-destructive">
-          {language === "ar" ? "الوصول مرفوض" : "Access Denied"}
-        </h1>
-        <p className="text-muted-foreground text-center max-w-md">
-          {language === "ar" 
-            ? "ليس لديك صلاحية للوصول إلى هذه الصفحة. يرجى التواصل مع مسؤول النظام إذا كنت تعتقد أن هذا خطأ."
-            : "You don't have permission to access this page. Please contact your system administrator if you believe this is an error."}
-        </p>
-        <Button onClick={() => navigate("/")} variant="outline">
-          {language === "ar" ? "العودة للرئيسية" : "Go to Home"}
-        </Button>
-      </div>
-    );
+    return <AccessDenied />;
   }
 
   return (
