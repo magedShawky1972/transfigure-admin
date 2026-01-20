@@ -3389,6 +3389,7 @@ export type Database = {
         Row: {
           create_at: string | null
           created_at: string
+          created_at_int: number | null
           id: string
           ordernumber: string | null
           paymentrefrence: string | null
@@ -3397,6 +3398,7 @@ export type Database = {
         Insert: {
           create_at?: string | null
           created_at?: string
+          created_at_int?: number | null
           id?: string
           ordernumber?: string | null
           paymentrefrence?: string | null
@@ -3405,6 +3407,7 @@ export type Database = {
         Update: {
           create_at?: string | null
           created_at?: string
+          created_at_int?: number | null
           id?: string
           ordernumber?: string | null
           paymentrefrence?: string | null
