@@ -25,6 +25,8 @@ interface DuplicateRecordsDialogProps {
   totalNewRecords: number;
   totalDuplicates: number;
   onAction: (action: 'update' | 'skip' | 'cancel') => void;
+  duplicateKeyColumn?: string;
+  duplicateMessage?: string;
 }
 
 export function DuplicateRecordsDialog({
@@ -34,6 +36,8 @@ export function DuplicateRecordsDialog({
   totalNewRecords,
   totalDuplicates,
   onAction,
+  duplicateKeyColumn,
+  duplicateMessage,
 }: DuplicateRecordsDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -57,8 +61,8 @@ export function DuplicateRecordsDialog({
             Duplicate Records Detected
           </DialogTitle>
           <DialogDescription>
-            Found {totalDuplicates} records that already exist in the database.
-            Choose how to handle them.
+            {duplicateMessage || `Found ${totalDuplicates} records that already exist in the database.`}
+            {' '}Choose how to handle them.
           </DialogDescription>
         </DialogHeader>
 
@@ -78,7 +82,9 @@ export function DuplicateRecordsDialog({
 
           {duplicates.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Sample duplicate keys:</p>
+              <p className="text-sm font-medium">
+                Duplicate {duplicateKeyColumn || 'keys'}:
+              </p>
               <ScrollArea className="h-[200px] rounded-md border p-3">
                 <div className="space-y-1">
                   {duplicates.slice(0, 50).map((dup, idx) => (

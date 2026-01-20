@@ -98,6 +98,8 @@ const LoadData = () => {
     duplicates: { key: string; existingCount: number; newCount: number }[];
     totalRecords: number;
     duplicateCount: number;
+    duplicateKeyColumn?: string;
+    duplicateMessage?: string;
   } | null>(null);
   const [pendingDuplicateAction, setPendingDuplicateAction] = useState<'update' | 'skip' | null>(null);
 
@@ -554,6 +556,8 @@ const LoadData = () => {
             duplicates: result.duplicates || [],
             totalRecords: result.totalRecords || 0,
             duplicateCount: result.duplicateCount || 0,
+            duplicateKeyColumn: result.duplicateKeyColumn || undefined,
+            duplicateMessage: result.duplicateMessage || undefined,
           });
           setPendingUploadData(jsonData);
           setPendingFileId(fileId);
@@ -959,6 +963,8 @@ const LoadData = () => {
         totalNewRecords={duplicateInfo?.totalRecords || 0}
         totalDuplicates={duplicateInfo?.duplicateCount || 0}
         onAction={handleDuplicateAction}
+        duplicateKeyColumn={duplicateInfo?.duplicateKeyColumn}
+        duplicateMessage={duplicateInfo?.duplicateMessage}
       />
     </div>
   );
