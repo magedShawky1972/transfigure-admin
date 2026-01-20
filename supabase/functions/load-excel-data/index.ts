@@ -165,11 +165,32 @@ Deno.serve(async (req) => {
     console.log(`Prepared ${validMappings.length} column mappings, ${jsonMappings.length} JSON columns to split`);
 
     // Transform the data based on valid mappings
+    // Note: Excel headers often have different casing/spaces vs stored mapping keys.
+    // We support fuzzy header matching by normalizing both sides.
+    const normalizeHeaderKey = (v: any) =>
+      String(v ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+
     const transformedData = data.map((row: any) => {
       const transformedRow: any = {};
-      
+
+      const rowKeyByNorm: Record<string, string> = {};
+      Object.keys(row || {}).forEach((k) => {
+        rowKeyByNorm[normalizeHeaderKey(k)] = k;
+      });
+
+      const getExcelValue = (excelColumn: string) => {
+        // Exact key first
+        if (row && Object.prototype.hasOwnProperty.call(row, excelColumn)) return row[excelColumn];
+        // Fuzzy match (case/space/punct-insensitive)
+        const fuzzyKey = rowKeyByNorm[normalizeHeaderKey(excelColumn)];
+        return fuzzyKey ? row[fuzzyKey] : undefined;
+      };
+
       validMappings.forEach((mapping) => {
-        const excelValue = row[mapping.excel_column];
+        const excelValue = getExcelValue(mapping.excel_column);
         const targetColumn = (mapping.table_column || '').toLowerCase().trim();
 
         // Skip JSON columns that have split keys - they'll be handled separately
@@ -178,11 +199,12 @@ Deno.serve(async (req) => {
         }
 
         if (!targetColumn) return;
-        
+
         if (excelValue !== undefined && excelValue !== null && excelValue !== '') {
           // If the destination column is a timestamp/date-like column, ensure Excel serial numbers are converted
-          const targetLooksDateTime = targetColumn.includes('timestamp') || 
-            targetColumn.endsWith('_date') || 
+          const targetLooksDateTime =
+            targetColumn.includes('timestamp') ||
+            targetColumn.endsWith('_date') ||
             targetColumn.endsWith('date') ||
             targetColumn === 'created_at' ||
             targetColumn === 'updated_at' ||
