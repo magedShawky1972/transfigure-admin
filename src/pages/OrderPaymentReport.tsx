@@ -372,13 +372,14 @@ const OrderPaymentReport = () => {
       let targetTransactionReceipts: string[] | null = null;
 
       if (orderNumberColumnFilter) {
-        const { data: matchingPayments } = await supabase
+        const { data: matchingPayments } = await (supabase as any)
           .from('order_payment')
           .select('paymentrefrence')
           .ilike('ordernumber', `%${orderNumberColumnFilter}%`);
         
-        if (matchingPayments && matchingPayments.length > 0) {
-          targetPaymentRefs = matchingPayments.map(p => p.paymentrefrence).filter(Boolean) as string[];
+        const matchingPaymentsArr = (matchingPayments || []) as any[];
+        if (matchingPaymentsArr.length > 0) {
+          targetPaymentRefs = matchingPaymentsArr.map(p => p.paymentrefrence).filter(Boolean) as string[];
         } else {
           // No matching orders found - return empty result
           setOrders([]);
@@ -484,18 +485,18 @@ const OrderPaymentReport = () => {
             }
 
             const [paymentResult, riyadResult] = await Promise.all([
-              supabase
+              (supabase as any)
                 .from('order_payment')
                 .select('ordernumber, paymentrefrence')
                 .in('paymentrefrence', transactionIds),
               riyadQuery || Promise.resolve({ data: null })
             ]);
 
-            const paymentData = paymentResult.data;
+            const paymentData = (paymentResult.data || []) as any[];
             const riyadData = riyadResult.data;
 
             // Process payment data
-            paymentData?.forEach(p => {
+            paymentData.forEach(p => {
               const order = orderMap.get(p.paymentrefrence || '');
               if (order) {
                 order.order_number = p.ordernumber;
@@ -677,12 +678,13 @@ const OrderPaymentReport = () => {
         const paymentRefMap = new Map<string, string>();
         
         if (orderNumbers.length > 0) {
-          const { data: paymentData } = await supabase
+          const { data: paymentData } = await (supabase as any)
             .from('order_payment')
             .select('ordernumber, paymentrefrence')
             .in('ordernumber', orderNumbers);
-          
-          paymentData?.forEach(p => {
+
+          const paymentDataArr = (paymentData || []) as any[];
+          paymentDataArr.forEach(p => {
             if (p.ordernumber && p.paymentrefrence) {
               paymentRefMap.set(p.ordernumber, p.paymentrefrence);
             }
@@ -944,12 +946,12 @@ const OrderPaymentReport = () => {
       let paymentRef = paymentReference || transactionId || null;
       
       if (!paymentRef) {
-        const { data: paymentData } = await supabase
+        const { data: paymentData } = await (supabase as any)
           .from('order_payment')
           .select('paymentrefrence')
           .eq('ordernumber', orderNumber)
           .maybeSingle();
-        paymentRef = paymentData?.paymentrefrence || null;
+        paymentRef = (paymentData as any)?.paymentrefrence || null;
       }
 
       if (paymentRef) {

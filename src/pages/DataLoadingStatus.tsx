@@ -74,7 +74,7 @@ const DataLoadingStatus = () => {
               : `Fetching page ${pageNum} (${totalRecordsFetched.toLocaleString()} records)...`
           }));
           
-          const { data, error } = await supabase
+          const { data, error } = await (supabase as any)
             .from(opts.table)
             .select(opts.column)
             .gte(opts.column, startDate)
