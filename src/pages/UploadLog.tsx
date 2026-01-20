@@ -25,6 +25,7 @@ interface UploadLog {
   total_value: number;
   date_range_start: string | null;
   date_range_end: string | null;
+  duplicate_records_count: number;
 }
 
 interface UploadSummary {
@@ -35,6 +36,7 @@ interface UploadSummary {
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
   recordsProcessed: number;
+  duplicateRecordsCount: number;
 }
 
 const UploadLog = () => {
@@ -82,6 +84,7 @@ const UploadLog = () => {
       dateRangeStart: log.date_range_start,
       dateRangeEnd: log.date_range_end,
       recordsProcessed: log.records_processed || 0,
+      duplicateRecordsCount: log.duplicate_records_count || 0,
     });
     setShowSummaryDialog(true);
   };
@@ -299,9 +302,14 @@ const UploadLog = () => {
                   <p className="text-xl font-semibold">{selectedSummary.newProducts}</p>
                 </div>
                 
-                <div className="bg-muted/50 p-3 rounded-lg col-span-2">
+                <div className="bg-muted/50 p-3 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">New Brands</p>
                   <p className="text-xl font-semibold">{selectedSummary.newBrands}</p>
+                </div>
+                
+                <div className="bg-orange-500/10 p-3 rounded-lg border border-orange-500/30">
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mb-1">سجلات مكررة</p>
+                  <p className="text-xl font-semibold text-orange-600 dark:text-orange-400">{selectedSummary.duplicateRecordsCount}</p>
                 </div>
               </div>
 
