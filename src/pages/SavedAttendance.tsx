@@ -400,11 +400,28 @@ const SavedAttendance = () => {
     return attType?.fixed_end_time || null;
   };
 
-  // Calculate late arrival minutes based on in_time vs expected start time
+  const getEmployeeAttendanceAllowances = (
+    employeeCode: string
+  ): { allowLate: number; allowEarly: number } => {
+    const emp = employees.find(e => e.zk_employee_code === employeeCode);
+    if (!emp || !emp.attendance_type_id) return { allowLate: 0, allowEarly: 0 };
+
+    const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
+    if (!attType) return { allowLate: 0, allowEarly: 0 };
+
+    return {
+      allowLate: attType.allow_late_minutes ?? 0,
+      allowEarly: attType.allow_early_exit_minutes ?? 0,
+    };
+  };
+
+  // Calculate late arrival minutes beyond allowance
   const calculateLateMinutes = (employeeCode: string, inTime: string | null): number => {
     if (!inTime) return 0;
     const expectedStart = getExpectedStartTime(employeeCode);
     if (!expectedStart) return 0;
+
+    const { allowLate } = getEmployeeAttendanceAllowances(employeeCode);
 
     const [expectedH, expectedM] = expectedStart.split(":").map(Number);
     const [actualH, actualM] = inTime.split(":").map(Number);
@@ -412,14 +429,17 @@ const SavedAttendance = () => {
     const actualMinutes = actualH * 60 + actualM;
 
     const lateMinutes = actualMinutes - expectedMinutes;
-    return lateMinutes > 0 ? lateMinutes : 0;
+    const effectiveLate = lateMinutes - allowLate;
+    return effectiveLate > 0 ? effectiveLate : 0;
   };
 
-  // Calculate early exit minutes based on out_time vs expected end time
+  // Calculate early exit minutes beyond allowance
   const calculateEarlyExitMinutes = (employeeCode: string, outTime: string | null): number => {
     if (!outTime) return 0;
     const expectedEnd = getExpectedEndTime(employeeCode);
     if (!expectedEnd) return 0;
+
+    const { allowEarly } = getEmployeeAttendanceAllowances(employeeCode);
 
     const [expectedH, expectedM] = expectedEnd.split(":").map(Number);
     const [actualH, actualM] = outTime.split(":").map(Number);
@@ -432,7 +452,8 @@ const SavedAttendance = () => {
     }
 
     const earlyMinutes = expectedMinutes - actualMinutes;
-    return earlyMinutes > 0 ? earlyMinutes : 0;
+    const effectiveEarly = earlyMinutes - allowEarly;
+    return effectiveEarly > 0 ? effectiveEarly : 0;
   };
 
   // Find the appropriate deduction rule based on late/early minutes
@@ -577,20 +598,6 @@ const SavedAttendance = () => {
     return isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name;
   };
 
-  // Get employee attendance type allowances
-  const getEmployeeAttendanceAllowances = (employeeCode: string): { allowLate: number | null; allowEarly: number | null } => {
-    const emp = employees.find(e => e.zk_employee_code === employeeCode);
-    if (!emp || !emp.attendance_type_id) return { allowLate: null, allowEarly: null };
-    
-    const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
-    if (!attType) return { allowLate: null, allowEarly: null };
-    
-    return {
-      allowLate: attType.allow_late_minutes,
-      allowEarly: attType.allow_early_exit_minutes
-    };
-  };
-
   // Calculate correct time status based on difference hours, allowances, and manual excuse selection
   const getCorrectTimeStatus = (
     record: SavedAttendanceRecord
@@ -622,9 +629,10 @@ const SavedAttendance = () => {
     }
 
     const allowances = getEmployeeAttendanceAllowances(record.employee_code);
+    const hasAllowance = allowances.allowLate > 0 || allowances.allowEarly > 0;
 
     // If no allowance configured, we cannot mark it correct for negative differences
-    if (allowances.allowLate === null && allowances.allowEarly === null) {
+    if (!hasAllowance) {
       return { isCorrect: false, hasAllowance: false, forcedByExcuse: false };
     }
 
@@ -632,7 +640,7 @@ const SavedAttendance = () => {
     const diffMinutes = Math.abs(record.difference_hours * 60);
 
     // For negative difference, check against combined allowance
-    const totalAllowance = (allowances.allowLate || 0) + (allowances.allowEarly || 0);
+    const totalAllowance = allowances.allowLate + allowances.allowEarly;
 
     return { isCorrect: diffMinutes <= totalAllowance, hasAllowance: true, forcedByExcuse: false };
   };
@@ -1530,11 +1538,30 @@ const SavedAttendance = () => {
                             )}
                           </TableCell>
                           <TableCell>
-                            {record.deduction_amount && record.deduction_amount > 0 ? (
-                              <Badge className="bg-red-500">{record.deduction_amount.toFixed(2)}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                            {(() => {
+                              const ruleFromId = record.deduction_rule_id
+                                ? deductionRules.find(r => r.id === record.deduction_rule_id)
+                                : null;
+
+                              const computedRule = ruleFromId || findDeductionRule(
+                                calculateLateMinutes(record.employee_code, record.in_time),
+                                calculateEarlyExitMinutes(record.employee_code, record.out_time),
+                                record.record_status || "normal"
+                              );
+
+                              if (!computedRule) return <span className="text-muted-foreground">-</span>;
+
+                              const label = isArabic && computedRule.rule_name_ar ? computedRule.rule_name_ar : computedRule.rule_name;
+                              const valueText = computedRule.deduction_type === "percentage"
+                                ? `${(computedRule.deduction_value * 100).toFixed(0)}%`
+                                : computedRule.deduction_value.toString();
+
+                              return (
+                                <Badge className={computedRule.rule_type === "absence" ? "bg-orange-500" : "bg-red-500"}>
+                                  {label} ({valueText})
+                                </Badge>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell>
                             {record.is_confirmed ? (
