@@ -45,7 +45,7 @@ import { ar } from "date-fns/locale";
 import { 
   CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, 
   Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X,
-  ExternalLink, Check, History, FolderOpen, ArrowLeft, Calculator, Calendar as CalendarIconFilled, AlertTriangle
+  ExternalLink, Check, History, FolderOpen, ArrowLeft, Calculator, Calendar as CalendarIconFilled, AlertTriangle, Mail
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -198,6 +198,7 @@ const SavedAttendance = () => {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<SavedAttendanceRecord | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"summary" | "employee-totals">("summary");
   const [editingCell, setEditingCell] = useState<{ recordId: string; field: "in_time" | "out_time" } | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
@@ -1402,6 +1403,46 @@ const SavedAttendance = () => {
     }
   };
 
+  // Send attendance summary emails to employees
+  const handleSendSummaryEmails = async () => {
+    const selectedBatch = batches.find(b => b.batch_id === selectedBatchId);
+    if (!selectedBatch) {
+      toast.error(isArabic ? "لم يتم تحديد دفعة" : "No batch selected");
+      return;
+    }
+
+    // Check if there are confirmed records
+    const confirmedRecords = sortedRecords.filter(r => r.is_confirmed);
+    if (confirmedRecords.length === 0) {
+      toast.error(isArabic ? "لا توجد سجلات معتمدة لإرسال البريد" : "No confirmed records to send emails");
+      return;
+    }
+
+    setEmailLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-attendance-summary-email", {
+        body: { batch_number: selectedBatch.batch_id },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(
+          isArabic 
+            ? `تم إرسال ${data.sent} بريد بنجاح${data.failed > 0 ? ` (${data.failed} فشل)` : ""}`
+            : `Successfully sent ${data.sent} emails${data.failed > 0 ? ` (${data.failed} failed)` : ""}`
+        );
+      } else {
+        toast.error(data.message || (isArabic ? "فشل إرسال البريد" : "Failed to send emails"));
+      }
+    } catch (error: any) {
+      console.error("Error sending summary emails:", error);
+      toast.error(isArabic ? "خطأ في إرسال البريد الإلكتروني" : "Error sending emails");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
   // Apply deduction rules to all records in current batch
   const handleApplyDeductionRules = async () => {
     if (records.length === 0) {
@@ -1922,6 +1963,20 @@ const SavedAttendance = () => {
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     {isArabic ? `اعتماد الكل (${pendingCount})` : `Confirm All (${pendingCount})`}
+                  </Button>
+                )}
+
+                {/* Send Emails Button - show when there are confirmed records */}
+                {sortedRecords.some(r => r.is_confirmed) && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSendSummaryEmails}
+                    disabled={emailLoading}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {emailLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
+                    {isArabic ? "إرسال بريد للموظفين" : "Send Emails"}
                   </Button>
                 )}
 
