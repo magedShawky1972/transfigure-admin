@@ -121,10 +121,64 @@ const ApiIntegrationStatus = () => {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearingTable, setClearingTable] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
+  const [apiMode, setApiMode] = useState<'test' | 'production'>('test');
+  const [savingMode, setSavingMode] = useState(false);
 
   useEffect(() => {
+    fetchApiMode();
     fetchTableCounts();
   }, []);
+
+  const fetchApiMode = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('api_integration_settings')
+        .select('setting_value')
+        .eq('setting_key', 'api_mode')
+        .single();
+      
+      if (data && !error) {
+        setApiMode(data.setting_value as 'test' | 'production');
+      }
+    } catch (error) {
+      console.error('Error fetching API mode:', error);
+    }
+  };
+
+  const handleModeChange = async (newMode: 'test' | 'production') => {
+    setSavingMode(true);
+    try {
+      const { error } = await supabase
+        .from('api_integration_settings')
+        .upsert({
+          setting_key: 'api_mode',
+          setting_value: newMode,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'setting_key' });
+      
+      if (error) throw error;
+      
+      setApiMode(newMode);
+      toast({
+        title: language === 'ar' ? 'تم بنجاح' : 'Success',
+        description: language === 'ar' 
+          ? `تم التغيير إلى وضع ${newMode === 'test' ? 'الاختبار' : 'الإنتاج'}`
+          : `Switched to ${newMode} mode`,
+      });
+      
+      // Refresh counts after mode change
+      fetchTableCounts();
+    } catch (error) {
+      console.error('Error saving API mode:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في حفظ الوضع' : 'Failed to save mode',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingMode(false);
+    }
+  };
 
   const fetchTableCounts = async () => {
     setRefreshing(true);
@@ -243,30 +297,76 @@ const ApiIntegrationStatus = () => {
         </Button>
       </div>
 
-      {/* Mode Indicator */}
+      {/* Mode Toggle */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TestTube className="h-5 w-5 text-yellow-500" />
-            {language === 'ar' ? 'الوضع الحالي: وضع الاختبار' : 'Current Mode: Test Mode'}
+            {apiMode === 'test' ? (
+              <TestTube className="h-5 w-5 text-yellow-500" />
+            ) : (
+              <Factory className="h-5 w-5 text-green-500" />
+            )}
+            {language === 'ar' 
+              ? `الوضع الحالي: ${apiMode === 'test' ? 'وضع الاختبار' : 'وضع الإنتاج'}`
+              : `Current Mode: ${apiMode === 'test' ? 'Test Mode' : 'Production Mode'}`}
           </CardTitle>
           <CardDescription>
             {language === 'ar' 
-              ? 'جميع واجهات API تقوم حالياً بحفظ البيانات في جداول الاختبار. يمكن التبديل إلى وضع الإنتاج لاحقاً.'
-              : 'All APIs are currently saving data to test tables. You can switch to production mode later.'}
+              ? 'استخدم المفتاح أدناه للتبديل بين وضع الاختبار والإنتاج'
+              : 'Use the toggle below to switch between test and production modes'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-            <TestTube className="h-8 w-8 text-yellow-500" />
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div className="flex items-center gap-4">
+              <TestTube className={`h-6 w-6 ${apiMode === 'test' ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+              <span className={apiMode === 'test' ? 'font-medium' : 'text-muted-foreground'}>
+                {language === 'ar' ? 'اختبار' : 'Test'}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Switch
+                id="api-mode"
+                checked={apiMode === 'production'}
+                onCheckedChange={(checked) => handleModeChange(checked ? 'production' : 'test')}
+                disabled={savingMode}
+              />
+              {savingMode && <Loader2 className="h-4 w-4 animate-spin" />}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <span className={apiMode === 'production' ? 'font-medium' : 'text-muted-foreground'}>
+                {language === 'ar' ? 'إنتاج' : 'Production'}
+              </span>
+              <Factory className={`h-6 w-6 ${apiMode === 'production' ? 'text-green-500' : 'text-muted-foreground'}`} />
+            </div>
+          </div>
+          
+          <div className={`flex items-center gap-4 p-4 rounded-lg border ${
+            apiMode === 'test' 
+              ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+              : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+          }`}>
+            {apiMode === 'test' ? (
+              <TestTube className="h-8 w-8 text-yellow-500" />
+            ) : (
+              <Factory className="h-8 w-8 text-green-500" />
+            )}
             <div>
               <p className="font-medium">
-                {language === 'ar' ? 'وضع الاختبار نشط' : 'Test Mode Active'}
+                {apiMode === 'test' 
+                  ? (language === 'ar' ? 'وضع الاختبار نشط' : 'Test Mode Active')
+                  : (language === 'ar' ? 'وضع الإنتاج نشط' : 'Production Mode Active')}
               </p>
               <p className="text-sm text-muted-foreground">
-                {language === 'ar' 
-                  ? 'البيانات المستلمة من API تُحفظ في جداول الاختبار للمراجعة قبل الانتقال للإنتاج'
-                  : 'Data received from APIs is saved to test tables for review before moving to production'}
+                {apiMode === 'test' 
+                  ? (language === 'ar' 
+                      ? 'البيانات المستلمة من API تُحفظ في جداول الاختبار للمراجعة قبل الانتقال للإنتاج'
+                      : 'Data received from APIs is saved to test tables for review before moving to production')
+                  : (language === 'ar'
+                      ? 'البيانات المستلمة من API تُحفظ مباشرة في جداول الإنتاج'
+                      : 'Data received from APIs is saved directly to production tables')}
               </p>
             </div>
           </div>
@@ -326,10 +426,17 @@ const ApiIntegrationStatus = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
-                      <TestTube className="h-3 w-3 mr-1" />
-                      {language === 'ar' ? 'اختبار' : 'Test'}
-                    </Badge>
+                    {apiMode === 'test' ? (
+                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                        <TestTube className="h-3 w-3 mr-1" />
+                        {language === 'ar' ? 'اختبار' : 'Test'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                        <Factory className="h-3 w-3 mr-1" />
+                        {language === 'ar' ? 'إنتاج' : 'Production'}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
