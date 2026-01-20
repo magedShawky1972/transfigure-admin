@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.migrate-bank-ledger-hyperpay]
 verify_jwt = false
+
+[functions.send-attendance-summary-email]
+verify_jwt = false
