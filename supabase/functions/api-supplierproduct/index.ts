@@ -2,8 +2,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -36,6 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('Received supplier product data:', JSON.stringify(body));
 
     // Fetch required fields from configuration
     const { data: fieldConfigs, error: configError } = await supabase
@@ -66,9 +76,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Insert supplier product
-    const { data, error } = await supabase
-      .from('supplier_products')
+    // Upsert to testsupplierproducts table (for testing purposes)
+    const { data: testData, error: testError } = await supabase
+      .from('testsupplierproducts')
       .upsert({
         supplier_code: body.Supplier_code,
         sku: body.SKU,
@@ -81,15 +91,21 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (error) {
-      console.error('Error upserting supplier product:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+    if (testError) {
+      console.error('Error upserting to testsupplierproducts:', testError);
+      return new Response(JSON.stringify({ error: testError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    console.log('Successfully upserted to testsupplierproducts:', testData);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Supplier product saved to testsupplierproducts table',
+      data: testData 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

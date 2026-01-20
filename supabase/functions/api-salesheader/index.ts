@@ -2,8 +2,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -36,6 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('Received sales header data:', JSON.stringify(body));
 
     // Fetch required fields from configuration
     const { data: fieldConfigs, error: configError } = await supabase
@@ -66,10 +76,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Insert sales order header
-    const { data, error } = await supabase
-      .from('sales_order_header')
-      .insert({
+    // Upsert to testsalesheader table (for testing purposes)
+    const { data: testData, error: testError } = await supabase
+      .from('testsalesheader')
+      .upsert({
         order_number: body.Order_Number,
         customer_phone: body.Customer_Phone,
         order_date: body.Order_date,
@@ -85,19 +95,27 @@ Deno.serve(async (req) => {
         device_fingerprint: body.Device_Fingerprint,
         transaction_location: body.Transaction_Location,
         register_user_id: body.Register_User_ID,
+      }, {
+        onConflict: 'order_number'
       })
       .select()
       .single();
 
-    if (error) {
-      console.error('Error inserting sales order header:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+    if (testError) {
+      console.error('Error upserting to testsalesheader:', testError);
+      return new Response(JSON.stringify({ error: testError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    console.log('Successfully upserted to testsalesheader:', testData);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Sales header saved to testsalesheader table',
+      data: testData 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

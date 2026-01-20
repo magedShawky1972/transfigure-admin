@@ -2,8 +2,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -36,6 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('Received product data:', JSON.stringify(body));
 
     // Fetch required fields from configuration
     const { data: fieldConfigs, error: configError } = await supabase
@@ -66,13 +76,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert product
-    const { data, error } = await supabase
-      .from('products')
+    // Upsert to testproducts table (for testing purposes)
+    const { data: testData, error: testError } = await supabase
+      .from('testproducts')
       .upsert({
         product_id: body.Product_id?.toString(),
         sku: body.SKU,
         product_name: body.Name,
+        uom: body.UOM,
         brand_code: body.Brand_Code,
         reorder_point: body.Reorder_Point,
         minimum_order_quantity: body.Minimum_order,
@@ -91,15 +102,21 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (error) {
-      console.error('Error upserting product:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+    if (testError) {
+      console.error('Error upserting to testproducts:', testError);
+      return new Response(JSON.stringify({ error: testError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    console.log('Successfully upserted to testproducts:', testData);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Product saved to testproducts table',
+      data: testData 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

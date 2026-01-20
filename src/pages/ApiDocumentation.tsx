@@ -10,13 +10,15 @@ import { Printer, Edit, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+const SUPABASE_FUNCTIONS_URL = 'https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1';
+
 const API_ENDPOINTS = [
   {
     id: "salesheader",
     name: "Sales Order Header",
-    endpoint: "https://edaraasus.com/api/v1/salesheader",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-salesheader`,
     method: "POST",
-    description: "Create sales order headers with customer and transaction details",
+    description: "Create sales order headers with customer and transaction details. Data is saved to testsalesheader table.",
     fields: [
       { name: "Order_Number", type: "Text", required: true, note: "Primary Key" },
       { name: "Customer_Phone", type: "Text", required: true, note: "Foreign Key" },
@@ -38,9 +40,9 @@ const API_ENDPOINTS = [
   {
     id: "salesline",
     name: "Sales Order Line",
-    endpoint: "https://edaraasus.com/api/v1/salesline",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-salesline`,
     method: "POST",
-    description: "Create sales order line items with product details",
+    description: "Create sales order line items with product details. Data is saved to testsalesline table.",
     fields: [
       { name: "Order_Number", type: "Text", required: true, note: "Primary Key" },
       { name: "Line_Number", type: "Int", required: true, note: "Primary Key" },
@@ -59,9 +61,9 @@ const API_ENDPOINTS = [
   {
     id: "payment",
     name: "Payment",
-    endpoint: "https://edaraasus.com/api/v1/payment",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-payment`,
     method: "POST",
-    description: "Record payment transactions with payment method details",
+    description: "Record payment transactions with payment method details. Data is saved to testpayment table.",
     fields: [
       { name: "Order_number", type: "Text", required: true, note: "Primary Key" },
       { name: "Payment_method", type: "Text", required: true, note: "hyperpay/ecom_payment/salla" },
@@ -77,9 +79,9 @@ const API_ENDPOINTS = [
   {
     id: "customer",
     name: "Customers",
-    endpoint: "https://edaraasus.com/api/v1/customer",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-customer`,
     method: "POST",
-    description: "Manage customer master data including contact and status information",
+    description: "Manage customer master data including contact and status information. Data is saved to testcustomers table.",
     fields: [
       { name: "Customer_Phone", type: "Text", required: true, note: "Primary Key" },
       { name: "Customer_name", type: "Text", required: true, note: "" },
@@ -95,23 +97,23 @@ const API_ENDPOINTS = [
   {
     id: "supplier",
     name: "Suppliers",
-    endpoint: "https://edaraasus.com/api/v1/supplier",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-supplier`,
     method: "POST",
-    description: "Manage supplier master data including contact information",
+    description: "Manage supplier master data including contact information. Data is saved to testsuppliers table.",
     fields: [
       { name: "Supplier_code", type: "Text", required: true, note: "Primary Key" },
       { name: "Supplier_name", type: "Text", required: true, note: "" },
       { name: "Supplier_email", type: "Text", required: false, note: "" },
       { name: "Supplier_phone", type: "Text", required: false, note: "" },
-      { name: "Status", type: "Bit", required: false, note: "Active/Suspended" },
+      { name: "Status", type: "Int", required: false, note: "1=Active/0=Suspended" },
     ],
   },
   {
     id: "supplierproduct",
     name: "Supplier Products",
-    endpoint: "https://edaraasus.com/api/v1/supplierproduct",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-supplierproduct`,
     method: "POST",
-    description: "Manage supplier product pricing with date ranges",
+    description: "Manage supplier product pricing with date ranges. Data is saved to testsupplierproducts table.",
     fields: [
       { name: "Supplier_code", type: "Text", required: true, note: "Primary Key" },
       { name: "SKU", type: "Text", required: true, note: "Foreign Key" },
@@ -123,9 +125,9 @@ const API_ENDPOINTS = [
   {
     id: "brand",
     name: "Brand (Product Category)",
-    endpoint: "https://edaraasus.com/api/v1/brand",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-brand`,
     method: "POST",
-    description: "Manage product brand and category information",
+    description: "Manage product brand and category information. Data is saved to testbrands table.",
     fields: [
       { name: "Brand_Code", type: "Text", required: true, note: "Primary Key" },
       { name: "Brand_Name", type: "Text", required: true, note: "" },
@@ -136,9 +138,9 @@ const API_ENDPOINTS = [
   {
     id: "product",
     name: "Product",
-    endpoint: "https://edaraasus.com/api/v1/product",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-product`,
     method: "POST",
-    description: "Manage product master data including inventory and pricing",
+    description: "Manage product master data including inventory and pricing. Data is saved to testproducts table.",
     fields: [
       { name: "Product_id", type: "BigInt", required: true, note: "Primary Key" },
       { name: "SKU", type: "Text", required: true, note: "Primary Key" },
@@ -161,7 +163,7 @@ const API_ENDPOINTS = [
   {
     id: "zkattendance",
     name: "ZK Attendance (POST)",
-    endpoint: "https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/api-zk-attendance",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-zk-attendance`,
     method: "POST",
     description: "Receive attendance data from ZK time attendance machines. Requires x-api-key header with ZK Attendance permission enabled.",
     fields: [
@@ -175,7 +177,7 @@ const API_ENDPOINTS = [
   {
     id: "zkattendance-get",
     name: "ZK Attendance (GET)",
-    endpoint: "https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/api-zk-attendance",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-zk-attendance`,
     method: "GET",
     description: "Get the latest attendance record date and time. Use this to determine what data to send next (send records newer than the returned date/time). Requires x-api-key header with ZK Attendance permission enabled.",
     fields: [

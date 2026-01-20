@@ -5343,6 +5343,342 @@ export type Database = {
           },
         ]
       }
+      testbrands: {
+        Row: {
+          brand_code: string | null
+          brand_name: string | null
+          brand_parent: string | null
+          created_at: string
+          id: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_code?: string | null
+          brand_name?: string | null
+          brand_parent?: string | null
+          created_at?: string
+          id?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_code?: string | null
+          brand_name?: string | null
+          brand_parent?: string | null
+          created_at?: string
+          id?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      testcustomers: {
+        Row: {
+          block_reason: string | null
+          created_at: string
+          customer_group: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          email: string | null
+          id: string
+          is_blocked: boolean | null
+          last_transaction: string | null
+          register_date: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          block_reason?: string | null
+          created_at?: string
+          customer_group?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          email?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          last_transaction?: string | null
+          register_date?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          block_reason?: string | null
+          created_at?: string
+          customer_group?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          email?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          last_transaction?: string | null
+          register_date?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      testpayment: {
+        Row: {
+          bank_transaction_id: string | null
+          created_at: string
+          id: string
+          order_number: string | null
+          payment_amount: number | null
+          payment_brand: string | null
+          payment_card_number: string | null
+          payment_location: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          redemption_ip: string | null
+          updated_at: string
+        }
+        Insert: {
+          bank_transaction_id?: string | null
+          created_at?: string
+          id?: string
+          order_number?: string | null
+          payment_amount?: number | null
+          payment_brand?: string | null
+          payment_card_number?: string | null
+          payment_location?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          redemption_ip?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bank_transaction_id?: string | null
+          created_at?: string
+          id?: string
+          order_number?: string | null
+          payment_amount?: number | null
+          payment_brand?: string | null
+          payment_card_number?: string | null
+          payment_location?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          redemption_ip?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      testproducts: {
+        Row: {
+          brand_code: string | null
+          created_at: string
+          id: string
+          maximum_order_quantity: number | null
+          meta_description_ar: string | null
+          meta_description_en: string | null
+          meta_keywords_ar: string | null
+          meta_keywords_en: string | null
+          meta_title_ar: string | null
+          meta_title_en: string | null
+          minimum_order_quantity: number | null
+          product_cost: string | null
+          product_id: string | null
+          product_name: string | null
+          product_price: string | null
+          reorder_point: number | null
+          sku: string | null
+          uom: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_code?: string | null
+          created_at?: string
+          id?: string
+          maximum_order_quantity?: number | null
+          meta_description_ar?: string | null
+          meta_description_en?: string | null
+          meta_keywords_ar?: string | null
+          meta_keywords_en?: string | null
+          meta_title_ar?: string | null
+          meta_title_en?: string | null
+          minimum_order_quantity?: number | null
+          product_cost?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_price?: string | null
+          reorder_point?: number | null
+          sku?: string | null
+          uom?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_code?: string | null
+          created_at?: string
+          id?: string
+          maximum_order_quantity?: number | null
+          meta_description_ar?: string | null
+          meta_description_en?: string | null
+          meta_keywords_ar?: string | null
+          meta_keywords_en?: string | null
+          meta_title_ar?: string | null
+          meta_title_en?: string | null
+          minimum_order_quantity?: number | null
+          product_cost?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_price?: string | null
+          reorder_point?: number | null
+          sku?: string | null
+          uom?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      testsalesheader: {
+        Row: {
+          company: string | null
+          created_at: string
+          customer_ip: string | null
+          customer_phone: string | null
+          device_fingerprint: string | null
+          id: string
+          media: string | null
+          order_date: string | null
+          order_number: string | null
+          payment_term: string | null
+          profit_center: string | null
+          register_user_id: string | null
+          sales_person: string | null
+          status: number | null
+          status_description: string | null
+          transaction_location: string | null
+          transaction_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          customer_ip?: string | null
+          customer_phone?: string | null
+          device_fingerprint?: string | null
+          id?: string
+          media?: string | null
+          order_date?: string | null
+          order_number?: string | null
+          payment_term?: string | null
+          profit_center?: string | null
+          register_user_id?: string | null
+          sales_person?: string | null
+          status?: number | null
+          status_description?: string | null
+          transaction_location?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          customer_ip?: string | null
+          customer_phone?: string | null
+          device_fingerprint?: string | null
+          id?: string
+          media?: string | null
+          order_date?: string | null
+          order_number?: string | null
+          payment_term?: string | null
+          profit_center?: string | null
+          register_user_id?: string | null
+          sales_person?: string | null
+          status?: number | null
+          status_description?: string | null
+          transaction_location?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      testsalesline: {
+        Row: {
+          coins_number: number | null
+          cost_price: number | null
+          created_at: string
+          id: string
+          line_number: number | null
+          line_status: number | null
+          order_number: string | null
+          point: number | null
+          product_id: number | null
+          product_sku: string | null
+          quantity: number | null
+          total: number | null
+          total_cost: number | null
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          coins_number?: number | null
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          line_number?: number | null
+          line_status?: number | null
+          order_number?: string | null
+          point?: number | null
+          product_id?: number | null
+          product_sku?: string | null
+          quantity?: number | null
+          total?: number | null
+          total_cost?: number | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          coins_number?: number | null
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          line_number?: number | null
+          line_status?: number | null
+          order_number?: string | null
+          point?: number | null
+          product_id?: number | null
+          product_sku?: string | null
+          quantity?: number | null
+          total?: number | null
+          total_cost?: number | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      testsupplierproducts: {
+        Row: {
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          id: string
+          price: number | null
+          sku: string | null
+          supplier_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          id?: string
+          price?: number | null
+          sku?: string | null
+          supplier_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          id?: string
+          price?: number | null
+          sku?: string | null
+          supplier_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       testsuppliers: {
         Row: {
           created_at: string
