@@ -138,6 +138,18 @@ interface EmployeeTotalRecord {
   total_difference_hours: number;
 }
 
+interface DeductionRule {
+  id: string;
+  rule_name: string;
+  rule_name_ar: string | null;
+  rule_type: string;
+  min_minutes: number | null;
+  max_minutes: number | null;
+  deduction_type: string;
+  deduction_value: number;
+  is_active: boolean;
+}
+
 const printStyles = `
   /* default: hide print-only paginated layout */
   .print-only-pages {
@@ -309,6 +321,7 @@ const ZKAttendanceLogs = () => {
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
   const [officialHolidays, setOfficialHolidays] = useState<OfficialHoliday[]>([]);
   const [holidayAttendanceTypes, setHolidayAttendanceTypes] = useState<HolidayAttendanceType[]>([]);
+  const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
 
   // Handle multi-column sorting:
   // - Click: add/toggle column as primary sort
@@ -592,6 +605,22 @@ const ZKAttendanceLogs = () => {
     }
   };
 
+  const fetchDeductionRules = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("deduction_rules")
+        .select("id, rule_name, rule_name_ar, rule_type, min_minutes, max_minutes, deduction_type, deduction_value, is_active")
+        .eq("is_active", true)
+        .order("rule_type")
+        .order("min_minutes", { nullsFirst: true });
+
+      if (error) throw error;
+      setDeductionRules(data || []);
+    } catch (error) {
+      console.error("Error fetching deduction rules:", error);
+    }
+  };
+
   // Helper to calculate hours between two time strings (HH:MM:SS)
   const calculateHoursDiff = (startTime: string | null, endTime: string | null): number | null => {
     if (!startTime || !endTime) return null;
@@ -611,10 +640,99 @@ const ZKAttendanceLogs = () => {
     return calculateHoursDiff(fixed_start_time, fixed_end_time);
   };
 
+  // Get expected start time for an employee based on their attendance type
+  const getExpectedStartTime = (employeeCode: string): string | null => {
+    const employee = employees.find((e) => e.zk_employee_code === employeeCode);
+    if (!employee?.attendance_types) return null;
+    const { fixed_start_time, is_shift_based } = employee.attendance_types;
+    if (is_shift_based || !fixed_start_time) return null;
+    return fixed_start_time;
+  };
+
+  // Get expected end time for an employee based on their attendance type
+  const getExpectedEndTime = (employeeCode: string): string | null => {
+    const employee = employees.find((e) => e.zk_employee_code === employeeCode);
+    if (!employee?.attendance_types) return null;
+    const { fixed_end_time, is_shift_based } = employee.attendance_types;
+    if (is_shift_based || !fixed_end_time) return null;
+    return fixed_end_time;
+  };
+
+  // Calculate late arrival minutes based on in_time vs expected start time
+  const calculateLateMinutes = (employeeCode: string, inTime: string | null): number => {
+    if (!inTime) return 0;
+    const expectedStart = getExpectedStartTime(employeeCode);
+    if (!expectedStart) return 0;
+
+    const [expectedH, expectedM] = expectedStart.split(":").map(Number);
+    const [actualH, actualM] = inTime.split(":").map(Number);
+    const expectedMinutes = expectedH * 60 + expectedM;
+    const actualMinutes = actualH * 60 + actualM;
+
+    const lateMinutes = actualMinutes - expectedMinutes;
+    return lateMinutes > 0 ? lateMinutes : 0;
+  };
+
+  // Calculate early exit minutes based on out_time vs expected end time
+  const calculateEarlyExitMinutes = (employeeCode: string, outTime: string | null): number => {
+    if (!outTime) return 0;
+    const expectedEnd = getExpectedEndTime(employeeCode);
+    if (!expectedEnd) return 0;
+
+    const [expectedH, expectedM] = expectedEnd.split(":").map(Number);
+    const [actualH, actualM] = outTime.split(":").map(Number);
+    const expectedMinutes = expectedH * 60 + expectedM;
+    let actualMinutes = actualH * 60 + actualM;
+
+    // Handle overnight shifts (out time after midnight)
+    if (actualMinutes < expectedMinutes - 12 * 60) {
+      actualMinutes += 24 * 60;
+    }
+
+    const earlyMinutes = expectedMinutes - actualMinutes;
+    return earlyMinutes > 0 ? earlyMinutes : 0;
+  };
+
+  // Find the appropriate deduction rule based on late/early minutes
+  const findDeductionRule = (lateMinutes: number, earlyExitMinutes: number, recordStatus: string): DeductionRule | null => {
+    // For absent records, find absence rule
+    if (recordStatus === 'absent') {
+      const absenceRule = deductionRules.find(r => r.rule_type === 'absence');
+      return absenceRule || null;
+    }
+
+    // First check late arrival rules
+    if (lateMinutes > 0) {
+      const lateRule = deductionRules
+        .filter(r => r.rule_type === 'late_arrival')
+        .find(r => {
+          const minOk = r.min_minutes === null || lateMinutes >= r.min_minutes;
+          const maxOk = r.max_minutes === null || lateMinutes <= r.max_minutes;
+          return minOk && maxOk;
+        });
+      if (lateRule) return lateRule;
+    }
+
+    // Then check early departure rules
+    if (earlyExitMinutes > 0) {
+      const earlyRule = deductionRules
+        .filter(r => r.rule_type === 'early_departure')
+        .find(r => {
+          const minOk = r.min_minutes === null || earlyExitMinutes >= r.min_minutes;
+          const maxOk = r.max_minutes === null || earlyExitMinutes <= r.max_minutes;
+          return minOk && maxOk;
+        });
+      if (earlyRule) return earlyRule;
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     fetchLogs();
     fetchEmployees();
     fetchAttendanceTypes();
+    fetchDeductionRules();
     fetchVacationRequests();
     fetchOfficialHolidays();
   }, [searchCode, fromDate, toDate, recordTypeFilter, selectedEmployee, attendanceTypeFilter, viewMode, currentPage, pageSize]);
@@ -1427,24 +1545,35 @@ const ZKAttendanceLogs = () => {
       const fromDateStr = format(fromDate, "yyyy-MM-dd");
       const toDateStr = format(toDate, "yyyy-MM-dd");
 
-      // Prepare records for insertion
-      const recordsToSave = sortedSummaryRecords.map(record => ({
-        employee_code: record.employee_code,
-        attendance_date: record.attendance_date,
-        in_time: record.in_time,
-        out_time: record.out_time,
-        total_hours: record.total_hours,
-        expected_hours: record.expected_hours,
-        difference_hours: record.difference_hours,
-        record_status: record.record_status || 'normal',
-        vacation_type: record.vacation_type,
-        saved_by: userData.user.id,
-        saved_at: new Date().toISOString(),
-        filter_from_date: fromDateStr,
-        filter_to_date: toDateStr,
-        batch_id: batchId,
-        is_confirmed: false,
-      }));
+      // Prepare records for insertion with auto-calculated deduction rules
+      const recordsToSave = sortedSummaryRecords.map(record => {
+        // Calculate late arrival and early exit minutes
+        const lateMinutes = calculateLateMinutes(record.employee_code, record.in_time);
+        const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, record.out_time);
+        
+        // Find matching deduction rule
+        const deductionRule = findDeductionRule(lateMinutes, earlyExitMinutes, record.record_status || 'normal');
+        
+        return {
+          employee_code: record.employee_code,
+          attendance_date: record.attendance_date,
+          in_time: record.in_time,
+          out_time: record.out_time,
+          total_hours: record.total_hours,
+          expected_hours: record.expected_hours,
+          difference_hours: record.difference_hours,
+          record_status: record.record_status || 'normal',
+          vacation_type: record.vacation_type,
+          saved_by: userData.user.id,
+          saved_at: new Date().toISOString(),
+          filter_from_date: fromDateStr,
+          filter_to_date: toDateStr,
+          batch_id: batchId,
+          is_confirmed: false,
+          deduction_rule_id: deductionRule?.id || null,
+          deduction_amount: deductionRule?.deduction_value || 0,
+        };
+      });
 
       // Use upsert to handle existing records (based on unique constraint)
       const { error } = await supabase
