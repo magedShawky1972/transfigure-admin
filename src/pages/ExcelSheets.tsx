@@ -92,10 +92,17 @@ const ExcelSheets = () => {
 
     if (error) {
       console.error("Error loading tables:", error);
-      return;
+      toast({
+        title: "Error",
+        description: "Failed to load available tables",
+        variant: "destructive",
+      });
+      return [];
     }
 
-    setAvailableTables(data || []);
+    const tables = data || [];
+    setAvailableTables(tables);
+    return tables;
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -539,7 +546,10 @@ const ExcelSheets = () => {
 
   const handleOpenMappingDialog = async (sheet: any) => {
     setSelectedSheetForMapping(sheet);
-    
+
+    // Ensure we have the latest tables (important when tables were added after page load)
+    const latestTables = await loadAvailableTables();
+
     // Reset state first
     setSheetMappings({});
     setSheetExcelColumns([]);
@@ -547,17 +557,21 @@ const ExcelSheets = () => {
     setSheetTableColumns([]);
     setSheetJsonConfigs({});
     setSheetPkColumns({});
-    
+
     // Load the target table if it exists
     if (sheet.target_table) {
-      setSheetTargetTable(sheet.target_table);
-      const table = availableTables.find(t => t.table_name === sheet.target_table);
+      const target = String(sheet.target_table).trim();
+      setSheetTargetTable(target);
+      const table = latestTables.find((t: any) => String(t.table_name).trim() === target);
       if (table) {
-        const cols = table.columns.map((col: any) => String(col.name).trim());
+        const rawCols = (table as any).columns;
+        const cols = Array.isArray(rawCols)
+          ? rawCols.map((col: any) => String(col.name).trim())
+          : [];
         setSheetTableColumns(cols);
       }
     }
-    
+
     // Load existing mappings (including JSON config)
     const { data: mappings, error } = await supabase
       .from("excel_column_mappings")
@@ -1217,13 +1231,15 @@ const ExcelSheets = () => {
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a table to map columns" />
                 </SelectTrigger>
-                <SelectContent>
-                  {availableTables.map((table) => (
-                    <SelectItem key={table.id} value={table.table_name}>
-                      {table.table_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                 <SelectContent>
+                   {availableTables
+                     .filter((t) => !!t?.table_name)
+                     .map((table) => (
+                       <SelectItem key={String(table.table_name)} value={String(table.table_name)}>
+                         {String(table.table_name)}
+                       </SelectItem>
+                     ))}
+                 </SelectContent>
               </Select>
             </div>
 
