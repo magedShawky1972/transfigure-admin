@@ -81,6 +81,9 @@ interface DeductionRule {
   id: string;
   rule_name: string;
   rule_name_ar: string | null;
+  rule_type: string;
+  min_minutes: number | null;
+  max_minutes: number | null;
   deduction_type: string;
   deduction_value: number;
   is_active: boolean;
@@ -103,6 +106,8 @@ interface AttendanceType {
   type_name_ar: string | null;
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
+  fixed_start_time: string | null;
+  fixed_end_time: string | null;
 }
 
 interface EmployeeTotalRecord {
@@ -354,7 +359,7 @@ const SavedAttendance = () => {
     try {
       const { data, error } = await supabase
         .from("attendance_types")
-        .select("id, type_name, type_name_ar, allow_late_minutes, allow_early_exit_minutes");
+        .select("id, type_name, type_name_ar, allow_late_minutes, allow_early_exit_minutes, fixed_start_time, fixed_end_time");
 
       if (error) throw error;
       setAttendanceTypes(data || []);
@@ -367,14 +372,117 @@ const SavedAttendance = () => {
     try {
       const { data, error } = await supabase
         .from("deduction_rules")
-        .select("id, rule_name, rule_name_ar, deduction_type, deduction_value, is_active")
-        .eq("is_active", true);
+        .select("id, rule_name, rule_name_ar, rule_type, min_minutes, max_minutes, deduction_type, deduction_value, is_active")
+        .eq("is_active", true)
+        .order("rule_type")
+        .order("min_minutes", { nullsFirst: true });
 
       if (error) throw error;
       setDeductionRules(data || []);
     } catch (error) {
       console.error("Error fetching deduction rules:", error);
     }
+  };
+
+  // Get expected start time for an employee based on their attendance type
+  const getExpectedStartTime = (employeeCode: string): string | null => {
+    const emp = employees.find(e => e.zk_employee_code === employeeCode);
+    if (!emp || !emp.attendance_type_id) return null;
+    const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
+    return attType?.fixed_start_time || null;
+  };
+
+  // Get expected end time for an employee based on their attendance type
+  const getExpectedEndTime = (employeeCode: string): string | null => {
+    const emp = employees.find(e => e.zk_employee_code === employeeCode);
+    if (!emp || !emp.attendance_type_id) return null;
+    const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
+    return attType?.fixed_end_time || null;
+  };
+
+  // Calculate late arrival minutes based on in_time vs expected start time
+  const calculateLateMinutes = (employeeCode: string, inTime: string | null): number => {
+    if (!inTime) return 0;
+    const expectedStart = getExpectedStartTime(employeeCode);
+    if (!expectedStart) return 0;
+
+    const [expectedH, expectedM] = expectedStart.split(":").map(Number);
+    const [actualH, actualM] = inTime.split(":").map(Number);
+    const expectedMinutes = expectedH * 60 + expectedM;
+    const actualMinutes = actualH * 60 + actualM;
+
+    const lateMinutes = actualMinutes - expectedMinutes;
+    return lateMinutes > 0 ? lateMinutes : 0;
+  };
+
+  // Calculate early exit minutes based on out_time vs expected end time
+  const calculateEarlyExitMinutes = (employeeCode: string, outTime: string | null): number => {
+    if (!outTime) return 0;
+    const expectedEnd = getExpectedEndTime(employeeCode);
+    if (!expectedEnd) return 0;
+
+    const [expectedH, expectedM] = expectedEnd.split(":").map(Number);
+    const [actualH, actualM] = outTime.split(":").map(Number);
+    const expectedMinutes = expectedH * 60 + expectedM;
+    let actualMinutes = actualH * 60 + actualM;
+
+    // Handle overnight shifts (out time after midnight)
+    if (actualMinutes < expectedMinutes - 12 * 60) {
+      actualMinutes += 24 * 60;
+    }
+
+    const earlyMinutes = expectedMinutes - actualMinutes;
+    return earlyMinutes > 0 ? earlyMinutes : 0;
+  };
+
+  // Find the appropriate deduction rule based on late/early minutes
+  const findDeductionRule = (lateMinutes: number, earlyExitMinutes: number, recordStatus: string): DeductionRule | null => {
+    // For absent records, find absence rule
+    if (recordStatus === 'absent') {
+      const absenceRule = deductionRules.find(r => r.rule_type === 'absence');
+      return absenceRule || null;
+    }
+
+    // First check late arrival rules
+    if (lateMinutes > 0) {
+      const lateRule = deductionRules
+        .filter(r => r.rule_type === 'late_arrival')
+        .find(r => {
+          const minOk = r.min_minutes === null || lateMinutes >= r.min_minutes;
+          const maxOk = r.max_minutes === null || lateMinutes <= r.max_minutes;
+          return minOk && maxOk;
+        });
+      if (lateRule) return lateRule;
+    }
+
+    // Then check early departure rules
+    if (earlyExitMinutes > 0) {
+      const earlyRule = deductionRules
+        .filter(r => r.rule_type === 'early_departure')
+        .find(r => {
+          const minOk = r.min_minutes === null || earlyExitMinutes >= r.min_minutes;
+          const maxOk = r.max_minutes === null || earlyExitMinutes <= r.max_minutes;
+          return minOk && maxOk;
+        });
+      if (earlyRule) return earlyRule;
+    }
+
+    return null;
+  };
+
+  // Recalculate deduction rule based on in_time and out_time for current record
+  const recalculateDeductionForEdit = (inTime: string, outTime: string) => {
+    if (!selectedRecord) return;
+    
+    const lateMinutes = calculateLateMinutes(selectedRecord.employee_code, inTime || null);
+    const earlyExitMinutes = calculateEarlyExitMinutes(selectedRecord.employee_code, outTime || null);
+    const rule = findDeductionRule(lateMinutes, earlyExitMinutes, selectedRecord.record_status || 'normal');
+    
+    setEditFormData(prev => ({
+      ...prev,
+      deduction_rule_id: rule?.id || "",
+      deduction_amount: rule?.deduction_value || 0,
+    }));
   };
 
   useEffect(() => {
@@ -1588,7 +1696,11 @@ const SavedAttendance = () => {
                   id="in_time"
                   type="time"
                   value={editFormData.in_time}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, in_time: e.target.value }))}
+                  onChange={(e) => {
+                    const newInTime = e.target.value;
+                    setEditFormData(prev => ({ ...prev, in_time: newInTime }));
+                    recalculateDeductionForEdit(newInTime, editFormData.out_time);
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -1597,7 +1709,11 @@ const SavedAttendance = () => {
                   id="out_time"
                   type="time"
                   value={editFormData.out_time}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, out_time: e.target.value }))}
+                  onChange={(e) => {
+                    const newOutTime = e.target.value;
+                    setEditFormData(prev => ({ ...prev, out_time: newOutTime }));
+                    recalculateDeductionForEdit(editFormData.in_time, newOutTime);
+                  }}
                 />
               </div>
             </div>
