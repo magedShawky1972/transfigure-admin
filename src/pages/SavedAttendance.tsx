@@ -45,7 +45,7 @@ import { ar } from "date-fns/locale";
 import { 
   CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, 
   Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X,
-  ExternalLink, Check, History, FolderOpen, ArrowLeft, Calculator
+  ExternalLink, Check, History, FolderOpen, ArrowLeft, Calculator, Calendar as CalendarIconFilled, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -142,6 +142,16 @@ interface SavedBatch {
   pending_count: number;
 }
 
+interface OfficialHoliday {
+  id: string;
+  holiday_name: string;
+  holiday_name_ar: string | null;
+  holiday_date: string;
+  is_recurring: boolean;
+  year: number | null;
+  religion: string | null;
+}
+
 const SavedAttendance = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
@@ -171,12 +181,15 @@ const SavedAttendance = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [deleteBatchDialogOpen, setDeleteBatchDialogOpen] = useState(false);
+  const [deleteWeekendDialogOpen, setDeleteWeekendDialogOpen] = useState(false);
+  const [convertVacationDialogOpen, setConvertVacationDialogOpen] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<SavedAttendanceRecord | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"summary" | "employee-totals">("summary");
   const [editingCell, setEditingCell] = useState<{ recordId: string; field: "in_time" | "out_time" } | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
+  const [officialHolidays, setOfficialHolidays] = useState<OfficialHoliday[]>([]);
   
   const [editFormData, setEditFormData] = useState({
     in_time: "",
@@ -548,6 +561,13 @@ const SavedAttendance = () => {
       fetchRecords();
     }
   }, [pageMode, selectedBatchId, searchCode, selectedEmployee, confirmedFilter]);
+
+  // Fetch official holidays when records are loaded
+  useEffect(() => {
+    if (records.length > 0 && records[0]?.filter_from_date && records[0]?.filter_to_date) {
+      fetchOfficialHolidays(records[0].filter_from_date, records[0].filter_to_date);
+    }
+  }, [records]);
 
   const handleSelectBatch = (batchId: string) => {
     setSelectedBatchId(batchId);
@@ -1401,6 +1421,222 @@ const SavedAttendance = () => {
     }
   };
 
+  // Fetch official holidays for the selected batch date range
+  const fetchOfficialHolidays = async (fromDateStr: string, toDateStr: string) => {
+    try {
+      const fromDate = new Date(fromDateStr);
+      const toDate = new Date(toDateStr);
+      const fromYear = fromDate.getFullYear();
+      const toYear = toDate.getFullYear();
+      
+      const { data: holidaysData, error } = await supabase
+        .from("official_holidays" as any)
+        .select("id, holiday_name, holiday_name_ar, holiday_date, is_recurring, year, religion");
+
+      if (error) throw error;
+      
+      // Filter holidays within date range (accounting for recurring)
+      const filteredHolidays = (holidaysData || []).filter((h: any) => {
+        const holidayDate = new Date(h.holiday_date);
+        if (h.is_recurring) {
+          for (let year = fromYear; year <= toYear; year++) {
+            const thisYearDate = new Date(year, holidayDate.getMonth(), holidayDate.getDate());
+            if (thisYearDate >= fromDate && thisYearDate <= toDate) {
+              return true;
+            }
+          }
+          return false;
+        }
+        return holidayDate >= fromDate && holidayDate <= toDate;
+      });
+      
+      setOfficialHolidays(filteredHolidays as unknown as OfficialHoliday[]);
+    } catch (error: any) {
+      console.error("Error fetching official holidays:", error);
+    }
+  };
+
+  // Helper to check if a date is a weekend (Friday = 5, Saturday = 6)
+  const isWeekend = (dateStr: string): boolean => {
+    const date = new Date(dateStr);
+    const dayOfWeek = date.getDay();
+    return dayOfWeek === 5 || dayOfWeek === 6; // Friday or Saturday
+  };
+
+  // Helper to check if a date is an official holiday
+  const isOfficialHoliday = (dateStr: string): boolean => {
+    const targetDate = new Date(dateStr);
+    return officialHolidays.some(h => {
+      const holidayDate = new Date(h.holiday_date);
+      if (h.is_recurring) {
+        return holidayDate.getMonth() === targetDate.getMonth() && 
+               holidayDate.getDate() === targetDate.getDate();
+      }
+      return holidayDate.toDateString() === targetDate.toDateString();
+    });
+  };
+
+  // Delete weekend absence records
+  const handleDeleteWeekendAbsences = async () => {
+    setActionLoading(true);
+    try {
+      // Find all weekend absence records
+      const weekendAbsenceRecords = records.filter(r => 
+        r.record_status === 'absent' && isWeekend(r.attendance_date)
+      );
+      
+      if (weekendAbsenceRecords.length === 0) {
+        toast.info(isArabic ? "لا توجد سجلات غياب في عطلة نهاية الأسبوع" : "No weekend absence records found");
+        setDeleteWeekendDialogOpen(false);
+        setActionLoading(false);
+        return;
+      }
+
+      const idsToDelete = weekendAbsenceRecords.map(r => r.id);
+      
+      const { error } = await supabase
+        .from("saved_attendance")
+        .delete()
+        .in("id", idsToDelete);
+
+      if (error) throw error;
+
+      toast.success(
+        isArabic
+          ? `تم حذف ${idsToDelete.length} سجل غياب في عطلة نهاية الأسبوع`
+          : `Successfully deleted ${idsToDelete.length} weekend absence records`
+      );
+      fetchRecords();
+    } catch (error: any) {
+      console.error("Error deleting weekend absences:", error);
+      toast.error(isArabic ? "خطأ في حذف سجلات عطلة نهاية الأسبوع" : "Error deleting weekend absences");
+    } finally {
+      setActionLoading(false);
+      setDeleteWeekendDialogOpen(false);
+    }
+  };
+
+  // Convert vacation to absence if employee was absent before/after official holidays
+  const handleConvertVacationToAbsence = async () => {
+    setActionLoading(true);
+    try {
+      // Get date range from records
+      if (records.length === 0) {
+        toast.info(isArabic ? "لا توجد سجلات" : "No records found");
+        setConvertVacationDialogOpen(false);
+        setActionLoading(false);
+        return;
+      }
+
+      // First fetch official holidays if not already loaded
+      const fromDateStr = records[0]?.filter_from_date;
+      const toDateStr = records[0]?.filter_to_date;
+      if (fromDateStr && toDateStr && officialHolidays.length === 0) {
+        await fetchOfficialHolidays(fromDateStr, toDateStr);
+      }
+
+      // Group records by employee
+      const recordsByEmployee = new Map<string, SavedAttendanceRecord[]>();
+      records.forEach(r => {
+        const existing = recordsByEmployee.get(r.employee_code) || [];
+        existing.push(r);
+        recordsByEmployee.set(r.employee_code, existing);
+      });
+
+      const recordsToUpdate: string[] = [];
+      const absenceNote = isArabic ? "غياب موروث من إجازة رسمية" : "Absence inherited from official holiday";
+
+      recordsByEmployee.forEach((empRecords, employeeCode) => {
+        // Sort records by date
+        const sortedRecords = [...empRecords].sort((a, b) => 
+          new Date(a.attendance_date).getTime() - new Date(b.attendance_date).getTime()
+        );
+
+        // Find vacation records (from official holidays)
+        sortedRecords.forEach((record, index) => {
+          if (record.record_status === 'vacation' || isOfficialHoliday(record.attendance_date)) {
+            // Check if employee was absent before this vacation/holiday
+            let absentBefore = false;
+            for (let i = index - 1; i >= 0; i--) {
+              const prevRecord = sortedRecords[i];
+              const prevDate = new Date(prevRecord.attendance_date);
+              const currDate = new Date(record.attendance_date);
+              const dayDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+              
+              // Only check immediate previous working day (skip weekends)
+              if (dayDiff > 3) break;
+              if (isWeekend(prevRecord.attendance_date) || isOfficialHoliday(prevRecord.attendance_date)) continue;
+              
+              if (prevRecord.record_status === 'absent') {
+                absentBefore = true;
+              }
+              break;
+            }
+
+            // Check if employee was absent after this vacation/holiday
+            let absentAfter = false;
+            for (let i = index + 1; i < sortedRecords.length; i++) {
+              const nextRecord = sortedRecords[i];
+              const currDate = new Date(record.attendance_date);
+              const nextDate = new Date(nextRecord.attendance_date);
+              const dayDiff = Math.floor((nextDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24));
+              
+              // Only check immediate next working day (skip weekends)
+              if (dayDiff > 3) break;
+              if (isWeekend(nextRecord.attendance_date) || isOfficialHoliday(nextRecord.attendance_date)) continue;
+              
+              if (nextRecord.record_status === 'absent') {
+                absentAfter = true;
+              }
+              break;
+            }
+
+            // If absent before OR after, mark for conversion
+            if ((absentBefore || absentAfter) && record.record_status === 'vacation') {
+              recordsToUpdate.push(record.id);
+            }
+          }
+        });
+      });
+
+      if (recordsToUpdate.length === 0) {
+        toast.info(
+          isArabic 
+            ? "لا توجد إجازات تحتاج للتحويل إلى غياب" 
+            : "No vacation records need to be converted to absence"
+        );
+        setConvertVacationDialogOpen(false);
+        setActionLoading(false);
+        return;
+      }
+
+      // Update records to absence
+      const { error } = await supabase
+        .from("saved_attendance")
+        .update({ 
+          record_status: 'absent',
+          notes: absenceNote,
+          vacation_type: null
+        })
+        .in("id", recordsToUpdate);
+
+      if (error) throw error;
+
+      toast.success(
+        isArabic
+          ? `تم تحويل ${recordsToUpdate.length} إجازة إلى غياب`
+          : `Successfully converted ${recordsToUpdate.length} vacation(s) to absence`
+      );
+      fetchRecords();
+    } catch (error: any) {
+      console.error("Error converting vacation to absence:", error);
+      toast.error(isArabic ? "خطأ في تحويل الإجازات" : "Error converting vacations");
+    } finally {
+      setActionLoading(false);
+      setConvertVacationDialogOpen(false);
+    }
+  };
+
   const exportToCSV = () => {
     let headers: string[];
     let rows: string[][];
@@ -1560,6 +1796,30 @@ const SavedAttendance = () => {
                 >
                   {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
                   {isArabic ? "تطبيق قواعد الخصم" : "Apply Deduction Rules"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteWeekendDialogOpen(true)}
+                  disabled={actionLoading || records.filter(r => r.record_status === 'absent' && isWeekend(r.attendance_date)).length === 0}
+                  title={isArabic ? "حذف سجلات غياب عطلة نهاية الأسبوع" : "Delete weekend absence records"}
+                  className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                >
+                  <CalendarIconFilled className="h-4 w-4 mr-2" />
+                  {isArabic ? "حذف غياب العطلة" : "Delete Weekend Absences"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConvertVacationDialogOpen(true)}
+                  disabled={actionLoading || records.filter(r => r.record_status === 'vacation').length === 0}
+                  title={isArabic ? "تحويل الإجازات إلى غياب إذا كان الموظف غائباً قبلها أو بعدها" : "Convert vacations to absence if employee was absent before/after"}
+                  className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  {isArabic ? "تحويل الإجازات" : "Convert Vacations"}
                 </Button>
 
                 {pendingCount > 0 && (
@@ -2228,6 +2488,46 @@ const SavedAttendance = () => {
             <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteBatch} disabled={actionLoading} className="bg-destructive text-destructive-foreground">
               {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : (isArabic ? "حذف الدفعة" : "Delete Batch")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Weekend Absences Dialog */}
+      <AlertDialog open={deleteWeekendDialogOpen} onOpenChange={setDeleteWeekendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isArabic ? "حذف غياب عطلة نهاية الأسبوع" : "Delete Weekend Absences"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic 
+                ? `هل أنت متأكد من حذف سجلات الغياب في أيام الجمعة والسبت؟ سيتم حذف ${records.filter(r => r.record_status === 'absent' && isWeekend(r.attendance_date)).length} سجل.`
+                : `Are you sure you want to delete absence records on Friday and Saturday? ${records.filter(r => r.record_status === 'absent' && isWeekend(r.attendance_date)).length} records will be deleted.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteWeekendAbsences} disabled={actionLoading} className="bg-orange-600 hover:bg-orange-700">
+              {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : (isArabic ? "حذف" : "Delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Convert Vacation to Absence Dialog */}
+      <AlertDialog open={convertVacationDialogOpen} onOpenChange={setConvertVacationDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isArabic ? "تحويل الإجازات إلى غياب" : "Convert Vacations to Absence"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArabic 
+                ? "سيتم تحويل أيام الإجازة إلى غياب إذا كان الموظف غائباً قبل الإجازة أو بعدها. هذا يشمل الإجازات الرسمية والعطلات. لا يمكن التراجع عن هذا الإجراء."
+                : "Vacation days will be converted to absence if the employee was absent before or after the vacation. This includes official holidays. This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{isArabic ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConvertVacationToAbsence} disabled={actionLoading} className="bg-purple-600 hover:bg-purple-700">
+              {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : (isArabic ? "تحويل" : "Convert")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
