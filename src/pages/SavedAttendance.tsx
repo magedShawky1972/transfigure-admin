@@ -45,7 +45,7 @@ import { ar } from "date-fns/locale";
 import { 
   CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, 
   Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X,
-  ExternalLink, Check, History, FolderOpen, ArrowLeft
+  ExternalLink, Check, History, FolderOpen, ArrowLeft, Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -884,6 +884,54 @@ const SavedAttendance = () => {
     }
   };
 
+  // Apply deduction rules to all records in current batch
+  const handleApplyDeductionRules = async () => {
+    if (records.length === 0) {
+      toast.info(isArabic ? "لا توجد سجلات لتطبيق قواعد الخصم" : "No records to apply deduction rules");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      let updatedCount = 0;
+      
+      for (const record of records) {
+        // Skip vacation or holiday records
+        if (record.record_status === 'vacation' || record.vacation_type) continue;
+        
+        const lateMinutes = calculateLateMinutes(record.employee_code, record.in_time);
+        const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, record.out_time);
+        const rule = findDeductionRule(lateMinutes, earlyExitMinutes, record.record_status || 'normal');
+        
+        // Only update if there's a change
+        if (rule?.id !== record.deduction_rule_id || (rule?.deduction_value || 0) !== (record.deduction_amount || 0)) {
+          const { error } = await supabase
+            .from("saved_attendance")
+            .update({
+              deduction_rule_id: rule?.id || null,
+              deduction_amount: rule?.deduction_value || 0,
+            })
+            .eq("id", record.id);
+
+          if (error) throw error;
+          updatedCount++;
+        }
+      }
+
+      toast.success(
+        isArabic
+          ? `تم تحديث ${updatedCount} سجل بقواعد الخصم`
+          : `Updated ${updatedCount} records with deduction rules`
+      );
+      fetchRecords();
+    } catch (error: any) {
+      console.error("Error applying deduction rules:", error);
+      toast.error(isArabic ? "خطأ في تطبيق قواعد الخصم" : "Error applying deduction rules");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDeleteClick = (record: SavedAttendanceRecord) => {
     setSelectedRecord(record);
     setDeleteDialogOpen(true);
@@ -1094,6 +1142,17 @@ const SavedAttendance = () => {
                     {isArabic ? "إجماليات الموظفين" : "Employee Totals"}
                   </Button>
                 </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleApplyDeductionRules}
+                  disabled={actionLoading || records.length === 0}
+                  title={isArabic ? "تطبيق قواعد الخصم على جميع السجلات" : "Apply deduction rules to all records"}
+                >
+                  {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
+                  {isArabic ? "تطبيق قواعد الخصم" : "Apply Deduction Rules"}
+                </Button>
 
                 {pendingCount > 0 && (
                   <Button
