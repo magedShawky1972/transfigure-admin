@@ -531,23 +531,36 @@ Deno.serve(async (req) => {
     const useUpsert = pkColumns.length > 0;
     
     // Deduplicate rows by PK columns to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+    let inFileDuplicateCount = 0;
+    const inFileDuplicateKeys: string[] = [];
+    
     if (useUpsert && pkColumns.length > 0) {
       const pkKey = (row: any) => pkColumns.map(col => row[col] ?? '').join('|');
       const uniqueRowsMap = new Map<string, any>();
+      const duplicateKeysSet = new Set<string>();
       
       // Iterate through rows - later occurrences will overwrite earlier ones
       for (const row of rowsToInsert) {
         const key = pkKey(row);
         if (key && key !== pkColumns.map(() => '').join('|')) { // Skip rows with empty PK values
+          if (uniqueRowsMap.has(key)) {
+            // Track duplicate keys
+            duplicateKeysSet.add(key);
+          }
           uniqueRowsMap.set(key, row);
         }
       }
       
       const originalCount = rowsToInsert.length;
       rowsToInsert = Array.from(uniqueRowsMap.values());
+      inFileDuplicateCount = originalCount - rowsToInsert.length;
       
-      if (originalCount !== rowsToInsert.length) {
-        console.log(`Deduplicated ${originalCount} rows to ${rowsToInsert.length} unique rows by PK columns: ${pkColumns.join(', ')}`);
+      // Get first 10 duplicate keys for display
+      inFileDuplicateKeys.push(...Array.from(duplicateKeysSet).slice(0, 10));
+      
+      if (inFileDuplicateCount > 0) {
+        console.log(`Found ${inFileDuplicateCount} duplicate rows within file by PK columns: ${pkColumns.join(', ')}`);
+        console.log(`Duplicate keys (first 10): ${inFileDuplicateKeys.join(', ')}`);
       }
     }
     
@@ -1243,7 +1256,9 @@ Deno.serve(async (req) => {
         },
         productsUpserted,
         brandsUpserted,
-        message: `Successfully loaded ${validData.length} records${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}`
+        inFileDuplicateCount,
+        inFileDuplicateKeys,
+        message: `Successfully loaded ${validData.length} records${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}${inFileDuplicateCount > 0 ? ` (${inFileDuplicateCount} duplicates merged)` : ''}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

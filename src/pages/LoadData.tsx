@@ -528,6 +528,8 @@ const LoadData = () => {
       let totalProductsUpserted = 0;
       let totalBrandsUpserted = 0;
       let allDates: string[] = [];
+      let totalInFileDuplicates = 0;
+      let allDuplicateKeys: string[] = [];
 
       for (let i = 0; i < batches.length; i++) {
         setCurrentBatch(i + 1);
@@ -580,6 +582,14 @@ const LoadData = () => {
         totalValue += result.totalValue || 0;
         totalProductsUpserted += result.productsUpserted || 0;
         totalBrandsUpserted += result.brandsUpserted || 0;
+        
+        // Track in-file duplicates
+        if (result.inFileDuplicateCount > 0) {
+          totalInFileDuplicates += result.inFileDuplicateCount;
+          if (result.inFileDuplicateKeys?.length > 0) {
+            allDuplicateKeys.push(...result.inFileDuplicateKeys);
+          }
+        }
         
         if (result.dateRange?.from) allDates.push(result.dateRange.from);
         if (result.dateRange?.to) allDates.push(result.dateRange.to);
@@ -634,6 +644,20 @@ const LoadData = () => {
       }
 
       window.dispatchEvent(new CustomEvent('dataUploaded'));
+
+      // Show duplicate notification if any duplicates were found within file
+      if (totalInFileDuplicates > 0) {
+        const uniqueKeys = [...new Set(allDuplicateKeys)].slice(0, 5);
+        toast({
+          title: "تنبيه: تم دمج سجلات مكررة",
+          description: `تم العثور على ${totalInFileDuplicates} سجل مكرر داخل الملف وتم دمجهم.\n` +
+            `إجمالي السجلات: ${totalProcessed + totalInFileDuplicates}\n` +
+            `السجلات الفريدة المضافة: ${totalProcessed}\n` +
+            (uniqueKeys.length > 0 ? `أمثلة على المكررات: ${uniqueKeys.join(', ')}${allDuplicateKeys.length > 5 ? '...' : ''}` : ''),
+          variant: "default",
+          duration: 10000,
+        });
+      }
 
       // Move to next file in this run's queue
       await processNextFile(queueIndex + 1);
