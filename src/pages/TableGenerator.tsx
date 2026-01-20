@@ -32,6 +32,8 @@ const TableGenerator = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRecreating, setIsRecreating] = useState(false);
   const [recreateConfirmOpen, setRecreateConfirmOpen] = useState(false);
+  const [clearDataConfirmOpen, setClearDataConfirmOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     loadGeneratedTables();
@@ -177,6 +179,35 @@ const TableGenerator = () => {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleClearTableData = async () => {
+    if (!selectedTableForEdit) return;
+
+    setIsClearing(true);
+    setClearDataConfirmOpen(false);
+
+    try {
+      const { error } = await supabase
+        .from(selectedTableForEdit.table_name)
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `All data cleared from "${selectedTableForEdit.table_name}"`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to clear table data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -648,14 +679,25 @@ const TableGenerator = () => {
             )}
 
             <div className="flex justify-between gap-2 pt-4">
-              <Button 
-                variant="destructive" 
-                onClick={() => setRecreateConfirmOpen(true)}
-                disabled={isRecreating}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRecreating ? 'animate-spin' : ''}`} />
-                {isRecreating ? "Recreating..." : "Recreate Table"}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setRecreateConfirmOpen(true)}
+                  disabled={isRecreating || isClearing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isRecreating ? 'animate-spin' : ''}`} />
+                  {isRecreating ? "Recreating..." : "Recreate Table"}
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="text-destructive border-destructive hover:bg-destructive/10"
+                  onClick={() => setClearDataConfirmOpen(true)}
+                  disabled={isRecreating || isClearing}
+                >
+                  <Trash2 className={`h-4 w-4 mr-2 ${isClearing ? 'animate-spin' : ''}`} />
+                  {isClearing ? "Clearing..." : "Clear Data"}
+                </Button>
+              </div>
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
@@ -731,6 +773,37 @@ const TableGenerator = () => {
               className="bg-destructive hover:bg-destructive/90"
             >
               Recreate Table
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={clearDataConfirmOpen} onOpenChange={setClearDataConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Clear Table Data
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to clear all data from <strong>{selectedTableForEdit?.table_name}</strong>?
+              <br /><br />
+              This will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Delete <strong className="text-destructive">all rows</strong> from the table</li>
+                <li>Keep the table structure intact</li>
+              </ul>
+              <br />
+              <strong className="text-destructive">This action cannot be undone.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearTableData}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Clear Data
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
