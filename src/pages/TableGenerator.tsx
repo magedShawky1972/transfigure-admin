@@ -190,7 +190,7 @@ const TableGenerator = () => {
 
     try {
       // First, alter the actual database table structure
-      const { data: alterData, error: alterError } = await supabase.functions.invoke("alter-table", {
+      const { error: alterError } = await supabase.functions.invoke("alter-table", {
         body: {
           tableName: selectedTableForEdit.table_name,
           oldColumns: selectedTableForEdit.columns,
@@ -202,7 +202,25 @@ const TableGenerator = () => {
         },
       });
 
-      if (alterError) throw alterError;
+      // If the table was deleted/didn't exist, recreate it with the current column set
+      if (alterError) {
+        const msg = String((alterError as any).message || alterError);
+        if (msg.includes('TABLE_NOT_FOUND') || msg.toLowerCase().includes('does not exist')) {
+          const { error: createError } = await supabase.functions.invoke("create-table", {
+            body: {
+              tableName: selectedTableForEdit.table_name,
+              columns: editTableColumns.map((col) => ({
+                name: col.name,
+                type: col.type,
+                nullable: col.nullable,
+              })),
+            },
+          });
+          if (createError) throw createError;
+        } else {
+          throw alterError;
+        }
+      }
 
       // Then update the generated_tables metadata
       const { error: updateError } = await supabase

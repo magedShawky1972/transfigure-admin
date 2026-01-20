@@ -34,7 +34,36 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const lowerTableName = tableName.toLowerCase();
+    const lowerTableName = tableName.toLowerCase().trim();
+
+    // Guard: table must exist
+    const { data: existsRows, error: existsError } = await supabase.rpc('exec_sql', {
+      sql: `SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.tables
+              WHERE table_schema = 'public'
+                AND table_name = '${lowerTableName}'
+            ) AS exists;`,
+    });
+
+    if (existsError) {
+      console.error('Error checking table existence:', existsError);
+      return new Response(
+        JSON.stringify({ error: `Failed to check table existence: ${existsError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const tableExists = Boolean((existsRows as any)?.[0]?.exists);
+    if (!tableExists) {
+      return new Response(
+        JSON.stringify({
+          error: `Table "${lowerTableName}" does not exist. Create it first, then edit columns.`,
+          code: 'TABLE_NOT_FOUND',
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get current table structure from database
     const { data: currentCols, error: colError } = await supabase
@@ -43,7 +72,7 @@ Deno.serve(async (req) => {
               FROM information_schema.columns 
               WHERE table_schema = 'public' 
               AND table_name = '${lowerTableName}'
-              AND column_name NOT IN ('id', 'created_at', 'updated_at')`
+              AND column_name NOT IN ('id', 'created_at', 'updated_at')`,
       });
 
     if (colError) {
