@@ -50,6 +50,59 @@ export type Database = {
         }
         Relationships: []
       }
+      api_consumption_logs: {
+        Row: {
+          api_key_description: string | null
+          api_key_id: string | null
+          created_at: string | null
+          endpoint: string
+          execution_time_ms: number | null
+          id: string
+          method: string
+          request_body: Json | null
+          response_message: string | null
+          response_status: number | null
+          source_ip: string | null
+          success: boolean | null
+        }
+        Insert: {
+          api_key_description?: string | null
+          api_key_id?: string | null
+          created_at?: string | null
+          endpoint: string
+          execution_time_ms?: number | null
+          id?: string
+          method?: string
+          request_body?: Json | null
+          response_message?: string | null
+          response_status?: number | null
+          source_ip?: string | null
+          success?: boolean | null
+        }
+        Update: {
+          api_key_description?: string | null
+          api_key_id?: string | null
+          created_at?: string | null
+          endpoint?: string
+          execution_time_ms?: number | null
+          id?: string
+          method?: string
+          request_body?: Json | null
+          response_message?: string | null
+          response_status?: number | null
+          source_ip?: string | null
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_consumption_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_field_configs: {
         Row: {
           api_endpoint: string

@@ -17,16 +17,50 @@ interface AttendancePayload {
 }
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
+  let requestBody: any = null;
+  let apiKeyData: any = null;
+  let responseStatus = 200;
+  let responseMessage = '';
+  let success = true;
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Initialize Supabase client with service role
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  const logApiCall = async () => {
+    try {
+      await supabase.from('api_consumption_logs').insert({
+        endpoint: 'api-zk-attendance',
+        method: req.method,
+        request_body: requestBody,
+        response_status: responseStatus,
+        response_message: responseMessage,
+        success,
+        execution_time_ms: Date.now() - startTime,
+        api_key_id: apiKeyData?.id || null,
+        api_key_description: apiKeyData?.description || null,
+      });
+    } catch (logError) {
+      console.error('Error logging API call:', logError);
+    }
+  };
+
   // Only allow POST and GET
   if (req.method !== 'POST' && req.method !== 'GET') {
+    responseStatus = 405;
+    responseMessage = 'Method not allowed';
+    success = false;
+    await logApiCall();
     return new Response(
-      JSON.stringify({ success: false, error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: responseMessage }),
+      { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
@@ -36,45 +70,58 @@ Deno.serve(async (req) => {
     
     if (!apiKey) {
       console.log('No API key provided');
+      responseStatus = 401;
+      responseMessage = 'API key is required';
+      success = false;
+      await logApiCall();
       return new Response(
-        JSON.stringify({ success: false, error: 'API key is required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: responseMessage }),
+        { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Initialize Supabase client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     // Validate API key and check permission
-    const { data: apiKeyData, error: apiKeyError } = await supabase
+    const { data: keyData, error: apiKeyError } = await supabase
       .from('api_keys')
-      .select('id, is_active, allow_zk_attendance')
+      .select('id, description, is_active, allow_zk_attendance')
       .eq('api_key', apiKey)
       .single();
 
-    if (apiKeyError || !apiKeyData) {
+    apiKeyData = keyData;
+
+    if (apiKeyError || !keyData) {
       console.log('Invalid API key:', apiKeyError?.message);
+      responseStatus = 401;
+      responseMessage = 'Invalid API key';
+      success = false;
+      await logApiCall();
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid API key' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: responseMessage }),
+        { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!apiKeyData.is_active) {
+    if (!keyData.is_active) {
       console.log('API key is inactive');
+      responseStatus = 401;
+      responseMessage = 'API key is inactive';
+      success = false;
+      await logApiCall();
       return new Response(
-        JSON.stringify({ success: false, error: 'API key is inactive' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: responseMessage }),
+        { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!apiKeyData.allow_zk_attendance) {
+    if (!keyData.allow_zk_attendance) {
       console.log('API key does not have ZK attendance permission');
+      responseStatus = 403;
+      responseMessage = 'API key does not have ZK attendance permission';
+      success = false;
+      await logApiCall();
       return new Response(
-        JSON.stringify({ success: false, error: 'API key does not have ZK attendance permission' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: responseMessage }),
+        { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -90,27 +137,35 @@ Deno.serve(async (req) => {
 
       if (latestError && latestError.code !== 'PGRST116') {
         console.error('Error fetching latest record:', latestError);
+        responseStatus = 500;
+        responseMessage = 'Failed to fetch latest record';
+        success = false;
+        await logApiCall();
         return new Response(
-          JSON.stringify({ success: false, error: 'Failed to fetch latest record', details: latestError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: responseMessage, details: latestError.message }),
+          { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       // If no records exist, return null values
       if (!latestRecord) {
+        responseMessage = 'No attendance records found';
+        await logApiCall();
         return new Response(
           JSON.stringify({
             success: true,
             last_date: null,
             last_time: null,
             last_employee_code: null,
-            message: 'No attendance records found'
+            message: responseMessage
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       console.log('Returning latest attendance record:', latestRecord);
+      responseMessage = 'Latest attendance record retrieved';
+      await logApiCall();
       return new Response(
         JSON.stringify({
           success: true,
@@ -124,11 +179,16 @@ Deno.serve(async (req) => {
 
     // Handle POST request - insert attendance records
     const body: AttendancePayload = await req.json();
+    requestBody = body;
     
     if (!body.records || !Array.isArray(body.records) || body.records.length === 0) {
+      responseStatus = 400;
+      responseMessage = 'records array is required and must not be empty';
+      success = false;
+      await logApiCall();
       return new Response(
-        JSON.stringify({ success: false, error: 'records array is required and must not be empty' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: responseMessage }),
+        { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -183,18 +243,22 @@ Deno.serve(async (req) => {
         attendance_time: record.time,
         record_type: record.record_type || 'unknown',
         raw_data: record,
-        api_key_id: apiKeyData.id,
+        api_key_id: keyData.id,
       });
     }
 
     if (validRecords.length === 0) {
+      responseStatus = 400;
+      responseMessage = 'No valid records to insert';
+      success = false;
+      await logApiCall();
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'No valid records to insert',
+          error: responseMessage,
           validation_errors: validationErrors 
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -206,18 +270,24 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error('Error inserting records:', insertError);
+      responseStatus = 500;
+      responseMessage = 'Failed to insert records';
+      success = false;
+      await logApiCall();
       return new Response(
-        JSON.stringify({ success: false, error: 'Failed to insert records', details: insertError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: responseMessage, details: insertError.message }),
+        { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log(`Successfully inserted ${insertedData.length} attendance records`);
+    responseMessage = `Successfully received ${insertedData.length} attendance records`;
+    await logApiCall();
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully received ${insertedData.length} attendance records`,
+        message: responseMessage,
         inserted_count: insertedData.length,
         validation_errors: validationErrors.length > 0 ? validationErrors : undefined,
         skipped_count: validationErrors.length,
@@ -227,10 +297,13 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error processing request:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    responseStatus = 500;
+    responseMessage = error instanceof Error ? error.message : 'Unknown error';
+    success = false;
+    await logApiCall();
     return new Response(
-      JSON.stringify({ success: false, error: 'Internal server error', details: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: 'Internal server error', details: responseMessage }),
+      { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

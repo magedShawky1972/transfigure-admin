@@ -39,7 +39,8 @@ import {
   ClipboardCheck,
   FileKey,
   Briefcase,
-  Receipt
+  Receipt,
+  ScrollText
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -143,6 +144,7 @@ export function AppSidebar() {
     "/expense-requests": "expenseRequests",
     "/expense-entry": "expenseEntry",
     "/payment-bank-link": "paymentBankLink",
+    "/api-consumption-logs": "apiConsumptionLogs",
   };
 
   useEffect(() => {
@@ -369,6 +371,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'سجلات التدقيق' : 'Audit Logs', url: "/audit-logs", icon: ClipboardCheck },
         { title: language === 'ar' ? 'إدارة الشهادات' : 'Certificate Management', url: "/certificate-management", icon: FileKey },
         { title: language === 'ar' ? 'لوحة الأمان' : 'Security Dashboard', url: "/security-dashboard", icon: Shield },
+        { title: language === 'ar' ? 'سجلات استهلاك API' : 'API Consumption Logs', url: "/api-consumption-logs", icon: ScrollText },
       ]
     }
   ];

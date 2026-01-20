@@ -158,6 +158,7 @@ interface UserPermission {
     { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
     { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
     { key: "apiIntegrationStatus", label: "حالة تكامل API", labelEn: "API Integration Status" },
+    { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
   ];
 
 const DASHBOARD_COMPONENTS = [
