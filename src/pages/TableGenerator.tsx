@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Database as DatabaseIcon, CheckCircle, Edit, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Database as DatabaseIcon, CheckCircle, Edit, AlertTriangle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -30,6 +30,8 @@ const TableGenerator = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTableForDelete, setSelectedTableForDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRecreating, setIsRecreating] = useState(false);
+  const [recreateConfirmOpen, setRecreateConfirmOpen] = useState(false);
 
   useEffect(() => {
     loadGeneratedTables();
@@ -175,6 +177,67 @@ const TableGenerator = () => {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRecreateTable = async () => {
+    if (!selectedTableForEdit) return;
+
+    setIsRecreating(true);
+    setRecreateConfirmOpen(false);
+
+    try {
+      // 1. Drop existing table (ignore error if doesn't exist), keep metadata
+      await supabase.functions.invoke("drop-table", {
+        body: {
+          tableName: selectedTableForEdit.table_name,
+          tableId: selectedTableForEdit.id,
+          skipMetadata: true,
+        },
+      });
+
+      // 2. Create fresh table with current columns
+      const { error: createError } = await supabase.functions.invoke("create-table", {
+        body: {
+          tableName: selectedTableForEdit.table_name,
+          columns: editTableColumns.map((col) => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+          })),
+        },
+      });
+      if (createError) throw createError;
+
+      // 3. Update metadata in generated_tables
+      const { error: updateError } = await supabase
+        .from("generated_tables")
+        .update({
+          columns: editTableColumns.map((col) => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+          })),
+        })
+        .eq("id", selectedTableForEdit.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Success",
+        description: `Table "${selectedTableForEdit.table_name}" recreated successfully`,
+      });
+
+      setEditDialogOpen(false);
+      loadGeneratedTables();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to recreate table",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecreating(false);
     }
   };
 
@@ -584,16 +647,26 @@ const TableGenerator = () => {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-between gap-2 pt-4">
               <Button 
-                variant="outline" 
-                onClick={() => setEditDialogOpen(false)}
+                variant="destructive" 
+                onClick={() => setRecreateConfirmOpen(true)}
+                disabled={isRecreating}
               >
-                Cancel
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRecreating ? 'animate-spin' : ''}`} />
+                {isRecreating ? "Recreating..." : "Recreate Table"}
               </Button>
-              <Button onClick={handleSaveTableEdit}>
-                Save Changes
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveTableEdit}>
+                  Save Changes
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -627,6 +700,37 @@ const TableGenerator = () => {
               className="bg-destructive hover:bg-destructive/90"
             >
               {isDeleting ? "Deleting..." : "Delete Table"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={recreateConfirmOpen} onOpenChange={setRecreateConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Recreate Table
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to recreate the table <strong>{selectedTableForEdit?.table_name}</strong>?
+              <br /><br />
+              This will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Drop the existing database table and <strong className="text-destructive">all its data</strong></li>
+                <li>Create a fresh table with the current column definitions</li>
+              </ul>
+              <br />
+              <strong className="text-destructive">All existing data will be permanently lost.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRecreateTable}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Recreate Table
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

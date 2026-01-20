@@ -11,11 +11,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { tableName, tableId } = await req.json();
+    const { tableName, tableId, skipMetadata } = await req.json();
 
-    if (!tableName || !tableId) {
+    if (!tableName) {
       return new Response(
-        JSON.stringify({ error: 'Missing tableName or tableId' }),
+        JSON.stringify({ error: 'Missing tableName' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -46,21 +46,24 @@ Deno.serve(async (req) => {
 
     console.log(`Table ${lowerTableName} dropped successfully`);
 
-    // Delete from generated_tables metadata
-    const { error: deleteError } = await supabase
-      .from('generated_tables')
-      .delete()
-      .eq('id', tableId);
+    // Optionally skip metadata deletion (for recreate flow)
+    if (!skipMetadata && tableId) {
+      const { error: deleteError } = await supabase
+        .from('generated_tables')
+        .delete()
+        .eq('id', tableId);
 
-    if (deleteError) {
-      console.error('Error deleting from generated_tables:', deleteError);
-      return new Response(
-        JSON.stringify({ error: `Failed to delete metadata: ${deleteError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (deleteError) {
+        console.error('Error deleting from generated_tables:', deleteError);
+        return new Response(
+          JSON.stringify({ error: `Failed to delete metadata: ${deleteError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log('Metadata deleted successfully');
+    } else {
+      console.log('Skipped metadata deletion (skipMetadata=true or no tableId)');
     }
-
-    console.log('Metadata deleted successfully');
 
     return new Response(
       JSON.stringify({ 
