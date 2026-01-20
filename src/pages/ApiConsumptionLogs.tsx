@@ -105,16 +105,23 @@ const ApiConsumptionLogs = () => {
           return;
         }
 
-        // Check specific permission
-        const { data: permission } = await supabase
+        // Check specific permission - use same logic as AppSidebar (parent_menu is null)
+        const { data: permissions, error: permError } = await supabase
           .from('user_permissions')
-          .select('has_access')
+          .select('has_access, created_at')
           .eq('user_id', user.id)
           .eq('menu_item', 'apiConsumptionLogs')
-          .eq('parent_menu', 'Admin')
-          .single();
+          .is('parent_menu', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-        if (permission?.has_access) {
+        if (permError) {
+          console.error('Error checking permission:', permError);
+          setHasAccess(false);
+          return;
+        }
+
+        if (permissions && permissions.length > 0 && permissions[0].has_access) {
           setHasAccess(true);
         } else {
           setHasAccess(false);
