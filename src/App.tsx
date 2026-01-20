@@ -112,6 +112,7 @@ import ExpenseEntryForm from "./pages/ExpenseEntryForm";
 import PaymentBankLink from "./pages/PaymentBankLink";
 import BankBalanceByDateReport from "./pages/BankBalanceByDateReport";
 import BankStatementByBankReport from "./pages/BankStatementByBankReport";
+import ApiIntegrationStatus from "./pages/ApiIntegrationStatus";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -136,6 +137,7 @@ const App = () => (
               <Route path="/clear-data" element={<ClearData />} />
               <Route path="/reports-setup" element={<ReportsSetup />} />
               <Route path="/api-documentation" element={<ApiDocumentation />} />
+              <Route path="/api-integration-status" element={<ApiIntegrationStatus />} />
               <Route path="/excel-sheets" element={<ExcelSheets />} />
               <Route path="/table-generator" element={<TableGenerator />} />
               <Route path="/user-setup" element={<UserSetup />} />
