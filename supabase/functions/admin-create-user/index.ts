@@ -9,7 +9,7 @@ const corsHeaders = {
 // Full list of menu items for admin permissions
 const ALL_MENU_ITEMS = [
   "dashboard", "ticket_dashboard", "shift_dashboard", "task_dashboard", "user_dashboard",
-  "api_documentation", "softwareLicenses", "reports", "transactions", "pivotTable",
+  "api_documentation", "apiIntegrationStatus", "softwareLicenses", "reports", "transactions", "pivotTable",
   "loadData", "uploadLog", "clearData", "tickets", "admin_tickets", "softwareLicenseSetup",
   "shiftSession", "myShifts", "shiftFollowUp", "tawasoul", "companyNews", "reportsSetup",
   "customerSetup", "customerProfile", "customerTotals", "brandSetup", "brandType",
