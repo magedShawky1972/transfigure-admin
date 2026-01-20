@@ -772,8 +772,17 @@ const SavedAttendance = () => {
               const statusClass = rec.record_status === 'absent' ? 'status-absent' : rec.record_status === 'vacation' ? 'status-vacation' : '';
               const statusText = rec.record_status === 'absent' ? (isArabic ? 'غائب' : 'Absent') : rec.record_status === 'vacation' ? (rec.vacation_type || (isArabic ? 'إجازة' : 'Vacation')) : (isArabic ? 'حاضر' : 'Present');
               const diffClass = rec.difference_hours !== null ? (rec.difference_hours >= 0 ? 'diff-positive' : 'diff-negative') : '';
-              const rule = rec.deduction_rule_id ? deductionRules.find(r => r.id === rec.deduction_rule_id) : null;
-              const deductionText = rule ? `${isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name} (${rule.deduction_value})` : '-';
+              
+              // Calculate deduction rule dynamically
+              const lateMinutes = calculateLateMinutes(rec.employee_code, rec.in_time);
+              const earlyMinutes = calculateEarlyExitMinutes(rec.employee_code, rec.out_time);
+              const calculatedRule = findDeductionRule(lateMinutes, earlyMinutes, rec.record_status || 'normal');
+              const rule = rec.deduction_rule_id 
+                ? deductionRules.find(r => r.id === rec.deduction_rule_id) 
+                : calculatedRule;
+              const deductionText = rule 
+                ? `${isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name} (${rule.deduction_value}${rule.deduction_type === 'percentage' ? '%' : ''})` 
+                : '-';
               
               return `<tr>
                 <td>${getEmployeeName(rec.employee_code)}</td>
@@ -935,8 +944,17 @@ const SavedAttendance = () => {
               const statusClass = rec.record_status === 'absent' ? 'status-absent' : rec.record_status === 'vacation' ? 'status-vacation' : '';
               const statusText = rec.record_status === 'absent' ? (isArabic ? 'غائب' : 'Absent') : rec.record_status === 'vacation' ? (rec.vacation_type || (isArabic ? 'إجازة' : 'Vacation')) : (isArabic ? 'حاضر' : 'Present');
               const diffClass = rec.difference_hours !== null ? (rec.difference_hours >= 0 ? 'diff-positive' : 'diff-negative') : '';
-              const rule = rec.deduction_rule_id ? deductionRules.find(r => r.id === rec.deduction_rule_id) : null;
-              const deductionText = rule ? `${isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name}` : '-';
+              
+              // Calculate deduction rule dynamically
+              const lateMinutes = calculateLateMinutes(rec.employee_code, rec.in_time);
+              const earlyMinutes = calculateEarlyExitMinutes(rec.employee_code, rec.out_time);
+              const calculatedRule = findDeductionRule(lateMinutes, earlyMinutes, rec.record_status || 'normal');
+              const rule = rec.deduction_rule_id 
+                ? deductionRules.find(r => r.id === rec.deduction_rule_id) 
+                : calculatedRule;
+              const deductionText = rule 
+                ? `${isArabic && rule.rule_name_ar ? rule.rule_name_ar : rule.rule_name} (${rule.deduction_value}${rule.deduction_type === 'percentage' ? '%' : ''})` 
+                : '-';
               
               return `<tr>
                 <td class="mono">${getWeekday(rec.attendance_date)}</td>
