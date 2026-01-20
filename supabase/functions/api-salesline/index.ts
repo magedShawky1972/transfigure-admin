@@ -2,8 +2,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -36,6 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('Received sales line data:', JSON.stringify(body));
 
     // Fetch required fields from configuration
     const { data: fieldConfigs, error: configError } = await supabase
@@ -66,10 +76,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Insert sales order line
-    const { data, error } = await supabase
-      .from('sales_order_line')
-      .insert({
+    // Upsert to testsalesline table (for testing purposes)
+    const { data: testData, error: testError } = await supabase
+      .from('testsalesline')
+      .upsert({
         order_number: body.Order_Number,
         line_number: body.Line_Number,
         line_status: body.Line_Status,
@@ -82,19 +92,27 @@ Deno.serve(async (req) => {
         cost_price: body.Cost_Price,
         total_cost: body.Total_Cost,
         point: body.Point,
+      }, {
+        onConflict: 'order_number,line_number'
       })
       .select()
       .single();
 
-    if (error) {
-      console.error('Error inserting sales order line:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+    if (testError) {
+      console.error('Error upserting to testsalesline:', testError);
+      return new Response(JSON.stringify({ error: testError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    console.log('Successfully upserted to testsalesline:', testData);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Sales line saved to testsalesline table',
+      data: testData 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

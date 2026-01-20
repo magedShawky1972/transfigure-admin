@@ -2,8 +2,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -36,6 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('Received brand data:', JSON.stringify(body));
 
     // Fetch required fields from configuration
     const { data: fieldConfigs, error: configError } = await supabase
@@ -66,12 +76,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert brand
-    const { data, error } = await supabase
-      .from('brands')
+    // Upsert to testbrands table (for testing purposes)
+    const { data: testData, error: testError } = await supabase
+      .from('testbrands')
       .upsert({
         brand_code: body.Brand_Code,
         brand_name: body.Brand_Name,
+        brand_parent: body.Brand_Parent,
         status: body.Status ? 'active' : 'suspended',
       }, {
         onConflict: 'brand_code'
@@ -79,15 +90,21 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (error) {
-      console.error('Error upserting brand:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+    if (testError) {
+      console.error('Error upserting to testbrands:', testError);
+      return new Response(JSON.stringify({ error: testError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    console.log('Successfully upserted to testbrands:', testData);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Brand saved to testbrands table',
+      data: testData 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

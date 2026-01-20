@@ -2,8 +2,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -36,6 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('Received customer data:', JSON.stringify(body));
 
     // Fetch required fields from configuration
     const { data: fieldConfigs, error: configError } = await supabase
@@ -66,32 +76,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert customer (update if exists, insert if not)
-    const { data, error } = await supabase
-      .from('customers')
+    // Upsert to testcustomers table (for testing purposes)
+    const { data: testData, error: testError } = await supabase
+      .from('testcustomers')
       .upsert({
         customer_phone: body.Customer_Phone,
         customer_name: body.Customer_name,
         email: body.Customer_email,
+        customer_group: body.Customer_group,
         status: body.Status ? 'active' : 'suspended',
         is_blocked: body.Is_blocked || false,
         block_reason: body.Block_reason,
-        creation_date: body.Register_date || new Date().toISOString(),
+        register_date: body.Register_date,
+        last_transaction: body.Last_transaction,
       }, {
         onConflict: 'customer_phone'
       })
       .select()
       .single();
 
-    if (error) {
-      console.error('Error upserting customer:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+    if (testError) {
+      console.error('Error upserting to testcustomers:', testError);
+      return new Response(JSON.stringify({ error: testError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    console.log('Successfully upserted to testcustomers:', testData);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Customer saved to testcustomers table',
+      data: testData 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
