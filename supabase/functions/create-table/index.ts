@@ -8,6 +8,7 @@ Deno.serve(async (req) => {
 
   try {
     const { tableName, columns } = await req.json();
+    console.log(`Creating table: ${tableName} with ${columns?.length || 0} columns`);
 
     if (!tableName || !columns || !Array.isArray(columns) || columns.length === 0) {
       throw new Error('Invalid request: tableName and columns are required');
@@ -64,25 +65,42 @@ Deno.serve(async (req) => {
     `;
 
     // Execute all SQL statements
+    console.log('Executing CREATE TABLE SQL...');
     const { error: tableError } = await supabase.rpc('exec_sql', { 
       sql: createTableSQL 
     });
-    if (tableError) throw tableError;
+    if (tableError) {
+      console.error('CREATE TABLE error:', tableError);
+      throw tableError;
+    }
+    console.log('Table created successfully');
 
+    console.log('Enabling RLS...');
     const { error: rlsError } = await supabase.rpc('exec_sql', { 
       sql: enableRLSSQL 
     });
-    if (rlsError) throw rlsError;
+    if (rlsError) {
+      console.error('RLS error:', rlsError);
+      throw rlsError;
+    }
 
+    console.log('Creating policy...');
     const { error: policyError } = await supabase.rpc('exec_sql', { 
       sql: createPolicySQL 
     });
-    if (policyError) throw policyError;
+    if (policyError) {
+      console.error('Policy error:', policyError);
+      throw policyError;
+    }
 
+    console.log('Creating trigger...');
     const { error: triggerError } = await supabase.rpc('exec_sql', { 
       sql: createTriggerSQL 
     });
-    if (triggerError) throw triggerError;
+    if (triggerError) {
+      console.error('Trigger error:', triggerError);
+      throw triggerError;
+    }
 
     // Save table metadata (upsert to avoid unique constraint errors)
     const { error: metaError } = await supabase
