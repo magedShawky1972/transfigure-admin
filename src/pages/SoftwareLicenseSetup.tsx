@@ -520,12 +520,52 @@ const SoftwareLicenseSetup = () => {
         description: language === "ar" ? "تم رفع الفاتورة بنجاح، جاري استخراج التكلفة..." : "Invoice uploaded successfully, extracting cost...",
       });
 
+      // Prepare image data for AI extraction
+      let imageDataForAI = base64;
+      const isPdf = file.name.toLowerCase().endsWith('.pdf');
+      
+      if (isPdf) {
+        // For PDFs, we need to convert first page to image
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+          
+          // Load PDF from base64
+          const pdfData = base64.split(',')[1];
+          const binaryData = atob(pdfData);
+          const uint8Array = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            uint8Array[i] = binaryData.charCodeAt(i);
+          }
+          
+          const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+          const page = await pdf.getPage(1);
+          
+          // Render at a good resolution for text extraction
+          const scale = 2;
+          const viewport = page.getViewport({ scale });
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const context = canvas.getContext('2d');
+          
+          if (context) {
+            await page.render({ canvasContext: context, viewport }).promise;
+            imageDataForAI = canvas.toDataURL('image/png');
+          }
+        } catch (pdfError) {
+          console.error("Failed to convert PDF to image:", pdfError);
+          // Continue with original base64, AI will fail but we'll handle it
+        }
+      }
+
       // Call AI to extract cost from invoice (async, don't block)
       if (insertedInvoice) {
         supabase.functions.invoke("extract-invoice-cost", {
           body: { 
             invoiceId: insertedInvoice.id,
-            imageUrl: uploadData.url,
+            imageData: imageDataForAI,
             fileName: file.name
           },
         }).then(async () => {
