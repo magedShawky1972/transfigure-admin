@@ -97,6 +97,12 @@ interface CostCenter {
   cost_center_name_ar: string | null;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+}
+
 interface User {
   id: string;
   user_name: string;
@@ -119,6 +125,7 @@ interface SoftwareLicense {
   assigned_department: string | null;
   currency_id: string | null;
   cost_center_id: string | null;
+  project_id: string | null;
 }
 
 interface LicenseInvoice {
@@ -148,6 +155,7 @@ const SoftwareLicenseSetup = () => {
   const [editingLicenseId, setEditingLicenseId] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
@@ -175,6 +183,7 @@ const SoftwareLicenseSetup = () => {
     assigned_to: "",
     assigned_department: "",
     cost_center_id: "",
+    project_id: "",
     invoice_file_path: "",
     notes: "",
     status: "active",
@@ -185,6 +194,7 @@ const SoftwareLicenseSetup = () => {
     fetchLicenses();
     fetchDepartments();
     fetchCostCenters();
+    fetchProjects();
     fetchUsers();
     fetchCurrencies();
     fetchCurrencyRates();
@@ -242,6 +252,21 @@ const SoftwareLicenseSetup = () => {
       setCostCenters(data || []);
     } catch (error: any) {
       console.error("Error fetching cost centers:", error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name, status")
+        .eq("status", "active")
+        .order("name");
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error: any) {
+      console.error("Error fetching projects:", error);
     }
   };
 
@@ -548,6 +573,7 @@ const SoftwareLicenseSetup = () => {
         assigned_to: formData.assigned_to || null,
         assigned_department: formData.assigned_department || null,
         cost_center_id: formData.cost_center_id || null,
+        project_id: formData.project_id || null,
         invoice_file_path: formData.invoice_file_path || null,
         notes: formData.notes || null,
         status: formData.status,
@@ -621,6 +647,7 @@ const SoftwareLicenseSetup = () => {
           assigned_to: data.assigned_to || "",
           assigned_department: data.assigned_department || "",
           cost_center_id: data.cost_center_id || "",
+          project_id: data.project_id || "",
           invoice_file_path: data.invoice_file_path || "",
           notes: data.notes || "",
           status: data.status || "active",
@@ -696,6 +723,7 @@ const SoftwareLicenseSetup = () => {
       assigned_to: "",
       assigned_department: "",
       cost_center_id: "",
+      project_id: "",
       invoice_file_path: "",
       notes: "",
       status: "active",
@@ -1279,6 +1307,27 @@ const SoftwareLicenseSetup = () => {
                         {costCenters.map((cc) => (
                           <SelectItem key={cc.id} value={cc.id}>
                             {cc.cost_center_code} - {language === "ar" ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="project_id">{language === "ar" ? "المشروع" : "Project"}</Label>
+                    <Select 
+                      value={formData.project_id} 
+                      onValueChange={(value) => setFormData({ ...formData, project_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "ar" ? "اختر المشروع" : "Select project"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

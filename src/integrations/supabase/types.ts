@@ -5132,6 +5132,7 @@ export type Database = {
           notes: string | null
           notification_days: number[] | null
           payment_method: string | null
+          project_id: string | null
           purchase_date: string
           renewal_cycle: string
           software_name: string
@@ -5158,6 +5159,7 @@ export type Database = {
           notes?: string | null
           notification_days?: number[] | null
           payment_method?: string | null
+          project_id?: string | null
           purchase_date: string
           renewal_cycle: string
           software_name: string
@@ -5184,6 +5186,7 @@ export type Database = {
           notes?: string | null
           notification_days?: number[] | null
           payment_method?: string | null
+          project_id?: string | null
           purchase_date?: string
           renewal_cycle?: string
           software_name?: string
@@ -5207,6 +5210,13 @@ export type Database = {
             columns: ["currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "software_licenses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
