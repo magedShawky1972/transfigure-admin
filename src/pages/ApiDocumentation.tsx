@@ -184,6 +184,105 @@ const API_ENDPOINTS = [
       { name: "x-api-key", type: "Header", required: true, note: "API Key with ZK Attendance permission" },
     ],
   },
+  {
+    id: "lookup",
+    name: "Data Lookup (GET)",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup`,
+    method: "GET",
+    description: "Check if data exists by ID for various entities. Use query parameters to specify entity type and ID. Returns the data if found.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Entity type: salesheader, salesline, payment, customer, supplier, supplierproduct, brand, product" },
+      { name: "id", type: "Query Param", required: true, note: "The ID value to look up (e.g., Order_Number, Customer_Phone, SKU)" },
+    ],
+  },
+  {
+    id: "lookup-salesheader",
+    name: "Lookup: Sales Order Header",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=salesheader&id={Order_Number}`,
+    method: "GET",
+    description: "Check if a Sales Order Header exists by Order Number. Returns order details if found.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: salesheader" },
+      { name: "id", type: "Query Param", required: true, note: "The Order Number to look up" },
+    ],
+  },
+  {
+    id: "lookup-salesline",
+    name: "Lookup: Sales Order Line",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=salesline&id={Order_Number}`,
+    method: "GET",
+    description: "Check if Sales Order Lines exist by Order Number. Returns all line items for the order.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: salesline" },
+      { name: "id", type: "Query Param", required: true, note: "The Order Number to look up" },
+    ],
+  },
+  {
+    id: "lookup-payment",
+    name: "Lookup: Payment",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=payment&id={Order_Number}`,
+    method: "GET",
+    description: "Check if a Payment exists by Order Number. Returns payment details if found.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: payment" },
+      { name: "id", type: "Query Param", required: true, note: "The Order Number to look up" },
+    ],
+  },
+  {
+    id: "lookup-customer",
+    name: "Lookup: Customer",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=customer&id={Customer_Phone}`,
+    method: "GET",
+    description: "Check if a Customer exists by Phone Number. Returns customer details if found.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: customer" },
+      { name: "id", type: "Query Param", required: true, note: "The Customer Phone to look up" },
+    ],
+  },
+  {
+    id: "lookup-supplier",
+    name: "Lookup: Supplier",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=supplier&id={Supplier_Code}`,
+    method: "GET",
+    description: "Check if a Supplier exists by Supplier Code. Returns supplier details if found.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: supplier" },
+      { name: "id", type: "Query Param", required: true, note: "The Supplier Code to look up" },
+    ],
+  },
+  {
+    id: "lookup-supplierproduct",
+    name: "Lookup: Supplier Product",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=supplierproduct&id={Supplier_Code}`,
+    method: "GET",
+    description: "Check if Supplier Products exist by Supplier Code. Returns all products for the supplier.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: supplierproduct" },
+      { name: "id", type: "Query Param", required: true, note: "The Supplier Code to look up" },
+    ],
+  },
+  {
+    id: "lookup-brand",
+    name: "Lookup: Brand (Product Category)",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=brand&id={Brand_Code}`,
+    method: "GET",
+    description: "Check if a Brand exists by Brand Code. Returns brand details if found.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: brand" },
+      { name: "id", type: "Query Param", required: true, note: "The Brand Code to look up" },
+    ],
+  },
+  {
+    id: "lookup-product",
+    name: "Lookup: Product",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-lookup?entity=product&id={SKU}`,
+    method: "GET",
+    description: "Check if a Product exists by SKU. Returns product details if found.",
+    fields: [
+      { name: "entity", type: "Query Param", required: true, note: "Value: product" },
+      { name: "id", type: "Query Param", required: true, note: "The Product SKU to look up" },
+    ],
+  },
 ];
 
 interface ApiFieldConfig {
@@ -315,7 +414,17 @@ const ApiDocumentation = () => {
     return apiConfigs.filter(config => config.api_endpoint === `/api/${apiName}`);
   };
 
-  const generateRequestBodyExample = (fields: any[]) => {
+  const generateRequestBodyExample = (fields: any[], method: string = 'POST', endpoint: string = '') => {
+    // For GET requests with query parameters, show the URL example
+    if (method === 'GET') {
+      const queryParams = fields.filter((f: any) => f.type === 'Query Param' && f.required);
+      if (queryParams.length > 0) {
+        return `// No request body needed for GET requests
+// Query parameters are passed in the URL`;
+      }
+      return '// No request body needed for GET requests';
+    }
+
     // Check if fields contain array notation (e.g., "records[].employee_code")
     const arrayFields: Record<string, any[]> = {};
     const regularFields: any[] = [];
@@ -332,7 +441,7 @@ const ApiDocumentation = () => {
       } else if (field.type === 'Array') {
         // This is the array field itself, skip it as we'll handle it via child fields
         arrayFields[field.name] = arrayFields[field.name] || [];
-      } else {
+      } else if (field.type !== 'Query Param' && field.type !== 'Header') {
         regularFields.push(field);
       }
     });
@@ -613,18 +722,31 @@ const ApiDocumentation = () => {
             <div>
               <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Request</p>
               <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
-                <pre>{`POST ${api.endpoint}
+                <pre>{`${api.method} ${api.endpoint}
 Authorization: <${apiKey || 'your_api_key_here'}>
-Content-Type: application/json
-
-${generateRequestBodyExample(api.fields)}`}</pre>
+${api.method === 'POST' ? 'Content-Type: application/json\n' : ''}
+${generateRequestBodyExample(api.fields, api.method, api.endpoint)}`}</pre>
               </div>
             </div>
 
             <div>
               <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Response</p>
               <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
-                <pre>{`{
+                <pre>{api.method === 'GET' && api.id.startsWith('lookup') ? `{
+  "success": true,
+  "exists": true,
+  "entity": "${api.id.replace('lookup-', '') || 'salesheader'}",
+  "id": "LOOKUP_VALUE",
+  "count": 1,
+  "data": [
+    {
+      "id": "uuid-here",
+      "created_at": "2024-01-01T00:00:00Z",
+      ...
+    }
+  ],
+  "message": "Record found"
+}` : `{
   "success": true,
   "data": {
     "id": "uuid-here",
