@@ -955,6 +955,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_centers: {
+        Row: {
+          cost_center_code: string
+          cost_center_name: string
+          cost_center_name_ar: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cost_center_code: string
+          cost_center_name: string
+          cost_center_name_ar?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cost_center_code?: string
+          cost_center_name?: string
+          cost_center_name_ar?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       crm_customer_followup: {
         Row: {
           created_at: string
@@ -5082,6 +5121,7 @@ export type Database = {
           assigned_to: string | null
           category: string
           cost: number
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           currency_id: string | null
@@ -5107,6 +5147,7 @@ export type Database = {
           assigned_to?: string | null
           category: string
           cost?: number
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
@@ -5132,6 +5173,7 @@ export type Database = {
           assigned_to?: string | null
           category?: string
           cost?: number
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
@@ -5153,6 +5195,13 @@ export type Database = {
           version?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "software_licenses_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "software_licenses_currency_id_fkey"
             columns: ["currency_id"]
