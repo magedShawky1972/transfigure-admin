@@ -1,8 +1,9 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Languages, LogOut, Home, Clock, User, Key, Camera, Building2, Briefcase } from "lucide-react";
+import { Moon, Sun, Languages, LogOut, Home, Clock, User, Key, Camera, Building2, Briefcase, LayoutGrid, PanelLeft } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { PushNotificationBar } from "@/components/PushNotificationBar";
+import { MainPageMenu } from "@/components/MainPageMenu";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -30,6 +31,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AvatarSelector from "@/components/AvatarSelector";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const getKSADateTime = () => {
   const ksaDate = getKSADate();
@@ -71,10 +77,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [isSysadminSession, setIsSysadminSession] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [menuMode, setMenuMode] = useState<"sidebar" | "mainpage">(() => {
+    return (localStorage.getItem("menuMode") as "sidebar" | "mainpage") || "sidebar";
+  });
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+
+  const toggleMenuMode = () => {
+    const newMode = menuMode === "sidebar" ? "mainpage" : "sidebar";
+    setMenuMode(newMode);
+    localStorage.setItem("menuMode", newMode);
+  };
   
   // Initialize idle timeout session manager (30 minutes)
   useIdleTimeout();
@@ -397,9 +412,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={menuMode === "sidebar"}>
       <div className="flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20">
-        <AppSidebar />
+        {menuMode === "sidebar" && <AppSidebar />}
         
         <main className="flex-1 flex flex-col min-w-0">
           {/* Push Notification Enable Bar */}
@@ -409,7 +424,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {/* Main header row */}
             <div className="h-12 flex items-center justify-between px-3 md:px-4">
               <div className="flex items-center gap-3">
-                <SidebarTrigger className={language === "ar" ? "ml-4" : "mr-4"} />
+                {menuMode === "sidebar" && (
+                  <SidebarTrigger className={language === "ar" ? "ml-4" : "mr-4"} />
+                )}
                 <img src={edaraLogo} alt="Edara Logo" className="w-10 h-10 object-contain" />
                 <h1 className="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                   {t("app.name")}
@@ -470,6 +487,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     )}
                     
                     <NotificationBell />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={toggleMenuMode}
+                          className="rounded-full"
+                        >
+                          {menuMode === "sidebar" ? (
+                            <LayoutGrid className="h-5 w-5" />
+                          ) : (
+                            <PanelLeft className="h-5 w-5" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {menuMode === "sidebar" 
+                          ? (language === "ar" ? "التبديل إلى قائمة الأيقونات" : "Switch to Icon Grid Menu")
+                          : (language === "ar" ? "التبديل إلى القائمة الجانبية" : "Switch to Sidebar Menu")
+                        }
+                      </TooltipContent>
+                    </Tooltip>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -527,7 +566,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </header>
           
           <div className="flex-1 overflow-auto p-2 w-full">
-            {children}
+            {menuMode === "mainpage" && location.pathname === "/" ? (
+              <MainPageMenu />
+            ) : (
+              children
+            )}
           </div>
         </main>
       </div>
