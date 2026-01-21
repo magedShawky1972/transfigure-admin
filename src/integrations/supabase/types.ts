@@ -5125,10 +5125,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency_id: string | null
+          domain_name: string | null
           expiry_date: string | null
           id: string
           invoice_file_path: string | null
           license_key: string | null
+          mails: string | null
           notes: string | null
           notification_days: number[] | null
           payment_method: string | null
@@ -5152,10 +5154,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          domain_name?: string | null
           expiry_date?: string | null
           id?: string
           invoice_file_path?: string | null
           license_key?: string | null
+          mails?: string | null
           notes?: string | null
           notification_days?: number[] | null
           payment_method?: string | null
@@ -5179,10 +5183,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          domain_name?: string | null
           expiry_date?: string | null
           id?: string
           invoice_file_path?: string | null
           license_key?: string | null
+          mails?: string | null
           notes?: string | null
           notification_days?: number[] | null
           payment_method?: string | null
