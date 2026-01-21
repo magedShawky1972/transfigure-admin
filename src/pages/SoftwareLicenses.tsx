@@ -43,6 +43,18 @@ interface SoftwareLicense {
   invoice_file_path: string | null;
   currency_id: string | null;
   notes: string | null;
+  project_id: string | null;
+  cost_center_id: string | null;
+}
+
+interface Project {
+  id: string;
+  name: string;
+}
+
+interface CostCenter {
+  id: string;
+  cost_center_name: string;
 }
 
 interface Currency {
@@ -90,7 +102,13 @@ const SoftwareLicenses = () => {
     expiringSoon: 0,
     monthlyCost: 0,
     annualCost: 0,
+    invoiceTotalSAR: 0,
   });
+
+  // Additional data
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [invoiceTotals, setInvoiceTotals] = useState<Record<string, number>>({});
 
   // Renewal dialog state
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
@@ -108,6 +126,8 @@ const SoftwareLicenses = () => {
     fetchLicenses();
     fetchCurrencies();
     fetchDepartments();
+    fetchProjects();
+    fetchCostCenters();
   }, []);
 
   useEffect(() => {
@@ -116,7 +136,7 @@ const SoftwareLicenses = () => {
 
   useEffect(() => {
     calculateStats();
-  }, [licenses, currencies, currencyRates, baseCurrency]);
+  }, [licenses, currencies, currencyRates, baseCurrency, invoiceTotals]);
 
   const fetchLicenses = async (skipAutoUpdate = false) => {
     setLoading(true);
@@ -132,6 +152,26 @@ const SoftwareLicenses = () => {
 
       if (error) throw error;
       setLicenses(data || []);
+      
+      // Fetch invoice totals for all licenses
+      if (data && data.length > 0) {
+        const licenseIds = data.map(l => l.id);
+        const { data: invoices, error: invoiceError } = await supabase
+          .from("software_license_invoices")
+          .select("license_id, cost_sar")
+          .in("license_id", licenseIds)
+          .eq("ai_extraction_status", "completed");
+
+        if (!invoiceError && invoices) {
+          const totalsMap: Record<string, number> = {};
+          invoices.forEach(inv => {
+            if (inv.license_id && inv.cost_sar) {
+              totalsMap[inv.license_id] = (totalsMap[inv.license_id] || 0) + Number(inv.cost_sar);
+            }
+          });
+          setInvoiceTotals(totalsMap);
+        }
+      }
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -190,6 +230,35 @@ const SoftwareLicenses = () => {
       setDepartments(data || []);
     } catch (error: any) {
       console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error: any) {
+      console.error("Error fetching projects:", error);
+    }
+  };
+
+  const fetchCostCenters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("cost_centers")
+        .select("id, cost_center_name")
+        .eq("is_active", true)
+        .order("cost_center_name");
+
+      if (error) throw error;
+      setCostCenters(data || []);
+    } catch (error: any) {
+      console.error("Error fetching cost centers:", error);
     }
   };
 
@@ -364,7 +433,9 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
       return sum;
     }, 0);
 
-    setStats({ total, active, expired, expiringSoon, monthlyCost, annualCost });
+    const invoiceTotalSAR = Object.values(invoiceTotals).reduce((sum, val) => sum + val, 0);
+
+    setStats({ total, active, expired, expiringSoon, monthlyCost, annualCost, invoiceTotalSAR });
   };
 
   const getStatusBadge = (status: string) => {
@@ -479,7 +550,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
       </div>
 
       {/* Dashboard Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -540,6 +611,17 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(stats.annualCost)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {language === "ar" ? "إجمالي الفواتير" : "Invoice Total"}
+              <span className="text-xs ml-1">(SAR)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{formatNumber(stats.invoiceTotalSAR)}</div>
           </CardContent>
         </Card>
       </div>
@@ -693,6 +775,22 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
                     <span className="text-muted-foreground">{language === "ar" ? "العملة:" : "Currency:"}</span>
                     <span className="font-medium">{currencies.find(c => c.id === license.currency_id)?.currency_code || (language === "ar" ? "غير محدد" : "Not set")}</span>
                   </div>
+                  {license.project_id && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{language === "ar" ? "المشروع:" : "Project:"}</span>
+                      <span className="truncate max-w-[150px] font-medium" title={projects.find(p => p.id === license.project_id)?.name || ""}>
+                        {projects.find(p => p.id === license.project_id)?.name || "-"}
+                      </span>
+                    </div>
+                  )}
+                  {license.cost_center_id && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{language === "ar" ? "مركز التكلفة:" : "Cost Center:"}</span>
+                      <span className="truncate max-w-[150px] font-medium" title={costCenters.find(c => c.id === license.cost_center_id)?.cost_center_name || ""}>
+                        {costCenters.find(c => c.id === license.cost_center_id)?.cost_center_name || "-"}
+                      </span>
+                    </div>
+                  )}
                   {(license.assigned_to || license.assigned_department) && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{language === "ar" ? "مخصص لـ:" : "Assigned:"}</span>
@@ -711,6 +809,12 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>{language === "ar" ? "بالعملة الأساسية:" : "In base currency:"}</span>
                       <span>{formatNumber(convertToBaseCurrency(Number(license.cost), license.currency_id))} {baseCurrency.currency_code}</span>
+                    </div>
+                  )}
+                  {invoiceTotals[license.id] > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">{language === "ar" ? "إجمالي الفواتير:" : "Invoice Total:"}</span>
+                      <span className="font-bold text-blue-600">{formatNumber(invoiceTotals[license.id])} SAR</span>
                     </div>
                   )}
                   {license.notes && (
