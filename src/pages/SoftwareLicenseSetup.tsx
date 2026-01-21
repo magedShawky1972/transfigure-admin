@@ -909,6 +909,9 @@ const SoftwareLicenseSetup = () => {
                   <TableHead>
                     {language === "ar" ? "العملة" : "Currency"}
                   </TableHead>
+                  <TableHead>
+                    {language === "ar" ? "المشروع" : "Project"}
+                  </TableHead>
                   <TableHead
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("status")}
@@ -922,13 +925,13 @@ const SoftwareLicenseSetup = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">
+                    <TableCell colSpan={11} className="text-center">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : filteredLicenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">
+                    <TableCell colSpan={11} className="text-center">
                       {language === "ar" ? "لا توجد تراخيص" : "No licenses found"}
                     </TableCell>
                   </TableRow>
@@ -952,6 +955,9 @@ const SoftwareLicenseSetup = () => {
                       </TableCell>
                       <TableCell>
                         {currencies.find(c => c.id === license.currency_id)?.currency_code || '-'}
+                      </TableCell>
+                      <TableCell>
+                        {projects.find(p => p.id === license.project_id)?.name || '-'}
                       </TableCell>
                       <TableCell>{getStatusBadge(license.status)}</TableCell>
                       <TableCell>
