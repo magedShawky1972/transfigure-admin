@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.send-attendance-summary-email]
 verify_jwt = false
+
+[functions.update-bank-ledger-background]
+verify_jwt = false

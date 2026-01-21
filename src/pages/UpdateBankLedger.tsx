@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Database, FileText, Calendar } from "lucide-react";
+import { Loader2, RefreshCw, Database, FileText, Calendar, XCircle, CheckCircle } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,18 +22,33 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface BackgroundJob {
+  id: string;
+  job_type: string;
+  status: string;
+  from_date_int: number | null;
+  to_date_int: number | null;
+  total_records: number;
+  processed_records: number;
+  updated_records: number;
+  error_records: number;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
 const UpdateBankLedger = () => {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
   const { hasAccess, isLoading: accessLoading } = usePageAccess();
   
-  const [updatingPaymentRef, setUpdatingPaymentRef] = useState(false);
   const [updatingHyperpay, setUpdatingHyperpay] = useState(false);
   const [showPaymentRefDialog, setShowPaymentRefDialog] = useState(false);
   const [showHyperpayDialog, setShowHyperpayDialog] = useState(false);
   
-  // Progress tracking
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  // Background job state
+  const [activeJob, setActiveJob] = useState<BackgroundJob | null>(null);
   
   // Date filter
   const [fromDate, setFromDate] = useState('');
@@ -45,6 +61,72 @@ const UpdateBankLedger = () => {
     details?: any;
   } | null>(null);
 
+  // Fetch active job on mount
+  useEffect(() => {
+    fetchActiveJob();
+  }, []);
+
+  // Subscribe to realtime updates for job progress
+  useEffect(() => {
+    if (!activeJob) return;
+
+    const channel = supabase
+      .channel('bank_ledger_job_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'bank_ledger_update_jobs',
+          filter: `id=eq.${activeJob.id}`
+        },
+        (payload) => {
+          const updatedJob = payload.new as BackgroundJob;
+          setActiveJob(updatedJob);
+          
+          if (updatedJob.status === 'completed') {
+            toast.success(isRTL ? 'تم إكمال التحديث بنجاح' : 'Update completed successfully');
+            setLastResult({
+              type: 'paymentRef',
+              success: true,
+              message: isRTL 
+                ? `تم تحديث ${updatedJob.updated_records} سجل بنجاح${updatedJob.error_records > 0 ? ` (${updatedJob.error_records} أخطاء)` : ''}`
+                : `Successfully updated ${updatedJob.updated_records} records${updatedJob.error_records > 0 ? ` (${updatedJob.error_records} errors)` : ''}`,
+              details: {
+                totalProcessed: updatedJob.processed_records,
+                updated: updatedJob.updated_records,
+                errors: updatedJob.error_records
+              }
+            });
+          } else if (updatedJob.status === 'failed') {
+            toast.error(updatedJob.error_message || (isRTL ? 'فشل التحديث' : 'Update failed'));
+          } else if (updatedJob.status === 'cancelled') {
+            toast.info(isRTL ? 'تم إلغاء المهمة' : 'Job cancelled');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeJob?.id, isRTL]);
+
+  const fetchActiveJob = async () => {
+    const { data, error } = await supabase
+      .from('bank_ledger_update_jobs')
+      .select('*')
+      .eq('job_type', 'payment_reference')
+      .in('status', ['pending', 'running'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data) {
+      setActiveJob(data as BackgroundJob);
+    }
+  };
+
   // Access control
   if (accessLoading || hasAccess === null) return <AccessDenied isLoading={true} />;
   if (hasAccess === false) return <AccessDenied />;
@@ -55,118 +137,74 @@ const UpdateBankLedger = () => {
     return parseInt(dateStr.replace(/-/g, ''), 10);
   };
 
-  const handleUpdatePaymentReference = async () => {
-    setUpdatingPaymentRef(true);
+  const handleStartBackgroundJob = async () => {
     setShowPaymentRefDialog(false);
-    setLastResult(null);
-    setProgress({ current: 0, total: 0 });
 
     try {
-      // Build query with optional date filter
-      let query = supabase
-        .from('order_payment')
-        .select('ordernumber, paymentrefrence, created_at_int', { count: 'exact' })
-        .not('paymentrefrence', 'is', null)
-        .not('ordernumber', 'is', null);
-
-      const fromInt = dateToInt(fromDate);
-      const toInt = dateToInt(toDate);
-
-      if (fromInt) {
-        query = query.gte('created_at_int', fromInt);
-      }
-      if (toInt) {
-        query = query.lte('created_at_int', toInt);
-      }
-
-      // First get total count
-      const { count, error: countError } = await query;
-      
-      if (countError) throw countError;
-
-      if (!count || count === 0) {
-        setLastResult({
-          type: 'paymentRef',
-          success: true,
-          message: isRTL ? 'لا توجد سجلات للتحديث' : 'No records to update'
-        });
-        setUpdatingPaymentRef(false);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error(isRTL ? 'يجب تسجيل الدخول' : 'Must be logged in');
         return;
       }
 
-      setProgress({ current: 0, total: count });
-
-      let updated = 0;
-      let errors = 0;
-      const batchSize = 1000;
-      let offset = 0;
-
-      // Process all records in batches
-      while (offset < count) {
-        // Fetch batch
-        let batchQuery = supabase
-          .from('order_payment')
-          .select('ordernumber, paymentrefrence')
-          .not('paymentrefrence', 'is', null)
-          .not('ordernumber', 'is', null)
-          .range(offset, offset + batchSize - 1);
-
-        if (fromInt) {
-          batchQuery = batchQuery.gte('created_at_int', fromInt);
+      const { data, error } = await supabase.functions.invoke('update-bank-ledger-background', {
+        body: {
+          action: 'start',
+          fromDateInt: dateToInt(fromDate),
+          toDateInt: dateToInt(toDate),
+          userId: user.id
         }
-        if (toInt) {
-          batchQuery = batchQuery.lte('created_at_int', toInt);
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.jobId) {
+        toast.success(isRTL ? 'تم بدء المهمة في الخلفية' : 'Background job started');
+        // Fetch the new job
+        const { data: job } = await supabase
+          .from('bank_ledger_update_jobs')
+          .select('*')
+          .eq('id', data.jobId)
+          .single();
+        
+        if (job) {
+          setActiveJob(job as BackgroundJob);
         }
-
-        const { data: orderPayments, error: opError } = await batchQuery;
-
-        if (opError) throw opError;
-
-        if (!orderPayments || orderPayments.length === 0) break;
-
-        // Process each record in the batch
-        for (const op of orderPayments) {
-          const { error: updateError } = await supabase
-            .from('bank_ledger')
-            .update({ paymentrefrence: op.paymentrefrence })
-            .eq('reference_number', op.ordernumber);
-
-          if (updateError) {
-            console.error(`Error updating bank_ledger for order ${op.ordernumber}:`, updateError);
-            errors++;
-          } else {
-            updated++;
-          }
-
-          // Update progress
-          setProgress(prev => ({ ...prev, current: updated + errors }));
-        }
-
-        offset += batchSize;
+      } else {
+        throw new Error(data?.error || 'Unknown error');
       }
 
-      setLastResult({
-        type: 'paymentRef',
-        success: true,
-        message: isRTL 
-          ? `تم تحديث ${updated} سجل بنجاح${errors > 0 ? ` (${errors} أخطاء)` : ''}`
-          : `Successfully updated ${updated} records${errors > 0 ? ` (${errors} errors)` : ''}`,
-        details: { totalProcessed: count, updated, errors }
-      });
-
-      toast.success(isRTL ? 'تم تحديث مرجع الدفع بنجاح' : 'Payment reference updated successfully');
-
     } catch (error) {
-      console.error('Error updating payment reference:', error);
-      setLastResult({
-        type: 'paymentRef',
-        success: false,
-        message: isRTL ? 'حدث خطأ أثناء التحديث' : 'Error during update'
-      });
-      toast.error(isRTL ? 'حدث خطأ أثناء التحديث' : 'Error during update');
-    } finally {
-      setUpdatingPaymentRef(false);
+      console.error('Error starting background job:', error);
+      toast.error(isRTL ? 'حدث خطأ أثناء بدء المهمة' : 'Error starting job');
     }
+  };
+
+  const handleCancelJob = async () => {
+    if (!activeJob) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('update-bank-ledger-background', {
+        body: {
+          action: 'cancel',
+          jobId: activeJob.id
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.info(isRTL ? 'جاري إلغاء المهمة...' : 'Cancelling job...');
+      }
+    } catch (error) {
+      console.error('Error cancelling job:', error);
+      toast.error(isRTL ? 'حدث خطأ أثناء إلغاء المهمة' : 'Error cancelling job');
+    }
+  };
+
+  const handleDismissJob = () => {
+    setActiveJob(null);
   };
 
   const handleUpdateHyperpayFields = async () => {
@@ -208,7 +246,27 @@ const UpdateBankLedger = () => {
     }
   };
 
-  const progressPercentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+  const isJobRunning = activeJob && ['pending', 'running'].includes(activeJob.status);
+  const progressPercentage = activeJob && activeJob.total_records > 0 
+    ? (activeJob.processed_records / activeJob.total_records) * 100 
+    : 0;
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="secondary">{isRTL ? 'قيد الانتظار' : 'Pending'}</Badge>;
+      case 'running':
+        return <Badge className="bg-blue-500">{isRTL ? 'قيد التشغيل' : 'Running'}</Badge>;
+      case 'completed':
+        return <Badge className="bg-green-500">{isRTL ? 'مكتمل' : 'Completed'}</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">{isRTL ? 'فشل' : 'Failed'}</Badge>;
+      case 'cancelled':
+        return <Badge variant="outline">{isRTL ? 'ملغي' : 'Cancelled'}</Badge>;
+      default:
+        return <Badge>{status}</Badge>;
+    }
+  };
 
   return (
     <div className={`container mx-auto p-6 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -223,6 +281,79 @@ const UpdateBankLedger = () => {
         </p>
       </div>
 
+      {/* Active Background Job Status Card */}
+      {activeJob && (
+        <Card className="mb-6 border-blue-200 bg-blue-50/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                {isJobRunning ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                ) : activeJob.status === 'completed' ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                )}
+                {isRTL ? 'مهمة تحديث مرجع الدفع' : 'Payment Reference Update Job'}
+              </CardTitle>
+              {getStatusBadge(activeJob.status)}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Progress Bar */}
+            {activeJob.total_records > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>{isRTL ? 'التقدم' : 'Progress'}</span>
+                  <span className="font-medium">
+                    {activeJob.processed_records.toLocaleString()} / {activeJob.total_records.toLocaleString()}
+                  </span>
+                </div>
+                <Progress value={progressPercentage} className="h-3" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{progressPercentage.toFixed(1)}%</span>
+                  <span>
+                    {isRTL ? 'محدث:' : 'Updated:'} {activeJob.updated_records.toLocaleString()}
+                    {activeJob.error_records > 0 && (
+                      <span className="text-red-500 ml-2">
+                        {isRTL ? 'أخطاء:' : 'Errors:'} {activeJob.error_records}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Date Range Info */}
+            {(activeJob.from_date_int || activeJob.to_date_int) && (
+              <p className="text-sm text-muted-foreground">
+                {isRTL ? 'نطاق التاريخ:' : 'Date Range:'} {activeJob.from_date_int || 'Start'} - {activeJob.to_date_int || 'End'}
+              </p>
+            )}
+
+            {/* Error Message */}
+            {activeJob.error_message && (
+              <p className="text-sm text-red-500">{activeJob.error_message}</p>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              {isJobRunning && (
+                <Button variant="destructive" size="sm" onClick={handleCancelJob}>
+                  <XCircle className="h-4 w-4 mr-1" />
+                  {isRTL ? 'إلغاء' : 'Cancel'}
+                </Button>
+              )}
+              {!isJobRunning && (
+                <Button variant="outline" size="sm" onClick={handleDismissJob}>
+                  {isRTL ? 'إخفاء' : 'Dismiss'}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Update Payment Reference Card */}
         <Card>
@@ -233,15 +364,15 @@ const UpdateBankLedger = () => {
             </CardTitle>
             <CardDescription>
               {isRTL 
-                ? 'تحديث حقل paymentrefrence في bank_ledger من جدول order_payment'
-                : 'Update paymentrefrence field in bank_ledger from order_payment table'}
+                ? 'تحديث حقل paymentrefrence في bank_ledger من جدول order_payment (يعمل في الخلفية)'
+                : 'Update paymentrefrence field in bank_ledger from order_payment table (runs in background)'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {isRTL 
-                ? 'يقوم هذا الإجراء بربط bank_ledger.reference_number مع order_payment.ordernumber وتحديث paymentrefrence'
-                : 'This action links bank_ledger.reference_number with order_payment.ordernumber and updates paymentrefrence'}
+                ? 'يقوم هذا الإجراء بربط bank_ledger.reference_number مع order_payment.ordernumber وتحديث paymentrefrence. يستمر العمل حتى لو أغلقت الصفحة.'
+                : 'This action links bank_ledger.reference_number with order_payment.ordernumber and updates paymentrefrence. Work continues even if you close the page.'}
             </p>
             
             {/* Date Filter */}
@@ -256,7 +387,7 @@ const UpdateBankLedger = () => {
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  disabled={updatingPaymentRef}
+                  disabled={isJobRunning}
                 />
               </div>
               <div className="space-y-2">
@@ -269,33 +400,17 @@ const UpdateBankLedger = () => {
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  disabled={updatingPaymentRef}
+                  disabled={isJobRunning}
                 />
               </div>
             </div>
 
-            {/* Progress Bar */}
-            {updatingPaymentRef && progress.total > 0 && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>{isRTL ? 'التقدم' : 'Progress'}</span>
-                  <span className="font-medium">
-                    {progress.current.toLocaleString()} / {progress.total.toLocaleString()}
-                  </span>
-                </div>
-                <Progress value={progressPercentage} className="h-3" />
-                <p className="text-xs text-muted-foreground text-center">
-                  {progressPercentage.toFixed(1)}%
-                </p>
-              </div>
-            )}
-
             <Button 
               onClick={() => setShowPaymentRefDialog(true)}
-              disabled={updatingPaymentRef || updatingHyperpay}
+              disabled={isJobRunning || updatingHyperpay}
               className="w-full"
             >
-              {updatingPaymentRef ? (
+              {isJobRunning ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   {isRTL ? 'جاري التحديث...' : 'Updating...'}
@@ -303,7 +418,7 @@ const UpdateBankLedger = () => {
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  {isRTL ? 'تحديث مرجع الدفع' : 'Update Payment Reference'}
+                  {isRTL ? 'تحديث مرجع الدفع (خلفية)' : 'Update Payment Reference (Background)'}
                 </>
               )}
             </Button>
@@ -331,7 +446,7 @@ const UpdateBankLedger = () => {
             </p>
             <Button 
               onClick={() => setShowHyperpayDialog(true)}
-              disabled={updatingPaymentRef || updatingHyperpay}
+              disabled={isJobRunning || updatingHyperpay}
               className="w-full"
               variant="secondary"
             >
@@ -377,18 +492,18 @@ const UpdateBankLedger = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isRTL ? 'تأكيد تحديث مرجع الدفع' : 'Confirm Payment Reference Update'}
+              {isRTL ? 'تأكيد تحديث مرجع الدفع (خلفية)' : 'Confirm Payment Reference Update (Background)'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isRTL 
-                ? `هل أنت متأكد من تحديث سجلات bank_ledger بمراجع الدفع من order_payment؟${fromDate || toDate ? ` (التاريخ: ${fromDate || 'البداية'} - ${toDate || 'النهاية'})` : ' (جميع السجلات)'}`
-                : `Are you sure you want to update bank_ledger records with payment references from order_payment?${fromDate || toDate ? ` (Date: ${fromDate || 'Start'} - ${toDate || 'End'})` : ' (All records)'}`}
+                ? `سيتم تشغيل هذه المهمة في الخلفية ويمكنك إغلاق الصفحة. ${fromDate || toDate ? `(التاريخ: ${fromDate || 'البداية'} - ${toDate || 'النهاية'})` : '(جميع السجلات)'}`
+                : `This job will run in the background and you can close the page. ${fromDate || toDate ? `(Date: ${fromDate || 'Start'} - ${toDate || 'End'})` : '(All records)'}`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{isRTL ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUpdatePaymentReference}>
-              {isRTL ? 'تأكيد' : 'Confirm'}
+            <AlertDialogAction onClick={handleStartBackgroundJob}>
+              {isRTL ? 'بدء المهمة' : 'Start Job'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

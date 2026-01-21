@@ -655,6 +655,63 @@ export type Database = {
           },
         ]
       }
+      bank_ledger_update_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          error_records: number | null
+          force_kill: boolean | null
+          from_date_int: number | null
+          id: string
+          job_type: string
+          processed_records: number | null
+          started_at: string | null
+          status: string
+          to_date_int: number | null
+          total_records: number | null
+          updated_at: string
+          updated_records: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          error_records?: number | null
+          force_kill?: boolean | null
+          from_date_int?: number | null
+          id?: string
+          job_type: string
+          processed_records?: number | null
+          started_at?: string | null
+          status?: string
+          to_date_int?: number | null
+          total_records?: number | null
+          updated_at?: string
+          updated_records?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          error_records?: number | null
+          force_kill?: boolean | null
+          from_date_int?: number | null
+          id?: string
+          job_type?: string
+          processed_records?: number | null
+          started_at?: string | null
+          status?: string
+          to_date_int?: number | null
+          total_records?: number | null
+          updated_at?: string
+          updated_records?: number | null
+        }
+        Relationships: []
+      }
       banks: {
         Row: {
           account_number: string | null
