@@ -145,6 +145,7 @@ export function AppSidebar() {
     "/expense-entry": "expenseEntry",
     "/payment-bank-link": "paymentBankLink",
     "/api-consumption-logs": "apiConsumptionLogs",
+    "/update-bank-ledger": "updateBankLedger",
   };
 
   useEffect(() => {
@@ -372,6 +373,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إدارة الشهادات' : 'Certificate Management', url: "/certificate-management", icon: FileKey },
         { title: language === 'ar' ? 'لوحة الأمان' : 'Security Dashboard', url: "/security-dashboard", icon: Shield },
         { title: language === 'ar' ? 'سجلات استهلاك API' : 'API Consumption Logs', url: "/api-consumption-logs", icon: ScrollText },
+        { title: language === 'ar' ? 'تحديث سجل البنك' : 'Update Bank Ledger', url: "/update-bank-ledger", icon: Database },
       ]
     }
   ];

@@ -18,7 +18,8 @@ const ALL_MENU_ITEMS = [
   "supplierSetup", "userLogins", "userEmails", "asusTawasoul", "emailManager", "mailSetup",
   "systemConfig", "closingTraining", "odooSetup", "excelSetup", "tableConfig", "pdfToExcel",
   "systemBackup", "systemRestore", "employeeSetup", "vacationSetup", "timesheetManagement",
-  "deductionRulesSetup", "medicalInsuranceSetup", "shiftPlansSetup", "documentTypeSetup", "attendanceTypeSetup"
+  "deductionRulesSetup", "medicalInsuranceSetup", "shiftPlansSetup", "documentTypeSetup", "attendanceTypeSetup",
+  "updateBankLedger"
 ];
 
 // Dashboard components
