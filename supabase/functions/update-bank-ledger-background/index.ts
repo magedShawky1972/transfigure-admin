@@ -13,6 +13,7 @@ interface JobParams {
   jobId: string;
   fromDateInt?: number;
   toDateInt?: number;
+  offset?: number;
 }
 
 async function checkForceKill(supabase: any, jobId: string): Promise<boolean> {
@@ -25,85 +26,139 @@ async function checkForceKill(supabase: any, jobId: string): Promise<boolean> {
   return data?.force_kill === true || data?.status === 'cancelled';
 }
 
-async function runBackgroundJob(params: JobParams) {
-  const { jobId, fromDateInt, toDateInt } = params;
+async function selfInvoke(params: JobParams) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/update-bank-ledger-background`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        action: 'continue',
+        ...params
+      })
+    });
+    
+    if (!response.ok) {
+      console.error(`Self-invoke failed: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Self-invoke error:', error);
+  }
+}
+
+async function processChunk(params: JobParams) {
+  const { jobId, fromDateInt, toDateInt, offset = 0 } = params;
   
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  console.log(`[Job ${jobId}] Starting background job for payment reference update`);
+  console.log(`[Job ${jobId}] Processing chunk at offset ${offset}`);
 
   try {
-    // Update job status to running
-    await supabase
-      .from('bank_ledger_update_jobs')
-      .update({ 
-        status: 'running', 
-        started_at: new Date().toISOString() 
-      })
-      .eq('id', jobId);
-
-    // Build query to count total records
-    let countQuery = supabase
-      .from('order_payment')
-      .select('*', { count: 'exact', head: true })
-      .not('paymentrefrence', 'is', null)
-      .not('ordernumber', 'is', null);
-
-    if (fromDateInt) {
-      countQuery = countQuery.gte('created_at_int', fromDateInt);
-    }
-    if (toDateInt) {
-      countQuery = countQuery.lte('created_at_int', toDateInt);
-    }
-
-    const { count, error: countError } = await countQuery;
-
-    if (countError) {
-      throw new Error(`Count error: ${countError.message}`);
-    }
-
-    const totalRecords = count || 0;
-    console.log(`[Job ${jobId}] Total records to process: ${totalRecords}`);
-
-    if (totalRecords === 0) {
+    // Check for force kill first
+    if (await checkForceKill(supabase, jobId)) {
+      console.log(`[Job ${jobId}] Force kill detected, stopping job`);
       await supabase
         .from('bank_ledger_update_jobs')
         .update({
-          status: 'completed',
-          total_records: 0,
-          processed_records: 0,
+          status: 'cancelled',
           completed_at: new Date().toISOString()
         })
         .eq('id', jobId);
       return;
     }
 
-    // Update total records count
-    await supabase
+    // Get current job state
+    const { data: job } = await supabase
       .from('bank_ledger_update_jobs')
-      .update({ total_records: totalRecords })
-      .eq('id', jobId);
+      .select('total_records, processed_records, updated_records, error_records')
+      .eq('id', jobId)
+      .single();
 
-    const batchSize = 500;
-    let offset = 0;
-    let processedRecords = 0;
-    let updatedRecords = 0;
-    let errorRecords = 0;
+    if (!job) {
+      console.error(`[Job ${jobId}] Job not found`);
+      return;
+    }
 
-    while (offset < totalRecords) {
-      // Check for force kill
-      if (await checkForceKill(supabase, jobId)) {
-        console.log(`[Job ${jobId}] Force kill detected, stopping job`);
+    let { processed_records = 0, updated_records = 0, error_records = 0, total_records = 0 } = job;
+
+    // If this is the first chunk, count total records
+    if (offset === 0 && total_records === 0) {
+      let countQuery = supabase
+        .from('order_payment')
+        .select('*', { count: 'exact', head: true })
+        .not('paymentrefrence', 'is', null)
+        .not('ordernumber', 'is', null);
+
+      if (fromDateInt) {
+        countQuery = countQuery.gte('created_at_int', fromDateInt);
+      }
+      if (toDateInt) {
+        countQuery = countQuery.lte('created_at_int', toDateInt);
+      }
+
+      const { count, error: countError } = await countQuery;
+
+      if (countError) {
+        throw new Error(`Count error: ${countError.message}`);
+      }
+
+      total_records = count || 0;
+      console.log(`[Job ${jobId}] Total records to process: ${total_records}`);
+
+      if (total_records === 0) {
         await supabase
           .from('bank_ledger_update_jobs')
           .update({
-            status: 'cancelled',
+            status: 'completed',
+            total_records: 0,
+            processed_records: 0,
             completed_at: new Date().toISOString()
           })
           .eq('id', jobId);
         return;
+      }
+
+      await supabase
+        .from('bank_ledger_update_jobs')
+        .update({ 
+          status: 'running',
+          started_at: new Date().toISOString(),
+          total_records 
+        })
+        .eq('id', jobId);
+    }
+
+    // Process records in this chunk - larger batch for efficiency
+    const chunkSize = 2000; // Records per chunk/invocation
+    const batchSize = 200;  // Records per database operation
+    let chunkProcessed = 0;
+    let chunkUpdated = 0;
+    let chunkErrors = 0;
+
+    while (chunkProcessed < chunkSize && offset + chunkProcessed < total_records) {
+      // Check for force kill periodically
+      if (chunkProcessed > 0 && chunkProcessed % 500 === 0) {
+        if (await checkForceKill(supabase, jobId)) {
+          console.log(`[Job ${jobId}] Force kill detected during processing`);
+          await supabase
+            .from('bank_ledger_update_jobs')
+            .update({
+              status: 'cancelled',
+              processed_records: processed_records + chunkProcessed,
+              updated_records: updated_records + chunkUpdated,
+              error_records: error_records + chunkErrors,
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', jobId);
+          return;
+        }
       }
 
       // Fetch batch
@@ -112,7 +167,7 @@ async function runBackgroundJob(params: JobParams) {
         .select('ordernumber, paymentrefrence')
         .not('paymentrefrence', 'is', null)
         .not('ordernumber', 'is', null)
-        .range(offset, offset + batchSize - 1);
+        .range(offset + chunkProcessed, offset + chunkProcessed + batchSize - 1);
 
       if (fromDateInt) {
         batchQuery = batchQuery.gte('created_at_int', fromDateInt);
@@ -124,9 +179,9 @@ async function runBackgroundJob(params: JobParams) {
       const { data: orderPayments, error: fetchError } = await batchQuery;
 
       if (fetchError) {
-        console.error(`[Job ${jobId}] Fetch error at offset ${offset}:`, fetchError);
-        errorRecords += batchSize;
-        offset += batchSize;
+        console.error(`[Job ${jobId}] Fetch error:`, fetchError);
+        chunkErrors += batchSize;
+        chunkProcessed += batchSize;
         continue;
       }
 
@@ -134,49 +189,80 @@ async function runBackgroundJob(params: JobParams) {
         break;
       }
 
-      // Process each record in batch
-      for (const op of orderPayments) {
+      // Process each record in batch - but do parallel updates
+      const updatePromises = orderPayments.map(async (op) => {
         const { error: updateError } = await supabase
           .from('bank_ledger')
           .update({ paymentrefrence: op.paymentrefrence })
           .eq('reference_number', op.ordernumber);
 
-        if (updateError) {
-          console.error(`[Job ${jobId}] Update error for order ${op.ordernumber}:`, updateError.message);
-          errorRecords++;
+        return { success: !updateError, ordernumber: op.ordernumber };
+      });
+
+      const results = await Promise.all(updatePromises);
+      
+      for (const result of results) {
+        if (result.success) {
+          chunkUpdated++;
         } else {
-          updatedRecords++;
+          chunkErrors++;
         }
-        processedRecords++;
       }
+      
+      chunkProcessed += orderPayments.length;
 
-      // Update progress
-      await supabase
-        .from('bank_ledger_update_jobs')
-        .update({
-          processed_records: processedRecords,
-          updated_records: updatedRecords,
-          error_records: errorRecords
-        })
-        .eq('id', jobId);
-
-      console.log(`[Job ${jobId}] Progress: ${processedRecords}/${totalRecords}`);
-      offset += batchSize;
+      // Update progress periodically
+      if (chunkProcessed % 500 === 0) {
+        await supabase
+          .from('bank_ledger_update_jobs')
+          .update({
+            processed_records: processed_records + chunkProcessed,
+            updated_records: updated_records + chunkUpdated,
+            error_records: error_records + chunkErrors
+          })
+          .eq('id', jobId);
+        
+        console.log(`[Job ${jobId}] Progress: ${processed_records + chunkProcessed}/${total_records}`);
+      }
     }
 
-    // Mark job as completed
+    // Update final progress for this chunk
+    const newProcessed = processed_records + chunkProcessed;
+    const newUpdated = updated_records + chunkUpdated;
+    const newErrors = error_records + chunkErrors;
+
     await supabase
       .from('bank_ledger_update_jobs')
       .update({
-        status: 'completed',
-        processed_records: processedRecords,
-        updated_records: updatedRecords,
-        error_records: errorRecords,
-        completed_at: new Date().toISOString()
+        processed_records: newProcessed,
+        updated_records: newUpdated,
+        error_records: newErrors
       })
       .eq('id', jobId);
 
-    console.log(`[Job ${jobId}] Completed. Updated: ${updatedRecords}, Errors: ${errorRecords}`);
+    console.log(`[Job ${jobId}] Chunk done. Progress: ${newProcessed}/${total_records}`);
+
+    // Check if we need to continue
+    if (newProcessed < total_records) {
+      // Schedule next chunk via self-invocation
+      EdgeRuntime.waitUntil(selfInvoke({
+        jobId,
+        fromDateInt,
+        toDateInt,
+        offset: offset + chunkProcessed
+      }));
+    } else {
+      // Mark job as completed
+      await supabase
+        .from('bank_ledger_update_jobs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      console.log(`[Job ${jobId}] Completed. Updated: ${newUpdated}, Errors: ${newErrors}`);
+    }
 
   } catch (error) {
     console.error(`[Job ${jobId}] Fatal error:`, error);
@@ -197,7 +283,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, jobId, fromDateInt, toDateInt, userId } = await req.json();
+    const body = await req.json();
+    const { action, jobId, fromDateInt, toDateInt, userId, offset } = body;
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -223,15 +310,33 @@ Deno.serve(async (req) => {
 
       console.log(`Created job ${job.id}, starting background processing`);
 
-      // Start background processing using waitUntil
-      EdgeRuntime.waitUntil(runBackgroundJob({
+      // Start background processing
+      EdgeRuntime.waitUntil(processChunk({
         jobId: job.id,
         fromDateInt,
-        toDateInt
+        toDateInt,
+        offset: 0
       }));
 
       return new Response(
         JSON.stringify({ success: true, jobId: job.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'continue') {
+      // Continue processing from where we left off
+      console.log(`Continuing job ${jobId} at offset ${offset}`);
+      
+      EdgeRuntime.waitUntil(processChunk({
+        jobId,
+        fromDateInt,
+        toDateInt,
+        offset: offset || 0
+      }));
+
+      return new Response(
+        JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
