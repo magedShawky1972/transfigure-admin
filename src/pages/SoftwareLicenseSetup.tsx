@@ -188,6 +188,8 @@ const SoftwareLicenseSetup = () => {
     notes: "",
     status: "active",
     currency_id: "",
+    domain_name: "",
+    mails: "",
   });
 
   useEffect(() => {
@@ -578,6 +580,8 @@ const SoftwareLicenseSetup = () => {
         notes: formData.notes || null,
         status: formData.status,
         currency_id: formData.currency_id || null,
+        domain_name: formData.domain_name || null,
+        mails: formData.mails || null,
         updated_by: user.id,
       };
 
@@ -652,6 +656,8 @@ const SoftwareLicenseSetup = () => {
           notes: data.notes || "",
           status: data.status || "active",
           currency_id: data.currency_id || "",
+          domain_name: data.domain_name || "",
+          mails: data.mails || "",
         });
         setEditingLicenseId(licenseId);
         setInvoiceDate(new Date().toISOString().split('T')[0]);
@@ -728,6 +734,8 @@ const SoftwareLicenseSetup = () => {
       notes: "",
       status: "active",
       currency_id: currencies.find(c => c.is_base)?.id || "",
+      domain_name: "",
+      mails: "",
     });
   };
 
@@ -1054,6 +1062,27 @@ const SoftwareLicenseSetup = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="domain_name">{language === "ar" ? "اسم النطاق" : "Domain Name"}</Label>
+                    <Input
+                      id="domain_name"
+                      value={formData.domain_name}
+                      onChange={(e) => setFormData({ ...formData, domain_name: e.target.value })}
+                      placeholder={language === "ar" ? "مثال: example.com" : "e.g., example.com"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mails">{language === "ar" ? "البريد الإلكتروني" : "Mails"}</Label>
+                    <Input
+                      id="mails"
+                      value={formData.mails}
+                      onChange={(e) => setFormData({ ...formData, mails: e.target.value })}
+                      placeholder={language === "ar" ? "البريد الإلكتروني المرتبط" : "Associated email addresses"}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
