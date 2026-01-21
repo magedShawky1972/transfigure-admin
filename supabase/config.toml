@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.update-bank-ledger-background]
 verify_jwt = false
+
+[functions.extract-invoice-cost]
+verify_jwt = false
