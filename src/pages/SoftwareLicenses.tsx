@@ -42,6 +42,7 @@ interface SoftwareLicense {
   status: string;
   invoice_file_path: string | null;
   currency_id: string | null;
+  notes: string | null;
 }
 
 interface Currency {
@@ -710,6 +711,14 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>{language === "ar" ? "بالعملة الأساسية:" : "In base currency:"}</span>
                       <span>{formatNumber(convertToBaseCurrency(Number(license.cost), license.currency_id))} {baseCurrency.currency_code}</span>
+                    </div>
+                  )}
+                  {license.notes && (
+                    <div className="pt-2 border-t">
+                      <span className="text-muted-foreground text-xs">{language === "ar" ? "ملاحظات:" : "Notes:"}</span>
+                      <p className="text-sm mt-1 text-foreground/80 line-clamp-2" title={license.notes}>
+                        {license.notes}
+                      </p>
                     </div>
                   )}
                 </div>
