@@ -55,6 +55,8 @@ const CATEGORIES = [
   { value: "Design", label: "Design", labelAr: "التصميم" },
   { value: "Communication", label: "Communication", labelAr: "التواصل" },
   { value: "Analytics", label: "Analytics", labelAr: "التحليلات" },
+  { value: "Domain", label: "Domain", labelAr: "النطاق" },
+  { value: "Email", label: "Email", labelAr: "البريد الإلكتروني" },
   { value: "Other", label: "Other", labelAr: "أخرى" }
 ];
 
