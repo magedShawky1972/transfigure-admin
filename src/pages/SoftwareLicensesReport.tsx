@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Filter, Download, ArrowLeft, Printer } from "lucide-react";
+import { Filter, Download, ArrowLeft, Printer, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import purpleCardLogo from "@/assets/purple-card-logo.png";
+import * as XLSX from "xlsx";
 
 const SoftwareLicensesReport = () => {
   const { toast } = useToast();
@@ -195,7 +196,7 @@ const SoftwareLicensesReport = () => {
     }
   };
 
-  const exportToCSV = () => {
+  const exportToExcel = () => {
     if (licensesData.length === 0) {
       toast({
         title: "No Data",
@@ -205,34 +206,52 @@ const SoftwareLicensesReport = () => {
       return;
     }
 
-    const headers = ["Software", "Project", "Category", "Vendor", "Status", "Renewal Cycle", "Cost", "Currency", "Cost (Base)", "Purchase Date", "Expiry Date"];
-    const csv = [
-      headers.join(","),
-      ...licensesData.map(license => {
-        const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
-        const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
-        return [
-          `"${license.software_name}"`,
-          `"${getProjectName(license.project_id)}"`,
-          license.category,
-          `"${license.vendor_provider}"`,
-          license.status,
-          license.renewal_cycle,
-          license.cost,
-          currencyCode,
-          baseCost.toFixed(2),
-          format(new Date(license.purchase_date), "yyyy-MM-dd"),
-          license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "N/A"
-        ].join(",");
-      })
-    ].join("\n");
+    // Prepare data with headers
+    const excelData = licensesData.map(license => {
+      const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
+      const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
+      return {
+        "Software / البرنامج": license.software_name,
+        "Project / المشروع": getProjectName(license.project_id),
+        "Category / الفئة": license.category,
+        "Vendor / المورد": license.vendor_provider,
+        "Status / الحالة": license.status,
+        "Renewal Cycle / دورة التجديد": license.renewal_cycle,
+        "Cost / التكلفة": license.cost,
+        "Currency / العملة": currencyCode,
+        [`Cost (${baseCurrency?.currency_code || 'Base'}) / التكلفة (أساسي)`]: Number(baseCost.toFixed(2)),
+        "Purchase Date / تاريخ الشراء": format(new Date(license.purchase_date), "yyyy-MM-dd"),
+        "Expiry Date / تاريخ الانتهاء": license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "N/A"
+      };
+    });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `software-licenses-report-${format(new Date(), "yyyy-MM-dd")}.csv`;
-    a.click();
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // Set RTL for the sheet to support Arabic
+    ws['!dir'] = 'rtl';
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 30 }, // Software
+      { wch: 25 }, // Project
+      { wch: 15 }, // Category
+      { wch: 25 }, // Vendor
+      { wch: 15 }, // Status
+      { wch: 20 }, // Renewal Cycle
+      { wch: 12 }, // Cost
+      { wch: 10 }, // Currency
+      { wch: 15 }, // Cost Base
+      { wch: 15 }, // Purchase Date
+      { wch: 15 }, // Expiry Date
+    ];
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Software Licenses");
+
+    // Generate and download file
+    XLSX.writeFile(wb, `software-licenses-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
 
   const handlePrintReport = () => {
@@ -532,11 +551,11 @@ const SoftwareLicensesReport = () => {
             </Button>
             <Button 
               variant="outline"
-              onClick={exportToCSV}
+              onClick={exportToExcel}
               className="gap-2"
             >
-              <Download className="h-4 w-4" />
-              Export CSV
+              <FileSpreadsheet className="h-4 w-4" />
+              Export Excel
             </Button>
             <Button 
               variant="outline"
