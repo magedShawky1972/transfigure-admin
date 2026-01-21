@@ -114,6 +114,7 @@ import BankBalanceByDateReport from "./pages/BankBalanceByDateReport";
 import BankStatementByBankReport from "./pages/BankStatementByBankReport";
 import ApiIntegrationStatus from "./pages/ApiIntegrationStatus";
 import ApiConsumptionLogs from "./pages/ApiConsumptionLogs";
+import UpdateBankLedger from "./pages/UpdateBankLedger";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -235,6 +236,7 @@ const App = () => (
               <Route path="/reports/bank-balance-by-date" element={<BankBalanceByDateReport />} />
               <Route path="/reports/bank-statement-by-bank" element={<BankStatementByBankReport />} />
               <Route path="/api-consumption-logs" element={<ApiConsumptionLogs />} />
+              <Route path="/update-bank-ledger" element={<UpdateBankLedger />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

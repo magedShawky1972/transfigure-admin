@@ -111,6 +111,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/system-config": "systemConfiguration",
   "/data-loading-status": "dataLoadingStatus",
   "/expense-reports": "expenseReports",
+  "/update-bank-ledger": "updateBankLedger",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {

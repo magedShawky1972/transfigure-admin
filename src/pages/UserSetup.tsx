@@ -159,6 +159,7 @@ interface UserPermission {
     { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
     { key: "apiIntegrationStatus", label: "حالة تكامل API", labelEn: "API Integration Status" },
     { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
+    { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
   ];
 
 const DASHBOARD_COMPONENTS = [
