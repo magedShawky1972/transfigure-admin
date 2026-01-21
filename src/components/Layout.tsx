@@ -78,7 +78,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [headerVisible, setHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [menuMode, setMenuMode] = useState<"sidebar" | "mainpage">(() => {
-    return (localStorage.getItem("menuMode") as "sidebar" | "mainpage") || "sidebar";
+    const saved = localStorage.getItem("menuMode") as "sidebar" | "mainpage" | null;
+    if (saved) return saved;
+    // Default to mainpage on mobile, sidebar on desktop
+    return window.innerWidth < 768 ? "mainpage" : "sidebar";
   });
   const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
