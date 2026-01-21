@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { invoiceId, imageUrl, fileName } = await req.json();
+    const { invoiceId, imageData, fileName } = await req.json();
 
-    if (!invoiceId || !imageUrl) {
+    if (!invoiceId || !imageData) {
       return new Response(
-        JSON.stringify({ error: "Missing invoiceId or imageUrl" }),
+        JSON.stringify({ error: "Missing invoiceId or imageData" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -41,7 +41,7 @@ serve(async (req) => {
 
     // Prepare the prompt for AI extraction
     const systemPrompt = `You are an invoice data extractor. Analyze the invoice image and extract the following information:
-1. Total amount/cost (look for "Total", "Amount Due", "Grand Total", "المبلغ الإجمالي", "المجموع")
+1. Total amount/cost (look for "Total", "Amount Due", "Grand Total", "المبلغ الإجمالي", "المجموع", "Subtotal")
 2. Currency (USD, SAR, EUR, etc. - look for currency symbols like $, ﷼, € or text)
 
 Return ONLY valid JSON in this exact format:
@@ -55,7 +55,7 @@ Rules:
 - If you cannot find any amount, return {"cost": null, "currency": null, "error": "Could not extract cost from invoice"}
 - Do NOT include markdown, just pure JSON`;
 
-    // Call AI to extract invoice data
+    // Call AI to extract invoice data - imageData should be base64 data URL
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -69,7 +69,7 @@ Rules:
             role: "user",
             content: [
               { type: "text", text: systemPrompt },
-              { type: "image_url", image_url: { url: imageUrl } }
+              { type: "image_url", image_url: { url: imageData } }
             ]
           }
         ],
@@ -155,36 +155,35 @@ Rules:
         
         if (currencyInfo && sarInfo) {
           const currencyRate = rates.find(r => r.currency_id === currencyInfo.id);
-          const sarRate = rates.find(r => r.currency_id === sarInfo.id);
           
-          // Convert to base (SAR is base, rate_to_base = 1 for SAR)
-          // If currency has rate_to_base, it means: 1 base = X currency
-          // So to convert FROM currency TO base: amount / rate_to_base
+          // Convert to base currency (SAR)
+          // rate_to_base means: amount * rate_to_base = base currency amount
+          // Example: 1 USD * 0.2666 = 0.2666 SAR (if rate is 0.2666)
+          // But typically rate_to_base for USD would be like 3.75 (1 USD = 3.75 SAR)
           if (currencyRate && currencyRate.rate_to_base) {
-            // Convert to base currency first (SAR)
-            costSar = extractedData.cost / currencyRate.rate_to_base;
+            // If rate is less than 1, it's inverse (amount / rate)
+            // If rate is greater than 1, it's direct multiplication
+            if (currencyRate.rate_to_base < 1) {
+              costSar = extractedData.cost / currencyRate.rate_to_base;
+            } else {
+              costSar = extractedData.cost * currencyRate.rate_to_base;
+            }
           } else if (currencyInfo.is_base) {
-            // Already in base currency
             costSar = extractedData.cost;
           } else if (extractedData.currency === "SAR") {
             costSar = extractedData.cost;
+          } else if (extractedData.currency === "USD") {
+            // Default USD to SAR conversion
+            costSar = extractedData.cost * 3.75;
           } else {
-            // Default: assume USD to SAR conversion (approximate rate)
-            // 1 USD = 3.75 SAR (approximate)
-            if (extractedData.currency === "USD") {
-              costSar = extractedData.cost * 3.75;
-            } else {
-              costSar = extractedData.cost; // No conversion available
-            }
+            costSar = extractedData.cost;
           }
         } else if (extractedData.currency === "USD") {
-          // Fallback USD to SAR conversion
           costSar = extractedData.cost * 3.75;
         } else if (extractedData.currency === "SAR") {
           costSar = extractedData.cost;
         }
       } else if (extractedData.currency === "USD") {
-        // Fallback if no currency data
         costSar = extractedData.cost * 3.75;
       } else if (extractedData.currency === "SAR") {
         costSar = extractedData.cost;
