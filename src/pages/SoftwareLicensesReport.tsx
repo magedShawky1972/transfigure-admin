@@ -180,7 +180,33 @@ const SoftwareLicensesReport = () => {
 
       if (error) throw error;
 
-      setLicensesData(data || []);
+      // Fetch invoice totals for each license
+      const licenseIds = (data || []).map(l => l.id);
+      let invoiceTotalsMap: Record<string, number> = {};
+      
+      if (licenseIds.length > 0) {
+        const { data: invoices } = await supabase
+          .from("software_license_invoices")
+          .select("license_id, cost_sar")
+          .in("license_id", licenseIds)
+          .eq("ai_extraction_status", "completed");
+        
+        if (invoices) {
+          invoiceTotalsMap = invoices.reduce((acc: Record<string, number>, inv) => {
+            const costSar = Number(inv.cost_sar) || 0;
+            acc[inv.license_id] = (acc[inv.license_id] || 0) + costSar;
+            return acc;
+          }, {});
+        }
+      }
+
+      // Add invoice_total_sar to each license
+      const licensesWithInvoiceTotals = (data || []).map(license => ({
+        ...license,
+        invoice_total_sar: invoiceTotalsMap[license.id] || 0
+      }));
+
+      setLicensesData(licensesWithInvoiceTotals);
       toast({
         title: "Report Generated",
         description: `Found ${data?.length || 0} licenses`,
@@ -220,6 +246,7 @@ const SoftwareLicensesReport = () => {
         "Cost / التكلفة": license.cost,
         "Currency / العملة": currencyCode,
         [`Cost (${baseCurrency?.currency_code || 'Base'}) / التكلفة (أساسي)`]: Number(baseCost.toFixed(2)),
+        "Invoice Total (SAR) / إجمالي الفواتير (ر.س)": Number((license.invoice_total_sar || 0).toFixed(2)),
         "Purchase Date / تاريخ الشراء": format(new Date(license.purchase_date), "yyyy-MM-dd"),
         "Expiry Date / تاريخ الانتهاء": license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "N/A"
       };
@@ -242,6 +269,7 @@ const SoftwareLicensesReport = () => {
       { wch: 12 }, // Cost
       { wch: 10 }, // Currency
       { wch: 15 }, // Cost Base
+      { wch: 18 }, // Invoice Total SAR
       { wch: 15 }, // Purchase Date
       { wch: 15 }, // Expiry Date
     ];
@@ -303,6 +331,7 @@ const SoftwareLicensesReport = () => {
                   <th>Renewal Cycle</th>
                   <th>Cost</th>
                   <th>Cost (${baseCurrency?.currency_code || 'Base'})</th>
+                  <th>Invoice Total (SAR)</th>
                   <th>Purchase Date</th>
                   <th>Expiry Date</th>
                 </tr>
@@ -324,6 +353,7 @@ const SoftwareLicensesReport = () => {
                       <td>${license.renewal_cycle}</td>
                       <td>${license.cost.toLocaleString()} ${currencyCode}</td>
                       <td>${baseCost.toFixed(2)} ${baseCurrency?.currency_code || ''}</td>
+                      <td>${(license.invoice_total_sar || 0).toFixed(2)} SAR</td>
                       <td>${format(new Date(license.purchase_date), "MMM dd, yyyy")}</td>
                       <td>${license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}</td>
                     </tr>
@@ -333,7 +363,7 @@ const SoftwareLicensesReport = () => {
             </table>
             <div class="subtotal">
               <span>Subtotal for ${projectName}:</span>
-              <span class="subtotal-value">${subtotal.toFixed(2)} ${baseCurrency?.currency_code || ''}</span>
+              <span class="subtotal-value">${subtotal.toFixed(2)} ${baseCurrency?.currency_code || ''} | Invoice Total: ${(licenses as any[]).reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
             </div>
           </div>
         `;
@@ -414,7 +444,7 @@ const SoftwareLicensesReport = () => {
 
         <div class="grand-total">
           <span class="grand-total-label">Grand Total (All Projects)</span>
-          <span class="grand-total-value">${totalCostBase.toFixed(2)} ${baseCurrency?.currency_code || ''}</span>
+          <span class="grand-total-value">${totalCostBase.toFixed(2)} ${baseCurrency?.currency_code || ''} | Invoice Total: ${licensesData.reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
         </div>
 
         <div class="summary">
@@ -674,6 +704,7 @@ const SoftwareLicensesReport = () => {
                             <TableHead>Renewal Cycle</TableHead>
                             <TableHead>Cost</TableHead>
                             <TableHead>Cost ({baseCurrency?.currency_code || 'Base'})</TableHead>
+                            <TableHead>Invoice Total (SAR)</TableHead>
                             <TableHead>Purchase Date</TableHead>
                             <TableHead>Expiry Date</TableHead>
                           </TableRow>
@@ -700,6 +731,7 @@ const SoftwareLicensesReport = () => {
                                 <TableCell>{license.renewal_cycle}</TableCell>
                                 <TableCell>{license.cost.toLocaleString()} {currencyCode}</TableCell>
                                 <TableCell>{baseCost.toFixed(2)} {baseCurrency?.currency_code}</TableCell>
+                                <TableCell className="font-medium text-primary">{(license.invoice_total_sar || 0).toFixed(2)} SAR</TableCell>
                                 <TableCell>{format(new Date(license.purchase_date), "MMM dd, yyyy")}</TableCell>
                                 <TableCell>
                                   {license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}
@@ -717,9 +749,14 @@ const SoftwareLicensesReport = () => {
               {/* Grand Total */}
               <div className="bg-primary/10 rounded-lg p-4 flex justify-between items-center">
                 <span className="font-semibold text-lg">Grand Total</span>
-                <span className="font-bold text-xl text-primary">
-                  {licensesData.reduce((sum, license) => sum + convertToBaseCurrency(license.cost, license.currency_id), 0).toFixed(2)} {baseCurrency?.currency_code || ''}
-                </span>
+                <div className="flex gap-6">
+                  <span className="font-bold text-xl text-primary">
+                    {licensesData.reduce((sum, license) => sum + convertToBaseCurrency(license.cost, license.currency_id), 0).toFixed(2)} {baseCurrency?.currency_code || ''}
+                  </span>
+                  <span className="font-bold text-xl text-green-600">
+                    Invoice Total: {licensesData.reduce((sum, license) => sum + (license.invoice_total_sar || 0), 0).toFixed(2)} SAR
+                  </span>
+                </div>
               </div>
             </div>
           ) : (
@@ -736,6 +773,7 @@ const SoftwareLicensesReport = () => {
                     <TableHead>Renewal Cycle</TableHead>
                     <TableHead>Cost</TableHead>
                     <TableHead>Cost ({baseCurrency?.currency_code || 'Base'})</TableHead>
+                    <TableHead>Invoice Total (SAR)</TableHead>
                     <TableHead>Purchase Date</TableHead>
                     <TableHead>Expiry Date</TableHead>
                   </TableRow>
@@ -763,6 +801,7 @@ const SoftwareLicensesReport = () => {
                         <TableCell>{license.renewal_cycle}</TableCell>
                         <TableCell>{license.cost.toLocaleString()} {currencyCode}</TableCell>
                         <TableCell>{baseCost.toFixed(2)} {baseCurrency?.currency_code}</TableCell>
+                        <TableCell className="font-medium text-primary">{(license.invoice_total_sar || 0).toFixed(2)} SAR</TableCell>
                         <TableCell>{format(new Date(license.purchase_date), "MMM dd, yyyy")}</TableCell>
                         <TableCell>
                           {license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}
@@ -776,9 +815,14 @@ const SoftwareLicensesReport = () => {
               {/* Total Row */}
               <div className="bg-primary/10 rounded-lg p-4 mt-4 flex justify-between items-center">
                 <span className="font-semibold">Total Cost</span>
-                <span className="font-bold text-primary">
-                  {licensesData.reduce((sum, license) => sum + convertToBaseCurrency(license.cost, license.currency_id), 0).toFixed(2)} {baseCurrency?.currency_code || ''}
-                </span>
+                <div className="flex gap-6">
+                  <span className="font-bold text-primary">
+                    {licensesData.reduce((sum, license) => sum + convertToBaseCurrency(license.cost, license.currency_id), 0).toFixed(2)} {baseCurrency?.currency_code || ''}
+                  </span>
+                  <span className="font-bold text-green-600">
+                    Invoice Total: {licensesData.reduce((sum, license) => sum + (license.invoice_total_sar || 0), 0).toFixed(2)} SAR
+                  </span>
+                </div>
               </div>
             </div>
           )}
