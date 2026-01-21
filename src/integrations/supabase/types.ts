@@ -5076,8 +5076,13 @@ export type Database = {
       }
       software_license_invoices: {
         Row: {
+          ai_extraction_error: string | null
+          ai_extraction_status: string | null
+          cost_currency: string | null
+          cost_sar: number | null
           created_at: string
           created_by: string | null
+          extracted_cost: number | null
           file_name: string | null
           file_path: string
           id: string
@@ -5086,8 +5091,13 @@ export type Database = {
           notes: string | null
         }
         Insert: {
+          ai_extraction_error?: string | null
+          ai_extraction_status?: string | null
+          cost_currency?: string | null
+          cost_sar?: number | null
           created_at?: string
           created_by?: string | null
+          extracted_cost?: number | null
           file_name?: string | null
           file_path: string
           id?: string
@@ -5096,8 +5106,13 @@ export type Database = {
           notes?: string | null
         }
         Update: {
+          ai_extraction_error?: string | null
+          ai_extraction_status?: string | null
+          cost_currency?: string | null
+          cost_sar?: number | null
           created_at?: string
           created_by?: string | null
+          extracted_cost?: number | null
           file_name?: string | null
           file_path?: string
           id?: string

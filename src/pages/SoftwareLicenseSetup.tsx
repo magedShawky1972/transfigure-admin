@@ -138,6 +138,11 @@ interface LicenseInvoice {
   file_name: string | null;
   notes: string | null;
   created_at: string;
+  extracted_cost: number | null;
+  cost_currency: string | null;
+  cost_sar: number | null;
+  ai_extraction_status: string | null;
+  ai_extraction_error: string | null;
 }
 
 const SoftwareLicenseSetup = () => {
@@ -489,19 +494,22 @@ const SoftwareLicenseSetup = () => {
       const { data: { user } } = await supabase.auth.getUser();
 
       // Save invoice to database
-      const { error: insertError } = await supabase
+      const { data: insertedInvoice, error: insertError } = await supabase
         .from("software_license_invoices")
         .insert({
           license_id: editingLicenseId,
           invoice_date: invoiceDate,
           file_path: uploadData.url,
           file_name: file.name,
-          created_by: user?.id
-        });
+          created_by: user?.id,
+          ai_extraction_status: "pending"
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
-      // Refresh invoices list
+      // Refresh invoices list immediately
       await fetchLicenseInvoices(editingLicenseId);
 
       // Reset file input
@@ -509,8 +517,35 @@ const SoftwareLicenseSetup = () => {
 
       toast({
         title: language === "ar" ? "تم الرفع بنجاح" : "Upload successful",
-        description: language === "ar" ? "تم رفع الفاتورة بنجاح" : "Invoice uploaded successfully",
+        description: language === "ar" ? "تم رفع الفاتورة بنجاح، جاري استخراج التكلفة..." : "Invoice uploaded successfully, extracting cost...",
       });
+
+      // Call AI to extract cost from invoice (async, don't block)
+      if (insertedInvoice) {
+        supabase.functions.invoke("extract-invoice-cost", {
+          body: { 
+            invoiceId: insertedInvoice.id,
+            imageUrl: uploadData.url,
+            fileName: file.name
+          },
+        }).then(async () => {
+          // Refresh invoices to show extracted cost
+          if (editingLicenseId) {
+            await fetchLicenseInvoices(editingLicenseId);
+          }
+          toast({
+            title: language === "ar" ? "تم استخراج التكلفة" : "Cost extracted",
+            description: language === "ar" ? "تم استخراج تكلفة الفاتورة بنجاح" : "Invoice cost extracted successfully",
+          });
+        }).catch((err) => {
+          console.error("Failed to extract invoice cost:", err);
+          toast({
+            title: language === "ar" ? "تحذير" : "Warning",
+            description: language === "ar" ? "فشل في استخراج التكلفة تلقائياً" : "Failed to auto-extract cost",
+            variant: "destructive",
+          });
+        });
+      }
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -1448,18 +1483,57 @@ const SoftwareLicenseSetup = () => {
 
                 {/* Invoice History */}
                 {licenseInvoices.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
                     <Label className="text-base font-semibold flex items-center gap-2">
                       <FileText className="h-4 w-4" />
                       {language === "ar" ? "سجل الفواتير" : "Invoice History"} ({licenseInvoices.length})
                     </Label>
+                    
+                    {/* Total Cost Summary */}
+                    {(() => {
+                      const totalCostSar = licenseInvoices.reduce((sum, inv) => sum + (inv.cost_sar || 0), 0);
+                      const invoicesWithCost = licenseInvoices.filter(inv => inv.extracted_cost !== null);
+                      const totalOriginalCosts: Record<string, number> = {};
+                      invoicesWithCost.forEach(inv => {
+                        if (inv.extracted_cost && inv.cost_currency) {
+                          totalOriginalCosts[inv.cost_currency] = (totalOriginalCosts[inv.cost_currency] || 0) + inv.extracted_cost;
+                        }
+                      });
+                      
+                      return invoicesWithCost.length > 0 ? (
+                        <div className="p-4 border rounded-lg bg-primary/5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">
+                              {language === "ar" ? "إجمالي تكلفة الفواتير" : "Total Invoice Costs"}
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {totalCostSar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                            </span>
+                          </div>
+                          {Object.entries(totalOriginalCosts).length > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {language === "ar" ? "التفاصيل:" : "Details:"}{" "}
+                              {Object.entries(totalOriginalCosts).map(([currency, amount], idx) => (
+                                <span key={currency}>
+                                  {idx > 0 && " + "}
+                                  {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null;
+                    })()}
+
                     <div className="border rounded-lg overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                             <TableHead>{language === "ar" ? "اسم الملف" : "File Name"}</TableHead>
-                            <TableHead>{language === "ar" ? "تاريخ الرفع" : "Upload Date"}</TableHead>
+                            <TableHead>{language === "ar" ? "التكلفة" : "Cost"}</TableHead>
+                            <TableHead>{language === "ar" ? "التكلفة (ر.س)" : "Cost (SAR)"}</TableHead>
+                            <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                             <TableHead className="text-center">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1471,7 +1545,44 @@ const SoftwareLicenseSetup = () => {
                               </TableCell>
                               <TableCell>{invoice.file_name || "-"}</TableCell>
                               <TableCell>
-                                {format(new Date(invoice.created_at), "yyyy-MM-dd HH:mm")}
+                                {invoice.extracted_cost !== null ? (
+                                  <span className="font-medium">
+                                    {invoice.extracted_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {invoice.cost_currency || ""}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {invoice.cost_sar !== null ? (
+                                  <span className="font-medium text-primary">
+                                    {invoice.cost_sar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {invoice.ai_extraction_status === "completed" && (
+                                  <Badge variant="default" className="bg-green-500">
+                                    {language === "ar" ? "مكتمل" : "Completed"}
+                                  </Badge>
+                                )}
+                                {invoice.ai_extraction_status === "processing" && (
+                                  <Badge variant="secondary">
+                                    {language === "ar" ? "جاري المعالجة" : "Processing"}
+                                  </Badge>
+                                )}
+                                {invoice.ai_extraction_status === "pending" && (
+                                  <Badge variant="outline">
+                                    {language === "ar" ? "في الانتظار" : "Pending"}
+                                  </Badge>
+                                )}
+                                {invoice.ai_extraction_status === "error" && (
+                                  <Badge variant="destructive" title={invoice.ai_extraction_error || ""}>
+                                    {language === "ar" ? "فشل" : "Failed"}
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center justify-center gap-2">
