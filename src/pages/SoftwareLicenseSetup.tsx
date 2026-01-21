@@ -90,6 +90,13 @@ interface Department {
   department_code: string;
 }
 
+interface CostCenter {
+  id: string;
+  cost_center_code: string;
+  cost_center_name: string;
+  cost_center_name_ar: string | null;
+}
+
 interface User {
   id: string;
   user_name: string;
@@ -111,6 +118,7 @@ interface SoftwareLicense {
   assigned_to: string | null;
   assigned_department: string | null;
   currency_id: string | null;
+  cost_center_id: string | null;
 }
 
 interface LicenseInvoice {
@@ -139,6 +147,7 @@ const SoftwareLicenseSetup = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicenseId, setEditingLicenseId] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
@@ -165,6 +174,7 @@ const SoftwareLicenseSetup = () => {
     payment_method: "",
     assigned_to: "",
     assigned_department: "",
+    cost_center_id: "",
     invoice_file_path: "",
     notes: "",
     status: "active",
@@ -174,6 +184,7 @@ const SoftwareLicenseSetup = () => {
   useEffect(() => {
     fetchLicenses();
     fetchDepartments();
+    fetchCostCenters();
     fetchUsers();
     fetchCurrencies();
     fetchCurrencyRates();
@@ -216,6 +227,21 @@ const SoftwareLicenseSetup = () => {
       setDepartments(data || []);
     } catch (error: any) {
       console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchCostCenters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("cost_centers")
+        .select("id, cost_center_code, cost_center_name, cost_center_name_ar")
+        .eq("is_active", true)
+        .order("cost_center_code");
+
+      if (error) throw error;
+      setCostCenters(data || []);
+    } catch (error: any) {
+      console.error("Error fetching cost centers:", error);
     }
   };
 
@@ -521,6 +547,7 @@ const SoftwareLicenseSetup = () => {
         payment_method: formData.payment_method || null,
         assigned_to: formData.assigned_to || null,
         assigned_department: formData.assigned_department || null,
+        cost_center_id: formData.cost_center_id || null,
         invoice_file_path: formData.invoice_file_path || null,
         notes: formData.notes || null,
         status: formData.status,
@@ -593,6 +620,7 @@ const SoftwareLicenseSetup = () => {
           payment_method: data.payment_method || "",
           assigned_to: data.assigned_to || "",
           assigned_department: data.assigned_department || "",
+          cost_center_id: data.cost_center_id || "",
           invoice_file_path: data.invoice_file_path || "",
           notes: data.notes || "",
           status: data.status || "active",
@@ -667,6 +695,7 @@ const SoftwareLicenseSetup = () => {
       payment_method: "",
       assigned_to: "",
       assigned_department: "",
+      cost_center_id: "",
       invoice_file_path: "",
       notes: "",
       status: "active",
@@ -1218,23 +1247,43 @@ const SoftwareLicenseSetup = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assigned_to">{language === "ar" ? "معين إلى" : "Assigned To"}</Label>
-                  <Select 
-                    value={formData.assigned_to} 
-                    onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={language === "ar" ? "اختر المستخدم" : "Select user"} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.user_name}>
-                          {user.user_name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="assigned_to">{language === "ar" ? "معين إلى" : "Assigned To"}</Label>
+                    <Select 
+                      value={formData.assigned_to} 
+                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "ar" ? "اختر المستخدم" : "Select user"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.user_name}>
+                            {user.user_name} ({user.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cost_center_id">{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
+                    <Select 
+                      value={formData.cost_center_id} 
+                      onValueChange={(value) => setFormData({ ...formData, cost_center_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === "ar" ? "اختر مركز التكلفة" : "Select cost center"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {costCenters.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.id}>
+                            {cc.cost_center_code} - {language === "ar" ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardContent>
             </Card>

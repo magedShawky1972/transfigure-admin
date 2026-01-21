@@ -6,7 +6,7 @@ import {
   LayoutDashboard, TicketCheck, Clock, FolderKanban, Users, Key, FileBarChart, FileText, Table2, Grid3x3,
   FileSpreadsheet, Database, MessageCircle, Calendar, Mail, Settings, UserCheck, TrendingUp, CreditCard,
   DollarSign, Building2, Truck, UserCircle, Palmtree, ClipboardList, Calculator, HeartPulse, Briefcase,
-  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3
+  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target
 } from "lucide-react";
 
 const URL_TO_PERMISSION: Record<string, string> = {
@@ -186,6 +186,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Treasury Setup", titleAr: "إعداد الخزائن", url: "/treasury-setup", icon: DollarSign },
       { title: "Expense Categories", titleAr: "فئات المصروفات", url: "/expense-category-setup", icon: Settings },
       { title: "Expense Types", titleAr: "أنواع المصروفات", url: "/expense-type-setup", icon: Settings },
+      { title: "Cost Centers", titleAr: "مراكز التكلفة", url: "/cost-center-setup", icon: Target },
       { title: "Treasury Opening Balance", titleAr: "رصيد الخزينة الافتتاحي", url: "/treasury-opening-balance", icon: DollarSign },
       { title: "Treasury Entry", titleAr: "قيد الخزينة", url: "/treasury-entry", icon: FileText },
       { title: "Bank Entry", titleAr: "قيد البنك", url: "/bank-entry", icon: FileText },

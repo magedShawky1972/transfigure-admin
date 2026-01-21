@@ -169,6 +169,7 @@ interface UserPermission {
         { key: "treasurySetup", label: "إعداد الخزائن", labelEn: "Treasury Setup" },
         { key: "expenseCategorySetup", label: "فئات المصروفات", labelEn: "Expense Categories" },
         { key: "expenseTypeSetup", label: "أنواع المصروفات", labelEn: "Expense Types" },
+        { key: "costCenterSetup", label: "مراكز التكلفة", labelEn: "Cost Centers" },
         { key: "treasuryOpeningBalance", label: "رصيد الخزينة الافتتاحي", labelEn: "Treasury Opening Balance" },
         { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
         { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },

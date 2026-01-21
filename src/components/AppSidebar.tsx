@@ -40,7 +40,8 @@ import {
   FileKey,
   Briefcase,
   Receipt,
-  ScrollText
+  ScrollText,
+  Target
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -146,6 +147,7 @@ export function AppSidebar() {
     "/payment-bank-link": "paymentBankLink",
     "/api-consumption-logs": "apiConsumptionLogs",
     "/update-bank-ledger": "updateBankLedger",
+    "/cost-center-setup": "costCenterSetup",
   };
 
   useEffect(() => {
@@ -345,6 +347,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد الخزائن' : 'Treasury Setup', url: "/treasury-setup", icon: DollarSign },
         { title: language === 'ar' ? 'فئات المصروفات' : 'Expense Categories', url: "/expense-category-setup", icon: Settings },
         { title: language === 'ar' ? 'أنواع المصروفات' : 'Expense Types', url: "/expense-type-setup", icon: Settings },
+        { title: language === 'ar' ? 'مراكز التكلفة' : 'Cost Centers', url: "/cost-center-setup", icon: Target },
         { title: language === 'ar' ? 'رصيد الخزينة الافتتاحي' : 'Treasury Opening Balance', url: "/treasury-opening-balance", icon: DollarSign },
         { title: language === 'ar' ? 'قيد الخزينة' : 'Treasury Entry', url: "/treasury-entry", icon: FileText },
         { title: language === 'ar' ? 'قيد البنك' : 'Bank Entry', url: "/bank-entry", icon: FileText },
