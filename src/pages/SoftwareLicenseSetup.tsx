@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw, Save, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -173,6 +173,14 @@ const SoftwareLicenseSetup = () => {
   // Invoice upload state
   const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [licenseInvoices, setLicenseInvoices] = useState<LicenseInvoice[]>([]);
+  
+  // Invoice editing state
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [editingInvoiceData, setEditingInvoiceData] = useState<{
+    extracted_cost: string;
+    cost_currency: string;
+    cost_sar: string;
+  }>({ extracted_cost: "", cost_currency: "", cost_sar: "" });
 
   const [formData, setFormData] = useState({
     software_name: "",
@@ -719,6 +727,62 @@ const SoftwareLicenseSetup = () => {
       toast({
         title: language === "ar" ? "تم الحذف" : "Deleted",
         description: language === "ar" ? "تم حذف الفاتورة بنجاح" : "Invoice deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStartEditInvoice = (invoice: LicenseInvoice) => {
+    setEditingInvoiceId(invoice.id);
+    setEditingInvoiceData({
+      extracted_cost: invoice.extracted_cost?.toString() || "",
+      cost_currency: invoice.cost_currency || "",
+      cost_sar: invoice.cost_sar?.toString() || "",
+    });
+  };
+
+  const handleCancelEditInvoice = () => {
+    setEditingInvoiceId(null);
+    setEditingInvoiceData({ extracted_cost: "", cost_currency: "", cost_sar: "" });
+  };
+
+  const handleSaveInvoice = async (invoiceId: string) => {
+    try {
+      const updateData: {
+        extracted_cost: number | null;
+        cost_currency: string | null;
+        cost_sar: number | null;
+        ai_extraction_status: string;
+      } = {
+        extracted_cost: editingInvoiceData.extracted_cost ? parseFloat(editingInvoiceData.extracted_cost) : null,
+        cost_currency: editingInvoiceData.cost_currency || null,
+        cost_sar: editingInvoiceData.cost_sar ? parseFloat(editingInvoiceData.cost_sar) : null,
+        ai_extraction_status: "completed",
+      };
+
+      const { error } = await supabase
+        .from("software_license_invoices")
+        .update(updateData)
+        .eq("id", invoiceId);
+
+      if (error) throw error;
+
+      // Refresh invoices list
+      if (editingLicenseId) {
+        await fetchLicenseInvoices(editingLicenseId);
+      }
+
+      setEditingInvoiceId(null);
+      setEditingInvoiceData({ extracted_cost: "", cost_currency: "", cost_sar: "" });
+
+      toast({
+        title: language === "ar" ? "تم الحفظ" : "Saved",
+        description: language === "ar" ? "تم تحديث بيانات الفاتورة بنجاح" : "Invoice data updated successfully",
       });
     } catch (error: any) {
       toast({
@@ -1686,21 +1750,72 @@ const SoftwareLicenseSetup = () => {
                               </TableCell>
                               <TableCell>{invoice.file_name || "-"}</TableCell>
                               <TableCell>
-                                {invoice.extracted_cost !== null ? (
-                                  <span className="font-medium">
-                                    {invoice.extracted_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {invoice.cost_currency || ""}
-                                  </span>
+                                {editingInvoiceId === invoice.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editingInvoiceData.extracted_cost}
+                                      onChange={(e) => setEditingInvoiceData({
+                                        ...editingInvoiceData,
+                                        extracted_cost: e.target.value
+                                      })}
+                                      className="w-24 h-8"
+                                      placeholder="0.00"
+                                    />
+                                    <Select
+                                      value={editingInvoiceData.cost_currency}
+                                      onValueChange={(value) => setEditingInvoiceData({
+                                        ...editingInvoiceData,
+                                        cost_currency: value
+                                      })}
+                                    >
+                                      <SelectTrigger className="w-24 h-8">
+                                        <SelectValue placeholder={language === "ar" ? "عملة" : "Currency"} />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-background z-50">
+                                        {currencies.map((curr) => (
+                                          <SelectItem key={curr.id} value={curr.currency_code}>
+                                            {curr.currency_code}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
                                 ) : (
-                                  <span className="text-muted-foreground">-</span>
+                                  invoice.extracted_cost !== null ? (
+                                    <span className="font-medium">
+                                      {invoice.extracted_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {invoice.cost_currency || ""}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                  )
                                 )}
                               </TableCell>
                               <TableCell>
-                                {invoice.cost_sar !== null ? (
-                                  <span className="font-medium text-primary">
-                                    {invoice.cost_sar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
-                                  </span>
+                                {editingInvoiceId === invoice.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editingInvoiceData.cost_sar}
+                                      onChange={(e) => setEditingInvoiceData({
+                                        ...editingInvoiceData,
+                                        cost_sar: e.target.value
+                                      })}
+                                      className="w-28 h-8"
+                                      placeholder="0.00"
+                                    />
+                                    <span className="text-sm text-muted-foreground">SAR</span>
+                                  </div>
                                 ) : (
-                                  <span className="text-muted-foreground">-</span>
+                                  invoice.cost_sar !== null ? (
+                                    <span className="font-medium text-primary">
+                                      {invoice.cost_sar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                  )
                                 )}
                               </TableCell>
                               <TableCell>
@@ -1727,33 +1842,69 @@ const SoftwareLicenseSetup = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center justify-center gap-2">
-                                  {(invoice.ai_extraction_status === "pending" || invoice.ai_extraction_status === "error") && (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleRereadInvoice(invoice)}
-                                      title={language === "ar" ? "إعادة القراءة بالذكاء الاصطناعي" : "Re-read with AI"}
-                                    >
-                                      <RotateCcw className="h-4 w-4" />
-                                    </Button>
+                                  {editingInvoiceId === invoice.id ? (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleSaveInvoice(invoice.id)}
+                                        title={language === "ar" ? "حفظ" : "Save"}
+                                        className="text-green-600 hover:text-green-700"
+                                      >
+                                        <Save className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleCancelEditInvoice}
+                                        title={language === "ar" ? "إلغاء" : "Cancel"}
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleStartEditInvoice(invoice)}
+                                        title={language === "ar" ? "تعديل" : "Edit"}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      {(invoice.ai_extraction_status === "pending" || invoice.ai_extraction_status === "error") && (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleRereadInvoice(invoice)}
+                                          title={language === "ar" ? "إعادة القراءة بالذكاء الاصطناعي" : "Re-read with AI"}
+                                        >
+                                          <RotateCcw className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => window.open(invoice.file_path, '_blank')}
+                                      >
+                                        <Download className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleDeleteInvoice(invoice.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
                                   )}
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => window.open(invoice.file_path, '_blank')}
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDeleteInvoice(invoice.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
