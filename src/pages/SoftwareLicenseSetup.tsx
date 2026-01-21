@@ -917,8 +917,12 @@ const SoftwareLicenseSetup = () => {
                   <TableHead>
                     {language === "ar" ? "العملة" : "Currency"}
                   </TableHead>
-                  <TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("project_id")}
+                  >
                     {language === "ar" ? "المشروع" : "Project"}
+                    {getSortIcon("project_id")}
                   </TableHead>
                   <TableHead
                     className="cursor-pointer hover:bg-muted/50"
