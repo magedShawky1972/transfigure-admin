@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -594,6 +594,107 @@ const SoftwareLicenseSetup = () => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleRereadInvoice = async (invoice: LicenseInvoice) => {
+    try {
+      // Update status to processing
+      await supabase
+        .from("software_license_invoices")
+        .update({ ai_extraction_status: "processing", ai_extraction_error: null })
+        .eq("id", invoice.id);
+      
+      // Refresh to show processing status
+      if (editingLicenseId) {
+        await fetchLicenseInvoices(editingLicenseId);
+      }
+
+      toast({
+        title: language === "ar" ? "جاري القراءة" : "Reading...",
+        description: language === "ar" ? "جاري استخراج التكلفة من الفاتورة" : "Extracting cost from invoice...",
+      });
+
+      // Fetch the file from Cloudinary URL
+      const response = await fetch(invoice.file_path);
+      const blob = await response.blob();
+      
+      // Convert blob to base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      let imageDataForAI = base64;
+      const isPdf = invoice.file_name?.toLowerCase().endsWith('.pdf');
+      
+      if (isPdf) {
+        // For PDFs, we need to convert first page to image
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+          
+          // Load PDF from base64
+          const pdfData = base64.split(',')[1];
+          const binaryData = atob(pdfData);
+          const uint8Array = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            uint8Array[i] = binaryData.charCodeAt(i);
+          }
+          
+          const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+          const page = await pdf.getPage(1);
+          
+          // Render at a good resolution for text extraction
+          const scale = 2;
+          const viewport = page.getViewport({ scale });
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const context = canvas.getContext('2d');
+          
+          if (context) {
+            await page.render({ canvasContext: context, viewport }).promise;
+            imageDataForAI = canvas.toDataURL('image/png');
+          }
+        } catch (pdfError) {
+          console.error("Failed to convert PDF to image:", pdfError);
+        }
+      }
+
+      // Call AI to extract cost
+      const { error: invokeError } = await supabase.functions.invoke("extract-invoice-cost", {
+        body: { 
+          invoiceId: invoice.id,
+          imageData: imageDataForAI,
+          fileName: invoice.file_name || "invoice"
+        },
+      });
+
+      if (invokeError) throw invokeError;
+
+      // Refresh invoices to show extracted cost
+      if (editingLicenseId) {
+        await fetchLicenseInvoices(editingLicenseId);
+      }
+      
+      toast({
+        title: language === "ar" ? "تم استخراج التكلفة" : "Cost extracted",
+        description: language === "ar" ? "تم استخراج تكلفة الفاتورة بنجاح" : "Invoice cost extracted successfully",
+      });
+    } catch (error: any) {
+      console.error("Failed to re-read invoice:", error);
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في استخراج التكلفة" : "Failed to extract cost",
+        variant: "destructive",
+      });
+      // Refresh to show current status
+      if (editingLicenseId) {
+        await fetchLicenseInvoices(editingLicenseId);
+      }
     }
   };
 
@@ -1626,6 +1727,17 @@ const SoftwareLicenseSetup = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center justify-center gap-2">
+                                  {(invoice.ai_extraction_status === "pending" || invoice.ai_extraction_status === "error") && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRereadInvoice(invoice)}
+                                      title={language === "ar" ? "إعادة القراءة بالذكاء الاصطناعي" : "Re-read with AI"}
+                                    >
+                                      <RotateCcw className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   <Button
                                     type="button"
                                     variant="outline"
