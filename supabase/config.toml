@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.extract-invoice-cost]
 verify_jwt = false
+
+[functions.api-lookup]
+verify_jwt = false
