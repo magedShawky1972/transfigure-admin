@@ -81,86 +81,131 @@ interface UserPermission {
   parent_menu: string | null;
 }
 
-  const MENU_ITEMS = [
-    { key: "dashboard", label: "لوحة التحكم", labelEn: "Dashboard" },
-    { key: "ticket_dashboard", label: "لوحة التذاكر", labelEn: "Ticket Dashboard" },
-    { key: "shift_dashboard", label: "لوحة الورديات", labelEn: "Shift Dashboard" },
-    { key: "task_dashboard", label: "لوحة المهام", labelEn: "Task Dashboard" },
-    { key: "user_dashboard", label: "لوحة المستخدم", labelEn: "User Dashboard" },
-    { key: "api_documentation", label: "توثيق API", labelEn: "API Documentation" },
-    { key: "softwareLicenses", label: "البرامج والتراخيص", labelEn: "Software Licenses" },
-    { key: "reports", label: "التقارير", labelEn: "Reports" },
-    { key: "transactions", label: "المعاملات", labelEn: "Transactions" },
-    { key: "pivotTable", label: "الجدول المحوري", labelEn: "Pivot Table" },
-    { key: "loadData", label: "تحميل البيانات", labelEn: "Load Data" },
-    { key: "uploadLog", label: "سجل التحميل", labelEn: "Upload Log" },
-    { key: "clearData", label: "مسح البيانات", labelEn: "Clear Data" },
-    { key: "tickets", label: "تذاكري", labelEn: "My Tickets" },
-    { key: "admin_tickets", label: "تذاكر القسم", labelEn: "Department Tickets" },
-    { key: "softwareLicenseSetup", label: "إدخال الترخيص", labelEn: "License Entry" },
-    { key: "shiftSession", label: "جلسة الوردية", labelEn: "Shift Session" },
-    { key: "myShifts", label: "تقويم وردياتي", labelEn: "My Shifts Calendar" },
-    { key: "shiftFollowUp", label: "متابعة الورديات", labelEn: "Shift Follow-Up" },
-    { key: "tawasoul", label: "تواصل", labelEn: "Tawasoul" },
-    { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
-    { key: "reportsSetup", label: "إعداد التقارير", labelEn: "Reports Setup" },
-    { key: "customerSetup", label: "إعداد العملاء", labelEn: "Customer Setup" },
-    { key: "customerProfile", label: "ملف العميل", labelEn: "Customer Profile" },
-    { key: "customerTotals", label: "إجمالي العملاء", labelEn: "Customer Totals" },
-    { key: "brandSetup", label: "إعداد العلامات", labelEn: "Brand Setup" },
-    { key: "brandType", label: "نوع العلامة", labelEn: "Brand Type" },
-    { key: "productSetup", label: "إعداد المنتجات", labelEn: "Product Setup" },
-    { key: "paymentMethodSetup", label: "إعداد طرق الدفع", labelEn: "Payment Method Setup" },
-    { key: "department_management", label: "إدارة الأقسام", labelEn: "Department Management" },
-    { key: "userSetup", label: "إعداد المستخدمين", labelEn: "User Setup" },
-    { key: "shiftSetup", label: "إعداد الورديات", labelEn: "Shift Setup" },
-    { key: "shiftCalendar", label: "تقويم الورديات", labelEn: "Shift Calendar" },
-    { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
-    { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
-    { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
-    { key: "companyHierarchy", label: "الهيكل التنظيمي", labelEn: "Company Hierarchy" },
-    { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
-    { key: "userLogins", label: "بيانات تسجيل الدخول", labelEn: "Users Logins" },
-    { key: "userEmails", label: "المستخدمين والبريد", labelEn: "Users & Mails" },
-    { key: "asusTawasoul", label: "أسس تواصل", labelEn: "Asus Tawasoul" },
-    { key: "emailManager", label: "مدير البريد", labelEn: "Email Manager" },
-    { key: "mailSetup", label: "إعداد البريد", labelEn: "Mail Setup" },
-    { key: "systemConfig", label: "إعدادات النظام", labelEn: "System Configuration" },
-    { key: "closingTraining", label: "تدريب الإغلاق", labelEn: "Closing Training" },
-    { key: "odooSetup", label: "إعداد Odoo", labelEn: "Odoo Setup" },
-    { key: "excelSetup", label: "إعداد Excel", labelEn: "Excel Setup" },
-    { key: "tableConfig", label: "إعداد الجداول", labelEn: "Table Config" },
-    { key: "pdfToExcel", label: "تحويل PDF إلى Excel", labelEn: "PDF to Excel" },
-    { key: "systemBackup", label: "نسخ احتياطي", labelEn: "System Backup" },
-    { key: "systemRestore", label: "استعادة النظام", labelEn: "System Restore" },
-    { key: "employeeSetup", label: "إعداد الموظفين", labelEn: "Employee Setup" },
-    { key: "vacationSetup", label: "إعداد الإجازات", labelEn: "Vacation Setup" },
-    { key: "timesheetManagement", label: "إدارة الحضور", labelEn: "Timesheet Management" },
-    { key: "deductionRulesSetup", label: "قواعد الخصم", labelEn: "Deduction Rules" },
-    { key: "medicalInsuranceSetup", label: "التأمين الطبي", labelEn: "Medical Insurance" },
-    { key: "shiftPlansSetup", label: "خطط الورديات", labelEn: "Shift Plans" },
-    { key: "documentTypeSetup", label: "أنواع المستندات", labelEn: "Document Types" },
-    { key: "attendanceTypeSetup", label: "أنواع الحضور", labelEn: "Attendance Types" },
-    { key: "jobSetup", label: "إعداد الوظائف", labelEn: "Job Setup" },
-    { key: "certificateManagement", label: "إدارة الشهادات", labelEn: "Certificate Management" },
-    { key: "auditLogs", label: "سجلات التدقيق", labelEn: "Audit Logs" },
-    { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
-    { key: "zkAttendanceLogs", label: "سجلات حضور ZK", labelEn: "ZK Attendance Logs" },
-    { key: "hrVacationCalendar", label: "تقويم الإجازات", labelEn: "HR Vacation Calendar" },
-    { key: "bankSetup", label: "إعداد البنوك", labelEn: "Bank Setup" },
-    { key: "treasurySetup", label: "إعداد الخزائن", labelEn: "Treasury Setup" },
-    { key: "expenseCategorySetup", label: "إعداد فئات المصروفات", labelEn: "Expense Category Setup" },
-    { key: "expenseTypeSetup", label: "إعداد أنواع المصروفات", labelEn: "Expense Type Setup" },
-    { key: "treasuryOpeningBalance", label: "رصيد الخزينة الافتتاحي", labelEn: "Treasury Opening Balance" },
-    { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
-    { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
-    { key: "expenseEntry", label: "قيد المصروفات", labelEn: "Expense Entry" },
-    { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
-    { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
-    { key: "apiIntegrationStatus", label: "حالة تكامل API", labelEn: "API Integration Status" },
-    { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
-    { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
+  // Menu groups matching sidebar order
+  const MENU_GROUPS = [
+    {
+      groupKey: "reports",
+      labelAr: "التقارير",
+      labelEn: "Reports",
+      items: [
+        { key: "dashboard", label: "لوحة التحكم", labelEn: "Dashboard" },
+        { key: "ticket_dashboard", label: "لوحة التذاكر", labelEn: "Ticket Dashboard" },
+        { key: "shift_dashboard", label: "لوحة الورديات", labelEn: "Shift Dashboard" },
+        { key: "task_dashboard", label: "لوحة المهام", labelEn: "Task Dashboard" },
+        { key: "user_dashboard", label: "لوحة المستخدم", labelEn: "User Dashboard" },
+        { key: "softwareLicenses", label: "البرامج والتراخيص", labelEn: "Software & Subscription" },
+        { key: "reports", label: "التقارير", labelEn: "Reports" },
+        { key: "api_documentation", label: "توثيق API", labelEn: "API Documentation" },
+        { key: "transactions", label: "المعاملات", labelEn: "Transactions" },
+        { key: "pivotTable", label: "الجدول المحوري", labelEn: "Pivot Table" },
+      ]
+    },
+    {
+      groupKey: "entry",
+      labelAr: "الإدخال",
+      labelEn: "Entry",
+      items: [
+        { key: "loadData", label: "تحميل البيانات", labelEn: "Load Data" },
+        { key: "uploadLog", label: "سجل التحميل", labelEn: "Upload Log" },
+        { key: "clearData", label: "مسح البيانات", labelEn: "Clear Data" },
+        { key: "tickets", label: "تذاكري", labelEn: "My Tickets" },
+        { key: "admin_tickets", label: "تذاكر القسم", labelEn: "Department Tickets" },
+        { key: "softwareLicenseSetup", label: "إدخال الترخيص", labelEn: "License Entry" },
+        { key: "shiftSession", label: "جلسة الوردية", labelEn: "Shift Session" },
+        { key: "myShifts", label: "تقويم وردياتي", labelEn: "My Shifts Calendar" },
+        { key: "shiftFollowUp", label: "متابعة الورديات", labelEn: "Shift Follow-Up" },
+        { key: "tawasoul", label: "تواصل", labelEn: "Tawasoul" },
+        { key: "asusTawasoul", label: "أسس تواصل", labelEn: "Asus Tawasoul" },
+        { key: "emailManager", label: "مدير البريد", labelEn: "Email Manager" },
+        { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
+        { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
+      ]
+    },
+    {
+      groupKey: "setup",
+      labelAr: "الإعداد",
+      labelEn: "Setup",
+      items: [
+        { key: "reportsSetup", label: "إعداد التقارير", labelEn: "Reports Setup" },
+        { key: "customerSetup", label: "إعداد العملاء", labelEn: "Customer Setup" },
+        { key: "customerProfile", label: "ملف العميل", labelEn: "Customer Profile" },
+        { key: "customerTotals", label: "إجمالي العملاء", labelEn: "Customer Totals" },
+        { key: "brandSetup", label: "إعداد العلامات", labelEn: "Brand Setup" },
+        { key: "brandType", label: "نوع العلامة", labelEn: "Brand Type" },
+        { key: "productSetup", label: "إعداد المنتجات", labelEn: "Product Setup" },
+        { key: "paymentMethodSetup", label: "إعداد طرق الدفع", labelEn: "Payment Method Setup" },
+        { key: "department_management", label: "إدارة الأقسام", labelEn: "Department Management" },
+        { key: "shiftSetup", label: "إعداد الورديات", labelEn: "Shift Setup" },
+        { key: "shiftCalendar", label: "تقويم الورديات", labelEn: "Shift Calendar" },
+        { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
+        { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
+        { key: "companyHierarchy", label: "الهيكل التنظيمي", labelEn: "Company Hierarchy" },
+        { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
+      ]
+    },
+    {
+      groupKey: "hr",
+      labelAr: "الموارد البشرية",
+      labelEn: "HR Management",
+      items: [
+        { key: "employeeSetup", label: "إعداد الموظفين", labelEn: "Employee Setup" },
+        { key: "vacationSetup", label: "إعداد الإجازات", labelEn: "Vacation Setup" },
+        { key: "timesheetManagement", label: "إدارة الحضور", labelEn: "Timesheet Management" },
+        { key: "zkAttendanceLogs", label: "سجلات حضور ZK", labelEn: "ZK Attendance Logs" },
+        { key: "deductionRulesSetup", label: "قواعد الخصم", labelEn: "Deduction Rules" },
+        { key: "medicalInsuranceSetup", label: "التأمين الطبي", labelEn: "Medical Insurance" },
+        { key: "documentTypeSetup", label: "أنواع المستندات", labelEn: "Document Types" },
+        { key: "attendanceTypeSetup", label: "أنواع الحضور", labelEn: "Attendance Types" },
+        { key: "jobSetup", label: "إعداد الوظائف", labelEn: "Job Setup" },
+        { key: "hrVacationCalendar", label: "تقويم الإجازات", labelEn: "Vacation Calendar" },
+      ]
+    },
+    {
+      groupKey: "cash",
+      labelAr: "إدارة النقدية",
+      labelEn: "Cash Management",
+      items: [
+        { key: "bankSetup", label: "إعداد البنوك", labelEn: "Bank Setup" },
+        { key: "treasurySetup", label: "إعداد الخزائن", labelEn: "Treasury Setup" },
+        { key: "expenseCategorySetup", label: "فئات المصروفات", labelEn: "Expense Categories" },
+        { key: "expenseTypeSetup", label: "أنواع المصروفات", labelEn: "Expense Types" },
+        { key: "treasuryOpeningBalance", label: "رصيد الخزينة الافتتاحي", labelEn: "Treasury Opening Balance" },
+        { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
+        { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
+        { key: "expenseEntry", label: "قيد المصروفات", labelEn: "Expense Entry" },
+        { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
+        { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
+      ]
+    },
+    {
+      groupKey: "admin",
+      labelAr: "الإدارة",
+      labelEn: "Admin",
+      items: [
+        { key: "userSetup", label: "إعداد المستخدمين", labelEn: "User Setup" },
+        { key: "userLogins", label: "بيانات تسجيل الدخول", labelEn: "Users Logins" },
+        { key: "userEmails", label: "المستخدمين والبريد", labelEn: "Users & Mails" },
+        { key: "mailSetup", label: "إعداد البريد", labelEn: "Mail Setup" },
+        { key: "systemConfig", label: "إعدادات النظام", labelEn: "System Configuration" },
+        { key: "apiIntegrationStatus", label: "حالة تكامل API", labelEn: "API Integration Status" },
+        { key: "closingTraining", label: "تدريب الإغلاق", labelEn: "Closing Training" },
+        { key: "odooSetup", label: "إعداد Odoo", labelEn: "Odoo Setup" },
+        { key: "excelSetup", label: "إعداد Excel", labelEn: "Excel Setup" },
+        { key: "tableConfig", label: "إعداد الجداول", labelEn: "Table Config" },
+        { key: "pdfToExcel", label: "تحويل PDF إلى Excel", labelEn: "PDF to Excel" },
+        { key: "systemBackup", label: "نسخ احتياطي", labelEn: "System Backup" },
+        { key: "systemRestore", label: "استعادة النظام", labelEn: "System Restore" },
+        { key: "auditLogs", label: "سجلات التدقيق", labelEn: "Audit Logs" },
+        { key: "certificateManagement", label: "إدارة الشهادات", labelEn: "Certificate Management" },
+        { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
+        { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
+        { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
+      ]
+    }
   ];
+
+  // Flat list for backward compatibility
+  const MENU_ITEMS = MENU_GROUPS.flatMap(group => group.items);
 
 const DASHBOARD_COMPONENTS = [
   { key: "sales_metrics", labelEn: "Sales Metrics", labelAr: "مقاييس المبيعات" },
@@ -1704,37 +1749,46 @@ const UserSetup = () => {
                   : 'Enable or disable access to menu items for this user. Disabled items will not appear in their sidebar.'}
               </p>
               
-              <div className="space-y-3">
-                {MENU_ITEMS.map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                    <div className="flex items-center gap-2 flex-1">
-                      <Label htmlFor={`perm-${item.key}`} className="cursor-pointer">
-                        {language === 'ar' ? item.label : item.labelEn}
-                      </Label>
-                      {item.key === "dashboard" && userPermissions[item.key] && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleDashboardClick}
-                        >
-                          {language === 'ar' ? 'إعداد المكونات' : 'Configure Components'}
-                        </Button>
-                      )}
-                      {item.key === "reports" && userPermissions[item.key] && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleReportsClick}
-                        >
-                          {language === 'ar' ? 'إعداد التقارير' : 'Configure Reports'}
-                        </Button>
-                      )}
+              <div className="space-y-6">
+                {MENU_GROUPS.map((group) => (
+                  <div key={group.groupKey} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-primary border-b pb-2">
+                      {language === 'ar' ? group.labelAr : group.labelEn}
+                    </h3>
+                    <div className="space-y-2">
+                      {group.items.map((item) => (
+                        <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                          <div className="flex items-center gap-2 flex-1">
+                            <Label htmlFor={`perm-${item.key}`} className="cursor-pointer">
+                              {language === 'ar' ? item.label : item.labelEn}
+                            </Label>
+                            {item.key === "dashboard" && userPermissions[item.key] && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleDashboardClick}
+                              >
+                                {language === 'ar' ? 'إعداد المكونات' : 'Configure Components'}
+                              </Button>
+                            )}
+                            {item.key === "reports" && userPermissions[item.key] && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleReportsClick}
+                              >
+                                {language === 'ar' ? 'إعداد التقارير' : 'Configure Reports'}
+                              </Button>
+                            )}
+                          </div>
+                          <Switch
+                            id={`perm-${item.key}`}
+                            checked={userPermissions[item.key] || false}
+                            onCheckedChange={(checked) => handlePermissionToggle(item.key, checked)}
+                          />
+                        </div>
+                      ))}
                     </div>
-                    <Switch
-                      id={`perm-${item.key}`}
-                      checked={userPermissions[item.key] || false}
-                      onCheckedChange={(checked) => handlePermissionToggle(item.key, checked)}
-                    />
                   </div>
                 ))}
               </div>
