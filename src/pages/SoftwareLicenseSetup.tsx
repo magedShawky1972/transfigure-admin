@@ -1328,13 +1328,16 @@ const SoftwareLicenseSetup = () => {
                   <div className="space-y-2">
                     <Label htmlFor="assigned_to">{language === "ar" ? "معين إلى" : "Assigned To"}</Label>
                     <Select 
-                      value={formData.assigned_to} 
-                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                      value={formData.assigned_to || "none"} 
+                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value === "none" ? "" : value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={language === "ar" ? "اختر المستخدم" : "Select user"} />
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
+                        <SelectItem value="none">
+                          {language === "ar" ? "-- بدون --" : "-- None --"}
+                        </SelectItem>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={user.user_name}>
                             {user.user_name} ({user.email})
