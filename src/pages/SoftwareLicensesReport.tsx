@@ -20,19 +20,23 @@ const SoftwareLicensesReport = () => {
   const [licenseStatus, setLicenseStatus] = useState<string>("all");
   const [licenseCategory, setLicenseCategory] = useState<string>("all");
   const [licenseRenewalCycle, setLicenseRenewalCycle] = useState<string>("all");
+  const [licenseProject, setLicenseProject] = useState<string>("all");
   const [licenseDateFrom, setLicenseDateFrom] = useState<string>("");
   const [licenseDateTo, setLicenseDateTo] = useState<string>("");
   const [thisMonthExpiry, setThisMonthExpiry] = useState(false);
+  const [groupByProject, setGroupByProject] = useState(false);
   const [licensesData, setLicensesData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [currencyRates, setCurrencyRates] = useState<any[]>([]);
   const [baseCurrency, setBaseCurrency] = useState<any>(null);
+  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     checkAccess();
     fetchCurrencies();
+    fetchProjects();
   }, []);
 
   const checkAccess = async () => {
@@ -106,6 +110,26 @@ const SoftwareLicensesReport = () => {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name, status")
+        .order("name");
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  };
+
+  const getProjectName = (projectId: string | null) => {
+    if (!projectId) return "No Project";
+    const project = projects.find(p => p.id === projectId);
+    return project?.name || "Unknown Project";
+  };
+
   const convertToBaseCurrency = (cost: number, currencyId: string | null): number => {
     if (!currencyId || !baseCurrency) return cost;
     if (currencyId === baseCurrency.id) return cost;
@@ -133,6 +157,13 @@ const SoftwareLicensesReport = () => {
       if (licenseStatus !== "all") query = query.eq("status", licenseStatus);
       if (licenseCategory !== "all") query = query.eq("category", licenseCategory);
       if (licenseRenewalCycle !== "all") query = query.eq("renewal_cycle", licenseRenewalCycle);
+      if (licenseProject !== "all") {
+        if (licenseProject === "none") {
+          query = query.is("project_id", null);
+        } else {
+          query = query.eq("project_id", licenseProject);
+        }
+      }
       if (licenseDateFrom) query = query.gte("purchase_date", licenseDateFrom);
       if (licenseDateTo) query = query.lte("purchase_date", licenseDateTo);
       
@@ -174,7 +205,7 @@ const SoftwareLicensesReport = () => {
       return;
     }
 
-    const headers = ["Software", "Category", "Vendor", "Status", "Renewal Cycle", "Cost", "Currency", "Cost (Base)", "Purchase Date", "Expiry Date"];
+    const headers = ["Software", "Project", "Category", "Vendor", "Status", "Renewal Cycle", "Cost", "Currency", "Cost (Base)", "Purchase Date", "Expiry Date"];
     const csv = [
       headers.join(","),
       ...licensesData.map(license => {
@@ -182,6 +213,7 @@ const SoftwareLicensesReport = () => {
         const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
         return [
           `"${license.software_name}"`,
+          `"${getProjectName(license.project_id)}"`,
           license.category,
           `"${license.vendor_provider}"`,
           license.status,
@@ -431,6 +463,24 @@ const SoftwareLicensesReport = () => {
             </div>
 
             <div className="space-y-2">
+              <Label>Project</Label>
+              <Select value={licenseProject} onValueChange={setLicenseProject}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  <SelectItem value="none">No Project</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Purchase Date From</Label>
               <Input
                 type="date"
@@ -448,14 +498,25 @@ const SoftwareLicensesReport = () => {
               />
             </div>
 
-            <div className="flex items-center space-x-2 md:col-span-3">
+            <div className="flex items-center space-x-2">
               <Checkbox
                 id="thisMonthExpiry"
                 checked={thisMonthExpiry}
                 onCheckedChange={(checked) => setThisMonthExpiry(checked === true)}
               />
               <Label htmlFor="thisMonthExpiry" className="cursor-pointer">
-                تنتهي هذا الشهر / Expires This Month
+                Expires This Month
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="groupByProject"
+                checked={groupByProject}
+                onCheckedChange={(checked) => setGroupByProject(checked === true)}
+              />
+              <Label htmlFor="groupByProject" className="cursor-pointer">
+                Group by Project
               </Label>
             </div>
           </div>
@@ -502,12 +563,103 @@ const SoftwareLicensesReport = () => {
               <p>No results yet</p>
               <p className="text-sm">Apply filters and generate report</p>
             </div>
+          ) : groupByProject ? (
+            // Grouped by Project View
+            <div className="space-y-6">
+              {(() => {
+                // Group licenses by project
+                const groupedByProject = licensesData.reduce((acc: Record<string, any[]>, license) => {
+                  const projectKey = license.project_id || 'no-project';
+                  if (!acc[projectKey]) {
+                    acc[projectKey] = [];
+                  }
+                  acc[projectKey].push(license);
+                  return acc;
+                }, {});
+
+                return Object.entries(groupedByProject).map(([projectKey, licenses]) => {
+                  const projectName = projectKey === 'no-project' ? 'No Project' : getProjectName(projectKey);
+                  const totalCostBase = (licenses as any[]).reduce((sum, license) => {
+                    return sum + convertToBaseCurrency(license.cost, license.currency_id);
+                  }, 0);
+
+                  return (
+                    <div key={projectKey} className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted px-4 py-3 flex justify-between items-center">
+                        <h3 className="font-semibold text-lg">{projectName}</h3>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-muted-foreground">{(licenses as any[]).length} license(s)</span>
+                          <span className="font-bold text-primary">
+                            Total: {totalCostBase.toFixed(2)} {baseCurrency?.currency_code || ''}
+                          </span>
+                        </div>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Software</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Vendor</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Renewal Cycle</TableHead>
+                            <TableHead>Cost</TableHead>
+                            <TableHead>Cost ({baseCurrency?.currency_code || 'Base'})</TableHead>
+                            <TableHead>Purchase Date</TableHead>
+                            <TableHead>Expiry Date</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(licenses as any[]).map((license) => {
+                            const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
+                            const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
+                            return (
+                              <TableRow key={license.id}>
+                                <TableCell className="font-medium">{license.software_name}</TableCell>
+                                <TableCell>{license.category}</TableCell>
+                                <TableCell>{license.vendor_provider}</TableCell>
+                                <TableCell>
+                                  <span className={`px-2 py-1 rounded text-xs ${
+                                    license.status === "active" ? "bg-green-500/20 text-green-700" :
+                                    license.status === "expired" ? "bg-red-500/20 text-red-700" :
+                                    license.status === "cancelled" ? "bg-gray-500/20 text-gray-700" :
+                                    "bg-yellow-500/20 text-yellow-700"
+                                  }`}>
+                                    {license.status}
+                                  </span>
+                                </TableCell>
+                                <TableCell>{license.renewal_cycle}</TableCell>
+                                <TableCell>{license.cost.toLocaleString()} {currencyCode}</TableCell>
+                                <TableCell>{baseCost.toFixed(2)} {baseCurrency?.currency_code}</TableCell>
+                                <TableCell>{format(new Date(license.purchase_date), "MMM dd, yyyy")}</TableCell>
+                                <TableCell>
+                                  {license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  );
+                });
+              })()}
+              
+              {/* Grand Total */}
+              <div className="bg-primary/10 rounded-lg p-4 flex justify-between items-center">
+                <span className="font-semibold text-lg">Grand Total</span>
+                <span className="font-bold text-xl text-primary">
+                  {licensesData.reduce((sum, license) => sum + convertToBaseCurrency(license.cost, license.currency_id), 0).toFixed(2)} {baseCurrency?.currency_code || ''}
+                </span>
+              </div>
+            </div>
           ) : (
+            // Regular Table View
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Software</TableHead>
+                    <TableHead>Project</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Vendor</TableHead>
                     <TableHead>Status</TableHead>
@@ -525,6 +677,7 @@ const SoftwareLicensesReport = () => {
                     return (
                       <TableRow key={license.id}>
                         <TableCell className="font-medium">{license.software_name}</TableCell>
+                        <TableCell>{getProjectName(license.project_id)}</TableCell>
                         <TableCell>{license.category}</TableCell>
                         <TableCell>{license.vendor_provider}</TableCell>
                         <TableCell>
@@ -549,6 +702,14 @@ const SoftwareLicensesReport = () => {
                   })}
                 </TableBody>
               </Table>
+              
+              {/* Total Row */}
+              <div className="bg-primary/10 rounded-lg p-4 mt-4 flex justify-between items-center">
+                <span className="font-semibold">Total Cost</span>
+                <span className="font-bold text-primary">
+                  {licensesData.reduce((sum, license) => sum + convertToBaseCurrency(license.cost, license.currency_id), 0).toFixed(2)} {baseCurrency?.currency_code || ''}
+                </span>
+              </div>
             </div>
           )}
         </CardContent>
