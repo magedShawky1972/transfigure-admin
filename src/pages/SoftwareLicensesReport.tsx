@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Filter, Download, ArrowLeft } from "lucide-react";
+import { Filter, Download, ArrowLeft, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import purpleCardLogo from "@/assets/purple-card-logo.png";
 
 const SoftwareLicensesReport = () => {
   const { toast } = useToast();
@@ -202,6 +203,156 @@ const SoftwareLicensesReport = () => {
     a.click();
   };
 
+  const handlePrintReport = () => {
+    if (licensesData.length === 0) {
+      toast({
+        title: "No Data",
+        description: "Please run the report first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalCostBase = licensesData.reduce((sum, license) => {
+      return sum + convertToBaseCurrency(license.cost, license.currency_id);
+    }, 0);
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Software Licenses Report</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+          .logo { max-width: 150px; margin-bottom: 10px; }
+          .title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+          .subtitle { font-size: 14px; color: #666; }
+          .filters { margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+          .filters-title { font-weight: bold; margin-bottom: 10px; }
+          .filters-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; }
+          .filter-item { display: flex; gap: 5px; }
+          .filter-label { font-weight: 600; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #333; color: white; font-weight: bold; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+          .status-active { background-color: #d4edda; color: #155724; padding: 2px 6px; border-radius: 4px; }
+          .status-expired { background-color: #f8d7da; color: #721c24; padding: 2px 6px; border-radius: 4px; }
+          .status-expiring { background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 4px; }
+          .status-cancelled { background-color: #e2e3e5; color: #383d41; padding: 2px 6px; border-radius: 4px; }
+          .summary { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; }
+          .summary-item { }
+          .summary-value { font-size: 20px; font-weight: bold; }
+          .summary-label { font-size: 12px; color: #666; }
+          .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; }
+          @media print {
+            body { padding: 10px; }
+            .filters { background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            th { background-color: #333 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .status-active, .status-expired, .status-expiring, .status-cancelled { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="${purpleCardLogo}" class="logo" alt="Logo" />
+          <div class="title">Software Licenses Report</div>
+          <div class="subtitle">Generated on ${format(new Date(), "MMMM dd, yyyy 'at' HH:mm")}</div>
+        </div>
+        
+        <div class="filters">
+          <div class="filters-title">Applied Filters</div>
+          <div class="filters-grid">
+            <div class="filter-item"><span class="filter-label">Status:</span> ${licenseStatus === 'all' ? 'All' : licenseStatus}</div>
+            <div class="filter-item"><span class="filter-label">Category:</span> ${licenseCategory === 'all' ? 'All' : licenseCategory}</div>
+            <div class="filter-item"><span class="filter-label">Renewal Cycle:</span> ${licenseRenewalCycle === 'all' ? 'All' : licenseRenewalCycle}</div>
+            <div class="filter-item"><span class="filter-label">Date From:</span> ${licenseDateFrom || 'N/A'}</div>
+            <div class="filter-item"><span class="filter-label">Date To:</span> ${licenseDateTo || 'N/A'}</div>
+            <div class="filter-item"><span class="filter-label">Expires This Month:</span> ${thisMonthExpiry ? 'Yes' : 'No'}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Software</th>
+              <th>Category</th>
+              <th>Vendor</th>
+              <th>Status</th>
+              <th>Renewal Cycle</th>
+              <th>Cost</th>
+              <th>Cost (${baseCurrency?.currency_code || 'Base'})</th>
+              <th>Purchase Date</th>
+              <th>Expiry Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${licensesData.map((license, index) => {
+              const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
+              const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
+              const statusClass = license.status === "active" ? "status-active" :
+                                  license.status === "expired" ? "status-expired" :
+                                  license.status === "cancelled" ? "status-cancelled" : "status-expiring";
+              return `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${license.software_name}</td>
+                  <td>${license.category}</td>
+                  <td>${license.vendor_provider}</td>
+                  <td><span class="${statusClass}">${license.status}</span></td>
+                  <td>${license.renewal_cycle}</td>
+                  <td>${license.cost.toLocaleString()} ${currencyCode}</td>
+                  <td>${baseCost.toFixed(2)} ${baseCurrency?.currency_code || ''}</td>
+                  <td>${format(new Date(license.purchase_date), "MMM dd, yyyy")}</td>
+                  <td>${license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-value">${licensesData.length}</div>
+              <div class="summary-label">Total Licenses</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-value">${licensesData.filter(l => l.status === 'active').length}</div>
+              <div class="summary-label">Active</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-value">${licensesData.filter(l => l.status === 'expired' || l.status === 'expiring_soon').length}</div>
+              <div class="summary-label">Expired / Expiring</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-value">${totalCostBase.toFixed(2)} ${baseCurrency?.currency_code || ''}</div>
+              <div class="summary-label">Total Cost (Base)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>This report was automatically generated by the Software License Management System</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -325,6 +476,14 @@ const SoftwareLicensesReport = () => {
             >
               <Download className="h-4 w-4" />
               Export CSV
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handlePrintReport}
+              className="gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print Report
             </Button>
           </div>
         </CardContent>
