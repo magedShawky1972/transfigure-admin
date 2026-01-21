@@ -878,6 +878,12 @@ const SoftwareLicenseSetup = () => {
                     {language === "ar" ? "الفئة" : "Category"}
                     {getSortIcon("category")}
                   </TableHead>
+                  <TableHead>
+                    {language === "ar" ? "اسم النطاق" : "Domain Name"}
+                  </TableHead>
+                  <TableHead>
+                    {language === "ar" ? "البريد الإلكتروني" : "Mails"}
+                  </TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("purchase_date")}
@@ -925,13 +931,13 @@ const SoftwareLicenseSetup = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center">
+                    <TableCell colSpan={13} className="text-center">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : filteredLicenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center">
+                    <TableCell colSpan={13} className="text-center">
                       {language === "ar" ? "لا توجد تراخيص" : "No licenses found"}
                     </TableCell>
                   </TableRow>
@@ -943,6 +949,8 @@ const SoftwareLicenseSetup = () => {
                       <TableCell>
                         {CATEGORIES.find(c => c.value === license.category)?.[language === "ar" ? "labelAr" : "label"] || license.category}
                       </TableCell>
+                      <TableCell>{(license as any).domain_name || '-'}</TableCell>
+                      <TableCell>{(license as any).mails || '-'}</TableCell>
                       <TableCell>{format(new Date(license.purchase_date), "yyyy-MM-dd")}</TableCell>
                       <TableCell>
                         {license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "-"}
