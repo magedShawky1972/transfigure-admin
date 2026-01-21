@@ -4,9 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Database, FileText } from "lucide-react";
+import { Loader2, RefreshCw, Database, FileText, Calendar } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
+import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +30,14 @@ const UpdateBankLedger = () => {
   const [updatingHyperpay, setUpdatingHyperpay] = useState(false);
   const [showPaymentRefDialog, setShowPaymentRefDialog] = useState(false);
   const [showHyperpayDialog, setShowHyperpayDialog] = useState(false);
+  
+  // Progress tracking
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  
+  // Date filter
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  
   const [lastResult, setLastResult] = useState<{
     type: string;
     success: boolean;
@@ -38,22 +49,42 @@ const UpdateBankLedger = () => {
   if (accessLoading || hasAccess === null) return <AccessDenied isLoading={true} />;
   if (hasAccess === false) return <AccessDenied />;
 
+  // Convert date string to int format (YYYYMMDD)
+  const dateToInt = (dateStr: string): number | null => {
+    if (!dateStr) return null;
+    return parseInt(dateStr.replace(/-/g, ''), 10);
+  };
+
   const handleUpdatePaymentReference = async () => {
     setUpdatingPaymentRef(true);
     setShowPaymentRefDialog(false);
     setLastResult(null);
+    setProgress({ current: 0, total: 0 });
 
     try {
-      // Step 1: Get all order_payment records with paymentrefrence
-      const { data: orderPayments, error: opError } = await supabase
+      // Build query with optional date filter
+      let query = supabase
         .from('order_payment')
-        .select('ordernumber, paymentrefrence')
+        .select('ordernumber, paymentrefrence, created_at_int', { count: 'exact' })
         .not('paymentrefrence', 'is', null)
         .not('ordernumber', 'is', null);
 
-      if (opError) throw opError;
+      const fromInt = dateToInt(fromDate);
+      const toInt = dateToInt(toDate);
 
-      if (!orderPayments || orderPayments.length === 0) {
+      if (fromInt) {
+        query = query.gte('created_at_int', fromInt);
+      }
+      if (toInt) {
+        query = query.lte('created_at_int', toInt);
+      }
+
+      // First get total count
+      const { count, error: countError } = await query;
+      
+      if (countError) throw countError;
+
+      if (!count || count === 0) {
         setLastResult({
           type: 'paymentRef',
           success: true,
@@ -63,15 +94,38 @@ const UpdateBankLedger = () => {
         return;
       }
 
+      setProgress({ current: 0, total: count });
+
       let updated = 0;
       let errors = 0;
-      const batchSize = 100;
+      const batchSize = 1000;
+      let offset = 0;
 
-      // Process in batches
-      for (let i = 0; i < orderPayments.length; i += batchSize) {
-        const batch = orderPayments.slice(i, i + batchSize);
-        
-        for (const op of batch) {
+      // Process all records in batches
+      while (offset < count) {
+        // Fetch batch
+        let batchQuery = supabase
+          .from('order_payment')
+          .select('ordernumber, paymentrefrence')
+          .not('paymentrefrence', 'is', null)
+          .not('ordernumber', 'is', null)
+          .range(offset, offset + batchSize - 1);
+
+        if (fromInt) {
+          batchQuery = batchQuery.gte('created_at_int', fromInt);
+        }
+        if (toInt) {
+          batchQuery = batchQuery.lte('created_at_int', toInt);
+        }
+
+        const { data: orderPayments, error: opError } = await batchQuery;
+
+        if (opError) throw opError;
+
+        if (!orderPayments || orderPayments.length === 0) break;
+
+        // Process each record in the batch
+        for (const op of orderPayments) {
           const { error: updateError } = await supabase
             .from('bank_ledger')
             .update({ paymentrefrence: op.paymentrefrence })
@@ -83,7 +137,12 @@ const UpdateBankLedger = () => {
           } else {
             updated++;
           }
+
+          // Update progress
+          setProgress(prev => ({ ...prev, current: updated + errors }));
         }
+
+        offset += batchSize;
       }
 
       setLastResult({
@@ -92,7 +151,7 @@ const UpdateBankLedger = () => {
         message: isRTL 
           ? `تم تحديث ${updated} سجل بنجاح${errors > 0 ? ` (${errors} أخطاء)` : ''}`
           : `Successfully updated ${updated} records${errors > 0 ? ` (${errors} errors)` : ''}`,
-        details: { totalProcessed: orderPayments.length, updated, errors }
+        details: { totalProcessed: count, updated, errors }
       });
 
       toast.success(isRTL ? 'تم تحديث مرجع الدفع بنجاح' : 'Payment reference updated successfully');
@@ -149,6 +208,8 @@ const UpdateBankLedger = () => {
     }
   };
 
+  const progressPercentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+
   return (
     <div className={`container mx-auto p-6 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="mb-6">
@@ -176,12 +237,59 @@ const UpdateBankLedger = () => {
                 : 'Update paymentrefrence field in bank_ledger from order_payment table'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
               {isRTL 
                 ? 'يقوم هذا الإجراء بربط bank_ledger.reference_number مع order_payment.ordernumber وتحديث paymentrefrence'
                 : 'This action links bank_ledger.reference_number with order_payment.ordernumber and updates paymentrefrence'}
             </p>
+            
+            {/* Date Filter */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fromDate" className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {isRTL ? 'من تاريخ' : 'From Date'}
+                </Label>
+                <Input
+                  id="fromDate"
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  disabled={updatingPaymentRef}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="toDate" className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {isRTL ? 'إلى تاريخ' : 'To Date'}
+                </Label>
+                <Input
+                  id="toDate"
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  disabled={updatingPaymentRef}
+                />
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            {updatingPaymentRef && progress.total > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>{isRTL ? 'التقدم' : 'Progress'}</span>
+                  <span className="font-medium">
+                    {progress.current.toLocaleString()} / {progress.total.toLocaleString()}
+                  </span>
+                </div>
+                <Progress value={progressPercentage} className="h-3" />
+                <p className="text-xs text-muted-foreground text-center">
+                  {progressPercentage.toFixed(1)}%
+                </p>
+              </div>
+            )}
+
             <Button 
               onClick={() => setShowPaymentRefDialog(true)}
               disabled={updatingPaymentRef || updatingHyperpay}
@@ -273,8 +381,8 @@ const UpdateBankLedger = () => {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isRTL 
-                ? 'هل أنت متأكد من تحديث جميع سجلات bank_ledger بمراجع الدفع من order_payment؟'
-                : 'Are you sure you want to update all bank_ledger records with payment references from order_payment?'}
+                ? `هل أنت متأكد من تحديث سجلات bank_ledger بمراجع الدفع من order_payment؟${fromDate || toDate ? ` (التاريخ: ${fromDate || 'البداية'} - ${toDate || 'النهاية'})` : ' (جميع السجلات)'}`
+                : `Are you sure you want to update bank_ledger records with payment references from order_payment?${fromDate || toDate ? ` (Date: ${fromDate || 'Start'} - ${toDate || 'End'})` : ' (All records)'}`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
