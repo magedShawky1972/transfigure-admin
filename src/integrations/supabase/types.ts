@@ -5035,6 +5035,47 @@ export type Database = {
           },
         ]
       }
+      software_license_invoices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_name: string | null
+          file_path: string
+          id: string
+          invoice_date: string
+          license_id: string
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_path: string
+          id?: string
+          invoice_date: string
+          license_id: string
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_path?: string
+          id?: string
+          invoice_date?: string
+          license_id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "software_license_invoices_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "software_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       software_licenses: {
         Row: {
           assigned_department: string | null

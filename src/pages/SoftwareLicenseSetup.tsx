@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -113,6 +113,16 @@ interface SoftwareLicense {
   currency_id: string | null;
 }
 
+interface LicenseInvoice {
+  id: string;
+  license_id: string;
+  invoice_date: string;
+  file_path: string;
+  file_name: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 const SoftwareLicenseSetup = () => {
   const { t, language } = useLanguage();
   const { toast } = useToast();
@@ -135,6 +145,10 @@ const SoftwareLicenseSetup = () => {
   const [paymentMethods, setPaymentMethods] = useState<string[]>(PAYMENT_METHODS.map(pm => pm.value));
   const [openPaymentCombo, setOpenPaymentCombo] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
+  
+  // Invoice upload state
+  const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [licenseInvoices, setLicenseInvoices] = useState<LicenseInvoice[]>([]);
 
   const [formData, setFormData] = useState({
     software_name: "",
@@ -265,6 +279,21 @@ const SoftwareLicenseSetup = () => {
     }
   };
 
+  const fetchLicenseInvoices = async (licenseId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("software_license_invoices")
+        .select("*")
+        .eq("license_id", licenseId)
+        .order("invoice_date", { ascending: false });
+
+      if (error) throw error;
+      setLicenseInvoices((data || []) as LicenseInvoice[]);
+    } catch (error: any) {
+      console.error("Error fetching invoices:", error);
+    }
+  };
+
   const getBaseCurrency = () => currencies.find(c => c.is_base);
 
   const convertToBaseCurrency = (cost: number, currencyId: string | null): number => {
@@ -362,6 +391,24 @@ const SoftwareLicenseSetup = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!invoiceDate) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "يرجى تحديد تاريخ الفاتورة أولاً" : "Please select invoice date first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editingLicenseId) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "يجب حفظ الترخيص أولاً قبل رفع الفواتير" : "Please save the license first before uploading invoices",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setUploading(true);
     try {
       // Convert file to base64
@@ -383,7 +430,27 @@ const SoftwareLicenseSetup = () => {
       if (uploadError) throw uploadError;
       if (!uploadData?.url) throw new Error("Failed to get URL from Cloudinary");
 
-      setFormData({ ...formData, invoice_file_path: uploadData.url });
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Save invoice to database
+      const { error: insertError } = await supabase
+        .from("software_license_invoices")
+        .insert({
+          license_id: editingLicenseId,
+          invoice_date: invoiceDate,
+          file_path: uploadData.url,
+          file_name: file.name,
+          created_by: user?.id
+        });
+
+      if (insertError) throw insertError;
+
+      // Refresh invoices list
+      await fetchLicenseInvoices(editingLicenseId);
+
+      // Reset file input
+      e.target.value = '';
 
       toast({
         title: language === "ar" ? "تم الرفع بنجاح" : "Upload successful",
@@ -397,6 +464,37 @@ const SoftwareLicenseSetup = () => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!confirm(language === "ar" ? "هل أنت متأكد من حذف هذه الفاتورة؟" : "Are you sure you want to delete this invoice?")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("software_license_invoices")
+        .delete()
+        .eq("id", invoiceId);
+
+      if (error) throw error;
+
+      // Refresh invoices list
+      if (editingLicenseId) {
+        await fetchLicenseInvoices(editingLicenseId);
+      }
+
+      toast({
+        title: language === "ar" ? "تم الحذف" : "Deleted",
+        description: language === "ar" ? "تم حذف الفاتورة بنجاح" : "Invoice deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -501,6 +599,11 @@ const SoftwareLicenseSetup = () => {
           currency_id: data.currency_id || "",
         });
         setEditingLicenseId(licenseId);
+        setInvoiceDate(new Date().toISOString().split('T')[0]);
+        
+        // Fetch invoices for this license
+        await fetchLicenseInvoices(licenseId);
+        
         setIsDialogOpen(true);
       }
     } catch (error: any) {
@@ -543,6 +646,8 @@ const SoftwareLicenseSetup = () => {
   const handleAddNew = () => {
     resetForm();
     setEditingLicenseId(null);
+    setLicenseInvoices([]);
+    setInvoiceDate(new Date().toISOString().split('T')[0]);
     setIsDialogOpen(true);
   };
 
@@ -1136,77 +1241,115 @@ const SoftwareLicenseSetup = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>{language === "ar" ? "معلومات إضافية" : "Additional Information"}</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  {language === "ar" ? "معلومات إضافية والفواتير" : "Additional Information & Invoices"}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invoice_upload">{language === "ar" ? "رفع الفاتورة" : "Upload Invoice"}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="invoice_upload"
-                      type="file"
-                      onChange={handleFileUpload}
-                      disabled={uploading}
-                      accept=".pdf,.jpg,.jpeg,.png"
-                    />
-                    {uploading && <span className="text-sm">{language === "ar" ? "جاري الرفع..." : "Uploading..."}</span>}
-                  </div>
-                  {formData.invoice_file_path && (
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground">
-                        {language === "ar" ? "تم رفع الفاتورة" : "Invoice uploaded"}
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            const filePathOrUrl = formData.invoice_file_path;
-                            if (!filePathOrUrl) return;
-
-                            // Extract bucket name and file path from URL
-                            const match = filePathOrUrl.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)$/);
-                            
-                            if (match) {
-                              const [, bucketName, filePath] = match;
-                              
-                              // Download the file
-                              const { data, error } = await supabase.storage
-                                .from(bucketName)
-                                .download(filePath);
-
-                              if (error) throw error;
-
-                              // Create a blob URL and trigger download
-                              const url = URL.createObjectURL(data);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = filePath.split('/').pop() || 'invoice.pdf';
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                              URL.revokeObjectURL(url);
-                            } else {
-                              // Fallback: try to open URL directly
-                              window.open(filePathOrUrl, '_blank');
-                            }
-                          } catch (error: any) {
-                            console.error('Error downloading invoice:', error);
-                            toast({
-                              title: t("common.error"),
-                              description: language === "ar" ? "فشل تحميل الفاتورة" : "Failed to download invoice",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        {language === "ar" ? "تحميل الفاتورة" : "Download Invoice"}
-                      </Button>
+                {/* Invoice Upload Section */}
+                {editingLicenseId && (
+                  <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                    <Label className="text-base font-semibold">
+                      {language === "ar" ? "رفع فاتورة جديدة" : "Upload New Invoice"}
+                    </Label>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="invoice_date" className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {language === "ar" ? "تاريخ الفاتورة" : "Invoice Date"} *
+                        </Label>
+                        <Input
+                          id="invoice_date"
+                          type="date"
+                          value={invoiceDate}
+                          onChange={(e) => setInvoiceDate(e.target.value)}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="invoice_upload">
+                          {language === "ar" ? "ملف الفاتورة" : "Invoice File"}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="invoice_upload"
+                            type="file"
+                            onChange={handleFileUpload}
+                            disabled={uploading || !invoiceDate}
+                            accept=".pdf,.jpg,.jpeg,.png"
+                          />
+                          {uploading && <span className="text-sm">{language === "ar" ? "جاري الرفع..." : "Uploading..."}</span>}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {!editingLicenseId && (
+                  <div className="p-4 border rounded-lg bg-muted/30 text-center text-muted-foreground">
+                    {language === "ar" 
+                      ? "يجب حفظ الترخيص أولاً قبل رفع الفواتير"
+                      : "Please save the license first before uploading invoices"}
+                  </div>
+                )}
+
+                {/* Invoice History */}
+                {licenseInvoices.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {language === "ar" ? "سجل الفواتير" : "Invoice History"} ({licenseInvoices.length})
+                    </Label>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
+                            <TableHead>{language === "ar" ? "اسم الملف" : "File Name"}</TableHead>
+                            <TableHead>{language === "ar" ? "تاريخ الرفع" : "Upload Date"}</TableHead>
+                            <TableHead className="text-center">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {licenseInvoices.map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">
+                                {format(new Date(invoice.invoice_date), "yyyy-MM-dd")}
+                              </TableCell>
+                              <TableCell>{invoice.file_name || "-"}</TableCell>
+                              <TableCell>
+                                {format(new Date(invoice.created_at), "yyyy-MM-dd HH:mm")}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(invoice.file_path, '_blank')}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteInvoice(invoice.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">{language === "ar" ? "ملاحظات" : "Notes"}</Label>
