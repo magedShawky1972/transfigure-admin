@@ -268,6 +268,78 @@ const SoftwareLicensesReport = () => {
       return sum + convertToBaseCurrency(license.cost, license.currency_id);
     }, 0);
 
+    // Group licenses by project
+    const groupedByProject = licensesData.reduce((acc: Record<string, any[]>, license) => {
+      const projectKey = license.project_id || 'no-project';
+      if (!acc[projectKey]) {
+        acc[projectKey] = [];
+      }
+      acc[projectKey].push(license);
+      return acc;
+    }, {});
+
+    // Generate grouped tables HTML
+    const generateGroupedTables = () => {
+      return Object.entries(groupedByProject).map(([projectKey, licenses]) => {
+        const projectName = projectKey === 'no-project' ? 'No Project' : getProjectName(projectKey);
+        const subtotal = (licenses as any[]).reduce((sum, license) => {
+          return sum + convertToBaseCurrency(license.cost, license.currency_id);
+        }, 0);
+
+        return `
+          <div class="project-section">
+            <div class="project-header">
+              <span class="project-name">${projectName}</span>
+              <span class="project-count">${(licenses as any[]).length} license(s)</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Software</th>
+                  <th>Category</th>
+                  <th>Vendor</th>
+                  <th>Status</th>
+                  <th>Renewal Cycle</th>
+                  <th>Cost</th>
+                  <th>Cost (${baseCurrency?.currency_code || 'Base'})</th>
+                  <th>Purchase Date</th>
+                  <th>Expiry Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(licenses as any[]).map((license, index) => {
+                  const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
+                  const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
+                  const statusClass = license.status === "active" ? "status-active" :
+                                      license.status === "expired" ? "status-expired" :
+                                      license.status === "cancelled" ? "status-cancelled" : "status-expiring";
+                  return `
+                    <tr>
+                      <td>${index + 1}</td>
+                      <td>${license.software_name}</td>
+                      <td>${license.category}</td>
+                      <td>${license.vendor_provider}</td>
+                      <td><span class="${statusClass}">${license.status}</span></td>
+                      <td>${license.renewal_cycle}</td>
+                      <td>${license.cost.toLocaleString()} ${currencyCode}</td>
+                      <td>${baseCost.toFixed(2)} ${baseCurrency?.currency_code || ''}</td>
+                      <td>${format(new Date(license.purchase_date), "MMM dd, yyyy")}</td>
+                      <td>${license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+            <div class="subtotal">
+              <span>Subtotal for ${projectName}:</span>
+              <span class="subtotal-value">${subtotal.toFixed(2)} ${baseCurrency?.currency_code || ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -285,14 +357,23 @@ const SoftwareLicensesReport = () => {
           .filters-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; }
           .filter-item { display: flex; gap: 5px; }
           .filter-label { font-weight: 600; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+          .project-section { margin-bottom: 25px; }
+          .project-header { background: #4a5568; color: white; padding: 10px 15px; border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center; }
+          .project-name { font-weight: bold; font-size: 14px; }
+          .project-count { font-size: 12px; opacity: 0.9; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #333; color: white; font-weight: bold; }
+          th { background-color: #718096; color: white; font-weight: bold; }
           tr:nth-child(even) { background-color: #f9f9f9; }
           .status-active { background-color: #d4edda; color: #155724; padding: 2px 6px; border-radius: 4px; }
           .status-expired { background-color: #f8d7da; color: #721c24; padding: 2px 6px; border-radius: 4px; }
           .status-expiring { background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 4px; }
           .status-cancelled { background-color: #e2e3e5; color: #383d41; padding: 2px 6px; border-radius: 4px; }
+          .subtotal { background: #e2e8f0; padding: 10px 15px; border-radius: 0 0 6px 6px; display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px; }
+          .subtotal-value { color: #2d3748; }
+          .grand-total { margin-top: 20px; padding: 20px; background: #2d3748; color: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+          .grand-total-label { font-size: 18px; font-weight: bold; }
+          .grand-total-value { font-size: 24px; font-weight: bold; }
           .summary { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
           .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; }
           .summary-item { }
@@ -302,7 +383,10 @@ const SoftwareLicensesReport = () => {
           @media print {
             body { padding: 10px; }
             .filters { background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            th { background-color: #333 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .project-header { background: #4a5568 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            th { background-color: #718096 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .subtotal { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .grand-total { background: #2d3748 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .status-active, .status-expired, .status-expiring, .status-cancelled { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           }
         </style>
@@ -320,51 +404,18 @@ const SoftwareLicensesReport = () => {
             <div class="filter-item"><span class="filter-label">Status:</span> ${licenseStatus === 'all' ? 'All' : licenseStatus}</div>
             <div class="filter-item"><span class="filter-label">Category:</span> ${licenseCategory === 'all' ? 'All' : licenseCategory}</div>
             <div class="filter-item"><span class="filter-label">Renewal Cycle:</span> ${licenseRenewalCycle === 'all' ? 'All' : licenseRenewalCycle}</div>
+            <div class="filter-item"><span class="filter-label">Project:</span> ${licenseProject === 'all' ? 'All' : licenseProject === 'none' ? 'No Project' : getProjectName(licenseProject)}</div>
             <div class="filter-item"><span class="filter-label">Date From:</span> ${licenseDateFrom || 'N/A'}</div>
             <div class="filter-item"><span class="filter-label">Date To:</span> ${licenseDateTo || 'N/A'}</div>
-            <div class="filter-item"><span class="filter-label">Expires This Month:</span> ${thisMonthExpiry ? 'Yes' : 'No'}</div>
           </div>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Software</th>
-              <th>Category</th>
-              <th>Vendor</th>
-              <th>Status</th>
-              <th>Renewal Cycle</th>
-              <th>Cost</th>
-              <th>Cost (${baseCurrency?.currency_code || 'Base'})</th>
-              <th>Purchase Date</th>
-              <th>Expiry Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${licensesData.map((license, index) => {
-              const baseCost = convertToBaseCurrency(license.cost, license.currency_id);
-              const currencyCode = currencies.find(c => c.id === license.currency_id)?.currency_code || "";
-              const statusClass = license.status === "active" ? "status-active" :
-                                  license.status === "expired" ? "status-expired" :
-                                  license.status === "cancelled" ? "status-cancelled" : "status-expiring";
-              return `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td>${license.software_name}</td>
-                  <td>${license.category}</td>
-                  <td>${license.vendor_provider}</td>
-                  <td><span class="${statusClass}">${license.status}</span></td>
-                  <td>${license.renewal_cycle}</td>
-                  <td>${license.cost.toLocaleString()} ${currencyCode}</td>
-                  <td>${baseCost.toFixed(2)} ${baseCurrency?.currency_code || ''}</td>
-                  <td>${format(new Date(license.purchase_date), "MMM dd, yyyy")}</td>
-                  <td>${license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+        ${generateGroupedTables()}
+
+        <div class="grand-total">
+          <span class="grand-total-label">Grand Total (All Projects)</span>
+          <span class="grand-total-value">${totalCostBase.toFixed(2)} ${baseCurrency?.currency_code || ''}</span>
+        </div>
 
         <div class="summary">
           <div class="summary-grid">
@@ -373,16 +424,16 @@ const SoftwareLicensesReport = () => {
               <div class="summary-label">Total Licenses</div>
             </div>
             <div class="summary-item">
+              <div class="summary-value">${Object.keys(groupedByProject).length}</div>
+              <div class="summary-label">Projects</div>
+            </div>
+            <div class="summary-item">
               <div class="summary-value">${licensesData.filter(l => l.status === 'active').length}</div>
               <div class="summary-label">Active</div>
             </div>
             <div class="summary-item">
               <div class="summary-value">${licensesData.filter(l => l.status === 'expired' || l.status === 'expiring_soon').length}</div>
               <div class="summary-label">Expired / Expiring</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-value">${totalCostBase.toFixed(2)} ${baseCurrency?.currency_code || ''}</div>
-              <div class="summary-label">Total Cost (Base)</div>
             </div>
           </div>
         </div>
