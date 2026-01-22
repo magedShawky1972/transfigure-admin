@@ -44,6 +44,7 @@ type DetailRow = {
   product_names: string | null;
   payment_method: string | null;
   payment_brand: string | null;
+  total_qty?: number | null;
   vendor_name?: string | null;
   supplier_code?: string | null;
   original_orders?: string[];
@@ -181,23 +182,43 @@ export function OdooSyncRunDetailsDialog({
         }
       }
       
-      // For failed rows, try to get vendor/supplier info from purpletransaction
+      // For failed rows, try to get vendor/supplier/payment/qty info from purpletransaction
       const failedRows = detailRows.filter(r => ["failed", "partial", "error"].includes(r.sync_status));
       if (failedRows.length > 0) {
-        const orderNumbers = failedRows.map(r => r.order_number);
+        // Build lookup orders: for aggregated orders use original_orders, otherwise use order_number
+        const lookupOrderNumbers: string[] = [];
+        const aggregateToOriginalMap: Record<string, string[]> = {};
         
-        // Get vendor names from purpletransaction
+        for (const row of failedRows) {
+          if (row.original_orders && row.original_orders.length > 0) {
+            aggregateToOriginalMap[row.order_number] = row.original_orders;
+            lookupOrderNumbers.push(...row.original_orders);
+          } else {
+            lookupOrderNumbers.push(row.order_number);
+          }
+        }
+        
+        const uniqueLookupOrders = [...new Set(lookupOrderNumbers)];
+        
+        // Get vendor names, payment_method, and qty from purpletransaction
         const txResult: any = await supabase
           .from("purpletransaction")
-          .select("order_number, vendor_name")
-          .in("order_number", orderNumbers);
+          .select("order_number, vendor_name, payment_method, qty")
+          .in("order_number", uniqueLookupOrders);
         
         if (txResult.data) {
           const vendorMap: Record<string, string> = {};
-          for (const tx of txResult.data as { order_number: string; vendor_name: string | null }[]) {
+          const paymentMethodMap: Record<string, string> = {};
+          const qtyMap: Record<string, number> = {};
+          
+          for (const tx of txResult.data as { order_number: string; vendor_name: string | null; payment_method: string | null; qty: number | null }[]) {
             if (tx.vendor_name && !vendorMap[tx.order_number]) {
               vendorMap[tx.order_number] = tx.vendor_name;
             }
+            if (tx.payment_method && !paymentMethodMap[tx.order_number]) {
+              paymentMethodMap[tx.order_number] = tx.payment_method;
+            }
+            qtyMap[tx.order_number] = (qtyMap[tx.order_number] || 0) + (tx.qty || 0);
           }
           
           // Get supplier codes for vendor names
@@ -215,12 +236,29 @@ export function OdooSyncRunDetailsDialog({
               }
             }
             
-            // Attach vendor/supplier info to rows
+            // Attach vendor/supplier/payment/qty info to rows
             for (const row of detailRows) {
-              const vendorName = vendorMap[row.order_number];
-              if (vendorName) {
-                row.vendor_name = vendorName;
-                row.supplier_code = supplierMap[vendorName] || null;
+              // Check if this is an aggregated order
+              const originalOrders = aggregateToOriginalMap[row.order_number];
+              if (originalOrders && originalOrders.length > 0) {
+                // Get data from first original order for vendor/payment
+                const firstOriginal = originalOrders[0];
+                const vendorName = vendorMap[firstOriginal];
+                if (vendorName) {
+                  row.vendor_name = vendorName;
+                  row.supplier_code = supplierMap[vendorName] || null;
+                }
+                row.payment_method = paymentMethodMap[firstOriginal] || null;
+                // Sum qty from all original orders
+                row.total_qty = originalOrders.reduce((sum, on) => sum + (qtyMap[on] || 0), 0);
+              } else {
+                const vendorName = vendorMap[row.order_number];
+                if (vendorName) {
+                  row.vendor_name = vendorName;
+                  row.supplier_code = supplierMap[vendorName] || null;
+                }
+                row.payment_method = paymentMethodMap[row.order_number] || null;
+                row.total_qty = qtyMap[row.order_number] || null;
               }
             }
           }
@@ -434,6 +472,11 @@ export function OdooSyncRunDetailsDialog({
                           {r.payment_method && (
                             <Badge variant="outline" className="text-xs bg-cyan-500/10 text-cyan-600 border-cyan-500">
                               {r.payment_method}
+                            </Badge>
+                          )}
+                          {r.total_qty != null && r.total_qty > 0 && (
+                            <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500">
+                              {language === "ar" ? "الكمية" : "Qty"}: {r.total_qty}
                             </Badge>
                           )}
                         </div>
