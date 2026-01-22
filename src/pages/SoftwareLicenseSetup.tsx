@@ -371,7 +371,13 @@ const SoftwareLicenseSetup = () => {
 
     const rate = currencyRates.find(r => r.currency_id === currencyId);
     if (rate && rate.rate_to_base > 0) {
-      return cost / rate.rate_to_base;
+      // Use conversion_operator to determine operation
+      const operator = (rate as any).conversion_operator || 'multiply';
+      if (operator === 'multiply') {
+        return cost * rate.rate_to_base;
+      } else {
+        return cost / rate.rate_to_base;
+      }
     }
     return cost;
   };
@@ -816,10 +822,14 @@ const SoftwareLicenseSetup = () => {
       return;
     }
 
-    // rate_to_base means how many base currency units = 1 unit of this currency
-    // So to convert to base: cost * rate_to_base
-    // Example: 1 EGP = 0.079 SAR, so 1008.76 EGP * 0.079 = 79.69 SAR
-    const sarValue = cost * rate.rate_to_base;
+    // Use conversion_operator to determine the calculation
+    const operator = (rate as any).conversion_operator || 'multiply';
+    let sarValue: number;
+    if (operator === 'multiply') {
+      sarValue = cost * rate.rate_to_base;
+    } else {
+      sarValue = cost / rate.rate_to_base;
+    }
     setEditingInvoiceData(prev => ({
       ...prev,
       cost_sar: sarValue.toFixed(2)

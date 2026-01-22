@@ -144,6 +144,8 @@ const ExpenseEntryForm = () => {
 
   const loadExchangeRate = useCallback((currencyId: string) => {
     const rate = currencyRates.find(r => r.currency_id === currencyId);
+    // For expense entry, we store the rate_to_base value
+    // The operator will be used during conversion calculations
     setExchangeRate(rate?.rate_to_base || 1);
   }, [currencyRates]);
 

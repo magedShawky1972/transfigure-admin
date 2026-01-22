@@ -147,7 +147,7 @@ Rules:
 
       const { data: rates } = await supabase
         .from("currency_rates")
-        .select("currency_id, rate_to_base");
+        .select("currency_id, rate_to_base, conversion_operator");
 
       if (currencies && rates) {
         const currencyInfo = currencies.find(c => c.currency_code === extractedData.currency);
@@ -156,12 +156,14 @@ Rules:
         if (currencyInfo && sarInfo) {
           const currencyRate = rates.find(r => r.currency_id === currencyInfo.id);
           
-          // Convert to base currency (SAR)
-          // rate_to_base means: 1 unit of currency = rate_to_base units of base currency
-          // Example: 1 EGP = 0.079 SAR means rate_to_base = 0.079
-          // So to convert: 1008.76 EGP * 0.079 = 79.69 SAR
+          // Convert to base currency (SAR) using the operator
           if (currencyRate && currencyRate.rate_to_base) {
-            costSar = extractedData.cost * currencyRate.rate_to_base;
+            const operator = currencyRate.conversion_operator || 'multiply';
+            if (operator === 'multiply') {
+              costSar = extractedData.cost * currencyRate.rate_to_base;
+            } else {
+              costSar = extractedData.cost / currencyRate.rate_to_base;
+            }
           } else if (currencyInfo.is_base) {
             costSar = extractedData.cost;
           } else if (extractedData.currency === "SAR") {

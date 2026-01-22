@@ -371,7 +371,13 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
 
     const rate = currencyRates.find(r => r.currency_id === currencyId);
     if (rate && rate.rate_to_base > 0) {
-      return cost / rate.rate_to_base;
+      // Use conversion_operator to determine operation
+      const operator = (rate as any).conversion_operator || 'multiply';
+      if (operator === 'multiply') {
+        return cost * rate.rate_to_base;
+      } else {
+        return cost / rate.rate_to_base;
+      }
     }
     return cost;
   };

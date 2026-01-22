@@ -135,7 +135,15 @@ const SoftwareLicensesReport = () => {
     if (!currencyId || !baseCurrency) return cost;
     if (currencyId === baseCurrency.id) return cost;
     const rate = currencyRates.find((r: any) => r.currency_id === currencyId);
-    if (rate && rate.rate_to_base > 0) return cost / rate.rate_to_base;
+    if (rate && rate.rate_to_base > 0) {
+      // Use conversion_operator to determine operation
+      const operator = rate.conversion_operator || 'multiply';
+      if (operator === 'multiply') {
+        return cost * rate.rate_to_base;
+      } else {
+        return cost / rate.rate_to_base;
+      }
+    }
     return cost;
   };
 
