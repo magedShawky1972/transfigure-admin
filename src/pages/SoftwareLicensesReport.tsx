@@ -282,6 +282,10 @@ const SoftwareLicensesReport = () => {
     XLSX.writeFile(wb, `software-licenses-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
 
+  const formatNumber = (num: number): string => {
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   const handlePrintReport = () => {
     if (licensesData.length === 0) {
       toast({
@@ -351,9 +355,9 @@ const SoftwareLicensesReport = () => {
                       <td>${license.vendor_provider}</td>
                       <td><span class="${statusClass}">${license.status}</span></td>
                       <td>${license.renewal_cycle}</td>
-                      <td>${license.cost.toLocaleString()} ${currencyCode}</td>
-                      <td>${baseCost.toFixed(2)} ${baseCurrency?.currency_code || ''}</td>
-                      <td>${(license.invoice_total_sar || 0).toFixed(2)} SAR</td>
+                      <td>${formatNumber(license.cost)} ${currencyCode}</td>
+                      <td>${formatNumber(baseCost)} ${baseCurrency?.currency_code || ''}</td>
+                      <td>${formatNumber(license.invoice_total_sar || 0)} SAR</td>
                       <td>${format(new Date(license.purchase_date), "MMM dd, yyyy")}</td>
                       <td>${license.expiry_date ? format(new Date(license.expiry_date), "MMM dd, yyyy") : "N/A"}</td>
                     </tr>
@@ -363,7 +367,7 @@ const SoftwareLicensesReport = () => {
             </table>
             <div class="subtotal">
               <span>Subtotal for ${projectName}:</span>
-              <span class="subtotal-value">Invoice Total: ${(licenses as any[]).reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
+              <span class="subtotal-value">Invoice Total: ${formatNumber((licenses as any[]).reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0))} SAR</span>
             </div>
           </div>
         `;
@@ -444,7 +448,7 @@ const SoftwareLicensesReport = () => {
 
         <div class="grand-total">
           <span class="grand-total-label">Grand Total (All Projects)</span>
-          <span class="grand-total-value">Invoice Total: ${licensesData.reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
+          <span class="grand-total-value">Invoice Total: ${formatNumber(licensesData.reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0))} SAR</span>
         </div>
 
         <div class="summary">
