@@ -128,6 +128,7 @@ export function OdooSyncRunDetailsDialog({
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSuppliers, setSelectedSuppliers] = useState<Record<string, string>>({});
+  const [skuProductMap, setSkuProductMap] = useState<Record<string, string>>({});
 
   const fetchDetails = useCallback(async () => {
     if (!run) return;
@@ -264,6 +265,34 @@ export function OdooSyncRunDetailsDialog({
               row.total_qty = qtyMap[row.order_number] || null;
             }
           }
+        }
+      }
+      
+      // Extract SKUs from error messages and fetch product names
+      const skuRegex = /SKU:\s*([A-Za-z0-9_-]+)/gi;
+      const skusToLookup = new Set<string>();
+      for (const row of detailRows) {
+        if (row.error_message) {
+          let match;
+          while ((match = skuRegex.exec(row.error_message)) !== null) {
+            skusToLookup.add(match[1]);
+          }
+        }
+      }
+      
+      if (skusToLookup.size > 0) {
+        const skuArray = Array.from(skusToLookup);
+        const productResult: any = await supabase
+          .from("products")
+          .select("sku, product_name")
+          .in("sku", skuArray);
+        
+        if (productResult.data) {
+          const newSkuProductMap: Record<string, string> = {};
+          for (const p of productResult.data as { sku: string; product_name: string }[]) {
+            newSkuProductMap[p.sku] = p.product_name;
+          }
+          setSkuProductMap(newSkuProductMap);
         }
       }
       
@@ -491,10 +520,13 @@ export function OdooSyncRunDetailsDialog({
                           </div>
                         )}
                         
-                        {/* Error message */}
+                        {/* Error message with SKU product name */}
                         {r.error_message && (
                           <div className="text-sm text-red-500 mt-1 break-words">
-                            ⚠ {r.error_message}
+                            ⚠ {r.error_message.replace(/SKU:\s*([A-Za-z0-9_-]+)/gi, (match, sku) => {
+                              const productName = skuProductMap[sku];
+                              return productName ? `SKU: ${sku} (${productName})` : match;
+                            })}
                           </div>
                         )}
                         
