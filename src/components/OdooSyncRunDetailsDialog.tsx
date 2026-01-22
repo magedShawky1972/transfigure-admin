@@ -44,6 +44,7 @@ type DetailRow = {
   product_names: string | null;
   vendor_name?: string | null;
   supplier_code?: string | null;
+  original_orders?: string[];
 };
 
 type Props = {
@@ -141,6 +142,36 @@ export function OdooSyncRunDetailsDialog({
       if (result.error) throw result.error;
       
       const detailRows = (result.data || []) as DetailRow[];
+      
+      // Fetch original orders for aggregate order numbers
+      const aggregatedPattern = /^\d{12}$/; // Pattern like 202511040001
+      const aggregateOrderNumbers = detailRows
+        .map(r => r.order_number)
+        .filter(on => aggregatedPattern.test(on));
+      
+      if (aggregateOrderNumbers.length > 0) {
+        const mappingResult: any = await supabase
+          .from("aggregated_order_mapping")
+          .select("aggregated_order_number, original_order_number")
+          .in("aggregated_order_number", aggregateOrderNumbers);
+        
+        if (mappingResult.data) {
+          const originalOrdersMap: Record<string, string[]> = {};
+          for (const m of mappingResult.data as { aggregated_order_number: string; original_order_number: string }[]) {
+            if (!originalOrdersMap[m.aggregated_order_number]) {
+              originalOrdersMap[m.aggregated_order_number] = [];
+            }
+            originalOrdersMap[m.aggregated_order_number].push(m.original_order_number);
+          }
+          
+          // Attach original orders to rows
+          for (const row of detailRows) {
+            if (originalOrdersMap[row.order_number]) {
+              row.original_orders = originalOrdersMap[row.order_number];
+            }
+          }
+        }
+      }
       
       // For failed rows, try to get vendor/supplier info from purpletransaction
       const failedRows = detailRows.filter(r => ["failed", "partial", "error"].includes(r.sync_status));
@@ -393,6 +424,14 @@ export function OdooSyncRunDetailsDialog({
                           {getStatusBadge(r.sync_status)}
                           {isErrored && getFailureTypeBadge(failureType)}
                         </div>
+                        
+                        {/* Original orders for aggregated order numbers */}
+                        {r.original_orders && r.original_orders.length > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            <span className="font-medium">{language === "ar" ? "الطلبات الأصلية" : "Original Orders"}:</span>{" "}
+                            <span className="text-primary">{r.original_orders.join(", ")}</span>
+                          </div>
+                        )}
                         
                         {/* Error message */}
                         {r.error_message && (
