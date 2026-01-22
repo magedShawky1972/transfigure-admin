@@ -259,12 +259,15 @@ const OdooSyncBatch = () => {
 
   // Supplier check states
   const [checkingSuppliers, setCheckingSuppliers] = useState(false);
-  const [suppliersNotInOdoo, setSuppliersNotInOdoo] = useState<Array<{
-    supplier_code: string;
-    supplier_name: string;
-    partner_profile_id: number | null;
-    error?: string;
-  }>>([]);
+  const [supplierCheckResult, setSupplierCheckResult] = useState<{
+    totalVendors: number;
+    readyCount: number;
+    issueCount: number;
+    missingSupplierRecord: Array<{ vendor_name: string }>;
+    missingOdooId: Array<{ vendor_name: string; supplier_code?: string }>;
+    notInOdoo: Array<{ vendor_name: string; supplier_code?: string; partner_profile_id?: number | null; error?: string }>;
+    inOdoo: Array<{ vendor_name: string; supplier_code?: string; partner_profile_id?: number | null }>;
+  } | null>(null);
   const [showSuppliersDialog, setShowSuppliersDialog] = useState(false);
   const [supplierCheckDone, setSupplierCheckDone] = useState(false);
 
@@ -465,35 +468,76 @@ const OdooSyncBatch = () => {
     }
   };
 
-  // Check suppliers in Odoo
+  // Check suppliers in Odoo - now checks specifically vendors used in orders
   const checkSuppliersInOdoo = async () => {
     setCheckingSuppliers(true);
-    setSuppliersNotInOdoo([]);
+    setSupplierCheckResult(null);
     setSupplierCheckDone(false);
     
     try {
-      const { data, error } = await supabase.functions.invoke('check-suppliers-odoo');
+      // Extract unique vendor names from non-stock products in orders
+      const vendorNames = [...new Set(
+        (aggregateMode && aggregatedInvoices.length > 0 ? aggregatedInvoices : orderGroups)
+          .filter(item => item.hasNonStock)
+          .flatMap(item => {
+            if ('productLines' in item) {
+              // AggregatedInvoice
+              return item.productLines.map(pl => pl.vendorName).filter(Boolean);
+            } else {
+              // OrderGroup
+              return item.lines
+                .filter(l => nonStockSkuSet.has(l.sku || l.product_id || ''))
+                .map(l => l.vendor_name)
+                .filter(Boolean);
+            }
+          })
+      )].filter(Boolean) as string[];
+
+      console.log('Checking vendors:', vendorNames);
+
+      const { data, error } = await supabase.functions.invoke('check-suppliers-odoo', {
+        body: { vendor_names: vendorNames }
+      });
       
       if (error) throw error;
       
       if (data?.success) {
-        setSuppliersNotInOdoo(data.not_in_odoo || []);
+        setSupplierCheckResult({
+          totalVendors: data.total_vendors_in_orders || 0,
+          readyCount: data.ready_count || 0,
+          issueCount: data.issue_count || 0,
+          missingSupplierRecord: data.missing_supplier_record || [],
+          missingOdooId: data.missing_odoo_id || [],
+          notInOdoo: data.not_in_odoo || [],
+          inOdoo: data.in_odoo || [],
+        });
         setSupplierCheckDone(true);
         
-        if (data.not_in_odoo?.length > 0) {
+        const totalIssues = (data.missing_supplier_record?.length || 0) + 
+                           (data.missing_odoo_id?.length || 0) + 
+                           (data.not_in_odoo?.length || 0);
+        
+        if (totalIssues > 0) {
           toast({
             variant: 'destructive',
-            title: language === 'ar' ? 'موردين غير موجودين في Odoo' : 'Suppliers Not in Odoo',
+            title: language === 'ar' ? 'مشاكل في الموردين' : 'Supplier Issues Found',
             description: language === 'ar' 
-              ? `${data.not_in_odoo.length} مورد غير موجود في Odoo`
-              : `${data.not_in_odoo.length} supplier(s) not found in Odoo`,
+              ? `${totalIssues} مورد يحتاج إلى إعداد`
+              : `${totalIssues} supplier(s) need configuration`,
+          });
+        } else if (vendorNames.length === 0) {
+          toast({
+            title: language === 'ar' ? 'لا يوجد موردين' : 'No Suppliers',
+            description: language === 'ar' 
+              ? 'لا توجد منتجات غير مخزنية تتطلب موردين'
+              : 'No non-stock products requiring suppliers',
           });
         } else {
           toast({
             title: language === 'ar' ? 'تم' : 'Success',
             description: language === 'ar' 
-              ? 'جميع الموردين موجودين في Odoo'
-              : 'All suppliers exist in Odoo',
+              ? `جميع الموردين (${data.ready_count}) جاهزون`
+              : `All suppliers (${data.ready_count}) ready`,
           });
         }
       } else {
@@ -2194,7 +2238,7 @@ const OdooSyncBatch = () => {
         <Card 
           className={cn(
             "border-amber-500/30 bg-amber-500/5 cursor-pointer hover:border-amber-500/50 transition-colors",
-            suppliersNotInOdoo.length > 0 && "border-destructive/50"
+            supplierCheckResult && supplierCheckResult.issueCount > 0 && "border-destructive/50"
           )}
           onClick={() => {
             if (supplierCheckDone) {
@@ -2208,25 +2252,33 @@ const OdooSyncBatch = () => {
             <div className="flex items-center gap-2">
               {checkingSuppliers ? (
                 <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
-              ) : suppliersNotInOdoo.length > 0 ? (
+              ) : supplierCheckResult && supplierCheckResult.issueCount > 0 ? (
                 <AlertTriangle className="h-5 w-5 text-destructive" />
+              ) : supplierCheckResult && supplierCheckResult.issueCount === 0 ? (
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
               ) : (
                 <Users className="h-5 w-5 text-amber-500" />
               )}
               <div>
                 <div className={cn(
                   "text-2xl font-bold",
-                  suppliersNotInOdoo.length > 0 ? "text-destructive" : "text-amber-500"
+                  supplierCheckResult && supplierCheckResult.issueCount > 0 
+                    ? "text-destructive" 
+                    : supplierCheckResult && supplierCheckResult.issueCount === 0
+                    ? "text-green-500"
+                    : "text-amber-500"
                 )}>
                   {checkingSuppliers 
                     ? (language === 'ar' ? '...' : '...') 
-                    : supplierCheckDone 
-                      ? suppliersNotInOdoo.length 
+                    : supplierCheckDone && supplierCheckResult
+                      ? `${supplierCheckResult.readyCount}/${supplierCheckResult.totalVendors}`
                       : (language === 'ar' ? 'تحقق' : 'Check')}
                 </div>
                 <p className="text-muted-foreground text-sm">
-                  {supplierCheckDone 
-                    ? (language === 'ar' ? 'موردين غير موجودين' : 'Suppliers Missing')
+                  {supplierCheckDone && supplierCheckResult
+                    ? supplierCheckResult.issueCount > 0
+                      ? (language === 'ar' ? `${supplierCheckResult.issueCount} مشكلة` : `${supplierCheckResult.issueCount} Issue(s)`)
+                      : (language === 'ar' ? 'الموردين جاهزون' : 'Suppliers Ready')
                     : (language === 'ar' ? 'تحقق من الموردين' : 'Check Suppliers')}
                 </p>
               </div>
@@ -2887,59 +2939,226 @@ const OdooSyncBatch = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Suppliers Not in Odoo Dialog */}
+      {/* Supplier Validation Dialog */}
       <Dialog open={showSuppliersDialog} onOpenChange={setShowSuppliersDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh]">
+        <DialogContent className="max-w-4xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              {language === 'ar' ? 'الموردين غير الموجودين في Odoo' : 'Suppliers Not Found in Odoo'}
+              {supplierCheckResult && supplierCheckResult.issueCount > 0 ? (
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+              )}
+              {language === 'ar' ? 'حالة الموردين' : 'Supplier Status'}
+              {supplierCheckResult && (
+                <span className="text-muted-foreground text-sm font-normal">
+                  ({supplierCheckResult.readyCount}/{supplierCheckResult.totalVendors} {language === 'ar' ? 'جاهز' : 'Ready'})
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
           
-          {suppliersNotInOdoo.length === 0 ? (
+          {!supplierCheckResult || supplierCheckResult.issueCount === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
               <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
-              <p>{language === 'ar' ? 'جميع الموردين موجودين في Odoo' : 'All suppliers exist in Odoo'}</p>
+              <p className="text-lg font-medium">
+                {language === 'ar' ? 'جميع الموردين جاهزون!' : 'All Suppliers Ready!'}
+              </p>
+              <p className="text-sm mt-2">
+                {supplierCheckResult 
+                  ? (language === 'ar' 
+                      ? `${supplierCheckResult.readyCount} مورد تم التحقق منه بنجاح`
+                      : `${supplierCheckResult.readyCount} supplier(s) validated successfully`)
+                  : (language === 'ar' 
+                      ? 'لا توجد منتجات غير مخزنية تتطلب موردين'
+                      : 'No non-stock products requiring suppliers')}
+              </p>
             </div>
           ) : (
-            <ScrollArea className="h-[400px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{language === 'ar' ? 'كود المورد' : 'Supplier Code'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'اسم المورد' : 'Supplier Name'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'معرف Odoo' : 'Odoo ID'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {suppliersNotInOdoo.map((supplier, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono">{supplier.supplier_code}</TableCell>
-                      <TableCell>{supplier.supplier_name}</TableCell>
-                      <TableCell>{supplier.partner_profile_id || '-'}</TableCell>
-                      <TableCell className="text-destructive text-sm">{supplier.error || '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <ScrollArea className="max-h-[55vh]">
+              <div className="space-y-6">
+                {/* Missing Supplier Record Section */}
+                {supplierCheckResult.missingSupplierRecord.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive" className="px-3">
+                        {language === 'ar' ? 'لا يوجد سجل مورد' : 'No Supplier Record'}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        ({supplierCheckResult.missingSupplierRecord.length})
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'ar' 
+                        ? 'هؤلاء البائعين موجودين في الطلبات لكن ليس لديهم سجل في إعداد الموردين'
+                        : 'These vendors exist in orders but have no record in Supplier Setup'}
+                    </p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{language === 'ar' ? 'اسم البائع' : 'Vendor Name'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'الإجراء' : 'Action'}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {supplierCheckResult.missingSupplierRecord.map((item, idx) => (
+                          <TableRow key={idx} className="bg-destructive/5">
+                            <TableCell className="font-medium">{item.vendor_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-destructive border-destructive">
+                                {language === 'ar' ? 'أضف إلى إعداد الموردين' : 'Add to Supplier Setup'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {/* Missing Odoo ID Section */}
+                {supplierCheckResult.missingOdooId.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="px-3 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                        {language === 'ar' ? 'معرف Odoo مفقود' : 'Missing Odoo ID'}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        ({supplierCheckResult.missingOdooId.length})
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'ar' 
+                        ? 'هؤلاء الموردين موجودين لكن ليس لديهم معرف Odoo (partner_profile_id)'
+                        : 'These suppliers exist but have no Odoo ID (partner_profile_id)'}
+                    </p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{language === 'ar' ? 'اسم البائع' : 'Vendor Name'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'كود المورد' : 'Supplier Code'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'الإجراء' : 'Action'}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {supplierCheckResult.missingOdooId.map((item, idx) => (
+                          <TableRow key={idx} className="bg-amber-50 dark:bg-amber-950/20">
+                            <TableCell className="font-medium">{item.vendor_name}</TableCell>
+                            <TableCell className="font-mono">{item.supplier_code || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-amber-600 border-amber-500">
+                                {language === 'ar' ? 'أضف معرف Odoo' : 'Add Odoo ID'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {/* Not Found in Odoo Section */}
+                {supplierCheckResult.notInOdoo.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="px-3 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                        {language === 'ar' ? 'غير موجود في Odoo' : 'Not Found in Odoo'}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        ({supplierCheckResult.notInOdoo.length})
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'ar' 
+                        ? 'هؤلاء الموردين لديهم معرف Odoo لكن لم يتم العثور عليهم في نظام Odoo'
+                        : 'These suppliers have an Odoo ID but were not found in Odoo system'}
+                    </p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{language === 'ar' ? 'اسم البائع' : 'Vendor Name'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'كود المورد' : 'Supplier Code'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'معرف Odoo' : 'Odoo ID'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {supplierCheckResult.notInOdoo.map((item, idx) => (
+                          <TableRow key={idx} className="bg-orange-50 dark:bg-orange-950/20">
+                            <TableCell className="font-medium">{item.vendor_name}</TableCell>
+                            <TableCell className="font-mono">{item.supplier_code || '-'}</TableCell>
+                            <TableCell>{item.partner_profile_id || '-'}</TableCell>
+                            <TableCell className="text-destructive text-sm">{item.error || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {/* Ready Suppliers Section */}
+                {supplierCheckResult.inOdoo.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge className="px-3 bg-green-500">
+                        {language === 'ar' ? 'جاهز' : 'Ready'}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        ({supplierCheckResult.inOdoo.length})
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'ar' 
+                        ? 'هؤلاء الموردين تم التحقق منهم بنجاح'
+                        : 'These suppliers have been validated successfully'}
+                    </p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{language === 'ar' ? 'اسم البائع' : 'Vendor Name'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'كود المورد' : 'Supplier Code'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'معرف Odoo' : 'Odoo ID'}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {supplierCheckResult.inOdoo.map((item, idx) => (
+                          <TableRow key={idx} className="bg-green-50 dark:bg-green-950/20">
+                            <TableCell className="font-medium">{item.vendor_name}</TableCell>
+                            <TableCell className="font-mono">{item.supplier_code || '-'}</TableCell>
+                            <TableCell className="text-green-600">{item.partner_profile_id || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
             </ScrollArea>
           )}
           
-          <div className="flex justify-between items-center pt-4">
-            <Button 
-              variant="outline" 
-              onClick={checkSuppliersInOdoo}
-              disabled={checkingSuppliers}
-            >
-              {checkingSuppliers ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={checkSuppliersInOdoo}
+                disabled={checkingSuppliers}
+              >
+                {checkingSuppliers ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {language === 'ar' ? 'إعادة التحقق' : 'Re-check'}
+              </Button>
+              {supplierCheckResult && supplierCheckResult.issueCount > 0 && (
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate('/supplier-setup')}
+                >
+                  {language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup'}
+                </Button>
               )}
-              {language === 'ar' ? 'إعادة التحقق' : 'Re-check'}
-            </Button>
+            </div>
             <Button onClick={() => setShowSuppliersDialog(false)}>
               {language === 'ar' ? 'إغلاق' : 'Close'}
             </Button>
