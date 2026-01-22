@@ -387,49 +387,51 @@ const AdminTickets = () => {
 
       // Determine the approval flow based on ticket type
       // For purchase tickets: regular admins first (by order), then purchase admins (by order)
-      // For non-purchase tickets: only regular admins (by order)
+      // For non-purchase tickets: only regular admins (by order) - NEVER go to purchase admins
 
       let nextAdmins: any[] = [];
       let nextAdminOrder = currentOrder;
-      let nextIsPurchasePhase = currentIsPurchaseAdmin;
+      let nextIsPurchasePhase = false;
 
-      if (currentIsPurchaseAdmin) {
-        // Current admin is a purchase admin - check for next purchase admin
-        const { data: nextPurchaseAdmins } = await supabase
-          .from("department_admins")
-          .select("user_id, admin_order")
-          .eq("department_id", ticket.department_id)
-          .eq("is_purchase_admin", true)
-          .gt("admin_order", currentOrder)
-          .order("admin_order", { ascending: true })
-          .limit(10);
+      // STEP 1: Always check for next regular admins first (regardless of ticket type)
+      const { data: nextRegularAdmins } = await supabase
+        .from("department_admins")
+        .select("user_id, admin_order")
+        .eq("department_id", ticket.department_id)
+        .eq("is_purchase_admin", false)
+        .gt("admin_order", currentOrder)
+        .order("admin_order", { ascending: true })
+        .limit(10);
 
-        if (nextPurchaseAdmins && nextPurchaseAdmins.length > 0) {
-          // Find next order level among purchase admins
-          const nextOrderLevel = nextPurchaseAdmins[0].admin_order;
-          nextAdmins = nextPurchaseAdmins.filter(a => a.admin_order === nextOrderLevel);
-          nextAdminOrder = nextOrderLevel;
-          nextIsPurchasePhase = true;
-        }
-      } else {
-        // Current admin is a regular admin - check for next regular admin first
-        const { data: nextRegularAdmins } = await supabase
-          .from("department_admins")
-          .select("user_id, admin_order")
-          .eq("department_id", ticket.department_id)
-          .eq("is_purchase_admin", false)
-          .gt("admin_order", currentOrder)
-          .order("admin_order", { ascending: true })
-          .limit(10);
+      if (nextRegularAdmins && nextRegularAdmins.length > 0) {
+        // Found more regular admins - route to them
+        const nextOrderLevel = nextRegularAdmins[0].admin_order;
+        nextAdmins = nextRegularAdmins.filter(a => a.admin_order === nextOrderLevel);
+        nextAdminOrder = nextOrderLevel;
+        nextIsPurchasePhase = false;
+      } else if (ticket.is_purchase_ticket) {
+        // STEP 2: No more regular admins AND this is a purchase ticket
+        // → Move to purchase admin phase
 
-        if (nextRegularAdmins && nextRegularAdmins.length > 0) {
-          // Find next order level among regular admins
-          const nextOrderLevel = nextRegularAdmins[0].admin_order;
-          nextAdmins = nextRegularAdmins.filter(a => a.admin_order === nextOrderLevel);
-          nextAdminOrder = nextOrderLevel;
-          nextIsPurchasePhase = false;
-        } else if (ticket.is_purchase_ticket) {
-          // No more regular admins but this is a purchase ticket - move to purchase admins
+        if (currentIsPurchaseAdmin) {
+          // Already in purchase phase - look for next purchase admin at higher level
+          const { data: nextPurchaseAdmins } = await supabase
+            .from("department_admins")
+            .select("user_id, admin_order")
+            .eq("department_id", ticket.department_id)
+            .eq("is_purchase_admin", true)
+            .gt("admin_order", currentOrder)
+            .order("admin_order", { ascending: true })
+            .limit(10);
+
+          if (nextPurchaseAdmins && nextPurchaseAdmins.length > 0) {
+            const nextOrderLevel = nextPurchaseAdmins[0].admin_order;
+            nextAdmins = nextPurchaseAdmins.filter(a => a.admin_order === nextOrderLevel);
+            nextAdminOrder = nextOrderLevel;
+            nextIsPurchasePhase = true;
+          }
+        } else {
+          // Just finished regular admins - start purchase admin phase from lowest level
           const { data: purchaseAdmins } = await supabase
             .from("department_admins")
             .select("user_id, admin_order")
@@ -439,7 +441,6 @@ const AdminTickets = () => {
             .limit(10);
 
           if (purchaseAdmins && purchaseAdmins.length > 0) {
-            // Find first order level among purchase admins
             const firstOrderLevel = purchaseAdmins[0].admin_order;
             nextAdmins = purchaseAdmins.filter(a => a.admin_order === firstOrderLevel);
             nextAdminOrder = firstOrderLevel;
@@ -447,6 +448,8 @@ const AdminTickets = () => {
           }
         }
       }
+      // STEP 3: If not a purchase ticket and no more regular admins
+      // → nextAdmins stays empty → ticket will be FULLY APPROVED
 
       const hasNextLevel = nextAdmins.length > 0;
 
