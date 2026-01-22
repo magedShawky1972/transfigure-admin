@@ -288,12 +288,13 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
   const handleRetryErrors = useCallback(async (run: OdooSyncRun) => {
     setRetrying(run.id);
     try {
-      // Get failed details for this run using run_id column
+      // Get failed/partial details for this run using run_id column
       const query = supabase
         .from("odoo_sync_run_details")
         .select("id, order_number")
         .eq("run_id", run.id)
-        .eq("sync_status", "failed");
+        // Some runs mark purchase issues as 'partial' (e.g. sales order ok, purchase failed)
+        .in("sync_status", ["failed", "partial", "error"]);
 
       const { data, error: fetchError } = await query;
       const failedDetails = data as { id: string; order_number: string }[] | null;
@@ -303,8 +304,8 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
         toast({
           title: language === "ar" ? "لا توجد أخطاء" : "No Errors",
           description: language === "ar"
-            ? "لا توجد طلبات فاشلة لإعادة المحاولة"
-            : "No failed orders to retry",
+            ? "لا توجد طلبات بها أخطاء لإعادة المحاولة"
+            : "No errored orders to retry",
         });
         return;
       }
