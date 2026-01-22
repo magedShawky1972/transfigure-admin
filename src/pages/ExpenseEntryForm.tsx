@@ -647,10 +647,10 @@ const ExpenseEntryForm = () => {
             </div>
             <div>
               <Label>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
-              <Select value={selectedCostCenterId} onValueChange={setSelectedCostCenterId}>
+              <Select value={selectedCostCenterId || "__none__"} onValueChange={(v) => setSelectedCostCenterId(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder={language === "ar" ? "اختر مركز التكلفة" : "Select Cost Center"} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "ar" ? "بدون" : "None"}</SelectItem>
+                  <SelectItem value="__none__">{language === "ar" ? "بدون" : "None"}</SelectItem>
                   {costCenters.map(cc => (
                     <SelectItem key={cc.id} value={cc.id}>
                       {cc.cost_center_code} - {language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name}
