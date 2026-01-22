@@ -1366,6 +1366,7 @@ const OdooSyncBatch = () => {
             to_date: toDate,
             total_orders: toSync.length,
             status: 'pending',
+            sync_type: 'aggregated',
           })
           .select('id')
           .single();
@@ -1477,6 +1478,7 @@ const OdooSyncBatch = () => {
           to_date: toDate,
           total_orders: toSync.length,
           status: 'pending',
+          sync_type: 'orders',
         })
         .select('id')
         .single();

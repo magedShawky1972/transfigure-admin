@@ -327,6 +327,7 @@ export type Database = {
           status: string
           successful_orders: number | null
           sync_run_id: string | null
+          sync_type: string | null
           to_date: string
           total_orders: number | null
           updated_at: string
@@ -350,6 +351,7 @@ export type Database = {
           status?: string
           successful_orders?: number | null
           sync_run_id?: string | null
+          sync_type?: string | null
           to_date: string
           total_orders?: number | null
           updated_at?: string
@@ -373,6 +375,7 @@ export type Database = {
           status?: string
           successful_orders?: number | null
           sync_run_id?: string | null
+          sync_type?: string | null
           to_date?: string
           total_orders?: number | null
           updated_at?: string
