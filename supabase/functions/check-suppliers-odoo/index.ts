@@ -130,8 +130,9 @@ Deno.serve(async (req) => {
           const checkUrl = `${supplierApiUrl}/${matchingSupplier.partner_profile_id}`;
           console.log(`Checking supplier "${matchingSupplier.supplier_name}" (ID: ${matchingSupplier.partner_profile_id}) at: ${checkUrl}`);
 
+          // Try GET first to check existence
           const response = await fetch(checkUrl, {
-            method: 'PUT',
+            method: 'GET',
             headers: {
               'Authorization': odooApiKey,
               'Content-Type': 'application/json',
@@ -139,6 +140,8 @@ Deno.serve(async (req) => {
           });
 
           const responseText = await response.text();
+          console.log(`Response for ${matchingSupplier.supplier_name}: Status ${response.status} - ${responseText.substring(0, 200)}`);
+          
           let responseData: any = null;
           try {
             responseData = JSON.parse(responseText);
@@ -146,7 +149,15 @@ Deno.serve(async (req) => {
             responseData = { raw: responseText };
           }
 
-          if (response.ok && responseData?.success !== false && !responseData?.error) {
+          // Check if supplier exists - consider it found if:
+          // 1. HTTP 200 OK and no error in response
+          // 2. Response has data (id, name, etc.)
+          const isFound = response.ok && 
+                          responseData?.success !== false && 
+                          !responseData?.error &&
+                          (responseData?.id || responseData?.data || responseData?.result);
+          
+          if (isFound) {
             inOdoo.push({
               vendor_name: vendorName,
               supplier_code: matchingSupplier.supplier_code,
@@ -214,8 +225,9 @@ Deno.serve(async (req) => {
         const checkUrl = `${supplierApiUrl}/${supplier.partner_profile_id}`;
         console.log(`Checking supplier ${supplier.supplier_name} at: ${checkUrl}`);
 
+        // Use GET to check existence
         const response = await fetch(checkUrl, {
-          method: 'PUT',
+          method: 'GET',
           headers: {
             'Authorization': odooApiKey,
             'Content-Type': 'application/json',
@@ -223,7 +235,7 @@ Deno.serve(async (req) => {
         });
 
         const responseText = await response.text();
-        console.log(`Response for ${supplier.supplier_name}: ${response.status} - ${responseText}`);
+        console.log(`Response for ${supplier.supplier_name}: Status ${response.status} - ${responseText.substring(0, 200)}`);
 
         let responseData: any = null;
         try {
@@ -234,8 +246,13 @@ Deno.serve(async (req) => {
 
         result.odoo_response = responseData;
 
-        // Check if supplier exists in Odoo
-        if (response.ok && responseData?.success !== false && !responseData?.error) {
+        // Check if supplier exists - consider it found if HTTP 200 and has data
+        const isFound = response.ok && 
+                        responseData?.success !== false && 
+                        !responseData?.error &&
+                        (responseData?.id || responseData?.data || responseData?.result);
+        
+        if (isFound) {
           result.exists_in_odoo = true;
           inOdoo.push(result);
         } else {
