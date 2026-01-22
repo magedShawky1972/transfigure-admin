@@ -2242,7 +2242,13 @@ const SavedAttendance = () => {
           )}
 
           {/* Summary stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {uniqueEmployeeCodes.filter(code => code && code !== '0' && code.trim() !== '').length}
+              </div>
+              <div className="text-sm text-muted-foreground">{isArabic ? "عدد الموظفين" : "Total Employees"}</div>
+            </div>
             <div className="bg-muted/50 p-3 rounded-lg text-center">
               <div className="text-2xl font-bold">{sortedRecords.length}</div>
               <div className="text-sm text-muted-foreground">{isArabic ? "إجمالي السجلات" : "Total Records"}</div>
