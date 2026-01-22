@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw, Save, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw, Save, X, Calculator } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -749,6 +749,85 @@ const SoftwareLicenseSetup = () => {
   const handleCancelEditInvoice = () => {
     setEditingInvoiceId(null);
     setEditingInvoiceData({ extracted_cost: "", cost_currency: "", cost_sar: "" });
+  };
+
+  const handleRecalculateSar = () => {
+    const cost = parseFloat(editingInvoiceData.extracted_cost);
+    const currencyCode = editingInvoiceData.cost_currency;
+    
+    if (isNaN(cost) || !currencyCode) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "يرجى إدخال التكلفة والعملة أولاً" : "Please enter cost and currency first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const baseCurrency = currencies.find(c => c.is_base);
+    
+    // If currency is SAR (base currency), just use the cost directly
+    if (baseCurrency && currencyCode === baseCurrency.currency_code) {
+      setEditingInvoiceData(prev => ({
+        ...prev,
+        cost_sar: cost.toFixed(2)
+      }));
+      toast({
+        title: language === "ar" ? "تم الحساب" : "Calculated",
+        description: language === "ar" ? "تم تحديث التكلفة بالريال السعودي" : "SAR cost updated",
+      });
+      return;
+    }
+
+    // Find the currency by code to get its ID
+    const selectedCurrency = currencies.find(c => c.currency_code === currencyCode);
+    if (!selectedCurrency) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "العملة غير موجودة في النظام" : "Currency not found in system",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get the rate for this currency
+    const rate = currencyRates.find(r => r.currency_id === selectedCurrency.id);
+    
+    if (!rate || rate.rate_to_base <= 0) {
+      // Default fallback: use 1 USD = 3.75 SAR if no rate found
+      if (currencyCode === "USD") {
+        const sarValue = cost * 3.75;
+        setEditingInvoiceData(prev => ({
+          ...prev,
+          cost_sar: sarValue.toFixed(2)
+        }));
+        toast({
+          title: language === "ar" ? "تم الحساب" : "Calculated",
+          description: language === "ar" ? "تم استخدام سعر افتراضي (1 USD = 3.75 SAR)" : "Used default rate (1 USD = 3.75 SAR)",
+        });
+        return;
+      }
+      
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "لم يتم العثور على سعر صرف لهذه العملة" : "No exchange rate found for this currency",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // rate_to_base means how many units of this currency = 1 base currency
+    // So to convert to base: cost / rate_to_base
+    const sarValue = cost / rate.rate_to_base;
+    setEditingInvoiceData(prev => ({
+      ...prev,
+      cost_sar: sarValue.toFixed(2)
+    }));
+
+    toast({
+      title: language === "ar" ? "تم الحساب" : "Calculated",
+      description: language === "ar" ? "تم تحديث التكلفة بالريال السعودي" : "SAR cost updated based on current rate",
+    });
   };
 
   const handleSaveInvoice = async (invoiceId: string) => {
@@ -1803,10 +1882,20 @@ const SoftwareLicenseSetup = () => {
                                         ...editingInvoiceData,
                                         cost_sar: e.target.value
                                       })}
-                                      className="w-28 h-8"
+                                      className="w-24 h-8"
                                       placeholder="0.00"
                                     />
                                     <span className="text-sm text-muted-foreground">SAR</span>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={handleRecalculateSar}
+                                      title={language === "ar" ? "إعادة حساب بسعر الصرف الحالي" : "Recalculate with current rate"}
+                                      className="h-8 px-2"
+                                    >
+                                      <Calculator className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 ) : (
                                   invoice.cost_sar !== null ? (
