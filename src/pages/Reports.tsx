@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales']);
         setLoading(false);
         return;
       }
@@ -252,6 +252,15 @@ const Reports = () => {
         : "View bank statement with bank name filter and date range",
       icon: Landmark,
       route: "/reports/bank-statement-by-bank",
+    },
+    {
+      id: "daily-sales",
+      name: language === "ar" ? "تقرير المبيعات اليومية" : "Daily Sales Report",
+      description: language === "ar" 
+        ? "عرض إجمالي المبيعات ومبيعات النقاط وعدد المعاملات لكل يوم" 
+        : "View total sales, point sales, and transaction count per day",
+      icon: Calendar,
+      route: "/reports/daily-sales",
     },
   ];
 

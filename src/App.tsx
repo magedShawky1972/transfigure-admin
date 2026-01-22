@@ -96,6 +96,7 @@ import ZKAttendanceLogs from "./pages/ZKAttendanceLogs";
 import SavedAttendance from "./pages/SavedAttendance";
 import SoldProductReport from "./pages/SoldProductReport";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
+import DailySalesReport from "./pages/DailySalesReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
 import HRVacationCalendar from "./pages/HRVacationCalendar";
 import BankSetupPage from "./pages/BankSetup";
@@ -236,6 +237,7 @@ const App = () => (
               <Route path="/payment-bank-link" element={<PaymentBankLink />} />
               <Route path="/reports/bank-balance-by-date" element={<BankBalanceByDateReport />} />
               <Route path="/reports/bank-statement-by-bank" element={<BankStatementByBankReport />} />
+              <Route path="/reports/daily-sales" element={<DailySalesReport />} />
               <Route path="/api-consumption-logs" element={<ApiConsumptionLogs />} />
               <Route path="/update-bank-ledger" element={<UpdateBankLedger />} />
               <Route path="/cost-center-setup" element={<CostCenterSetup />} />
