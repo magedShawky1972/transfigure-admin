@@ -414,7 +414,7 @@ Deno.serve(async (req) => {
       .eq("sync_run_id", row.run_id)
       .maybeSingle();
 
-    if (bgJob?.id) {
+    if (bgJob?.id || row.run_id) {
       // Recalculate counts from odoo_sync_run_details
       const { data: allDetails } = await supabase
         .from("odoo_sync_run_details")
@@ -426,17 +426,33 @@ Deno.serve(async (req) => {
         const failedCount = allDetails.filter(d => d.sync_status === "failed" || d.sync_status === "partial").length;
         const skippedCount = allDetails.filter(d => d.sync_status === "skipped").length;
 
+        // Update background_sync_jobs if exists
+        if (bgJob?.id) {
+          await supabase
+            .from("background_sync_jobs")
+            .update({
+              successful_orders: successCount,
+              failed_orders: failedCount,
+              skipped_orders: skippedCount,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", bgJob.id);
+
+          console.log(`[retry-odoo-sync-detail] Updated job ${bgJob.id} counts: success=${successCount}, failed=${failedCount}, skipped=${skippedCount}`);
+        }
+
+        // ALSO update odoo_sync_runs table (this is what the history dialog reads from)
         await supabase
-          .from("background_sync_jobs")
+          .from("odoo_sync_runs")
           .update({
             successful_orders: successCount,
             failed_orders: failedCount,
             skipped_orders: skippedCount,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", bgJob.id);
+          .eq("id", row.run_id);
 
-        console.log(`[retry-odoo-sync-detail] Updated job ${bgJob.id} counts: success=${successCount}, failed=${failedCount}, skipped=${skippedCount}`);
+        console.log(`[retry-odoo-sync-detail] Updated odoo_sync_runs ${row.run_id} counts: success=${successCount}, failed=${failedCount}, skipped=${skippedCount}`);
       }
     }
 
