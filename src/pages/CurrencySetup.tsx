@@ -47,6 +47,7 @@ interface CurrencyRate {
   id: string;
   currency_id: string;
   rate_to_base: number;
+  conversion_operator: 'multiply' | 'divide';
   effective_date: string;
   created_at: string;
   updated_at: string;
@@ -79,6 +80,7 @@ const CurrencySetup = () => {
   const [rateForm, setRateForm] = useState({
     currency_id: "",
     rate_to_base: "",
+    conversion_operator: "multiply" as 'multiply' | 'divide',
     effective_date: new Date().toISOString().split("T")[0],
   });
 
@@ -123,6 +125,12 @@ const CurrencySetup = () => {
       ? "لم يتم تحديد عملة أساسية"
       : "No base currency selected",
     currency: isArabic ? "العملة" : "Currency",
+    operator: isArabic ? "العملية" : "Operator",
+    multiply: isArabic ? "ضرب" : "Multiply",
+    divide: isArabic ? "قسمة" : "Divide",
+    operatorNote: isArabic
+      ? "ضرب: المبلغ × السعر | قسمة: المبلغ ÷ السعر"
+      : "Multiply: Amount × Rate | Divide: Amount ÷ Rate",
   };
 
   const fetchData = async () => {
@@ -137,7 +145,10 @@ const CurrencySetup = () => {
       if (ratesRes.error) throw ratesRes.error;
 
       setCurrencies(currenciesRes.data || []);
-      setRates(ratesRes.data || []);
+      setRates((ratesRes.data || []).map(r => ({
+        ...r,
+        conversion_operator: (r.conversion_operator === 'divide' ? 'divide' : 'multiply') as 'multiply' | 'divide'
+      })));
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -165,6 +176,7 @@ const CurrencySetup = () => {
     setRateForm({
       currency_id: "",
       rate_to_base: "",
+      conversion_operator: "multiply",
       effective_date: new Date().toISOString().split("T")[0],
     });
     setEditingRate(null);
@@ -231,6 +243,7 @@ const CurrencySetup = () => {
           .update({
             currency_id: rateForm.currency_id,
             rate_to_base: parseFloat(rateForm.rate_to_base),
+            conversion_operator: rateForm.conversion_operator,
             effective_date: rateForm.effective_date,
           })
           .eq("id", editingRate.id);
@@ -241,6 +254,7 @@ const CurrencySetup = () => {
         const { error } = await supabase.from("currency_rates").insert({
           currency_id: rateForm.currency_id,
           rate_to_base: parseFloat(rateForm.rate_to_base),
+          conversion_operator: rateForm.conversion_operator,
           effective_date: rateForm.effective_date,
         });
 
@@ -298,6 +312,7 @@ const CurrencySetup = () => {
     setRateForm({
       currency_id: rate.currency_id,
       rate_to_base: rate.rate_to_base.toString(),
+      conversion_operator: rate.conversion_operator || 'multiply',
       effective_date: rate.effective_date,
     });
     setRateDialogOpen(true);
@@ -473,6 +488,7 @@ const CurrencySetup = () => {
                 <TableHead>{translations.currency}</TableHead>
                 <TableHead>{translations.currencyCode}</TableHead>
                 <TableHead>{translations.rate}</TableHead>
+                <TableHead>{translations.operator}</TableHead>
                 <TableHead>{translations.effectiveDate}</TableHead>
                 <TableHead>{translations.actions}</TableHead>
               </TableRow>
@@ -483,6 +499,15 @@ const CurrencySetup = () => {
                   <TableCell>{getCurrencyName(rate.currency_id)}</TableCell>
                   <TableCell className="font-medium">{getCurrencyCode(rate.currency_id)}</TableCell>
                   <TableCell>{rate.rate_to_base}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      rate.conversion_operator === 'multiply' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                    }`}>
+                      {rate.conversion_operator === 'multiply' ? translations.multiply : translations.divide}
+                    </span>
+                  </TableCell>
                   <TableCell>{rate.effective_date}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -502,7 +527,7 @@ const CurrencySetup = () => {
               ))}
               {rates.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     {isArabic ? "لا توجد أسعار صرف" : "No rates found"}
                   </TableCell>
                 </TableRow>
@@ -632,6 +657,18 @@ const CurrencySetup = () => {
                 onChange={(e) => setRateForm({ ...rateForm, rate_to_base: e.target.value })}
                 placeholder="1.0000"
               />
+            </div>
+            <div>
+              <Label>{translations.operator} *</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={rateForm.conversion_operator}
+                onChange={(e) => setRateForm({ ...rateForm, conversion_operator: e.target.value as 'multiply' | 'divide' })}
+              >
+                <option value="multiply">{translations.multiply}</option>
+                <option value="divide">{translations.divide}</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">{translations.operatorNote}</p>
             </div>
             <div>
               <Label>{translations.effectiveDate} *</Label>

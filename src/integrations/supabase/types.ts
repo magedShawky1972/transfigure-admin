@@ -1071,6 +1071,7 @@ export type Database = {
       }
       currency_rates: {
         Row: {
+          conversion_operator: string
           created_at: string
           currency_id: string
           effective_date: string
@@ -1079,6 +1080,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          conversion_operator?: string
           created_at?: string
           currency_id: string
           effective_date?: string
@@ -1087,6 +1089,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          conversion_operator?: string
           created_at?: string
           currency_id?: string
           effective_date?: string
