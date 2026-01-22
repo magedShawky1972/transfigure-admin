@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { FileText, Download, TrendingUp, Building2, CalendarIcon, ExternalLink } from "lucide-react";
+import { FileText, Download, TrendingUp, Building2, CalendarIcon, ExternalLink, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
@@ -66,10 +66,10 @@ const CostCenterReport = () => {
   }, []);
 
   useEffect(() => {
-    if (fromDate && toDate) {
+    if (costCenters.length > 0) {
       fetchData();
     }
-  }, [fromDate, toDate, selectedCostCenterId, costCenters]);
+  }, [costCenters]);
 
   const fetchCostCenters = async () => {
     try {
@@ -359,6 +359,12 @@ const CostCenterReport = () => {
                   <SelectItem value="detail">{language === "ar" ? "تفاصيل" : "Details"}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={fetchData} disabled={loading}>
+                <Search className="h-4 w-4 mr-1" />
+                {language === "ar" ? "تحميل" : "Load"}
+              </Button>
             </div>
           </div>
 
