@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.api-lookup]
 verify_jwt = false
+
+[functions.check-suppliers-odoo]
+verify_jwt = false
