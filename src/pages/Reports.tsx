@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report']);
         setLoading(false);
         return;
       }
@@ -261,6 +261,15 @@ const Reports = () => {
         : "View total sales, point sales, and transaction count per day",
       icon: Calendar,
       route: "/reports/daily-sales",
+    },
+    {
+      id: "cost-center-report",
+      name: language === "ar" ? "تقرير تكاليف مراكز التكلفة" : "Cost Center Total Cost",
+      description: language === "ar" 
+        ? "عرض إجمالي التكاليف لكل مركز تكلفة من التراخيص والمصروفات" 
+        : "View total costs per cost center from licenses and expenses",
+      icon: TrendingUp,
+      route: "/reports/cost-center",
     },
   ];
 
