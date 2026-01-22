@@ -30,6 +30,7 @@ interface BackgroundJob {
   user_name: string;
   user_id: string;
   sync_run_id?: string | null;
+  sync_type?: string | null;
 }
 
 interface SyncDetail {
@@ -342,8 +343,12 @@ export const BackgroundSyncStatusCard = () => {
 
       if (error) throw error;
 
-      // Call the edge function to resume processing
-      const { error: fnError } = await supabase.functions.invoke('sync-orders-background', {
+      // Determine which edge function to call based on sync_type
+      const isAggregated = activeJob.sync_type === 'aggregated';
+      const functionName = isAggregated ? 'sync-aggregated-orders-background' : 'sync-orders-background';
+
+      // Call the appropriate edge function to resume processing
+      const { error: fnError } = await supabase.functions.invoke(functionName, {
         body: {
           jobId: activeJob.id,
           fromDate: activeJob.from_date,
