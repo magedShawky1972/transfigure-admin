@@ -183,14 +183,13 @@ export function OdooSyncRunDetailsDialog({
         }
       }
       
-      // For failed rows, try to get vendor/supplier/payment/qty info from purpletransaction
-      const failedRows = detailRows.filter(r => ["failed", "partial", "error"].includes(r.sync_status));
-      if (failedRows.length > 0) {
+      // For ALL rows, get vendor/supplier/payment/qty info from purpletransaction
+      if (detailRows.length > 0) {
         // Build lookup orders: for aggregated orders use original_orders, otherwise use order_number
         const lookupOrderNumbers: string[] = [];
         const aggregateToOriginalMap: Record<string, string[]> = {};
         
-        for (const row of failedRows) {
+        for (const row of detailRows) {
           if (row.original_orders && row.original_orders.length > 0) {
             aggregateToOriginalMap[row.order_number] = row.original_orders;
             lookupOrderNumbers.push(...row.original_orders);
