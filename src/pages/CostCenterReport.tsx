@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { FileText, Download, TrendingUp, Building2, CalendarIcon } from "lucide-react";
+import { FileText, Download, TrendingUp, Building2, CalendarIcon, ExternalLink } from "lucide-react";
 import * as XLSX from "xlsx";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
@@ -56,7 +57,10 @@ const CostCenterReport = () => {
   const [fromDate, setFromDate] = useState<string>(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [toDate, setToDate] = useState<string>(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [viewMode, setViewMode] = useState<"summary" | "detail">("summary");
-
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [drilldownType, setDrilldownType] = useState<"license" | "expense">("license");
+  const [drilldownCostCenterId, setDrilldownCostCenterId] = useState<string>("");
+  const [drilldownCostCenterName, setDrilldownCostCenterName] = useState<string>("");
   useEffect(() => {
     fetchCostCenters();
   }, []);
@@ -249,6 +253,19 @@ const CostCenterReport = () => {
     return `${summary.cost_center_code} - ${summary.cost_center_name}`;
   };
 
+  const handleDrilldown = (costCenterId: string, costCenterName: string, type: "license" | "expense") => {
+    setDrilldownCostCenterId(costCenterId);
+    setDrilldownCostCenterName(costCenterName);
+    setDrilldownType(type);
+    setDrilldownOpen(true);
+  };
+
+  const getDrilldownData = () => {
+    return detailData.filter(
+      d => d.cost_center_id === drilldownCostCenterId && d.type === drilldownType
+    );
+  };
+
   const exportToExcel = () => {
     const headers = language === "ar" 
       ? ["الكود", "مركز التكلفة", "تكلفة التراخيص", "عدد التراخيص", "تكلفة المصروفات", "عدد المصروفات", "إجمالي التكلفة"]
@@ -407,11 +424,35 @@ const CostCenterReport = () => {
                     summaryData.map((summary) => (
                       <TableRow key={summary.cost_center_id}>
                         <TableCell className="font-medium">{getCostCenterDisplayName(summary)}</TableCell>
-                        <TableCell className="text-right text-blue-600">{formatNumber(summary.license_cost)}</TableCell>
+                        <TableCell className="text-right">
+                          {summary.license_count > 0 ? (
+                            <button
+                              onClick={() => handleDrilldown(summary.cost_center_id, getCostCenterDisplayName(summary), "license")}
+                              className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1 justify-end w-full"
+                            >
+                              {formatNumber(summary.license_cost)}
+                              <ExternalLink className="h-3 w-3" />
+                            </button>
+                          ) : (
+                            <span className="text-blue-600">{formatNumber(summary.license_cost)}</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline">{summary.license_count}</Badge>
                         </TableCell>
-                        <TableCell className="text-right text-orange-600">{formatNumber(summary.expense_cost)}</TableCell>
+                        <TableCell className="text-right">
+                          {summary.expense_count > 0 ? (
+                            <button
+                              onClick={() => handleDrilldown(summary.cost_center_id, getCostCenterDisplayName(summary), "expense")}
+                              className="text-orange-600 hover:underline cursor-pointer flex items-center gap-1 justify-end w-full"
+                            >
+                              {formatNumber(summary.expense_cost)}
+                              <ExternalLink className="h-3 w-3" />
+                            </button>
+                          ) : (
+                            <span className="text-orange-600">{formatNumber(summary.expense_cost)}</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline">{summary.expense_count}</Badge>
                         </TableCell>
@@ -485,6 +526,70 @@ const CostCenterReport = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Drilldown Dialog */}
+      <Dialog open={drilldownOpen} onOpenChange={setDrilldownOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto" dir={language === "ar" ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {drilldownType === "license" ? (
+                <>
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  {language === "ar" ? "تفاصيل تكلفة التراخيص" : "License Cost Details"}
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="h-5 w-5 text-orange-600" />
+                  {language === "ar" ? "تفاصيل تكلفة المصروفات" : "Expense Cost Details"}
+                </>
+              )}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {drilldownCostCenterName}
+            </p>
+          </DialogHeader>
+          <div className="border rounded-lg overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
+                  <TableHead>{drilldownType === "license" 
+                    ? (language === "ar" ? "اسم البرنامج" : "Software Name") 
+                    : (language === "ar" ? "رقم القيد" : "Entry Number")}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "المبلغ (ر.س)" : "Amount (SAR)"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getDrilldownData().length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                      {language === "ar" ? "لا توجد بيانات" : "No data found"}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  getDrilldownData().map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell>{format(new Date(record.date), "yyyy-MM-dd")}</TableCell>
+                      <TableCell>{record.description}</TableCell>
+                      <TableCell className={`text-right font-semibold ${drilldownType === "license" ? "text-blue-600" : "text-orange-600"}`}>
+                        {formatNumber(record.amount)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+                {getDrilldownData().length > 0 && (
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell colSpan={2}>{language === "ar" ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell className={`text-right ${drilldownType === "license" ? "text-blue-600" : "text-orange-600"}`}>
+                      {formatNumber(getDrilldownData().reduce((sum, r) => sum + r.amount, 0))}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
