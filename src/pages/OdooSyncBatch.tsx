@@ -2306,6 +2306,19 @@ const OdooSyncBatch = () => {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {/* Grand Total Row */}
+                  <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
+                    <TableCell colSpan={7} className="text-right">
+                      {language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}
+                      <span className="text-muted-foreground font-normal mx-2">
+                        ({filteredAggregatedInvoices.length} {language === 'ar' ? 'فاتورة' : 'invoices'})
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-lg">
+                      {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                    </TableCell>
+                    <TableCell colSpan={8}></TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </ScrollArea>
