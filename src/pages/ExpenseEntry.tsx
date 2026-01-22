@@ -41,8 +41,16 @@ interface ExpenseEntry {
   bank_id: string | null;
   treasury_id: string | null;
   currency_id: string | null;
+  cost_center_id: string | null;
   grand_total: number;
   status: string;
+}
+
+interface CostCenter {
+  id: string;
+  cost_center_code: string;
+  cost_center_name: string;
+  cost_center_name_ar: string | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -66,6 +74,7 @@ const ExpenseEntryPage = () => {
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<{ id: string; expense_code: string; expense_name: string }[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   
   // Entries list
@@ -90,22 +99,25 @@ const ExpenseEntryPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes] = await Promise.all([
+      const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes, costCentersRes] = await Promise.all([
         supabase.from("banks").select("id, bank_name, bank_name_ar").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_name, treasury_name_ar").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code").eq("is_active", true),
         supabase.from("expense_types").select("id, expense_code, expense_name").eq("is_active", true),
+        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
       ]);
 
       if (banksRes.error) throw banksRes.error;
       if (treasuriesRes.error) throw treasuriesRes.error;
       if (currenciesRes.error) throw currenciesRes.error;
       if (expenseTypesRes.error) throw expenseTypesRes.error;
+      if (costCentersRes.error) throw costCentersRes.error;
 
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
       setExpenseTypes(expenseTypesRes.data || []);
+      setCostCenters(costCentersRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في جلب البيانات" : "Error fetching data");
@@ -121,13 +133,13 @@ const ExpenseEntryPage = () => {
 
       const { data, error } = await supabase
         .from("expense_entries")
-        .select("id, entry_number, entry_date, expense_reference, payment_method, bank_id, treasury_id, currency_id, grand_total, status")
+        .select("id, entry_number, entry_date, expense_reference, payment_method, bank_id, treasury_id, currency_id, cost_center_id, grand_total, status")
         .gte("entry_date", startDate)
         .lte("entry_date", endDate)
         .order("entry_date", { ascending: false });
 
       if (error) throw error;
-      setEntries(data || []);
+      setEntries((data || []) as unknown as ExpenseEntry[]);
     } catch (error) {
       console.error("Error fetching entries:", error);
     }
@@ -436,6 +448,13 @@ const ExpenseEntryPage = () => {
     return currency?.currency_code || "-";
   };
 
+  const getCostCenterName = (costCenterId: string | null) => {
+    if (!costCenterId) return "-";
+    const cc = costCenters.find(c => c.id === costCenterId);
+    if (!cc) return "-";
+    return language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name;
+  };
+
   if (loading || importing) return <LoadingOverlay />;
 
   return (
@@ -503,6 +522,7 @@ const ExpenseEntryPage = () => {
                   <TableHead>{language === "ar" ? "رقم القيد" : "Entry #"}</TableHead>
                   <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                   <TableHead>{language === "ar" ? "المرجع" : "Reference"}</TableHead>
+                  <TableHead>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</TableHead>
                   <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment"}</TableHead>
                   <TableHead>{language === "ar" ? "البنك/الخزينة" : "Bank/Treasury"}</TableHead>
                   <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
@@ -514,7 +534,7 @@ const ExpenseEntryPage = () => {
               <TableBody>
                 {entries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد قيود" : "No entries found"}
                     </TableCell>
                   </TableRow>
@@ -524,6 +544,7 @@ const ExpenseEntryPage = () => {
                       <TableCell className="font-mono">{entry.entry_number}</TableCell>
                       <TableCell>{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
                       <TableCell>{entry.expense_reference || "-"}</TableCell>
+                      <TableCell>{getCostCenterName(entry.cost_center_id)}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
                           {entry.payment_method === "bank" 

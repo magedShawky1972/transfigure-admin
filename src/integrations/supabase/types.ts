@@ -2236,6 +2236,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           bank_id: string | null
+          cost_center_id: string | null
           created_at: string | null
           created_by: string | null
           currency_id: string | null
@@ -2259,6 +2260,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           bank_id?: string | null
+          cost_center_id?: string | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
@@ -2282,6 +2284,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           bank_id?: string | null
+          cost_center_id?: string | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
@@ -2307,6 +2310,13 @@ export type Database = {
             columns: ["bank_id"]
             isOneToOne: false
             referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_entries_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
