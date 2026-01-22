@@ -44,17 +44,41 @@ type Props = {
 type FailureType = "order" | "purchase" | "both" | "other" | "none";
 
 function detectFailureType(row: DetailRow): FailureType {
+  const errorMsg = (row.error_message || "").toLowerCase();
+  
+  // Check the actual error message first - more reliable than step statuses
+  const hasOrderError = errorMsg.includes("order:") && !errorMsg.includes("already exists");
+  const hasPurchaseError = errorMsg.includes("purchase:") || errorMsg.includes("supplier");
+  
+  // "already exists" for order means order was sent - focus on purchase
+  const orderAlreadyExists = errorMsg.includes("already exists");
+  
+  // Check step statuses
   const orderFailed = row.step_order === "failed" || row.step_order === "error";
   const purchaseFailed = row.step_purchase === "failed" || row.step_purchase === "error";
   const purchasePending = row.step_purchase === "pending";
   
-  // If order failed, that's the main issue
-  if (orderFailed) {
-    return purchaseFailed ? "both" : "order";
+  // If error says "already exists", order is actually OK - check purchase
+  if (orderAlreadyExists) {
+    if (purchaseFailed || purchasePending || hasPurchaseError) {
+      return "purchase";
+    }
+    // Order exists and no purchase issue - might be fully synced
+    return "none";
   }
   
-  // If order succeeded but purchase failed or pending with error
-  if (purchaseFailed || (purchasePending && row.error_message?.toLowerCase().includes("purchase"))) {
+  // Both failed
+  if ((orderFailed || hasOrderError) && (purchaseFailed || hasPurchaseError)) {
+    return "both";
+  }
+  
+  // Only order failed
+  if (orderFailed || hasOrderError) {
+    return "order";
+  }
+  
+  // Only purchase failed/pending
+  if (purchaseFailed || purchasePending || hasPurchaseError) {
     return "purchase";
   }
   
@@ -69,13 +93,6 @@ function detectFailureType(row: DetailRow): FailureType {
   
   // If sync_status is failed but no specific step failed
   if (["failed", "partial", "error"].includes(row.sync_status)) {
-    // Check error message for hints
-    if (row.error_message?.toLowerCase().includes("purchase") || row.error_message?.toLowerCase().includes("supplier")) {
-      return "purchase";
-    }
-    if (row.error_message?.toLowerCase().includes("order")) {
-      return "order";
-    }
     return "other";
   }
   
