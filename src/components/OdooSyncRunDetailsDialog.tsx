@@ -42,6 +42,8 @@ type DetailRow = {
   step_order: string | null;
   step_purchase: string | null;
   product_names: string | null;
+  payment_method: string | null;
+  payment_brand: string | null;
   vendor_name?: string | null;
   supplier_code?: string | null;
   original_orders?: string[];
@@ -134,7 +136,7 @@ export function OdooSyncRunDetailsDialog({
       const result: any = await supabase
         .from("odoo_sync_run_details")
         .select(
-          "id, order_number, sync_status, error_message, step_customer, step_brand, step_product, step_order, step_purchase, product_names"
+          "id, order_number, sync_status, error_message, step_customer, step_brand, step_product, step_order, step_purchase, product_names, payment_method, payment_brand"
         )
         .eq("run_id", run.id)
         .order("created_at", { ascending: true });
@@ -429,6 +431,11 @@ export function OdooSyncRunDetailsDialog({
                           <span className="font-medium">{r.order_number}</span>
                           {getStatusBadge(r.sync_status)}
                           {isErrored && getFailureTypeBadge(failureType)}
+                          {r.payment_method && (
+                            <Badge variant="outline" className="text-xs bg-cyan-500/10 text-cyan-600 border-cyan-500">
+                              {r.payment_method}
+                            </Badge>
+                          )}
                         </div>
                         
                         {/* Original orders for aggregated order numbers */}
