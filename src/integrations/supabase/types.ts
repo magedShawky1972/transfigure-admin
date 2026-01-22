@@ -3409,6 +3409,7 @@ export type Database = {
           order_error_message: string | null
           order_number: string
           order_sync_failed: boolean | null
+          original_orders: string[] | null
           payment_brand: string | null
           payment_method: string | null
           product_names: string | null
@@ -3433,6 +3434,7 @@ export type Database = {
           order_error_message?: string | null
           order_number: string
           order_sync_failed?: boolean | null
+          original_orders?: string[] | null
           payment_brand?: string | null
           payment_method?: string | null
           product_names?: string | null
@@ -3457,6 +3459,7 @@ export type Database = {
           order_error_message?: string | null
           order_number?: string
           order_sync_failed?: boolean | null
+          original_orders?: string[] | null
           payment_brand?: string | null
           payment_method?: string | null
           product_names?: string | null

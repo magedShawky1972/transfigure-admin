@@ -139,7 +139,7 @@ export function OdooSyncRunDetailsDialog({
       const result: any = await supabase
         .from("odoo_sync_run_details")
         .select(
-          "id, order_number, order_date, sync_status, error_message, step_customer, step_brand, step_product, step_order, step_purchase, product_names, payment_method, payment_brand"
+          "id, order_number, order_date, sync_status, error_message, step_customer, step_brand, step_product, step_order, step_purchase, product_names, payment_method, payment_brand, original_orders"
         )
         .eq("run_id", run.id)
         .order("created_at", { ascending: true });
@@ -183,11 +183,15 @@ export function OdooSyncRunDetailsDialog({
         }
         
         // Attach original orders and payment_method to rows
+        // Priority: 1) original_orders from DB (new column), 2) aggregated_order_mapping table
         for (const row of detailRows) {
-          if (originalOrdersMap[row.order_number]) {
-            row.original_orders = originalOrdersMap[row.order_number];
+          // If original_orders already exists from DB, use it; otherwise use mapping
+          if (!row.original_orders || row.original_orders.length === 0) {
+            if (originalOrdersMap[row.order_number]) {
+              row.original_orders = originalOrdersMap[row.order_number];
+            }
           }
-          // Set payment_method from mapping if available
+          // Set payment_method from mapping if available and not already set
           if (mappingPaymentMethodMap[row.order_number] && !row.payment_method) {
             row.payment_method = mappingPaymentMethodMap[row.order_number];
           }
