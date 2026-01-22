@@ -147,38 +147,48 @@ export function OdooSyncRunDetailsDialog({
       
       const detailRows = (result.data || []) as DetailRow[];
       
-      // Fetch original orders for aggregate order numbers
+      // Fetch original orders and payment_method for aggregate order numbers
       const aggregatedPattern = /^\d{12}$/; // Pattern like 202511040001
       const aggregateOrderNumbers = detailRows
         .map(r => r.order_number)
         .filter(on => aggregatedPattern.test(on));
       
+      const originalOrdersMap: Record<string, string[]> = {};
+      const mappingPaymentMethodMap: Record<string, string> = {};
+      
       if (aggregateOrderNumbers.length > 0) {
         // Batch fetch to avoid 1000-row limit
-        const originalOrdersMap: Record<string, string[]> = {};
         const batchSize = 50; // Query 50 aggregate orders at a time
         
         for (let i = 0; i < aggregateOrderNumbers.length; i += batchSize) {
           const batch = aggregateOrderNumbers.slice(i, i + batchSize);
           const mappingResult: any = await supabase
             .from("aggregated_order_mapping")
-            .select("aggregated_order_number, original_order_number")
+            .select("aggregated_order_number, original_order_number, payment_method")
             .in("aggregated_order_number", batch);
           
           if (mappingResult.data) {
-            for (const m of mappingResult.data as { aggregated_order_number: string; original_order_number: string }[]) {
+            for (const m of mappingResult.data as { aggregated_order_number: string; original_order_number: string; payment_method: string | null }[]) {
               if (!originalOrdersMap[m.aggregated_order_number]) {
                 originalOrdersMap[m.aggregated_order_number] = [];
               }
               originalOrdersMap[m.aggregated_order_number].push(m.original_order_number);
+              // Store payment_method from mapping (first one wins)
+              if (m.payment_method && !mappingPaymentMethodMap[m.aggregated_order_number]) {
+                mappingPaymentMethodMap[m.aggregated_order_number] = m.payment_method;
+              }
             }
           }
         }
         
-        // Attach original orders to rows
+        // Attach original orders and payment_method to rows
         for (const row of detailRows) {
           if (originalOrdersMap[row.order_number]) {
             row.original_orders = originalOrdersMap[row.order_number];
+          }
+          // Set payment_method from mapping if available
+          if (mappingPaymentMethodMap[row.order_number] && !row.payment_method) {
+            row.payment_method = mappingPaymentMethodMap[row.order_number];
           }
         }
       }
@@ -523,14 +533,22 @@ export function OdooSyncRunDetailsDialog({
                           <span className="font-medium">{r.order_number}</span>
                           {getStatusBadge(r.sync_status)}
                           {isErrored && getFailureTypeBadge(failureType)}
-                          {r.payment_method && (
+                          {r.payment_method ? (
                             <Badge variant="outline" className="text-xs bg-cyan-500/10 text-cyan-600 border-cyan-500">
                               {r.payment_method}
                             </Badge>
+                          ) : isErrored && (
+                            <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+                              {language === "ar" ? "طريقة الدفع: غير متوفر" : "Payment: N/A"}
+                            </Badge>
                           )}
-                          {r.total_qty != null && r.total_qty > 0 && (
+                          {r.total_qty != null && r.total_qty > 0 ? (
                             <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500">
                               {language === "ar" ? "الكمية" : "Qty"}: {r.total_qty}
+                            </Badge>
+                          ) : isErrored && (
+                            <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+                              {language === "ar" ? "الكمية: غير متوفر" : "Qty: N/A"}
                             </Badge>
                           )}
                         </div>
