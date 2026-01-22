@@ -473,18 +473,36 @@ const OdooSyncBatch = () => {
         const fromDateInt = parseInt(fromDate.replace(/-/g, ''), 10);
         const toDateInt = parseInt(toDate.replace(/-/g, ''), 10);
         
-        // Fetch transactions within date range, excluding already synced orders (sendodoo = true)
-        const { data, error } = await supabase
-          .from('purpletransaction')
-          .select('*')
-          .gte('created_at_date_int', fromDateInt)
-          .lte('created_at_date_int', toDateInt)
-          .neq('payment_method', 'point')
-          .eq('is_deleted', false)
-          .or('sendodoo.is.null,sendodoo.eq.false')
-          .order('created_at_date_int', { ascending: false });
-
-        if (error) throw error;
+        // Fetch ALL transactions using batch fetching (Supabase has 1000 row limit per query)
+        const BATCH_SIZE = 1000;
+        let allData: any[] = [];
+        let hasMore = true;
+        let offset = 0;
+        
+        while (hasMore) {
+          const { data: batchData, error: batchError } = await supabase
+            .from('purpletransaction')
+            .select('*')
+            .gte('created_at_date_int', fromDateInt)
+            .lte('created_at_date_int', toDateInt)
+            .neq('payment_method', 'point')
+            .eq('is_deleted', false)
+            .or('sendodoo.is.null,sendodoo.eq.false')
+            .order('created_at_date_int', { ascending: false })
+            .range(offset, offset + BATCH_SIZE - 1);
+          
+          if (batchError) throw batchError;
+          
+          if (batchData && batchData.length > 0) {
+            allData = [...allData, ...batchData];
+            offset += BATCH_SIZE;
+            hasMore = batchData.length === BATCH_SIZE;
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        const data = allData;
 
         // Get non-stock products
         const { data: nonStockProducts } = await supabase
