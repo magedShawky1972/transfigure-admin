@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Package } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Package, Truck, FileText } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface SyncDetailRowDialogProps {
   open: boolean;
@@ -36,6 +37,10 @@ interface TransactionLine {
   total: number | null;
   product_sku?: string | null;
   has_sku: boolean;
+  vendor_name: string | null;
+  supplier_found: boolean;
+  supplier_code?: string | null;
+  original_order_number?: string | null;
 }
 
 export const SyncDetailRowDialog = ({
@@ -59,21 +64,61 @@ export const SyncDetailRowDialog = ({
   const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [transactionLines, setTransactionLines] = useState<TransactionLine[]>([]);
+  const [originalOrders, setOriginalOrders] = useState<string[]>([]);
+  const [isOriginalOrdersOpen, setIsOriginalOrdersOpen] = useState(false);
 
   useEffect(() => {
     if (open && orderNumber) {
       fetchTransactionLines();
+      fetchOriginalOrders();
     }
   }, [open, orderNumber]);
+
+  // Check if order number is aggregated format (YYYYMMDDXXXX - 12 digits)
+  const isAggregatedOrder = orderNumber && /^\d{12}$/.test(orderNumber);
+
+  const fetchOriginalOrders = async () => {
+    if (!isAggregatedOrder) {
+      setOriginalOrders([]);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('aggregated_order_mapping')
+        .select('original_order_number')
+        .eq('aggregated_order_number', orderNumber);
+      
+      if (!error && data) {
+        setOriginalOrders(data.map(d => d.original_order_number));
+      }
+    } catch (error) {
+      console.error('Error fetching original orders:', error);
+    }
+  };
 
   const fetchTransactionLines = async () => {
     setLoading(true);
     try {
+      // For aggregated orders, we need to fetch from original order numbers
+      let orderNumbersToFetch = [orderNumber];
+      
+      if (isAggregatedOrder) {
+        const { data: mappingData } = await supabase
+          .from('aggregated_order_mapping')
+          .select('original_order_number')
+          .eq('aggregated_order_number', orderNumber);
+        
+        if (mappingData && mappingData.length > 0) {
+          orderNumbersToFetch = mappingData.map(m => m.original_order_number);
+        }
+      }
+
       // Fetch from purpletransaction - this is the main table with product lines
       const { data: purpleData, error: purpleError } = await supabase
         .from('purpletransaction')
-        .select('id, product_name, brand_name, product_id, qty, unit_price, total')
-        .eq('order_number', orderNumber);
+        .select('id, product_name, brand_name, product_id, qty, unit_price, total, vendor_name, order_number')
+        .in('order_number', orderNumbersToFetch);
 
       if (!purpleError && purpleData && purpleData.length > 0) {
         // Get all product SKUs to check which have SKU
@@ -81,8 +126,15 @@ export const SyncDetailRowDialog = ({
           .map(p => p.product_name)
           .filter((name): name is string => Boolean(name));
         
-        let skuMap = new Map<string, string>();
+        // Get all vendor names to check supplier matches
+        const vendorNames = purpleData
+          .map(p => p.vendor_name)
+          .filter((name): name is string => Boolean(name));
         
+        let skuMap = new Map<string, string>();
+        let supplierMap = new Map<string, string>(); // vendor_name -> supplier_code
+        
+        // Fetch SKUs
         if (productNames.length > 0) {
           const { data: productsData } = await supabase
             .from('products')
@@ -91,6 +143,19 @@ export const SyncDetailRowDialog = ({
 
           productsData?.forEach(p => {
             if (p.sku && p.product_name) skuMap.set(p.product_name, p.sku);
+          });
+        }
+
+        // Fetch suppliers - check both supplier_name and supplier_code
+        if (vendorNames.length > 0) {
+          const { data: suppliersData } = await supabase
+            .from('suppliers')
+            .select('supplier_name, supplier_code')
+            .or(`supplier_name.in.(${vendorNames.map(v => `"${v}"`).join(',')}),supplier_code.in.(${vendorNames.map(v => `"${v}"`).join(',')})`);
+
+          suppliersData?.forEach(s => {
+            if (s.supplier_name) supplierMap.set(s.supplier_name, s.supplier_code || s.supplier_name);
+            if (s.supplier_code) supplierMap.set(s.supplier_code, s.supplier_code);
           });
         }
 
@@ -104,6 +169,10 @@ export const SyncDetailRowDialog = ({
           total: t.total,
           product_sku: t.product_name ? skuMap.get(t.product_name) || null : null,
           has_sku: t.product_name ? skuMap.has(t.product_name) : false,
+          vendor_name: t.vendor_name,
+          supplier_found: t.vendor_name ? supplierMap.has(t.vendor_name) : false,
+          supplier_code: t.vendor_name ? supplierMap.get(t.vendor_name) || null : null,
+          original_order_number: isAggregatedOrder ? t.order_number : null,
         })));
       } else {
         setTransactionLines([]);
@@ -135,6 +204,11 @@ export const SyncDetailRowDialog = ({
 
   const missingSkuCount = transactionLines.filter(t => !t.has_sku).length;
   const hasSkuCount = transactionLines.filter(t => t.has_sku).length;
+  
+  // Supplier stats
+  const supplierFoundCount = transactionLines.filter(t => t.supplier_found).length;
+  const missingVendorCount = transactionLines.filter(t => !t.vendor_name).length;
+  const unmatchedVendorCount = transactionLines.filter(t => t.vendor_name && !t.supplier_found).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -216,9 +290,33 @@ export const SyncDetailRowDialog = ({
           </div>
         )}
 
+        {/* Original Orders Section (for aggregated orders) */}
+        {isAggregatedOrder && originalOrders.length > 0 && (
+          <Collapsible open={isOriginalOrdersOpen} onOpenChange={setIsOriginalOrdersOpen} className="mb-4">
+            <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 bg-muted/50 rounded hover:bg-muted transition-colors">
+              <FileText className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm">
+                {language === 'ar' ? `الطلبات الأصلية (${originalOrders.length})` : `Original Orders (${originalOrders.length})`}
+              </span>
+              <Badge variant="outline" className="ml-auto">
+                {isOriginalOrdersOpen ? (language === 'ar' ? 'إخفاء' : 'Hide') : (language === 'ar' ? 'عرض' : 'Show')}
+              </Badge>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded">
+                {originalOrders.map((order, idx) => (
+                  <Badge key={idx} variant="secondary" className="font-mono text-xs">
+                    {order}
+                  </Badge>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
         {/* SKU Summary */}
         {transactionLines.length > 0 && (
-          <div className="flex gap-4 mb-2 text-sm">
+          <div className="flex flex-wrap gap-4 mb-2 text-sm">
             <div className="flex items-center gap-1">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
               <span>{language === 'ar' ? `${hasSkuCount} لديه SKU` : `${hasSkuCount} with SKU`}</span>
@@ -227,6 +325,32 @@ export const SyncDetailRowDialog = ({
               <div className="flex items-center gap-1 text-orange-600">
                 <AlertTriangle className="h-4 w-4" />
                 <span>{language === 'ar' ? `${missingSkuCount} بدون SKU` : `${missingSkuCount} without SKU`}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Supplier Summary */}
+        {transactionLines.length > 0 && (
+          <div className="flex flex-wrap gap-4 mb-4 text-sm p-2 bg-muted/30 rounded">
+            <div className="flex items-center gap-1">
+              <Truck className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">{language === 'ar' ? 'الموردين:' : 'Suppliers:'}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <span>{language === 'ar' ? `${supplierFoundCount} مطابق` : `${supplierFoundCount} matched`}</span>
+            </div>
+            {missingVendorCount > 0 && (
+              <div className="flex items-center gap-1 text-orange-600">
+                <AlertTriangle className="h-4 w-4" />
+                <span>{language === 'ar' ? `${missingVendorCount} بدون مورد` : `${missingVendorCount} no vendor`}</span>
+              </div>
+            )}
+            {unmatchedVendorCount > 0 && (
+              <div className="flex items-center gap-1 text-destructive">
+                <XCircle className="h-4 w-4" />
+                <span>{language === 'ar' ? `${unmatchedVendorCount} غير مطابق` : `${unmatchedVendorCount} unmatched`}</span>
               </div>
             )}
           </div>
@@ -260,46 +384,72 @@ export const SyncDetailRowDialog = ({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
+                  <TableHead className="w-8">#</TableHead>
+                  {isAggregatedOrder && (
+                    <TableHead className="text-xs">{language === 'ar' ? 'الطلب' : 'Order'}</TableHead>
+                  )}
                   <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'العلامة' : 'Brand'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
+                  <TableHead className="text-center">{language === 'ar' ? 'مورد' : 'Supplier'}</TableHead>
                   <TableHead>{language === 'ar' ? 'SKU' : 'SKU'}</TableHead>
                   <TableHead className="text-center">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
-                  <TableHead className="text-right">{language === 'ar' ? 'السعر' : 'Price'}</TableHead>
                   <TableHead className="text-right">{language === 'ar' ? 'المجموع' : 'Total'}</TableHead>
-                  <TableHead className="text-center">{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactionLines.map((line, index) => (
-                  <TableRow 
-                    key={line.id}
-                    className={!line.has_sku ? 'bg-orange-50 dark:bg-orange-950/20' : ''}
-                  >
-                    <TableCell className="text-xs text-muted-foreground">{index + 1}</TableCell>
-                    <TableCell className="font-medium text-sm max-w-[200px] truncate" title={line.product_name || ''}>
-                      {line.product_name || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm">{line.brand_name || '-'}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {line.product_sku || line.product_id || (
-                        <span className="text-orange-600">
-                          {language === 'ar' ? 'مفقود' : 'Missing'}
-                        </span>
+                {transactionLines.map((line, index) => {
+                  const hasSupplierIssue = !line.vendor_name || !line.supplier_found;
+                  const rowClass = hasSupplierIssue 
+                    ? 'bg-orange-50 dark:bg-orange-950/20' 
+                    : !line.has_sku 
+                      ? 'bg-yellow-50 dark:bg-yellow-950/20' 
+                      : '';
+                  
+                  return (
+                    <TableRow key={line.id} className={rowClass}>
+                      <TableCell className="text-xs text-muted-foreground">{index + 1}</TableCell>
+                      {isAggregatedOrder && (
+                        <TableCell className="font-mono text-xs">
+                          {line.original_order_number || '-'}
+                        </TableCell>
                       )}
-                    </TableCell>
-                    <TableCell className="text-center text-sm">{line.qty ?? '-'}</TableCell>
-                    <TableCell className="text-right text-sm">{line.unit_price?.toFixed(2) ?? '-'}</TableCell>
-                    <TableCell className="text-right text-sm">{line.total?.toFixed(2) ?? '-'}</TableCell>
-                    <TableCell className="text-center">
-                      {line.has_sku ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />
-                      ) : (
-                        <AlertTriangle className="h-4 w-4 text-orange-500 mx-auto" />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      <TableCell className="font-medium text-sm max-w-[150px] truncate" title={line.product_name || ''}>
+                        {line.product_name || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[80px] truncate">{line.brand_name || '-'}</TableCell>
+                      <TableCell className="text-sm max-w-[100px] truncate" title={line.vendor_name || ''}>
+                        {line.vendor_name || (
+                          <span className="text-orange-600 text-xs">
+                            {language === 'ar' ? 'فارغ' : 'Empty'}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {!line.vendor_name ? (
+                          <span title={language === 'ar' ? 'المورد فارغ' : 'Vendor empty'}>
+                            <AlertTriangle className="h-4 w-4 text-orange-500 mx-auto" />
+                          </span>
+                        ) : line.supplier_found ? (
+                          <span title={line.supplier_code || ''}>
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />
+                          </span>
+                        ) : (
+                          <span title={language === 'ar' ? 'غير موجود في الموردين' : 'Not in suppliers table'}>
+                            <XCircle className="h-4 w-4 text-destructive mx-auto" />
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {line.product_sku || line.product_id || (
+                          <span className="text-orange-600">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center text-sm">{line.qty ?? '-'}</TableCell>
+                      <TableCell className="text-right text-sm">{line.total?.toFixed(2) ?? '-'}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
