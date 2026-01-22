@@ -10,6 +10,13 @@ interface SupplierCheckResult {
   error?: string;
 }
 
+interface VendorIssue {
+  vendor_name: string;
+  supplier_code?: string;
+  partner_profile_id?: number | null;
+  error?: string;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -17,6 +24,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Parse request body to get optional vendor_names
+    let vendorNames: string[] = [];
+    try {
+      const body = await req.json();
+      vendorNames = body?.vendor_names || [];
+    } catch {
+      // No body or invalid JSON - proceed with all suppliers check
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -44,6 +60,7 @@ Deno.serve(async (req) => {
 
     console.log(`Using environment: ${isProductionMode ? 'Production' : 'Test'}`);
     console.log(`Supplier API URL: ${supplierApiUrl}`);
+    console.log(`Checking for ${vendorNames.length} specific vendors from orders`);
 
     if (!supplierApiUrl || !odooApiKey) {
       return new Response(
@@ -52,11 +69,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get suppliers with partner_profile_id from database
-    const { data: suppliers, error: suppliersError } = await supabase
+    // Get all suppliers from database
+    const { data: allSuppliers, error: suppliersError } = await supabase
       .from('suppliers')
       .select('supplier_code, supplier_name, partner_profile_id')
-      .not('partner_profile_id', 'is', null)
       .order('supplier_name');
 
     if (suppliersError) {
@@ -67,14 +83,126 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Checking ${suppliers?.length || 0} suppliers with Odoo IDs`);
+    // If vendor_names provided, check specifically those vendors
+    if (vendorNames.length > 0) {
+      const missingSupplierRecord: VendorIssue[] = [];
+      const missingOdooId: VendorIssue[] = [];
+      const notInOdoo: VendorIssue[] = [];
+      const inOdoo: VendorIssue[] = [];
+
+      // Normalize function to compare names
+      const normalize = (str: string) => str?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
+
+      for (const vendorName of vendorNames) {
+        if (!vendorName) continue;
+
+        const normalizedVendor = normalize(vendorName);
+        
+        // Find matching supplier
+        const matchingSupplier = allSuppliers?.find(s => {
+          const normalizedSupplierName = normalize(s.supplier_name);
+          const normalizedSupplierCode = normalize(s.supplier_code);
+          return normalizedSupplierName === normalizedVendor || 
+                 normalizedSupplierCode === normalizedVendor ||
+                 normalizedSupplierName.includes(normalizedVendor) ||
+                 normalizedVendor.includes(normalizedSupplierName);
+        });
+
+        if (!matchingSupplier) {
+          // Vendor has no supplier record
+          console.log(`Vendor "${vendorName}" has no supplier record`);
+          missingSupplierRecord.push({ vendor_name: vendorName });
+          continue;
+        }
+
+        if (!matchingSupplier.partner_profile_id) {
+          // Supplier exists but has no Odoo ID
+          console.log(`Vendor "${vendorName}" found as supplier "${matchingSupplier.supplier_name}" but missing Odoo ID`);
+          missingOdooId.push({
+            vendor_name: vendorName,
+            supplier_code: matchingSupplier.supplier_code,
+          });
+          continue;
+        }
+
+        // Check if supplier exists in Odoo
+        try {
+          const checkUrl = `${supplierApiUrl}/${matchingSupplier.partner_profile_id}`;
+          console.log(`Checking supplier "${matchingSupplier.supplier_name}" (ID: ${matchingSupplier.partner_profile_id}) at: ${checkUrl}`);
+
+          const response = await fetch(checkUrl, {
+            method: 'PUT',
+            headers: {
+              'Authorization': odooApiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          const responseText = await response.text();
+          let responseData: any = null;
+          try {
+            responseData = JSON.parse(responseText);
+          } catch {
+            responseData = { raw: responseText };
+          }
+
+          if (response.ok && responseData?.success !== false && !responseData?.error) {
+            inOdoo.push({
+              vendor_name: vendorName,
+              supplier_code: matchingSupplier.supplier_code,
+              partner_profile_id: matchingSupplier.partner_profile_id,
+            });
+          } else {
+            notInOdoo.push({
+              vendor_name: vendorName,
+              supplier_code: matchingSupplier.supplier_code,
+              partner_profile_id: matchingSupplier.partner_profile_id,
+              error: responseData?.error || responseData?.message || 'Not found in Odoo',
+            });
+          }
+        } catch (err: any) {
+          console.error(`Error checking supplier ${matchingSupplier.supplier_name}:`, err);
+          notInOdoo.push({
+            vendor_name: vendorName,
+            supplier_code: matchingSupplier.supplier_code,
+            partner_profile_id: matchingSupplier.partner_profile_id,
+            error: err.message || 'Network error',
+          });
+        }
+      }
+
+      const totalVendors = vendorNames.filter(Boolean).length;
+      const readyCount = inOdoo.length;
+      const issueCount = missingSupplierRecord.length + missingOdooId.length + notInOdoo.length;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          environment: isProductionMode ? 'Production' : 'Test',
+          total_vendors_in_orders: totalVendors,
+          ready_count: readyCount,
+          issue_count: issueCount,
+          all_suppliers_ready: issueCount === 0,
+          missing_supplier_record: missingSupplierRecord,
+          missing_odoo_id: missingOdooId,
+          not_in_odoo: notInOdoo,
+          in_odoo: inOdoo,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Original behavior: check all suppliers with partner_profile_id
+    const suppliersWithId = allSuppliers?.filter(s => s.partner_profile_id) || [];
+    
+    console.log(`Checking ${suppliersWithId.length} suppliers with Odoo IDs`);
 
     const results: SupplierCheckResult[] = [];
     const notInOdoo: SupplierCheckResult[] = [];
     const inOdoo: SupplierCheckResult[] = [];
 
     // Check each supplier in Odoo using PUT /api/partners/{partner_profile_id}
-    for (const supplier of suppliers || []) {
+    for (const supplier of suppliersWithId) {
       const result: SupplierCheckResult = {
         supplier_code: supplier.supplier_code,
         supplier_name: supplier.supplier_name,
