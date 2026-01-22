@@ -210,8 +210,13 @@ export function OdooSyncRunDetailsDialog({
           const vendorMap: Record<string, string> = {};
           const paymentMethodMap: Record<string, string> = {};
           const qtyMap: Record<string, number> = {};
-          
-          for (const tx of txResult.data as { order_number: string; vendor_name: string | null; payment_method: string | null; qty: number | null }[]) {
+
+          for (const tx of txResult.data as {
+            order_number: string;
+            vendor_name: string | null;
+            payment_method: string | null;
+            qty: number | null;
+          }[]) {
             if (tx.vendor_name && !vendorMap[tx.order_number]) {
               vendorMap[tx.order_number] = tx.vendor_name;
             }
@@ -220,46 +225,43 @@ export function OdooSyncRunDetailsDialog({
             }
             qtyMap[tx.order_number] = (qtyMap[tx.order_number] || 0) + (tx.qty || 0);
           }
-          
-          // Get supplier codes for vendor names
+
+          // Supplier code lookup is optional (vendor_name may be missing)
           const vendorNames = [...new Set(Object.values(vendorMap))];
+          let supplierMap: Record<string, string> = {};
           if (vendorNames.length > 0) {
             const supplierResult: any = await supabase
               .from("suppliers")
               .select("supplier_name, supplier_code")
               .in("supplier_name", vendorNames);
-            
-            const supplierMap: Record<string, string> = {};
+
             if (supplierResult.data) {
               for (const s of supplierResult.data as { supplier_name: string; supplier_code: string }[]) {
                 supplierMap[s.supplier_name] = s.supplier_code;
               }
             }
-            
-            // Attach vendor/supplier/payment/qty info to rows
-            for (const row of detailRows) {
-              // Check if this is an aggregated order
-              const originalOrders = aggregateToOriginalMap[row.order_number];
-              if (originalOrders && originalOrders.length > 0) {
-                // Get data from first original order for vendor/payment
-                const firstOriginal = originalOrders[0];
-                const vendorName = vendorMap[firstOriginal];
-                if (vendorName) {
-                  row.vendor_name = vendorName;
-                  row.supplier_code = supplierMap[vendorName] || null;
-                }
-                row.payment_method = paymentMethodMap[firstOriginal] || null;
-                // Sum qty from all original orders
-                row.total_qty = originalOrders.reduce((sum, on) => sum + (qtyMap[on] || 0), 0);
-              } else {
-                const vendorName = vendorMap[row.order_number];
-                if (vendorName) {
-                  row.vendor_name = vendorName;
-                  row.supplier_code = supplierMap[vendorName] || null;
-                }
-                row.payment_method = paymentMethodMap[row.order_number] || null;
-                row.total_qty = qtyMap[row.order_number] || null;
+          }
+
+          // Attach vendor/supplier/payment/qty info to rows (always, even if vendor_name is missing)
+          for (const row of detailRows) {
+            const originalOrders = aggregateToOriginalMap[row.order_number];
+            if (originalOrders && originalOrders.length > 0) {
+              const firstOriginal = originalOrders[0];
+              const vendorName = vendorMap[firstOriginal];
+              if (vendorName) {
+                row.vendor_name = vendorName;
+                row.supplier_code = supplierMap[vendorName] || null;
               }
+              row.payment_method = paymentMethodMap[firstOriginal] || row.payment_method || null;
+              row.total_qty = originalOrders.reduce((sum, on) => sum + (qtyMap[on] || 0), 0);
+            } else {
+              const vendorName = vendorMap[row.order_number];
+              if (vendorName) {
+                row.vendor_name = vendorName;
+                row.supplier_code = supplierMap[vendorName] || null;
+              }
+              row.payment_method = paymentMethodMap[row.order_number] || row.payment_method || null;
+              row.total_qty = qtyMap[row.order_number] || null;
             }
           }
         }
