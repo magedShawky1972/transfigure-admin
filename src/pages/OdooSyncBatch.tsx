@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -270,6 +270,10 @@ const OdooSyncBatch = () => {
   } | null>(null);
   const [showSuppliersDialog, setShowSuppliersDialog] = useState(false);
   const [supplierCheckDone, setSupplierCheckDone] = useState(false);
+  
+  // Invoice detail dialog state
+  const [showInvoiceDetailDialog, setShowInvoiceDetailDialog] = useState(false);
+  const [selectedInvoiceDetail, setSelectedInvoiceDetail] = useState<AggregatedInvoice | null>(null);
 
   // Filter states
   const [filterBrand, setFilterBrand] = useState<string>('');
@@ -2437,6 +2441,7 @@ const OdooSyncBatch = () => {
                         disabled={isSyncing}
                       />
                     </TableHead>
+                    <TableHead className="w-12"></TableHead>
                     <TableHead>{language === 'ar' ? 'رقم الفاتورة' : 'Invoice Number'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'عدد الطلبات' : 'Lines'}</TableHead>
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
@@ -2470,6 +2475,28 @@ const OdooSyncBatch = () => {
                           onCheckedChange={(checked) => handleSelectAggregatedRow(invoice.orderNumber, checked as boolean)}
                           disabled={isSyncing}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  setSelectedInvoiceDetail(invoice);
+                                  setShowInvoiceDetailDialog(true);
+                                }}
+                              >
+                                <FileText className="h-4 w-4 text-primary" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{invoice.orderNumber}</TableCell>
                       <TableCell className="text-center">
@@ -2539,7 +2566,7 @@ const OdooSyncBatch = () => {
                   ))}
                   {/* Grand Total Row */}
                   <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
-                    <TableCell colSpan={7} className="text-right">
+                    <TableCell colSpan={8} className="text-right">
                       {language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}
                       <span className="text-muted-foreground font-normal mx-2">
                         ({filteredAggregatedInvoices.length} {language === 'ar' ? 'فاتورة' : 'invoices'})
@@ -3167,6 +3194,145 @@ const OdooSyncBatch = () => {
               )}
             </div>
             <Button onClick={() => setShowSuppliersDialog(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Detail Dialog */}
+      <Dialog open={showInvoiceDetailDialog} onOpenChange={setShowInvoiceDetailDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {language === 'ar' ? 'تفاصيل الفاتورة المجمعة' : 'Aggregated Invoice Details'}
+              {selectedInvoiceDetail && (
+                <Badge variant="outline" className="font-mono ml-2">
+                  {selectedInvoiceDetail.orderNumber}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedInvoiceDetail && (
+            <ScrollArea className="max-h-[70vh]">
+              <div className="space-y-6">
+                {/* Invoice Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{language === 'ar' ? 'التاريخ' : 'Date'}</p>
+                    <p className="font-medium">{selectedInvoiceDetail.date ? format(parseISO(selectedInvoiceDetail.date), 'yyyy-MM-dd') : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</p>
+                    <p className="font-medium">{selectedInvoiceDetail.brandName || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</p>
+                    <p className="font-medium">{selectedInvoiceDetail.paymentMethod}/{selectedInvoiceDetail.paymentBrand}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{language === 'ar' ? 'المستخدم' : 'User'}</p>
+                    <p className="font-medium text-primary">{selectedInvoiceDetail.userName || '-'}</p>
+                  </div>
+                </div>
+
+                {/* Product Lines Section */}
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    {language === 'ar' ? 'المنتجات المجمعة' : 'Aggregated Products'}
+                    <Badge variant="secondary">{selectedInvoiceDetail.productLines.length}</Badge>
+                  </h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{language === 'ar' ? 'SKU' : 'SKU'}</TableHead>
+                        <TableHead>{language === 'ar' ? 'اسم المنتج' : 'Product Name'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedInvoiceDetail.productLines.map((line, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-mono text-xs">{line.productSku}</TableCell>
+                          <TableCell className="max-w-[200px] truncate" title={line.productName}>{line.productName}</TableCell>
+                          <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{line.totalQty}</TableCell>
+                          <TableCell className="text-right font-medium">{line.totalAmount.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-primary/5 font-bold">
+                        <TableCell colSpan={4} className="text-right">
+                          {language === 'ar' ? 'الإجمالي' : 'Total'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {selectedInvoiceDetail.grandTotal.toFixed(2)} SAR
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Original Orders Section */}
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    {language === 'ar' ? 'الطلبات الأصلية' : 'Original Orders'}
+                    <Badge variant="secondary">{selectedInvoiceDetail.originalOrderNumbers.length}</Badge>
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedInvoiceDetail.originalOrderNumbers.map((orderNum, idx) => (
+                      <Badge key={idx} variant="outline" className="font-mono text-xs">
+                        {orderNum}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Original Lines Details */}
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    {language === 'ar' ? 'تفاصيل المعاملات الأصلية' : 'Original Transaction Details'}
+                    <Badge variant="secondary">{selectedInvoiceDetail.originalLines.length}</Badge>
+                  </h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Order #'}</TableHead>
+                        <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                        <TableHead>{language === 'ar' ? 'البائع' : 'Vendor'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedInvoiceDetail.originalLines.map((line, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-mono text-xs">{line.order_number}</TableCell>
+                          <TableCell className="max-w-[150px] truncate text-xs" title={line.product_name}>
+                            {line.product_name}
+                          </TableCell>
+                          <TableCell className="text-xs">{line.vendor_name || '-'}</TableCell>
+                          <TableCell className="text-right">{line.qty}</TableCell>
+                          <TableCell className="text-right">{line.unit_price.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-medium">{line.total.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </ScrollArea>
+          )}
+          
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={() => setShowInvoiceDetailDialog(false)}>
               {language === 'ar' ? 'إغلاق' : 'Close'}
             </Button>
           </div>
