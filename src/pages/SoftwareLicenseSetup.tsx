@@ -816,9 +816,10 @@ const SoftwareLicenseSetup = () => {
       return;
     }
 
-    // rate_to_base means how many units of this currency = 1 base currency
-    // So to convert to base: cost / rate_to_base
-    const sarValue = cost / rate.rate_to_base;
+    // rate_to_base means how many base currency units = 1 unit of this currency
+    // So to convert to base: cost * rate_to_base
+    // Example: 1 EGP = 0.079 SAR, so 1008.76 EGP * 0.079 = 79.69 SAR
+    const sarValue = cost * rate.rate_to_base;
     setEditingInvoiceData(prev => ({
       ...prev,
       cost_sar: sarValue.toFixed(2)
