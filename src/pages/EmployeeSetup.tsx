@@ -185,6 +185,7 @@ export default function EmployeeSetup() {
   
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchBy, setSearchBy] = useState<"all" | "zk">("all");
   const [viewMode, setViewMode] = useState<"table" | "card">("card");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [filterJob, setFilterJob] = useState<string>("all");
@@ -262,7 +263,7 @@ export default function EmployeeSetup() {
   // Re-sort when language changes
   useEffect(() => {
     if (allEmployees.length > 0) {
-      applyFilters(searchTerm, filterDepartment, filterJob, filterLetter);
+      applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy);
     }
   }, [language]);
 
@@ -471,22 +472,29 @@ export default function EmployeeSetup() {
     term: string, 
     department: string, 
     job: string, 
-    letter: string
+    letter: string,
+    searchMode: "all" | "zk"
   ) => {
     let filtered = [...allEmployees];
 
     // Search term filter
     if (term.trim()) {
-      filtered = filtered.filter(
-        (emp) =>
-          emp.employee_number.toLowerCase().includes(term.toLowerCase()) ||
-          emp.first_name.toLowerCase().includes(term.toLowerCase()) ||
-          emp.last_name.toLowerCase().includes(term.toLowerCase()) ||
+      const t = term.toLowerCase();
+      filtered = filtered.filter((emp) => {
+        if (searchMode === "zk") {
+          return !!emp.zk_employee_code && emp.zk_employee_code.toLowerCase().includes(t);
+        }
+
+        return (
+          emp.employee_number.toLowerCase().includes(t) ||
+          emp.first_name.toLowerCase().includes(t) ||
+          emp.last_name.toLowerCase().includes(t) ||
           (emp.first_name_ar && emp.first_name_ar.includes(term)) ||
           (emp.last_name_ar && emp.last_name_ar.includes(term)) ||
-          emp.email?.toLowerCase().includes(term.toLowerCase()) ||
-          (emp.zk_employee_code && emp.zk_employee_code.toLowerCase().includes(term.toLowerCase()))
-      );
+          emp.email?.toLowerCase().includes(t) ||
+          (emp.zk_employee_code && emp.zk_employee_code.toLowerCase().includes(t))
+        );
+      });
     }
 
     // Department filter
@@ -525,23 +533,28 @@ export default function EmployeeSetup() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    applyFilters(term, filterDepartment, filterJob, filterLetter);
+    applyFilters(term, filterDepartment, filterJob, filterLetter, searchBy);
+  };
+
+  const handleSearchByChange = (mode: "all" | "zk") => {
+    setSearchBy(mode);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, mode);
   };
 
   const handleDepartmentFilter = (dept: string) => {
     setFilterDepartment(dept);
-    applyFilters(searchTerm, dept, filterJob, filterLetter);
+    applyFilters(searchTerm, dept, filterJob, filterLetter, searchBy);
   };
 
   const handleJobFilter = (job: string) => {
     setFilterJob(job);
-    applyFilters(searchTerm, filterDepartment, job, filterLetter);
+    applyFilters(searchTerm, filterDepartment, job, filterLetter, searchBy);
   };
 
   const handleLetterFilter = (letter: string) => {
     const newLetter = filterLetter === letter ? "" : letter;
     setFilterLetter(newLetter);
-    applyFilters(searchTerm, filterDepartment, filterJob, newLetter);
+    applyFilters(searchTerm, filterDepartment, filterJob, newLetter, searchBy);
   };
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1031,12 +1044,31 @@ export default function EmployeeSetup() {
               <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder={language === "ar" ? "بحث..." : "Search..."}
+                  placeholder={
+                    language === "ar"
+                      ? searchBy === "zk"
+                        ? "بحث برمز الحضور..."
+                        : "بحث..."
+                      : searchBy === "zk"
+                        ? "Search by ZK code..."
+                        : "Search..."
+                  }
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="pl-10"
                 />
               </div>
+
+              {/* Search Mode */}
+              <Select value={searchBy} onValueChange={(v) => handleSearchByChange(v as "all" | "zk")}>
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue placeholder={language === "ar" ? "نوع البحث" : "Search by"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "كل الحقول" : "All fields"}</SelectItem>
+                  <SelectItem value="zk">{language === "ar" ? "رمز الحضور (ZK)" : "ZK attendance code"}</SelectItem>
+                </SelectContent>
+              </Select>
               
               {/* Department Filter */}
               <Select value={filterDepartment} onValueChange={handleDepartmentFilter}>
