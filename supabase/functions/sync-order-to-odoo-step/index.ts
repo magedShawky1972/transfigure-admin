@@ -924,7 +924,10 @@ Deno.serve(async (req) => {
         };
 
         try {
-          console.log("Creating purchase order with payload:", JSON.stringify(purchasePayload));
+          console.log(
+            `[sync-order-to-odoo-step] PURCHASE POST -> ${purchaseApiUrl} for order ${firstTransaction.order_number}`
+          );
+          console.log(`[sync-order-to-odoo-step] PURCHASE payload:`, JSON.stringify(purchasePayload));
           
           const purchaseResponse = await fetch(purchaseApiUrl, {
             method: "POST",
@@ -935,15 +938,30 @@ Deno.serve(async (req) => {
             body: JSON.stringify(purchasePayload),
           });
 
-          if (purchaseResponse.ok) {
-            const data = await purchaseResponse.json();
+          const purchaseText = await purchaseResponse.text();
+          console.log(`[sync-order-to-odoo-step] PURCHASE response status: ${purchaseResponse.status}`);
+          console.log(`[sync-order-to-odoo-step] PURCHASE response body: ${purchaseText}`);
+
+          let data: any = null;
+          try {
+            data = JSON.parse(purchaseText);
+          } catch {
+            data = { raw: purchaseText };
+          }
+
+          // Check if Odoo returned an error in the response body (even with HTTP 200)
+          if (data?.error || data?.success === false) {
+            result.success = false;
+            result.error = data.error?.error || data.error || data.message || `Failed to create purchase order: ${purchaseText}`;
+            result.details = data;
+          } else if (purchaseResponse.ok) {
             result.success = true;
             result.message = `Purchase order created for ${nonStockProducts.length} non-stock product(s)`;
             result.details = data;
           } else {
-            const errorText = await purchaseResponse.text();
             result.success = false;
-            result.error = `Failed to create purchase order: ${errorText}`;
+            result.error = `Failed to create purchase order: ${purchaseText}`;
+            result.details = data;
           }
         } catch (err: any) {
           result.success = false;
