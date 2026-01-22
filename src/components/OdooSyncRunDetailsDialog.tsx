@@ -34,6 +34,7 @@ export type OdooSyncRunLite = {
 type DetailRow = {
   id: string;
   order_number: string;
+  order_date?: string | null;
   sync_status: string;
   error_message: string | null;
   step_customer: string | null;
@@ -138,7 +139,7 @@ export function OdooSyncRunDetailsDialog({
       const result: any = await supabase
         .from("odoo_sync_run_details")
         .select(
-          "id, order_number, sync_status, error_message, step_customer, step_brand, step_product, step_order, step_purchase, product_names, payment_method, payment_brand"
+          "id, order_number, order_date, sync_status, error_message, step_customer, step_brand, step_product, step_order, step_purchase, product_names, payment_method, payment_brand"
         )
         .eq("run_id", run.id)
         .order("created_at", { ascending: true });
@@ -272,6 +273,58 @@ export function OdooSyncRunDetailsDialog({
               }
               row.payment_method = paymentMethodMap[row.order_number] || row.payment_method || null;
               row.total_qty = qtyMap[row.order_number] || null;
+            }
+          }
+        }
+      }
+      
+      // For orphaned aggregated orders (no mapping, no direct tx match), try to recover data by date
+      const orphanedRows = detailRows.filter(row => 
+        /^\d{12}$/.test(row.order_number) && 
+        !row.original_orders?.length && 
+        !row.payment_method && 
+        row.order_date
+      );
+      
+      if (orphanedRows.length > 0) {
+        // Group by date
+        const dateGroups: Record<string, DetailRow[]> = {};
+        for (const row of orphanedRows) {
+          if (row.order_date) {
+            if (!dateGroups[row.order_date]) dateGroups[row.order_date] = [];
+            dateGroups[row.order_date].push(row);
+          }
+        }
+        
+        // For each date, try to find transactions and match by product names
+        for (const [date, rows] of Object.entries(dateGroups)) {
+          const txByDate: any = await supabase
+            .from("purpletransaction")
+            .select("order_number, product_name, payment_method, qty")
+            .eq("created_at_date", date)
+            .limit(500);
+          
+          if (txByDate.data && txByDate.data.length > 0) {
+            for (const row of rows) {
+              // Try to match by product_names field
+              if (row.product_names) {
+                const rowProducts = row.product_names.split(",").map((p: string) => p.trim().toLowerCase());
+                const matchedTxs = txByDate.data.filter((tx: any) => 
+                  tx.product_name && rowProducts.some((rp: string) => 
+                    tx.product_name.toLowerCase().includes(rp) || rp.includes(tx.product_name.toLowerCase())
+                  )
+                );
+                
+                if (matchedTxs.length > 0) {
+                  const firstMatch = matchedTxs[0];
+                  if (firstMatch.payment_method && !row.payment_method) {
+                    row.payment_method = firstMatch.payment_method;
+                  }
+                  if (!row.total_qty) {
+                    row.total_qty = matchedTxs.reduce((sum: number, tx: any) => sum + (tx.qty || 0), 0);
+                  }
+                }
+              }
             }
           }
         }
