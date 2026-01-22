@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { History, Loader2, Trash2, RotateCcw } from "lucide-react";
+import { History, Loader2, Trash2, RotateCcw, Play, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
 
 interface OdooSyncRun {
   id: string;
@@ -35,6 +36,7 @@ interface OdooSyncRun {
   failed_orders: number | null;
   skipped_orders: number | null;
   created_at: string;
+  sync_type?: string | null;
 }
 
 type Props = {
@@ -44,6 +46,7 @@ type Props = {
 export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
   language,
 }: Props) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<OdooSyncRun[]>([]);
@@ -52,18 +55,27 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
   const [clearingAll, setClearingAll] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [runToDelete, setRunToDelete] = useState<OdooSyncRun | null>(null);
+  const [resuming, setResuming] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("odoo_sync_runs")
-        .select("*")
+        .select("*, background_sync_jobs(id, status, sync_type)")
         .order("created_at", { ascending: false })
         .limit(100);
 
       if (error) throw error;
-      setHistory(data || []);
+      
+      // Map sync_type from related background_sync_jobs if available
+      const mappedHistory = (data || []).map((run: any) => ({
+        ...run,
+        sync_type: run.background_sync_jobs?.[0]?.sync_type || null,
+      }));
+      
+      setHistory(mappedHistory);
     } catch (error) {
       console.error("Error fetching Odoo sync history:", error);
       toast({
@@ -218,6 +230,127 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
     }
   }, [language]);
 
+  const handleContinueRun = useCallback(async (run: OdooSyncRun) => {
+    setResuming(run.id);
+    try {
+      // Get or create a background job for this run
+      const { data: existingJob } = await supabase
+        .from("background_sync_jobs")
+        .select("id, status, sync_type")
+        .eq("sync_run_id", run.id)
+        .single();
+
+      if (existingJob) {
+        // Resume existing job
+        const isAggregated = existingJob.sync_type === 'aggregated';
+        const functionName = isAggregated ? 'sync-aggregated-orders-background' : 'sync-orders-background';
+        
+        await supabase
+          .from("background_sync_jobs")
+          .update({ status: "running", force_kill: false })
+          .eq("id", existingJob.id);
+
+        const { error } = await supabase.functions.invoke(functionName, {
+          body: {
+            jobId: existingJob.id,
+            fromDate: run.from_date,
+            toDate: run.to_date,
+          },
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: language === "ar" ? "تم استئناف المزامنة" : "Sync Resumed",
+          description: language === "ar" 
+            ? "جاري استكمال عملية المزامنة"
+            : "Continuing the sync operation",
+        });
+      } else {
+        // Navigate to sync page with the date range
+        setOpen(false);
+        navigate(`/odoo-sync-batch?from=${run.from_date}&to=${run.to_date}&resume=true`);
+      }
+    } catch (error) {
+      console.error("Error resuming sync:", error);
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" 
+          ? "فشل في استئناف المزامنة"
+          : "Failed to resume sync",
+      });
+    } finally {
+      setResuming(null);
+    }
+  }, [language, navigate]);
+
+  const handleRetryErrors = useCallback(async (run: OdooSyncRun) => {
+    setRetrying(run.id);
+    try {
+      // Get failed details for this run using run_id column
+      const query = supabase
+        .from("odoo_sync_run_details")
+        .select("id, order_number")
+        .eq("run_id", run.id)
+        .eq("sync_status", "failed");
+
+      const { data, error: fetchError } = await query;
+      const failedDetails = data as { id: string; order_number: string }[] | null;
+      if (fetchError) throw fetchError;
+
+      if (!failedDetails || failedDetails.length === 0) {
+        toast({
+          title: language === "ar" ? "لا توجد أخطاء" : "No Errors",
+          description: language === "ar"
+            ? "لا توجد طلبات فاشلة لإعادة المحاولة"
+            : "No failed orders to retry",
+        });
+        return;
+      }
+
+      // Retry each failed detail
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const detail of failedDetails) {
+        try {
+          const { error } = await supabase.functions.invoke("retry-odoo-sync-detail", {
+            body: { detailId: detail.id, retryType: "all" },
+          });
+          if (error) {
+            errorCount++;
+          } else {
+            successCount++;
+          }
+        } catch {
+          errorCount++;
+        }
+      }
+
+      // Refresh history
+      await fetchHistory();
+
+      toast({
+        title: language === "ar" ? "اكتملت إعادة المحاولة" : "Retry Complete",
+        description: language === "ar"
+          ? `نجح: ${successCount}، فشل: ${errorCount}`
+          : `Success: ${successCount}, Failed: ${errorCount}`,
+      });
+    } catch (error) {
+      console.error("Error retrying failed orders:", error);
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar"
+          ? "فشل في إعادة محاولة الطلبات الفاشلة"
+          : "Failed to retry failed orders",
+      });
+    } finally {
+      setRetrying(null);
+    }
+  }, [language, fetchHistory]);
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
@@ -236,6 +369,12 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
         return (
           <Badge variant="destructive">
             {language === "ar" ? "فشل" : "Failed"}
+          </Badge>
+        );
+      case "paused":
+        return (
+          <Badge className="bg-yellow-600 text-white">
+            {language === "ar" ? "متوقف" : "Paused"}
           </Badge>
         );
       default:
@@ -327,19 +466,58 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
                         </span>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
-                      onClick={() => handleDeleteClick(run)}
-                      disabled={deleting === run.id}
-                    >
-                      {deleting === run.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
+                    <div className="flex items-center gap-1">
+                      {/* Continue/Resume button for paused or incomplete runs */}
+                      {(run.status === "paused" || run.status === "running" || 
+                        (run.status === "completed" && (run.successful_orders || 0) < (run.total_orders || 0) && (run.failed_orders || 0) === 0)) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                          onClick={() => handleContinueRun(run)}
+                          disabled={resuming === run.id}
+                          title={language === "ar" ? "استئناف" : "Continue"}
+                        >
+                          {resuming === run.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                      
+                      {/* Retry Errors button for runs with failed orders */}
+                      {(run.failed_orders || 0) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-100"
+                          onClick={() => handleRetryErrors(run)}
+                          disabled={retrying === run.id}
+                          title={language === "ar" ? "إعادة المحاولة" : "Retry Errors"}
+                        >
+                          {retrying === run.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                        onClick={() => handleDeleteClick(run)}
+                        disabled={deleting === run.id}
+                      >
+                        {deleting === run.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
