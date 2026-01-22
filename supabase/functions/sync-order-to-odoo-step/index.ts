@@ -891,11 +891,16 @@ Deno.serve(async (req) => {
           }
         };
 
+        // Priority 1: Check if supplier_code was passed directly (from UI selection)
+        // Priority 2: Lookup by vendor_name in suppliers table
         const headerSupplierCode =
+          nonStockProducts.find((t: Transaction) => (t as any).supplier_code)?.supplier_code as string ||
           nonStockProducts
             .flatMap((t: Transaction) => splitVendorCandidates(t.vendor_name))
             .map((c: string) => supplierCodeMap.get(normalizeKey(c)))
             .find((v: string | undefined) => Boolean(v)) || "";
+        
+        console.log(`[sync-order-to-odoo-step] Purchase: headerSupplierCode resolved to: "${headerSupplierCode}"`);
 
         const purchasePayload = {
           order_number: firstTransaction.order_number,

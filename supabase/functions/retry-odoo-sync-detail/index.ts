@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { detailId, retryType } = await req.json();
+    const { detailId, retryType, supplierCode } = await req.json();
     if (!detailId) {
       return new Response(JSON.stringify({ success: false, error: "Missing detailId" }), {
         status: 400,
@@ -86,7 +86,12 @@ Deno.serve(async (req) => {
     }
     
     // retryType can be: 'all' (default), 'order', or 'purchase'
+    // supplierCode is optional - passed from UI when user selects a supplier from dropdown
     const retry = retryType || 'all';
+    
+    if (supplierCode) {
+      console.log(`[retry-odoo-sync-detail] Received supplierCode from UI: ${supplierCode}`);
+    }
 
     const { data: detail, error: detailError } = await supabase
       .from("odoo_sync_run_details")
@@ -337,7 +342,16 @@ Deno.serve(async (req) => {
 
       if (nonStockItems.length > 0) {
         const nonStockProductIds = nonStockItems.map((p: any) => p.product_id);
-        const nonStockProducts = formattedTransactions.filter((t) => nonStockProductIds.includes(t.product_id));
+        let nonStockProducts = formattedTransactions.filter((t) => nonStockProductIds.includes(t.product_id));
+
+        // If supplierCode was passed from UI, add it to non-stock products
+        if (supplierCode) {
+          console.log(`[retry-odoo-sync-detail] Using supplier code from UI: ${supplierCode}`);
+          nonStockProducts = nonStockProducts.map((t) => ({
+            ...t,
+            supplier_code: supplierCode,
+          }));
+        }
 
         const { data: purchaseResult, error: purchaseStepError } = await supabase.functions.invoke("sync-order-to-odoo-step", {
           body: { step: "purchase", transactions: formattedTransactions, nonStockProducts },
