@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -257,6 +257,17 @@ const OdooSyncBatch = () => {
   const [separateByDay, setSeparateByDay] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
 
+  // Supplier check states
+  const [checkingSuppliers, setCheckingSuppliers] = useState(false);
+  const [suppliersNotInOdoo, setSuppliersNotInOdoo] = useState<Array<{
+    supplier_code: string;
+    supplier_name: string;
+    partner_profile_id: number | null;
+    error?: string;
+  }>>([]);
+  const [showSuppliersDialog, setShowSuppliersDialog] = useState(false);
+  const [supplierCheckDone, setSupplierCheckDone] = useState(false);
+
   // Filter states
   const [filterBrand, setFilterBrand] = useState<string>('');
   const [filterProduct, setFilterProduct] = useState<string>('');
@@ -451,6 +462,52 @@ const OdooSyncBatch = () => {
       });
     } finally {
       setLoadingRunDetails(false);
+    }
+  };
+
+  // Check suppliers in Odoo
+  const checkSuppliersInOdoo = async () => {
+    setCheckingSuppliers(true);
+    setSuppliersNotInOdoo([]);
+    setSupplierCheckDone(false);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('check-suppliers-odoo');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        setSuppliersNotInOdoo(data.not_in_odoo || []);
+        setSupplierCheckDone(true);
+        
+        if (data.not_in_odoo?.length > 0) {
+          toast({
+            variant: 'destructive',
+            title: language === 'ar' ? 'موردين غير موجودين في Odoo' : 'Suppliers Not in Odoo',
+            description: language === 'ar' 
+              ? `${data.not_in_odoo.length} مورد غير موجود في Odoo`
+              : `${data.not_in_odoo.length} supplier(s) not found in Odoo`,
+          });
+        } else {
+          toast({
+            title: language === 'ar' ? 'تم' : 'Success',
+            description: language === 'ar' 
+              ? 'جميع الموردين موجودين في Odoo'
+              : 'All suppliers exist in Odoo',
+          });
+        }
+      } else {
+        throw new Error(data?.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Error checking suppliers:', error);
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل التحقق من الموردين' : 'Failed to check suppliers',
+      });
+    } finally {
+      setCheckingSuppliers(false);
     }
   };
 
@@ -1820,7 +1877,23 @@ const OdooSyncBatch = () => {
     const ordersCreated = sourceData.filter(g => g.stepStatus.order === 'sent').length;
     const purchasesCreated = sourceData.filter(g => g.stepStatus.purchase === 'created').length;
     
-    return { total, success, failed, skipped, customersCreated, brandsCreated, productsCreated, ordersCreated, purchasesCreated };
+    // Calculate total sales and purchase orders count
+    let totalSales = 0;
+    let totalPurchaseOrders = 0;
+    
+    if (aggregateMode && aggregatedInvoices.length > 0) {
+      totalSales = aggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+      totalPurchaseOrders = aggregatedInvoices.filter(inv => inv.hasNonStock).length;
+    } else {
+      totalSales = orderGroups.reduce((sum, g) => sum + g.totalAmount, 0);
+      totalPurchaseOrders = orderGroups.filter(g => g.hasNonStock).length;
+    }
+    
+    return { 
+      total, success, failed, skipped, 
+      customersCreated, brandsCreated, productsCreated, ordersCreated, purchasesCreated,
+      totalSales, totalPurchaseOrders
+    };
   }, [orderGroups, aggregatedInvoices, aggregateMode]);
 
   // Get failed orders for dialog (keep as OrderGroup for display purposes)
@@ -2080,6 +2153,87 @@ const OdooSyncBatch = () => {
           </div>
         </div>
       )}
+
+      {/* Summary Cards - Always visible */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-blue-500/30 bg-blue-500/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-blue-500" />
+              <div>
+                <div className="text-2xl font-bold text-blue-500">
+                  {summary.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'إجمالي المبيعات' : 'Total Sales'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-indigo-500/30 bg-indigo-500/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <Hash className="h-5 w-5 text-indigo-500" />
+              <div>
+                <div className="text-2xl font-bold text-indigo-500">{summary.total}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'عدد الطلبات' : 'Total Count'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-cyan-500/30 bg-cyan-500/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-cyan-500" />
+              <div>
+                <div className="text-2xl font-bold text-cyan-500">{summary.totalPurchaseOrders}</div>
+                <p className="text-muted-foreground text-sm">{language === 'ar' ? 'أوامر الشراء' : 'Purchase Orders'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card 
+          className={cn(
+            "border-amber-500/30 bg-amber-500/5 cursor-pointer hover:border-amber-500/50 transition-colors",
+            suppliersNotInOdoo.length > 0 && "border-destructive/50"
+          )}
+          onClick={() => {
+            if (supplierCheckDone) {
+              setShowSuppliersDialog(true);
+            } else {
+              checkSuppliersInOdoo();
+            }
+          }}
+        >
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              {checkingSuppliers ? (
+                <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
+              ) : suppliersNotInOdoo.length > 0 ? (
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              ) : (
+                <Users className="h-5 w-5 text-amber-500" />
+              )}
+              <div>
+                <div className={cn(
+                  "text-2xl font-bold",
+                  suppliersNotInOdoo.length > 0 ? "text-destructive" : "text-amber-500"
+                )}>
+                  {checkingSuppliers 
+                    ? (language === 'ar' ? '...' : '...') 
+                    : supplierCheckDone 
+                      ? suppliersNotInOdoo.length 
+                      : (language === 'ar' ? 'تحقق' : 'Check')}
+                </div>
+                <p className="text-muted-foreground text-sm">
+                  {supplierCheckDone 
+                    ? (language === 'ar' ? 'موردين غير موجودين' : 'Suppliers Missing')
+                    : (language === 'ar' ? 'تحقق من الموردين' : 'Check Suppliers')}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Orders table */}
       <Card>
@@ -2730,6 +2884,66 @@ const OdooSyncBatch = () => {
               </Table>
             </ScrollArea>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Suppliers Not in Odoo Dialog */}
+      <Dialog open={showSuppliersDialog} onOpenChange={setShowSuppliersDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              {language === 'ar' ? 'الموردين غير الموجودين في Odoo' : 'Suppliers Not Found in Odoo'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {suppliersNotInOdoo.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
+              <p>{language === 'ar' ? 'جميع الموردين موجودين في Odoo' : 'All suppliers exist in Odoo'}</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'كود المورد' : 'Supplier Code'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'اسم المورد' : 'Supplier Name'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'معرف Odoo' : 'Odoo ID'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suppliersNotInOdoo.map((supplier, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-mono">{supplier.supplier_code}</TableCell>
+                      <TableCell>{supplier.supplier_name}</TableCell>
+                      <TableCell>{supplier.partner_profile_id || '-'}</TableCell>
+                      <TableCell className="text-destructive text-sm">{supplier.error || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
+          
+          <div className="flex justify-between items-center pt-4">
+            <Button 
+              variant="outline" 
+              onClick={checkSuppliersInOdoo}
+              disabled={checkingSuppliers}
+            >
+              {checkingSuppliers ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              {language === 'ar' ? 'إعادة التحقق' : 'Re-check'}
+            </Button>
+            <Button onClick={() => setShowSuppliersDialog(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
