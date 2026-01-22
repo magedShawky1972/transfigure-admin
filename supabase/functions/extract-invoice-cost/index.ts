@@ -157,17 +157,11 @@ Rules:
           const currencyRate = rates.find(r => r.currency_id === currencyInfo.id);
           
           // Convert to base currency (SAR)
-          // rate_to_base means: amount * rate_to_base = base currency amount
-          // Example: 1 USD * 0.2666 = 0.2666 SAR (if rate is 0.2666)
-          // But typically rate_to_base for USD would be like 3.75 (1 USD = 3.75 SAR)
+          // rate_to_base means: 1 unit of currency = rate_to_base units of base currency
+          // Example: 1 EGP = 0.079 SAR means rate_to_base = 0.079
+          // So to convert: 1008.76 EGP * 0.079 = 79.69 SAR
           if (currencyRate && currencyRate.rate_to_base) {
-            // If rate is less than 1, it's inverse (amount / rate)
-            // If rate is greater than 1, it's direct multiplication
-            if (currencyRate.rate_to_base < 1) {
-              costSar = extractedData.cost / currencyRate.rate_to_base;
-            } else {
-              costSar = extractedData.cost * currencyRate.rate_to_base;
-            }
+            costSar = extractedData.cost * currencyRate.rate_to_base;
           } else if (currencyInfo.is_base) {
             costSar = extractedData.cost;
           } else if (extractedData.currency === "SAR") {
