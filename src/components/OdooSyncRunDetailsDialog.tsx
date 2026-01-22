@@ -8,9 +8,22 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, RotateCcw, ShoppingCart, Package } from "lucide-react";
+
+type Supplier = {
+  id: string;
+  supplier_code: string;
+  supplier_name: string;
+};
 
 export type OdooSyncRunLite = {
   id: string;
@@ -109,6 +122,8 @@ export function OdooSyncRunDetailsDialog({
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<DetailRow[]>([]);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [selectedSuppliers, setSelectedSuppliers] = useState<Record<string, string>>({});
 
   const fetchDetails = useCallback(async () => {
     if (!run) return;
@@ -190,7 +205,21 @@ export function OdooSyncRunDetailsDialog({
   }, [run, language]);
 
   useEffect(() => {
-    if (open) fetchDetails();
+    if (open) {
+      fetchDetails();
+      // Fetch suppliers for dropdown
+      supabase
+        .from("suppliers")
+        .select("id, supplier_code, supplier_name")
+        .eq("status", "active")
+        .order("supplier_name")
+        .then(({ data }) => {
+          setSuppliers((data as Supplier[]) || []);
+        });
+    } else {
+      // Reset selected suppliers when dialog closes
+      setSelectedSuppliers({});
+    }
   }, [open, fetchDetails]);
 
   const computed = useMemo(() => {
@@ -227,13 +256,19 @@ export function OdooSyncRunDetailsDialog({
   };
 
   const retryDetail = useCallback(
-    async (detailId: string, retryType: "all" | "order" | "purchase" = "all") => {
+    async (detailId: string, retryType: "all" | "order" | "purchase" = "all", supplierCode?: string) => {
       setRetryingId(`${detailId}_${retryType}`);
       try {
         const { error } = await supabase.functions.invoke("retry-odoo-sync-detail", {
-          body: { detailId, retryType },
+          body: { detailId, retryType, supplierCode },
         });
         if (error) throw error;
+        // Clear selected supplier for this row after successful retry
+        setSelectedSuppliers(prev => {
+          const next = { ...prev };
+          delete next[detailId];
+          return next;
+        });
         await fetchDetails();
         toast({
           title: language === "ar" ? "تمت إعادة المحاولة" : "Retried",
@@ -382,9 +417,27 @@ export function OdooSyncRunDetailsDialog({
                                 <span className="font-medium">{language === "ar" ? "المورد" : "Vendor"}:</span>{" "}
                                 {r.vendor_name || <span className="text-orange-500">{language === "ar" ? "غير محدد" : "Not set"}</span>}
                               </span>
-                              <span>
+                              <span className="flex items-center gap-2">
                                 <span className="font-medium">{language === "ar" ? "كود المورد" : "Supplier Code"}:</span>{" "}
-                                {r.supplier_code || <span className="text-red-500">{language === "ar" ? "غير موجود" : "Missing"}</span>}
+                                {r.supplier_code ? (
+                                  <span className="text-green-600">{r.supplier_code}</span>
+                                ) : (
+                                  <Select
+                                    value={selectedSuppliers[r.id] || ""}
+                                    onValueChange={(value) => setSelectedSuppliers(prev => ({ ...prev, [r.id]: value }))}
+                                  >
+                                    <SelectTrigger className="w-[180px] h-8 text-sm border-orange-400">
+                                      <SelectValue placeholder={language === "ar" ? "اختر المورد" : "Select Supplier"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {suppliers.map(s => (
+                                        <SelectItem key={s.id} value={s.supplier_code}>
+                                          {s.supplier_name} ({s.supplier_code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
                               </span>
                             </div>
                           </div>
@@ -412,8 +465,9 @@ export function OdooSyncRunDetailsDialog({
                               variant="secondary"
                               size="sm"
                               className="gap-1 text-purple-600"
-                              onClick={() => retryDetail(r.id, "purchase")}
-                              disabled={retryingId !== null}
+                              onClick={() => retryDetail(r.id, "purchase", selectedSuppliers[r.id])}
+                              disabled={retryingId !== null || (!r.supplier_code && !selectedSuppliers[r.id])}
+                              title={!r.supplier_code && !selectedSuppliers[r.id] ? (language === "ar" ? "يرجى اختيار المورد أولاً" : "Please select a supplier first") : ""}
                             >
                               {retryingId === `${r.id}_purchase` ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -461,8 +515,9 @@ export function OdooSyncRunDetailsDialog({
                                 variant="secondary"
                                 size="sm"
                                 className="gap-1 text-purple-600"
-                                onClick={() => retryDetail(r.id, "purchase")}
-                                disabled={retryingId !== null}
+                                onClick={() => retryDetail(r.id, "purchase", selectedSuppliers[r.id])}
+                                disabled={retryingId !== null || (!r.supplier_code && !selectedSuppliers[r.id])}
+                                title={!r.supplier_code && !selectedSuppliers[r.id] ? (language === "ar" ? "يرجى اختيار المورد أولاً" : "Please select a supplier first") : ""}
                               >
                                 {retryingId === `${r.id}_purchase` ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
