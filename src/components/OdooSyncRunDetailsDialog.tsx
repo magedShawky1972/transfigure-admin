@@ -150,25 +150,31 @@ export function OdooSyncRunDetailsDialog({
         .filter(on => aggregatedPattern.test(on));
       
       if (aggregateOrderNumbers.length > 0) {
-        const mappingResult: any = await supabase
-          .from("aggregated_order_mapping")
-          .select("aggregated_order_number, original_order_number")
-          .in("aggregated_order_number", aggregateOrderNumbers);
+        // Batch fetch to avoid 1000-row limit
+        const originalOrdersMap: Record<string, string[]> = {};
+        const batchSize = 50; // Query 50 aggregate orders at a time
         
-        if (mappingResult.data) {
-          const originalOrdersMap: Record<string, string[]> = {};
-          for (const m of mappingResult.data as { aggregated_order_number: string; original_order_number: string }[]) {
-            if (!originalOrdersMap[m.aggregated_order_number]) {
-              originalOrdersMap[m.aggregated_order_number] = [];
-            }
-            originalOrdersMap[m.aggregated_order_number].push(m.original_order_number);
-          }
+        for (let i = 0; i < aggregateOrderNumbers.length; i += batchSize) {
+          const batch = aggregateOrderNumbers.slice(i, i + batchSize);
+          const mappingResult: any = await supabase
+            .from("aggregated_order_mapping")
+            .select("aggregated_order_number, original_order_number")
+            .in("aggregated_order_number", batch);
           
-          // Attach original orders to rows
-          for (const row of detailRows) {
-            if (originalOrdersMap[row.order_number]) {
-              row.original_orders = originalOrdersMap[row.order_number];
+          if (mappingResult.data) {
+            for (const m of mappingResult.data as { aggregated_order_number: string; original_order_number: string }[]) {
+              if (!originalOrdersMap[m.aggregated_order_number]) {
+                originalOrdersMap[m.aggregated_order_number] = [];
+              }
+              originalOrdersMap[m.aggregated_order_number].push(m.original_order_number);
             }
+          }
+        }
+        
+        // Attach original orders to rows
+        for (const row of detailRows) {
+          if (originalOrdersMap[row.order_number]) {
+            row.original_orders = originalOrdersMap[row.order_number];
           }
         }
       }
