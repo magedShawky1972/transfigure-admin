@@ -481,7 +481,24 @@ async function processBackgroundSync(
       throw new Error('No aggregated invoices provided');
     }
 
-    const aggregatedInvoices = prebuiltInvoices;
+    // Validate and filter invoices - skip any with empty originalOrderNumbers
+    const validInvoices: AggregatedInvoice[] = [];
+    const invalidInvoices: AggregatedInvoice[] = [];
+    
+    for (const invoice of prebuiltInvoices) {
+      if (!invoice.originalOrderNumbers || invoice.originalOrderNumbers.length === 0) {
+        console.error(`[Aggregated Background Sync] Invoice ${invoice.orderNumber} has no originalOrderNumbers - will be marked as failed`);
+        invalidInvoices.push(invoice);
+      } else {
+        validInvoices.push(invoice);
+      }
+    }
+    
+    if (invalidInvoices.length > 0) {
+      console.warn(`[Aggregated Background Sync] ${invalidInvoices.length} invoices have no original order numbers and will be marked as failed`);
+    }
+
+    const aggregatedInvoices = prebuiltInvoices; // Keep all for processing, but track invalid ones
     const totalInvoices = aggregatedInvoices.length;
     console.log(`[Aggregated Background Sync] Using ${totalInvoices} prebuilt aggregated invoices`);
 
@@ -732,6 +749,10 @@ async function processBackgroundSync(
             purchase_sync_failed: purchaseSyncFailed || false,
             order_error_message: orderErrorMessage || null,
             purchase_error_message: purchaseErrorMessage || null,
+            // Always store original orders for fallback lookup
+            original_orders: invoice.originalOrderNumbers || [],
+            payment_method: invoice.paymentMethod || null,
+            payment_brand: invoice.paymentBrand || null,
           });
         }
 
