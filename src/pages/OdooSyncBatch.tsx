@@ -765,7 +765,9 @@ const OdooSyncBatch = () => {
         uniqueDates.add(dateStr);
       });
       
-      // Fetch ALL existing mappings to check which original orders are already synced
+      // Fetch ALL existing mappings to check which original orders have been synced before
+      // Note: Orders in this list may need re-sync (sendodoo=false), so we don't filter them out
+      // We just use the existing aggregated order number if available
       const allOriginalOrderNumbers: string[] = [];
       sortedKeys.forEach(invoiceKey => {
         const invoice = invoiceMap.get(invoiceKey)!;
@@ -777,10 +779,10 @@ const OdooSyncBatch = () => {
         .select('original_order_number, aggregated_order_number')
         .in('original_order_number', allOriginalOrderNumbers);
       
-      // Create a map of original order -> aggregated order number
-      const alreadySyncedMap = new Map<string, string>();
+      // Create a map of original order -> aggregated order number (for re-use if re-syncing)
+      const existingMappingMap = new Map<string, string>();
       existingMappingsData?.forEach(m => {
-        alreadySyncedMap.set(m.original_order_number, m.aggregated_order_number);
+        existingMappingMap.set(m.original_order_number, m.aggregated_order_number);
       });
       
       // Fetch max sequence for each date from aggregated_order_mapping table
@@ -807,21 +809,23 @@ const OdooSyncBatch = () => {
         const invoice = invoiceMap.get(invoiceKey)!;
         const dateStr = invoice.date?.replace(/-/g, '') || format(new Date(), 'yyyyMMdd');
         
-        // Check if ALL original orders in this invoice are already synced
-        const allAlreadySynced = invoice.originalOrderNumbers.every(orderNum => 
-          alreadySyncedMap.has(orderNum)
-        );
-
-        // If the invoice is already synced, hide it from the list entirely (so it doesn't appear again)
-        if (allAlreadySynced) {
-          return;
-        }
+        // Check if any original order already has an aggregated order number (for re-sync scenario)
+        // If so, reuse that aggregated order number instead of generating a new one
+        let orderNumber: string;
+        const existingAggregatedOrderNumber = invoice.originalOrderNumbers
+          .map(orderNum => existingMappingMap.get(orderNum))
+          .find(aggNum => aggNum !== undefined);
         
-        // Generate a new aggregated order number sequence for this date
-        const currentSeq = dateSequenceMap.get(dateStr) || 0;
-        const nextSeq = currentSeq + 1;
-        dateSequenceMap.set(dateStr, nextSeq);
-        const orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
+        if (existingAggregatedOrderNumber) {
+          // Re-sync scenario: use existing aggregated order number
+          orderNumber = existingAggregatedOrderNumber;
+        } else {
+          // New sync: generate a new aggregated order number sequence for this date
+          const currentSeq = dateSequenceMap.get(dateStr) || 0;
+          const nextSeq = currentSeq + 1;
+          dateSequenceMap.set(dateStr, nextSeq);
+          orderNumber = `${dateStr}${String(nextSeq).padStart(4, '0')}`;
+        }
         
         // Aggregate product lines by SKU and unit_price
         const productMap = new Map<string, {
@@ -866,6 +870,9 @@ const OdooSyncBatch = () => {
           return nonStockSkuSet.has(sku);
         });
         
+        // Whether this is a re-sync (has existing mapping)
+        const isResync = !!existingAggregatedOrderNumber;
+        
         result.push({
           orderNumber,
           date: invoice.date,
@@ -877,15 +884,15 @@ const OdooSyncBatch = () => {
           grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
           originalOrderNumbers: invoice.originalOrderNumbers,
           originalLines: invoice.lines,
-          selected: !allAlreadySynced, // Don't select already synced
-          skipSync: allAlreadySynced, // Skip if already synced
-          syncStatus: allAlreadySynced ? 'success' : 'pending', // Mark as success if already synced
+          selected: true, // Always select for syncing (these orders need sync based on sendodoo flag)
+          skipSync: false,
+          syncStatus: isResync ? 'pending' : 'pending', // Both new and re-sync start as pending
           stepStatus: {
-            customer: allAlreadySynced ? 'found' : 'pending',
-            brand: allAlreadySynced ? 'found' : 'pending',
-            product: allAlreadySynced ? 'found' : 'pending',
-            order: allAlreadySynced ? 'sent' : 'pending',
-            purchase: allAlreadySynced ? 'skipped' : 'pending',
+            customer: 'pending',
+            brand: 'pending',
+            product: 'pending',
+            order: 'pending',
+            purchase: 'pending',
           },
           hasNonStock,
         });
