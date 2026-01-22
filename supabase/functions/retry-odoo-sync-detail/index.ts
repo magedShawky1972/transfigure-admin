@@ -294,14 +294,27 @@ Deno.serve(async (req) => {
           break;
         }
 
-        if (!(result as any)?.success) {
-          lastError = (result as any)?.error || `${step} step failed`;
+        const resultData = result as any;
+        
+        // Check for "already exists" - this is SUCCESS for order step, not failure!
+        if (step === "order" && resultData?.error) {
+          const errorMsg = String(resultData.error).toLowerCase();
+          if (errorMsg.includes("already exists") || errorMsg.includes("already sent")) {
+            // Order already exists in Odoo - treat as success
+            console.log(`[retry-odoo-sync-detail] Order already exists, treating as success`);
+            stepStatuses[`step_${step}`] = "sent";
+            continue;
+          }
+        }
+
+        if (!resultData?.success) {
+          lastError = resultData?.error || `${step} step failed`;
           orderError = lastError;
           stepStatuses[`step_${step}`] = "failed";
           break;
         }
 
-        stepStatuses[`step_${step}`] = (result as any)?.skipped ? "skipped" : (result as any)?.method === "SKIP" ? "found" : "sent";
+        stepStatuses[`step_${step}`] = resultData?.skipped ? "skipped" : resultData?.method === "SKIP" ? "found" : "sent";
       }
     } else {
       // Mark order steps as their previous state (not retrying them)
