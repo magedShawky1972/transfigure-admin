@@ -268,32 +268,56 @@ export function OdooSyncRunDetailsDialog({
         }
       }
       
-      // Extract SKUs from error messages and fetch product names
+      // Extract SKUs/IDs from error messages and fetch product names.
+      // Note: Some products have NULL sku in DB; error messages may still show "SKU: 2135" but that's actually product_id.
       const skuRegex = /SKU:\s*([A-Za-z0-9_-]+)/gi;
-      const skusToLookup = new Set<string>();
+      const skuTokens = new Set<string>();
+      const numericIds = new Set<string>();
+
       for (const row of detailRows) {
-        if (row.error_message) {
-          let match;
-          while ((match = skuRegex.exec(row.error_message)) !== null) {
-            skusToLookup.add(match[1]);
-          }
+        if (!row.error_message) continue;
+        let match;
+        while ((match = skuRegex.exec(row.error_message)) !== null) {
+          const token = String(match[1]).trim();
+          skuTokens.add(token);
+          if (/^\d+$/.test(token)) numericIds.add(token);
         }
       }
-      
-      if (skusToLookup.size > 0) {
-        const skuArray = Array.from(skusToLookup);
-        const productResult: any = await supabase
+
+      if (skuTokens.size > 0) {
+        const tokenArray = Array.from(skuTokens);
+        const idArray = Array.from(numericIds);
+
+        const newSkuProductMap: Record<string, string> = {};
+
+        // Lookup by sku
+        const skuResult: any = await (supabase as any)
           .from("products")
-          .select("sku, product_name")
-          .in("sku", skuArray);
-        
-        if (productResult.data) {
-          const newSkuProductMap: Record<string, string> = {};
-          for (const p of productResult.data as { sku: string; product_name: string }[]) {
-            newSkuProductMap[p.sku] = p.product_name;
+          .select("sku, product_id, product_name")
+          .in("sku", tokenArray);
+
+        if (skuResult.data) {
+          for (const p of skuResult.data as { sku: string | null; product_id: number | string; product_name: string }[]) {
+            if (p.sku) newSkuProductMap[String(p.sku)] = p.product_name;
           }
-          setSkuProductMap(newSkuProductMap);
         }
+
+        // Lookup numeric tokens by product_id (covers cases where sku is NULL)
+        if (idArray.length > 0) {
+          const idResult: any = await (supabase as any)
+            .from("products")
+            .select("sku, product_id, product_name")
+            .in("product_id", idArray.map(Number));
+
+          if (idResult.data) {
+            for (const p of idResult.data as { sku: string | null; product_id: number | string; product_name: string }[]) {
+              newSkuProductMap[String(p.product_id)] = p.product_name;
+              if (p.sku) newSkuProductMap[String(p.sku)] = p.product_name;
+            }
+          }
+        }
+
+        setSkuProductMap(newSkuProductMap);
       }
       
       setRows(detailRows);
