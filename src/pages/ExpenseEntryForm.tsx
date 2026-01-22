@@ -49,6 +49,13 @@ interface CurrencyRate {
   effective_date: string;
 }
 
+interface CostCenter {
+  id: string;
+  cost_center_code: string;
+  cost_center_name: string;
+  cost_center_name_ar: string | null;
+}
+
 interface ExpenseEntryLine {
   id?: string;
   line_number: number;
@@ -79,6 +86,7 @@ const ExpenseEntryForm = () => {
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [currentUserName, setCurrentUserName] = useState<string>("");
   
@@ -95,6 +103,7 @@ const ExpenseEntryForm = () => {
   const [lines, setLines] = useState<ExpenseEntryLine[]>([]);
   const [status, setStatus] = useState("draft");
   const [existingEntryId, setExistingEntryId] = useState<string | null>(null);
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -152,12 +161,13 @@ const ExpenseEntryForm = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [typesRes, banksRes, treasuriesRes, currenciesRes, ratesRes] = await Promise.all([
+      const [typesRes, banksRes, treasuriesRes, currenciesRes, ratesRes, costCentersRes] = await Promise.all([
         supabase.from("expense_types").select("id, expense_name, expense_name_ar").eq("is_active", true),
         supabase.from("banks").select("id, bank_name, bank_name_ar, currency_id").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_name, treasury_name_ar, currency_id").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code, currency_name").eq("is_active", true),
         supabase.from("currency_rates").select("id, currency_id, rate_to_base, effective_date").order("effective_date", { ascending: false }),
+        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
       ]);
 
       if (typesRes.error) throw typesRes.error;
@@ -165,12 +175,14 @@ const ExpenseEntryForm = () => {
       if (treasuriesRes.error) throw treasuriesRes.error;
       if (currenciesRes.error) throw currenciesRes.error;
       if (ratesRes.error) throw ratesRes.error;
+      if (costCentersRes.error) throw costCentersRes.error;
 
       setExpenseTypes(typesRes.data || []);
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
       setCurrencyRates(ratesRes.data || []);
+      setCostCenters(costCentersRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في جلب البيانات" : "Error fetching data");
@@ -208,6 +220,7 @@ const ExpenseEntryForm = () => {
       setExchangeRate(entry.exchange_rate || 1);
       setNotes(entry.notes || "");
       setStatus(entry.status);
+      setSelectedCostCenterId((entry as any).cost_center_id || "");
       setLines(entryLines.map(line => ({
         id: line.id,
         line_number: line.line_number,
@@ -321,6 +334,7 @@ const ExpenseEntryForm = () => {
             grand_total: grandTotal,
             status: saveStatus,
             notes: notes || null,
+            cost_center_id: selectedCostCenterId || null,
           })
           .eq("id", existingEntryId);
 
@@ -363,6 +377,7 @@ const ExpenseEntryForm = () => {
             status: saveStatus,
             notes: notes || null,
             created_by: currentUserId,
+            cost_center_id: selectedCostCenterId || null,
           })
           .select()
           .single();
@@ -629,6 +644,20 @@ const ExpenseEntryForm = () => {
             <div>
               <Label>{language === "ar" ? "سعر الصرف" : "Exchange Rate"}</Label>
               <Input type="number" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} step="0.0001" />
+            </div>
+            <div>
+              <Label>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
+              <Select value={selectedCostCenterId} onValueChange={setSelectedCostCenterId}>
+                <SelectTrigger><SelectValue placeholder={language === "ar" ? "اختر مركز التكلفة" : "Select Cost Center"} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">{language === "ar" ? "بدون" : "None"}</SelectItem>
+                  {costCenters.map(cc => (
+                    <SelectItem key={cc.id} value={cc.id}>
+                      {cc.cost_center_code} - {language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
