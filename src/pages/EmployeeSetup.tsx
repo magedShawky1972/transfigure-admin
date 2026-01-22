@@ -31,9 +31,10 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera, UserPlus, Users } from "lucide-react";
+import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera, UserPlus, Users, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import * as XLSX from "xlsx";
 
 interface Employee {
   id: string;
@@ -1002,6 +1003,97 @@ export default function EmployeeSetup() {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
+  const exportToExcel = () => {
+    const isArabic = language === "ar";
+    
+    const headers = [
+      isArabic ? "رقم الموظف" : "Employee Number",
+      isArabic ? "رمز الحضور (ZK)" : "ZK Code",
+      isArabic ? "الاسم الأول" : "First Name",
+      isArabic ? "الاسم الأول (عربي)" : "First Name (AR)",
+      isArabic ? "اسم العائلة" : "Last Name",
+      isArabic ? "اسم العائلة (عربي)" : "Last Name (AR)",
+      isArabic ? "البريد الإلكتروني" : "Email",
+      isArabic ? "الهاتف" : "Phone",
+      isArabic ? "الجوال" : "Mobile",
+      isArabic ? "تاريخ الميلاد" : "Date of Birth",
+      isArabic ? "الجنس" : "Gender",
+      isArabic ? "الجنسية" : "Nationality",
+      isArabic ? "رقم الهوية" : "National ID",
+      isArabic ? "القسم" : "Department",
+      isArabic ? "الوظيفة" : "Job Position",
+      isArabic ? "تاريخ بدء العمل" : "Job Start Date",
+      isArabic ? "تاريخ الإنهاء" : "Termination Date",
+      isArabic ? "الحالة الوظيفية" : "Employment Status",
+      isArabic ? "نوع الدوام" : "Shift Type",
+      isArabic ? "نوع الحضور" : "Attendance Type",
+      isArabic ? "رصيد الإجازات" : "Vacation Balance",
+      isArabic ? "الراتب الأساسي" : "Basic Salary",
+    ];
+
+    const statusLabels: Record<string, string> = {
+      active: isArabic ? "نشط" : "Active",
+      on_leave: isArabic ? "في إجازة" : "On Leave",
+      terminated: isArabic ? "منتهي" : "Terminated",
+      suspended: isArabic ? "معلق" : "Suspended",
+    };
+
+    const shiftTypeLabels: Record<string, string> = {
+      fixed: isArabic ? "ثابت" : "Fixed",
+      rotating: isArabic ? "متناوب" : "Rotating",
+    };
+
+    const rows = employees.map((emp) => {
+      const dept = departments.find(d => d.id === emp.department_id);
+      const job = jobPositions.find(j => j.id === emp.job_position_id);
+      const attendanceType = attendanceTypes.find(a => a.id === emp.attendance_type_id);
+      
+      return [
+        emp.employee_number,
+        emp.zk_employee_code || "",
+        emp.first_name,
+        emp.first_name_ar || "",
+        emp.last_name,
+        emp.last_name_ar || "",
+        emp.email || "",
+        emp.phone || "",
+        emp.mobile || "",
+        emp.date_of_birth || "",
+        emp.gender || "",
+        emp.nationality || "",
+        emp.national_id || "",
+        dept ? (isArabic ? (dept.department_name_ar || dept.department_name) : dept.department_name) : "",
+        job ? (isArabic ? (job.position_name_ar || job.position_name) : job.position_name) : "",
+        emp.job_start_date || "",
+        emp.termination_date || "",
+        statusLabels[emp.employment_status] || emp.employment_status,
+        shiftTypeLabels[emp.shift_type] || emp.shift_type,
+        attendanceType ? (isArabic ? (attendanceType.type_name_ar || attendanceType.type_name) : attendanceType.type_name) : "",
+        emp.vacation_balance?.toString() || "0",
+        emp.basic_salary?.toString() || "",
+      ];
+    });
+
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set column widths
+    ws["!cols"] = headers.map(() => ({ wch: 18 }));
+
+    // Enable RTL for Arabic
+    if (isArabic) {
+      ws["!dir"] = "rtl";
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isArabic ? "الموظفين" : "Employees");
+
+    const filename = `employees_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(isArabic ? "تم تصدير البيانات بنجاح" : "Data exported successfully");
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card>
@@ -1027,6 +1119,10 @@ export default function EmployeeSetup() {
               <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
+          <Button variant="outline" onClick={exportToExcel} disabled={employees.length === 0}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            {language === "ar" ? "تصدير Excel" : "Export Excel"}
+          </Button>
           <Button variant="outline" onClick={openLoadUsersDialog} disabled={usersWithoutEmployee.length === 0}>
             <Users className="h-4 w-4 mr-2" />
             {language === "ar" ? `تحميل من المستخدمين (${usersWithoutEmployee.length})` : `Load from Users (${usersWithoutEmployee.length})`}
