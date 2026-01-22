@@ -5,12 +5,13 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
-import { format } from "date-fns";
-import { FileText, Download, TrendingUp, Building2 } from "lucide-react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { FileText, Download, TrendingUp, Building2, CalendarIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
@@ -52,8 +53,8 @@ const CostCenterReport = () => {
   const [summaryData, setSummaryData] = useState<CostCenterSummary[]>([]);
   const [detailData, setDetailData] = useState<DetailRecord[]>([]);
   const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>("__all__");
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [fromDate, setFromDate] = useState<string>(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [toDate, setToDate] = useState<string>(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [viewMode, setViewMode] = useState<"summary" | "detail">("summary");
 
   useEffect(() => {
@@ -61,8 +62,10 @@ const CostCenterReport = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [selectedMonth, selectedYear, selectedCostCenterId]);
+    if (fromDate && toDate) {
+      fetchData();
+    }
+  }, [fromDate, toDate, selectedCostCenterId, costCenters]);
 
   const fetchCostCenters = async () => {
     try {
@@ -80,11 +83,11 @@ const CostCenterReport = () => {
   };
 
   const fetchData = async () => {
+    if (!fromDate || !toDate || costCenters.length === 0) return;
     setLoading(true);
     try {
-      const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
-      const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split("T")[0];
-
+      const startDate = fromDate;
+      const endDate = toDate;
       // Fetch license invoices with cost center info
       const { data: licenseData, error: licenseError } = await supabase
         .from("software_license_invoices")
@@ -267,7 +270,7 @@ const CostCenterReport = () => {
     
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, language === "ar" ? "تقرير مراكز التكلفة" : "Cost Center Report");
-    XLSX.writeFile(wb, `cost_center_report_${selectedYear}_${String(selectedMonth).padStart(2, "0")}.xlsx`);
+    XLSX.writeFile(wb, `cost_center_report_${fromDate}_${toDate}.xlsx`);
   };
 
   const totalLicenseCost = summaryData.reduce((sum, s) => sum + s.license_cost, 0);
@@ -308,31 +311,27 @@ const CostCenterReport = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="w-32">
-              <Label>{language === "ar" ? "الشهر" : "Month"}</Label>
-              <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>
-                      {new Date(2000, i).toLocaleString(language === "ar" ? "ar-SA" : "en-US", { month: "long" })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="w-40">
+              <Label className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                {language === "ar" ? "من تاريخ" : "From Date"}
+              </Label>
+              <Input 
+                type="date" 
+                value={fromDate} 
+                onChange={(e) => setFromDate(e.target.value)}
+              />
             </div>
-            <div className="w-28">
-              <Label>{language === "ar" ? "السنة" : "Year"}</Label>
-              <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <SelectItem key={i} value={String(new Date().getFullYear() - 2 + i)}>
-                      {new Date().getFullYear() - 2 + i}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="w-40">
+              <Label className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                {language === "ar" ? "إلى تاريخ" : "To Date"}
+              </Label>
+              <Input 
+                type="date" 
+                value={toDate} 
+                onChange={(e) => setToDate(e.target.value)}
+              />
             </div>
             <div className="w-36">
               <Label>{language === "ar" ? "العرض" : "View"}</Label>
