@@ -25,6 +25,7 @@ import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
+import { OdooSyncRunDetailsDialog, type OdooSyncRunLite } from "@/components/OdooSyncRunDetailsDialog";
 
 interface OdooSyncRun {
   id: string;
@@ -57,6 +58,9 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
   const [runToDelete, setRunToDelete] = useState<OdooSyncRun | null>(null);
   const [resuming, setResuming] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsRun, setDetailsRun] = useState<OdooSyncRunLite | null>(null);
+  const [detailsFilter, setDetailsFilter] = useState<"failed" | "success">("failed");
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -383,6 +387,15 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
     }
   };
 
+  const openDetails = useCallback(
+    (run: OdooSyncRun, filter: "failed" | "success") => {
+      setDetailsRun({ id: run.id, from_date: run.from_date, to_date: run.to_date });
+      setDetailsFilter(filter);
+      setDetailsOpen(true);
+    },
+    []
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -453,13 +466,25 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
                         </span>
                         <span className="mx-2">|</span>
                         <span className="text-green-600">
-                          {language === "ar" ? "نجاح: " : "Success: "}
-                          {run.successful_orders || 0}
+                          <button
+                            type="button"
+                            className="underline underline-offset-4"
+                            onClick={() => openDetails(run, "success")}
+                          >
+                            {language === "ar" ? "نجاح: " : "Success: "}
+                            {run.successful_orders || 0}
+                          </button>
                         </span>
                         <span className="mx-2">|</span>
                         <span className="text-red-600">
-                          {language === "ar" ? "فشل: " : "Failed: "}
-                          {run.failed_orders || 0}
+                          <button
+                            type="button"
+                            className="underline underline-offset-4"
+                            onClick={() => openDetails(run, "failed")}
+                          >
+                            {language === "ar" ? "فشل: " : "Failed: "}
+                            {run.failed_orders || 0}
+                          </button>
                         </span>
                         <span className="mx-2">|</span>
                         <span>
@@ -580,6 +605,14 @@ export const OdooSyncHistoryDialog = memo(function OdooSyncHistoryDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <OdooSyncRunDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        run={detailsRun}
+        language={language}
+        initialFilter={detailsFilter}
+      />
     </>
   );
 });
