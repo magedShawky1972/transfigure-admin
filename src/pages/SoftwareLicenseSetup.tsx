@@ -84,6 +84,7 @@ interface Currency {
 interface CurrencyRate {
   currency_id: string;
   rate_to_base: number;
+  conversion_operator: 'multiply' | 'divide';
 }
 
 interface Department {
@@ -327,7 +328,7 @@ const SoftwareLicenseSetup = () => {
     try {
       const { data, error } = await supabase
         .from("currency_rates")
-        .select("currency_id, rate_to_base")
+        .select("currency_id, rate_to_base, conversion_operator")
         .order("effective_date", { ascending: false });
 
       if (error) throw error;
@@ -337,7 +338,11 @@ const SoftwareLicenseSetup = () => {
       const seen = new Set<string>();
       for (const rate of data || []) {
         if (!seen.has(rate.currency_id)) {
-          latestRates.push(rate);
+          latestRates.push({
+            currency_id: rate.currency_id,
+            rate_to_base: rate.rate_to_base,
+            conversion_operator: rate.conversion_operator === 'divide' ? 'divide' : 'multiply'
+          });
           seen.add(rate.currency_id);
         }
       }
@@ -823,7 +828,7 @@ const SoftwareLicenseSetup = () => {
     }
 
     // Use conversion_operator to determine the calculation
-    const operator = (rate as any).conversion_operator || 'multiply';
+    const operator = rate.conversion_operator || 'multiply';
     let sarValue: number;
     if (operator === 'multiply') {
       sarValue = cost * rate.rate_to_base;
