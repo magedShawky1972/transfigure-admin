@@ -363,7 +363,7 @@ const SoftwareLicensesReport = () => {
             </table>
             <div class="subtotal">
               <span>Subtotal for ${projectName}:</span>
-              <span class="subtotal-value">${subtotal.toFixed(2)} ${baseCurrency?.currency_code || ''} | Invoice Total: ${(licenses as any[]).reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
+              <span class="subtotal-value">Invoice Total: ${(licenses as any[]).reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
             </div>
           </div>
         `;
@@ -444,7 +444,7 @@ const SoftwareLicensesReport = () => {
 
         <div class="grand-total">
           <span class="grand-total-label">Grand Total (All Projects)</span>
-          <span class="grand-total-value">${totalCostBase.toFixed(2)} ${baseCurrency?.currency_code || ''} | Invoice Total: ${licensesData.reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
+          <span class="grand-total-value">Invoice Total: ${licensesData.reduce((sum, l) => sum + (l.invoice_total_sar || 0), 0).toFixed(2)} SAR</span>
         </div>
 
         <div class="summary">
