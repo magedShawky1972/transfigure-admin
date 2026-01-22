@@ -484,7 +484,8 @@ export default function EmployeeSetup() {
           emp.last_name.toLowerCase().includes(term.toLowerCase()) ||
           (emp.first_name_ar && emp.first_name_ar.includes(term)) ||
           (emp.last_name_ar && emp.last_name_ar.includes(term)) ||
-          emp.email?.toLowerCase().includes(term.toLowerCase())
+          emp.email?.toLowerCase().includes(term.toLowerCase()) ||
+          (emp.zk_employee_code && emp.zk_employee_code.toLowerCase().includes(term.toLowerCase()))
       );
     }
 
