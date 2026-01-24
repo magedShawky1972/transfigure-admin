@@ -1,57 +1,66 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// Entity configuration mapping
+// Entity configuration mapping with test and production tables
 const ENTITY_CONFIG: Record<string, { 
-  table: string; 
+  testTable: string;
+  productionTable: string;
   idField: string; 
   permission: string;
   displayName: string;
 }> = {
   'salesheader': { 
-    table: 'testsalesheader', 
+    testTable: 'testsalesheader',
+    productionTable: 'sales_order_header',
     idField: 'order_number', 
     permission: 'allow_sales_header',
     displayName: 'Sales Order Header'
   },
   'salesline': { 
-    table: 'testsalesline', 
+    testTable: 'testsalesline',
+    productionTable: 'sales_order_line',
     idField: 'order_number', 
     permission: 'allow_sales_line',
     displayName: 'Sales Order Line'
   },
   'payment': { 
-    table: 'testpayment', 
+    testTable: 'testpayment',
+    productionTable: 'payment_transactions',
     idField: 'order_number', 
     permission: 'allow_payment',
     displayName: 'Payment'
   },
   'customer': { 
-    table: 'testcustomers', 
+    testTable: 'testcustomers',
+    productionTable: 'customers',
     idField: 'customer_phone', 
     permission: 'allow_customer',
     displayName: 'Customer'
   },
   'supplier': { 
-    table: 'testsuppliers', 
+    testTable: 'testsuppliers',
+    productionTable: 'suppliers',
     idField: 'supplier_code', 
     permission: 'allow_supplier',
     displayName: 'Supplier'
   },
   'supplierproduct': { 
-    table: 'testsupplierproducts', 
+    testTable: 'testsupplierproducts',
+    productionTable: 'supplier_products',
     idField: 'supplier_code', 
     permission: 'allow_supplier_product',
     displayName: 'Supplier Product'
   },
   'brand': { 
-    table: 'testbrands', 
+    testTable: 'testbrands',
+    productionTable: 'brands',
     idField: 'brand_code', 
     permission: 'allow_brand',
     displayName: 'Brand'
   },
   'product': { 
-    table: 'testproducts', 
+    testTable: 'testproducts',
+    productionTable: 'products',
     idField: 'sku', 
     permission: 'allow_product',
     displayName: 'Product'
@@ -141,6 +150,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch API mode from settings
+    const { data: modeData } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'api_mode')
+      .single();
+
+    const apiMode = (modeData?.setting_value === 'production') ? 'production' : 'test';
+    console.log(`API Lookup Mode: ${apiMode}`);
+
     // Parse URL to get entity type and ID
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
@@ -149,7 +168,7 @@ Deno.serve(async (req) => {
     entityType = url.searchParams.get('entity') || '';
     lookupId = url.searchParams.get('id') || '';
 
-    console.log(`Lookup request - Entity: ${entityType}, ID: ${lookupId}`);
+    console.log(`Lookup request - Entity: ${entityType}, ID: ${lookupId}, Mode: ${apiMode}`);
 
     if (!entityType || !lookupId) {
       responseStatus = 400;
@@ -159,7 +178,8 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ 
         error: responseMessage,
         usage: 'GET /api-lookup?entity=<entity_type>&id=<lookup_id>',
-        available_entities: Object.keys(ENTITY_CONFIG)
+        available_entities: Object.keys(ENTITY_CONFIG),
+        current_mode: apiMode
       }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -175,7 +195,8 @@ Deno.serve(async (req) => {
       await logApiCall();
       return new Response(JSON.stringify({ 
         error: responseMessage,
-        available_entities: Object.keys(ENTITY_CONFIG)
+        available_entities: Object.keys(ENTITY_CONFIG),
+        current_mode: apiMode
       }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -194,9 +215,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Select the appropriate table based on mode
+    const targetTable = apiMode === 'production' 
+      ? entityConfig.productionTable 
+      : entityConfig.testTable;
+
+    console.log(`Looking up in table: ${targetTable}`);
+
     // Perform the lookup
     const { data, error } = await supabase
-      .from(entityConfig.table)
+      .from(targetTable)
       .select('*')
       .eq(entityConfig.idField, lookupId);
 
@@ -224,6 +252,8 @@ Deno.serve(async (req) => {
       exists,
       entity: entityType,
       id: lookupId,
+      mode: apiMode,
+      table: targetTable,
       count: data?.length || 0,
       data: data || [],
       message: responseMessage
