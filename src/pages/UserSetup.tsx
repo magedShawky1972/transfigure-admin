@@ -54,6 +54,7 @@ interface Profile {
   mail_type_id?: string | null;
   mail_type_name?: string | null;
   salesman_code?: string | null;
+  can_view_all_tickets?: boolean;
 }
 
 interface MailType {
@@ -299,6 +300,7 @@ const UserSetup = () => {
     email_password: "",
     mail_type_id: null as string | null,
     salesman_code: "",
+    can_view_all_tickets: false,
   });
 
   const [mailTypes, setMailTypes] = useState<MailType[]>([]);
@@ -526,6 +528,7 @@ const UserSetup = () => {
             email_password: formData.email_password || null,
             mail_type_id: formData.mail_type_id,
             salesman_code: formData.salesman_code || null,
+            can_view_all_tickets: formData.can_view_all_tickets,
           })
           .eq("id", editingProfile.id);
 
@@ -645,6 +648,7 @@ const UserSetup = () => {
       email_password: profile.email_password || "",
       mail_type_id: profile.mail_type_id || null,
       salesman_code: profile.salesman_code || "",
+      can_view_all_tickets: profile.can_view_all_tickets || false,
     });
     setShowEmailPassword(false);
     setDialogOpen(true);
@@ -774,6 +778,7 @@ const UserSetup = () => {
       email_password: "",
       mail_type_id: null,
       salesman_code: "",
+      can_view_all_tickets: false,
     });
     setEditingProfile(null);
     setShowEmailPassword(false);
@@ -1490,6 +1495,28 @@ const UserSetup = () => {
                     }
                   />
                   <Label htmlFor="is_admin">{language === 'ar' ? 'صلاحية المدير' : 'Admin Access'}</Label>
+                </div>
+              )}
+              {editingProfile && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="can_view_all_tickets"
+                      checked={formData.can_view_all_tickets}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, can_view_all_tickets: checked })
+                      }
+                    />
+                    <Label htmlFor="can_view_all_tickets">
+                      {language === 'ar' ? 'مشاهدة جميع التذاكر' : 'View All Tickets'}
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'ar' 
+                      ? 'تمكين المستخدم من مشاهدة جميع التذاكر من جميع الأقسام'
+                      : 'Allow user to view all tickets from all departments'
+                    }
+                  </p>
                 </div>
               )}
               <Button type="submit" className="w-full" disabled={loading}>

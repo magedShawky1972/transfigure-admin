@@ -3921,6 +3921,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          can_view_all_tickets: boolean | null
           created_at: string
           default_department_id: string | null
           email: string
@@ -3941,6 +3942,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          can_view_all_tickets?: boolean | null
           created_at?: string
           default_department_id?: string | null
           email: string
@@ -3961,6 +3963,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          can_view_all_tickets?: boolean | null
           created_at?: string
           default_department_id?: string | null
           email?: string
