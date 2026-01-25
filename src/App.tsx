@@ -119,6 +119,7 @@ import UpdateBankLedger from "./pages/UpdateBankLedger";
 import CostCenterSetup from "./pages/CostCenterSetup";
 import CostCenterReport from "./pages/CostCenterReport";
 import ManualShiftTransactionReport from "./pages/ManualShiftTransactionReport";
+import ProjectSetup from "./pages/ProjectSetup";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -245,6 +246,7 @@ const App = () => (
               <Route path="/cost-center-setup" element={<CostCenterSetup />} />
               <Route path="/reports/cost-center" element={<CostCenterReport />} />
               <Route path="/reports/manual-shift-transactions" element={<ManualShiftTransactionReport />} />
+              <Route path="/project-setup" element={<ProjectSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

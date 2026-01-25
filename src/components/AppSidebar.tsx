@@ -110,6 +110,7 @@ export function AppSidebar() {
     "/currency-setup": "currencySetup",
     "/user-group-setup": "userGroupSetup",
     "/projects-tasks": "projectsTasks",
+    "/project-setup": "projectSetup",
     "/company-hierarchy": "companyHierarchy",
     "/user-logins": "userLogins",
     "/supplier-setup": "supplierSetup",
@@ -323,6 +324,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'مجموعات المستخدمين' : 'User Groups', url: "/user-group-setup", icon: Users },
         { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
+        { title: language === 'ar' ? 'إعداد المشاريع' : 'Project Setup', url: "/project-setup", icon: FolderKanban },
       ]
     },
     {
