@@ -100,6 +100,7 @@ const TaskList = () => {
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterProject, setFilterProject] = useState<string>("all");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
+  const [filterAssignedTo, setFilterAssignedTo] = useState<string>("all");
 
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -298,8 +299,9 @@ const TaskList = () => {
       (filterProject === "none" && !task.project_id) ||
       task.project_id === filterProject;
     const matchesDepartment = filterDepartment === "all" || task.department_id === filterDepartment;
+    const matchesAssignedTo = filterAssignedTo === "all" || task.assigned_to === filterAssignedTo;
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesProject && matchesDepartment;
+    return matchesSearch && matchesStatus && matchesPriority && matchesProject && matchesDepartment && matchesAssignedTo;
   });
 
   if (accessLoading) {
@@ -325,7 +327,7 @@ const TaskList = () => {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -388,6 +390,20 @@ const TaskList = () => {
                 {departments.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id}>
                     {dept.department_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterAssignedTo} onValueChange={setFilterAssignedTo}>
+              <SelectTrigger>
+                <SelectValue placeholder={language === "ar" ? "المسؤول" : "Assigned To"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === "ar" ? "جميع المستخدمين" : "All Users"}</SelectItem>
+                {profiles.map((profile) => (
+                  <SelectItem key={profile.user_id} value={profile.user_id}>
+                    {profile.user_name}
                   </SelectItem>
                 ))}
               </SelectContent>
