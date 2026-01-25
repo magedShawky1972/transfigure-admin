@@ -615,8 +615,28 @@ const ApiDocumentation = () => {
 
       <Card className="print:hidden print:border-0">
         <CardHeader>
-          <CardTitle>Filter APIs</CardTitle>
-          <CardDescription>Select APIs to include in documentation</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Filter APIs</CardTitle>
+              <CardDescription>Select APIs to include in documentation</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedApis(API_ENDPOINTS.map(api => api.id))}
+              >
+                Select All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedApis([])}
+              >
+                Unselect All
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
