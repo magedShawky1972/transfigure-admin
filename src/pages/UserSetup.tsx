@@ -141,6 +141,7 @@ interface UserPermission {
         { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
         { key: "companyHierarchy", label: "الهيكل التنظيمي", labelEn: "Company Hierarchy" },
         { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
+        { key: "projectSetup", label: "إعداد المشاريع", labelEn: "Project Setup" },
       ]
     },
     {
