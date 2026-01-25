@@ -159,6 +159,10 @@ const SoftwareLicenseSetup = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [renewalCycleFilter, setRenewalCycleFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [costCenterFilter, setCostCenterFilter] = useState<string>("all");
+  const [vendorFilter, setVendorFilter] = useState<string>("all");
+  const [serviceNameFilter, setServiceNameFilter] = useState<string>("all");
   const [sortColumn, setSortColumn] = useState<keyof SoftwareLicense | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -233,7 +237,7 @@ const SoftwareLicenseSetup = () => {
 
   useEffect(() => {
     filterAndSortLicenses();
-  }, [licenses, searchQuery, statusFilter, categoryFilter, renewalCycleFilter, sortColumn, sortDirection]);
+  }, [licenses, searchQuery, statusFilter, categoryFilter, renewalCycleFilter, projectFilter, costCenterFilter, vendorFilter, serviceNameFilter, sortColumn, sortDirection]);
 
   const fetchLicenses = async () => {
     setLoading(true);
@@ -400,8 +404,10 @@ const SoftwareLicenseSetup = () => {
     return cost;
   };
 
-  // Get unique categories from licenses for filter
+  // Get unique values from licenses for filters
   const uniqueCategories = Array.from(new Set(licenses.map(l => l.category).filter(Boolean)));
+  const uniqueVendors = Array.from(new Set(licenses.map(l => l.vendor_provider).filter(Boolean))).sort();
+  const uniqueServiceNames = Array.from(new Set(licenses.map(l => l.software_name).filter(Boolean))).sort();
 
   const filterAndSortLicenses = () => {
     let filtered = [...licenses];
@@ -429,6 +435,26 @@ const SoftwareLicenseSetup = () => {
     // Apply renewal cycle filter
     if (renewalCycleFilter !== "all") {
       filtered = filtered.filter((license) => license.renewal_cycle === renewalCycleFilter);
+    }
+
+    // Apply project filter
+    if (projectFilter !== "all") {
+      filtered = filtered.filter((license) => license.project_id === projectFilter);
+    }
+
+    // Apply cost center filter
+    if (costCenterFilter !== "all") {
+      filtered = filtered.filter((license) => license.cost_center_id === costCenterFilter);
+    }
+
+    // Apply vendor filter
+    if (vendorFilter !== "all") {
+      filtered = filtered.filter((license) => license.vendor_provider === vendorFilter);
+    }
+
+    // Apply service name filter
+    if (serviceNameFilter !== "all") {
+      filtered = filtered.filter((license) => license.software_name === serviceNameFilter);
     }
 
     // Apply sorting
@@ -1192,7 +1218,7 @@ const SoftwareLicenseSetup = () => {
       </div>
 
       {/* Advanced Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4">
         <div className="space-y-2">
           <Label>{language === "ar" ? "الحالة" : "Status"}</Label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1253,6 +1279,74 @@ const SoftwareLicenseSetup = () => {
             </SelectContent>
           </Select>
         </div>
+
+        <div className="space-y-2">
+          <Label>{language === "ar" ? "اسم الخدمة" : "Service Name"}</Label>
+          <Select value={serviceNameFilter} onValueChange={setServiceNameFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={language === "ar" ? "جميع الخدمات" : "All Services"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+              {uniqueServiceNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{language === "ar" ? "المورد" : "Vendor"}</Label>
+          <Select value={vendorFilter} onValueChange={setVendorFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={language === "ar" ? "جميع الموردين" : "All Vendors"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+              {uniqueVendors.map((vendor) => (
+                <SelectItem key={vendor} value={vendor}>
+                  {vendor}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{language === "ar" ? "المشروع" : "Project"}</Label>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={language === "ar" ? "جميع المشاريع" : "All Projects"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
+          <Select value={costCenterFilter} onValueChange={setCostCenterFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={language === "ar" ? "جميع مراكز التكلفة" : "All Cost Centers"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+              {costCenters.map((cc) => (
+                <SelectItem key={cc.id} value={cc.id}>
+                  {cc.cost_center_code} - {language === "ar" ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Data Grid */}
@@ -1266,7 +1360,7 @@ const SoftwareLicenseSetup = () => {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("software_name")}
                   >
-                    {language === "ar" ? "اسم البرنامج" : "Software Name"}
+                    {language === "ar" ? "اسم الخدمة" : "Service Name"}
                     {getSortIcon("software_name")}
                   </TableHead>
                   <TableHead 
@@ -1423,7 +1517,7 @@ const SoftwareLicenseSetup = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="software_name">{language === "ar" ? "اسم البرنامج" : "Software Name"} *</Label>
+                    <Label htmlFor="software_name">{language === "ar" ? "اسم الخدمة" : "Service Name"} *</Label>
                     <Input
                       id="software_name"
                       value={formData.software_name}
