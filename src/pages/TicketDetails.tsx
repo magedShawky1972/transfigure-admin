@@ -790,32 +790,18 @@ const TicketDetails = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch all department admins for this department
-      const { data: adminsData, error } = await supabase
-        .from("department_admins")
-        .select("user_id")
-        .eq("department_id", ticket.department_id);
+      // Fetch ALL users from profiles (excluding current user)
+      const { data: profilesData, error } = await supabase
+        .from("profiles")
+        .select("user_id, user_name")
+        .neq("user_id", user.id)
+        .order("user_name") as { data: { user_id: string; user_name: string }[] | null; error: any };
 
       if (error) throw error;
 
-      const adminUserIds = adminsData?.map(a => a.user_id) || [];
-      
-      // Filter out current user
-      const otherAdminIds = adminUserIds.filter(id => id !== user.id);
-
-      if (otherAdminIds.length > 0) {
-        // Fetch profiles for these admins
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("user_id, user_name")
-          .in("user_id", otherAdminIds);
-
-        setAvailableAdmins(profilesData || []);
-      } else {
-        setAvailableAdmins([]);
-      }
+      setAvailableAdmins(profilesData || []);
     } catch (error) {
-      console.error("Error fetching admins:", error);
+      console.error("Error fetching users:", error);
     }
   };
 
