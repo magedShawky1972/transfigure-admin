@@ -58,6 +58,7 @@ import UserGroupSetup from "./pages/UserGroupSetup";
 import Notifications from "./pages/Notifications";
 import ProjectsTasks from "./pages/ProjectsTasks";
 import TaskDashboard from "./pages/TaskDashboard";
+import TaskList from "./pages/TaskList";
 import UserDashboard from "./pages/UserDashboard";
 import CompanyHierarchy from "./pages/CompanyHierarchy";
 import TransactionStatistics from "./pages/TransactionStatistics";
@@ -193,6 +194,7 @@ const App = () => (
               <Route path="/projects-tasks" element={<ProjectsTasks />} />
               <Route path="/project-gantt" element={<ProjectGantt />} />
               <Route path="/task-dashboard" element={<TaskDashboard />} />
+              <Route path="/task-list" element={<TaskList />} />
               <Route path="/user-dashboard" element={<UserDashboard />} />
               <Route path="/company-hierarchy" element={<CompanyHierarchy />} />
               <Route path="/user-logins" element={<UserLogins />} />

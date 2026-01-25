@@ -118,6 +118,7 @@ interface UserPermission {
         { key: "asusTawasoul", label: "أسس تواصل", labelEn: "Asus Tawasoul" },
         { key: "emailManager", label: "مدير البريد", labelEn: "Email Manager" },
         { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
+        { key: "taskList", label: "قائمة المهام", labelEn: "Task List" },
         { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
       ]
     },

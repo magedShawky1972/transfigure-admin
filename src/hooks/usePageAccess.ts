@@ -52,6 +52,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/user-group-setup": "userGroupSetup",
   "/projects-tasks": "projectsTasks",
   "/project-gantt": "projectGantt",
+  "/task-list": "taskList",
   "/company-hierarchy": "companyHierarchy",
   "/bank-setup": "bankSetup",
   "/supplier-setup": "supplierSetup",

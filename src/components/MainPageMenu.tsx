@@ -52,6 +52,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/currency-setup": "currencySetup",
   "/user-group-setup": "userGroupSetup",
   "/projects-tasks": "projectsTasks",
+  "/task-list": "taskList",
   "/company-hierarchy": "companyHierarchy",
   "/user-logins": "userLogins",
   "/supplier-setup": "supplierSetup",
@@ -138,6 +139,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Asus Tawasoul", titleAr: "أسس تواصل", url: "/asus-tawasoul", icon: Users },
       { title: "Email Manager", titleAr: "مدير البريد", url: "/email-manager", icon: Mail },
       { title: "Projects & Tasks", titleAr: "المشاريع والمهام", url: "/projects-tasks", icon: FolderKanban },
+      { title: "Task List", titleAr: "قائمة المهام", url: "/task-list", icon: ClipboardList },
       { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
     ]
   },
