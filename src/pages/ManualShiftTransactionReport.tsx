@@ -45,58 +45,37 @@ const ManualShiftTransactionReport = () => {
   }, []);
 
   const fetchUsers = async () => {
-    // Get distinct user_ids from shift_assignments (sales reps)
-    const { data: assignments, error: assignError } = await supabase
-      .from("shift_assignments")
-      .select("user_id");
+    // Fetch all unique user_names from purpletransaction using batch fetching to overcome 1000 limit
+    const allUserNames = new Set<string>();
+    let offset = 0;
+    const batchSize = 1000;
+    let hasMore = true;
 
-    if (assignError) {
-      console.error("Error fetching shift assignments:", assignError);
-      return;
-    }
-    
-    // Get unique user_ids
-    const uniqueUserIds = [...new Set(assignments?.map(a => a.user_id).filter(Boolean))];
-    
-    if (uniqueUserIds.length === 0) {
-      setUsers([]);
-      return;
-    }
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from("purpletransaction")
+        .select("user_name")
+        .not("user_name", "is", null)
+        .range(offset, offset + batchSize - 1);
 
-    // Get user names from profiles for these shift users
-    const { data: profiles, error: profileError } = await supabase
-      .from("profiles")
-      .select("user_id, user_name")
-      .in("user_id", uniqueUserIds)
-      .not("user_name", "is", null);
-
-    if (profileError) {
-      console.error("Error fetching profiles:", profileError);
-      return;
-    }
-    
-    // Create map of profile names to user_ids
-    const profileMap = new Map<string, string>();
-    profiles?.forEach(p => {
-      if (p.user_name) {
-        profileMap.set(p.user_id, p.user_name);
+      if (error) {
+        console.error("Error fetching users:", error);
+        break;
       }
-    });
 
-    // Now get the matching user_names from purpletransaction for these users
-    // Since purpletransaction has different user_name format, we need to get them directly
-    const { data: txUsers, error: txError } = await supabase
-      .from("purpletransaction")
-      .select("user_name")
-      .not("user_name", "is", null);
-
-    if (txError) {
-      console.error("Error fetching transaction users:", txError);
-      return;
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        data.forEach(d => {
+          if (d.user_name) allUserNames.add(d.user_name);
+        });
+        offset += batchSize;
+        hasMore = data.length === batchSize;
+      }
     }
 
-    const uniqueTxUsers = [...new Set(txUsers?.map(t => t.user_name).filter(Boolean) as string[])].sort();
-    setUsers(uniqueTxUsers);
+    const uniqueUsers = Array.from(allUserNames).sort();
+    setUsers(uniqueUsers);
   };
 
   const dateToInt = (dateStr: string): number => {
