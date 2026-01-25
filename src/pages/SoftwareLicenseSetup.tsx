@@ -41,7 +41,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw, Save, X, Calculator } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw, Save, X, Calculator, Crop } from "lucide-react";
+import InvoiceCropTool from "@/components/InvoiceCropTool";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -182,6 +183,16 @@ const SoftwareLicenseSetup = () => {
     cost_currency: string;
     cost_sar: string;
   }>({ extracted_cost: "", cost_currency: "", cost_sar: "" });
+
+  // Crop tool state
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [pendingUploadData, setPendingUploadData] = useState<{
+    base64: string;
+    fileName: string;
+    cloudinaryUrl: string;
+    invoiceId: string;
+    isPdf: boolean;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     software_name: "",
@@ -536,15 +547,15 @@ const SoftwareLicenseSetup = () => {
 
       toast({
         title: language === "ar" ? "تم الرفع بنجاح" : "Upload successful",
-        description: language === "ar" ? "تم رفع الفاتورة بنجاح، جاري استخراج التكلفة..." : "Invoice uploaded successfully, extracting cost...",
+        description: language === "ar" ? "تم رفع الفاتورة، يرجى تحديد الأجزاء للقراءة" : "Invoice uploaded, please select regions to read",
       });
 
-      // Prepare image data for AI extraction
-      let imageDataForAI = base64;
+      // Prepare image data for crop tool
+      let imageDataForCrop = base64;
       const isPdf = file.name.toLowerCase().endsWith('.pdf');
       
       if (isPdf) {
-        // For PDFs, we need to convert first page to image
+        // For PDFs, we need to convert first page to image for cropping
         try {
           const pdfjsLib = await import('pdfjs-dist');
           pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -571,39 +582,23 @@ const SoftwareLicenseSetup = () => {
           
           if (context) {
             await page.render({ canvasContext: context, viewport }).promise;
-            imageDataForAI = canvas.toDataURL('image/png');
+            imageDataForCrop = canvas.toDataURL('image/png');
           }
         } catch (pdfError) {
           console.error("Failed to convert PDF to image:", pdfError);
-          // Continue with original base64, AI will fail but we'll handle it
         }
       }
 
-      // Call AI to extract cost from invoice (async, don't block)
+      // Store pending data and open crop dialog
       if (insertedInvoice) {
-        supabase.functions.invoke("extract-invoice-cost", {
-          body: { 
-            invoiceId: insertedInvoice.id,
-            imageData: imageDataForAI,
-            fileName: file.name
-          },
-        }).then(async () => {
-          // Refresh invoices to show extracted cost
-          if (editingLicenseId) {
-            await fetchLicenseInvoices(editingLicenseId);
-          }
-          toast({
-            title: language === "ar" ? "تم استخراج التكلفة" : "Cost extracted",
-            description: language === "ar" ? "تم استخراج تكلفة الفاتورة بنجاح" : "Invoice cost extracted successfully",
-          });
-        }).catch((err) => {
-          console.error("Failed to extract invoice cost:", err);
-          toast({
-            title: language === "ar" ? "تحذير" : "Warning",
-            description: language === "ar" ? "فشل في استخراج التكلفة تلقائياً" : "Failed to auto-extract cost",
-            variant: "destructive",
-          });
+        setPendingUploadData({
+          base64: imageDataForCrop,
+          fileName: file.name,
+          cloudinaryUrl: uploadData.url,
+          invoiceId: insertedInvoice.id,
+          isPdf,
         });
+        setCropDialogOpen(true);
       }
     } catch (error: any) {
       toast({
@@ -613,6 +608,41 @@ const SoftwareLicenseSetup = () => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleCropsConfirmed = async (croppedImages: string[]) => {
+    if (!pendingUploadData) return;
+
+    try {
+      // Call AI to extract cost from invoice with cropped images
+      supabase.functions.invoke("extract-invoice-cost", {
+        body: { 
+          invoiceId: pendingUploadData.invoiceId,
+          croppedImages: croppedImages,
+          fileName: pendingUploadData.fileName
+        },
+      }).then(async () => {
+        // Refresh invoices to show extracted cost
+        if (editingLicenseId) {
+          await fetchLicenseInvoices(editingLicenseId);
+        }
+        toast({
+          title: language === "ar" ? "تم استخراج التكلفة" : "Cost extracted",
+          description: language === "ar" 
+            ? `تم استخراج التكلفة من ${croppedImages.length} أجزاء` 
+            : `Cost extracted from ${croppedImages.length} region(s)`,
+        });
+      }).catch((err) => {
+        console.error("Failed to extract invoice cost:", err);
+        toast({
+          title: language === "ar" ? "تحذير" : "Warning",
+          description: language === "ar" ? "فشل في استخراج التكلفة تلقائياً" : "Failed to auto-extract cost",
+          variant: "destructive",
+        });
+      });
+    } finally {
+      setPendingUploadData(null);
     }
   };
 
@@ -2049,6 +2079,19 @@ const SoftwareLicenseSetup = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Crop Tool */}
+      <InvoiceCropTool
+        open={cropDialogOpen}
+        onOpenChange={(open) => {
+          setCropDialogOpen(open);
+          if (!open) {
+            setPendingUploadData(null);
+          }
+        }}
+        imageDataUrl={pendingUploadData?.base64 || ""}
+        onCropsConfirmed={handleCropsConfirmed}
+      />
     </div>
   );
 };
