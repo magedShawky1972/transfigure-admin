@@ -87,6 +87,7 @@ type AllDepartmentAdmin = {
   user_id: string;
   admin_order: number;
   is_purchase_admin: boolean;
+  user_name: string | null;
 };
 
 const AdminTickets = () => {
@@ -172,6 +173,32 @@ const AdminTickets = () => {
     return false;
   };
 
+  // Get the approver names for a ticket
+  const getApproverNames = (ticket: Ticket): string[] => {
+    if (ticket.approved_at) return []; // Already fully approved
+    
+    const deptAdmins = allDepartmentAdmins.filter(a => a.department_id === ticket.department_id);
+    const nextOrder = ticket.next_admin_order ?? 0;
+    
+    // For non-purchase tickets: only regular admins
+    if (!ticket.is_purchase_ticket) {
+      const regularAdmins = deptAdmins.filter(a => !a.is_purchase_admin && a.admin_order === nextOrder);
+      return regularAdmins.map(a => a.user_name).filter((name): name is string => !!name);
+    }
+    
+    // For purchase tickets: determine phase
+    const regularAdminsAtOrder = deptAdmins.filter(a => !a.is_purchase_admin && a.admin_order === nextOrder);
+    
+    if (regularAdminsAtOrder.length > 0) {
+      // Regular admin phase
+      return regularAdminsAtOrder.map(a => a.user_name).filter((name): name is string => !!name);
+    } else {
+      // Purchase admin phase
+      const purchaseAdminsAtOrder = deptAdmins.filter(a => a.is_purchase_admin && a.admin_order === nextOrder);
+      return purchaseAdminsAtOrder.map(a => a.user_name).filter((name): name is string => !!name);
+    }
+  };
+
   const fetchCurrentUserAdminInfo = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -190,14 +217,29 @@ const AdminTickets = () => {
       const departmentIds = userAdminData?.map(d => d.department_id) || [];
       
       if (departmentIds.length > 0) {
-        // Get all admins for these departments
+        // Get all admins for these departments with user names
         const { data: allAdmins, error: allAdminsError } = await supabase
           .from("department_admins")
           .select("department_id, user_id, admin_order, is_purchase_admin")
           .in("department_id", departmentIds);
 
         if (allAdminsError) throw allAdminsError;
-        setAllDepartmentAdmins(allAdmins || []);
+        
+        // Fetch user names for all admins
+        const userIds = [...new Set((allAdmins || []).map(a => a.user_id))];
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, user_name")
+          .in("user_id", userIds);
+        
+        const profileMap = new Map(profiles?.map(p => [p.user_id, p.user_name]) || []);
+        
+        const adminsWithNames = (allAdmins || []).map(admin => ({
+          ...admin,
+          user_name: profileMap.get(admin.user_id) || null
+        }));
+        
+        setAllDepartmentAdmins(adminsWithNames);
       }
     } catch (error: any) {
       console.error("Error fetching admin info:", error);
@@ -1063,9 +1105,14 @@ const AdminTickets = () => {
           )}
           
           {!ticket.approved_at && !canUserApprove(ticket) && (
-            <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
-              {language === 'ar' ? 'بانتظار موافقة أخرى' : 'Awaiting other approval'}
-            </Badge>
+            <div className="flex flex-col gap-1">
+              <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
+                {language === 'ar' ? 'بانتظار موافقة' : 'Awaiting approval from'}:
+              </Badge>
+              <span className="text-xs font-medium text-muted-foreground">
+                {getApproverNames(ticket).join(', ') || (language === 'ar' ? 'غير محدد' : 'Not specified')}
+              </span>
+            </div>
           )}
           
           <Select
