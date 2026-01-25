@@ -4372,6 +4372,7 @@ export type Database = {
           customer_phone: string
           device_fingerprint: string | null
           id: string
+          is_point: boolean | null
           media: string | null
           order_date: string
           order_number: string
@@ -4393,6 +4394,7 @@ export type Database = {
           customer_phone: string
           device_fingerprint?: string | null
           id?: string
+          is_point?: boolean | null
           media?: string | null
           order_date: string
           order_number: string
@@ -4414,6 +4416,7 @@ export type Database = {
           customer_phone?: string
           device_fingerprint?: string | null
           id?: string
+          is_point?: boolean | null
           media?: string | null
           order_date?: string
           order_number?: string
@@ -5814,6 +5817,7 @@ export type Database = {
           customer_phone: string | null
           device_fingerprint: string | null
           id: string
+          is_point: boolean | null
           media: string | null
           order_date: string | null
           order_number: string | null
@@ -5835,6 +5839,7 @@ export type Database = {
           customer_phone?: string | null
           device_fingerprint?: string | null
           id?: string
+          is_point?: boolean | null
           media?: string | null
           order_date?: string | null
           order_number?: string | null
@@ -5856,6 +5861,7 @@ export type Database = {
           customer_phone?: string | null
           device_fingerprint?: string | null
           id?: string
+          is_point?: boolean | null
           media?: string | null
           order_date?: string | null
           order_number?: string | null

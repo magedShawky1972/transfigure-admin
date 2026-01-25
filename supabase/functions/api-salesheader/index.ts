@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
         transaction_location: body.Transaction_Location,
         register_user_id: body.Register_User_ID,
         player_id: body.Player_Id,
+        is_point: body.Point === 1 || body.Point === '1' || body.Point === true,
       }, {
         onConflict: 'order_number'
       })
