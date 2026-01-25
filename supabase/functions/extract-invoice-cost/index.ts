@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { invoiceId, imageData, fileName } = await req.json();
+    const { invoiceId, imageData, fileName, croppedImages } = await req.json();
 
-    if (!invoiceId || !imageData) {
+    if (!invoiceId || (!imageData && (!croppedImages || croppedImages.length === 0))) {
       return new Response(
-        JSON.stringify({ error: "Missing invoiceId or imageData" }),
+        JSON.stringify({ error: "Missing invoiceId or imageData/croppedImages" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -26,7 +26,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Extracting cost from invoice:", invoiceId, "File:", fileName);
+    console.log("Extracting cost from invoice:", invoiceId, "File:", fileName, "Crops:", croppedImages?.length || 0);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -39,8 +39,29 @@ serve(async (req) => {
       .update({ ai_extraction_status: "processing" })
       .eq("id", invoiceId);
 
+    // Determine which images to process
+    const imagesToProcess: string[] = croppedImages && croppedImages.length > 0 
+      ? croppedImages 
+      : [imageData];
+
     // Prepare the prompt for AI extraction
-    const systemPrompt = `You are an invoice data extractor. Analyze the invoice image and extract the following information:
+    const systemPrompt = imagesToProcess.length > 1 
+      ? `You are an invoice data extractor. You are given ${imagesToProcess.length} cropped sections from an invoice. Analyze ALL sections together and extract:
+1. Total amount/cost (combine amounts from all sections if they represent different parts of the same item)
+2. Currency (USD, SAR, EUR, etc. - look for currency symbols like $, ﷼, € or text)
+
+Return ONLY valid JSON in this exact format:
+{"cost": 123.45, "currency": "USD"}
+
+Rules:
+- Look at ALL provided image sections to find amounts
+- If multiple amounts exist across sections, ADD them together to get the total
+- Extract only final totals, not individual line items
+- If no currency is explicitly stated, assume USD
+- Convert Arabic numerals (٠١٢٣٤٥٦٧٨٩) to English numerals
+- If you cannot find any amount, return {"cost": null, "currency": null, "error": "Could not extract cost from invoice"}
+- Do NOT include markdown, just pure JSON`
+      : `You are an invoice data extractor. Analyze the invoice image and extract the following information:
 1. Total amount/cost (look for "Total", "Amount Due", "Grand Total", "المبلغ الإجمالي", "المجموع", "Subtotal")
 2. Currency (USD, SAR, EUR, etc. - look for currency symbols like $, ﷼, € or text)
 
@@ -55,7 +76,20 @@ Rules:
 - If you cannot find any amount, return {"cost": null, "currency": null, "error": "Could not extract cost from invoice"}
 - Do NOT include markdown, just pure JSON`;
 
-    // Call AI to extract invoice data - imageData should be base64 data URL
+    // Build content array with all images
+    const contentArray: any[] = [
+      { type: "text", text: systemPrompt }
+    ];
+
+    // Add all images to the content
+    for (let i = 0; i < imagesToProcess.length; i++) {
+      contentArray.push({ 
+        type: "image_url", 
+        image_url: { url: imagesToProcess[i] } 
+      });
+    }
+
+    // Call AI to extract invoice data
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -67,10 +101,7 @@ Rules:
         messages: [
           {
             role: "user",
-            content: [
-              { type: "text", text: systemPrompt },
-              { type: "image_url", image_url: { url: imageData } }
-            ]
+            content: contentArray
           }
         ],
         max_tokens: 1000,
@@ -211,7 +242,8 @@ Rules:
     console.log("Invoice updated successfully:", {
       cost: extractedData.cost,
       currency: extractedData.currency,
-      costSar
+      costSar,
+      cropsProcessed: imagesToProcess.length
     });
 
     return new Response(
@@ -220,7 +252,8 @@ Rules:
         cost: extractedData.cost,
         currency: extractedData.currency,
         costSar,
-        error: extractedData.error
+        error: extractedData.error,
+        cropsProcessed: imagesToProcess.length
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
