@@ -160,7 +160,7 @@ const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase 
         </button>
         <div className="flex items-center gap-2 flex-1">
           <Badge variant="outline" className="font-mono text-xs">
-            #{index + 1}
+            {language === 'ar' ? 'مستوى' : 'Level'} {admin.admin_order}
           </Badge>
           <div className="flex-1">
             <div className="flex items-center gap-2">
