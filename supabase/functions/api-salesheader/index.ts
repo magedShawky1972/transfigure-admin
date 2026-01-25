@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
         device_fingerprint: body.Device_Fingerprint,
         transaction_location: body.Transaction_Location,
         register_user_id: body.Register_User_ID,
+        player_id: body.Player_Id,
       }, {
         onConflict: 'order_number'
       })
