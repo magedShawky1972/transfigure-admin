@@ -45,19 +45,26 @@ const ManualShiftTransactionReport = () => {
   }, []);
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from("purpletransaction")
-      .select("user_name")
-      .not("user_name", "is", null)
-      .order("user_name");
+    // Get users who have shift assignments (sales representatives)
+    const { data: assignments, error } = await supabase
+      .from("shift_assignments")
+      .select("user_id, profiles!inner(user_name)")
+      .order("user_id");
 
     if (error) {
       console.error("Error fetching users:", error);
       return;
     }
     
-    // Get unique user names
-    const uniqueUsers = [...new Set(data?.map(d => d.user_name).filter(Boolean) as string[])];
+    // Get unique user names from shift assignments
+    const userMap = new Map<string, string>();
+    assignments?.forEach((a: any) => {
+      if (a.profiles?.user_name) {
+        userMap.set(a.user_id, a.profiles.user_name);
+      }
+    });
+    
+    const uniqueUsers = Array.from(userMap.values()).sort();
     setUsers(uniqueUsers);
   };
 
