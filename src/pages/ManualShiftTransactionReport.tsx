@@ -123,7 +123,7 @@ const ManualShiftTransactionReport = () => {
         query = query.eq("user_name", selectedUser);
       } else {
         // When "All Users" is selected, only show manual transactions
-        query = query.eq("trans_type", "manual transaction");
+        query = query.eq("trans_type", "manual");
       }
 
       const { data: txData, error: txError } = await query;
