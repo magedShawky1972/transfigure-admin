@@ -36,46 +36,67 @@ const ManualShiftTransactionReport = () => {
   const [toDate, setToDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [selectedUser, setSelectedUser] = useState<string>("all");
   const [users, setUsers] = useState<string[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate]);
 
   const fetchUsers = async () => {
-    // Fetch all unique user_names from purpletransaction using batch fetching to overcome 1000 limit
-    const allUserNames = new Set<string>();
-    let offset = 0;
-    const batchSize = 1000;
-    let hasMore = true;
+    setUsersLoading(true);
+    try {
+      // Load users only within selected date range (same filter as report)
+      const fromDateInt = dateToInt(fromDate);
+      const toDateInt = dateToInt(toDate);
 
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from("purpletransaction")
-        .select("user_name")
-        .not("user_name", "is", null)
-        .range(offset, offset + batchSize - 1);
+      const allUserNames = new Set<string>();
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      let safetyIters = 0;
 
-      if (error) {
-        console.error("Error fetching users:", error);
-        break;
+      while (hasMore && safetyIters < 50) {
+        safetyIters += 1;
+        const { data, error } = await supabase
+          .from("purpletransaction")
+          .select("user_name")
+          .gte("created_at_date_int", fromDateInt)
+          .lte("created_at_date_int", toDateInt)
+          .eq("is_deleted", false)
+          .not("user_name", "is", null)
+          .order("user_name", { ascending: true })
+          .range(offset, offset + batchSize - 1);
+
+        if (error) {
+          console.error("Error fetching users:", error);
+          break;
+        }
+
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          data.forEach((d) => {
+            if (d.user_name) allUserNames.add(d.user_name);
+          });
+          offset += batchSize;
+          hasMore = data.length === batchSize;
+        }
       }
 
-      if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        data.forEach(d => {
-          if (d.user_name) allUserNames.add(d.user_name);
-        });
-        offset += batchSize;
-        hasMore = data.length === batchSize;
+      const uniqueUsers = Array.from(allUserNames).sort();
+      setUsers(uniqueUsers);
+
+      // Reset selected user if it no longer exists in the new date range
+      if (selectedUser !== "all" && !allUserNames.has(selectedUser)) {
+        setSelectedUser("all");
       }
+    } finally {
+      setUsersLoading(false);
     }
-
-    const uniqueUsers = Array.from(allUserNames).sort();
-    setUsers(uniqueUsers);
   };
 
   const dateToInt = (dateStr: string): number => {
@@ -304,11 +325,17 @@ const ManualShiftTransactionReport = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{isRTL ? "جميع المستخدمين" : "All Users"}</SelectItem>
-                  {users.map((userName) => (
-                    <SelectItem key={userName} value={userName}>
-                      {userName}
+                  {usersLoading ? (
+                    <SelectItem value="__loading" disabled>
+                      {isRTL ? "جاري تحميل المستخدمين..." : "Loading users..."}
                     </SelectItem>
-                  ))}
+                  ) : (
+                    users.map((userName) => (
+                      <SelectItem key={userName} value={userName}>
+                        {userName}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
