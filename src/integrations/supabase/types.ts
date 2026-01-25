@@ -4376,6 +4376,7 @@ export type Database = {
           order_date: string
           order_number: string
           payment_term: string | null
+          player_id: string | null
           profit_center: string | null
           register_user_id: string | null
           sales_person: string | null
@@ -4396,6 +4397,7 @@ export type Database = {
           order_date: string
           order_number: string
           payment_term?: string | null
+          player_id?: string | null
           profit_center?: string | null
           register_user_id?: string | null
           sales_person?: string | null
@@ -4416,6 +4418,7 @@ export type Database = {
           order_date?: string
           order_number?: string
           payment_term?: string | null
+          player_id?: string | null
           profit_center?: string | null
           register_user_id?: string | null
           sales_person?: string | null
@@ -5815,6 +5818,7 @@ export type Database = {
           order_date: string | null
           order_number: string | null
           payment_term: string | null
+          player_id: string | null
           profit_center: string | null
           register_user_id: string | null
           sales_person: string | null
@@ -5835,6 +5839,7 @@ export type Database = {
           order_date?: string | null
           order_number?: string | null
           payment_term?: string | null
+          player_id?: string | null
           profit_center?: string | null
           register_user_id?: string | null
           sales_person?: string | null
@@ -5855,6 +5860,7 @@ export type Database = {
           order_date?: string | null
           order_number?: string | null
           payment_term?: string | null
+          player_id?: string | null
           profit_center?: string | null
           register_user_id?: string | null
           sales_person?: string | null

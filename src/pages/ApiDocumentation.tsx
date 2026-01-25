@@ -35,6 +35,7 @@ const API_ENDPOINTS = [
       { name: "Device_Fingerprint", type: "Text", required: false, note: "Chrome/119 | Windows 10 or IOS" },
       { name: "Transaction_Location", type: "Text", required: false, note: "KSA, CAIRO" },
       { name: "Register_User_ID", type: "Text", required: false, note: "" },
+      { name: "Player_Id", type: "Text", required: false, note: "Player identifier" },
     ],
   },
   {
