@@ -18,9 +18,10 @@ const API_ENDPOINTS = [
     name: "Sales Order Header",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-salesheader`,
     method: "POST",
-    description: "Create sales order headers with customer and transaction details. Data is saved to testsalesheader table.",
+    description: "Create or update sales order headers with customer and transaction details. Uses upsert logic - if Order_Number exists, data will be updated; otherwise, a new record is created. Data is saved to testsalesheader table.",
+    upsertKey: "Order_Number",
     fields: [
-      { name: "Order_Number", type: "Text", required: true, note: "Primary Key" },
+      { name: "Order_Number", type: "Text", required: true, note: "Primary Key (Upsert Key)" },
       { name: "Customer_Phone", type: "Text", required: true, note: "Foreign Key" },
       { name: "Order_date", type: "DateTime", required: true, note: "" },
       { name: "Payment_Term", type: "Text", required: false, note: "immediate/15/30/60" },
@@ -44,10 +45,11 @@ const API_ENDPOINTS = [
     name: "Sales Order Line",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-salesline`,
     method: "POST",
-    description: "Create sales order line items with product details. Data is saved to testsalesline table.",
+    description: "Create or update sales order line items with product details. Uses upsert logic - if Order_Number + Line_Number combination exists, data will be updated; otherwise, a new record is created. Data is saved to testsalesline table.",
+    upsertKey: "Order_Number + Line_Number",
     fields: [
-      { name: "Order_Number", type: "Text", required: true, note: "Primary Key" },
-      { name: "Line_Number", type: "Int", required: true, note: "Primary Key" },
+      { name: "Order_Number", type: "Text", required: true, note: "Primary Key (Upsert Key)" },
+      { name: "Line_Number", type: "Int", required: true, note: "Primary Key (Upsert Key)" },
       { name: "Line_Status", type: "Int", required: true, note: "0 For Cancel/ 1 Confirm" },
       { name: "Product_SKU", type: "Text", required: false, note: "" },
       { name: "Product_Id", type: "BigInt", required: false, note: "" },
@@ -64,7 +66,8 @@ const API_ENDPOINTS = [
     name: "Payment",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-payment`,
     method: "POST",
-    description: "Record payment transactions with payment method details. Data is saved to testpayment table.",
+    description: "Record payment transactions with payment method details. Insert only - each call creates a new payment record. Data is saved to testpayment table.",
+    upsertKey: null,
     fields: [
       { name: "Order_number", type: "Text", required: true, note: "Primary Key" },
       { name: "Payment_method", type: "Text", required: true, note: "hyperpay/ecom_payment/salla" },
@@ -82,9 +85,10 @@ const API_ENDPOINTS = [
     name: "Customers",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-customer`,
     method: "POST",
-    description: "Manage customer master data including contact and status information. Data is saved to testcustomers table.",
+    description: "Create or update customer master data including contact and status information. Uses upsert logic - if Customer_Phone exists, data will be updated; otherwise, a new record is created. Data is saved to testcustomers table.",
+    upsertKey: "Customer_Phone",
     fields: [
-      { name: "Customer_Phone", type: "Text", required: true, note: "Primary Key" },
+      { name: "Customer_Phone", type: "Text", required: true, note: "Primary Key (Upsert Key)" },
       { name: "Customer_name", type: "Text", required: true, note: "" },
       { name: "Customer_email", type: "Text", required: false, note: "" },
       { name: "Customer_group", type: "Text", required: false, note: "Can be null" },
@@ -100,9 +104,10 @@ const API_ENDPOINTS = [
     name: "Suppliers",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-supplier`,
     method: "POST",
-    description: "Manage supplier master data including contact information. Data is saved to testsuppliers table.",
+    description: "Create or update supplier master data including contact information. Uses upsert logic - if Supplier_code exists, data will be updated; otherwise, a new record is created. Data is saved to testsuppliers table.",
+    upsertKey: "Supplier_code",
     fields: [
-      { name: "Supplier_code", type: "Text", required: true, note: "Primary Key" },
+      { name: "Supplier_code", type: "Text", required: true, note: "Primary Key (Upsert Key)" },
       { name: "Supplier_name", type: "Text", required: true, note: "" },
       { name: "Supplier_email", type: "Text", required: false, note: "" },
       { name: "Supplier_phone", type: "Text", required: false, note: "" },
@@ -114,11 +119,12 @@ const API_ENDPOINTS = [
     name: "Supplier Products",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-supplierproduct`,
     method: "POST",
-    description: "Manage supplier product pricing with date ranges. Data is saved to testsupplierproducts table.",
+    description: "Create or update supplier product pricing with date ranges. Uses upsert logic - if Supplier_code + SKU + Date_From combination exists, data will be updated; otherwise, a new record is created. Data is saved to testsupplierproducts table.",
+    upsertKey: "Supplier_code + SKU + Date_From",
     fields: [
-      { name: "Supplier_code", type: "Text", required: true, note: "Primary Key" },
-      { name: "SKU", type: "Text", required: true, note: "Foreign Key" },
-      { name: "Date_From", type: "Date", required: false, note: "" },
+      { name: "Supplier_code", type: "Text", required: true, note: "Primary Key (Upsert Key)" },
+      { name: "SKU", type: "Text", required: true, note: "Foreign Key (Upsert Key)" },
+      { name: "Date_From", type: "Date", required: false, note: "Upsert Key" },
       { name: "Date_To", type: "Date", required: false, note: "" },
       { name: "Price", type: "Decimal", required: false, note: "" },
     ],
@@ -128,9 +134,10 @@ const API_ENDPOINTS = [
     name: "Brand (Product Category)",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-brand`,
     method: "POST",
-    description: "Manage product brand and category information. Data is saved to testbrands table.",
+    description: "Create or update product brand and category information. Uses upsert logic - if Brand_Code exists, data will be updated; otherwise, a new record is created. Data is saved to testbrands table.",
+    upsertKey: "Brand_Code",
     fields: [
-      { name: "Brand_Code", type: "Text", required: true, note: "Primary Key" },
+      { name: "Brand_Code", type: "Text", required: true, note: "Primary Key (Upsert Key)" },
       { name: "Brand_Name", type: "Text", required: true, note: "" },
       { name: "Brand_Parent", type: "Text", required: false, note: "" },
       { name: "Status", type: "Bit", required: false, note: "Active/Suspended" },
@@ -141,10 +148,11 @@ const API_ENDPOINTS = [
     name: "Product",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-product`,
     method: "POST",
-    description: "Manage product master data including inventory and pricing. Data is saved to testproducts table.",
+    description: "Create or update product master data including inventory and pricing. Uses upsert logic - if SKU exists, data will be updated; otherwise, a new record is created. Data is saved to testproducts table.",
+    upsertKey: "SKU",
     fields: [
       { name: "Product_id", type: "BigInt", required: true, note: "Primary Key" },
-      { name: "SKU", type: "Text", required: true, note: "Primary Key" },
+      { name: "SKU", type: "Text", required: true, note: "Primary Key (Upsert Key)" },
       { name: "Name", type: "Text", required: true, note: "" },
       { name: "UOM", type: "Text", required: false, note: "" },
       { name: "Brand_Code", type: "Text", required: false, note: "Foreign Key" },
@@ -677,11 +685,23 @@ const ApiDocumentation = () => {
       </Card>
 
       {/* API Endpoints */}
-      {filteredApis.map((api, index) => (
+      {filteredApis.map((api: any, index) => (
         <Card key={api.id} className="break-inside-avoid print:shadow-none print:border-0 print:page-break-after">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-900 dark:text-foreground">{api.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-gray-900 dark:text-foreground">{api.name}</CardTitle>
+                {api.upsertKey && (
+                  <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded font-medium">
+                    Upsert
+                  </span>
+                )}
+                {api.upsertKey === null && api.method === 'POST' && (
+                  <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded font-medium">
+                    Insert Only
+                  </span>
+                )}
+              </div>
               <span className="text-xs font-mono bg-primary/10 px-2 py-1 rounded text-gray-900 dark:text-foreground">
                 {api.method}
               </span>
@@ -689,6 +709,13 @@ const ApiDocumentation = () => {
             <CardDescription className="text-gray-700 dark:text-foreground/80">{api.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {api.upsertKey && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg">
+                <p className="text-sm text-green-800 dark:text-green-300">
+                  <strong>Upsert Behavior:</strong> If a record with the same <code className="bg-green-100 dark:bg-green-900/50 px-1 rounded">{api.upsertKey}</code> exists, it will be updated. Otherwise, a new record will be created.
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Endpoint</p>
               <div className="bg-muted p-3 rounded-lg font-mono text-sm text-gray-900 dark:text-foreground">
