@@ -857,21 +857,63 @@ const Dashboard = () => {
         })).sort((a: any, b: any) => b.value - a.value);
         setUserTransactionCountData(userCountWithPct);
 
-        // User Transaction Value (exclude point payments, exclude null/empty user_name)
-        const userValueMap = transactions
-          .filter((t: any) => t.payment_method?.toLowerCase() !== 'point')
+        // User Transaction Value - Split into Point and Non-Point per user
+        const userPointValueMap: Record<string, number> = {};
+        const userNonPointValueMap: Record<string, number> = {};
+
+        transactions
           .filter((t: any) => t.user_name && String(t.user_name).trim() !== '')
-          .reduce((acc: any, t: any) => {
+          .forEach((t: any) => {
             const name = String(t.user_name);
-            acc[name] = (acc[name] || 0) + parseNumber(t.total);
-            return acc;
-          }, {} as Record<string, number>);
-        const userValueArray = Object.entries(userValueMap).map(([name, value]) => ({ name, value: value as number }));
-        const userValueTotal = userValueArray.reduce((sum, item: any) => sum + item.value, 0);
-        const userValueWithPct = userValueArray.map((item: any) => ({
+            const total = parseNumber(t.total);
+            
+            if (t.payment_method?.toLowerCase() === 'point') {
+              userPointValueMap[name] = (userPointValueMap[name] || 0) + total;
+            } else {
+              userNonPointValueMap[name] = (userNonPointValueMap[name] || 0) + total;
+            }
+          });
+
+        // Create combined array with two rows per user (sales first, then points)
+        const userValueArray: Array<{ name: string; value: number; type: 'point' | 'sales' }> = [];
+        const allUsers = new Set([...Object.keys(userPointValueMap), ...Object.keys(userNonPointValueMap)]);
+
+        // Sort users by their non-point (sales) value descending
+        const sortedUsers = Array.from(allUsers).sort((a, b) => {
+          const aValue = userNonPointValueMap[a] || 0;
+          const bValue = userNonPointValueMap[b] || 0;
+          return bValue - aValue;
+        });
+
+        sortedUsers.forEach(userName => {
+          const pointValue = userPointValueMap[userName] || 0;
+          const salesValue = userNonPointValueMap[userName] || 0;
+          
+          // Add sales row (non-point) first
+          if (salesValue > 0) {
+            userValueArray.push({
+              name: `${userName} (${language === 'ar' ? 'مبيعات' : 'Sales'})`,
+              value: salesValue,
+              type: 'sales'
+            });
+          }
+          
+          // Add point row
+          if (pointValue > 0) {
+            userValueArray.push({
+              name: `${userName} (${language === 'ar' ? 'نقاط' : 'Points'})`,
+              value: pointValue,
+              type: 'point'
+            });
+          }
+        });
+
+        // Calculate percentages based on total
+        const userValueTotal = userValueArray.reduce((sum, item) => sum + item.value, 0);
+        const userValueWithPct = userValueArray.map((item) => ({
           ...item,
           percentage: userValueTotal > 0 ? (item.value / userValueTotal) * 100 : 0,
-        })).sort((a: any, b: any) => b.value - a.value);
+        }));
         setUserTransactionValueData(userValueWithPct);
       }
 
