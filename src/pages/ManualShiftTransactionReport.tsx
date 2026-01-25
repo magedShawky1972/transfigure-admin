@@ -45,26 +45,38 @@ const ManualShiftTransactionReport = () => {
   }, []);
 
   const fetchUsers = async () => {
-    // Get users who have shift assignments (sales representatives)
-    const { data: assignments, error } = await supabase
+    // Get distinct user_ids from shift_assignments
+    const { data: assignments, error: assignError } = await supabase
       .from("shift_assignments")
-      .select("user_id, profiles!inner(user_name)")
-      .order("user_id");
+      .select("user_id");
 
-    if (error) {
-      console.error("Error fetching users:", error);
+    if (assignError) {
+      console.error("Error fetching shift assignments:", assignError);
       return;
     }
     
-    // Get unique user names from shift assignments
-    const userMap = new Map<string, string>();
-    assignments?.forEach((a: any) => {
-      if (a.profiles?.user_name) {
-        userMap.set(a.user_id, a.profiles.user_name);
-      }
-    });
+    // Get unique user_ids
+    const uniqueUserIds = [...new Set(assignments?.map(a => a.user_id).filter(Boolean))];
     
-    const uniqueUsers = Array.from(userMap.values()).sort();
+    if (uniqueUserIds.length === 0) {
+      setUsers([]);
+      return;
+    }
+
+    // Get user names from profiles
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_name")
+      .in("user_id", uniqueUserIds)
+      .not("user_name", "is", null)
+      .order("user_name");
+
+    if (profileError) {
+      console.error("Error fetching profiles:", profileError);
+      return;
+    }
+    
+    const uniqueUsers = [...new Set(profiles?.map(p => p.user_name).filter(Boolean) as string[])];
     setUsers(uniqueUsers);
   };
 
