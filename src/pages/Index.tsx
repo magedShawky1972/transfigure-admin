@@ -7,12 +7,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
 import logo from "@/assets/edara-logo.png";
 import { useAppVersion } from "@/hooks/useAppVersion";
+import PendingApprovalsPopup from "@/components/PendingApprovalsPopup";
 
 const Index = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const { t, language } = useLanguage();
   const version = useAppVersion();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showPendingApprovals, setShowPendingApprovals] = useState(false);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -35,6 +38,30 @@ const Index = () => {
 
           navigate("/auth", { replace: true });
           return;
+        }
+
+        // Set user ID for pending approvals check
+        setUserId(session.user.id);
+        
+        // Check if this is a fresh login (within the last 5 seconds)
+        const lastLogin = sessionStorage.getItem("lastLoginCheck");
+        const now = Date.now();
+        
+        if (!lastLogin || (now - parseInt(lastLogin)) > 5000) {
+          // Mark this as checked to avoid showing popup on every page load
+          sessionStorage.setItem("lastLoginCheck", now.toString());
+          
+          // Check if user is a department admin
+          const { data: adminData } = await supabase
+            .from("department_admins")
+            .select("id")
+            .eq("user_id", session.user.id)
+            .limit(1);
+          
+          if (adminData && adminData.length > 0) {
+            // User is an admin, show pending approvals popup
+            setShowPendingApprovals(true);
+          }
         }
 
         // Show landing page to all authenticated users
@@ -80,6 +107,15 @@ const Index = () => {
           © {new Date().getFullYear()} Asus. {language === 'ar' ? 'جميع الحقوق محفوظة' : 'All rights reserved.'}
         </p>
       </div>
+
+      {/* Pending Approvals Popup */}
+      {userId && (
+        <PendingApprovalsPopup
+          open={showPendingApprovals}
+          onOpenChange={setShowPendingApprovals}
+          userId={userId}
+        />
+      )}
     </div>
   );
 };
