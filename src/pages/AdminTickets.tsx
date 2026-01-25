@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle } from "lucide-react";
 import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -1048,9 +1048,10 @@ const AdminTickets = () => {
             <Button
               size="sm"
               variant="default"
-              className="h-8 text-xs sm:text-sm"
+              className="h-8 text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white"
               onClick={() => handleApprove(ticket.id)}
             >
+              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               {language === 'ar' ? 'موافقة' : 'Approve'}
             </Button>
           )}
