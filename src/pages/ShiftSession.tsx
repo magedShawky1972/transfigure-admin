@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, RotateCcw, Loader2, Sparkles, Trash2, Image as ImageIcon, Eye } from "lucide-react";
+import { Upload, RotateCcw, Loader2, Sparkles, Trash2, Image as ImageIcon, Eye, Keyboard } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Dialog,
@@ -92,6 +92,18 @@ const ShiftSession = () => {
     brandName: string;
     imagePath: string;
     type: 'opening' | 'closing';
+    retryCount: number;
+    isRetrying: boolean;
+  } | null>(null);
+  
+  // Manual entry dialog state
+  const [manualEntryDialog, setManualEntryDialog] = useState<{
+    open: boolean;
+    brandId: string;
+    brandName: string;
+    imagePath: string;
+    type: 'opening' | 'closing';
+    value: string;
   } | null>(null);
   
   // Loading state for open shift button to prevent double-clicks
@@ -508,6 +520,8 @@ const ShiftSession = () => {
             brandName,
             imagePath,
             type: 'opening',
+            retryCount: 0,
+            isRetrying: false,
           });
           return;
         }
@@ -807,6 +821,150 @@ const ShiftSession = () => {
     }
     
     setZeroValueDialog(null);
+  };
+
+  // Handle retry AI extraction
+  const handleZeroValueRetry = async () => {
+    if (!zeroValueDialog) return;
+    
+    const { brandId, imagePath, type, brandName, retryCount } = zeroValueDialog;
+    
+    // Update dialog to show loading state
+    setZeroValueDialog(prev => prev ? { ...prev, isRetrying: true } : null);
+    
+    try {
+      // Call extraction API again with the same image
+      const { data, error } = await supabase.functions.invoke("extract-shift-closing-number", {
+        body: { imageUrl: imagePath, brandId, brandName },
+      });
+      
+      if (error) throw error;
+      
+      // Check if we got a non-zero value
+      if (data?.extractedNumber !== null && data?.extractedNumber !== undefined && data.extractedNumber !== 0) {
+        // Success - non-zero value extracted
+        if (type === 'opening') {
+          setOpeningBalances((prev) => ({
+            ...prev,
+            [brandId]: {
+              ...prev[brandId],
+              brand_id: brandId,
+              closing_balance: 0,
+              receipt_image_path: null,
+              opening_balance: data.extractedNumber,
+              opening_image_path: imagePath,
+            },
+          }));
+          await checkAndSendReorderNotification(brandId, data.extractedNumber, 'opening');
+        } else {
+          setBalances((prev) => ({
+            ...prev,
+            [brandId]: {
+              ...prev[brandId],
+              brand_id: brandId,
+              closing_balance: data.extractedNumber,
+              receipt_image_path: imagePath,
+            },
+          }));
+          await saveBalanceToDb(brandId, data.extractedNumber, imagePath);
+          await checkAndSendReorderNotification(brandId, data.extractedNumber, 'closing');
+        }
+        
+        toast({
+          title: t("success"),
+          description: `تم استخراج الرقم: ${data.extractedNumber}`,
+        });
+        setZeroValueDialog(null);
+      } else {
+        // Still zero - update retry count
+        const newRetryCount = retryCount + 1;
+        if (newRetryCount >= 2) {
+          // Max retries reached - recommend manual entry
+          toast({
+            title: t("info") || "معلومات",
+            description: "لم يتمكن النظام من قراءة الرقم بعد المحاولة. يرجى الإدخال اليدوي أو تأكيد الصفر.",
+            variant: "default",
+          });
+        }
+        setZeroValueDialog(prev => prev ? { 
+          ...prev, 
+          retryCount: newRetryCount, 
+          isRetrying: false 
+        } : null);
+      }
+    } catch (error) {
+      console.error("Error retrying extraction:", error);
+      toast({
+        title: t("error") || "خطأ",
+        description: "فشل في إعادة القراءة. يرجى المحاولة مرة أخرى أو الإدخال اليدوي.",
+        variant: "destructive",
+      });
+      setZeroValueDialog(prev => prev ? { ...prev, isRetrying: false } : null);
+    }
+  };
+
+  // Handle opening manual entry dialog
+  const handleZeroValueManualEntry = () => {
+    if (!zeroValueDialog) return;
+    
+    const { brandId, brandName, imagePath, type } = zeroValueDialog;
+    
+    setManualEntryDialog({
+      open: true,
+      brandId,
+      brandName,
+      imagePath,
+      type,
+      value: '',
+    });
+    
+    setZeroValueDialog(null);
+  };
+
+  // Handle manual entry confirmation
+  const handleManualEntryConfirm = async () => {
+    if (!manualEntryDialog) return;
+    
+    const { brandId, imagePath, type, value } = manualEntryDialog;
+    const numericValue = parseFloat(value) || 0;
+    
+    if (type === 'opening') {
+      setOpeningBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: 0,
+          receipt_image_path: null,
+          opening_balance: numericValue,
+          opening_image_path: imagePath,
+        },
+      }));
+      if (numericValue > 0) {
+        await checkAndSendReorderNotification(brandId, numericValue, 'opening');
+      }
+    } else {
+      setBalances((prev) => ({
+        ...prev,
+        [brandId]: {
+          ...prev[brandId],
+          brand_id: brandId,
+          closing_balance: numericValue,
+          receipt_image_path: imagePath,
+        },
+      }));
+      await saveBalanceToDb(brandId, numericValue, imagePath);
+      if (numericValue > 0) {
+        await checkAndSendReorderNotification(brandId, numericValue, 'closing');
+      }
+    }
+    
+    toast({
+      title: t("success"),
+      description: `تم حفظ الرصيد: ${numericValue}`,
+    });
+    
+    setManualEntryDialog(null);
   };
 
   const handleZeroValueReject = async () => {
@@ -1148,6 +1306,8 @@ const ShiftSession = () => {
             brandName,
             imagePath,
             type: 'closing',
+            retryCount: 0,
+            isRetrying: false,
           });
           return;
         }
@@ -1850,23 +2010,83 @@ const ShiftSession = () => {
               <span className="font-semibold">{zeroValueDialog?.brandName}</span>.
               <br />
               <br />
-              هل أنت متأكد أن هذه القيمة صحيحة؟ عادةً لا تصل الأرصدة إلى الصفر.
+              هل تريد إعادة القراءة أو إدخال الرقم يدوياً؟
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex gap-2 sm:gap-0">
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            {/* Option 1: Re-read with AI */}
             <Button
               variant="outline"
-              onClick={handleZeroValueReject}
+              onClick={handleZeroValueRetry}
+              disabled={zeroValueDialog?.isRetrying || (zeroValueDialog?.retryCount || 0) >= 2}
               className="flex-1 sm:flex-none"
             >
-              لا، إعادة رفع الصورة
+              {zeroValueDialog?.isRetrying ? (
+                <>
+                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                  جاري القراءة...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  إعادة القراءة ({zeroValueDialog?.retryCount || 0}/2)
+                </>
+              )}
             </Button>
+            
+            {/* Option 2: Enter Manually */}
+            <Button
+              variant="secondary"
+              onClick={handleZeroValueManualEntry}
+              disabled={zeroValueDialog?.isRetrying}
+              className="flex-1 sm:flex-none"
+            >
+              <Keyboard className="mr-2 h-4 w-4" />
+              إدخال يدوي
+            </Button>
+            
+            {/* Option 3: Confirm Zero */}
             <Button 
               variant="default"
               onClick={handleZeroValueConfirm}
+              disabled={zeroValueDialog?.isRetrying}
               className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700"
             >
-              نعم، القيمة صحيحة
+              تأكيد صفر
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Entry Dialog */}
+      <Dialog open={manualEntryDialog?.open || false} onOpenChange={(open) => !open && setManualEntryDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إدخال الرصيد يدوياً</DialogTitle>
+            <DialogDescription>
+              أدخل رصيد {manualEntryDialog?.type === 'opening' ? 'الافتتاح' : 'الإغلاق'} لـ {manualEntryDialog?.brandName}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Label htmlFor="manual-balance">الرصيد</Label>
+            <Input
+              id="manual-balance"
+              type="number"
+              value={manualEntryDialog?.value || ''}
+              onChange={(e) => setManualEntryDialog(prev => prev ? { ...prev, value: e.target.value } : null)}
+              placeholder="أدخل الرقم"
+              autoFocus
+              className="mt-2"
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualEntryDialog(null)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleManualEntryConfirm}>
+              حفظ
             </Button>
           </DialogFooter>
         </DialogContent>
