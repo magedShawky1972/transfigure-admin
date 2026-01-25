@@ -1062,6 +1062,40 @@ const EmailManager = () => {
     setIsCreateTaskOpen(true);
   };
 
+  const handleForward = () => {
+    if (!selectedEmail) return;
+    
+    const originalFrom = selectedEmail.from_name 
+      ? `${selectedEmail.from_name} <${selectedEmail.from_address}>`
+      : selectedEmail.from_address;
+    const originalDate = format(new Date(selectedEmail.email_date), "PPpp");
+    const originalSubject = selectedEmail.subject || "";
+    const originalTo = Array.isArray(selectedEmail.to_addresses) 
+      ? selectedEmail.to_addresses.join(", ") 
+      : selectedEmail.to_addresses || "";
+    
+    const forwardHeader = `
+<br/><br/>
+---------- ${isArabic ? "رسالة محولة" : "Forwarded message"} ----------<br/>
+${isArabic ? "من" : "From"}: ${originalFrom}<br/>
+${isArabic ? "التاريخ" : "Date"}: ${originalDate}<br/>
+${isArabic ? "الموضوع" : "Subject"}: ${originalSubject}<br/>
+${isArabic ? "إلى" : "To"}: ${originalTo}<br/>
+<br/>
+`;
+    
+    const originalBody = selectedEmail.body_html || selectedEmail.body_text || "";
+    
+    setComposeData({
+      to: "",
+      cc: "",
+      subject: `Fwd: ${originalSubject}`,
+      body: forwardHeader + originalBody,
+    });
+    setAttachments([]);
+    setIsComposeOpen(true);
+  };
+
   const handleCreateTicket = async () => {
     if (!ticketData.department_id || !ticketData.subject) {
       toast.error(isArabic ? "الرجاء ملء الحقول المطلوبة" : "Please fill required fields");
@@ -1469,7 +1503,7 @@ const EmailManager = () => {
                         <Reply className="h-4 w-4" />
                         <span>{isArabic ? "الكل" : "All"}</span>
                       </Button>
-                      <Button variant="ghost" size="icon" title={isArabic ? "تحويل" : "Forward"}>
+                      <Button variant="ghost" size="icon" onClick={handleForward} title={isArabic ? "تحويل" : "Forward"}>
                         <Forward className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={openCreateTicket} title={isArabic ? "إنشاء تذكرة" : "Create Ticket"}>
