@@ -11,14 +11,14 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request";
+  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc";
   ticketId: string;
   recipientUserId: string;
   senderName?: string;
 }
 
 interface BatchNotificationRequest {
-  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request";
+  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc";
   ticketId: string;
   recipientUserIds: string[];
 }
@@ -912,6 +912,33 @@ switch (type) {
       `;
       notificationTitle = "طلب موافقة إضافية";
       notificationMessage = `طُلبت موافقتك على ${ticketDetails.ticketNumber} - ${ticketDetails.subject}`;
+      break;
+
+    case "ticket_cc":
+      emailSubject = `نسخة: ${ticketTypeSubject}`;
+      emailHtml = `
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+          <h2>تم إضافتك كنسخة في ${ticketTypeSubject}</h2>
+          <p>مرحباً ${userName},</p>
+          <p>تم إضافتك كنسخة (CC) في ${ticketTypeSubject} التالية للاطلاع:</p>
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>رقم التذكرة:</strong> ${ticketDetails.ticketNumber}</li>
+            <li style="margin: 10px 0;"><strong>الموضوع:</strong> ${ticketDetails.subject}</li>
+            <li style="margin: 10px 0;"><strong>الوصف:</strong> ${ticketDetails.description}</li>
+            <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
+            <li style="margin: 10px 0;"><strong>تم الإنشاء بواسطة:</strong> ${ticketDetails.createdBy}</li>
+            <li style="margin: 10px 0;"><strong>تاريخ الإنشاء:</strong> ${creationDate}</li>
+            ${externalLinkHtml}
+            ${purchaseDetailsHtml}
+          </ul>
+          <p>هذه نسخة للاطلاع فقط - لا يتطلب منك اتخاذ أي إجراء.</p>
+          <div style="margin: 20px 0;">
+            <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">عرض التذكرة</a>
+          </div>
+        </div>
+      `;
+      notificationTitle = `نسخة: ${ticketTypeSubject}`;
+      notificationMessage = `تم إضافتك كنسخة في ${ticketDetails.ticketNumber} - ${ticketDetails.subject}`;
       break;
   }
 
