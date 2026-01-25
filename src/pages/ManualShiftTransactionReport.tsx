@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, FileSpreadsheet, Printer, Search } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Printer, Search, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,9 @@ interface Transaction {
   total: number | null;
   user_name: string | null;
 }
+
+type SortColumn = 'created_at' | 'brand_name' | 'product_name' | 'qty' | 'total';
+type SortDirection = 'asc' | 'desc';
 
 const ManualShiftTransactionReport = () => {
   const navigate = useNavigate();
@@ -40,6 +43,14 @@ const ManualShiftTransactionReport = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<SortColumn>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // Collapse state
+  const [collapsedUsers, setCollapsedUsers] = useState<Set<string>>(new Set());
+  const [collapsedBrands, setCollapsedBrands] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchUsers();
@@ -146,11 +157,50 @@ const ManualShiftTransactionReport = () => {
     }
   };
 
+  // Sort transactions
+  const sortedTransactions = useMemo(() => {
+    return [...transactions].sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      switch (sortColumn) {
+        case 'created_at':
+          aVal = a.created_at;
+          bVal = b.created_at;
+          break;
+        case 'brand_name':
+          aVal = a.brand_name || '';
+          bVal = b.brand_name || '';
+          break;
+        case 'product_name':
+          aVal = a.product_name || '';
+          bVal = b.product_name || '';
+          break;
+        case 'qty':
+          aVal = a.qty || 0;
+          bVal = b.qty || 0;
+          break;
+        case 'total':
+          aVal = a.total || 0;
+          bVal = b.total || 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (typeof aVal === 'string') {
+        const comparison = aVal.localeCompare(bVal);
+        return sortDirection === 'asc' ? comparison : -comparison;
+      } else {
+        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+    });
+  }, [transactions, sortColumn, sortDirection]);
+
   // Group transactions by user, then by brand
   const groupedData = useMemo(() => {
     const byUser = new Map<string, { userName: string; brands: Map<string, Transaction[]> }>();
 
-    transactions.forEach((tx) => {
+    sortedTransactions.forEach((tx) => {
       const userName = tx.user_name || "Unknown";
       if (!byUser.has(userName)) {
         byUser.set(userName, { userName, brands: new Map() });
@@ -164,7 +214,7 @@ const ManualShiftTransactionReport = () => {
     });
 
     return byUser;
-  }, [transactions]);
+  }, [sortedTransactions]);
 
   // Calculate grand totals
   const grandTotals = useMemo(() => {
@@ -176,6 +226,59 @@ const ManualShiftTransactionReport = () => {
       { qty: 0, total: 0 }
     );
   }, [transactions]);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  const toggleUserCollapse = (userName: string) => {
+    setCollapsedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(userName)) {
+        next.delete(userName);
+      } else {
+        next.add(userName);
+      }
+      return next;
+    });
+  };
+
+  const toggleBrandCollapse = (userName: string, brandName: string) => {
+    const key = `${userName}|||${brandName}`;
+    setCollapsedBrands(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const collapseAllUsers = () => {
+    const allUsers = Array.from(groupedData.keys());
+    setCollapsedUsers(new Set(allUsers));
+  };
+
+  const expandAllUsers = () => {
+    setCollapsedUsers(new Set());
+    setCollapsedBrands(new Set());
+  };
 
   const formatDateTime = (dateStr: string) => {
     try {
@@ -373,69 +476,151 @@ const ManualShiftTransactionReport = () => {
         ) : transactions.length > 0 ? (
           <Card>
             <CardContent className="p-0">
+              {/* Collapse/Expand All Controls */}
+              <div className="flex gap-2 p-4 border-b no-print">
+                <Button variant="outline" size="sm" onClick={collapseAllUsers}>
+                  <ChevronRight className="h-4 w-4 mr-1" />
+                  {isRTL ? "طي الكل" : "Collapse All"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={expandAllUsers}>
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                  {isRTL ? "توسيع الكل" : "Expand All"}
+                </Button>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{isRTL ? "التاريخ والوقت" : "Date Time"}</TableHead>
-                    <TableHead>{isRTL ? "العلامة التجارية" : "Brand"}</TableHead>
-                    <TableHead>{isRTL ? "المنتج" : "Product"}</TableHead>
-                    <TableHead className="text-center">{isRTL ? "الكمية" : "Qty"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "المبلغ" : "Total"}</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      <div className="flex items-center">
+                        {isRTL ? "التاريخ والوقت" : "Date Time"}
+                        {getSortIcon('created_at')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('brand_name')}
+                    >
+                      <div className="flex items-center">
+                        {isRTL ? "العلامة التجارية" : "Brand"}
+                        {getSortIcon('brand_name')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('product_name')}
+                    >
+                      <div className="flex items-center">
+                        {isRTL ? "المنتج" : "Product"}
+                        {getSortIcon('product_name')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none text-center"
+                      onClick={() => handleSort('qty')}
+                    >
+                      <div className="flex items-center justify-center">
+                        {isRTL ? "الكمية" : "Qty"}
+                        {getSortIcon('qty')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none text-right"
+                      onClick={() => handleSort('total')}
+                    >
+                      <div className="flex items-center justify-end">
+                        {isRTL ? "المبلغ" : "Total"}
+                        {getSortIcon('total')}
+                      </div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {Array.from(groupedData.entries()).map(([userName, userGroup]) => {
                     let userQty = 0;
                     let userTotal = 0;
+                    const isUserCollapsed = collapsedUsers.has(userName);
+
+                    // Pre-calculate user totals
+                    userGroup.brands.forEach((txList) => {
+                      txList.forEach(tx => {
+                        userQty += tx.qty || 0;
+                        userTotal += tx.total || 0;
+                      });
+                    });
 
                     return (
                       <>
-                        <TableRow key={`user-header-${userName}`} className="bg-primary/5">
-                          <TableCell colSpan={5} className="font-semibold">
-                            {isRTL ? `المستخدم: ${userName}` : `User: ${userName}`}
+                        {/* User Header Row with Collapse Toggle */}
+                        <TableRow 
+                          key={`user-header-${userName}`} 
+                          className="bg-primary/5 cursor-pointer hover:bg-primary/10"
+                          onClick={() => toggleUserCollapse(userName)}
+                        >
+                          <TableCell colSpan={3} className="font-semibold">
+                            <div className="flex items-center gap-2">
+                              {isUserCollapsed ? (
+                                <ChevronRight className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                              {isRTL ? `المستخدم: ${userName}` : `User: ${userName}`}
+                            </div>
                           </TableCell>
+                          <TableCell className="text-center font-semibold">{userQty}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatNumber(userTotal)}</TableCell>
                         </TableRow>
-                        {Array.from(userGroup.brands.entries()).flatMap(([brandName, txList]) => {
+
+                        {/* User Content (brands and transactions) - only show if not collapsed */}
+                        {!isUserCollapsed && Array.from(userGroup.brands.entries()).flatMap(([brandName, txList]) => {
                           const brandQty = txList.reduce((sum, tx) => sum + (tx.qty || 0), 0);
                           const brandTotal = txList.reduce((sum, tx) => sum + (tx.total || 0), 0);
-                          userQty += brandQty;
-                          userTotal += brandTotal;
+                          const brandKey = `${userName}|||${brandName}`;
+                          const isBrandCollapsed = collapsedBrands.has(brandKey);
 
                           return [
-                            ...txList.map((tx) => (
-                              <TableRow key={tx.id}>
-                                <TableCell>{formatDateTime(tx.created_at)}</TableCell>
+                            /* Brand Header Row with Collapse Toggle */
+                            <TableRow 
+                              key={`brand-header-${userName}-${brandName}`} 
+                              className="bg-muted/30 cursor-pointer hover:bg-muted/50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleBrandCollapse(userName, brandName);
+                              }}
+                            >
+                              <TableCell colSpan={3} className="font-medium pl-8">
+                                <div className="flex items-center gap-2">
+                                  {isBrandCollapsed ? (
+                                    <ChevronRight className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3" />
+                                  )}
+                                  {brandName}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center font-medium">{brandQty}</TableCell>
+                              <TableCell className="text-right font-medium">{formatNumber(brandTotal)}</TableCell>
+                            </TableRow>,
+                            /* Transaction Rows - only show if brand not collapsed */
+                            ...(isBrandCollapsed ? [] : txList.map((tx) => (
+                              <TableRow key={tx.id} className="hover:bg-muted/20">
+                                <TableCell className="pl-12">{formatDateTime(tx.created_at)}</TableCell>
                                 <TableCell>{brandName}</TableCell>
                                 <TableCell>{tx.product_name}</TableCell>
                                 <TableCell className="text-center">{tx.qty || 0}</TableCell>
                                 <TableCell className="text-right">{formatNumber(tx.total || 0)}</TableCell>
                               </TableRow>
-                            )),
-                            <TableRow key={`brand-total-${userName}-${brandName}`} className="brand-total bg-muted/50 font-medium">
-                              <TableCell colSpan={2}>
-                                {isRTL ? `إجمالي ${brandName}` : `${brandName} Subtotal`}
-                              </TableCell>
-                              <TableCell></TableCell>
-                              <TableCell className="text-center">{brandQty}</TableCell>
-                              <TableCell className="text-right">{formatNumber(brandTotal)}</TableCell>
-                            </TableRow>,
+                            ))),
                           ];
                         })}
-                        <TableRow key={`user-total-${userName}`} className="user-total bg-muted font-semibold">
-                          <TableCell colSpan={2}>
-                            {isRTL ? `إجمالي ${userName}` : `${userName} Total`}
-                          </TableCell>
-                          <TableCell></TableCell>
-                          <TableCell className="text-center">{userQty}</TableCell>
-                          <TableCell className="text-right">{formatNumber(userTotal)}</TableCell>
-                        </TableRow>
                       </>
                     );
                   })}
                   {transactions.length > 0 && (
                     <TableRow className="grand-total bg-primary/10 font-bold text-lg">
-                      <TableCell colSpan={2}>{isRTL ? "الإجمالي الكلي" : "Grand Total"}</TableCell>
-                      <TableCell></TableCell>
+                      <TableCell colSpan={3}>{isRTL ? "الإجمالي الكلي" : "Grand Total"}</TableCell>
                       <TableCell className="text-center">{grandTotals.qty}</TableCell>
                       <TableCell className="text-right">{formatNumber(grandTotals.total)}</TableCell>
                     </TableRow>
