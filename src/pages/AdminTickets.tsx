@@ -180,9 +180,12 @@ const AdminTickets = () => {
     const deptAdmins = allDepartmentAdmins.filter(a => a.department_id === ticket.department_id);
     const nextOrder = ticket.next_admin_order ?? 0;
     
+    console.log(`getApproverNames for ${ticket.ticket_number}: deptAdmins=${deptAdmins.length}, nextOrder=${nextOrder}, allDepartmentAdmins=${allDepartmentAdmins.length}`);
+    
     // For non-purchase tickets: only regular admins
     if (!ticket.is_purchase_ticket) {
       const regularAdmins = deptAdmins.filter(a => !a.is_purchase_admin && a.admin_order === nextOrder);
+      console.log(`  Regular admins at order ${nextOrder}:`, regularAdmins.map(a => a.user_name));
       return regularAdmins.map(a => a.user_name).filter((name): name is string => !!name);
     }
     
@@ -191,10 +194,12 @@ const AdminTickets = () => {
     
     if (regularAdminsAtOrder.length > 0) {
       // Regular admin phase
+      console.log(`  Purchase ticket - Regular admins at order ${nextOrder}:`, regularAdminsAtOrder.map(a => a.user_name));
       return regularAdminsAtOrder.map(a => a.user_name).filter((name): name is string => !!name);
     } else {
       // Purchase admin phase
       const purchaseAdminsAtOrder = deptAdmins.filter(a => a.is_purchase_admin && a.admin_order === nextOrder);
+      console.log(`  Purchase ticket - Purchase admins at order ${nextOrder}:`, purchaseAdminsAtOrder.map(a => a.user_name));
       return purchaseAdminsAtOrder.map(a => a.user_name).filter((name): name is string => !!name);
     }
   };
