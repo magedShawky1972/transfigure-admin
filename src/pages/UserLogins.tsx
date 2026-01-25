@@ -22,7 +22,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Globe, Smartphone, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, Globe, Smartphone, Copy, Mail, RefreshCw } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface UserLogin {
   id: string;
@@ -205,6 +211,78 @@ const UserLogins = () => {
     }
   };
 
+  const handleSendPasswordEmail = async (login: UserLogin) => {
+    const email = login.google_account;
+    if (!email) {
+      toast.error(language === "ar" ? "لا يوجد بريد إلكتروني مرتبط" : "No email associated");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.functions.invoke("send-email-smtp", {
+        body: {
+          to: email,
+          subject: language === "ar" 
+            ? `كلمة المرور لـ ${login.application}` 
+            : `Password for ${login.application}`,
+          html: `
+            <div style="direction: ${language === "ar" ? "rtl" : "ltr"}; font-family: Arial, sans-serif; padding: 20px;">
+              <h2>${language === "ar" ? "تذكير بكلمة المرور" : "Password Reminder"}</h2>
+              <p><strong>${language === "ar" ? "التطبيق:" : "Application:"}</strong> ${login.application}</p>
+              ${login.website ? `<p><strong>${language === "ar" ? "الموقع:" : "Website:"}</strong> ${login.website}</p>` : ""}
+              <p><strong>${language === "ar" ? "اسم المستخدم:" : "Username:"}</strong> ${login.user_name || "-"}</p>
+              <p><strong>${language === "ar" ? "كلمة المرور:" : "Password:"}</strong> <span style="font-size: 18px; color: #8B5CF6;">${login.password}</span></p>
+              ${login.needs_otp ? `<p><strong>${language === "ar" ? "رقم OTP:" : "OTP Mobile:"}</strong> ${login.otp_mobile_number}</p>` : ""}
+              <hr style="margin: 20px 0;">
+              <p style="color: #666; font-size: 12px;">${language === "ar" ? "تم إرسال هذا البريد تلقائياً من نظام إدارة" : "This email was sent automatically from Edara system"}</p>
+            </div>
+          `,
+        },
+      });
+
+      if (error) throw error;
+      toast.success(language === "ar" ? "تم إرسال كلمة المرور للبريد الإلكتروني" : "Password sent to email");
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      toast.error(language === "ar" ? "خطأ في إرسال البريد الإلكتروني" : "Error sending email");
+    }
+  };
+
+  const handleGenerateNewPassword = async (login: UserLogin) => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$!';
+    let newPassword = '';
+    for (let i = 0; i < 12; i++) {
+      newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    try {
+      const { error } = await supabase
+        .from("user_logins")
+        .update({ password: newPassword })
+        .eq("id", login.id);
+
+      if (error) throw error;
+
+      toast.success(language === "ar" ? "تم توليد كلمة مرور جديدة" : "New password generated");
+      fetchLogins();
+
+      // If email exists, offer to send it
+      if (login.google_account) {
+        const shouldSend = confirm(
+          language === "ar" 
+            ? "هل تريد إرسال كلمة المرور الجديدة للبريد الإلكتروني؟" 
+            : "Do you want to send the new password to email?"
+        );
+        if (shouldSend) {
+          handleSendPasswordEmail({ ...login, password: newPassword });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error generating password:", error);
+      toast.error(language === "ar" ? "خطأ في توليد كلمة المرور" : "Error generating password");
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success(language === "ar" ? "تم نسخ كلمة المرور" : "Password copied");
@@ -349,23 +427,74 @@ const UserLogins = () => {
                         </TableCell>
                         <TableCell>{login.google_account || "-"}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenDialog(login)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(login.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <TooltipProvider>
+                            <div className="flex items-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleOpenDialog(login)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {language === "ar" ? "تعديل" : "Edit"}
+                                </TooltipContent>
+                              </Tooltip>
+                              
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleSendPasswordEmail(login)}
+                                    disabled={!login.google_account}
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {language === "ar" ? "إرسال للبريد" : "Send to Email"}
+                                </TooltipContent>
+                              </Tooltip>
+
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleGenerateNewPassword(login)}
+                                  >
+                                    <RefreshCw className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {language === "ar" ? "توليد كلمة مرور جديدة" : "Generate New Password"}
+                                </TooltipContent>
+                              </Tooltip>
+
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                    onClick={() => handleDelete(login.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {language === "ar" ? "حذف" : "Delete"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TooltipProvider>
                         </TableCell>
                       </TableRow>
                     ))
