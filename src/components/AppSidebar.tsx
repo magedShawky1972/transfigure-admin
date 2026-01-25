@@ -304,7 +304,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? "أسس تواصل" : "Asus Tawasoul", url: "/asus-tawasoul", icon: Users },
         { title: language === 'ar' ? "مدير البريد" : "Email Manager", url: "/email-manager", icon: Mail },
         { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
-        { title: language === 'ar' ? "أخبار الشركة" : "Company News", url: "/company-news", icon: FileText },
       ]
     },
     {
@@ -323,7 +322,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'تقويم الورديات' : 'Shift Calendar', url: "/shift-calendar", icon: BarChart3 },
         { title: language === 'ar' ? 'إعداد العملات' : 'Currency Setup', url: "/currency-setup", icon: DollarSign },
         { title: language === 'ar' ? 'مجموعات المستخدمين' : 'User Groups', url: "/user-group-setup", icon: Users },
-        { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
         { title: language === 'ar' ? 'إعداد المشاريع' : 'Project Setup', url: "/project-setup", icon: FolderKanban },
         { title: language === 'ar' ? "قائمة المهام" : "Task List", url: "/task-list", icon: ClipboardList },
@@ -342,6 +340,8 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'أنواع الحضور' : 'Attendance Types', url: "/attendance-type-setup", icon: Clock },
         { title: language === 'ar' ? 'إعداد الوظائف' : 'Job Setup', url: "/job-setup", icon: Briefcase },
         { title: language === 'ar' ? 'تقويم الإجازات' : 'Vacation Calendar', url: "/hr-vacation-calendar", icon: Palmtree },
+        { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
+        { title: language === 'ar' ? "أخبار الشركة" : "Company News", url: "/company-news", icon: FileText },
       ]
     },
     {
