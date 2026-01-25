@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search, XCircle } from "lucide-react";
+import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search, XCircle, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -160,6 +160,10 @@ const Tickets = () => {
   
   // Purchase items list (for combo box)
   const [purchaseItemsList, setPurchaseItemsList] = useState<PurchaseItemRecord[]>([]);
+  
+  // CC Users states
+  const [ccUserIds, setCcUserIds] = useState<string[]>([]);
+  const [allProfiles, setAllProfiles] = useState<{ id: string; user_name: string; email: string }[]>([]);
 
   // Copy to clipboard function
   const copyToClipboard = (text: string, label: string) => {
@@ -220,7 +224,23 @@ const Tickets = () => {
     fetchUomList();
     fetchCurrencies();
     fetchPurchaseItemsList();
+    fetchAllProfiles();
   }, []);
+
+  const fetchAllProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, user_name, email")
+        .eq("is_active", true)
+        .order("user_name");
+      
+      if (error) throw error;
+      setAllProfiles(data || []);
+    } catch (error: any) {
+      console.error("Error fetching profiles:", error);
+    }
+  };
 
   const fetchPurchaseItemsList = async () => {
     try {
@@ -465,6 +485,7 @@ const Tickets = () => {
     setSelectedVideos([]);
     setExternalLinks(['']);
     setPurchaseItems([{ id: crypto.randomUUID(), item_id: null, budget_value: null, qty: null, uom: null, currency_id: null, external_link: '' }]);
+    setCcUserIds([]);
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -582,6 +603,15 @@ const Tickets = () => {
         }
       }
 
+      // Insert CC users if any
+      if (ccUserIds.length > 0 && ticketData) {
+        const ccInserts = ccUserIds.map(userId => ({
+          ticket_id: ticketData.id,
+          user_id: userId,
+        }));
+        await supabase.from("ticket_cc_users").insert(ccInserts);
+      }
+
       // Send notification to first level admins (order 0)
       const { data: firstLevelAdmins } = await supabase
         .from("department_admins")
@@ -597,6 +627,17 @@ const Tickets = () => {
             ticketId: ticketData.id,
             adminOrder: 0, // Start from admin order 0
             isPurchasePhase: false,
+          },
+        });
+      }
+
+      // Send notification to CC users
+      if (ccUserIds.length > 0 && ticketData) {
+        await supabase.functions.invoke("send-ticket-notification", {
+          body: {
+            type: "ticket_cc",
+            ticketId: ticketData.id,
+            recipientUserIds: ccUserIds,
           },
         });
       }
@@ -865,6 +906,61 @@ const Tickets = () => {
                     </FormItem>
                   )}
                 />
+                {/* CC Users Selection */}
+                <div className="space-y-3 border rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <FormLabel className="mb-0">{language === 'ar' ? 'نسخة إلى (CC)' : 'CC Users'}</FormLabel>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'ar' 
+                      ? 'سيتلقى هؤلاء المستخدمون إشعارات بالبريد الإلكتروني وتنبيهات حول هذه التذكرة (للاطلاع فقط)'
+                      : 'These users will receive email and alert notifications about this ticket (view only)'}
+                  </p>
+                  <Select
+                    value=""
+                    onValueChange={(userId) => {
+                      if (!ccUserIds.includes(userId)) {
+                        setCcUserIds(prev => [...prev, userId]);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === 'ar' ? 'اختر مستخدم للإضافة' : 'Select user to add'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allProfiles
+                        .filter(p => !ccUserIds.includes(p.id))
+                        .map((profile) => (
+                          <SelectItem key={profile.id} value={profile.id}>
+                            {profile.user_name} ({profile.email})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {ccUserIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {ccUserIds.map(userId => {
+                        const profile = allProfiles.find(p => p.id === userId);
+                        return (
+                          <Badge key={userId} variant="secondary" className="gap-1 pr-1">
+                            {profile?.user_name || userId}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 p-0 hover:bg-transparent"
+                              onClick={() => setCcUserIds(prev => prev.filter(id => id !== userId))}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <FormField
                   control={form.control}
                   name="is_purchase_ticket"
