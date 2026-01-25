@@ -385,6 +385,14 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
   const filterAndSortLicenses = () => {
     let filtered = [...licenses];
 
+    // By default (when "all" is selected), exclude canceled licenses
+    // Only show canceled when explicitly filtered by "canceled"
+    if (statusFilter === "all") {
+      filtered = filtered.filter((license) => license.status !== "canceled");
+    } else if (statusFilter !== "all") {
+      filtered = filtered.filter((license) => license.status === statusFilter);
+    }
+
     if (searchQuery) {
       filtered = filtered.filter(
         (license) =>
@@ -392,10 +400,6 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
           license.vendor_provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
           license.license_key?.toLowerCase().includes(searchQuery.toLowerCase())
       );
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((license) => license.status === statusFilter);
     }
 
     if (categoryFilter !== "all") {
@@ -423,23 +427,29 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
   };
 
   const calculateStats = () => {
-    const total = licenses.length;
-    const active = licenses.filter((l) => l.status === "active").length;
-    const expired = licenses.filter((l) => l.status === "expired").length;
-    const expiringSoon = licenses.filter((l) => l.status === "expiring_soon").length;
+    // Exclude canceled licenses from all stats
+    const nonCanceledLicenses = licenses.filter((l) => l.status !== "canceled");
+    const total = nonCanceledLicenses.length;
+    const active = nonCanceledLicenses.filter((l) => l.status === "active").length;
+    const expired = nonCanceledLicenses.filter((l) => l.status === "expired").length;
+    const expiringSoon = nonCanceledLicenses.filter((l) => l.status === "expiring_soon").length;
 
-    const monthlyCost = licenses
+    const monthlyCost = nonCanceledLicenses
       .filter((l) => l.renewal_cycle === "monthly")
       .reduce((sum, l) => sum + convertToBaseCurrency(Number(l.cost), l.currency_id), 0);
 
-    const annualCost = licenses.reduce((sum, l) => {
+    const annualCost = nonCanceledLicenses.reduce((sum, l) => {
       const baseCost = convertToBaseCurrency(Number(l.cost), l.currency_id);
       if (l.renewal_cycle === "monthly") return sum + baseCost * 12;
       if (l.renewal_cycle === "yearly") return sum + baseCost;
       return sum;
     }, 0);
 
-    const invoiceTotalSAR = Object.values(invoiceTotals).reduce((sum, val) => sum + val, 0);
+    // Only sum invoice totals for non-canceled licenses
+    const nonCanceledIds = new Set(nonCanceledLicenses.map(l => l.id));
+    const invoiceTotalSAR = Object.entries(invoiceTotals)
+      .filter(([id]) => nonCanceledIds.has(id))
+      .reduce((sum, [, val]) => sum + val, 0);
 
     setStats({ total, active, expired, expiringSoon, monthlyCost, annualCost, invoiceTotalSAR });
   };
@@ -666,6 +676,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
             <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
             <SelectItem value="expiring_soon">{language === "ar" ? "ينتهي قريباً" : "Expiring Soon"}</SelectItem>
             <SelectItem value="expired">{language === "ar" ? "منتهي" : "Expired"}</SelectItem>
+            <SelectItem value="canceled">{language === "ar" ? "ملغي" : "Canceled"}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
