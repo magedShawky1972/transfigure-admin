@@ -118,7 +118,6 @@ interface UserPermission {
         { key: "asusTawasoul", label: "أسس تواصل", labelEn: "Asus Tawasoul" },
         { key: "emailManager", label: "مدير البريد", labelEn: "Email Manager" },
         { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
-        { key: "taskList", label: "قائمة المهام", labelEn: "Task List" },
         { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
       ]
     },
@@ -143,6 +142,7 @@ interface UserPermission {
         { key: "companyHierarchy", label: "الهيكل التنظيمي", labelEn: "Company Hierarchy" },
         { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
         { key: "projectSetup", label: "إعداد المشاريع", labelEn: "Project Setup" },
+        { key: "taskList", label: "قائمة المهام", labelEn: "Task List" },
       ]
     },
     {
