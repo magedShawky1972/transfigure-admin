@@ -45,7 +45,7 @@ const ManualShiftTransactionReport = () => {
   }, []);
 
   const fetchUsers = async () => {
-    // Get distinct user_ids from shift_assignments
+    // Get distinct user_ids from shift_assignments (sales reps)
     const { data: assignments, error: assignError } = await supabase
       .from("shift_assignments")
       .select("user_id");
@@ -63,21 +63,40 @@ const ManualShiftTransactionReport = () => {
       return;
     }
 
-    // Get user names from profiles
+    // Get user names from profiles for these shift users
     const { data: profiles, error: profileError } = await supabase
       .from("profiles")
-      .select("user_name")
+      .select("user_id, user_name")
       .in("user_id", uniqueUserIds)
-      .not("user_name", "is", null)
-      .order("user_name");
+      .not("user_name", "is", null);
 
     if (profileError) {
       console.error("Error fetching profiles:", profileError);
       return;
     }
     
-    const uniqueUsers = [...new Set(profiles?.map(p => p.user_name).filter(Boolean) as string[])];
-    setUsers(uniqueUsers);
+    // Create map of profile names to user_ids
+    const profileMap = new Map<string, string>();
+    profiles?.forEach(p => {
+      if (p.user_name) {
+        profileMap.set(p.user_id, p.user_name);
+      }
+    });
+
+    // Now get the matching user_names from purpletransaction for these users
+    // Since purpletransaction has different user_name format, we need to get them directly
+    const { data: txUsers, error: txError } = await supabase
+      .from("purpletransaction")
+      .select("user_name")
+      .not("user_name", "is", null);
+
+    if (txError) {
+      console.error("Error fetching transaction users:", txError);
+      return;
+    }
+
+    const uniqueTxUsers = [...new Set(txUsers?.map(t => t.user_name).filter(Boolean) as string[])].sort();
+    setUsers(uniqueTxUsers);
   };
 
   const dateToInt = (dateStr: string): number => {
