@@ -139,7 +139,6 @@ Deno.serve(async (req) => {
         coins_number: body.Coins_Number,
         cost_price: body.Cost_Price,
         total_cost: body.Total_Cost,
-        point: body.Point,
       }, {
         onConflict: 'order_number,line_number'
       })
