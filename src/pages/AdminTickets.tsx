@@ -204,6 +204,8 @@ const AdminTickets = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+     console.log("Fetching admin info for user:", user.id);
+
       // Get current user's admin info for all departments
       const { data: userAdminData, error: userAdminError } = await supabase
         .from("department_admins")
@@ -212,6 +214,8 @@ const AdminTickets = () => {
 
       if (userAdminError) throw userAdminError;
       setCurrentUserAdminInfo(userAdminData || []);
+
+     console.log("User admin data:", userAdminData);
 
       // Check if user can view all tickets or is admin
       const { data: profileData } = await supabase
@@ -229,20 +233,25 @@ const AdminTickets = () => {
 
       const canViewAllTickets = profileData?.can_view_all_tickets || !!adminRoleData;
 
+     console.log("Can view all tickets:", canViewAllTickets, "Profile data:", profileData, "Admin role:", adminRoleData);
+
       let allAdmins: any[] = [];
 
       if (canViewAllTickets) {
         // Fetch ALL department admins for users who can view all tickets
+       console.log("Fetching ALL department admins...");
         const { data: allDeptAdmins, error: allDeptAdminsError } = await supabase
           .from("department_admins")
           .select("department_id, user_id, admin_order, is_purchase_admin");
 
         if (allDeptAdminsError) throw allDeptAdminsError;
         allAdmins = allDeptAdmins || [];
+       console.log("Fetched all admins:", allAdmins.length);
       } else {
         // Get all department IDs where user is admin
         const departmentIds = userAdminData?.map(d => d.department_id) || [];
         
+       console.log("Fetching admins for user's departments:", departmentIds);
         if (departmentIds.length > 0) {
           // Get all admins for these departments
           const { data: deptAdmins, error: deptAdminsError } = await supabase
@@ -252,12 +261,14 @@ const AdminTickets = () => {
 
           if (deptAdminsError) throw deptAdminsError;
           allAdmins = deptAdmins || [];
+         console.log("Fetched department admins:", allAdmins.length);
         }
       }
 
       if (allAdmins.length > 0) {
         // Fetch user names for all admins
         const userIds = [...new Set(allAdmins.map(a => a.user_id))];
+       console.log("Fetching names for", userIds.length, "users");
         const { data: profiles } = await supabase
           .from("profiles")
           .select("user_id, user_name")
@@ -270,7 +281,11 @@ const AdminTickets = () => {
           user_name: profileMap.get(admin.user_id) || null
         }));
         
+       console.log("Setting allDepartmentAdmins:", adminsWithNames.length, "admins");
         setAllDepartmentAdmins(adminsWithNames);
+     } else {
+       console.log("No admins found, setting empty array");
+       setAllDepartmentAdmins([]);
       }
     } catch (error: any) {
       console.error("Error fetching admin info:", error);
