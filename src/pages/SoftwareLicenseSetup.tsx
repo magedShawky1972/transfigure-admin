@@ -180,6 +180,7 @@ const SoftwareLicenseSetup = () => {
   // Invoice upload state
   const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [licenseInvoices, setLicenseInvoices] = useState<LicenseInvoice[]>([]);
+  const [invoiceTotals, setInvoiceTotals] = useState<Record<string, number>>({});
   
   // Invoice editing state
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
@@ -249,6 +250,26 @@ const SoftwareLicenseSetup = () => {
 
       if (error) throw error;
       setLicenses(data || []);
+
+      // Fetch invoice totals for all licenses
+      if (data && data.length > 0) {
+        const licenseIds = data.map(l => l.id);
+        const { data: invoices, error: invoiceError } = await supabase
+          .from("software_license_invoices")
+          .select("license_id, cost_sar")
+          .in("license_id", licenseIds)
+          .eq("ai_extraction_status", "completed");
+
+        if (!invoiceError && invoices) {
+          const totalsMap: Record<string, number> = {};
+          invoices.forEach(inv => {
+            if (inv.license_id && inv.cost_sar) {
+              totalsMap[inv.license_id] = (totalsMap[inv.license_id] || 0) + Number(inv.cost_sar);
+            }
+          });
+          setInvoiceTotals(totalsMap);
+        }
+      }
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -1378,10 +1399,7 @@ const SoftwareLicenseSetup = () => {
                     {getSortIcon("category")}
                   </TableHead>
                   <TableHead>
-                    {language === "ar" ? "اسم النطاق" : "Domain Name"}
-                  </TableHead>
-                  <TableHead>
-                    {language === "ar" ? "البريد الإلكتروني" : "Mails"}
+                    {language === "ar" ? "مركز التكلفة" : "Cost Center"}
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50"
@@ -1413,6 +1431,9 @@ const SoftwareLicenseSetup = () => {
                   </TableHead>
                   <TableHead>
                     {language === "ar" ? "العملة" : "Currency"}
+                  </TableHead>
+                  <TableHead>
+                    {language === "ar" ? "إجمالي الفواتير (ر.س)" : "Total Cost (SAR)"}
                   </TableHead>
                   <TableHead
                     className="cursor-pointer hover:bg-muted/50"
@@ -1452,8 +1473,11 @@ const SoftwareLicenseSetup = () => {
                       <TableCell>
                         {CATEGORIES.find(c => c.value === license.category)?.[language === "ar" ? "labelAr" : "label"] || license.category}
                       </TableCell>
-                      <TableCell>{(license as any).domain_name || '-'}</TableCell>
-                      <TableCell>{(license as any).mails || '-'}</TableCell>
+                      <TableCell>
+                        {costCenters.find(cc => cc.id === license.cost_center_id)
+                          ? `${costCenters.find(cc => cc.id === license.cost_center_id)?.cost_center_code}`
+                          : '-'}
+                      </TableCell>
                       <TableCell>{format(new Date(license.purchase_date), "yyyy-MM-dd")}</TableCell>
                       <TableCell>
                         {license.expiry_date ? format(new Date(license.expiry_date), "yyyy-MM-dd") : "-"}
@@ -1462,10 +1486,15 @@ const SoftwareLicenseSetup = () => {
                         {RENEWAL_CYCLES.find(rc => rc.value === license.renewal_cycle)?.[language === "ar" ? "labelAr" : "label"]}
                       </TableCell>
                       <TableCell>
-                        {currencies.find(c => c.id === license.currency_id)?.currency_code || ''}{license.cost.toFixed(2)}
+                        {currencies.find(c => c.id === license.currency_id)?.currency_code || ''} {license.cost.toFixed(2)}
                       </TableCell>
                       <TableCell>
                         {currencies.find(c => c.id === license.currency_id)?.currency_code || '-'}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {invoiceTotals[license.id] 
+                          ? invoiceTotals[license.id].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : '-'}
                       </TableCell>
                       <TableCell>
                         {projects.find(p => p.id === license.project_id)?.name || '-'}
