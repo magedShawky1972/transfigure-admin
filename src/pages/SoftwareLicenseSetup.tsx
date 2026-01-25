@@ -42,6 +42,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, FileText, Calendar, Download, History, RotateCcw, Save, X, Calculator, Crop } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import InvoiceCropTool from "@/components/InvoiceCropTool";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -186,6 +187,7 @@ const SoftwareLicenseSetup = () => {
 
   // Crop tool state
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [enableCropOnUpload, setEnableCropOnUpload] = useState(false);
   const [pendingUploadData, setPendingUploadData] = useState<{
     base64: string;
     fileName: string;
@@ -545,60 +547,96 @@ const SoftwareLicenseSetup = () => {
       // Reset file input
       e.target.value = '';
 
-      toast({
-        title: language === "ar" ? "تم الرفع بنجاح" : "Upload successful",
-        description: language === "ar" ? "تم رفع الفاتورة، يرجى تحديد الأجزاء للقراءة" : "Invoice uploaded, please select regions to read",
-      });
-
-      // Prepare image data for crop tool
-      let imageDataForCrop = base64;
       const isPdf = file.name.toLowerCase().endsWith('.pdf');
-      
-      if (isPdf) {
-        // For PDFs, we need to convert first page to image for cropping
-        try {
-          const pdfjsLib = await import('pdfjs-dist');
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-          
-          // Load PDF from base64
-          const pdfData = base64.split(',')[1];
-          const binaryData = atob(pdfData);
-          const uint8Array = new Uint8Array(binaryData.length);
-          for (let i = 0; i < binaryData.length; i++) {
-            uint8Array[i] = binaryData.charCodeAt(i);
-          }
-          
-          const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-          const page = await pdf.getPage(1);
-          
-          // Render at a good resolution for text extraction
-          const scale = 2;
-          const viewport = page.getViewport({ scale });
-          
-          const canvas = document.createElement('canvas');
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const context = canvas.getContext('2d');
-          
-          if (context) {
-            await page.render({ canvasContext: context, viewport }).promise;
-            imageDataForCrop = canvas.toDataURL('image/png');
-          }
-        } catch (pdfError) {
-          console.error("Failed to convert PDF to image:", pdfError);
-        }
-      }
 
-      // Store pending data and open crop dialog
-      if (insertedInvoice) {
-        setPendingUploadData({
-          base64: imageDataForCrop,
-          fileName: file.name,
-          cloudinaryUrl: uploadData.url,
-          invoiceId: insertedInvoice.id,
-          isPdf,
+      // Check if user wants to use crop tool
+      if (enableCropOnUpload) {
+        toast({
+          title: language === "ar" ? "تم الرفع بنجاح" : "Upload successful",
+          description: language === "ar" ? "تم رفع الفاتورة، يرجى تحديد الأجزاء للقراءة" : "Invoice uploaded, please select regions to read",
         });
-        setCropDialogOpen(true);
+
+        // Prepare image data for crop tool
+        let imageDataForCrop = base64;
+        
+        if (isPdf) {
+          // For PDFs, we need to convert first page to image for cropping
+          try {
+            const pdfjsLib = await import('pdfjs-dist');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+            
+            // Load PDF from base64
+            const pdfData = base64.split(',')[1];
+            const binaryData = atob(pdfData);
+            const uint8Array = new Uint8Array(binaryData.length);
+            for (let i = 0; i < binaryData.length; i++) {
+              uint8Array[i] = binaryData.charCodeAt(i);
+            }
+            
+            const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+            const page = await pdf.getPage(1);
+            
+            // Render at a good resolution for text extraction
+            const scale = 2;
+            const viewport = page.getViewport({ scale });
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const context = canvas.getContext('2d');
+            
+            if (context) {
+              await page.render({ canvasContext: context, viewport }).promise;
+              imageDataForCrop = canvas.toDataURL('image/png');
+            }
+          } catch (pdfError) {
+            console.error("Failed to convert PDF to image:", pdfError);
+          }
+        }
+
+        // Store pending data and open crop dialog
+        if (insertedInvoice) {
+          setPendingUploadData({
+            base64: imageDataForCrop,
+            fileName: file.name,
+            cloudinaryUrl: uploadData.url,
+            invoiceId: insertedInvoice.id,
+            isPdf,
+          });
+          setCropDialogOpen(true);
+        }
+      } else {
+        // Direct AI extraction without cropping (full image)
+        toast({
+          title: language === "ar" ? "تم الرفع بنجاح" : "Upload successful",
+          description: language === "ar" ? "جاري استخراج التكلفة..." : "Extracting cost...",
+        });
+
+        // Call AI directly with full image
+        if (insertedInvoice) {
+          supabase.functions.invoke("extract-invoice-cost", {
+            body: { 
+              invoiceId: insertedInvoice.id,
+              imageData: base64,
+              fileName: file.name
+            },
+          }).then(async () => {
+            if (editingLicenseId) {
+              await fetchLicenseInvoices(editingLicenseId);
+            }
+            toast({
+              title: language === "ar" ? "تم استخراج التكلفة" : "Cost extracted",
+              description: language === "ar" ? "تم استخراج التكلفة بنجاح" : "Cost extracted successfully",
+            });
+          }).catch((err) => {
+            console.error("Failed to extract invoice cost:", err);
+            toast({
+              title: language === "ar" ? "تحذير" : "Warning",
+              description: language === "ar" ? "فشل في استخراج التكلفة تلقائياً" : "Failed to auto-extract cost",
+              variant: "destructive",
+            });
+          });
+        }
       }
     } catch (error: any) {
       toast({
@@ -1797,6 +1835,20 @@ const SoftwareLicenseSetup = () => {
                             accept=".pdf,.jpg,.jpeg,.png"
                           />
                           {uploading && <span className="text-sm">{language === "ar" ? "جاري الرفع..." : "Uploading..."}</span>}
+                        </div>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse mt-2">
+                          <Checkbox
+                            id="enable_crop"
+                            checked={enableCropOnUpload}
+                            onCheckedChange={(checked) => setEnableCropOnUpload(checked === true)}
+                          />
+                          <Label 
+                            htmlFor="enable_crop" 
+                            className="text-sm font-normal cursor-pointer flex items-center gap-1"
+                          >
+                            <Crop className="h-3 w-3" />
+                            {language === "ar" ? "تحديد أجزاء يدوياً (قص)" : "Manually select regions (crop)"}
+                          </Label>
                         </div>
                       </div>
                     </div>
