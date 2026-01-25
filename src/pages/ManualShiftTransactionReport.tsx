@@ -16,6 +16,7 @@ import * as XLSX from "xlsx";
 interface Transaction {
   id: string;
   created_at: string;
+  order_number: string | null;
   brand_name: string | null;
   product_name: string | null;
   qty: number | null;
@@ -23,7 +24,7 @@ interface Transaction {
   user_name: string | null;
 }
 
-type SortColumn = 'created_at' | 'brand_name' | 'product_name' | 'qty' | 'total';
+type SortColumn = 'created_at' | 'order_number' | 'brand_name' | 'product_name' | 'qty' | 'total';
 type SortDirection = 'asc' | 'desc';
 
 const ManualShiftTransactionReport = () => {
@@ -124,7 +125,7 @@ const ManualShiftTransactionReport = () => {
 
       let query = supabase
         .from("purpletransaction")
-        .select("id, created_at, brand_name, product_name, qty, total, user_name")
+        .select("id, created_at, order_number, brand_name, product_name, qty, total, user_name")
         .gte("created_at_date_int", fromDateInt)
         .lte("created_at_date_int", toDateInt)
         .eq("is_deleted", false)
@@ -166,6 +167,10 @@ const ManualShiftTransactionReport = () => {
         case 'created_at':
           aVal = a.created_at;
           bVal = b.created_at;
+          break;
+        case 'order_number':
+          aVal = a.order_number || '';
+          bVal = b.order_number || '';
           break;
         case 'brand_name':
           aVal = a.brand_name || '';
@@ -317,6 +322,7 @@ const ManualShiftTransactionReport = () => {
             [isRTL ? "المستخدم" : "User"]: userName,
             [isRTL ? "العلامة التجارية" : "Brand"]: brandName,
             [isRTL ? "التاريخ والوقت" : "Date Time"]: formatDateTime(tx.created_at),
+            [isRTL ? "رقم الطلب" : "Order #"]: tx.order_number || '',
             [isRTL ? "المنتج" : "Product"]: tx.product_name,
             [isRTL ? "الكمية" : "Qty"]: tx.qty || 0,
             [isRTL ? "المبلغ" : "Total"]: tx.total || 0,
@@ -327,6 +333,7 @@ const ManualShiftTransactionReport = () => {
           [isRTL ? "المستخدم" : "User"]: "",
           [isRTL ? "العلامة التجارية" : "Brand"]: isRTL ? `إجمالي ${brandName}` : `${brandName} Total`,
           [isRTL ? "التاريخ والوقت" : "Date Time"]: "",
+          [isRTL ? "رقم الطلب" : "Order #"]: "",
           [isRTL ? "المنتج" : "Product"]: "",
           [isRTL ? "الكمية" : "Qty"]: brandQty,
           [isRTL ? "المبلغ" : "Total"]: brandTotal,
@@ -340,6 +347,7 @@ const ManualShiftTransactionReport = () => {
         [isRTL ? "المستخدم" : "User"]: isRTL ? `إجمالي ${userName}` : `${userName} Total`,
         [isRTL ? "العلامة التجارية" : "Brand"]: "",
         [isRTL ? "التاريخ والوقت" : "Date Time"]: "",
+        [isRTL ? "رقم الطلب" : "Order #"]: "",
         [isRTL ? "المنتج" : "Product"]: "",
         [isRTL ? "الكمية" : "Qty"]: userQty,
         [isRTL ? "المبلغ" : "Total"]: userTotal,
@@ -350,6 +358,7 @@ const ManualShiftTransactionReport = () => {
       [isRTL ? "المستخدم" : "User"]: isRTL ? "الإجمالي الكلي" : "Grand Total",
       [isRTL ? "العلامة التجارية" : "Brand"]: "",
       [isRTL ? "التاريخ والوقت" : "Date Time"]: "",
+      [isRTL ? "رقم الطلب" : "Order #"]: "",
       [isRTL ? "المنتج" : "Product"]: "",
       [isRTL ? "الكمية" : "Qty"]: grandTotals.qty,
       [isRTL ? "المبلغ" : "Total"]: grandTotals.total,
@@ -360,7 +369,7 @@ const ManualShiftTransactionReport = () => {
     XLSX.utils.book_append_sheet(wb, ws, isRTL ? "تقرير المعاملات اليدوية" : "Manual Transactions");
 
     if (isRTL) {
-      ws["!cols"] = [{ wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 25 }, { wch: 10 }, { wch: 15 }];
+      ws["!cols"] = [{ wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 }];
       ws["!dir"] = "rtl";
     }
 
@@ -501,6 +510,15 @@ const ManualShiftTransactionReport = () => {
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('order_number')}
+                    >
+                      <div className="flex items-center">
+                        {isRTL ? "رقم الطلب" : "Order #"}
+                        {getSortIcon('order_number')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => handleSort('brand_name')}
                     >
                       <div className="flex items-center">
@@ -559,7 +577,7 @@ const ManualShiftTransactionReport = () => {
                           className="bg-primary/5 cursor-pointer hover:bg-primary/10"
                           onClick={() => toggleUserCollapse(userName)}
                         >
-                          <TableCell colSpan={3} className="font-semibold">
+                          <TableCell colSpan={4} className="font-semibold">
                             <div className="flex items-center gap-2">
                               {isUserCollapsed ? (
                                 <ChevronRight className="h-4 w-4" />
@@ -590,7 +608,7 @@ const ManualShiftTransactionReport = () => {
                                 toggleBrandCollapse(userName, brandName);
                               }}
                             >
-                              <TableCell colSpan={3} className="font-medium pl-8">
+                              <TableCell colSpan={4} className="font-medium pl-8">
                                 <div className="flex items-center gap-2">
                                   {isBrandCollapsed ? (
                                     <ChevronRight className="h-3 w-3" />
@@ -607,6 +625,7 @@ const ManualShiftTransactionReport = () => {
                             ...(isBrandCollapsed ? [] : txList.map((tx) => (
                               <TableRow key={tx.id} className="hover:bg-muted/20">
                                 <TableCell className="pl-12">{formatDateTime(tx.created_at)}</TableCell>
+                                <TableCell>{tx.order_number || '-'}</TableCell>
                                 <TableCell>{brandName}</TableCell>
                                 <TableCell>{tx.product_name}</TableCell>
                                 <TableCell className="text-center">{tx.qty || 0}</TableCell>
@@ -620,7 +639,7 @@ const ManualShiftTransactionReport = () => {
                   })}
                   {transactions.length > 0 && (
                     <TableRow className="grand-total bg-primary/10 font-bold text-lg">
-                      <TableCell colSpan={3}>{isRTL ? "الإجمالي الكلي" : "Grand Total"}</TableCell>
+                      <TableCell colSpan={4}>{isRTL ? "الإجمالي الكلي" : "Grand Total"}</TableCell>
                       <TableCell className="text-center">{grandTotals.qty}</TableCell>
                       <TableCell className="text-right">{formatNumber(grandTotals.total)}</TableCell>
                     </TableRow>
