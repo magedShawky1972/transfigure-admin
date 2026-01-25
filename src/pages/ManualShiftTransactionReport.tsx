@@ -13,28 +13,14 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
 
-interface LudoTransaction {
+interface Transaction {
   id: string;
-  transaction_date: string;
-  product_sku: string;
-  amount: number;
-  order_number: string;
-  player_id: string | null;
-  user_id: string;
-  user_name?: string;
-  brand_name?: string;
-  product_name?: string;
-}
-
-interface UserProfile {
-  user_id: string;
-  user_name: string;
-}
-
-interface ProductInfo {
-  sku: string;
-  product_name: string;
-  brand_name?: string;
+  created_at: string;
+  brand_name: string | null;
+  product_name: string | null;
+  qty: number | null;
+  total: number | null;
+  user_name: string | null;
 }
 
 const ManualShiftTransactionReport = () => {
@@ -49,8 +35,8 @@ const ManualShiftTransactionReport = () => {
   });
   const [toDate, setToDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [selectedUser, setSelectedUser] = useState<string>("all");
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [transactions, setTransactions] = useState<LudoTransaction[]>([]);
+  const [users, setUsers] = useState<string[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
 
@@ -60,15 +46,23 @@ const ManualShiftTransactionReport = () => {
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
-      .from("profiles")
-      .select("user_id, user_name")
+      .from("purpletransaction")
+      .select("user_name")
+      .not("user_name", "is", null)
       .order("user_name");
 
     if (error) {
       console.error("Error fetching users:", error);
       return;
     }
-    setUsers(data || []);
+    
+    // Get unique user names
+    const uniqueUsers = [...new Set(data?.map(d => d.user_name).filter(Boolean) as string[])];
+    setUsers(uniqueUsers);
+  };
+
+  const dateToInt = (dateStr: string): number => {
+    return parseInt(dateStr.replace(/-/g, ""), 10);
   };
 
   const fetchReport = async () => {
@@ -76,16 +70,19 @@ const ManualShiftTransactionReport = () => {
     setHasRun(true);
 
     try {
-      // Fetch ludo transactions within date range
+      const fromDateInt = dateToInt(fromDate);
+      const toDateInt = dateToInt(toDate);
+
       let query = supabase
-        .from("ludo_transactions")
-        .select("id, transaction_date, product_sku, amount, order_number, player_id, user_id")
-        .gte("transaction_date", `${fromDate}T00:00:00`)
-        .lte("transaction_date", `${toDate}T23:59:59`)
-        .order("transaction_date", { ascending: true });
+        .from("purpletransaction")
+        .select("id, created_at, brand_name, product_name, qty, total, user_name")
+        .gte("created_at_date_int", fromDateInt)
+        .lte("created_at_date_int", toDateInt)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: true });
 
       if (selectedUser !== "all") {
-        query = query.eq("user_id", selectedUser);
+        query = query.eq("user_name", selectedUser);
       }
 
       const { data: txData, error: txError } = await query;
@@ -98,39 +95,8 @@ const ManualShiftTransactionReport = () => {
         return;
       }
 
-      // Fetch products with brand info (ludo products start with YA019 or YA018)
-      const { data: products } = await supabase
-        .from("products")
-        .select("sku, product_name, brands(brand_name)")
-        .or("sku.ilike.YA019%,sku.ilike.YA018%")
-        .eq("status", "active");
-
-      const productMap = new Map<string, ProductInfo>();
-      products?.forEach((p: any) => {
-        productMap.set(p.sku, {
-          sku: p.sku,
-          product_name: p.product_name,
-          brand_name: p.brands?.brand_name || "Yalla Ludo",
-        });
-      });
-
-      // Map user names
-      const userMap = new Map<string, string>();
-      users.forEach((u) => userMap.set(u.user_id, u.user_name));
-
-      // Enrich transactions
-      const enrichedTx: LudoTransaction[] = txData.map((tx) => {
-        const product = productMap.get(tx.product_sku);
-        return {
-          ...tx,
-          user_name: userMap.get(tx.user_id) || tx.user_id,
-          brand_name: product?.brand_name || "Yalla Ludo",
-          product_name: product?.product_name || tx.product_sku,
-        };
-      });
-
-      setTransactions(enrichedTx);
-      toast.success(isRTL ? `تم تحميل ${enrichedTx.length} معاملة` : `Loaded ${enrichedTx.length} transactions`);
+      setTransactions(txData);
+      toast.success(isRTL ? `تم تحميل ${txData.length} معاملة` : `Loaded ${txData.length} transactions`);
     } catch (error: any) {
       console.error("Error fetching report:", error);
       toast.error(isRTL ? "خطأ في تحميل التقرير" : "Error loading report");
@@ -141,10 +107,10 @@ const ManualShiftTransactionReport = () => {
 
   // Group transactions by user, then by brand
   const groupedData = useMemo(() => {
-    const byUser = new Map<string, { userName: string; brands: Map<string, LudoTransaction[]> }>();
+    const byUser = new Map<string, { userName: string; brands: Map<string, Transaction[]> }>();
 
     transactions.forEach((tx) => {
-      const userName = tx.user_name || tx.user_id;
+      const userName = tx.user_name || "Unknown";
       if (!byUser.has(userName)) {
         byUser.set(userName, { userName, brands: new Map() });
       }
@@ -163,8 +129,8 @@ const ManualShiftTransactionReport = () => {
   const grandTotals = useMemo(() => {
     return transactions.reduce(
       (acc, tx) => ({
-        qty: acc.qty + 1,
-        total: acc.total + tx.amount,
+        qty: acc.qty + (tx.qty || 0),
+        total: acc.total + (tx.total || 0),
       }),
       { qty: 0, total: 0 }
     );
@@ -199,17 +165,17 @@ const ManualShiftTransactionReport = () => {
       let userTotal = 0;
 
       userGroup.brands.forEach((txList, brandName) => {
-        const brandQty = txList.length;
-        const brandTotal = txList.reduce((sum, tx) => sum + tx.amount, 0);
+        const brandQty = txList.reduce((sum, tx) => sum + (tx.qty || 0), 0);
+        const brandTotal = txList.reduce((sum, tx) => sum + (tx.total || 0), 0);
 
         txList.forEach((tx) => {
           rows.push({
             [isRTL ? "المستخدم" : "User"]: userName,
             [isRTL ? "العلامة التجارية" : "Brand"]: brandName,
-            [isRTL ? "التاريخ والوقت" : "Date Time"]: formatDateTime(tx.transaction_date),
+            [isRTL ? "التاريخ والوقت" : "Date Time"]: formatDateTime(tx.created_at),
             [isRTL ? "المنتج" : "Product"]: tx.product_name,
-            [isRTL ? "الكمية" : "Qty"]: 1,
-            [isRTL ? "المبلغ" : "Total"]: tx.amount,
+            [isRTL ? "الكمية" : "Qty"]: tx.qty || 0,
+            [isRTL ? "المبلغ" : "Total"]: tx.total || 0,
           });
         });
 
@@ -321,9 +287,9 @@ const ManualShiftTransactionReport = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{isRTL ? "جميع المستخدمين" : "All Users"}</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.user_id} value={user.user_id}>
-                      {user.user_name}
+                  {users.map((userName) => (
+                    <SelectItem key={userName} value={userName}>
+                      {userName}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -381,19 +347,19 @@ const ManualShiftTransactionReport = () => {
                           </TableCell>
                         </TableRow>
                         {Array.from(userGroup.brands.entries()).flatMap(([brandName, txList]) => {
-                          const brandQty = txList.length;
-                          const brandTotal = txList.reduce((sum, tx) => sum + tx.amount, 0);
+                          const brandQty = txList.reduce((sum, tx) => sum + (tx.qty || 0), 0);
+                          const brandTotal = txList.reduce((sum, tx) => sum + (tx.total || 0), 0);
                           userQty += brandQty;
                           userTotal += brandTotal;
 
                           return [
                             ...txList.map((tx) => (
                               <TableRow key={tx.id}>
-                                <TableCell>{formatDateTime(tx.transaction_date)}</TableCell>
+                                <TableCell>{formatDateTime(tx.created_at)}</TableCell>
                                 <TableCell>{brandName}</TableCell>
                                 <TableCell>{tx.product_name}</TableCell>
-                                <TableCell className="text-center">1</TableCell>
-                                <TableCell className="text-right">{formatNumber(tx.amount)}</TableCell>
+                                <TableCell className="text-center">{tx.qty || 0}</TableCell>
+                                <TableCell className="text-right">{formatNumber(tx.total || 0)}</TableCell>
                               </TableRow>
                             )),
                             <TableRow key={`brand-total-${userName}-${brandName}`} className="brand-total bg-muted/50 font-medium">
