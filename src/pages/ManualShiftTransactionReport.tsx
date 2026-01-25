@@ -268,11 +268,13 @@ const ManualShiftTransactionReport = () => {
         {`
           @media print {
             body * { visibility: hidden; }
-            .print-area, .print-area * { visibility: visible; }
+            .print-area, .print-area * { visibility: visible; color: black !important; }
             .print-area { position: absolute; left: 0; top: 0; width: 100%; }
             .no-print { display: none !important; }
             .print-header { display: block !important; }
-            table { font-size: 10px; }
+            table { font-size: 10px; border-collapse: collapse; }
+            table, th, td { border: none !important; }
+            th { border-bottom: 1px solid #000 !important; }
             .brand-total { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
             .user-total { background-color: #e5e7eb !important; -webkit-print-color-adjust: exact; }
             .grand-total { background-color: #d1d5db !important; -webkit-print-color-adjust: exact; font-weight: bold; }
