@@ -272,23 +272,36 @@ const AdminTickets = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get departments where user is admin
-      const { data: adminDepts, error: deptError } = await supabase
-        .from("department_admins")
-        .select("department_id")
-        .eq("user_id", user.id);
+      // Check if user has delegation to view all tickets
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("can_view_all_tickets")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (deptError) throw deptError;
+      const canViewAllTickets = profileData?.can_view_all_tickets || isAdmin;
 
-      const departmentIds = adminDepts?.map(d => d.department_id) || [];
+      let departmentIds: string[] = [];
+      
+      if (!canViewAllTickets) {
+        // Get departments where user is admin
+        const { data: adminDepts, error: deptError } = await supabase
+          .from("department_admins")
+          .select("department_id")
+          .eq("user_id", user.id);
 
-      if (departmentIds.length === 0) {
-        setTickets([]);
-        return;
+        if (deptError) throw deptError;
+
+        departmentIds = adminDepts?.map(d => d.department_id) || [];
+
+        if (departmentIds.length === 0) {
+          setTickets([]);
+          return;
+        }
       }
 
-      // Fetch tickets for those departments
-      const { data, error } = await supabase
+      // Fetch tickets - either all or filtered by department
+      let ticketQuery = supabase
         .from("tickets")
         .select(`
           *,
@@ -300,9 +313,15 @@ const AdminTickets = () => {
             currency_name
           )
         `)
-        .in("department_id", departmentIds)
         .eq("is_deleted", false)
         .order("created_at", { ascending: false });
+
+      // Only filter by department if user doesn't have delegation
+      if (!canViewAllTickets && departmentIds.length > 0) {
+        ticketQuery = ticketQuery.in("department_id", departmentIds);
+      }
+
+      const { data, error } = await ticketQuery;
 
       if (error) throw error;
       
