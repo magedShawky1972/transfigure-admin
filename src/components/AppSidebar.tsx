@@ -304,7 +304,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? "أسس تواصل" : "Asus Tawasoul", url: "/asus-tawasoul", icon: Users },
         { title: language === 'ar' ? "مدير البريد" : "Email Manager", url: "/email-manager", icon: Mail },
         { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
-        { title: language === 'ar' ? "قائمة المهام" : "Task List", url: "/task-list", icon: ClipboardList },
         { title: language === 'ar' ? "أخبار الشركة" : "Company News", url: "/company-news", icon: FileText },
       ]
     },
@@ -327,6 +326,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
         { title: language === 'ar' ? 'إعداد المشاريع' : 'Project Setup', url: "/project-setup", icon: FolderKanban },
+        { title: language === 'ar' ? "قائمة المهام" : "Task List", url: "/task-list", icon: ClipboardList },
       ]
     },
     {

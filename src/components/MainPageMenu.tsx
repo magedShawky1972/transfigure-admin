@@ -139,7 +139,6 @@ const menuGroups: MenuGroup[] = [
       { title: "Asus Tawasoul", titleAr: "أسس تواصل", url: "/asus-tawasoul", icon: Users },
       { title: "Email Manager", titleAr: "مدير البريد", url: "/email-manager", icon: Mail },
       { title: "Projects & Tasks", titleAr: "المشاريع والمهام", url: "/projects-tasks", icon: FolderKanban },
-      { title: "Task List", titleAr: "قائمة المهام", url: "/task-list", icon: ClipboardList },
       { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
     ]
   },
@@ -162,6 +161,7 @@ const menuGroups: MenuGroup[] = [
       { title: "User Groups", titleAr: "مجموعات المستخدمين", url: "/user-group-setup", icon: Users },
       { title: "Company Hierarchy", titleAr: "الهيكل التنظيمي", url: "/company-hierarchy", icon: Building2 },
       { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
+      { title: "Task List", titleAr: "قائمة المهام", url: "/task-list", icon: ClipboardList },
     ]
   },
   {
