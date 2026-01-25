@@ -1,0 +1,438 @@
+import { useState, useEffect, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, FileSpreadsheet, Printer, Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import * as XLSX from "xlsx";
+
+interface LudoTransaction {
+  id: string;
+  transaction_date: string;
+  product_sku: string;
+  amount: number;
+  order_number: string;
+  player_id: string | null;
+  user_id: string;
+  user_name?: string;
+  brand_name?: string;
+  product_name?: string;
+}
+
+interface UserProfile {
+  user_id: string;
+  user_name: string;
+}
+
+interface ProductInfo {
+  sku: string;
+  product_name: string;
+  brand_name?: string;
+}
+
+const ManualShiftTransactionReport = () => {
+  const navigate = useNavigate();
+  const { language } = useLanguage();
+  const isRTL = language === "ar";
+
+  const [fromDate, setFromDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    return format(date, "yyyy-MM-dd");
+  });
+  const [toDate, setToDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [selectedUser, setSelectedUser] = useState<string>("all");
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [transactions, setTransactions] = useState<LudoTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasRun, setHasRun] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_id, user_name")
+      .order("user_name");
+
+    if (error) {
+      console.error("Error fetching users:", error);
+      return;
+    }
+    setUsers(data || []);
+  };
+
+  const fetchReport = async () => {
+    setLoading(true);
+    setHasRun(true);
+
+    try {
+      // Fetch ludo transactions within date range
+      let query = supabase
+        .from("ludo_transactions")
+        .select("id, transaction_date, product_sku, amount, order_number, player_id, user_id")
+        .gte("transaction_date", `${fromDate}T00:00:00`)
+        .lte("transaction_date", `${toDate}T23:59:59`)
+        .order("transaction_date", { ascending: true });
+
+      if (selectedUser !== "all") {
+        query = query.eq("user_id", selectedUser);
+      }
+
+      const { data: txData, error: txError } = await query;
+
+      if (txError) throw txError;
+
+      if (!txData || txData.length === 0) {
+        setTransactions([]);
+        toast.info(isRTL ? "لا توجد معاملات في الفترة المحددة" : "No transactions found in the selected period");
+        return;
+      }
+
+      // Fetch products with brand info (ludo products start with YA019 or YA018)
+      const { data: products } = await supabase
+        .from("products")
+        .select("sku, product_name, brands(brand_name)")
+        .or("sku.ilike.YA019%,sku.ilike.YA018%")
+        .eq("status", "active");
+
+      const productMap = new Map<string, ProductInfo>();
+      products?.forEach((p: any) => {
+        productMap.set(p.sku, {
+          sku: p.sku,
+          product_name: p.product_name,
+          brand_name: p.brands?.brand_name || "Yalla Ludo",
+        });
+      });
+
+      // Map user names
+      const userMap = new Map<string, string>();
+      users.forEach((u) => userMap.set(u.user_id, u.user_name));
+
+      // Enrich transactions
+      const enrichedTx: LudoTransaction[] = txData.map((tx) => {
+        const product = productMap.get(tx.product_sku);
+        return {
+          ...tx,
+          user_name: userMap.get(tx.user_id) || tx.user_id,
+          brand_name: product?.brand_name || "Yalla Ludo",
+          product_name: product?.product_name || tx.product_sku,
+        };
+      });
+
+      setTransactions(enrichedTx);
+      toast.success(isRTL ? `تم تحميل ${enrichedTx.length} معاملة` : `Loaded ${enrichedTx.length} transactions`);
+    } catch (error: any) {
+      console.error("Error fetching report:", error);
+      toast.error(isRTL ? "خطأ في تحميل التقرير" : "Error loading report");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Group transactions by user, then by brand
+  const groupedData = useMemo(() => {
+    const byUser = new Map<string, { userName: string; brands: Map<string, LudoTransaction[]> }>();
+
+    transactions.forEach((tx) => {
+      const userName = tx.user_name || tx.user_id;
+      if (!byUser.has(userName)) {
+        byUser.set(userName, { userName, brands: new Map() });
+      }
+      const userGroup = byUser.get(userName)!;
+      const brandName = tx.brand_name || "Unknown";
+      if (!userGroup.brands.has(brandName)) {
+        userGroup.brands.set(brandName, []);
+      }
+      userGroup.brands.get(brandName)!.push(tx);
+    });
+
+    return byUser;
+  }, [transactions]);
+
+  // Calculate grand totals
+  const grandTotals = useMemo(() => {
+    return transactions.reduce(
+      (acc, tx) => ({
+        qty: acc.qty + 1,
+        total: acc.total + tx.amount,
+      }),
+      { qty: 0, total: 0 }
+    );
+  }, [transactions]);
+
+  const formatDateTime = (dateStr: string) => {
+    try {
+      return format(new Date(dateStr), "yyyy-MM-dd HH:mm");
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatNumber = (value: number) => {
+    return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExport = () => {
+    if (transactions.length === 0) {
+      toast.error(isRTL ? "لا توجد بيانات للتصدير" : "No data to export");
+      return;
+    }
+
+    const rows: any[] = [];
+
+    groupedData.forEach((userGroup, userName) => {
+      let userQty = 0;
+      let userTotal = 0;
+
+      userGroup.brands.forEach((txList, brandName) => {
+        const brandQty = txList.length;
+        const brandTotal = txList.reduce((sum, tx) => sum + tx.amount, 0);
+
+        txList.forEach((tx) => {
+          rows.push({
+            [isRTL ? "المستخدم" : "User"]: userName,
+            [isRTL ? "العلامة التجارية" : "Brand"]: brandName,
+            [isRTL ? "التاريخ والوقت" : "Date Time"]: formatDateTime(tx.transaction_date),
+            [isRTL ? "المنتج" : "Product"]: tx.product_name,
+            [isRTL ? "الكمية" : "Qty"]: 1,
+            [isRTL ? "المبلغ" : "Total"]: tx.amount,
+          });
+        });
+
+        rows.push({
+          [isRTL ? "المستخدم" : "User"]: "",
+          [isRTL ? "العلامة التجارية" : "Brand"]: isRTL ? `إجمالي ${brandName}` : `${brandName} Total`,
+          [isRTL ? "التاريخ والوقت" : "Date Time"]: "",
+          [isRTL ? "المنتج" : "Product"]: "",
+          [isRTL ? "الكمية" : "Qty"]: brandQty,
+          [isRTL ? "المبلغ" : "Total"]: brandTotal,
+        });
+
+        userQty += brandQty;
+        userTotal += brandTotal;
+      });
+
+      rows.push({
+        [isRTL ? "المستخدم" : "User"]: isRTL ? `إجمالي ${userName}` : `${userName} Total`,
+        [isRTL ? "العلامة التجارية" : "Brand"]: "",
+        [isRTL ? "التاريخ والوقت" : "Date Time"]: "",
+        [isRTL ? "المنتج" : "Product"]: "",
+        [isRTL ? "الكمية" : "Qty"]: userQty,
+        [isRTL ? "المبلغ" : "Total"]: userTotal,
+      });
+    });
+
+    rows.push({
+      [isRTL ? "المستخدم" : "User"]: isRTL ? "الإجمالي الكلي" : "Grand Total",
+      [isRTL ? "العلامة التجارية" : "Brand"]: "",
+      [isRTL ? "التاريخ والوقت" : "Date Time"]: "",
+      [isRTL ? "المنتج" : "Product"]: "",
+      [isRTL ? "الكمية" : "Qty"]: grandTotals.qty,
+      [isRTL ? "المبلغ" : "Total"]: grandTotals.total,
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isRTL ? "تقرير المعاملات اليدوية" : "Manual Transactions");
+
+    if (isRTL) {
+      ws["!cols"] = [{ wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 25 }, { wch: 10 }, { wch: 15 }];
+      ws["!dir"] = "rtl";
+    }
+
+    XLSX.writeFile(wb, `manual-shift-transactions-${fromDate}-to-${toDate}.xlsx`);
+    toast.success(isRTL ? "تم تصدير التقرير" : "Report exported");
+  };
+
+  return (
+    <div className="space-y-6 print:space-y-2">
+      <style>
+        {`
+          @media print {
+            body * { visibility: hidden; }
+            .print-area, .print-area * { visibility: visible; }
+            .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+            .print-header { display: block !important; }
+            table { font-size: 10px; }
+            .brand-total { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
+            .user-total { background-color: #e5e7eb !important; -webkit-print-color-adjust: exact; }
+            .grand-total { background-color: #d1d5db !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+          }
+          .print-header { display: none; }
+        `}
+      </style>
+
+      <div className="flex items-center justify-between no-print">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => navigate("/reports")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            {isRTL ? "رجوع" : "Back"}
+          </Button>
+          <h1 className="text-2xl font-bold">
+            {isRTL ? "تقرير معاملات المناوبة اليدوية" : "Manual Shift Transaction Report"}
+          </h1>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={transactions.length === 0}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            {isRTL ? "تصدير" : "Export"}
+          </Button>
+          <Button variant="outline" onClick={handlePrint} disabled={transactions.length === 0}>
+            <Printer className="h-4 w-4 mr-2" />
+            {isRTL ? "طباعة" : "Print"}
+          </Button>
+        </div>
+      </div>
+
+      <Card className="no-print">
+        <CardHeader>
+          <CardTitle>{isRTL ? "فلاتر التقرير" : "Report Filters"}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "إلى تاريخ" : "To Date"}</Label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "المستخدم" : "User"}</Label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isRTL ? "جميع المستخدمين" : "All Users"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isRTL ? "جميع المستخدمين" : "All Users"}</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      {user.user_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={fetchReport} disabled={loading} className="w-full">
+                <Search className="h-4 w-4 mr-2" />
+                {loading ? (isRTL ? "جاري التحميل..." : "Loading...") : isRTL ? "تحميل التقرير" : "Run Report"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="print-area">
+        <div className="print-header text-center mb-4">
+          <h1 className="text-xl font-bold">
+            {isRTL ? "تقرير معاملات المناوبة اليدوية" : "Manual Shift Transaction Report"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isRTL ? `من ${fromDate} إلى ${toDate}` : `From ${fromDate} to ${toDate}`}
+          </p>
+        </div>
+
+        {hasRun && transactions.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              {isRTL ? "لا توجد معاملات في الفترة المحددة" : "No transactions found in the selected period"}
+            </CardContent>
+          </Card>
+        ) : transactions.length > 0 ? (
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isRTL ? "التاريخ والوقت" : "Date Time"}</TableHead>
+                    <TableHead>{isRTL ? "العلامة التجارية" : "Brand"}</TableHead>
+                    <TableHead>{isRTL ? "المنتج" : "Product"}</TableHead>
+                    <TableHead className="text-center">{isRTL ? "الكمية" : "Qty"}</TableHead>
+                    <TableHead className="text-right">{isRTL ? "المبلغ" : "Total"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from(groupedData.entries()).map(([userName, userGroup]) => {
+                    let userQty = 0;
+                    let userTotal = 0;
+
+                    return (
+                      <>
+                        <TableRow key={`user-header-${userName}`} className="bg-primary/5">
+                          <TableCell colSpan={5} className="font-semibold">
+                            {isRTL ? `المستخدم: ${userName}` : `User: ${userName}`}
+                          </TableCell>
+                        </TableRow>
+                        {Array.from(userGroup.brands.entries()).flatMap(([brandName, txList]) => {
+                          const brandQty = txList.length;
+                          const brandTotal = txList.reduce((sum, tx) => sum + tx.amount, 0);
+                          userQty += brandQty;
+                          userTotal += brandTotal;
+
+                          return [
+                            ...txList.map((tx) => (
+                              <TableRow key={tx.id}>
+                                <TableCell>{formatDateTime(tx.transaction_date)}</TableCell>
+                                <TableCell>{brandName}</TableCell>
+                                <TableCell>{tx.product_name}</TableCell>
+                                <TableCell className="text-center">1</TableCell>
+                                <TableCell className="text-right">{formatNumber(tx.amount)}</TableCell>
+                              </TableRow>
+                            )),
+                            <TableRow key={`brand-total-${userName}-${brandName}`} className="brand-total bg-muted/50 font-medium">
+                              <TableCell colSpan={2}>
+                                {isRTL ? `إجمالي ${brandName}` : `${brandName} Subtotal`}
+                              </TableCell>
+                              <TableCell></TableCell>
+                              <TableCell className="text-center">{brandQty}</TableCell>
+                              <TableCell className="text-right">{formatNumber(brandTotal)}</TableCell>
+                            </TableRow>,
+                          ];
+                        })}
+                        <TableRow key={`user-total-${userName}`} className="user-total bg-muted font-semibold">
+                          <TableCell colSpan={2}>
+                            {isRTL ? `إجمالي ${userName}` : `${userName} Total`}
+                          </TableCell>
+                          <TableCell></TableCell>
+                          <TableCell className="text-center">{userQty}</TableCell>
+                          <TableCell className="text-right">{formatNumber(userTotal)}</TableCell>
+                        </TableRow>
+                      </>
+                    );
+                  })}
+                  {transactions.length > 0 && (
+                    <TableRow className="grand-total bg-primary/10 font-bold text-lg">
+                      <TableCell colSpan={2}>{isRTL ? "الإجمالي الكلي" : "Grand Total"}</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="text-center">{grandTotals.qty}</TableCell>
+                      <TableCell className="text-right">{formatNumber(grandTotals.total)}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+export default ManualShiftTransactionReport;
