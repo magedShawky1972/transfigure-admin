@@ -550,6 +550,13 @@ const DepartmentManagement = () => {
 
   const handleTogglePurchaseAdmin = async (adminId: string, isPurchase: boolean) => {
     try {
+     // Get the admin's department
+     const admin = admins.find(a => a.id === adminId);
+     if (!admin) return;
+     
+     const departmentId = admin.department_id;
+     
+     // Update the purchase admin status
       const { error } = await supabase
         .from("department_admins")
         .update({ is_purchase_admin: isPurchase })
@@ -557,11 +564,27 @@ const DepartmentManagement = () => {
 
       if (error) throw error;
 
+     // Recalculate admin_order for ALL admins in this department
+     // This ensures sequential numbering after the toggle
+     const deptAdmins = admins
+       .filter(a => a.department_id === departmentId)
+       .map(a => a.id === adminId ? { ...a, is_purchase_admin: isPurchase } : a)
+       .sort((a, b) => a.admin_order - b.admin_order);
+     
+     const updates = deptAdmins.map((adm, index) => 
+       supabase
+         .from('department_admins')
+         .update({ admin_order: index })
+         .eq('id', adm.id)
+     );
+     
+     await Promise.all(updates);
+
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
         description: language === 'ar' 
-          ? `تم ${isPurchase ? 'تعيين' : 'إلغاء'} المسؤول كمسؤول مشتريات` 
-          : `Admin ${isPurchase ? 'set as' : 'removed from'} purchase admin`,
+         ? `تم ${isPurchase ? 'تعيين' : 'إلغاء'} المسؤول كمسؤول مشتريات وإعادة ترقيم المستويات` 
+         : `Admin ${isPurchase ? 'set as' : 'removed from'} purchase admin and levels recalculated`,
       });
 
       await fetchAdmins();
@@ -638,6 +661,13 @@ const DepartmentManagement = () => {
 
   const handleRemoveAdmin = async (adminId: string) => {
     try {
+     // Get the admin's department before deleting
+     const adminToRemove = admins.find(a => a.id === adminId);
+     if (!adminToRemove) return;
+     
+     const departmentId = adminToRemove.department_id;
+     
+     // Delete the admin
       const { error } = await supabase
         .from("department_admins")
         .delete()
@@ -645,15 +675,30 @@ const DepartmentManagement = () => {
 
       if (error) throw error;
 
+     // Recalculate admin_order for remaining admins in this department
+     const remainingAdmins = admins
+       .filter(a => a.department_id === departmentId && a.id !== adminId)
+       .sort((a, b) => a.admin_order - b.admin_order);
+     
+     // Update admin_order to be sequential (0, 1, 2, ...)
+     const updates = remainingAdmins.map((admin, index) => 
+       supabase
+         .from('department_admins')
+         .update({ admin_order: index })
+         .eq('id', admin.id)
+     );
+     
+     await Promise.all(updates);
+
       toast({
-        title: "Success",
-        description: "Admin removed from department",
+       title: language === 'ar' ? 'تم' : 'Success',
+       description: language === 'ar' ? 'تمت إزالة المسؤول وإعادة ترقيم المستويات' : 'Admin removed and levels recalculated',
       });
 
       fetchAdmins();
     } catch (error: any) {
       toast({
-        title: "Error",
+       title: language === 'ar' ? 'خطأ' : 'Error',
         description: error.message,
         variant: "destructive",
       });
