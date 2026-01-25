@@ -1474,9 +1474,7 @@ const SoftwareLicenseSetup = () => {
                         {CATEGORIES.find(c => c.value === license.category)?.[language === "ar" ? "labelAr" : "label"] || license.category}
                       </TableCell>
                       <TableCell>
-                        {costCenters.find(cc => cc.id === license.cost_center_id)
-                          ? `${costCenters.find(cc => cc.id === license.cost_center_id)?.cost_center_code}`
-                          : '-'}
+                        {costCenters.find(cc => cc.id === license.cost_center_id)?.cost_center_name || '-'}
                       </TableCell>
                       <TableCell>{format(new Date(license.purchase_date), "yyyy-MM-dd")}</TableCell>
                       <TableCell>
