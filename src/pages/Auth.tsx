@@ -580,6 +580,19 @@ const Auth = () => {
         description: language === "ar" ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully",
       });
 
+      // After password change, check if certificate is required
+      if (user) {
+        const deviceActivated = await checkDeviceActivation(user.id);
+        if (!deviceActivated) {
+          // Certificate dialog is now shown by checkDeviceActivation
+          setPendingUserId(user.id);
+          return; // Don't navigate, wait for certificate
+        }
+        
+        // Record login history if device is already activated
+        await recordLoginHistory(user.id);
+      }
+
       setTimeout(() => {
         navigate("/");
       }, 1500);
