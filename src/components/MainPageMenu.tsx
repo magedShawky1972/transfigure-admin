@@ -139,7 +139,6 @@ const menuGroups: MenuGroup[] = [
       { title: "Asus Tawasoul", titleAr: "أسس تواصل", url: "/asus-tawasoul", icon: Users },
       { title: "Email Manager", titleAr: "مدير البريد", url: "/email-manager", icon: Mail },
       { title: "Projects & Tasks", titleAr: "المشاريع والمهام", url: "/projects-tasks", icon: FolderKanban },
-      { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
     ]
   },
   {
@@ -159,7 +158,6 @@ const menuGroups: MenuGroup[] = [
       { title: "Shift Calendar", titleAr: "تقويم الورديات", url: "/shift-calendar", icon: BarChart3 },
       { title: "Currency Setup", titleAr: "إعداد العملات", url: "/currency-setup", icon: DollarSign },
       { title: "User Groups", titleAr: "مجموعات المستخدمين", url: "/user-group-setup", icon: Users },
-      { title: "Company Hierarchy", titleAr: "الهيكل التنظيمي", url: "/company-hierarchy", icon: Building2 },
       { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
       { title: "Task List", titleAr: "قائمة المهام", url: "/task-list", icon: ClipboardList },
     ]
@@ -178,6 +176,8 @@ const menuGroups: MenuGroup[] = [
       { title: "Attendance Types", titleAr: "أنواع الحضور", url: "/attendance-type-setup", icon: Clock },
       { title: "Job Setup", titleAr: "إعداد الوظائف", url: "/job-setup", icon: Briefcase },
       { title: "Vacation Calendar", titleAr: "تقويم الإجازات", url: "/hr-vacation-calendar", icon: Palmtree },
+      { title: "Company Hierarchy", titleAr: "الهيكل التنظيمي", url: "/company-hierarchy", icon: Building2 },
+      { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
     ]
   },
   {
