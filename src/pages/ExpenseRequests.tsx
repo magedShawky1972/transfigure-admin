@@ -281,7 +281,7 @@ const ExpenseRequests = () => {
           costCenterId = ticketData?.cost_center_id || null;
         }
         
-        const { error: expenseEntryError } = await supabase.from("expense_entries").insert({
+        const { data: expenseEntryData, error: expenseEntryError } = await supabase.from("expense_entries").insert({
           entry_number: expenseEntryNumber,
           entry_date: new Date().toISOString().split("T")[0],
           expense_reference: request.request_number,
@@ -297,12 +297,30 @@ const ExpenseRequests = () => {
           status: "draft",
           notes: request.description,
           created_by: currentUserId,
-        });
+        }).select("id").single();
 
         if (expenseEntryError) {
           console.error("Error creating expense entry:", expenseEntryError);
           toast.error(language === "ar" ? "خطأ في إنشاء قيد المصروفات" : "Error creating expense entry");
-        } else {
+        } else if (expenseEntryData) {
+          // Create expense entry line
+          const { error: lineError } = await supabase.from("expense_entry_lines").insert({
+            expense_entry_id: expenseEntryData.id,
+            line_number: 1,
+            expense_type_id: request.expense_type_id || null,
+            description: request.description,
+            quantity: 1,
+            unit_price: request.amount,
+            total: request.amount,
+            vat_percent: 0,
+            vat_amount: 0,
+            line_total: request.amount,
+          });
+
+          if (lineError) {
+            console.error("Error creating expense entry line:", lineError);
+          }
+          
           toast.success(language === "ar" ? "تم إنشاء قيد المصروفات" : "Expense entry created");
         }
       } else if (newStatus === "paid") {
