@@ -173,16 +173,18 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
+  const getPriorityVariant = (priority: string): "destructive" | "default" | "secondary" | "outline" => {
+    const normalizedPriority = priority.toLowerCase();
+    switch (normalizedPriority) {
       case "urgent":
-        return "bg-red-500 text-white";
       case "high":
-        return "bg-orange-500 text-white";
+        return "destructive";
       case "medium":
-        return "bg-yellow-500 text-black";
+        return "default";
+      case "low":
+        return "secondary";
       default:
-        return "bg-gray-500 text-white";
+        return "default";
     }
   };
 
@@ -235,7 +237,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
                           <span className="font-mono text-sm text-muted-foreground">
                             {ticket.ticket_number}
                           </span>
-                          <Badge className={getPriorityColor(ticket.priority)}>
+                          <Badge variant={getPriorityVariant(ticket.priority)}>
                             {ticket.priority}
                           </Badge>
                           {ticket.is_purchase_ticket && (
