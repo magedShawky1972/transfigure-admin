@@ -599,6 +599,44 @@ const ExpenseRequests = () => {
     return treasury?.treasury_name || "-";
   };
 
+  const getTreasuryCurrencyCode = (treasuryId: string | null) => {
+    if (!treasuryId) return "";
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    return getCurrencyCode(treasury?.currency_id || null);
+  };
+
+  const getTreasuryBalance = (treasuryId: string | null) => {
+    if (!treasuryId) return 0;
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    return treasury?.current_balance || 0;
+  };
+
+  // Calculate how much will be deducted from treasury in treasury's currency
+  const getTreasuryAmount = (request: ExpenseRequest) => {
+    if (request.payment_method !== "treasury" || !request.treasury_id) return null;
+    
+    const treasury = treasuries.find(t => t.id === request.treasury_id);
+    if (!treasury) return null;
+    
+    const baseCurrency = currencies.find(c => c.is_base);
+    const expenseInBase = request.base_currency_amount || request.amount;
+    
+    // Convert from base currency to treasury's currency
+    const amountInTreasuryCurrency = convertFromBaseCurrency(
+      expenseInBase,
+      treasury.currency_id || null,
+      currencyRates,
+      baseCurrency || null
+    );
+    
+    return {
+      amount: amountInTreasuryCurrency,
+      currencyCode: getCurrencyCode(treasury.currency_id || null),
+      balance: treasury.current_balance,
+      sufficient: amountInTreasuryCurrency <= treasury.current_balance
+    };
+  };
+
   const getBankName = (bankId: string | null) => {
     if (!bankId) return "-";
     const bank = banks.find(b => b.id === bankId);
@@ -816,6 +854,7 @@ const ExpenseRequests = () => {
                 <TableHead>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</TableHead>
                 <TableHead>{language === "ar" ? "أصل/مصروف" : "Asset/Expense"}</TableHead>
                 <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment"}</TableHead>
+                <TableHead>{language === "ar" ? "المبلغ بعملة الخزينة" : "Treasury Amount"}</TableHead>
                 <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
@@ -860,6 +899,22 @@ const ExpenseRequests = () => {
                         </div>
                       </div>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const treasuryInfo = getTreasuryAmount(request);
+                      if (!treasuryInfo) return "-";
+                      return (
+                        <div className="flex flex-col">
+                          <span className={`font-semibold ${treasuryInfo.sufficient ? "text-green-600" : "text-red-600"}`}>
+                            {treasuryInfo.amount.toFixed(2)} {treasuryInfo.currencyCode}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {language === "ar" ? "الرصيد:" : "Bal:"} {treasuryInfo.balance.toLocaleString()} {treasuryInfo.currencyCode}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[request.status] || ""}`}>
