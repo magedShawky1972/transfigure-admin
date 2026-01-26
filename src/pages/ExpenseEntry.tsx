@@ -50,6 +50,7 @@ interface ExpenseEntry {
   treasury_id: string | null;
   currency_id: string | null;
   cost_center_id: string | null;
+  exchange_rate: number | null;
   grand_total: number;
   status: string;
 }
@@ -145,7 +146,7 @@ const ExpenseEntryPage = () => {
 
       const { data, error } = await supabase
         .from("expense_entries")
-        .select("id, entry_number, entry_date, expense_reference, payment_method, bank_id, treasury_id, currency_id, cost_center_id, grand_total, status")
+        .select("id, entry_number, entry_date, expense_reference, payment_method, bank_id, treasury_id, currency_id, cost_center_id, exchange_rate, grand_total, status")
         .gte("entry_date", startDate)
         .lte("entry_date", endDate)
         .order("entry_date", { ascending: false });
@@ -472,23 +473,28 @@ const ExpenseEntryPage = () => {
     return baseCurrency?.currency_code || "SAR";
   };
 
-  const convertToBase = (amount: number, currencyId: string | null) => {
-    if (!currencyId || !amount) return amount;
+  // Calculate original value from grand_total (SAR) and exchange_rate
+  const getOriginalValue = (grandTotal: number, exchangeRate: number | null, currencyId: string | null) => {
+    if (!currencyId || !grandTotal) return grandTotal;
     
-    // Check if already base currency
+    // Check if already base currency (no conversion needed)
     const currency = currencies.find(c => c.id === currencyId);
-    if (currency?.is_base) return amount;
+    if (currency?.is_base) return grandTotal;
     
-    // Find rate for this currency
+    // If no exchange rate stored, return as-is
+    if (!exchangeRate || exchangeRate <= 0) return grandTotal;
+    
+    // Find the conversion operator for this currency
     const rate = currencyRates.find(r => r.currency_id === currencyId);
-    if (!rate || rate.rate_to_base <= 0) return amount;
+    const operator = rate?.conversion_operator || 'multiply';
     
-    // Apply conversion based on operator
-    const operator = rate.conversion_operator || 'multiply';
+    // Reverse the conversion to get original value
+    // If operator is 'multiply': SAR = Original * rate, so Original = SAR / rate
+    // If operator is 'divide': SAR = Original / rate, so Original = SAR * rate
     if (operator === 'multiply') {
-      return amount * rate.rate_to_base;
+      return grandTotal / exchangeRate;
     } else {
-      return amount / rate.rate_to_base;
+      return grandTotal * exchangeRate;
     }
   };
 
@@ -596,9 +602,11 @@ const ExpenseEntryPage = () => {
                           : getTreasuryName(entry.treasury_id)}
                       </TableCell>
                       <TableCell>{getCurrencyCode(entry.currency_id)}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatNumber(entry.grand_total)}</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatNumber(getOriginalValue(entry.grand_total, entry.exchange_rate, entry.currency_id))}
+                      </TableCell>
                       <TableCell className="text-right font-semibold text-primary">
-                        {formatNumber(convertToBase(entry.grand_total, entry.currency_id))}
+                        {formatNumber(entry.grand_total)}
                       </TableCell>
                       <TableCell>
                         <Badge className={STATUS_COLORS[entry.status]}>{getStatusLabel(entry.status)}</Badge>
