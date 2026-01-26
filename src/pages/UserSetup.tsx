@@ -178,6 +178,7 @@ interface UserPermission {
         { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
         { key: "expenseEntry", label: "قيد المصروفات", labelEn: "Expense Entry" },
         { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
+        { key: "voidPayment", label: "إلغاء الدفع", labelEn: "Void Payment" },
         { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
       ]
     },
