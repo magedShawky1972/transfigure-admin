@@ -313,18 +313,42 @@ const ExpenseRequests = () => {
           const date = new Date();
           const entryNumber = `TRS${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
           
+          // Get cost_center_id from ticket if this expense is linked to a ticket
+          let costCenterId: string | null = null;
+          if (request.ticket_id) {
+            const { data: ticketData } = await supabase
+              .from("tickets")
+              .select("cost_center_id")
+              .eq("id", request.ticket_id)
+              .maybeSingle();
+            costCenterId = ticketData?.cost_center_id || null;
+          }
+          
+          // Calculate balances
+          const balanceBefore = treasury?.current_balance || 0;
+          const newBalance = balanceBefore - request.amount;
+          
           const { error: treasuryError } = await supabase.from("treasury_entries").insert({
             entry_number: entryNumber,
             treasury_id: request.treasury_id,
-            entry_type: "withdrawal",
+            entry_type: "payment",
             amount: request.amount,
             description: `${language === "ar" ? "مصروف: " : "Expense: "}${request.description}`,
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
             expense_request_id: request.id,
-            status: "approved",
+            status: "posted",
             approved_by: currentUserId,
             approved_at: new Date().toISOString(),
+            posted_by: currentUserId,
+            posted_at: new Date().toISOString(),
+            // New fields
+            from_currency_id: request.currency_id,
+            exchange_rate: request.exchange_rate || 1,
+            converted_amount: request.base_currency_amount || request.amount,
+            balance_before: balanceBefore,
+            balance_after: newBalance,
+            cost_center_id: costCenterId,
           });
 
           if (treasuryError) {
@@ -334,7 +358,6 @@ const ExpenseRequests = () => {
           }
 
           // Update treasury balance
-          const newBalance = (treasury?.current_balance || 0) - request.amount;
           await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", request.treasury_id);
           
           toast.success(language === "ar" ? "تم إنشاء قيد الخزينة وخصم الرصيد" : "Treasury entry created and balance deducted");
