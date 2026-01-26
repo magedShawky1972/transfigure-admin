@@ -176,109 +176,27 @@ const VoidPayment = () => {
 
     setProcessing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error(language === "ar" ? "يجب تسجيل الدخول" : "You must be logged in");
-        return;
-      }
-
-      // Get user profile for name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("user_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      // 1. Insert void history record BEFORE deleting treasury entry
-      const { error: historyError } = await supabase.from("void_payment_history").insert({
-        expense_request_id: selectedRequest.id,
-        request_number: selectedRequest.request_number,
-        description: selectedRequest.description,
-        original_amount: selectedRequest.amount,
-        treasury_amount: selectedRequest.treasury_amount,
-        currency_code: selectedRequest.currency_code,
-        treasury_currency_code: selectedRequest.treasury_currency_code,
-        treasury_id: selectedRequest.treasury_id,
-        treasury_name: selectedRequest.treasury_name,
-        treasury_entry_number: selectedRequest.treasury_entry_number,
-        original_paid_at: selectedRequest.paid_at,
-        voided_by: user.id,
-        voided_by_name: profile?.user_name || user.email,
-        reason: voidReason || null,
-      } as any);
-
-      if (historyError) {
-        console.error("Error creating void history:", historyError);
-        toast.error(language === "ar" ? "خطأ في تسجيل سجل الإلغاء" : "Error creating void history");
-        return;
-      }
-
-      // 2. Delete ALL treasury entries linked to this request
-      if (selectedRequest.treasury_entry_ids && selectedRequest.treasury_entry_ids.length > 0) {
-        const { error: treasuryDeleteError } = await supabase
-          .from("treasury_entries")
-          .delete()
-          .in("id", selectedRequest.treasury_entry_ids);
-
-        if (treasuryDeleteError) {
-          console.error("Error deleting treasury entries:", treasuryDeleteError);
-          toast.error(language === "ar" ? "خطأ في حذف قيود الخزينة" : "Error deleting treasury entries");
-          return;
-        }
-      }
-
-      // 3. Reopen the expense entry
-      if (selectedRequest.expense_entry_id) {
-        const { error: expenseEntryError } = await supabase
-          .from("expense_entries")
-          .update({
-            status: "approved",
-            paid_by: null,
-            paid_at: null,
-          })
-          .eq("id", selectedRequest.expense_entry_id);
-
-        if (expenseEntryError) {
-          console.error("Error updating expense entry:", expenseEntryError);
-          toast.error(language === "ar" ? "خطأ في تحديث قيد المصروفات" : "Error updating expense entry");
-          return;
-        }
-      }
-
-      // 4. Reopen the expense request
-      const { error: requestError } = await supabase
-        .from("expense_requests")
-        .update({
-          status: "approved",
-          paid_by: null,
-          paid_at: null,
-        })
-        .eq("id", selectedRequest.id);
-
-      if (requestError) {
-        console.error("Error updating expense request:", requestError);
-        toast.error(language === "ar" ? "خطأ في تحديث طلب المصروفات" : "Error updating expense request");
-        return;
-      }
-
-      // 5. Log the void action in audit_logs
-      await supabase.from("audit_logs").insert({
-        user_id: user.id,
-        action: "VOID_PAYMENT",
-        table_name: "expense_requests",
-        record_id: selectedRequest.id,
-        old_data: {
-          status: "paid",
-          treasury_entry_ids: selectedRequest.treasury_entry_ids,
-          treasury_entry_number: selectedRequest.treasury_entry_number,
-        },
-        new_data: {
-          status: "approved",
-          voided_at: new Date().toISOString(),
-          void_reason: voidReason || null,
-          deleted_entries_count: selectedRequest.treasury_entry_ids?.length || 0,
+      // Perform the void in a backend function (ensures deletes work even if RLS blocks client deletes)
+      const { data, error } = await supabase.functions.invoke("void-expense-payment", {
+        body: {
+          expense_request_id: selectedRequest.id,
+          reason: voidReason.trim(),
         },
       });
+
+      if (error) throw error;
+      if (!(data as any)?.success) {
+        throw new Error((data as any)?.error || "Void failed");
+      }
+
+      const deletedCount = (data as any)?.deletedCount ?? 0;
+      if ((selectedRequest.treasury_entry_ids?.length || 0) > 0 && deletedCount === 0) {
+        throw new Error(
+          language === "ar"
+            ? "لم يتم حذف قيد الخزينة (صلاحيات/سياسة وصول)"
+            : "Treasury entry was not deleted (permissions/policy)"
+        );
+      }
 
       toast.success(
         language === "ar"
