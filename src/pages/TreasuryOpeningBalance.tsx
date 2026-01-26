@@ -124,12 +124,18 @@ const TreasuryOpeningBalance = () => {
 
       if (error) throw error;
 
-      // Update the treasury's opening_balance and current_balance
+      // Calculate the sum of all approved opening balances for this treasury
+      // Include the current balance being approved plus already approved ones
+      const totalOpeningBalance = balances
+        .filter(b => b.treasury_id === balance.treasury_id && (b.approved_by || b.id === id))
+        .reduce((sum, b) => sum + b.amount, 0);
+
+      // Update the treasury's opening_balance and current_balance with the sum
       const { error: treasuryError } = await supabase
         .from("treasuries")
         .update({
-          opening_balance: balance.amount,
-          current_balance: balance.amount,
+          opening_balance: totalOpeningBalance,
+          current_balance: totalOpeningBalance,
         })
         .eq("id", balance.treasury_id);
 
