@@ -296,30 +296,22 @@ const TreasuryEntry = () => {
               return;
             }
             
-            await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", entry.treasury_id);
+            // Treasury balance is automatically recalculated by database trigger
+            // Just record the balance_before/after for audit trail
             updateData.balance_before = treasury.current_balance;
             updateData.balance_after = newBalance;
 
-            // Handle transfer destination
-            if (entry.entry_type === "transfer" && entry.transfer_type) {
-              if (entry.transfer_type === "treasury_to_treasury" && entry.to_treasury_id) {
-                const toTreasury = treasuries.find(t => t.id === entry.to_treasury_id);
-                if (toTreasury) {
-                  const creditAmount = entry.converted_amount || entry.amount;
-                  await supabase.from("treasuries").update({ 
-                    current_balance: toTreasury.current_balance + creditAmount 
-                  }).eq("id", entry.to_treasury_id);
-                }
-              } else if (entry.transfer_type === "treasury_to_bank" && entry.to_bank_id) {
-                const toBank = banks.find(b => b.id === entry.to_bank_id);
-                if (toBank) {
-                  const creditAmount = entry.converted_amount || entry.amount;
-                  await supabase.from("banks").update({ 
-                    current_balance: toBank.current_balance + creditAmount 
-                  }).eq("id", entry.to_bank_id);
-                }
+            // Handle transfer to bank (bank balance still needs manual update)
+            if (entry.entry_type === "transfer" && entry.transfer_type === "treasury_to_bank" && entry.to_bank_id) {
+              const toBank = banks.find(b => b.id === entry.to_bank_id);
+              if (toBank) {
+                const creditAmount = entry.converted_amount || entry.amount;
+                await supabase.from("banks").update({ 
+                  current_balance: toBank.current_balance + creditAmount 
+                }).eq("id", entry.to_bank_id);
               }
             }
+            // Note: treasury_to_treasury transfers are handled by the database trigger
           }
         }
       }
