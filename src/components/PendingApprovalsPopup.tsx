@@ -104,12 +104,12 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
       if (creatorIds.length > 0) {
         const { data: profilesData } = await supabase
           .from("profiles")
-          .select("id, user_name")
-          .in("id", creatorIds);
+          .select("user_id, user_name")
+          .in("user_id", creatorIds);
         
         if (profilesData) {
           profilesMap = profilesData.reduce((acc, p) => {
-            acc[p.id] = p.user_name || "";
+            acc[p.user_id] = p.user_name || "";
             return acc;
           }, {} as Record<string, string>);
         }
@@ -188,7 +188,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
 
   const handleViewTicket = (ticketId: string) => {
     onOpenChange(false);
-    navigate(`/ticket-details/${ticketId}`);
+    navigate(`/tickets/${ticketId}`);
   };
 
   const handleViewAll = () => {
