@@ -459,6 +459,20 @@ const ExpenseRequests = () => {
           
           toast.success(language === "ar" ? "تم إنشاء قيد الخزينة وخصم الرصيد" : "Treasury entry created and balance deducted");
         }
+        
+        // Update the linked expense_entry status to "posted"
+        const { error: expenseEntryUpdateError } = await supabase
+          .from("expense_entries")
+          .update({ 
+            status: "posted",
+            paid_by: currentUserId,
+            paid_at: new Date().toISOString()
+          })
+          .eq("expense_reference", request.request_number);
+        
+        if (expenseEntryUpdateError) {
+          console.error("Error updating expense entry status:", expenseEntryUpdateError);
+        }
       }
 
       const { error } = await supabase.from("expense_requests").update(updateData).eq("id", id);
