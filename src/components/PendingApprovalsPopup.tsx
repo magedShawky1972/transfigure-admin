@@ -23,6 +23,7 @@ interface PendingTicket {
   priority: string;
   is_purchase_ticket: boolean;
   created_at: string;
+  status: string;
   department_name: string;
   requester_name: string;
 }
@@ -85,10 +86,12 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
           next_admin_order,
           department_id,
           user_id,
+          status,
           departments:department_id(department_name)
         `)
         .eq("is_deleted", false)
         .is("approved_at", null)
+        .not("status", "in", '("closed","completed")')
         .in("department_id", deptIds)
         .order("created_at", { ascending: false });
 
@@ -155,6 +158,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
             priority: ticket.priority,
             is_purchase_ticket: ticket.is_purchase_ticket,
             created_at: ticket.created_at,
+            status: ticket.status,
             department_name: (ticket.departments as any)?.department_name || "",
             requester_name: ticket.user_id ? (profilesMap[ticket.user_id] || "") : "",
           });
