@@ -22,6 +22,7 @@ interface TreasuryEntryType {
   entry_date: string;
   entry_type: string;
   amount: number;
+  balance_before: number | null;
   balance_after: number | null;
   expense_request_id: string | null;
   description: string | null;
@@ -40,6 +41,14 @@ interface TreasuryEntryType {
   converted_amount: number | null;
   bank_charges: number | null;
   other_charges: number | null;
+  cost_center_id: string | null;
+}
+
+interface CostCenter {
+  id: string;
+  cost_center_code: string;
+  cost_center_name: string;
+  cost_center_name_ar: string | null;
 }
 
 interface Treasury {
@@ -108,6 +117,7 @@ const TreasuryEntry = () => {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [expenseRequests, setExpenseRequests] = useState<ExpenseRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -150,7 +160,7 @@ const TreasuryEntry = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [entriesRes, treasuriesRes, banksRes, currenciesRes, ratesRes, requestsRes] = await Promise.all([
+      const [entriesRes, treasuriesRes, banksRes, currenciesRes, ratesRes, requestsRes, costCentersRes] = await Promise.all([
         supabase.from("treasury_entries").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
@@ -159,6 +169,7 @@ const TreasuryEntry = () => {
         supabase.from("expense_requests").select("id, request_number, description, amount")
           .eq("payment_method", "treasury")
           .eq("status", "approved"),
+        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
       ]);
 
       if (entriesRes.error) throw entriesRes.error;
@@ -167,6 +178,7 @@ const TreasuryEntry = () => {
       if (currenciesRes.error) throw currenciesRes.error;
       if (ratesRes.error) throw ratesRes.error;
       if (requestsRes.error) throw requestsRes.error;
+      if (costCentersRes.error) throw costCentersRes.error;
 
       setEntries(entriesRes.data || []);
       setTreasuries(treasuriesRes.data || []);
@@ -174,6 +186,7 @@ const TreasuryEntry = () => {
       setCurrencies(currenciesRes.data || []);
       setCurrencyRates(ratesRes.data || []);
       setExpenseRequests(requestsRes.data || []);
+      setCostCenters(costCentersRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في جلب البيانات" : "Error fetching data");
@@ -324,6 +337,18 @@ const TreasuryEntry = () => {
   const getBankName = (bankId: string) => {
     const bank = banks.find((b) => b.id === bankId);
     return bank ? (language === "ar" && bank.bank_name_ar ? bank.bank_name_ar : bank.bank_name) : "-";
+  };
+
+  const getCostCenterName = (costCenterId: string | null) => {
+    if (!costCenterId) return "-";
+    const cc = costCenters.find((c) => c.id === costCenterId);
+    return cc ? (language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name) : "-";
+  };
+
+  const getCurrencyCode = (currencyId: string | null) => {
+    if (!currencyId) return "-";
+    const currency = currencies.find((c) => c.id === currencyId);
+    return currency?.currency_code || "-";
   };
 
   const getEntryTypeLabel = (type: string) => {
@@ -676,8 +701,13 @@ const TreasuryEntry = () => {
                 <TableHead>{language === "ar" ? "الخزينة" : "Treasury"}</TableHead>
                 <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                 <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
-                <TableHead>{language === "ar" ? "التحويل إلى" : "Transfer To"}</TableHead>
+                <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
+                <TableHead>{language === "ar" ? "السعر" : "Rate"}</TableHead>
                 <TableHead>{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
+                <TableHead>{language === "ar" ? "المبلغ بالريال" : "Amount (SAR)"}</TableHead>
+                <TableHead>{language === "ar" ? "الرصيد قبل" : "Bal. Before"}</TableHead>
+                <TableHead>{language === "ar" ? "الرصيد بعد" : "Bal. After"}</TableHead>
+                <TableHead>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</TableHead>
                 <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
@@ -685,12 +715,12 @@ const TreasuryEntry = () => {
             <TableBody>
               {entries.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className="font-mono">{entry.entry_number}</TableCell>
-                  <TableCell>{getTreasuryName(entry.treasury_id)}</TableCell>
-                  <TableCell>{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
+                  <TableCell className="font-mono text-xs">{entry.entry_number}</TableCell>
+                  <TableCell className="text-xs">{getTreasuryName(entry.treasury_id)}</TableCell>
+                  <TableCell className="text-xs">{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <Badge variant={entry.entry_type === "receipt" ? "default" : "secondary"}>
+                      <Badge variant={entry.entry_type === "receipt" ? "default" : "secondary"} className="text-xs">
                         {getEntryTypeLabel(entry.entry_type)}
                       </Badge>
                       {entry.transfer_type && (
@@ -701,21 +731,23 @@ const TreasuryEntry = () => {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {entry.to_treasury_id && getTreasuryName(entry.to_treasury_id)}
-                    {entry.to_bank_id && getBankName(entry.to_bank_id)}
-                    {!entry.to_treasury_id && !entry.to_bank_id && "-"}
-                  </TableCell>
+                  <TableCell className="text-xs">{getCurrencyCode(entry.from_currency_id)}</TableCell>
+                  <TableCell className="text-xs">{entry.exchange_rate?.toFixed(4) || "-"}</TableCell>
                   <TableCell className="font-semibold">
                     <span className={entry.entry_type === "receipt" ? "text-green-600" : "text-red-600"}>
                       {entry.entry_type === "receipt" ? "+" : "-"}{entry.amount.toLocaleString()}
                     </span>
-                    {entry.converted_amount && entry.converted_amount !== entry.amount && (
-                      <div className="text-xs text-muted-foreground">
-                        → {entry.converted_amount.toLocaleString()}
-                      </div>
-                    )}
                   </TableCell>
+                  <TableCell className="font-semibold text-primary">
+                    {entry.converted_amount?.toLocaleString() || "-"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {entry.balance_before?.toLocaleString() || "-"}
+                  </TableCell>
+                  <TableCell className="text-xs font-medium">
+                    {entry.balance_after?.toLocaleString() || "-"}
+                  </TableCell>
+                  <TableCell className="text-xs">{getCostCenterName(entry.cost_center_id)}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[entry.status] || ""}`}>
                       {getStatusLabel(entry.status)}
@@ -744,7 +776,7 @@ const TreasuryEntry = () => {
               ))}
               {entries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد قيود" : "No entries found"}
                   </TableCell>
                 </TableRow>

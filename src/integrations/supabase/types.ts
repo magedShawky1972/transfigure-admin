@@ -6433,8 +6433,10 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           balance_after: number | null
+          balance_before: number | null
           bank_charges: number | null
           converted_amount: number | null
+          cost_center_id: string | null
           created_at: string | null
           created_by: string
           description: string | null
@@ -6463,8 +6465,10 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           balance_after?: number | null
+          balance_before?: number | null
           bank_charges?: number | null
           converted_amount?: number | null
+          cost_center_id?: string | null
           created_at?: string | null
           created_by: string
           description?: string | null
@@ -6493,8 +6497,10 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           balance_after?: number | null
+          balance_before?: number | null
           bank_charges?: number | null
           converted_amount?: number | null
+          cost_center_id?: string | null
           created_at?: string | null
           created_by?: string
           description?: string | null
@@ -6519,6 +6525,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "treasury_entries_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "treasury_entries_expense_request_id_fkey"
             columns: ["expense_request_id"]
