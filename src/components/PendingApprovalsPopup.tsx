@@ -91,7 +91,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
         `)
         .eq("is_deleted", false)
         .is("approved_at", null)
-        .not("status", "in", '("closed","completed")')
+        .in("status", ["Open", "In Progress"])
         .in("department_id", deptIds)
         .order("created_at", { ascending: false });
 
@@ -260,9 +260,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
                           {language === "ar" ? "من:" : "From:"} {ticket.requester_name}
                         </p>
                       </div>
-                      <Button variant="ghost" size="icon" className="shrink-0">
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                      <ExternalLink className="h-5 w-5 text-muted-foreground shrink-0" />
                     </div>
                   </div>
                 ))}
