@@ -442,7 +442,7 @@ const ExpenseRequests = () => {
             // New fields
             from_currency_id: request.currency_id,
             exchange_rate: request.exchange_rate || 1,
-            converted_amount: request.base_currency_amount || request.amount,
+            converted_amount: expenseInTreasuryCurrency,
             balance_before: balanceBefore,
             balance_after: newBalance,
             cost_center_id: costCenterId,
