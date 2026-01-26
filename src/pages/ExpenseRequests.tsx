@@ -770,14 +770,18 @@ const ExpenseRequests = () => {
         updateData.approved_by = null;
         updateData.approved_at = null;
         
-        // Delete associated expense_entry when rolling back from approved to classified
-        const { error: deleteExpenseEntryError } = await supabase
+        // Reopen associated expense_entry as draft when rolling back from approved to classified
+        const { error: updateExpenseEntryError } = await supabase
           .from("expense_entries")
-          .delete()
+          .update({ 
+            status: "draft",
+            approved_by: null,
+            approved_at: null
+          })
           .eq("expense_reference", request.request_number);
         
-        if (deleteExpenseEntryError) {
-          console.error("Error deleting expense entry:", deleteExpenseEntryError);
+        if (updateExpenseEntryError) {
+          console.error("Error updating expense entry to draft:", updateExpenseEntryError);
         }
       } else if (targetStatus === "approved") {
         updateData.paid_by = null;
