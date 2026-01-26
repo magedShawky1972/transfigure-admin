@@ -569,8 +569,8 @@ const ExpenseEntryPage = () => {
                           </Button>
                           {entry.status === "draft" && (
                             <>
-                              <Button size="sm" variant="outline" onClick={() => handleStatusChange(entry.id, "pending")}>
-                                <FileText className="h-3 w-3" />
+                              <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleStatusChange(entry.id, "pending")}>
+                                <Check className="h-3 w-3" />
                               </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
