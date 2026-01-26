@@ -1063,6 +1063,25 @@ const ExpenseRequests = () => {
                                   ? (banks.find(b => b.id === request.bank_id)?.bank_name || "-")
                                   : (treasuries.find(t => t.id === request.treasury_id)?.treasury_name || "-"),
                                 paymentDate: request.paid_at,
+                                treasuryAmount: (() => {
+                                  const treasury = treasuries.find(t => t.id === request.treasury_id);
+                                  if (!treasury || !treasury.currency_id || !request.base_currency_amount) {
+                                    return request.amount;
+                                  }
+                                  const treasuryCurrency = currencies.find(c => c.id === treasury.currency_id);
+                                  if (!treasuryCurrency || treasuryCurrency.is_base) {
+                                    return request.base_currency_amount;
+                                  }
+                                  const baseCurrency = currencies.find(c => c.is_base);
+                                  return convertFromBaseCurrency(request.base_currency_amount, treasury.currency_id, currencyRates, baseCurrency);
+                                })(),
+                                treasuryCurrencyCode: (() => {
+                                  const treasury = treasuries.find(t => t.id === request.treasury_id);
+                                  if (!treasury || !treasury.currency_id) {
+                                    return currencies.find(c => c.id === request.currency_id)?.currency_code;
+                                  }
+                                  return currencies.find(c => c.id === treasury.currency_id)?.currency_code;
+                                })(),
                               }}
                               language={language}
                             />

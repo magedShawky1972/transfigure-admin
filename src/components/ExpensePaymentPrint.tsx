@@ -18,6 +18,8 @@ interface ExpensePaymentPrintProps {
     sourceType: string;
     sourceName: string;
     paymentDate: string;
+    treasuryAmount?: number;
+    treasuryCurrencyCode?: string;
   };
   language: string;
 }
@@ -162,8 +164,16 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
             </div>
             
             <div className="amount-box">
-              <div className="label">{language === "ar" ? "المبلغ" : "Amount"}</div>
-              <div className="value">{request.amount.toLocaleString()}</div>
+              <div className="label">
+                {language === "ar" ? "المبلغ" : "Amount"}
+                {paymentDetails.treasuryCurrencyCode && ` (${paymentDetails.treasuryCurrencyCode})`}
+              </div>
+              <div className="value">
+                {paymentDetails.treasuryAmount !== undefined 
+                  ? paymentDetails.treasuryAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : request.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </div>
             </div>
             
             {request.notes && (
