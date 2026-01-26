@@ -71,7 +71,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
 
       if (allAdminsError) throw allAdminsError;
 
-      // Fetch tickets pending approval
+      // Fetch tickets pending approval - check only that they're not deleted and not fully approved
       const { data: ticketsData, error: ticketsError } = await supabase
         .from("tickets")
         .select(`
@@ -87,7 +87,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
           user_id,
           departments:department_id(department_name)
         `)
-        .eq("status", "pending")
+        .eq("is_deleted", false)
         .is("approved_at", null)
         .in("department_id", deptIds)
         .order("created_at", { ascending: false });
