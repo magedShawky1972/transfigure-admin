@@ -379,6 +379,46 @@ const TreasuryEntry = () => {
     return currency?.currency_code || "-";
   };
 
+  // Get the treasury's currency code
+  const getTreasuryCurrencyCode = (treasuryId: string) => {
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    if (!treasury?.currency_id) return "-";
+    return getCurrencyCode(treasury.currency_id);
+  };
+
+  // Calculate amount in treasury's base currency
+  const getAmountInTreasuryCurrency = (entry: TreasuryEntryType) => {
+    const treasury = treasuries.find(t => t.id === entry.treasury_id);
+    if (!treasury?.currency_id) return entry.amount;
+    
+    // If no from_currency specified, assume entry amount is already in treasury currency
+    if (!entry.from_currency_id) return entry.amount;
+    
+    // If entry currency is same as treasury currency
+    if (entry.from_currency_id === treasury.currency_id) return entry.amount;
+    
+    // Get base currency for conversion
+    const baseCurrency = currencies.find(c => c.is_base);
+    
+    // First convert entry amount to base currency (SAR)
+    const amountInBase = convertToBaseCurrency(
+      entry.amount,
+      entry.from_currency_id,
+      currencyRates,
+      baseCurrency
+    );
+    
+    // Then convert from base to treasury currency
+    const amountInTreasury = convertFromBaseCurrency(
+      amountInBase,
+      treasury.currency_id,
+      currencyRates,
+      baseCurrency
+    );
+    
+    return amountInTreasury;
+  };
+
   const getEntryTypeLabel = (type: string) => {
     const found = ENTRY_TYPES.find(t => t.value === type);
     return found ? (language === "ar" ? found.labelAr : found.labelEn) : type;
@@ -732,6 +772,7 @@ const TreasuryEntry = () => {
                 <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
                 <TableHead>{language === "ar" ? "السعر" : "Rate"}</TableHead>
                 <TableHead>{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
+                <TableHead>{language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}</TableHead>
                 <TableHead>{language === "ar" ? "المبلغ بالريال" : "Amount (SAR)"}</TableHead>
                 <TableHead>{language === "ar" ? "الرصيد قبل" : "Bal. Before"}</TableHead>
                 <TableHead>{language === "ar" ? "الرصيد بعد" : "Bal. After"}</TableHead>
@@ -764,6 +805,11 @@ const TreasuryEntry = () => {
                   <TableCell className="font-semibold">
                     <span className={entry.entry_type === "receipt" ? "text-green-600" : "text-red-600"}>
                       {entry.entry_type === "receipt" ? "+" : "-"}{entry.amount.toLocaleString()}
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-semibold text-amber-600">
+                    <span>
+                      {getAmountInTreasuryCurrency(entry).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {getTreasuryCurrencyCode(entry.treasury_id)}
                     </span>
                   </TableCell>
                   <TableCell className="font-semibold text-primary">
@@ -804,7 +850,7 @@ const TreasuryEntry = () => {
               ))}
               {entries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد قيود" : "No entries found"}
                   </TableCell>
                 </TableRow>
