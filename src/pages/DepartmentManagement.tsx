@@ -104,6 +104,7 @@ type DepartmentAdmin = {
   user_id: string;
   is_purchase_admin: boolean;
   admin_order: number;
+  requires_cost_center: boolean;
   profiles: {
     user_name: string;
     email: string;
@@ -126,9 +127,10 @@ interface SortableAdminItemProps {
   language: string;
   onRemove: () => void;
   onTogglePurchase: (adminId: string, isPurchase: boolean) => void;
+  onToggleCostCenter: (adminId: string, requiresCostCenter: boolean) => void;
 }
 
-const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase }: SortableAdminItemProps) => {
+const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase, onToggleCostCenter }: SortableAdminItemProps) => {
   const {
     attributes,
     listeners,
@@ -163,12 +165,17 @@ const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase 
             {language === 'ar' ? 'مستوى' : 'Level'} {admin.admin_order}
           </Badge>
           <div className="flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="font-medium">{admin.profiles.user_name}</p>
               {admin.is_purchase_admin && (
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <ShoppingCart className="h-3 w-3" />
                   {language === 'ar' ? 'مشتريات' : 'Purchase'}
+                </Badge>
+              )}
+              {admin.requires_cost_center && (
+                <Badge variant="outline" className="flex items-center gap-1 text-orange-600 border-orange-300">
+                  {language === 'ar' ? 'مركز تكلفة' : 'Cost Center'}
                 </Badge>
               )}
             </div>
@@ -179,6 +186,13 @@ const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase 
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border" title={language === 'ar' ? 'مركز تكلفة مطلوب' : 'Requires Cost Center'}>
+          <span className="text-xs text-muted-foreground">{language === 'ar' ? 'م.ت' : 'CC'}</span>
+          <Checkbox
+            checked={admin.requires_cost_center}
+            onCheckedChange={(checked) => onToggleCostCenter(admin.id, !!checked)}
+          />
+        </div>
         <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border">
           <ShoppingCart className="h-3 w-3 text-muted-foreground" />
           <Switch
@@ -585,6 +599,32 @@ const DepartmentManagement = () => {
         description: language === 'ar' 
          ? `تم ${isPurchase ? 'تعيين' : 'إلغاء'} المسؤول كمسؤول مشتريات وإعادة ترقيم المستويات` 
          : `Admin ${isPurchase ? 'set as' : 'removed from'} purchase admin and levels recalculated`,
+      });
+
+      await fetchAdmins();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleCostCenter = async (adminId: string, requiresCostCenter: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("department_admins")
+        .update({ requires_cost_center: requiresCostCenter })
+        .eq("id", adminId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم ${requiresCostCenter ? 'تفعيل' : 'إلغاء'} متطلب مركز التكلفة` 
+          : `Cost center requirement ${requiresCostCenter ? 'enabled' : 'disabled'}`,
       });
 
       await fetchAdmins();
@@ -1225,6 +1265,7 @@ const DepartmentManagement = () => {
                                 language={language}
                                 onRemove={() => handleRemoveAdmin(admin.id)}
                                 onTogglePurchase={handleTogglePurchaseAdmin}
+                                onToggleCostCenter={handleToggleCostCenter}
                               />
                             ))}
                           </div>

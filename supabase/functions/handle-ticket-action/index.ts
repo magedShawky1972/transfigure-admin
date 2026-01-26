@@ -139,6 +139,148 @@ function htmlResponse(title: string, message: string, success: boolean): Respons
   });
 }
 
+// Cost center selection form
+function costCenterFormResponse(ticketId: string, token: string, ticketNumber: string, costCenters: any[]): Response {
+  const costCenterOptions = costCenters.map(cc => 
+    `<option value="${cc.id}">${cc.cost_center_name} (${cc.cost_center_code})</option>`
+  ).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>اختر مركز التكلفة</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          margin: 0;
+          background-color: #f3f4f6;
+        }
+        .container {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          text-align: center;
+          max-width: 450px;
+          width: 90%;
+        }
+        .icon {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          background-color: #F59E0B;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+        }
+        .icon svg {
+          width: 40px;
+          height: 40px;
+          fill: white;
+        }
+        h1 {
+          color: #1f2937;
+          margin-bottom: 10px;
+        }
+        p {
+          color: #6b7280;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+        .ticket-info {
+          background: #f3f4f6;
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        }
+        .ticket-info strong {
+          color: #4F46E5;
+        }
+        select {
+          width: 100%;
+          padding: 12px;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          font-size: 16px;
+          margin-bottom: 20px;
+          background: white;
+        }
+        select:focus {
+          outline: none;
+          border-color: #4F46E5;
+        }
+        button {
+          width: 100%;
+          padding: 14px 24px;
+          background-color: #10B981;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        button:hover {
+          background-color: #059669;
+        }
+        button:disabled {
+          background-color: #9CA3AF;
+          cursor: not-allowed;
+        }
+        .cancel-link {
+          display: block;
+          margin-top: 15px;
+          color: #6b7280;
+          text-decoration: none;
+        }
+        .cancel-link:hover {
+          color: #4F46E5;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+        </div>
+        <h1>اختر مركز التكلفة</h1>
+        <div class="ticket-info">
+          <p style="margin: 0;">رقم التذكرة: <strong>${ticketNumber}</strong></p>
+        </div>
+        <p>يجب اختيار مركز التكلفة قبل الموافقة على طلب الشراء</p>
+        <form method="GET" action="">
+          <input type="hidden" name="ticketId" value="${ticketId}">
+          <input type="hidden" name="action" value="approve">
+          <input type="hidden" name="token" value="${token}">
+          <select name="costCenterId" required>
+            <option value="">-- اختر مركز التكلفة --</option>
+            ${costCenterOptions}
+          </select>
+          <button type="submit">موافقة مع مركز التكلفة</button>
+        </form>
+        <a href="https://edaraasus.com" class="cancel-link">إلغاء والعودة للرئيسية</a>
+      </div>
+    </body>
+    </html>
+  `;
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8", ...corsHeaders },
+  });
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -149,6 +291,7 @@ const handler = async (req: Request): Promise<Response> => {
     const ticketId = url.searchParams.get("ticketId");
     const action = url.searchParams.get("action");
     const token = url.searchParams.get("token");
+    const costCenterId = url.searchParams.get("costCenterId");
 
     if (!ticketId || !action || !token) {
       return htmlResponse("خطأ", "رابط غير صالح. يرجى المحاولة مرة أخرى.", false);
@@ -186,9 +329,63 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const ticketType = ticket.is_purchase_ticket ? "طلب الشراء" : "تذكرة الدعم";
-    const currentAdminOrder = ticket.next_admin_order || 1;
+    const currentAdminOrder = ticket.next_admin_order || 0;
 
     if (action === "approve") {
+      // Check if current admin level requires cost center selection for purchase tickets
+      if (ticket.is_purchase_ticket) {
+        const { data: currentLevelAdmins } = await supabase
+          .from("department_admins")
+          .select("requires_cost_center")
+          .eq("department_id", ticket.department_id)
+          .eq("admin_order", currentAdminOrder);
+
+        const requiresCostCenter = currentLevelAdmins?.some(a => a.requires_cost_center) || false;
+
+        if (requiresCostCenter && !costCenterId) {
+          // Show cost center selection form
+          const { data: costCenters } = await supabase
+            .from("cost_centers")
+            .select("id, cost_center_code, cost_center_name")
+            .eq("is_active", true)
+            .order("cost_center_name");
+
+          if (costCenters && costCenters.length > 0) {
+            return costCenterFormResponse(ticketId, token, ticket.ticket_number, costCenters);
+          }
+        }
+
+        // If cost center was provided, update the ticket
+        if (costCenterId) {
+          const { error: costCenterError } = await supabase
+            .from("tickets")
+            .update({ cost_center_id: costCenterId })
+            .eq("id", ticketId);
+
+          if (costCenterError) {
+            console.error("Failed to update cost center:", costCenterError);
+          } else {
+            // Log the cost center assignment
+            const { data: costCenter } = await supabase
+              .from("cost_centers")
+              .select("cost_center_name")
+              .eq("id", costCenterId)
+              .single();
+
+            await logTicketActivity(
+              supabase,
+              ticketId,
+              "cost_center_assigned",
+              null,
+              null,
+              null,
+              null,
+              `تم تعيين مركز التكلفة: ${costCenter?.cost_center_name || costCenterId}`
+            );
+          }
+        }
+      }
+
       // Log the approval activity first
       await logTicketActivity(
         supabase,
