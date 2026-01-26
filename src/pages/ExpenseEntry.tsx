@@ -30,6 +30,14 @@ interface Treasury {
 interface Currency {
   id: string;
   currency_code: string;
+  is_base: boolean;
+}
+
+interface CurrencyRate {
+  id: string;
+  currency_id: string;
+  rate_to_base: number;
+  conversion_operator: string;
 }
 
 interface ExpenseEntry {
@@ -73,6 +81,7 @@ const ExpenseEntryPage = () => {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<{ id: string; expense_code: string; expense_name: string }[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
@@ -99,12 +108,13 @@ const ExpenseEntryPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes, costCentersRes] = await Promise.all([
+      const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes, costCentersRes, currencyRatesRes] = await Promise.all([
         supabase.from("banks").select("id, bank_name, bank_name_ar").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_name, treasury_name_ar").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code").eq("is_active", true),
+        supabase.from("currencies").select("id, currency_code, is_base").eq("is_active", true),
         supabase.from("expense_types").select("id, expense_code, expense_name").eq("is_active", true),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
+        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator"),
       ]);
 
       if (banksRes.error) throw banksRes.error;
@@ -112,12 +122,14 @@ const ExpenseEntryPage = () => {
       if (currenciesRes.error) throw currenciesRes.error;
       if (expenseTypesRes.error) throw expenseTypesRes.error;
       if (costCentersRes.error) throw costCentersRes.error;
+      if (currencyRatesRes.error) throw currencyRatesRes.error;
 
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
       setExpenseTypes(expenseTypesRes.data || []);
       setCostCenters(costCentersRes.data || []);
+      setCurrencyRates(currencyRatesRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في جلب البيانات" : "Error fetching data");
@@ -455,6 +467,31 @@ const ExpenseEntryPage = () => {
     return language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name;
   };
 
+  const getBaseCurrency = () => {
+    const baseCurrency = currencies.find(c => c.is_base);
+    return baseCurrency?.currency_code || "SAR";
+  };
+
+  const convertToBase = (amount: number, currencyId: string | null) => {
+    if (!currencyId || !amount) return amount;
+    
+    // Check if already base currency
+    const currency = currencies.find(c => c.id === currencyId);
+    if (currency?.is_base) return amount;
+    
+    // Find rate for this currency
+    const rate = currencyRates.find(r => r.currency_id === currencyId);
+    if (!rate || rate.rate_to_base <= 0) return amount;
+    
+    // Apply conversion based on operator
+    const operator = rate.conversion_operator || 'multiply';
+    if (operator === 'multiply') {
+      return amount * rate.rate_to_base;
+    } else {
+      return amount / rate.rate_to_base;
+    }
+  };
+
   if (loading || importing) return <LoadingOverlay />;
 
   return (
@@ -526,7 +563,8 @@ const ExpenseEntryPage = () => {
                   <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment"}</TableHead>
                   <TableHead>{language === "ar" ? "البنك/الخزينة" : "Bank/Treasury"}</TableHead>
                   <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
-                  <TableHead className="text-right">{language === "ar" ? "الإجمالي" : "Grand Total"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "القيمة الأصلية" : "Original Value"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? `المبلغ بـ ${getBaseCurrency()}` : `Amount (${getBaseCurrency()})`}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
@@ -534,7 +572,7 @@ const ExpenseEntryPage = () => {
               <TableBody>
                 {entries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد قيود" : "No entries found"}
                     </TableCell>
                   </TableRow>
@@ -559,6 +597,9 @@ const ExpenseEntryPage = () => {
                       </TableCell>
                       <TableCell>{getCurrencyCode(entry.currency_id)}</TableCell>
                       <TableCell className="text-right font-semibold">{formatNumber(entry.grand_total)}</TableCell>
+                      <TableCell className="text-right font-semibold text-primary">
+                        {formatNumber(convertToBase(entry.grand_total, entry.currency_id))}
+                      </TableCell>
                       <TableCell>
                         <Badge className={STATUS_COLORS[entry.status]}>{getStatusLabel(entry.status)}</Badge>
                       </TableCell>
