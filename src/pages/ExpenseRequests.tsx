@@ -298,7 +298,7 @@ const ExpenseRequests = () => {
           total_vat: 0,
           grand_total: request.base_currency_amount || request.amount,
           cost_center_id: costCenterId,
-          status: "draft",
+          status: "approved",
           notes: request.description,
           created_by: currentUserId,
         }).select("id").single();
