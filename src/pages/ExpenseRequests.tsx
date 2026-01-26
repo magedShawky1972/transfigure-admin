@@ -270,10 +270,6 @@ const ExpenseRequests = () => {
         updateData.approved_by = currentUserId;
         updateData.approved_at = new Date().toISOString();
         
-        // AUTO-CREATE EXPENSE ENTRY when approved
-        const date = new Date();
-        const expenseEntryNumber = `EXE${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
-        
         // Get cost_center_id from ticket if this expense is linked to a ticket and doesn't have its own
         let costCenterId = request.cost_center_id;
         if (!costCenterId && request.ticket_id) {
@@ -285,47 +281,78 @@ const ExpenseRequests = () => {
           costCenterId = ticketData?.cost_center_id || null;
         }
         
-        const { data: expenseEntryData, error: expenseEntryError } = await supabase.from("expense_entries").insert({
-          entry_number: expenseEntryNumber,
-          entry_date: new Date().toISOString().split("T")[0],
-          expense_reference: request.request_number,
-          payment_method: request.payment_method || null,
-          bank_id: request.bank_id || null,
-          treasury_id: request.treasury_id || null,
-          currency_id: request.currency_id || null,
-          exchange_rate: request.exchange_rate || 1,
-          subtotal: request.amount,
-          total_vat: 0,
-          grand_total: request.base_currency_amount || request.amount,
-          cost_center_id: costCenterId,
-          status: "approved",
-          notes: request.description,
-          created_by: currentUserId,
-        }).select("id").single();
-
-        if (expenseEntryError) {
-          console.error("Error creating expense entry:", expenseEntryError);
-          toast.error(language === "ar" ? "خطأ في إنشاء قيد المصروفات" : "Error creating expense entry");
-        } else if (expenseEntryData) {
-          // Create expense entry line
-          const { error: lineError } = await supabase.from("expense_entry_lines").insert({
-            expense_entry_id: expenseEntryData.id,
-            line_number: 1,
-            expense_type_id: request.expense_type_id || null,
-            description: request.description,
-            quantity: 1,
-            unit_price: request.amount,
-            total: request.amount,
-            vat_percent: 0,
-            vat_amount: 0,
-            line_total: request.amount,
-          });
-
-          if (lineError) {
-            console.error("Error creating expense entry line:", lineError);
-          }
+        // CHECK if expense entry already exists (for re-approval after rollback)
+        const { data: existingEntry } = await supabase
+          .from("expense_entries")
+          .select("id")
+          .eq("expense_reference", request.request_number)
+          .maybeSingle();
+        
+        if (existingEntry) {
+          // UPDATE existing expense entry to approved status
+          const { error: updateEntryError } = await supabase
+            .from("expense_entries")
+            .update({
+              status: "approved",
+              approved_by: currentUserId,
+              approved_at: new Date().toISOString(),
+              cost_center_id: costCenterId,
+            })
+            .eq("id", existingEntry.id);
           
-          toast.success(language === "ar" ? "تم إنشاء قيد المصروفات" : "Expense entry created");
+          if (updateEntryError) {
+            console.error("Error updating expense entry:", updateEntryError);
+            toast.error(language === "ar" ? "خطأ في تحديث قيد المصروفات" : "Error updating expense entry");
+          } else {
+            toast.success(language === "ar" ? "تم تحديث قيد المصروفات" : "Expense entry updated");
+          }
+        } else {
+          // CREATE new expense entry
+          const date = new Date();
+          const expenseEntryNumber = `EXE${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
+          
+          const { data: expenseEntryData, error: expenseEntryError } = await supabase.from("expense_entries").insert({
+            entry_number: expenseEntryNumber,
+            entry_date: new Date().toISOString().split("T")[0],
+            expense_reference: request.request_number,
+            payment_method: request.payment_method || null,
+            bank_id: request.bank_id || null,
+            treasury_id: request.treasury_id || null,
+            currency_id: request.currency_id || null,
+            exchange_rate: request.exchange_rate || 1,
+            subtotal: request.amount,
+            total_vat: 0,
+            grand_total: request.base_currency_amount || request.amount,
+            cost_center_id: costCenterId,
+            status: "approved",
+            notes: request.description,
+            created_by: currentUserId,
+          }).select("id").single();
+
+          if (expenseEntryError) {
+            console.error("Error creating expense entry:", expenseEntryError);
+            toast.error(language === "ar" ? "خطأ في إنشاء قيد المصروفات" : "Error creating expense entry");
+          } else if (expenseEntryData) {
+            // Create expense entry line
+            const { error: lineError } = await supabase.from("expense_entry_lines").insert({
+              expense_entry_id: expenseEntryData.id,
+              line_number: 1,
+              expense_type_id: request.expense_type_id || null,
+              description: request.description,
+              quantity: 1,
+              unit_price: request.amount,
+              total: request.amount,
+              vat_percent: 0,
+              vat_amount: 0,
+              line_total: request.amount,
+            });
+
+            if (lineError) {
+              console.error("Error creating expense entry line:", lineError);
+            }
+            
+            toast.success(language === "ar" ? "تم إنشاء قيد المصروفات" : "Expense entry created");
+          }
         }
       } else if (newStatus === "paid") {
         // VALIDATE BALANCE BEFORE PAYMENT
@@ -343,7 +370,7 @@ const ExpenseRequests = () => {
           const treasury = treasuries.find(t => t.id === request.treasury_id);
           if (treasury && (treasury.current_balance || 0) < request.amount) {
             toast.error(
-              language === "ar" 
+              language === "ar"
                 ? `رصيد الخزينة غير كافي! الرصيد الحالي: ${(treasury.current_balance || 0).toLocaleString()} - المطلوب: ${request.amount.toLocaleString()}`
                 : `Insufficient treasury balance! Current: ${(treasury.current_balance || 0).toLocaleString()} - Required: ${request.amount.toLocaleString()}`
             );
