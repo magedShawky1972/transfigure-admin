@@ -37,6 +37,7 @@ const API_ENDPOINTS = [
       { name: "Transaction_Location", type: "Text", required: false, note: "KSA, CAIRO" },
       { name: "Register_User_ID", type: "Text", required: false, note: "" },
       { name: "Player_Id", type: "Text", required: false, note: "Player identifier" },
+     { name: "Point_Value", type: "Decimal", required: false, note: "Point value for the order" },
       { name: "Point", type: "Bit", required: false, note: "Point flag (0 = No, 1 = Yes)" },
     ],
   },
