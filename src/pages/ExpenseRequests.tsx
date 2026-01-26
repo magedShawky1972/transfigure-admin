@@ -454,9 +454,7 @@ const ExpenseRequests = () => {
             return;
           }
 
-          // Update treasury balance
-          await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", request.treasury_id);
-          
+          // Treasury balance is automatically recalculated by database trigger
           toast.success(language === "ar" ? "تم إنشاء قيد الخزينة وخصم الرصيد" : "Treasury entry created and balance deducted");
         }
         
