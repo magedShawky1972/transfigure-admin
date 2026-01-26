@@ -188,7 +188,8 @@ const SoftwareLicenseSetup = () => {
     extracted_cost: string;
     cost_currency: string;
     cost_sar: string;
-  }>({ extracted_cost: "", cost_currency: "", cost_sar: "" });
+    invoice_date: string;
+  }>({ extracted_cost: "", cost_currency: "", cost_sar: "", invoice_date: "" });
 
   // Crop tool state
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
@@ -869,12 +870,13 @@ const SoftwareLicenseSetup = () => {
       extracted_cost: invoice.extracted_cost?.toString() || "",
       cost_currency: invoice.cost_currency || "",
       cost_sar: invoice.cost_sar?.toString() || "",
+      invoice_date: invoice.invoice_date || "",
     });
   };
 
   const handleCancelEditInvoice = () => {
     setEditingInvoiceId(null);
-    setEditingInvoiceData({ extracted_cost: "", cost_currency: "", cost_sar: "" });
+    setEditingInvoiceData({ extracted_cost: "", cost_currency: "", cost_sar: "", invoice_date: "" });
   };
 
   const handleRecalculateSar = () => {
@@ -968,12 +970,18 @@ const SoftwareLicenseSetup = () => {
         cost_currency: string | null;
         cost_sar: number | null;
         ai_extraction_status: string;
+        invoice_date?: string;
       } = {
         extracted_cost: editingInvoiceData.extracted_cost ? parseFloat(editingInvoiceData.extracted_cost) : null,
         cost_currency: editingInvoiceData.cost_currency || null,
         cost_sar: editingInvoiceData.cost_sar ? parseFloat(editingInvoiceData.cost_sar) : null,
         ai_extraction_status: "completed",
       };
+
+      // Include invoice_date if provided
+      if (editingInvoiceData.invoice_date) {
+        updateData.invoice_date = editingInvoiceData.invoice_date;
+      }
 
       const { error } = await supabase
         .from("software_license_invoices")
@@ -988,7 +996,7 @@ const SoftwareLicenseSetup = () => {
       }
 
       setEditingInvoiceId(null);
-      setEditingInvoiceData({ extracted_cost: "", cost_currency: "", cost_sar: "" });
+      setEditingInvoiceData({ extracted_cost: "", cost_currency: "", cost_sar: "", invoice_date: "" });
 
       toast({
         title: language === "ar" ? "تم الحفظ" : "Saved",
@@ -2044,7 +2052,19 @@ const SoftwareLicenseSetup = () => {
                           {licenseInvoices.map((invoice) => (
                             <TableRow key={invoice.id}>
                               <TableCell className="font-medium">
-                                {format(new Date(invoice.invoice_date), "yyyy-MM-dd")}
+                                {editingInvoiceId === invoice.id ? (
+                                  <Input
+                                    type="date"
+                                    value={editingInvoiceData.invoice_date}
+                                    onChange={(e) => setEditingInvoiceData({
+                                      ...editingInvoiceData,
+                                      invoice_date: e.target.value
+                                    })}
+                                    className="w-36 h-8"
+                                  />
+                                ) : (
+                                  format(new Date(invoice.invoice_date), "yyyy-MM-dd")
+                                )}
                               </TableCell>
                               <TableCell>{invoice.file_name || "-"}</TableCell>
                               <TableCell>
