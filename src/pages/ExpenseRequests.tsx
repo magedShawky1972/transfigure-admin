@@ -855,16 +855,17 @@ const ExpenseRequests = () => {
           console.error("Error updating expense entry status:", updateExpenseEntryError);
         }
 
-        // 4. Log the void action in audit_logs
+        // 4. Log the void action in audit_logs (use UPDATE action as per constraint)
         await supabase.from("audit_logs").insert({
           user_id: user.id,
-          action: "VOID_PAYMENT",
+          action: "UPDATE",
           table_name: "expense_requests",
           record_id: request.id,
           old_data: {
             status: "paid",
             treasury_entry_id: treasuryEntry?.id || null,
             treasury_entry_number: treasuryEntry?.entry_number || null,
+            void_action: "VOID_PAYMENT",
           },
           new_data: {
             status: "approved",
