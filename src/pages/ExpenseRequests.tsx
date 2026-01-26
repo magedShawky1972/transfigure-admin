@@ -1128,6 +1128,8 @@ const ExpenseRequests = () => {
                                 request_date: request.request_date,
                                 description: request.description,
                                 amount: request.amount,
+                                currency_code: currencies.find(c => c.id === request.currency_id)?.currency_code,
+                                amount_in_sar: request.base_currency_amount,
                                 payment_method: request.payment_method,
                                 paid_at: request.paid_at,
                                 notes: request.notes,
