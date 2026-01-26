@@ -733,6 +733,16 @@ const ExpenseRequests = () => {
         return;
       }
 
+      // Rollback from paid stage is disabled (must use dedicated Void Payment workflow instead)
+      if (request.status === "paid") {
+        toast.error(
+          language === "ar"
+            ? "لا يمكن ترجيع الطلب بعد الدفع. استخدم صفحة إلغاء الدفع." 
+            : "Cannot rollback after payment. Use the Void Payment page."
+        );
+        return;
+      }
+
       // Get current user for audit trail
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -1156,9 +1166,6 @@ const ExpenseRequests = () => {
                               language={language}
                             />
                           )}
-                          <Button variant="ghost" size="sm" onClick={() => handleRollback(request.id, "approved")} title={language === "ar" ? "ترجيع لمعتمد" : "Rollback to Approved"}>
-                            <Undo2 className="h-4 w-4 text-orange-500" />
-                          </Button>
                         </>
                       )}
                     </div>
