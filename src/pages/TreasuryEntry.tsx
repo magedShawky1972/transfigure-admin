@@ -141,11 +141,38 @@ const TreasuryEntry = () => {
   }, []);
 
   useEffect(() => {
-    // Auto-calculate converted amount
-    const netAmount = formData.amount - formData.bank_charges - formData.other_charges;
-    const converted = netAmount * formData.exchange_rate;
-    setFormData(prev => ({ ...prev, converted_amount: converted }));
-  }, [formData.amount, formData.exchange_rate, formData.bank_charges, formData.other_charges]);
+    // Auto-calculate converted amount using proper currency conversion
+    if (!formData.treasury_id || formData.amount === 0) {
+      setFormData(prev => ({ ...prev, converted_amount: 0 }));
+      return;
+    }
+
+    const treasury = treasuries.find(t => t.id === formData.treasury_id);
+    const baseCurrency = currencies.find(c => c.is_base);
+    
+    if (!treasury || !baseCurrency) {
+      setFormData(prev => ({ ...prev, converted_amount: formData.amount }));
+      return;
+    }
+
+    // First convert from source currency to base currency
+    const amountInBase = convertToBaseCurrency(
+      formData.amount,
+      formData.from_currency_id || null,
+      currencyRates,
+      baseCurrency
+    );
+
+    // Then convert from base currency to treasury currency
+    const amountInTreasuryCurrency = convertFromBaseCurrency(
+      amountInBase,
+      treasury.currency_id,
+      currencyRates,
+      baseCurrency
+    );
+
+    setFormData(prev => ({ ...prev, converted_amount: amountInTreasuryCurrency }));
+  }, [formData.amount, formData.from_currency_id, formData.treasury_id, treasuries, currencies, currencyRates]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
