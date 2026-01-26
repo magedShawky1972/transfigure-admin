@@ -84,8 +84,8 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
           created_at,
           next_admin_order,
           department_id,
-          departments:department_id(department_name),
-          profiles:created_by(user_name)
+          user_id,
+          departments:department_id(department_name)
         `)
         .eq("status", "pending")
         .is("approved_at", null)
@@ -93,6 +93,24 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
         .order("created_at", { ascending: false });
 
       if (ticketsError) throw ticketsError;
+
+      // Get unique creator IDs to fetch their names
+      const creatorIds = [...new Set((ticketsData || []).map(t => t.user_id).filter(Boolean))];
+      let profilesMap: Record<string, string> = {};
+      
+      if (creatorIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("id, user_name")
+          .in("id", creatorIds);
+        
+        if (profilesData) {
+          profilesMap = profilesData.reduce((acc, p) => {
+            acc[p.id] = p.user_name || "";
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
 
       // Filter tickets where current user is the next approver
       const filteredTickets: PendingTicket[] = [];
@@ -138,7 +156,7 @@ const PendingApprovalsPopup = ({ open, onOpenChange, userId }: PendingApprovalsP
             is_purchase_ticket: ticket.is_purchase_ticket,
             created_at: ticket.created_at,
             department_name: (ticket.departments as any)?.department_name || "",
-            requester_name: (ticket.profiles as any)?.user_name || "",
+            requester_name: ticket.user_id ? (profilesMap[ticket.user_id] || "") : "",
           });
         }
       }
