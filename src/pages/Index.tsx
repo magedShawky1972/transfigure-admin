@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import logo from "@/assets/edara-logo.png";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import PendingApprovalsPopup from "@/components/PendingApprovalsPopup";
+import { usePendingApprovalsCheck } from "@/hooks/usePendingApprovalsCheck";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -15,7 +16,12 @@ const Index = () => {
   const { t, language } = useLanguage();
   const version = useAppVersion();
   const [userId, setUserId] = useState<string | null>(null);
-  const [showPendingApprovals, setShowPendingApprovals] = useState(false);
+
+  // Use the hook for automatic hourly checking (default: 1 hour = 3600000ms)
+  const { showPopup, setShowPopup } = usePendingApprovalsCheck(userId, {
+    intervalMs: 60 * 60 * 1000, // 1 hour
+    checkOnMount: true,
+  });
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -42,27 +48,6 @@ const Index = () => {
 
         // Set user ID for pending approvals check
         setUserId(session.user.id);
-        
-        // Check if this is a fresh login (within the last 5 seconds)
-        const lastLogin = sessionStorage.getItem("lastLoginCheck");
-        const now = Date.now();
-        
-        if (!lastLogin || (now - parseInt(lastLogin)) > 5000) {
-          // Mark this as checked to avoid showing popup on every page load
-          sessionStorage.setItem("lastLoginCheck", now.toString());
-          
-          // Check if user is a department admin
-          const { data: adminData } = await supabase
-            .from("department_admins")
-            .select("id")
-            .eq("user_id", session.user.id)
-            .limit(1);
-          
-          if (adminData && adminData.length > 0) {
-            // User is an admin, show pending approvals popup
-            setShowPendingApprovals(true);
-          }
-        }
 
         // Show landing page to all authenticated users
         setLoading(false);
@@ -108,11 +93,11 @@ const Index = () => {
         </p>
       </div>
 
-      {/* Pending Approvals Popup */}
+      {/* Pending Approvals Popup - checks every hour automatically */}
       {userId && (
         <PendingApprovalsPopup
-          open={showPendingApprovals}
-          onOpenChange={setShowPendingApprovals}
+          open={showPopup}
+          onOpenChange={setShowPopup}
           userId={userId}
         />
       )}
