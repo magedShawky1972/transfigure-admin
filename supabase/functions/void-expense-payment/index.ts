@@ -18,32 +18,65 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : "";
 
-    const anonClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      },
-    );
-
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
-
-    const { data: userData, error: userErr } = await anonClient.auth.getUser();
-    if (userErr || !userData?.user) {
+    if (!token) {
       return new Response(JSON.stringify({ error: "not_authenticated" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const user = userData.user;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+      console.error("Missing env vars", {
+        hasUrl: Boolean(supabaseUrl),
+        hasAnon: Boolean(anonKey),
+        hasService: Boolean(serviceRoleKey),
+      });
+      return new Response(JSON.stringify({ error: "server_misconfigured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const anonClient = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
+    const serviceClient = createClient(
+      supabaseUrl,
+      serviceRoleKey,
+    );
+
+    console.log("void-expense-payment: auth header present:", Boolean(authHeader));
+
+    // Validate token and fetch user (manual auth when verify_jwt=false)
+    let userDataRes = await anonClient.auth.getUser();
+    if (userDataRes.error || !userDataRes.data?.user?.id) {
+      console.warn("getUser() via header failed, retrying with explicit token");
+      userDataRes = await anonClient.auth.getUser(token);
+    }
+
+    const userErr = userDataRes.error;
+    const userData = userDataRes.data;
+    if (userErr || !userData?.user?.id) {
+      console.error("Auth getUser failed", { message: userErr?.message, status: (userErr as any)?.status });
+      return new Response(JSON.stringify({ error: "not_authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = userData.user.id;
+    const userEmail = userData.user.email ?? null;
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const expenseRequestId = body.expense_request_id;
@@ -65,7 +98,7 @@ serve(async (req) => {
 
     // Authorization: require admin role
     const { data: isAdmin, error: roleErr } = await serviceClient.rpc("has_role", {
-      _user_id: user.id,
+      _user_id: userId,
       _role: "admin",
     });
     if (roleErr || !isAdmin) {
@@ -135,7 +168,7 @@ serve(async (req) => {
     const { data: profile } = await serviceClient
       .from("profiles")
       .select("user_name")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
 
     // Insert void history
@@ -152,8 +185,8 @@ serve(async (req) => {
       treasury_name: null,
       treasury_entry_number: treasuryEntryNumber,
       original_paid_at: request.paid_at,
-      voided_by: user.id,
-      voided_by_name: profile?.user_name ?? user.email ?? null,
+      voided_by: userId,
+      voided_by_name: profile?.user_name ?? userEmail ?? null,
       reason,
     } as unknown as Record<string, Json>);
 
@@ -212,7 +245,7 @@ serve(async (req) => {
 
     // Audit log (best effort)
     await serviceClient.from("audit_logs").insert({
-      user_id: user.id,
+      user_id: userId,
       action: "VOID_PAYMENT",
       table_name: "expense_requests",
       record_id: request.id,

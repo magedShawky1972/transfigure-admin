@@ -176,11 +176,21 @@ const VoidPayment = () => {
 
     setProcessing(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        toast.error(language === "ar" ? "يجب تسجيل الدخول" : "You must be logged in");
+        return;
+      }
+
       // Perform the void in a backend function (ensures deletes work even if RLS blocks client deletes)
       const { data, error } = await supabase.functions.invoke("void-expense-payment", {
         body: {
           expense_request_id: selectedRequest.id,
           reason: voidReason.trim(),
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
