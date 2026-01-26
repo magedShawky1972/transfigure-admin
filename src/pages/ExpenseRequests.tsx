@@ -733,6 +733,19 @@ const ExpenseRequests = () => {
         return;
       }
 
+      // Get current user for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error(language === "ar" ? "يجب تسجيل الدخول" : "You must be logged in");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
       const updateData: any = { status: targetStatus };
       
       // Clear the relevant approval fields based on rollback target
@@ -760,15 +773,16 @@ const ExpenseRequests = () => {
         updateData.paid_by = null;
         updateData.paid_at = null;
         
-        // When rolling back from paid to approved:
-        // 1. Delete the treasury_entry
-        // 2. Recalculate treasury balance
+        // When rolling back from paid to approved (same as Void Payment workflow):
+        // 1. Create void payment history record
+        // 2. Delete the treasury_entry (triggers balance recalculation)
         // 3. Revert expense_entry status to approved
+        // 4. Log the void action in audit_logs
         
-        // Find and delete treasury entry
+        // Find treasury entry details
         const { data: treasuryEntry, error: treasuryFetchError } = await supabase
           .from("treasury_entries")
-          .select("id, treasury_id")
+          .select("id, treasury_id, entry_number, converted_amount")
           .eq("expense_request_id", requestId)
           .maybeSingle();
         
@@ -776,8 +790,45 @@ const ExpenseRequests = () => {
           console.error("Error fetching treasury entry:", treasuryFetchError);
         }
         
+        // Get treasury details for history
+        const treasury = treasuries.find(t => t.id === request.treasury_id);
+        const treasuryCurrency = currencies.find(c => c.id === treasury?.currency_id);
+        const requestCurrency = currencies.find(c => c.id === request.currency_id);
+        const baseCurrency = currencies.find(c => c.is_base);
+        
+        // Calculate treasury amount
+        const treasuryAmount = treasury && treasury.currency_id && request.base_currency_amount
+          ? (treasuryCurrency?.is_base 
+              ? request.base_currency_amount 
+              : convertFromBaseCurrency(request.base_currency_amount, treasury.currency_id, currencyRates, baseCurrency))
+          : request.amount;
+
+        // 1. Create void payment history record BEFORE deleting treasury entry
+        const { error: historyError } = await supabase.from("void_payment_history").insert({
+          expense_request_id: request.id,
+          request_number: request.request_number,
+          description: request.description,
+          original_amount: request.amount,
+          treasury_amount: treasuryAmount,
+          currency_code: requestCurrency?.currency_code || null,
+          treasury_currency_code: treasuryCurrency?.currency_code || null,
+          treasury_id: request.treasury_id,
+          treasury_name: treasury?.treasury_name || null,
+          treasury_entry_number: treasuryEntry?.entry_number || null,
+          original_paid_at: request.paid_at,
+          voided_by: user.id,
+          voided_by_name: profile?.user_name || user.email,
+          reason: "Rollback from Expense Requests",
+        } as any);
+
+        if (historyError) {
+          console.error("Error creating void history:", historyError);
+          toast.error(language === "ar" ? "خطأ في تسجيل سجل الإلغاء" : "Error creating void history");
+          return;
+        }
+        
+        // 2. Delete treasury entry (triggers balance recalculation via database trigger)
         if (treasuryEntry) {
-          // Delete treasury entry
           const { error: deleteTreasuryError } = await supabase
             .from("treasury_entries")
             .delete()
@@ -788,18 +839,9 @@ const ExpenseRequests = () => {
             toast.error(language === "ar" ? "خطأ في حذف قيد الخزينة" : "Error deleting treasury entry");
             return;
           }
-          
-          // Recalculate treasury balance using edge function
-          const { error: recalcError } = await supabase.functions.invoke("recalculate-treasury-balance", {
-            body: { treasury_id: treasuryEntry.treasury_id }
-          });
-          
-          if (recalcError) {
-            console.error("Error recalculating treasury balance:", recalcError);
-          }
         }
         
-        // Update expense_entry status back to approved
+        // 3. Update expense_entry status back to approved
         const { error: updateExpenseEntryError } = await supabase
           .from("expense_entries")
           .update({ 
@@ -812,6 +854,24 @@ const ExpenseRequests = () => {
         if (updateExpenseEntryError) {
           console.error("Error updating expense entry status:", updateExpenseEntryError);
         }
+
+        // 4. Log the void action in audit_logs
+        await supabase.from("audit_logs").insert({
+          user_id: user.id,
+          action: "VOID_PAYMENT",
+          table_name: "expense_requests",
+          record_id: request.id,
+          old_data: {
+            status: "paid",
+            treasury_entry_id: treasuryEntry?.id || null,
+            treasury_entry_number: treasuryEntry?.entry_number || null,
+          },
+          new_data: {
+            status: "approved",
+            voided_at: new Date().toISOString(),
+            void_reason: "Rollback from Expense Requests",
+          },
+        });
       }
 
       const { error } = await supabase.from("expense_requests").update(updateData).eq("id", requestId);
