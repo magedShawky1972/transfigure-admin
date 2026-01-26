@@ -41,7 +41,8 @@ import {
   Briefcase,
   Receipt,
   ScrollText,
-  Target
+  Target,
+  Undo2
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -150,6 +151,7 @@ export function AppSidebar() {
     "/api-consumption-logs": "apiConsumptionLogs",
     "/update-bank-ledger": "updateBankLedger",
     "/cost-center-setup": "costCenterSetup",
+    "/void-payment": "voidPayment",
   };
 
   useEffect(() => {
@@ -357,6 +359,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'قيد البنك' : 'Bank Entry', url: "/bank-entry", icon: FileText },
         { title: language === 'ar' ? 'قيد المصروفات' : 'Expense Entry', url: "/expense-entry", icon: Receipt },
         { title: language === 'ar' ? 'طلبات المصروفات' : 'Expense Requests', url: "/expense-requests", icon: ClipboardList },
+        { title: language === 'ar' ? 'إلغاء الدفع' : 'Void Payment', url: "/void-payment", icon: Undo2 },
         { title: language === 'ar' ? 'ربط طرق الدفع بالبنوك' : 'Payment Bank Link', url: "/payment-bank-link", icon: Link2 },
       ]
     },
