@@ -50,6 +50,7 @@ interface CostCenter {
   cost_center_code: string;
   cost_center_name: string;
   cost_center_name_ar: string | null;
+  is_active: boolean;
 }
 
 interface ExpenseType {
@@ -147,6 +148,7 @@ const ExpenseRequests = () => {
     payment_method: "",
     bank_id: "",
     treasury_id: "",
+    cost_center_id: "",
     notes: "",
   });
   const [newRequest, setNewRequest] = useState({
@@ -185,7 +187,7 @@ const ExpenseRequests = () => {
         supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator").order("effective_date", { ascending: false }),
         supabase.from("uom").select("id, uom_code, uom_name, uom_name_ar").eq("is_active", true),
         supabase.from("purchase_items").select("id, item_name, item_name_ar").eq("is_active", true),
-        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
+        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar, is_active"),
       ]);
 
       if (requestsRes.error) throw requestsRes.error;
@@ -580,6 +582,7 @@ const ExpenseRequests = () => {
       payment_method: request.payment_method || "",
       bank_id: request.bank_id || "",
       treasury_id: request.treasury_id || "",
+      cost_center_id: request.cost_center_id || "",
       notes: request.notes || "",
     });
     setEditDialogOpen(true);
@@ -616,6 +619,7 @@ const ExpenseRequests = () => {
         payment_method: editData.payment_method || null,
         bank_id: editData.payment_method === "bank" ? editData.bank_id : null,
         treasury_id: editData.payment_method === "treasury" ? editData.treasury_id : null,
+        cost_center_id: editData.cost_center_id || null,
         notes: editData.notes || null,
       }).eq("id", editingRequest.id);
 
@@ -1351,6 +1355,26 @@ const ExpenseRequests = () => {
                   </Select>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
+                <Select 
+                  value={editData.cost_center_id || "__none__"} 
+                  onValueChange={(v) => setEditData({ ...editData, cost_center_id: v === "__none__" ? "" : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر المركز" : "Select Center"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{language === "ar" ? "بدون" : "None"}</SelectItem>
+                    {costCenters.filter(cc => cc.is_active).map((cc) => (
+                      <SelectItem key={cc.id} value={cc.id}>
+                        {cc.cost_center_code} - {language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="space-y-2">
                 <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>
