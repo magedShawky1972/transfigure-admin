@@ -17,6 +17,11 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { ExpensePaymentPrint } from "@/components/ExpensePaymentPrint";
+import { 
+  convertFromBaseCurrency, 
+  convertToBaseCurrency,
+  type CurrencyRate as CurrencyRateImport 
+} from "@/lib/currencyConversion";
 
 interface ExpenseRequest {
   id: string;
@@ -72,13 +77,17 @@ interface Treasury {
   treasury_code: string;
   treasury_name: string;
   current_balance: number;
+  currency_id: string | null;
 }
 
 interface Currency {
   id: string;
   currency_code: string;
   currency_name: string;
+  currency_name_ar?: string | null;
+  symbol?: string | null;
   is_base: boolean;
+  is_active: boolean;
 }
 
 interface UOM {
@@ -94,12 +103,7 @@ interface PurchaseItem {
   item_name_ar: string | null;
 }
 
-interface CurrencyRate {
-  id: string;
-  currency_id: string;
-  rate_to_base: number;
-  conversion_operator: string;
-}
+type CurrencyRate = CurrencyRateImport;
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -182,9 +186,9 @@ const ExpenseRequests = () => {
         supabase.from("expense_requests").select("*").order("request_date", { ascending: false }),
         supabase.from("expense_types").select("id, expense_name, expense_name_ar, is_asset").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, current_balance").eq("is_active", true),
-        supabase.from("treasuries").select("id, treasury_code, treasury_name, current_balance").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code, currency_name, is_base").eq("is_active", true),
-        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator").order("effective_date", { ascending: false }),
+        supabase.from("treasuries").select("id, treasury_code, treasury_name, current_balance, currency_id").eq("is_active", true),
+        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, symbol, is_base, is_active").eq("is_active", true),
+        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator, effective_date, created_at, updated_at").order("effective_date", { ascending: false }),
         supabase.from("uom").select("id, uom_code, uom_name, uom_name_ar").eq("is_active", true),
         supabase.from("purchase_items").select("id, item_name, item_name_ar").eq("is_active", true),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar, is_active"),
@@ -205,7 +209,7 @@ const ExpenseRequests = () => {
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
-      setCurrencyRates(ratesRes.data || []);
+      setCurrencyRates((ratesRes.data || []) as CurrencyRate[]);
       setUomList(uomRes.data || []);
       setPurchaseItems(itemsRes.data || []);
       setCostCenters(costCentersRes.data || []);
@@ -383,6 +387,26 @@ const ExpenseRequests = () => {
           toast.success(language === "ar" ? "تم إنشاء قيد البنك وخصم الرصيد" : "Bank entry created and balance deducted");
         } else if (request.payment_method === "treasury" && request.treasury_id) {
           const treasury = treasuries.find(t => t.id === request.treasury_id);
+          
+          // Convert expense amount (in base currency SAR) to treasury's currency
+          const expenseInTreasuryCurrency = convertFromBaseCurrency(
+            request.base_currency_amount || request.amount,
+            treasury?.currency_id || null,
+            currencyRates,
+            currencies.find(c => c.is_base) || null
+          );
+          
+          // Validate treasury has sufficient balance in its own currency
+          const treasuryBalance = treasury?.current_balance || 0;
+          if (expenseInTreasuryCurrency > treasuryBalance) {
+            toast.error(
+              language === "ar" 
+                ? `رصيد الخزينة غير كافٍ. المطلوب: ${expenseInTreasuryCurrency.toFixed(2)}, المتاح: ${treasuryBalance.toFixed(2)} (${getCurrencyCode(treasury?.currency_id || null)})` 
+                : `Insufficient treasury balance. Required: ${expenseInTreasuryCurrency.toFixed(2)}, Available: ${treasuryBalance.toFixed(2)} (${getCurrencyCode(treasury?.currency_id || null)})`
+            );
+            return;
+          }
+          
           const date = new Date();
           const entryNumber = `TRS${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
           
@@ -397,9 +421,9 @@ const ExpenseRequests = () => {
             costCenterId = ticketData?.cost_center_id || null;
           }
           
-          // Calculate balances
-          const balanceBefore = treasury?.current_balance || 0;
-          const newBalance = balanceBefore - request.amount;
+          // Calculate balances in treasury's currency
+          const balanceBefore = treasuryBalance;
+          const newBalance = balanceBefore - expenseInTreasuryCurrency;
           
           const { error: treasuryError } = await supabase.from("treasury_entries").insert({
             entry_number: entryNumber,

@@ -14,6 +14,12 @@ import { Plus, Vault, Save, Check, Send, ArrowRightLeft } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { 
+  convertFromBaseCurrency, 
+  convertToBaseCurrency, 
+  type CurrencyRate as CurrencyRateImport,
+  type Currency as CurrencyImport 
+} from "@/lib/currencyConversion";
 
 interface TreasuryEntryType {
   id: string;
@@ -69,20 +75,9 @@ interface Bank {
   currency_id: string | null;
 }
 
-interface Currency {
-  id: string;
-  currency_code: string;
-  currency_name: string;
-  currency_name_ar: string | null;
-  is_base: boolean;
-}
+type Currency = CurrencyImport;
 
-interface CurrencyRate {
-  id: string;
-  currency_id: string;
-  rate_to_base: number;
-  effective_date: string;
-}
+type CurrencyRate = CurrencyRateImport;
 
 interface ExpenseRequest {
   id: string;
@@ -164,8 +159,8 @@ const TreasuryEntry = () => {
         supabase.from("treasury_entries").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, is_base").eq("is_active", true),
-        supabase.from("currency_rates").select("*").order("effective_date", { ascending: false }),
+        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, symbol, is_base, is_active").eq("is_active", true),
+        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator, effective_date, created_at, updated_at").order("effective_date", { ascending: false }),
         supabase.from("expense_requests").select("id, request_number, description, amount")
           .eq("payment_method", "treasury")
           .eq("status", "approved"),
@@ -184,7 +179,7 @@ const TreasuryEntry = () => {
       setTreasuries(treasuriesRes.data || []);
       setBanks(banksRes.data || []);
       setCurrencies(currenciesRes.data || []);
-      setCurrencyRates(ratesRes.data || []);
+      setCurrencyRates((ratesRes.data || []) as CurrencyRate[]);
       setExpenseRequests(requestsRes.data || []);
       setCostCenters(costCentersRes.data || []);
     } catch (error) {
@@ -264,12 +259,45 @@ const TreasuryEntry = () => {
         if (entry) {
           const treasury = treasuries.find(t => t.id === entry.treasury_id);
           if (treasury) {
+            // Get base currency
+            const baseCurrency = currencies.find(c => c.is_base);
+            
+            // Convert entry amount to treasury's currency if needed
+            let amountInTreasuryCurrency = entry.amount;
+            if (entry.from_currency_id && entry.from_currency_id !== treasury.currency_id) {
+              // First convert entry amount to base currency
+              const amountInBase = convertToBaseCurrency(
+                entry.amount,
+                entry.from_currency_id,
+                currencyRates,
+                baseCurrency
+              );
+              // Then convert from base to treasury currency
+              amountInTreasuryCurrency = convertFromBaseCurrency(
+                amountInBase,
+                treasury.currency_id || null,
+                currencyRates,
+                baseCurrency
+              );
+            }
+            
             const totalDeduction = (entry.bank_charges || 0) + (entry.other_charges || 0);
             const newBalance = entry.entry_type === "receipt" 
-              ? treasury.current_balance + entry.amount
-              : treasury.current_balance - entry.amount - totalDeduction;
+              ? treasury.current_balance + amountInTreasuryCurrency
+              : treasury.current_balance - amountInTreasuryCurrency - totalDeduction;
+            
+            // Validate sufficient balance for payments
+            if (entry.entry_type === "payment" && newBalance < 0) {
+              toast.error(
+                language === "ar"
+                  ? `رصيد الخزينة غير كافٍ. المطلوب: ${(amountInTreasuryCurrency + totalDeduction).toFixed(2)}, المتاح: ${treasury.current_balance.toFixed(2)}`
+                  : `Insufficient treasury balance. Required: ${(amountInTreasuryCurrency + totalDeduction).toFixed(2)}, Available: ${treasury.current_balance.toFixed(2)}`
+              );
+              return;
+            }
             
             await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", entry.treasury_id);
+            updateData.balance_before = treasury.current_balance;
             updateData.balance_after = newBalance;
 
             // Handle transfer destination
