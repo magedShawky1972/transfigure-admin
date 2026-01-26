@@ -679,14 +679,20 @@ const VoidPayment = () => {
 
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  {language === "ar" ? "سبب الإلغاء (اختياري):" : "Void Reason (optional):"}
+                  {language === "ar" ? "سبب الإلغاء:" : "Void Reason:"} <span className="text-destructive">*</span>
                 </label>
                 <Textarea
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}
                   placeholder={language === "ar" ? "أدخل سبب الإلغاء..." : "Enter void reason..."}
                   rows={2}
+                  className={!voidReason.trim() ? "border-destructive" : ""}
                 />
+                {!voidReason.trim() && (
+                  <p className="text-xs text-destructive mt-1">
+                    {language === "ar" ? "سبب الإلغاء مطلوب" : "Void reason is required"}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -695,7 +701,7 @@ const VoidPayment = () => {
             <Button variant="outline" onClick={() => setVoidDialogOpen(false)} disabled={processing}>
               {language === "ar" ? "إلغاء" : "Cancel"}
             </Button>
-            <Button variant="destructive" onClick={handleVoidPayment} disabled={processing}>
+            <Button variant="destructive" onClick={handleVoidPayment} disabled={processing || !voidReason.trim()}>
               {processing ? (
                 <RefreshCw className="h-4 w-4 animate-spin mr-2" />
               ) : (
