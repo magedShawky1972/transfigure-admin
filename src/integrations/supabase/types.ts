@@ -2404,11 +2404,13 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           bank_id: string | null
+          base_currency_amount: number | null
           classified_at: string | null
           classified_by: string | null
           created_at: string | null
           currency_id: string | null
           description: string
+          exchange_rate: number | null
           expense_type_id: string | null
           id: string
           is_asset: boolean | null
@@ -2435,11 +2437,13 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           bank_id?: string | null
+          base_currency_amount?: number | null
           classified_at?: string | null
           classified_by?: string | null
           created_at?: string | null
           currency_id?: string | null
           description: string
+          exchange_rate?: number | null
           expense_type_id?: string | null
           id?: string
           is_asset?: boolean | null
@@ -2466,11 +2470,13 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           bank_id?: string | null
+          base_currency_amount?: number | null
           classified_at?: string | null
           classified_by?: string | null
           created_at?: string | null
           currency_id?: string | null
           description?: string
+          exchange_rate?: number | null
           expense_type_id?: string | null
           id?: string
           is_asset?: boolean | null
