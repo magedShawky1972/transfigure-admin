@@ -646,6 +646,13 @@ const TicketDetails = () => {
 
       if (!currentAdmin) throw new Error("Admin not found for this department");
 
+      console.log("DEBUG handleApprove:", {
+        is_purchase_ticket: ticket.is_purchase_ticket,
+        requires_cost_center: currentAdmin.requires_cost_center,
+        costCenterId,
+        shouldShowDialog: ticket.is_purchase_ticket && currentAdmin.requires_cost_center && !costCenterId
+      });
+
       // Check if cost center is required for purchase tickets
       if (ticket.is_purchase_ticket && currentAdmin.requires_cost_center && !costCenterId) {
         // Open cost center dialog
