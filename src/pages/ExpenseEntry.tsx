@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
-import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload } from "lucide-react";
+import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as XLSX from "xlsx";
@@ -68,6 +68,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   approved: "bg-green-100 text-green-800",
   paid: "bg-purple-100 text-purple-800",
+  posted: "bg-blue-100 text-blue-800",
   rejected: "bg-red-100 text-red-800",
   cancelled: "bg-gray-100 text-gray-800",
 };
@@ -438,6 +439,7 @@ const ExpenseEntryPage = () => {
       pending: { en: "Pending", ar: "في الانتظار" },
       approved: { en: "Approved", ar: "معتمد" },
       paid: { en: "Paid", ar: "مدفوع" },
+      posted: { en: "Posted", ar: "مرحّل" },
       rejected: { en: "Rejected", ar: "مرفوض" },
       cancelled: { en: "Cancelled", ar: "ملغي" },
     };
@@ -709,6 +711,11 @@ const ExpenseEntryPage = () => {
                             <Button size="sm" variant="default" onClick={() => handleStatusChange(entry.id, "paid")}>
                               <DollarSign className="h-3 w-3" />
                             </Button>
+                          )}
+                          {entry.status === "posted" && (
+                            <span title={language === "ar" ? "مرحّل - لا يمكن التعديل" : "Posted - Cannot edit"}>
+                              <Lock className="h-4 w-4 text-muted-foreground" />
+                            </span>
                           )}
                         </div>
                       </TableCell>
