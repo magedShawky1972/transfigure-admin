@@ -729,6 +729,12 @@ const ExpenseRequests = () => {
 
   const handleRollback = async (requestId: string, targetStatus: string) => {
     try {
+      const request = requests.find(r => r.id === requestId);
+      if (!request) {
+        toast.error(language === "ar" ? "الطلب غير موجود" : "Request not found");
+        return;
+      }
+
       const updateData: any = { status: targetStatus };
       
       // Clear the relevant approval fields based on rollback target
@@ -742,9 +748,72 @@ const ExpenseRequests = () => {
       } else if (targetStatus === "classified") {
         updateData.approved_by = null;
         updateData.approved_at = null;
+        
+        // Delete associated expense_entry when rolling back from approved to classified
+        const { error: deleteExpenseEntryError } = await supabase
+          .from("expense_entries")
+          .delete()
+          .eq("expense_reference", request.request_number);
+        
+        if (deleteExpenseEntryError) {
+          console.error("Error deleting expense entry:", deleteExpenseEntryError);
+        }
       } else if (targetStatus === "approved") {
         updateData.paid_by = null;
         updateData.paid_at = null;
+        
+        // When rolling back from paid to approved:
+        // 1. Delete the treasury_entry
+        // 2. Recalculate treasury balance
+        // 3. Revert expense_entry status to approved
+        
+        // Find and delete treasury entry
+        const { data: treasuryEntry, error: treasuryFetchError } = await supabase
+          .from("treasury_entries")
+          .select("id, treasury_id")
+          .eq("expense_request_id", requestId)
+          .maybeSingle();
+        
+        if (treasuryFetchError) {
+          console.error("Error fetching treasury entry:", treasuryFetchError);
+        }
+        
+        if (treasuryEntry) {
+          // Delete treasury entry
+          const { error: deleteTreasuryError } = await supabase
+            .from("treasury_entries")
+            .delete()
+            .eq("id", treasuryEntry.id);
+          
+          if (deleteTreasuryError) {
+            console.error("Error deleting treasury entry:", deleteTreasuryError);
+            toast.error(language === "ar" ? "خطأ في حذف قيد الخزينة" : "Error deleting treasury entry");
+            return;
+          }
+          
+          // Recalculate treasury balance using edge function
+          const { error: recalcError } = await supabase.functions.invoke("recalculate-treasury-balance", {
+            body: { treasury_id: treasuryEntry.treasury_id }
+          });
+          
+          if (recalcError) {
+            console.error("Error recalculating treasury balance:", recalcError);
+          }
+        }
+        
+        // Update expense_entry status back to approved
+        const { error: updateExpenseEntryError } = await supabase
+          .from("expense_entries")
+          .update({ 
+            status: "approved",
+            paid_by: null,
+            paid_at: null
+          })
+          .eq("expense_reference", request.request_number);
+        
+        if (updateExpenseEntryError) {
+          console.error("Error updating expense entry status:", updateExpenseEntryError);
+        }
       }
 
       const { error } = await supabase.from("expense_requests").update(updateData).eq("id", requestId);
@@ -972,31 +1041,38 @@ const ExpenseRequests = () => {
                           </Button>
                         </>
                       )}
-                      {request.status === "paid" && request.paid_at && (
-                        <ExpensePaymentPrint
-                          request={{
-                            request_number: request.request_number,
-                            request_date: request.request_date,
-                            description: request.description,
-                            amount: request.amount,
-                            payment_method: request.payment_method,
-                            paid_at: request.paid_at,
-                            notes: request.notes,
-                          }}
-                          paymentDetails={{
-                            entryNumber: request.payment_method === "bank" 
-                              ? `BNK${format(new Date(request.paid_at), "yyMMddHHmmss")}`
-                              : `TRS${format(new Date(request.paid_at), "yyMMddHHmmss")}`,
-                            sourceType: request.payment_method === "bank" 
-                              ? (language === "ar" ? "بنك" : "Bank")
-                              : (language === "ar" ? "خزينة" : "Treasury"),
-                            sourceName: request.payment_method === "bank"
-                              ? (banks.find(b => b.id === request.bank_id)?.bank_name || "-")
-                              : (treasuries.find(t => t.id === request.treasury_id)?.treasury_name || "-"),
-                            paymentDate: request.paid_at,
-                          }}
-                          language={language}
-                        />
+                      {request.status === "paid" && (
+                        <>
+                          {request.paid_at && (
+                            <ExpensePaymentPrint
+                              request={{
+                                request_number: request.request_number,
+                                request_date: request.request_date,
+                                description: request.description,
+                                amount: request.amount,
+                                payment_method: request.payment_method,
+                                paid_at: request.paid_at,
+                                notes: request.notes,
+                              }}
+                              paymentDetails={{
+                                entryNumber: request.payment_method === "bank" 
+                                  ? `BNK${format(new Date(request.paid_at), "yyMMddHHmmss")}`
+                                  : `TRS${format(new Date(request.paid_at), "yyMMddHHmmss")}`,
+                                sourceType: request.payment_method === "bank" 
+                                  ? (language === "ar" ? "بنك" : "Bank")
+                                  : (language === "ar" ? "خزينة" : "Treasury"),
+                                sourceName: request.payment_method === "bank"
+                                  ? (banks.find(b => b.id === request.bank_id)?.bank_name || "-")
+                                  : (treasuries.find(t => t.id === request.treasury_id)?.treasury_name || "-"),
+                                paymentDate: request.paid_at,
+                              }}
+                              language={language}
+                            />
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => handleRollback(request.id, "approved")} title={language === "ar" ? "ترجيع لمعتمد" : "Rollback to Approved"}>
+                            <Undo2 className="h-4 w-4 text-orange-500" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>

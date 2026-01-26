@@ -143,3 +143,6 @@ verify_jwt = false
 
 [functions.check-suppliers-odoo]
 verify_jwt = false
+
+[functions.recalculate-treasury-balance]
+verify_jwt = false
