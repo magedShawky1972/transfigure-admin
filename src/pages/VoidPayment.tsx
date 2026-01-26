@@ -31,6 +31,7 @@ interface PaidExpenseRequest {
   treasury_currency_code?: string;
   expense_entry_id?: string;
   treasury_entry_id?: string;
+  treasury_entry_ids?: string[]; // All linked treasury entry IDs for deletion
   treasury_entry_number?: string;
   treasury_amount?: number;
 }
@@ -107,11 +108,11 @@ const VoidPayment = () => {
       const enrichedRequests: PaidExpenseRequest[] = [];
       
       for (const request of requests || []) {
-        const { data: treasuryEntry } = await supabase
+        // Fetch ALL treasury entries (handles duplicates)
+        const { data: treasuryEntries } = await supabase
           .from("treasury_entries")
           .select("id, entry_number, converted_amount")
-          .eq("expense_request_id", request.id)
-          .maybeSingle();
+          .eq("expense_request_id", request.id);
 
         const { data: expenseEntry } = await supabase
           .from("expense_entries")
@@ -120,6 +121,11 @@ const VoidPayment = () => {
           .maybeSingle();
 
         const treasury = request.treasuries as any;
+        
+        // Calculate total amount across all entries and collect all IDs
+        const allEntryIds = treasuryEntries?.map(e => e.id) || [];
+        const totalTreasuryAmount = treasuryEntries?.reduce((sum, e) => sum + (e.converted_amount || 0), 0) || null;
+        const firstEntry = treasuryEntries?.[0];
         
         enrichedRequests.push({
           id: request.id,
@@ -135,9 +141,10 @@ const VoidPayment = () => {
           currency_code: (request.currencies as any)?.currency_code || "-",
           treasury_currency_code: treasury?.currencies?.currency_code || null,
           expense_entry_id: expenseEntry?.id,
-          treasury_entry_id: treasuryEntry?.id,
-          treasury_entry_number: treasuryEntry?.entry_number,
-          treasury_amount: treasuryEntry?.converted_amount,
+          treasury_entry_id: firstEntry?.id,
+          treasury_entry_ids: allEntryIds,
+          treasury_entry_number: firstEntry?.entry_number,
+          treasury_amount: totalTreasuryAmount,
         });
       }
 
@@ -206,16 +213,16 @@ const VoidPayment = () => {
         return;
       }
 
-      // 2. Delete the treasury entry (if exists)
-      if (selectedRequest.treasury_entry_id) {
+      // 2. Delete ALL treasury entries linked to this request
+      if (selectedRequest.treasury_entry_ids && selectedRequest.treasury_entry_ids.length > 0) {
         const { error: treasuryDeleteError } = await supabase
           .from("treasury_entries")
           .delete()
-          .eq("id", selectedRequest.treasury_entry_id);
+          .in("id", selectedRequest.treasury_entry_ids);
 
         if (treasuryDeleteError) {
-          console.error("Error deleting treasury entry:", treasuryDeleteError);
-          toast.error(language === "ar" ? "خطأ في حذف قيد الخزينة" : "Error deleting treasury entry");
+          console.error("Error deleting treasury entries:", treasuryDeleteError);
+          toast.error(language === "ar" ? "خطأ في حذف قيود الخزينة" : "Error deleting treasury entries");
           return;
         }
       }
@@ -262,13 +269,14 @@ const VoidPayment = () => {
         record_id: selectedRequest.id,
         old_data: {
           status: "paid",
-          treasury_entry_id: selectedRequest.treasury_entry_id,
+          treasury_entry_ids: selectedRequest.treasury_entry_ids,
           treasury_entry_number: selectedRequest.treasury_entry_number,
         },
         new_data: {
           status: "approved",
           voided_at: new Date().toISOString(),
           void_reason: voidReason || null,
+          deleted_entries_count: selectedRequest.treasury_entry_ids?.length || 0,
         },
       });
 
@@ -616,12 +624,12 @@ const VoidPayment = () => {
 
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
-                  {selectedRequest.treasury_entry_id ? (
+                  {selectedRequest.treasury_entry_ids && selectedRequest.treasury_entry_ids.length > 0 ? (
                     <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
                   ) : (
                     <XCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
                   )}
-                  <span className={!selectedRequest.treasury_entry_id ? "text-muted-foreground" : ""}>
+                  <span className={!selectedRequest.treasury_entry_ids?.length ? "text-muted-foreground" : ""}>
                     {language === "ar"
                       ? "حذف قيد الخزينة وإعادة حساب الرصيد"
                       : "Delete treasury entry and recalculate balance"}
@@ -630,7 +638,12 @@ const VoidPayment = () => {
                         (+{selectedRequest.treasury_amount.toLocaleString()} {selectedRequest.treasury_currency_code})
                       </span>
                     )}
-                    {!selectedRequest.treasury_entry_id && (
+                    {selectedRequest.treasury_entry_ids && selectedRequest.treasury_entry_ids.length > 1 && (
+                      <span className="text-xs text-amber-600 ml-1">
+                        ({selectedRequest.treasury_entry_ids.length} {language === "ar" ? "قيود ستحذف" : "entries will be deleted"})
+                      </span>
+                    )}
+                    {(!selectedRequest.treasury_entry_ids || selectedRequest.treasury_entry_ids.length === 0) && (
                       <span className="text-xs ml-1">
                         ({language === "ar" ? "لا يوجد قيد" : "no entry found"})
                       </span>
