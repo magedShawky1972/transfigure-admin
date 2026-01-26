@@ -348,23 +348,41 @@ const VoidPayment = () => {
 
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
-                  <XCircle className="h-4 w-4 text-destructive mt-0.5" />
-                  <span>
+                  {selectedRequest.treasury_entry_id ? (
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  )}
+                  <span className={!selectedRequest.treasury_entry_id ? "text-muted-foreground" : ""}>
                     {language === "ar"
                       ? "حذف قيد الخزينة وإعادة حساب الرصيد"
                       : "Delete treasury entry and recalculate balance"}
+                    {!selectedRequest.treasury_entry_id && (
+                      <span className="text-xs ml-1">
+                        ({language === "ar" ? "لا يوجد قيد" : "no entry found"})
+                      </span>
+                    )}
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-warning mt-0.5" />
-                  <span>
+                  {selectedRequest.expense_entry_id ? (
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  )}
+                  <span className={!selectedRequest.expense_entry_id ? "text-muted-foreground" : ""}>
                     {language === "ar"
                       ? "إعادة فتح قيد المصروفات (حالة: معتمد)"
                       : "Reopen expense entry (status: approved)"}
+                    {!selectedRequest.expense_entry_id && (
+                      <span className="text-xs ml-1">
+                        ({language === "ar" ? "لا يوجد قيد" : "no entry found"})
+                      </span>
+                    )}
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-warning mt-0.5" />
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
                   <span>
                     {language === "ar"
                       ? "إعادة فتح طلب المصروفات (حالة: معتمد)"
