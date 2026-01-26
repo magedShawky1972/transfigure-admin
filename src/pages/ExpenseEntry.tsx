@@ -25,6 +25,7 @@ interface Treasury {
   id: string;
   treasury_name: string;
   treasury_name_ar: string | null;
+  currency_id: string | null;
 }
 
 interface Currency {
@@ -111,7 +112,7 @@ const ExpenseEntryPage = () => {
     try {
       const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes, costCentersRes, currencyRatesRes] = await Promise.all([
         supabase.from("banks").select("id, bank_name, bank_name_ar").eq("is_active", true),
-        supabase.from("treasuries").select("id, treasury_name, treasury_name_ar").eq("is_active", true),
+        supabase.from("treasuries").select("id, treasury_name, treasury_name_ar, currency_id").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code, is_base").eq("is_active", true),
         supabase.from("expense_types").select("id, expense_code, expense_name").eq("is_active", true),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
@@ -498,6 +499,41 @@ const ExpenseEntryPage = () => {
     }
   };
 
+  // Get treasury currency code
+  const getTreasuryCurrency = (treasuryId: string | null) => {
+    if (!treasuryId) return null;
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    if (!treasury?.currency_id) return null;
+    const currency = currencies.find(c => c.id === treasury.currency_id);
+    return currency?.currency_code || null;
+  };
+
+  // Convert SAR amount to treasury currency
+  const convertToTreasuryCurrency = (sarAmount: number, treasuryId: string | null) => {
+    if (!treasuryId || !sarAmount) return sarAmount;
+    
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    if (!treasury?.currency_id) return sarAmount;
+    
+    // Check if treasury currency is base currency
+    const treasuryCurrency = currencies.find(c => c.id === treasury.currency_id);
+    if (treasuryCurrency?.is_base) return sarAmount;
+    
+    // Find rate for treasury currency
+    const rate = currencyRates.find(r => r.currency_id === treasury.currency_id);
+    if (!rate || rate.rate_to_base <= 0) return sarAmount;
+    
+    // Convert FROM base (SAR) TO treasury currency
+    // If operator is 'multiply': SAR = Original * rate, so Original = SAR / rate
+    // If operator is 'divide': SAR = Original / rate, so Original = SAR * rate
+    const operator = rate.conversion_operator || 'multiply';
+    if (operator === 'multiply') {
+      return sarAmount / rate.rate_to_base;
+    } else {
+      return sarAmount * rate.rate_to_base;
+    }
+  };
+
   if (loading || importing) return <LoadingOverlay />;
 
   return (
@@ -570,6 +606,7 @@ const ExpenseEntryPage = () => {
                   <TableHead>{language === "ar" ? "البنك/الخزينة" : "Bank/Treasury"}</TableHead>
                   <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
                   <TableHead className="text-right">{language === "ar" ? "القيمة الأصلية" : "Original Value"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}</TableHead>
                   <TableHead className="text-right">{language === "ar" ? `المبلغ بـ ${getBaseCurrency()}` : `Amount (${getBaseCurrency()})`}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
@@ -578,7 +615,7 @@ const ExpenseEntryPage = () => {
               <TableBody>
                 {entries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد قيود" : "No entries found"}
                     </TableCell>
                   </TableRow>
@@ -604,6 +641,11 @@ const ExpenseEntryPage = () => {
                       <TableCell>{getCurrencyCode(entry.currency_id)}</TableCell>
                       <TableCell className="text-right font-semibold">
                         {formatNumber(getOriginalValue(entry.grand_total, entry.exchange_rate, entry.currency_id))}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-amber-600">
+                        {entry.payment_method === "treasury" && entry.treasury_id ? (
+                          <span>{formatNumber(convertToTreasuryCurrency(entry.grand_total, entry.treasury_id))} {getTreasuryCurrency(entry.treasury_id)}</span>
+                        ) : "-"}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-primary">
                         {formatNumber(entry.grand_total)}
