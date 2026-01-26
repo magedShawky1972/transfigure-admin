@@ -1309,6 +1309,7 @@ export type Database = {
           department_id: string
           id: string
           is_purchase_admin: boolean
+          requires_cost_center: boolean
           user_id: string
         }
         Insert: {
@@ -1317,6 +1318,7 @@ export type Database = {
           department_id: string
           id?: string
           is_purchase_admin?: boolean
+          requires_cost_center?: boolean
           user_id: string
         }
         Update: {
@@ -1325,6 +1327,7 @@ export type Database = {
           department_id?: string
           id?: string
           is_purchase_admin?: boolean
+          requires_cost_center?: boolean
           user_id?: string
         }
         Relationships: [
