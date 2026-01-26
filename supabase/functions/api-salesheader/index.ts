@@ -145,6 +145,7 @@ Deno.serve(async (req) => {
         register_user_id: body.Register_User_ID,
         player_id: body.Player_Id,
         is_point: body.Point === 1 || body.Point === '1' || body.Point === true,
+        point_value: body.Point_Value !== undefined ? parseFloat(body.Point_Value) : null,
       }, {
         onConflict: 'order_number'
       })
