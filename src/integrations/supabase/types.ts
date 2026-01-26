@@ -2407,6 +2407,7 @@ export type Database = {
           base_currency_amount: number | null
           classified_at: string | null
           classified_by: string | null
+          cost_center_id: string | null
           created_at: string | null
           currency_id: string | null
           description: string
@@ -2440,6 +2441,7 @@ export type Database = {
           base_currency_amount?: number | null
           classified_at?: string | null
           classified_by?: string | null
+          cost_center_id?: string | null
           created_at?: string | null
           currency_id?: string | null
           description: string
@@ -2473,6 +2475,7 @@ export type Database = {
           base_currency_amount?: number | null
           classified_at?: string | null
           classified_by?: string | null
+          cost_center_id?: string | null
           created_at?: string | null
           currency_id?: string | null
           description?: string
@@ -2504,6 +2507,13 @@ export type Database = {
             columns: ["bank_id"]
             isOneToOne: false
             referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_requests_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
