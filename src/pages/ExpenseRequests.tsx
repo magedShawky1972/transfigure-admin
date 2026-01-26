@@ -33,6 +33,7 @@ interface ExpenseRequest {
   payment_method: string | null;
   bank_id: string | null;
   treasury_id: string | null;
+  cost_center_id: string | null;
   status: string;
   classified_by: string | null;
   classified_at: string | null;
@@ -42,6 +43,13 @@ interface ExpenseRequest {
   paid_at: string | null;
   requester_id: string;
   notes: string | null;
+}
+
+interface CostCenter {
+  id: string;
+  cost_center_code: string;
+  cost_center_name: string;
+  cost_center_name_ar: string | null;
 }
 
 interface ExpenseType {
@@ -109,6 +117,7 @@ const ExpenseRequests = () => {
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [uomList, setUomList] = useState<UOM[]>([]);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,6 +159,7 @@ const ExpenseRequests = () => {
     unit_price: "",
     tax_percent: "0",
     currency_id: "",
+    cost_center_id: "",
     notes: "",
   });
 
@@ -166,7 +176,7 @@ const ExpenseRequests = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [requestsRes, typesRes, banksRes, treasuriesRes, currenciesRes, ratesRes, uomRes, itemsRes] = await Promise.all([
+      const [requestsRes, typesRes, banksRes, treasuriesRes, currenciesRes, ratesRes, uomRes, itemsRes, costCentersRes] = await Promise.all([
         supabase.from("expense_requests").select("*").order("request_date", { ascending: false }),
         supabase.from("expense_types").select("id, expense_name, expense_name_ar, is_asset").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, current_balance").eq("is_active", true),
@@ -175,6 +185,7 @@ const ExpenseRequests = () => {
         supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator").order("effective_date", { ascending: false }),
         supabase.from("uom").select("id, uom_code, uom_name, uom_name_ar").eq("is_active", true),
         supabase.from("purchase_items").select("id, item_name, item_name_ar").eq("is_active", true),
+        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
       ]);
 
       if (requestsRes.error) throw requestsRes.error;
@@ -185,6 +196,7 @@ const ExpenseRequests = () => {
       if (ratesRes.error) throw ratesRes.error;
       if (uomRes.error) throw uomRes.error;
       if (itemsRes.error) throw itemsRes.error;
+      if (costCentersRes.error) throw costCentersRes.error;
 
       setRequests(requestsRes.data || []);
       setExpenseTypes(typesRes.data || []);
@@ -194,6 +206,7 @@ const ExpenseRequests = () => {
       setCurrencyRates(ratesRes.data || []);
       setUomList(uomRes.data || []);
       setPurchaseItems(itemsRes.data || []);
+      setCostCenters(costCentersRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في جلب البيانات" : "Error fetching data");
@@ -250,6 +263,46 @@ const ExpenseRequests = () => {
       if (newStatus === "approved") {
         updateData.approved_by = currentUserId;
         updateData.approved_at = new Date().toISOString();
+        
+        // AUTO-CREATE EXPENSE ENTRY when approved
+        const date = new Date();
+        const expenseEntryNumber = `EXE${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
+        
+        // Get cost_center_id from ticket if this expense is linked to a ticket and doesn't have its own
+        let costCenterId = request.cost_center_id;
+        if (!costCenterId && request.ticket_id) {
+          const { data: ticketData } = await supabase
+            .from("tickets")
+            .select("cost_center_id")
+            .eq("id", request.ticket_id)
+            .maybeSingle();
+          costCenterId = ticketData?.cost_center_id || null;
+        }
+        
+        const { error: expenseEntryError } = await supabase.from("expense_entries").insert({
+          entry_number: expenseEntryNumber,
+          entry_date: new Date().toISOString().split("T")[0],
+          expense_reference: request.request_number,
+          payment_method: request.payment_method || null,
+          bank_id: request.bank_id || null,
+          treasury_id: request.treasury_id || null,
+          currency_id: request.currency_id || null,
+          exchange_rate: request.exchange_rate || 1,
+          subtotal: request.amount,
+          total_vat: 0,
+          grand_total: request.base_currency_amount || request.amount,
+          cost_center_id: costCenterId,
+          status: "draft",
+          notes: request.description,
+          created_by: currentUserId,
+        });
+
+        if (expenseEntryError) {
+          console.error("Error creating expense entry:", expenseEntryError);
+          toast.error(language === "ar" ? "خطأ في إنشاء قيد المصروفات" : "Error creating expense entry");
+        } else {
+          toast.success(language === "ar" ? "تم إنشاء قيد المصروفات" : "Expense entry created");
+        }
       } else if (newStatus === "paid") {
         // VALIDATE BALANCE BEFORE PAYMENT
         if (request.payment_method === "bank" && request.bank_id) {
@@ -442,6 +495,7 @@ const ExpenseRequests = () => {
         tax_percent: taxPercent,
         net_total: netTotal,
         currency_id: newRequest.currency_id || null,
+        cost_center_id: newRequest.cost_center_id || null,
         notes: newRequest.notes.trim() || null,
         requester_id: currentUserId,
         request_date: new Date().toISOString().split("T")[0],
@@ -453,7 +507,7 @@ const ExpenseRequests = () => {
       setAddDialogOpen(false);
       setNewRequest({ 
         expense_type_id: "", is_asset: false, purchase_item_id: "", description: "",
-        quantity: "1", uom_id: "", unit_price: "", tax_percent: "0", currency_id: "", notes: "" 
+        quantity: "1", uom_id: "", unit_price: "", tax_percent: "0", currency_id: "", cost_center_id: "", notes: "" 
       });
       fetchData();
     } catch (error: any) {
@@ -505,6 +559,12 @@ const ExpenseRequests = () => {
     if (!bankId) return "-";
     const bank = banks.find(b => b.id === bankId);
     return bank?.bank_name || "-";
+  };
+
+  const getCostCenterName = (costCenterId: string | null) => {
+    if (!costCenterId) return "-";
+    const cc = costCenters.find(c => c.id === costCenterId);
+    return cc ? (language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name) : "-";
   };
 
   const openEditDialog = (request: ExpenseRequest) => {
@@ -707,6 +767,7 @@ const ExpenseRequests = () => {
                 <TableHead>{language === "ar" ? "سعر الصرف" : "Rate"}</TableHead>
                 <TableHead>{language === "ar" ? `المبلغ بـ${getBaseCurrency()?.currency_code || "Base"}` : `Amount (${getBaseCurrency()?.currency_code || "Base"})`}</TableHead>
                 <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                <TableHead>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</TableHead>
                 <TableHead>{language === "ar" ? "أصل/مصروف" : "Asset/Expense"}</TableHead>
                 <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment"}</TableHead>
                 <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
@@ -726,6 +787,7 @@ const ExpenseRequests = () => {
                     {request.base_currency_amount ? request.base_currency_amount.toLocaleString() : "-"}
                   </TableCell>
                   <TableCell>{getExpenseTypeName(request.expense_type_id)}</TableCell>
+                  <TableCell className="text-xs">{getCostCenterName(request.cost_center_id)}</TableCell>
                   <TableCell>
                     {request.expense_type_id && (
                       <Badge variant={request.is_asset ? "default" : "secondary"}>
@@ -1048,8 +1110,8 @@ const ExpenseRequests = () => {
               </div>
             </div>
 
-            {/* Tax, Currency */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Tax, Currency, Cost Center */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>{language === "ar" ? "نسبة الضريبة %" : "Tax %"}</Label>
                 <Input
@@ -1071,6 +1133,21 @@ const ExpenseRequests = () => {
                   <SelectContent>
                     {currencies.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.currency_code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
+                <Select value={newRequest.cost_center_id} onValueChange={(v) => setNewRequest({ ...newRequest, cost_center_id: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر المركز" : "Select Center"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {costCenters.map((cc) => (
+                      <SelectItem key={cc.id} value={cc.id}>
+                        {cc.cost_center_code} - {language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
