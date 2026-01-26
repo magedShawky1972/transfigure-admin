@@ -114,10 +114,11 @@ const TicketDetails = () => {
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const [sendingExtraApproval, setSendingExtraApproval] = useState(false);
 
-  // Cost center selection states
+  // Cost center and purchase type selection states
   const [costCenterDialogOpen, setCostCenterDialogOpen] = useState(false);
   const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string }[]>([]);
   const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>("");
+  const [selectedPurchaseType, setSelectedPurchaseType] = useState<string>("");
   const [requiresCostCenter, setRequiresCostCenter] = useState(false);
 
   // Edit mode states
@@ -654,11 +655,14 @@ const TicketDetails = () => {
         return;
       }
 
-      // If cost center was provided, update the ticket first
+      // If cost center was provided, update the ticket with cost center and purchase type
       if (costCenterId) {
         const { error: ccError } = await supabase
           .from("tickets")
-          .update({ cost_center_id: costCenterId })
+          .update({ 
+            cost_center_id: costCenterId,
+            purchase_type: selectedPurchaseType || null
+          })
           .eq("id", ticket.id);
 
         if (ccError) {
@@ -773,8 +777,16 @@ const TicketDetails = () => {
 
         if (error) throw error;
 
-        // AUTO-CREATE EXPENSE REQUEST for purchase tickets
-        if (ticket.is_purchase_ticket && ticket.budget_value) {
+        // AUTO-CREATE EXPENSE REQUEST only for 'expense' type purchase tickets
+        // Get fresh ticket data to check purchase_type
+        const { data: freshTicket } = await supabase
+          .from("tickets")
+          .select("purchase_type")
+          .eq("id", ticket.id)
+          .single();
+
+        if (ticket.is_purchase_ticket && ticket.budget_value && 
+            (freshTicket?.purchase_type === 'expense' || selectedPurchaseType === 'expense')) {
           const date = new Date();
           const requestNumber = `EXP${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
           
@@ -1517,32 +1529,64 @@ const TicketDetails = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Cost Center Selection Dialog */}
+      {/* Cost Center and Purchase Type Selection Dialog */}
       <Dialog open={costCenterDialogOpen} onOpenChange={setCostCenterDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {language === 'ar' ? 'اختر مركز التكلفة' : 'Select Cost Center'}
+              {language === 'ar' ? 'اختر مركز التكلفة ونوع الشراء' : 'Select Cost Center & Purchase Type'}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-4">
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
               {language === 'ar' 
-                ? 'يجب اختيار مركز التكلفة قبل الموافقة على طلب الشراء' 
-                : 'You must select a cost center before approving this purchase ticket'}
+                ? 'يجب اختيار مركز التكلفة ونوع الشراء قبل الموافقة على طلب الشراء' 
+                : 'You must select a cost center and purchase type before approving this purchase ticket'}
             </p>
-            <Select value={selectedCostCenterId} onValueChange={setSelectedCostCenterId}>
-              <SelectTrigger>
-                <SelectValue placeholder={language === 'ar' ? 'اختر مركز التكلفة' : 'Select cost center'} />
-              </SelectTrigger>
-              <SelectContent>
-                {costCenters.map((cc) => (
-                  <SelectItem key={cc.id} value={cc.id}>
-                    {cc.cost_center_name} ({cc.cost_center_code})
+            
+            {/* Cost Center Select */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'مركز التكلفة' : 'Cost Center'}
+              </label>
+              <Select value={selectedCostCenterId} onValueChange={setSelectedCostCenterId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر مركز التكلفة' : 'Select cost center'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {costCenters.map((cc) => (
+                    <SelectItem key={cc.id} value={cc.id}>
+                      {cc.cost_center_name} ({cc.cost_center_code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Purchase Type Select */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'نوع الشراء' : 'Purchase Type'}
+              </label>
+              <Select value={selectedPurchaseType} onValueChange={setSelectedPurchaseType}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر نوع الشراء' : 'Select purchase type'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">
+                    {language === 'ar' ? 'مصروفات (اشتراكات، خدمات)' : 'Expense (subscriptions, services)'}
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  <SelectItem value="purchase">
+                    {language === 'ar' ? 'شراء (أصول، معدات)' : 'Purchase (assets, equipment)'}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {language === 'ar' 
+                  ? 'المصروفات: تنشئ طلب صرف تلقائياً عند الموافقة النهائية'
+                  : 'Expense: Auto-creates expense request on final approval'}
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -1550,6 +1594,7 @@ const TicketDetails = () => {
               onClick={() => {
                 setCostCenterDialogOpen(false);
                 setSelectedCostCenterId("");
+                setSelectedPurchaseType("");
               }}
             >
               {language === 'ar' ? 'إلغاء' : 'Cancel'}
@@ -1558,9 +1603,8 @@ const TicketDetails = () => {
               onClick={() => {
                 setCostCenterDialogOpen(false);
                 handleApprove(selectedCostCenterId);
-                setSelectedCostCenterId("");
               }}
-              disabled={!selectedCostCenterId}
+              disabled={!selectedCostCenterId || !selectedPurchaseType}
             >
               {language === 'ar' ? 'موافقة' : 'Approve'}
             </Button>

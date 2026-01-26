@@ -626,8 +626,14 @@ const AdminTickets = () => {
             : `Final approval by level ${currentOrder}`,
         });
 
-        // AUTO-CREATE EXPENSE REQUEST for purchase tickets
-        if (ticket.is_purchase_ticket && ticket.budget_value) {
+        // AUTO-CREATE EXPENSE REQUEST only for 'expense' type purchase tickets
+        const { data: freshTicket } = await supabase
+          .from("tickets")
+          .select("purchase_type")
+          .eq("id", ticketId)
+          .single();
+
+        if (ticket.is_purchase_ticket && ticket.budget_value && freshTicket?.purchase_type === 'expense') {
           const date = new Date();
           const requestNumber = `EXP${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
           

@@ -6173,6 +6173,7 @@ export type Database = {
           item_id: string | null
           next_admin_order: number | null
           priority: string
+          purchase_type: string | null
           qty: number | null
           status: string
           subject: string
@@ -6200,6 +6201,7 @@ export type Database = {
           item_id?: string | null
           next_admin_order?: number | null
           priority: string
+          purchase_type?: string | null
           qty?: number | null
           status?: string
           subject: string
@@ -6227,6 +6229,7 @@ export type Database = {
           item_id?: string | null
           next_admin_order?: number | null
           priority?: string
+          purchase_type?: string | null
           qty?: number | null
           status?: string
           subject?: string
