@@ -185,6 +185,7 @@ const SavedAttendance = () => {
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [confirmedFilter, setConfirmedFilter] = useState<string>("all");
+  const [deductionFilter, setDeductionFilter] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -613,6 +614,7 @@ const SavedAttendance = () => {
     setSearchCode("");
     setSelectedEmployee("all");
     setConfirmedFilter("all");
+    setDeductionFilter("all");
   };
 
   const handleDeleteBatch = async () => {
@@ -1154,7 +1156,28 @@ const SavedAttendance = () => {
       }
     };
 
-    return [...records].sort((a, b) => {
+    // Apply deduction filter first
+    let filteredData = [...records];
+    
+    if (deductionFilter === "with_deduction") {
+      // Get employees who have any deduction in their records
+      const employeesWithDeductions = new Set(
+        records
+          .filter(r => r.deduction_amount && r.deduction_amount > 0)
+          .map(r => r.employee_code)
+      );
+      filteredData = filteredData.filter(r => employeesWithDeductions.has(r.employee_code));
+    } else if (deductionFilter === "no_deduction") {
+      // Get employees who have NO deductions at all
+      const employeesWithDeductions = new Set(
+        records
+          .filter(r => r.deduction_amount && r.deduction_amount > 0)
+          .map(r => r.employee_code)
+      );
+      filteredData = filteredData.filter(r => !employeesWithDeductions.has(r.employee_code));
+    }
+
+    return filteredData.sort((a, b) => {
       for (const { column, direction } of sortColumns) {
         const dir = direction === "asc" ? 1 : -1;
         const result = compareByColumn(a, b, column, dir);
@@ -1162,7 +1185,7 @@ const SavedAttendance = () => {
       }
       return 0;
     });
-  }, [records, employees, sortColumns, isArabic]);
+  }, [records, employees, sortColumns, isArabic, deductionFilter]);
 
   const employeeTotals = useMemo((): EmployeeTotalRecord[] => {
     const totalsMap = new Map<string, EmployeeTotalRecord>();
@@ -2202,7 +2225,18 @@ const SavedAttendance = () => {
               </SelectContent>
             </Select>
 
-            {(fromDate || toDate || searchCode || selectedEmployee !== "all" || confirmedFilter !== "all") && (
+            <Select value={deductionFilter} onValueChange={setDeductionFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={isArabic ? "الخصومات" : "Deductions"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "الكل" : "All"}</SelectItem>
+                <SelectItem value="with_deduction">{isArabic ? "لديهم خصومات" : "With Deductions"}</SelectItem>
+                <SelectItem value="no_deduction">{isArabic ? "بدون خصومات" : "No Deductions"}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(fromDate || toDate || searchCode || selectedEmployee !== "all" || confirmedFilter !== "all" || deductionFilter !== "all") && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -2212,6 +2246,7 @@ const SavedAttendance = () => {
                   setSearchCode("");
                   setSelectedEmployee("all");
                   setConfirmedFilter("all");
+                  setDeductionFilter("all");
                 }}
               >
                 <X className="h-4 w-4 mr-1" />
