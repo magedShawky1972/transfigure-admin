@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle, Building2 } from "lucide-react";
 import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -31,6 +31,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 type Ticket = {
   id: string;
@@ -114,6 +124,13 @@ const AdminTickets = () => {
   const [newDepartmentId, setNewDepartmentId] = useState<string>("");
   const [allDepartments, setAllDepartments] = useState<{ id: string; department_name: string }[]>([]);
   const [reverseApprovalDialog, setReverseApprovalDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  
+  // Cost center dialog state
+  const [costCenterDialogOpen, setCostCenterDialogOpen] = useState(false);
+  const [pendingApprovalTicketId, setPendingApprovalTicketId] = useState<string | null>(null);
+  const [costCenters, setCostCenters] = useState<{ id: string; cost_center_name: string; cost_center_code: string }[]>([]);
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>("");
+  const [selectedPurchaseType, setSelectedPurchaseType] = useState<string>("");
 
   useEffect(() => {
     checkAdminStatus();
@@ -121,7 +138,23 @@ const AdminTickets = () => {
     fetchDepartmentMembers();
     fetchCurrentUserAdminInfo();
     fetchAllDepartments();
+    fetchCostCenters();
   }, []);
+
+  const fetchCostCenters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("cost_centers")
+        .select("id, cost_center_name, cost_center_code")
+        .eq("is_active", true)
+        .order("cost_center_name");
+      
+      if (error) throw error;
+      setCostCenters(data || []);
+    } catch (error: any) {
+      console.error("Error fetching cost centers:", error);
+    }
+  };
 
   const fetchAllDepartments = async () => {
     try {
@@ -463,7 +496,7 @@ const AdminTickets = () => {
     }
   };
 
-  const handleApprove = async (ticketId: string) => {
+  const handleApprove = async (ticketId: string, costCenterId?: string, purchaseType?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -478,21 +511,41 @@ const AdminTickets = () => {
       // Get ticket details first
       const { data: ticket } = await supabase
         .from("tickets")
-        .select("user_id, ticket_number, subject, department_id, is_purchase_ticket, next_admin_order, budget_value, qty, currency_id")
+        .select("user_id, ticket_number, subject, department_id, is_purchase_ticket, next_admin_order, budget_value, qty, currency_id, cost_center_id, purchase_type")
         .eq("id", ticketId)
         .single();
 
       if (!ticket) throw new Error("Ticket not found");
 
-      // Get current admin's info (order and purchase status)
+      // Get current admin's info (order, purchase status, and requires_cost_center)
       const { data: currentAdmin } = await supabase
         .from("department_admins")
-        .select("admin_order, is_purchase_admin")
+        .select("admin_order, is_purchase_admin, requires_cost_center")
         .eq("user_id", user.id)
         .eq("department_id", ticket.department_id)
         .single();
 
       if (!currentAdmin) throw new Error("Admin not found for this department");
+
+      console.log("DEBUG AdminTickets handleApprove:", {
+        ticketId,
+        is_purchase_ticket: ticket.is_purchase_ticket,
+        requires_cost_center: currentAdmin.requires_cost_center,
+        existing_cost_center_id: ticket.cost_center_id,
+        passed_cost_center_id: costCenterId,
+        existing_purchase_type: ticket.purchase_type,
+        passed_purchase_type: purchaseType,
+      });
+
+      // Check if cost center is required for purchase tickets
+      if (ticket.is_purchase_ticket && currentAdmin.requires_cost_center && !costCenterId && !ticket.cost_center_id) {
+        // Open cost center dialog
+        setPendingApprovalTicketId(ticketId);
+        setSelectedCostCenterId("");
+        setSelectedPurchaseType(ticket.purchase_type || "");
+        setCostCenterDialogOpen(true);
+        return;
+      }
 
       const currentOrder = currentAdmin.admin_order;
       const currentIsPurchaseAdmin = currentAdmin.is_purchase_admin;
@@ -565,11 +618,23 @@ const AdminTickets = () => {
 
       const hasNextLevel = nextAdmins.length > 0;
 
+      // Build update object
+      const updateData: Record<string, any> = {};
+      
+      // Add cost center and purchase type if provided
+      if (costCenterId) {
+        updateData.cost_center_id = costCenterId;
+      }
+      if (purchaseType) {
+        updateData.purchase_type = purchaseType;
+      }
+
       if (hasNextLevel) {
         // There are more admins - update next_admin_order and send notification
         const { error } = await supabase
           .from("tickets")
           .update({
+            ...updateData,
             next_admin_order: nextAdminOrder,
             status: "In Progress",
           })
@@ -607,6 +672,7 @@ const AdminTickets = () => {
         const { error } = await supabase
           .from("tickets")
           .update({
+            ...updateData,
             approved_at: new Date().toISOString(),
             approved_by: user.id,
             status: "In Progress",
@@ -1552,6 +1618,95 @@ const AdminTickets = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Cost Center Selection Dialog */}
+      <Dialog open={costCenterDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setCostCenterDialogOpen(false);
+          setPendingApprovalTicketId(null);
+          setSelectedCostCenterId("");
+          setSelectedPurchaseType("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              {language === 'ar' ? 'تحديد مركز التكلفة ونوع الشراء' : 'Select Cost Center & Purchase Type'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? 'يرجى تحديد مركز التكلفة ونوع الشراء للمتابعة مع الموافقة'
+                : 'Please select a cost center and purchase type to continue with approval'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Cost Center Selection */}
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'مركز التكلفة' : 'Cost Center'}</Label>
+              <Select value={selectedCostCenterId} onValueChange={setSelectedCostCenterId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={language === 'ar' ? 'اختر مركز التكلفة...' : 'Select cost center...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {costCenters.map((cc) => (
+                    <SelectItem key={cc.id} value={cc.id}>
+                      {cc.cost_center_code} - {cc.cost_center_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Purchase Type Selection */}
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'نوع الشراء' : 'Purchase Type'}</Label>
+              <RadioGroup value={selectedPurchaseType} onValueChange={setSelectedPurchaseType}>
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  <RadioGroupItem value="expense" id="expense" />
+                  <Label htmlFor="expense" className="cursor-pointer">
+                    {language === 'ar' ? 'مصروف (اشتراكات، خدمات)' : 'Expense (subscriptions, services)'}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  <RadioGroupItem value="purchase" id="purchase" />
+                  <Label htmlFor="purchase" className="cursor-pointer">
+                    {language === 'ar' ? 'شراء (معدات، أجهزة)' : 'Purchase (equipment, hardware)'}
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCostCenterDialogOpen(false);
+                setPendingApprovalTicketId(null);
+                setSelectedCostCenterId("");
+                setSelectedPurchaseType("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingApprovalTicketId && selectedCostCenterId && selectedPurchaseType) {
+                  setCostCenterDialogOpen(false);
+                  handleApprove(pendingApprovalTicketId, selectedCostCenterId, selectedPurchaseType);
+                  setPendingApprovalTicketId(null);
+                  setSelectedCostCenterId("");
+                  setSelectedPurchaseType("");
+                }
+              }}
+              disabled={!selectedCostCenterId || !selectedPurchaseType}
+            >
+              {language === 'ar' ? 'موافقة' : 'Approve'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
