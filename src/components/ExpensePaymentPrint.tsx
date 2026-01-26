@@ -113,7 +113,28 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
       
       <div style={{ display: "none" }}>
         <div ref={printRef}>
-          <div className="voucher">
+          <div className="voucher" style={{ position: "relative", overflow: "hidden" }}>
+            {/* PAID Ribbon */}
+            <div style={{
+              position: "absolute",
+              top: "30px",
+              right: "-40px",
+              width: "180px",
+              textAlign: "center",
+              transform: "rotate(45deg)",
+              backgroundColor: "#22c55e",
+              color: "white",
+              padding: "8px 0",
+              fontWeight: "bold",
+              fontSize: "14px",
+              textTransform: "uppercase",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+              letterSpacing: "1px",
+              zIndex: 10
+            }}>
+              {language === "ar" ? "مدفوع" : "PAID"}
+            </div>
+            
             <div className="header">
               <h1>{language === "ar" ? "سند صرف" : "Payment Voucher"}</h1>
               <p>{language === "ar" ? "رقم السند" : "Voucher No"}: {paymentDetails.entryNumber}</p>
