@@ -7279,6 +7279,69 @@ export type Database = {
           },
         ]
       }
+      void_payment_history: {
+        Row: {
+          created_at: string
+          currency_code: string | null
+          description: string | null
+          expense_request_id: string
+          id: string
+          original_amount: number
+          original_paid_at: string | null
+          reason: string | null
+          request_number: string
+          treasury_amount: number | null
+          treasury_currency_code: string | null
+          treasury_entry_number: string | null
+          treasury_id: string | null
+          treasury_name: string | null
+          void_number: string
+          voided_at: string
+          voided_by: string
+          voided_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency_code?: string | null
+          description?: string | null
+          expense_request_id: string
+          id?: string
+          original_amount: number
+          original_paid_at?: string | null
+          reason?: string | null
+          request_number: string
+          treasury_amount?: number | null
+          treasury_currency_code?: string | null
+          treasury_entry_number?: string | null
+          treasury_id?: string | null
+          treasury_name?: string | null
+          void_number: string
+          voided_at?: string
+          voided_by: string
+          voided_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency_code?: string | null
+          description?: string | null
+          expense_request_id?: string
+          id?: string
+          original_amount?: number
+          original_paid_at?: string | null
+          reason?: string | null
+          request_number?: string
+          treasury_amount?: number | null
+          treasury_currency_code?: string | null
+          treasury_entry_number?: string | null
+          treasury_id?: string | null
+          treasury_name?: string | null
+          void_number?: string
+          voided_at?: string
+          voided_by?: string
+          voided_by_name?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_config: {
         Row: {
           created_at: string
@@ -7623,6 +7686,7 @@ export type Database = {
       generate_ludo_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
       generate_treasury_entry_number: { Args: never; Returns: string }
+      generate_void_number: { Args: never; Returns: string }
       get_audit_logs: {
         Args: {
           p_action?: string
