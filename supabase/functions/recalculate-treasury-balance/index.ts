@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     // Get treasuries to process
     let treasuriesQuery = supabase
       .from("treasuries")
-      .select("id, treasury_name, opening_balance, current_balance");
+      .select("id, treasury_name, opening_balance, current_balance, currency_id");
     
     if (treasury_id) {
       treasuriesQuery = treasuriesQuery.eq("id", treasury_id);
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       // Get all POSTED treasury entries for this treasury
       const { data: entries, error: entriesError } = await supabase
         .from("treasury_entries")
-        .select("entry_type, amount, bank_charges, other_charges")
+        .select("entry_type, amount, bank_charges, other_charges, from_currency_id, exchange_rate")
         .eq("treasury_id", treasury.id)
         .eq("status", "posted");
 
@@ -79,24 +79,68 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Calculate sums by entry type
+      // Get currency information for conversions
+      const { data: currencies } = await supabase
+        .from("currencies")
+        .select("id, is_base");
+      
+      const { data: currencyRates } = await supabase
+        .from("currency_rates")
+        .select("currency_id, rate_to_base, conversion_operator");
+      
+      const baseCurrency = currencies?.find(c => c.is_base);
+
+      // Calculate sums by entry type, converting to treasury's currency
       let receiptsSum = 0;
       let paymentsSum = 0;
       let transfersSum = 0;
 
       for (const entry of entries || []) {
-        const amount = entry.amount || 0;
+        // Convert entry amount to treasury's currency
+        let amountInTreasuryCurrency = entry.amount || 0;
+        
+        // If entry has a different currency than treasury, convert it
+        if (entry.from_currency_id && entry.from_currency_id !== treasury.currency_id) {
+          // First convert to base currency (SAR)
+          const rate = currencyRates?.find(r => r.currency_id === entry.from_currency_id);
+          let amountInBase = entry.amount || 0;
+          
+          if (rate) {
+            if (rate.conversion_operator === 'multiply') {
+              amountInBase = (entry.amount || 0) * rate.rate_to_base;
+            } else {
+              amountInBase = (entry.amount || 0) / rate.rate_to_base;
+            }
+          }
+          
+          // Then convert from base to treasury currency
+          if (treasury.currency_id) {
+            const treasuryRate = currencyRates?.find(r => r.currency_id === treasury.currency_id);
+            if (treasuryRate) {
+              if (treasuryRate.conversion_operator === 'multiply') {
+                amountInTreasuryCurrency = amountInBase / treasuryRate.rate_to_base;
+              } else {
+                amountInTreasuryCurrency = amountInBase * treasuryRate.rate_to_base;
+              }
+            } else {
+              amountInTreasuryCurrency = amountInBase;
+            }
+          } else {
+            amountInTreasuryCurrency = amountInBase;
+          }
+        }
+        
         const charges = (entry.bank_charges || 0) + (entry.other_charges || 0);
 
         switch (entry.entry_type) {
           case "receipt":
-            receiptsSum += amount;
+            receiptsSum += amountInTreasuryCurrency;
             break;
           case "payment":
-            paymentsSum += amount + charges;
+            paymentsSum += amountInTreasuryCurrency + charges;
             break;
           case "transfer":
-            transfersSum += amount + charges;
+            transfersSum += amountInTreasuryCurrency + charges;
             break;
         }
       }
