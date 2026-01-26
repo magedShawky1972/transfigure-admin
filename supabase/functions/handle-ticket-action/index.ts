@@ -139,7 +139,7 @@ function htmlResponse(title: string, message: string, success: boolean): Respons
   });
 }
 
-// Cost center selection form
+// Cost center and purchase type selection form
 function costCenterFormResponse(ticketId: string, token: string, ticketNumber: string, costCenters: any[]): Response {
   const costCenterOptions = costCenters.map(cc => 
     `<option value="${cc.id}">${cc.cost_center_name} (${cc.cost_center_code})</option>`
@@ -151,7 +151,7 @@ function costCenterFormResponse(ticketId: string, token: string, ticketNumber: s
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>اختر مركز التكلفة</title>
+      <title>اختر مركز التكلفة ونوع الشراء</title>
       <style>
         body {
           font-family: Arial, sans-serif;
@@ -204,18 +204,33 @@ function costCenterFormResponse(ticketId: string, token: string, ticketNumber: s
         .ticket-info strong {
           color: #4F46E5;
         }
+        .form-group {
+          margin-bottom: 20px;
+          text-align: right;
+        }
+        .form-group label {
+          display: block;
+          font-weight: 600;
+          margin-bottom: 8px;
+          color: #374151;
+        }
         select {
           width: 100%;
           padding: 12px;
           border: 2px solid #e5e7eb;
           border-radius: 8px;
           font-size: 16px;
-          margin-bottom: 20px;
           background: white;
         }
         select:focus {
           outline: none;
           border-color: #4F46E5;
+        }
+        .hint {
+          font-size: 12px;
+          color: #9CA3AF;
+          margin-top: 5px;
+          text-align: right;
         }
         button {
           width: 100%;
@@ -255,19 +270,34 @@ function costCenterFormResponse(ticketId: string, token: string, ticketNumber: s
             <line x1="12" y1="22.08" x2="12" y2="12"/>
           </svg>
         </div>
-        <h1>اختر مركز التكلفة</h1>
+        <h1>اختر مركز التكلفة ونوع الشراء</h1>
         <div class="ticket-info">
           <p style="margin: 0;">رقم التذكرة: <strong>${ticketNumber}</strong></p>
         </div>
-        <p>يجب اختيار مركز التكلفة قبل الموافقة على طلب الشراء</p>
+        <p>يجب اختيار مركز التكلفة ونوع الشراء قبل الموافقة على طلب الشراء</p>
         <form method="GET" action="">
           <input type="hidden" name="ticketId" value="${ticketId}">
           <input type="hidden" name="action" value="approve">
           <input type="hidden" name="token" value="${token}">
-          <select name="costCenterId" required>
-            <option value="">-- اختر مركز التكلفة --</option>
-            ${costCenterOptions}
-          </select>
+          
+          <div class="form-group">
+            <label>مركز التكلفة</label>
+            <select name="costCenterId" required>
+              <option value="">-- اختر مركز التكلفة --</option>
+              ${costCenterOptions}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>نوع الشراء</label>
+            <select name="purchaseType" required>
+              <option value="">-- اختر نوع الشراء --</option>
+              <option value="expense">مصروفات (اشتراكات، خدمات)</option>
+              <option value="purchase">شراء (أصول، معدات)</option>
+            </select>
+            <p class="hint">المصروفات: تنشئ طلب صرف تلقائياً عند الموافقة النهائية</p>
+          </div>
+          
           <button type="submit">موافقة مع مركز التكلفة</button>
         </form>
         <a href="https://edaraasus.com" class="cancel-link">إلغاء والعودة للرئيسية</a>
@@ -292,6 +322,7 @@ const handler = async (req: Request): Promise<Response> => {
     const action = url.searchParams.get("action");
     const token = url.searchParams.get("token");
     const costCenterId = url.searchParams.get("costCenterId");
+    const purchaseType = url.searchParams.get("purchaseType");
 
     if (!ticketId || !action || !token) {
       return htmlResponse("خطأ", "رابط غير صالح. يرجى المحاولة مرة أخرى.", false);
@@ -307,10 +338,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get ticket details including next_admin_order
+    // Get ticket details including next_admin_order and budget_value
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
-      .select("id, ticket_number, subject, description, status, user_id, department_id, is_purchase_ticket, approved_at, next_admin_order")
+      .select("id, ticket_number, subject, description, status, user_id, department_id, is_purchase_ticket, approved_at, next_admin_order, budget_value, qty, currency_id, purchase_type")
       .eq("id", ticketId)
       .single();
 
@@ -342,8 +373,8 @@ const handler = async (req: Request): Promise<Response> => {
 
         const requiresCostCenter = currentLevelAdmins?.some(a => a.requires_cost_center) || false;
 
-        if (requiresCostCenter && !costCenterId) {
-          // Show cost center selection form
+        if (requiresCostCenter && (!costCenterId || !purchaseType)) {
+          // Show cost center and purchase type selection form
           const { data: costCenters } = await supabase
             .from("cost_centers")
             .select("id, cost_center_code, cost_center_name")
@@ -355,15 +386,18 @@ const handler = async (req: Request): Promise<Response> => {
           }
         }
 
-        // If cost center was provided, update the ticket
-        if (costCenterId) {
+        // If cost center and purchase type were provided, update the ticket
+        if (costCenterId && purchaseType) {
           const { error: costCenterError } = await supabase
             .from("tickets")
-            .update({ cost_center_id: costCenterId })
+            .update({ 
+              cost_center_id: costCenterId,
+              purchase_type: purchaseType
+            })
             .eq("id", ticketId);
 
           if (costCenterError) {
-            console.error("Failed to update cost center:", costCenterError);
+            console.error("Failed to update cost center and purchase type:", costCenterError);
           } else {
             // Log the cost center assignment
             const { data: costCenter } = await supabase
@@ -380,7 +414,7 @@ const handler = async (req: Request): Promise<Response> => {
               null,
               null,
               null,
-              `تم تعيين مركز التكلفة: ${costCenter?.cost_center_name || costCenterId}`
+              `تم تعيين مركز التكلفة: ${costCenter?.cost_center_name || costCenterId} | نوع الشراء: ${purchaseType === 'expense' ? 'مصروفات' : 'شراء'}`
             );
           }
         }
@@ -526,6 +560,32 @@ const handler = async (req: Request): Promise<Response> => {
         if (updateError) {
           console.error("Failed to approve ticket:", updateError);
           return htmlResponse("خطأ", "فشل في الموافقة على التذكرة. يرجى المحاولة مرة أخرى.", false);
+        }
+
+        // AUTO-CREATE EXPENSE REQUEST only for 'expense' type purchase tickets
+        const finalPurchaseType = purchaseType || ticket.purchase_type;
+        if (ticket.is_purchase_ticket && ticket.budget_value && finalPurchaseType === 'expense') {
+          const date = new Date();
+          const requestNumber = `EXP${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
+          
+          const { error: expenseError } = await supabase.from("expense_requests").insert({
+            request_number: requestNumber,
+            ticket_id: ticketId,
+            description: ticket.subject,
+            amount: ticket.budget_value,
+            quantity: ticket.qty || 1,
+            currency_id: ticket.currency_id || null,
+            requester_id: ticket.user_id,
+            request_date: new Date().toISOString().split("T")[0],
+            status: "pending",
+            notes: `تم إنشاؤه تلقائياً من تذكرة الشراء رقم ${ticket.ticket_number}`,
+          });
+
+          if (expenseError) {
+            console.error("Error creating expense request:", expenseError);
+          } else {
+            console.log(`Auto-created expense request ${requestNumber} for ticket ${ticket.ticket_number}`);
+          }
         }
 
         // Notify the ticket creator
