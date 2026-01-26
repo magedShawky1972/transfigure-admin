@@ -9,6 +9,8 @@ interface ExpensePaymentPrintProps {
     request_date: string;
     description: string;
     amount: number;
+    currency_code?: string;
+    amount_in_sar?: number;
     payment_method: string | null;
     paid_at: string | null;
     notes: string | null;
@@ -50,6 +52,8 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
             margin: 0 auto; 
             border: 2px solid #333; 
             padding: 30px;
+            position: relative;
+            overflow: hidden;
           }
           .header { 
             text-align: center; 
@@ -67,15 +71,25 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
           }
           .row label { font-weight: bold; color: #333; }
           .row span { color: #000; }
+          .amounts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+          }
           .amount-box { 
             background: #f5f5f5; 
-            padding: 20px; 
+            padding: 15px; 
             text-align: center; 
-            margin: 20px 0;
             border: 2px solid #333;
           }
-          .amount-box .label { font-size: 14px; color: #666; }
-          .amount-box .value { font-size: 28px; font-weight: bold; color: #000; }
+          .amount-box.primary {
+            background: #e8f5e9;
+            border-color: #22c55e;
+          }
+          .amount-box .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+          .amount-box .value { font-size: 22px; font-weight: bold; color: #000; }
+          .amount-box.primary .value { color: #166534; }
           .signature-section { 
             display: flex; 
             justify-content: space-between; 
@@ -91,9 +105,31 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
             margin-top: 60px; 
             padding-top: 10px;
           }
+          .paid-ribbon {
+            position: absolute;
+            top: 30px;
+            right: -40px;
+            width: 180px;
+            text-align: center;
+            transform: rotate(45deg);
+            background-color: #22c55e;
+            color: white;
+            padding: 8px 0;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            letter-spacing: 1px;
+            z-index: 10;
+          }
           @media print {
             body { padding: 0; }
             .voucher { border: 2px solid #000; }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
           }
         </style>
       </head>
@@ -115,25 +151,9 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
       
       <div style={{ display: "none" }}>
         <div ref={printRef}>
-          <div className="voucher" style={{ position: "relative", overflow: "hidden" }}>
+          <div className="voucher">
             {/* PAID Ribbon */}
-            <div style={{
-              position: "absolute",
-              top: "30px",
-              right: "-40px",
-              width: "180px",
-              textAlign: "center",
-              transform: "rotate(45deg)",
-              backgroundColor: "#22c55e",
-              color: "white",
-              padding: "8px 0",
-              fontWeight: "bold",
-              fontSize: "14px",
-              textTransform: "uppercase",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-              letterSpacing: "1px",
-              zIndex: 10
-            }}>
+            <div className="paid-ribbon">
               {language === "ar" ? "مدفوع" : "PAID"}
             </div>
             
@@ -163,16 +183,43 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
               <span>{paymentDetails.sourceType}: {paymentDetails.sourceName}</span>
             </div>
             
-            <div className="amount-box">
-              <div className="label">
-                {language === "ar" ? "المبلغ" : "Amount"}
-                {paymentDetails.treasuryCurrencyCode && ` (${paymentDetails.treasuryCurrencyCode})`}
+            {/* Amounts Grid */}
+            <div className="amounts-grid">
+              {/* Original Amount */}
+              <div className="amount-box">
+                <div className="label">
+                  {language === "ar" ? "المبلغ الأصلي" : "Original Amount"}
+                  {request.currency_code && ` (${request.currency_code})`}
+                </div>
+                <div className="value">
+                  {request.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
               </div>
-              <div className="value">
-                {paymentDetails.treasuryAmount !== undefined 
-                  ? paymentDetails.treasuryAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : request.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                }
+              
+              {/* Amount in SAR */}
+              {request.amount_in_sar !== undefined && request.currency_code !== "SAR" && (
+                <div className="amount-box">
+                  <div className="label">
+                    {language === "ar" ? "المبلغ بالريال" : "Amount (SAR)"}
+                  </div>
+                  <div className="value">
+                    {request.amount_in_sar.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              )}
+              
+              {/* Treasury Amount (Primary - highlighted) */}
+              <div className="amount-box primary">
+                <div className="label">
+                  {language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}
+                  {paymentDetails.treasuryCurrencyCode && ` (${paymentDetails.treasuryCurrencyCode})`}
+                </div>
+                <div className="value">
+                  {paymentDetails.treasuryAmount !== undefined 
+                    ? paymentDetails.treasuryAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : request.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  }
+                </div>
               </div>
             </div>
             
