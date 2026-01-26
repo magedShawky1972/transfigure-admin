@@ -568,6 +568,29 @@ const handler = async (req: Request): Promise<Response> => {
           const date = new Date();
           const requestNumber = `EXP${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}${date.getHours().toString().padStart(2, "0")}${date.getMinutes().toString().padStart(2, "0")}${date.getSeconds().toString().padStart(2, "0")}`;
           
+          // Fetch currency rate for base currency conversion
+          let exchangeRate: number | null = null;
+          let baseCurrencyAmount: number | null = null;
+          
+          if (ticket.currency_id) {
+            const { data: currencyRate } = await supabase
+              .from("currency_rates")
+              .select("rate_to_base, conversion_operator")
+              .eq("currency_id", ticket.currency_id)
+              .order("effective_date", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (currencyRate) {
+              exchangeRate = currencyRate.rate_to_base;
+              if (currencyRate.conversion_operator === 'multiply') {
+                baseCurrencyAmount = ticket.budget_value * currencyRate.rate_to_base;
+              } else {
+                baseCurrencyAmount = ticket.budget_value / currencyRate.rate_to_base;
+              }
+            }
+          }
+          
           const { error: expenseError } = await supabase.from("expense_requests").insert({
             request_number: requestNumber,
             ticket_id: ticketId,
@@ -575,6 +598,8 @@ const handler = async (req: Request): Promise<Response> => {
             amount: ticket.budget_value,
             quantity: ticket.qty || 1,
             currency_id: ticket.currency_id || null,
+            exchange_rate: exchangeRate,
+            base_currency_amount: baseCurrencyAmount,
             requester_id: ticket.user_id,
             request_date: new Date().toISOString().split("T")[0],
             status: "pending",

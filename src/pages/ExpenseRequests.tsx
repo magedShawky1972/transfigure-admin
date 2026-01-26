@@ -26,6 +26,8 @@ interface ExpenseRequest {
   description: string;
   amount: number;
   currency_id: string | null;
+  exchange_rate: number | null;
+  base_currency_amount: number | null;
   expense_type_id: string | null;
   is_asset: boolean;
   payment_method: string | null;
@@ -66,6 +68,8 @@ interface Treasury {
 interface Currency {
   id: string;
   currency_code: string;
+  currency_name: string;
+  is_base: boolean;
 }
 
 interface UOM {
@@ -145,7 +149,7 @@ const ExpenseRequests = () => {
         supabase.from("expense_types").select("id, expense_name, expense_name_ar, is_asset").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, current_balance").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_code, treasury_name, current_balance").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code").eq("is_active", true),
+        supabase.from("currencies").select("id, currency_code, currency_name, is_base").eq("is_active", true),
         supabase.from("uom").select("id, uom_code, uom_name, uom_name_ar").eq("is_active", true),
         supabase.from("purchase_items").select("id, item_name, item_name_ar").eq("is_active", true),
       ]);
@@ -428,6 +432,16 @@ const ExpenseRequests = () => {
     return type ? (language === "ar" && type.expense_name_ar ? type.expense_name_ar : type.expense_name) : "-";
   };
 
+  const getCurrencyCode = (currencyId: string | null) => {
+    if (!currencyId) return "-";
+    const currency = currencies.find(c => c.id === currencyId);
+    return currency?.currency_code || "-";
+  };
+
+  const getBaseCurrency = () => {
+    return currencies.find(c => c.is_base);
+  };
+
   const filteredRequests = requests.filter(r => {
     if (activeTab === "pending") return r.status === "pending";
     if (activeTab === "classified") return r.status === "classified";
@@ -521,7 +535,10 @@ const ExpenseRequests = () => {
                 <TableHead>{language === "ar" ? "رقم الطلب" : "Request No."}</TableHead>
                 <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                 <TableHead>{language === "ar" ? "الوصف" : "Description"}</TableHead>
+                <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
                 <TableHead>{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
+                <TableHead>{language === "ar" ? "سعر الصرف" : "Rate"}</TableHead>
+                <TableHead>{language === "ar" ? `المبلغ بـ${getBaseCurrency()?.currency_code || "Base"}` : `Amount (${getBaseCurrency()?.currency_code || "Base"})`}</TableHead>
                 <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
                 <TableHead>{language === "ar" ? "أصل/مصروف" : "Asset/Expense"}</TableHead>
                 <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment"}</TableHead>
@@ -535,7 +552,12 @@ const ExpenseRequests = () => {
                   <TableCell className="font-mono">{request.request_number}</TableCell>
                   <TableCell>{format(new Date(request.request_date), "yyyy-MM-dd")}</TableCell>
                   <TableCell className="max-w-xs truncate">{request.description}</TableCell>
+                  <TableCell>{getCurrencyCode(request.currency_id)}</TableCell>
                   <TableCell className="font-semibold">{request.amount.toLocaleString()}</TableCell>
+                  <TableCell>{request.exchange_rate ? request.exchange_rate.toFixed(4) : "-"}</TableCell>
+                  <TableCell className="font-semibold text-primary">
+                    {request.base_currency_amount ? request.base_currency_amount.toLocaleString() : "-"}
+                  </TableCell>
                   <TableCell>{getExpenseTypeName(request.expense_type_id)}</TableCell>
                   <TableCell>
                     {request.expense_type_id && (
@@ -621,7 +643,7 @@ const ExpenseRequests = () => {
               ))}
               {filteredRequests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد طلبات" : "No requests found"}
                   </TableCell>
                 </TableRow>
