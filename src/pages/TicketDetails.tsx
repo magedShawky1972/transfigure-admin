@@ -114,6 +114,12 @@ const TicketDetails = () => {
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const [sendingExtraApproval, setSendingExtraApproval] = useState(false);
 
+  // Cost center selection states
+  const [costCenterDialogOpen, setCostCenterDialogOpen] = useState(false);
+  const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string }[]>([]);
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>("");
+  const [requiresCostCenter, setRequiresCostCenter] = useState(false);
+
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
@@ -176,6 +182,21 @@ const TicketDetails = () => {
       setDepartments(data || []);
     } catch (error: any) {
       console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchCostCenters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("cost_centers")
+        .select("id, cost_center_code, cost_center_name")
+        .eq("is_active", true)
+        .order("cost_center_name");
+
+      if (error) throw error;
+      setCostCenters(data || []);
+    } catch (error: any) {
+      console.error("Error fetching cost centers:", error);
     }
   };
 
@@ -606,7 +627,7 @@ const TicketDetails = () => {
     }
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (costCenterId?: string) => {
     if (!ticket) return;
 
     try {
@@ -614,15 +635,36 @@ const TicketDetails = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get current admin's info (order and purchase status)
+      // Get current admin's info (order, purchase status, and cost center requirement)
       const { data: currentAdmin } = await supabase
         .from("department_admins")
-        .select("admin_order, is_purchase_admin")
+        .select("admin_order, is_purchase_admin, requires_cost_center")
         .eq("user_id", user.id)
         .eq("department_id", ticket.department_id)
         .single();
 
       if (!currentAdmin) throw new Error("Admin not found for this department");
+
+      // Check if cost center is required for purchase tickets
+      if (ticket.is_purchase_ticket && currentAdmin.requires_cost_center && !costCenterId) {
+        // Open cost center dialog
+        await fetchCostCenters();
+        setCostCenterDialogOpen(true);
+        setApprovingTicket(false);
+        return;
+      }
+
+      // If cost center was provided, update the ticket first
+      if (costCenterId) {
+        const { error: ccError } = await supabase
+          .from("tickets")
+          .update({ cost_center_id: costCenterId })
+          .eq("id", ticket.id);
+
+        if (ccError) {
+          console.error("Failed to update cost center:", ccError);
+        }
+      }
 
       const currentOrder = currentAdmin.admin_order;
       const currentIsPurchaseAdmin = currentAdmin.is_purchase_admin;
@@ -1275,7 +1317,7 @@ const TicketDetails = () => {
                 {canApprove && (
                     <div className="flex justify-end">
                       <Button
-                        onClick={handleApprove}
+                        onClick={() => handleApprove()}
                         disabled={approvingTicket}
                         size="default"
                       >
@@ -1470,6 +1512,57 @@ const TicketDetails = () => {
               {sendingExtraApproval 
                 ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') 
                 : (language === 'ar' ? 'إرسال' : 'Send')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cost Center Selection Dialog */}
+      <Dialog open={costCenterDialogOpen} onOpenChange={setCostCenterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'اختر مركز التكلفة' : 'Select Cost Center'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              {language === 'ar' 
+                ? 'يجب اختيار مركز التكلفة قبل الموافقة على طلب الشراء' 
+                : 'You must select a cost center before approving this purchase ticket'}
+            </p>
+            <Select value={selectedCostCenterId} onValueChange={setSelectedCostCenterId}>
+              <SelectTrigger>
+                <SelectValue placeholder={language === 'ar' ? 'اختر مركز التكلفة' : 'Select cost center'} />
+              </SelectTrigger>
+              <SelectContent>
+                {costCenters.map((cc) => (
+                  <SelectItem key={cc.id} value={cc.id}>
+                    {cc.cost_center_name} ({cc.cost_center_code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCostCenterDialogOpen(false);
+                setSelectedCostCenterId("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={() => {
+                setCostCenterDialogOpen(false);
+                handleApprove(selectedCostCenterId);
+                setSelectedCostCenterId("");
+              }}
+              disabled={!selectedCostCenterId}
+            >
+              {language === 'ar' ? 'موافقة' : 'Approve'}
             </Button>
           </DialogFooter>
         </DialogContent>

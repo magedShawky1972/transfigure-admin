@@ -6159,6 +6159,7 @@ export type Database = {
           approved_by: string | null
           assigned_to: string | null
           budget_value: number | null
+          cost_center_id: string | null
           created_at: string
           currency_id: string | null
           deleted_at: string | null
@@ -6185,6 +6186,7 @@ export type Database = {
           approved_by?: string | null
           assigned_to?: string | null
           budget_value?: number | null
+          cost_center_id?: string | null
           created_at?: string
           currency_id?: string | null
           deleted_at?: string | null
@@ -6211,6 +6213,7 @@ export type Database = {
           approved_by?: string | null
           assigned_to?: string | null
           budget_value?: number | null
+          cost_center_id?: string | null
           created_at?: string
           currency_id?: string | null
           deleted_at?: string | null
@@ -6233,6 +6236,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tickets_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tickets_currency_id_fkey"
             columns: ["currency_id"]
