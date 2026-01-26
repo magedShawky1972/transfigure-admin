@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus, Printer } from "lucide-react";
+import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus, Printer, Edit, Undo2 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +85,13 @@ interface PurchaseItem {
   item_name_ar: string | null;
 }
 
+interface CurrencyRate {
+  id: string;
+  currency_id: string;
+  rate_to_base: number;
+  conversion_operator: string;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   classified: "bg-blue-100 text-blue-800",
@@ -101,6 +108,7 @@ const ExpenseRequests = () => {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
   const [uomList, setUomList] = useState<UOM[]>([]);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +126,20 @@ const ExpenseRequests = () => {
   });
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<ExpenseRequest | null>(null);
+  const [editData, setEditData] = useState({
+    description: "",
+    amount: "",
+    currency_id: "",
+    exchange_rate: "",
+    expense_type_id: "",
+    is_asset: false,
+    payment_method: "",
+    bank_id: "",
+    treasury_id: "",
+    notes: "",
+  });
   const [newRequest, setNewRequest] = useState({
     expense_type_id: "",
     is_asset: false,
@@ -144,12 +166,13 @@ const ExpenseRequests = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [requestsRes, typesRes, banksRes, treasuriesRes, currenciesRes, uomRes, itemsRes] = await Promise.all([
+      const [requestsRes, typesRes, banksRes, treasuriesRes, currenciesRes, ratesRes, uomRes, itemsRes] = await Promise.all([
         supabase.from("expense_requests").select("*").order("request_date", { ascending: false }),
         supabase.from("expense_types").select("id, expense_name, expense_name_ar, is_asset").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, current_balance").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_code, treasury_name, current_balance").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code, currency_name, is_base").eq("is_active", true),
+        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator").order("effective_date", { ascending: false }),
         supabase.from("uom").select("id, uom_code, uom_name, uom_name_ar").eq("is_active", true),
         supabase.from("purchase_items").select("id, item_name, item_name_ar").eq("is_active", true),
       ]);
@@ -159,6 +182,7 @@ const ExpenseRequests = () => {
       if (banksRes.error) throw banksRes.error;
       if (treasuriesRes.error) throw treasuriesRes.error;
       if (currenciesRes.error) throw currenciesRes.error;
+      if (ratesRes.error) throw ratesRes.error;
       if (uomRes.error) throw uomRes.error;
       if (itemsRes.error) throw itemsRes.error;
 
@@ -167,6 +191,7 @@ const ExpenseRequests = () => {
       setBanks(banksRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setCurrencies(currenciesRes.data || []);
+      setCurrencyRates(ratesRes.data || []);
       setUomList(uomRes.data || []);
       setPurchaseItems(itemsRes.data || []);
     } catch (error) {
@@ -442,6 +467,125 @@ const ExpenseRequests = () => {
     return currencies.find(c => c.is_base);
   };
 
+  const getCurrencyRate = (currencyId: string | null) => {
+    if (!currencyId) return null;
+    return currencyRates.find(r => r.currency_id === currencyId);
+  };
+
+  const getTreasuryName = (treasuryId: string | null) => {
+    if (!treasuryId) return "-";
+    const treasury = treasuries.find(t => t.id === treasuryId);
+    return treasury?.treasury_name || "-";
+  };
+
+  const getBankName = (bankId: string | null) => {
+    if (!bankId) return "-";
+    const bank = banks.find(b => b.id === bankId);
+    return bank?.bank_name || "-";
+  };
+
+  const openEditDialog = (request: ExpenseRequest) => {
+    setEditingRequest(request);
+    const rate = getCurrencyRate(request.currency_id);
+    setEditData({
+      description: request.description,
+      amount: request.amount.toString(),
+      currency_id: request.currency_id || "",
+      exchange_rate: request.exchange_rate?.toString() || rate?.rate_to_base?.toString() || "1",
+      expense_type_id: request.expense_type_id || "",
+      is_asset: request.is_asset,
+      payment_method: request.payment_method || "",
+      bank_id: request.bank_id || "",
+      treasury_id: request.treasury_id || "",
+      notes: request.notes || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingRequest) return;
+
+    const amount = parseFloat(editData.amount) || 0;
+    const exchangeRate = parseFloat(editData.exchange_rate) || 1;
+    
+    // Calculate base currency amount
+    let baseCurrencyAmount: number | null = null;
+    if (editData.currency_id) {
+      const rate = getCurrencyRate(editData.currency_id);
+      if (rate) {
+        if (rate.conversion_operator === 'multiply') {
+          baseCurrencyAmount = amount * exchangeRate;
+        } else {
+          baseCurrencyAmount = amount / exchangeRate;
+        }
+      }
+    }
+
+    try {
+      const { error } = await supabase.from("expense_requests").update({
+        description: editData.description,
+        amount,
+        currency_id: editData.currency_id || null,
+        exchange_rate: exchangeRate,
+        base_currency_amount: baseCurrencyAmount,
+        expense_type_id: editData.expense_type_id || null,
+        is_asset: editData.is_asset,
+        payment_method: editData.payment_method || null,
+        bank_id: editData.payment_method === "bank" ? editData.bank_id : null,
+        treasury_id: editData.payment_method === "treasury" ? editData.treasury_id : null,
+        notes: editData.notes || null,
+      }).eq("id", editingRequest.id);
+
+      if (error) throw error;
+      toast.success(language === "ar" ? "تم التحديث بنجاح" : "Updated successfully");
+      setEditDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      console.error("Error updating:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في التحديث" : "Error updating"));
+    }
+  };
+
+  const handleRollback = async (requestId: string, targetStatus: string) => {
+    try {
+      const updateData: any = { status: targetStatus };
+      
+      // Clear the relevant approval fields based on rollback target
+      if (targetStatus === "pending") {
+        updateData.classified_by = null;
+        updateData.classified_at = null;
+        updateData.expense_type_id = null;
+        updateData.payment_method = null;
+        updateData.bank_id = null;
+        updateData.treasury_id = null;
+      } else if (targetStatus === "classified") {
+        updateData.approved_by = null;
+        updateData.approved_at = null;
+      } else if (targetStatus === "approved") {
+        updateData.paid_by = null;
+        updateData.paid_at = null;
+      }
+
+      const { error } = await supabase.from("expense_requests").update(updateData).eq("id", requestId);
+      if (error) throw error;
+      
+      toast.success(language === "ar" ? "تم الترجيع بنجاح" : "Rollback successful");
+      fetchData();
+    } catch (error: any) {
+      console.error("Error rolling back:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في الترجيع" : "Error rolling back"));
+    }
+  };
+
+  const handleCurrencyChange = (currencyId: string) => {
+    const rate = getCurrencyRate(currencyId);
+    setEditData({
+      ...editData,
+      currency_id: currencyId,
+      exchange_rate: rate?.rate_to_base?.toString() || "1",
+    });
+  };
+
   const filteredRequests = requests.filter(r => {
     if (activeTab === "pending") return r.status === "pending";
     if (activeTab === "classified") return r.status === "classified";
@@ -570,17 +714,19 @@ const ExpenseRequests = () => {
                   </TableCell>
                   <TableCell>
                     {request.payment_method && (
-                      <div className="flex items-center gap-1">
-                        {request.payment_method === "bank" ? (
-                          <Building2 className="h-4 w-4" />
-                        ) : (
-                          <Vault className="h-4 w-4" />
-                        )}
-                        <span className="text-xs">
-                          {request.payment_method === "bank" 
-                            ? (language === "ar" ? "بنك" : "Bank")
-                            : (language === "ar" ? "خزينة" : "Treasury")}
-                        </span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1">
+                          {request.payment_method === "bank" ? (
+                            <Building2 className="h-4 w-4" />
+                          ) : (
+                            <Vault className="h-4 w-4" />
+                          )}
+                          <span className="text-xs font-medium">
+                            {request.payment_method === "bank" 
+                              ? getBankName(request.bank_id)
+                              : getTreasuryName(request.treasury_id)}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </TableCell>
@@ -590,7 +736,14 @@ const ExpenseRequests = () => {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
+                      {/* Edit button - always available except for paid */}
+                      {request.status !== "paid" && (
+                        <Button variant="outline" size="sm" onClick={() => openEditDialog(request)} title={language === "ar" ? "تعديل" : "Edit"}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
                       {request.status === "pending" && (
                         <Button variant="outline" size="sm" onClick={() => openClassifyDialog(request)}>
                           {language === "ar" ? "تصنيف" : "Classify"}
@@ -598,18 +751,26 @@ const ExpenseRequests = () => {
                       )}
                       {request.status === "classified" && (
                         <>
-                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, "approved")}>
+                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, "approved")} title={language === "ar" ? "موافقة" : "Approve"}>
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, "rejected")}>
+                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, "rejected")} title={language === "ar" ? "رفض" : "Reject"}>
                             <X className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleRollback(request.id, "pending")} title={language === "ar" ? "ترجيع لانتظار" : "Rollback to Pending"}>
+                            <Undo2 className="h-4 w-4 text-orange-500" />
                           </Button>
                         </>
                       )}
                       {request.status === "approved" && (
-                        <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, "paid")}>
-                          {language === "ar" ? "دفع" : "Pay"}
-                        </Button>
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(request.id, "paid")}>
+                            {language === "ar" ? "دفع" : "Pay"}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleRollback(request.id, "classified")} title={language === "ar" ? "ترجيع لمصنف" : "Rollback to Classified"}>
+                            <Undo2 className="h-4 w-4 text-orange-500" />
+                          </Button>
+                        </>
                       )}
                       {request.status === "paid" && request.paid_at && (
                         <ExpensePaymentPrint
@@ -931,6 +1092,180 @@ const ExpenseRequests = () => {
               {language === "ar" ? "إضافة الطلب" : "Add Request"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "تعديل طلب المصروف" : "Edit Expense Request"}</DialogTitle>
+          </DialogHeader>
+          {editingRequest && (
+            <div className="space-y-4 py-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="font-mono text-sm">{editingRequest.request_number}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "الوصف" : "Description"}</Label>
+                <Textarea
+                  value={editData.description}
+                  onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "المبلغ" : "Amount"}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={editData.amount}
+                    onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "العملة" : "Currency"}</Label>
+                  <Select value={editData.currency_id} onValueChange={handleCurrencyChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.currency_code}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "سعر الصرف" : "Exchange Rate"}</Label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    value={editData.exchange_rate}
+                    onChange={(e) => setEditData({ ...editData, exchange_rate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? `المبلغ بـ${getBaseCurrency()?.currency_code || "Base"}` : `Amount (${getBaseCurrency()?.currency_code || "Base"})`}</Label>
+                  <div className="p-2 bg-muted rounded text-lg font-semibold text-primary">
+                    {(() => {
+                      const amount = parseFloat(editData.amount) || 0;
+                      const rate = parseFloat(editData.exchange_rate) || 1;
+                      const currencyRate = getCurrencyRate(editData.currency_id);
+                      if (currencyRate?.conversion_operator === 'divide') {
+                        return (amount / rate).toLocaleString();
+                      }
+                      return (amount * rate).toLocaleString();
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "نوع المصروف" : "Expense Type"}</Label>
+                <Select 
+                  value={editData.expense_type_id} 
+                  onValueChange={(v) => {
+                    const type = expenseTypes.find(t => t.id === v);
+                    setEditData({ ...editData, expense_type_id: v, is_asset: type?.is_asset || false });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر النوع" : "Select Type"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {language === "ar" && t.expense_name_ar ? t.expense_name_ar : t.expense_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={editData.is_asset}
+                  onCheckedChange={(v) => setEditData({ ...editData, is_asset: v })}
+                />
+                <Label>{language === "ar" ? "أصل ثابت" : "Fixed Asset"}</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "طريقة الدفع" : "Payment Method"}</Label>
+                <Select value={editData.payment_method} onValueChange={(v) => setEditData({ ...editData, payment_method: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === "ar" ? "اختر الطريقة" : "Select Method"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="treasury">
+                      <div className="flex items-center gap-2">
+                        <Vault className="h-4 w-4" />
+                        {language === "ar" ? "خزينة" : "Treasury"}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="bank">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        {language === "ar" ? "بنك" : "Bank"}
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editData.payment_method === "bank" && (
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "البنك" : "Bank"}</Label>
+                  <Select value={editData.bank_id} onValueChange={(v) => setEditData({ ...editData, bank_id: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر البنك" : "Select Bank"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {banks.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>{b.bank_code} - {b.bank_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {editData.payment_method === "treasury" && (
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الخزينة" : "Treasury"}</Label>
+                  <Select value={editData.treasury_id} onValueChange={(v) => setEditData({ ...editData, treasury_id: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر الخزينة" : "Select Treasury"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {treasuries.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.treasury_code} - {t.treasury_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>
+                <Textarea
+                  value={editData.notes}
+                  onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <Button onClick={handleEditSave} className="w-full">
+                {language === "ar" ? "حفظ التعديلات" : "Save Changes"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
