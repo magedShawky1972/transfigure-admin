@@ -105,6 +105,7 @@ const TicketDetails = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isDepartmentAdmin, setIsDepartmentAdmin] = useState(false);
   const [isTicketOwner, setIsTicketOwner] = useState(false);
+  const [isExtraApprovalRecipient, setIsExtraApprovalRecipient] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
   const [approvingTicket, setApprovingTicket] = useState(false);
   
@@ -358,6 +359,18 @@ const TicketDetails = () => {
 
       setIsAdmin(!!data);
       setIsDepartmentAdmin(!!data);
+
+      // Check if user is a recipient of an extra approval request for this ticket
+      const { data: extraApprovalNotification } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("ticket_id", ticket.id)
+        .eq("type", "extra_approval_request")
+        .limit(1)
+        .maybeSingle();
+
+      setIsExtraApprovalRecipient(!!extraApprovalNotification);
 
       // Check if current admin can approve (is at the correct approval level)
       if (data && !ticket.approved_at) {
@@ -1012,7 +1025,8 @@ const TicketDetails = () => {
   }
 
   // Check if user can view ticket details (owner or department admin)
-  const canViewDetails = isDepartmentAdmin || isTicketOwner;
+  // Check if user can view ticket details (owner, department admin, or extra approval recipient)
+  const canViewDetails = isDepartmentAdmin || isTicketOwner || isExtraApprovalRecipient;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
