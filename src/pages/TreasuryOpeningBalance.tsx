@@ -109,6 +109,11 @@ const TreasuryOpeningBalance = () => {
 
   const handleApprove = async (id: string) => {
     try {
+      // Get the opening balance record first
+      const balance = balances.find(b => b.id === id);
+      if (!balance) throw new Error("Balance record not found");
+
+      // Update the opening balance record
       const { error } = await supabase
         .from("treasury_opening_balances")
         .update({
@@ -118,7 +123,19 @@ const TreasuryOpeningBalance = () => {
         .eq("id", id);
 
       if (error) throw error;
-      toast.success(language === "ar" ? "تم الاعتماد بنجاح" : "Approved successfully");
+
+      // Update the treasury's opening_balance and current_balance
+      const { error: treasuryError } = await supabase
+        .from("treasuries")
+        .update({
+          opening_balance: balance.amount,
+          current_balance: balance.amount,
+        })
+        .eq("id", balance.treasury_id);
+
+      if (treasuryError) throw treasuryError;
+
+      toast.success(language === "ar" ? "تم الاعتماد وتحديث رصيد الخزينة" : "Approved and treasury balance updated");
       fetchData();
     } catch (error: any) {
       console.error("Error approving:", error);
