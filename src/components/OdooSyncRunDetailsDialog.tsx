@@ -423,7 +423,36 @@ export function OdooSyncRunDetailsDialog({
   const computed = useMemo(() => {
     const success = rows.filter((r) => r.sync_status === "success").length;
     const failed = rows.filter((r) => ["failed", "partial", "error"].includes(r.sync_status)).length;
-    return { success, failed, total: rows.length };
+    
+    // Sales Order counts
+    const salesSent = rows.filter((r) => 
+      r.step_order === "sent" || r.step_order === "created" || r.step_order === "found"
+    ).length;
+    const salesFailed = rows.filter((r) => 
+      r.step_order === "failed" || r.step_order === "error"
+    ).length;
+    
+    // Purchase Order counts
+    const purchaseSent = rows.filter((r) => 
+      r.step_purchase === "sent" || r.step_purchase === "created"
+    ).length;
+    const purchaseFailed = rows.filter((r) => 
+      r.step_purchase === "failed" || r.step_purchase === "error"
+    ).length;
+    const purchasePending = rows.filter((r) => 
+      r.step_purchase === "pending"
+    ).length;
+    
+    return { 
+      success, 
+      failed, 
+      total: rows.length,
+      salesSent,
+      salesFailed,
+      purchaseSent,
+      purchaseFailed,
+      purchasePending
+    };
   }, [rows]);
 
   const filteredRows = useMemo(() => {
@@ -533,9 +562,32 @@ export function OdooSyncRunDetailsDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm text-muted-foreground">
-            {language === "ar" ? "الإجمالي" : "Total"}: {computed.total} · {language === "ar" ? "نجاح" : "Success"}: {computed.success} · {language === "ar" ? "فشل/جزئي" : "Failed/Partial"}: {computed.failed}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-muted-foreground">
+              {language === "ar" ? "الإجمالي" : "Total"}: {computed.total} · {language === "ar" ? "نجاح" : "Success"}: {computed.success} · {language === "ar" ? "فشل/جزئي" : "Failed/Partial"}: {computed.failed}
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-blue-600" />
+                <span className="font-medium">{language === "ar" ? "أوامر البيع" : "Sales Orders"}:</span>
+                <span className="text-green-600">{computed.salesSent} {language === "ar" ? "تم" : "sent"}</span>
+                {computed.salesFailed > 0 && (
+                  <span className="text-red-500">/ {computed.salesFailed} {language === "ar" ? "فشل" : "failed"}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-purple-600" />
+                <span className="font-medium">{language === "ar" ? "أوامر الشراء" : "Purchase Orders"}:</span>
+                <span className="text-green-600">{computed.purchaseSent} {language === "ar" ? "تم" : "sent"}</span>
+                {computed.purchaseFailed > 0 && (
+                  <span className="text-red-500">/ {computed.purchaseFailed} {language === "ar" ? "فشل" : "failed"}</span>
+                )}
+                {computed.purchasePending > 0 && (
+                  <span className="text-orange-500">/ {computed.purchasePending} {language === "ar" ? "معلق" : "pending"}</span>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
