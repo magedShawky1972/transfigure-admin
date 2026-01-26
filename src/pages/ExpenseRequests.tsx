@@ -782,12 +782,14 @@ const ExpenseRequests = () => {
         // Find treasury entry details
         const { data: treasuryEntry, error: treasuryFetchError } = await supabase
           .from("treasury_entries")
-          .select("id, treasury_id, entry_number, converted_amount")
+          .select("id, treasury_id, entry_number, converted_amount, amount")
           .eq("expense_request_id", requestId)
           .maybeSingle();
-        
+
         if (treasuryFetchError) {
           console.error("Error fetching treasury entry:", treasuryFetchError);
+          toast.error(language === "ar" ? "خطأ في جلب قيد الخزينة" : "Error fetching treasury entry");
+          return;
         }
         
         // Get treasury details for history
@@ -796,12 +798,15 @@ const ExpenseRequests = () => {
         const requestCurrency = currencies.find(c => c.id === request.currency_id);
         const baseCurrency = currencies.find(c => c.is_base);
         
-        // Calculate treasury amount
-        const treasuryAmount = treasury && treasury.currency_id && request.base_currency_amount
-          ? (treasuryCurrency?.is_base 
-              ? request.base_currency_amount 
-              : convertFromBaseCurrency(request.base_currency_amount, treasury.currency_id, currencyRates, baseCurrency))
-          : request.amount;
+        // Calculate treasury amount (MUST be the treasury base value)
+        // Prefer the persisted converted_amount from treasury_entries (already in treasury currency).
+        const treasuryAmount =
+          treasuryEntry?.converted_amount ??
+          (treasury && treasury.currency_id && request.base_currency_amount
+            ? (treasuryCurrency?.is_base
+                ? request.base_currency_amount
+                : convertFromBaseCurrency(request.base_currency_amount, treasury.currency_id, currencyRates, baseCurrency))
+            : request.amount);
 
         // 1. Create void payment history record BEFORE deleting treasury entry
         const { error: historyError } = await supabase.from("void_payment_history").insert({
@@ -832,13 +837,17 @@ const ExpenseRequests = () => {
           const { error: deleteTreasuryError } = await supabase
             .from("treasury_entries")
             .delete()
-            .eq("id", treasuryEntry.id);
-          
+            .eq("id", treasuryEntry.id)
+            .select("id");
+
           if (deleteTreasuryError) {
             console.error("Error deleting treasury entry:", deleteTreasuryError);
             toast.error(language === "ar" ? "خطأ في حذف قيد الخزينة" : "Error deleting treasury entry");
             return;
           }
+        } else {
+          // No treasury entry means no trigger will run, so balance can't change.
+          console.warn("Rollback: No treasury entry found to delete for expense_request_id", requestId);
         }
         
         // 3. Update expense_entry status back to approved
