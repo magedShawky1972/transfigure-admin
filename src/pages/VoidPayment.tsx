@@ -26,14 +26,22 @@ interface PaidExpenseRequest {
   paid_at: string | null;
   paid_by: string | null;
   treasury_id: string | null;
+  bank_id: string | null;
   treasury_name?: string;
+  bank_name?: string;
   currency_code?: string;
   treasury_currency_code?: string;
+  bank_currency_code?: string;
   expense_entry_id?: string;
   treasury_entry_id?: string;
   treasury_entry_ids?: string[]; // All linked treasury entry IDs for deletion
+  bank_entry_ids?: string[]; // All linked bank entry IDs for deletion
   treasury_entry_number?: string;
+  bank_entry_number?: string;
   treasury_amount?: number;
+  bank_amount?: number;
+  source_type: "expense_request" | "expense_entry"; // Track source type
+  payment_method?: string;
 }
 
 interface VoidHistory {
@@ -84,6 +92,9 @@ const VoidPayment = () => {
   const fetchPaidRequests = async () => {
     setLoading(true);
     try {
+      const enrichedRequests: PaidExpenseRequest[] = [];
+
+      // 1. Fetch paid expense_requests (from Expense Request workflow)
       const { data: requests, error } = await supabase
         .from("expense_requests")
         .select(`
@@ -104,8 +115,6 @@ const VoidPayment = () => {
         .order("paid_at", { ascending: false });
 
       if (error) throw error;
-
-      const enrichedRequests: PaidExpenseRequest[] = [];
       
       for (const request of requests || []) {
         // Fetch ALL treasury entries (handles duplicates)
@@ -137,6 +146,7 @@ const VoidPayment = () => {
           paid_at: request.paid_at,
           paid_by: request.paid_by,
           treasury_id: request.treasury_id,
+          bank_id: null,
           treasury_name: treasury?.treasury_name || "-",
           currency_code: (request.currencies as any)?.currency_code || "-",
           treasury_currency_code: treasury?.currencies?.currency_code || null,
@@ -145,6 +155,91 @@ const VoidPayment = () => {
           treasury_entry_ids: allEntryIds,
           treasury_entry_number: firstEntry?.entry_number,
           treasury_amount: totalTreasuryAmount,
+          source_type: "expense_request",
+          payment_method: "treasury",
+        });
+      }
+
+      // 2. Fetch paid expense_entries (from manual Expense Entry workflow)
+      const { data: manualEntries, error: entryError } = await supabase
+        .from("expense_entries")
+        .select(`
+          id,
+          entry_number,
+          entry_date,
+          expense_reference,
+          payment_method,
+          bank_id,
+          treasury_id,
+          currency_id,
+          grand_total,
+          status,
+          paid_at,
+          paid_by,
+          currencies:currency_id(currency_code),
+          treasuries:treasury_id(treasury_name, currency_id, currencies:currency_id(currency_code)),
+          banks:bank_id(bank_name, currency_id, currencies:currency_id(currency_code))
+        `)
+        .eq("status", "paid")
+        .order("paid_at", { ascending: false });
+
+      if (entryError) throw entryError;
+
+      for (const entry of manualEntries || []) {
+        // Skip entries that originated from expense_requests (already handled above)
+        if (entry.expense_reference) {
+          // Check if this reference matches an expense_request
+          const matchingRequest = requests?.find(r => r.request_number === entry.expense_reference);
+          if (matchingRequest) continue; // Skip, already included via expense_requests
+        }
+
+        // Fetch treasury entries linked to this expense_entry
+        const { data: treasuryEntries } = await supabase
+          .from("treasury_entries")
+          .select("id, entry_number, converted_amount")
+          .eq("reference_type", "expense_entry")
+          .eq("reference_id", entry.id);
+
+        // Fetch bank entries linked to this expense_entry
+        const { data: bankEntries } = await supabase
+          .from("bank_entries")
+          .select("id, entry_number, converted_amount")
+          .eq("reference_type", "expense_entry")
+          .eq("reference_id", entry.id);
+
+        const treasury = entry.treasuries as any;
+        const bank = entry.banks as any;
+        
+        const treasuryEntryIds = treasuryEntries?.map(e => e.id) || [];
+        const bankEntryIds = bankEntries?.map(e => e.id) || [];
+        const totalTreasuryAmount = treasuryEntries?.reduce((sum, e) => sum + (e.converted_amount || 0), 0) || null;
+        const totalBankAmount = bankEntries?.reduce((sum, e) => sum + (e.converted_amount || 0), 0) || null;
+        
+        enrichedRequests.push({
+          id: entry.id,
+          request_number: entry.entry_number,
+          description: entry.expense_reference || (language === "ar" ? "قيد يدوي" : "Manual Entry"),
+          amount: entry.grand_total,
+          base_currency_amount: null,
+          status: entry.status,
+          paid_at: entry.paid_at,
+          paid_by: entry.paid_by,
+          treasury_id: entry.treasury_id,
+          bank_id: entry.bank_id,
+          treasury_name: treasury?.treasury_name || "-",
+          bank_name: bank?.bank_name || "-",
+          currency_code: (entry.currencies as any)?.currency_code || "-",
+          treasury_currency_code: treasury?.currencies?.currency_code || null,
+          bank_currency_code: bank?.currencies?.currency_code || null,
+          treasury_entry_id: treasuryEntries?.[0]?.id,
+          treasury_entry_ids: treasuryEntryIds,
+          bank_entry_ids: bankEntryIds,
+          treasury_entry_number: treasuryEntries?.[0]?.entry_number,
+          bank_entry_number: bankEntries?.[0]?.entry_number,
+          treasury_amount: totalTreasuryAmount,
+          bank_amount: totalBankAmount,
+          source_type: "expense_entry",
+          payment_method: entry.payment_method,
         });
       }
 
@@ -186,7 +281,10 @@ const VoidPayment = () => {
       // Perform the void in a backend function (ensures deletes work even if RLS blocks client deletes)
       const { data, error } = await supabase.functions.invoke("void-expense-payment", {
         body: {
-          expense_request_id: selectedRequest.id,
+          // Pass the appropriate ID based on source type
+          expense_request_id: selectedRequest.source_type === "expense_request" ? selectedRequest.id : null,
+          expense_entry_id: selectedRequest.source_type === "expense_entry" ? selectedRequest.id : null,
+          source_type: selectedRequest.source_type,
           reason: voidReason.trim(),
         },
         headers: {
@@ -200,11 +298,12 @@ const VoidPayment = () => {
       }
 
       const deletedCount = (data as any)?.deletedCount ?? 0;
-      if ((selectedRequest.treasury_entry_ids?.length || 0) > 0 && deletedCount === 0) {
+      const totalEntries = (selectedRequest.treasury_entry_ids?.length || 0) + (selectedRequest.bank_entry_ids?.length || 0);
+      if (totalEntries > 0 && deletedCount === 0) {
         throw new Error(
           language === "ar"
-            ? "لم يتم حذف قيد الخزينة (صلاحيات/سياسة وصول)"
-            : "Treasury entry was not deleted (permissions/policy)"
+            ? "لم يتم حذف القيد المالي (صلاحيات/سياسة وصول)"
+            : "Financial entry was not deleted (permissions/policy)"
         );
       }
 
@@ -374,12 +473,13 @@ const VoidPayment = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
                       <TableHead>{language === "ar" ? "رقم الطلب" : "Request #"}</TableHead>
                       <TableHead>{language === "ar" ? "الوصف" : "Description"}</TableHead>
                       <TableHead>{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
-                      <TableHead>{language === "ar" ? "مبلغ الخزينة" : "Treasury Amt"}</TableHead>
-                      <TableHead>{language === "ar" ? "الخزينة" : "Treasury"}</TableHead>
-                      <TableHead>{language === "ar" ? "رقم قيد الخزينة" : "Treasury Entry #"}</TableHead>
+                      <TableHead>{language === "ar" ? "مبلغ الدفع" : "Payment Amt"}</TableHead>
+                      <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment Method"}</TableHead>
+                      <TableHead>{language === "ar" ? "رقم القيد" : "Entry #"}</TableHead>
                       <TableHead>{language === "ar" ? "تاريخ الدفع" : "Paid Date"}</TableHead>
                       <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                     </TableRow>
@@ -387,23 +487,43 @@ const VoidPayment = () => {
                   <TableBody>
                     {filteredRequests.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           {language === "ar" ? "لا توجد دفعات للإلغاء" : "No payments to void"}
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredRequests.map((request) => (
-                        <TableRow key={request.id}>
+                        <TableRow key={`${request.source_type}-${request.id}`}>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded text-xs ${request.source_type === "expense_request" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`}>
+                              {request.source_type === "expense_request" 
+                                ? (language === "ar" ? "طلب مصروف" : "Expense Req") 
+                                : (language === "ar" ? "قيد يدوي" : "Manual Entry")}
+                            </span>
+                          </TableCell>
                           <TableCell className="font-mono">{request.request_number}</TableCell>
                           <TableCell className="max-w-[200px] truncate">{request.description}</TableCell>
                           <TableCell>
                             {request.amount.toLocaleString()} {request.currency_code}
                           </TableCell>
                           <TableCell>
-                            {request.treasury_amount?.toLocaleString() || "-"} {request.treasury_currency_code || ""}
+                            {request.payment_method === "bank" 
+                              ? `${request.bank_amount?.toLocaleString() || "-"} ${request.bank_currency_code || ""}`
+                              : `${request.treasury_amount?.toLocaleString() || "-"} ${request.treasury_currency_code || ""}`
+                            }
                           </TableCell>
-                          <TableCell>{request.treasury_name}</TableCell>
-                          <TableCell className="font-mono">{request.treasury_entry_number || "-"}</TableCell>
+                          <TableCell>
+                            {request.payment_method === "bank" 
+                              ? `${language === "ar" ? "بنك: " : "Bank: "}${request.bank_name || "-"}`
+                              : `${language === "ar" ? "خزينة: " : "Treasury: "}${request.treasury_name || "-"}`
+                            }
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {request.payment_method === "bank" 
+                              ? (request.bank_entry_number || "-")
+                              : (request.treasury_entry_number || "-")
+                            }
+                          </TableCell>
                           <TableCell>
                             {request.paid_at ? format(new Date(request.paid_at), "yyyy-MM-dd HH:mm") : "-"}
                           </TableCell>
