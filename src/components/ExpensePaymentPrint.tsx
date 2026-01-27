@@ -176,6 +176,11 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
             </div>
             
             <div className="row">
+              <label>{language === "ar" ? "تاريخ الصرف:" : "Payment Date:"}</label>
+              <span>{request.paid_at ? format(new Date(request.paid_at), "yyyy-MM-dd HH:mm") : "-"}</span>
+            </div>
+            
+            <div className="row">
               <label>{language === "ar" ? "البيان:" : "Description:"}</label>
               <span>{request.description}</span>
             </div>
@@ -185,41 +190,17 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
               <span>{paymentDetails.sourceType}: {paymentDetails.sourceName}</span>
             </div>
             
-            {/* Amounts Grid */}
-            <div className="amounts-grid">
-              {/* Original Amount */}
-              <div className="amount-box">
-                <div className="label">
-                  {language === "ar" ? "المبلغ الأصلي" : "Original Amount"}
-                  {request.currency_code && ` (${request.currency_code})`}
-                </div>
-                <div className="value">
-                  {request.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-              </div>
-              
-              {/* Amount in SAR */}
-              {request.amount_in_sar !== undefined && request.currency_code !== "SAR" && (
-                <div className="amount-box">
-                  <div className="label">
-                    {language === "ar" ? "المبلغ بالريال" : "Amount (SAR)"}
-                  </div>
-                  <div className="value">
-                    {request.amount_in_sar.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                </div>
-              )}
-              
-              {/* Treasury Amount (Primary - highlighted) */}
-              <div className="amount-box primary">
+            {/* Treasury Amount Only */}
+            <div className="amounts-grid" style={{ justifyContent: "center" }}>
+              <div className="amount-box primary" style={{ minWidth: "250px" }}>
                 <div className="label">
                   {language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}
                   {paymentDetails.treasuryCurrencyCode && ` (${paymentDetails.treasuryCurrencyCode})`}
                 </div>
                 <div className="value">
                   {paymentDetails.treasuryAmount !== undefined 
-                    ? paymentDetails.treasuryAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : request.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    ? paymentDetails.treasuryAmount.toLocaleString(language === "ar" ? "ar-SA" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : request.amount.toLocaleString(language === "ar" ? "ar-SA" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                   }
                 </div>
               </div>
@@ -227,7 +208,7 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
             
             {request.notes && (
               <div className="row">
-                <label>{language === "ar" ? "ملاحظات:" : "Notes:"}</label>
+                <label>{language === "ar" ? "الغرض:" : "Purpose:"}</label>
                 <span>{request.notes}</span>
               </div>
             )}
