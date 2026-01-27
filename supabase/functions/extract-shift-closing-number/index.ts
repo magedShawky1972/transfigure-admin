@@ -105,11 +105,20 @@ BRAND VALIDATION RULES (FLEXIBLE BUT ACCURATE):
 IMPORTANT: Different voice chat apps (Hawa Chat, Soul Free, Sila Chat, Binmo, Yoho, etc.) have DIFFERENT UIs. Do NOT confuse them!
 But the SAME app on different devices/modes should be recognized as valid.
 
-NUMBER EXTRACTION RULES:
+NUMBER EXTRACTION RULES - READ VERY CAREFULLY:
 - Only extract the number if brand is VALID
 - Look for the closing balance / total / coins number
 - Extract ONLY numeric digits (no currency symbols)
 - The number location should be similar across training images
+
+CRITICAL - ARABIC NUMERAL ACCURACY:
+When reading Arabic/Eastern Arabic numerals, be EXTREMELY careful with each digit:
+- ٠ = 0, ١ = 1, ٢ = 2, ٣ = 3, ٤ = 4, ٥ = 5, ٦ = 6, ٧ = 7, ٨ = 8, ٩ = 9
+- Pay special attention to ٥ (5) vs ٠ (0) - they look similar but are DIFFERENT
+- ٥ has a small dot/circle at the top, ٠ is a plain dot/circle
+- Read EACH digit individually from left to right
+- Double-check numbers with commas/separators - read each group carefully
+- Example: ٦٧،٥١٦،٩٤٧ = 67,516,947 (note the ٥ in the middle group is 5, not 0)
 
 Response format (JSON only, no markdown):
 {
