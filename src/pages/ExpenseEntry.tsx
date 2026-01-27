@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
-import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload, Lock, Undo2 } from "lucide-react";
+import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload, Lock, Undo2, Printer } from "lucide-react";
+import { getPrintLogoUrl } from "@/lib/printLogo";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as XLSX from "xlsx";
@@ -748,6 +749,167 @@ const ExpenseEntryPage = () => {
     return sarAmount;
   };
 
+  const handlePrintGrid = () => {
+    const isRtl = language === "ar";
+    const printWindow = window.open("", "_blank", "width=1200,height=800");
+    if (!printWindow) {
+      toast.error(isRtl ? "تعذر فتح نافذة الطباعة" : "Could not open print window");
+      return;
+    }
+
+    const logoUrl = getPrintLogoUrl();
+    const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString(isRtl ? "ar-SA" : "en-US", { month: "long" });
+    const reportTitle = isRtl ? "تقرير قيود المصروفات" : "Expense Entries Report";
+    const periodLabel = isRtl ? `الفترة: ${monthName} ${selectedYear}` : `Period: ${monthName} ${selectedYear}`;
+
+    // Calculate totals
+    const totalSAR = entries.reduce((sum, e) => sum + getAmountInSAR(e), 0);
+
+    const tableRows = entries.map((entry) => {
+      const originalAmount = getAmountInOriginalCurrency(entry);
+      const sarAmount = getAmountInSAR(entry);
+      const currencyCode = getCurrencyCode(entry.currency_id);
+      const paymentSource = entry.payment_method === "bank" ? getBankName(entry.bank_id) : getTreasuryName(entry.treasury_id);
+      const statusLabel = getStatusLabel(entry.status);
+      const costCenter = getCostCenterName(entry.cost_center_id);
+
+      return `
+        <tr>
+          <td>${entry.entry_number}</td>
+          <td>${format(new Date(entry.entry_date), "yyyy-MM-dd")}</td>
+          <td>${entry.expense_reference || "-"}</td>
+          <td>${costCenter}</td>
+          <td>${isRtl ? (entry.payment_method === "bank" ? "بنك" : "خزينة") : (entry.payment_method === "bank" ? "Bank" : "Treasury")}</td>
+          <td>${paymentSource}</td>
+          <td>${currencyCode}</td>
+          <td class="number">${originalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td class="number">${sarAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td class="status-${entry.status}">${statusLabel}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="${isRtl ? "rtl" : "ltr"}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${reportTitle}</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px;
+            color: #000;
+            background: white;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+          }
+          .header img {
+            width: 120px;
+            height: auto;
+            margin-bottom: 10px;
+          }
+          .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+          }
+          .header p {
+            font-size: 14px;
+            color: #666;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+          }
+          th, td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            text-align: ${isRtl ? "right" : "left"};
+          }
+          th {
+            background: #f3f4f6;
+            font-weight: bold;
+          }
+          .number {
+            text-align: right;
+            font-family: monospace;
+          }
+          .totals-row {
+            background: #e5e7eb;
+            font-weight: bold;
+          }
+          .status-draft { color: #6b7280; }
+          .status-pending { color: #d97706; }
+          .status-approved { color: #059669; }
+          .status-paid { color: #7c3aed; }
+          .status-posted { color: #2563eb; }
+          .status-rejected { color: #dc2626; }
+          .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+          }
+          @media print {
+            body { padding: 10px; }
+            @page { size: A4 landscape; margin: 10mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="${logoUrl}" alt="Logo" />
+          <h1>${reportTitle}</h1>
+          <p>${periodLabel}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>${isRtl ? "رقم القيد" : "Entry No."}</th>
+              <th>${isRtl ? "التاريخ" : "Date"}</th>
+              <th>${isRtl ? "المرجع" : "Reference"}</th>
+              <th>${isRtl ? "مركز التكلفة" : "Cost Center"}</th>
+              <th>${isRtl ? "طريقة الدفع" : "Payment"}</th>
+              <th>${isRtl ? "البنك/الخزينة" : "Bank/Treasury"}</th>
+              <th>${isRtl ? "العملة" : "Currency"}</th>
+              <th>${isRtl ? "المبلغ الأصلي" : "Original Amt"}</th>
+              <th>${isRtl ? "المبلغ (ر.س)" : "Amount (SAR)"}</th>
+              <th>${isRtl ? "الحالة" : "Status"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td colspan="8" style="text-align: ${isRtl ? "left" : "right"};">${isRtl ? "الإجمالي" : "Total"}</td>
+              <td class="number">${totalSAR.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="footer">
+          ${isRtl ? "تم الطباعة بتاريخ:" : "Printed on:"} ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
   if (loading || importing) return <LoadingOverlay />;
 
   return (
@@ -759,6 +921,10 @@ const ExpenseEntryPage = () => {
             {language === "ar" ? "قيد المصروفات" : "Expense Entry"}
           </CardTitle>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handlePrintGrid} className="gap-1">
+              <Printer className="h-4 w-4" />
+              {language === "ar" ? "طباعة" : "Print"}
+            </Button>
             <input
               type="file"
               ref={fileInputRef}
