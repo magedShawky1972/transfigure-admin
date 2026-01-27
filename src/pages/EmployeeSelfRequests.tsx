@@ -1,0 +1,374 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { format, differenceInDays } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Plus,
+  Calendar as CalendarIcon,
+  Clock,
+  DollarSign,
+  FileText,
+  Loader2,
+  Thermometer,
+  Palmtree,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  HourglassIcon,
+} from "lucide-react";
+
+type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'expense_refund' | 'experience_certificate';
+
+const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; labelEn: string; color: string }> = {
+  sick_leave: { icon: Thermometer, labelAr: 'إجازة مرضية', labelEn: 'Sick Leave', color: 'bg-red-100 text-red-800' },
+  vacation: { icon: Palmtree, labelAr: 'طلب إجازة', labelEn: 'Vacation', color: 'bg-green-100 text-green-800' },
+  delay: { icon: Clock, labelAr: 'طلب تأخير', labelEn: 'Delay Request', color: 'bg-yellow-100 text-yellow-800' },
+  expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
+  experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
+};
+
+const STATUS_INFO: Record<string, { labelAr: string; labelEn: string; color: string; icon: any }> = {
+  pending: { labelAr: 'قيد الانتظار', labelEn: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: HourglassIcon },
+  manager_approved: { labelAr: 'موافقة المدير', labelEn: 'Manager Approved', color: 'bg-blue-100 text-blue-800', icon: CheckCircle2 },
+  hr_pending: { labelAr: 'قيد HR', labelEn: 'HR Pending', color: 'bg-orange-100 text-orange-800', icon: HourglassIcon },
+  approved: { labelAr: 'مقبول', labelEn: 'Approved', color: 'bg-green-100 text-green-800', icon: CheckCircle2 },
+  rejected: { labelAr: 'مرفوض', labelEn: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
+  cancelled: { labelAr: 'ملغي', labelEn: 'Cancelled', color: 'bg-gray-100 text-gray-800', icon: XCircle },
+};
+
+const EmployeeSelfRequests = () => {
+  const { language } = useLanguage();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [vacationBalances, setVacationBalances] = useState<any[]>([]);
+  const [currencies, setCurrencies] = useState<any[]>([]);
+  const [employee, setEmployee] = useState<any>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState<RequestType>('vacation');
+
+  const [vacationCodeId, setVacationCodeId] = useState<string>('');
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [reason, setReason] = useState('');
+  const [delayDate, setDelayDate] = useState<Date | undefined>();
+  const [delayMinutes, setDelayMinutes] = useState('');
+  const [actualArrival, setActualArrival] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCurrencyId, setExpenseCurrencyId] = useState('');
+  const [expenseDescription, setExpenseDescription] = useState('');
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('id, department_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (empData) {
+        setEmployee(empData);
+
+        const { data: reqData } = await supabase
+          .from('employee_requests')
+          .select('*')
+          .eq('employee_id', empData.id)
+          .order('created_at', { ascending: false });
+
+        setRequests(reqData || []);
+
+        const { data: balanceData } = await supabase
+          .from('employee_vacation_types')
+          .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
+          .eq('employee_id', empData.id);
+
+        setVacationBalances(balanceData || []);
+      }
+
+      const { data: currData } = await supabase
+        .from('currencies')
+        .select('id, currency_code, currency_name')
+        .eq('is_active', true);
+
+      setCurrencies(currData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setVacationCodeId('');
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setReason('');
+    setDelayDate(undefined);
+    setDelayMinutes('');
+    setActualArrival('');
+    setExpenseAmount('');
+    setExpenseCurrencyId('');
+    setExpenseDescription('');
+  };
+
+  const calculateTotalDays = () => {
+    if (startDate && endDate) {
+      return differenceInDays(endDate, startDate) + 1;
+    }
+    return 0;
+  };
+
+  const getAvailableBalance = () => {
+    if (!vacationCodeId) return 0;
+    const balance = vacationBalances.find((b: any) => b.vacation_code_id === vacationCodeId);
+    if (balance) {
+      return balance.balance - balance.used_days;
+    }
+    return 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!employee) return;
+
+    setSubmitting(true);
+    try {
+      const requestData: any = {
+        employee_id: employee.id,
+        request_type: selectedType,
+        department_id: employee.department_id,
+        reason,
+      };
+
+      if (selectedType === 'sick_leave' || selectedType === 'vacation') {
+        requestData.vacation_code_id = vacationCodeId;
+        requestData.start_date = startDate ? format(startDate, 'yyyy-MM-dd') : null;
+        requestData.end_date = endDate ? format(endDate, 'yyyy-MM-dd') : null;
+        requestData.total_days = calculateTotalDays();
+      }
+
+      if (selectedType === 'delay') {
+        requestData.delay_date = delayDate ? format(delayDate, 'yyyy-MM-dd') : null;
+        requestData.delay_minutes = parseInt(delayMinutes);
+        requestData.actual_arrival_time = actualArrival || null;
+      }
+
+      if (selectedType === 'expense_refund') {
+        requestData.expense_amount = parseFloat(expenseAmount);
+        requestData.expense_currency_id = expenseCurrencyId;
+        requestData.expense_description = expenseDescription;
+      }
+
+      const { error } = await supabase.from('employee_requests').insert(requestData);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إرسال الطلب بنجاح' : 'Request submitted successfully',
+      });
+
+      setDialogOpen(false);
+      resetForm();
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">{language === 'ar' ? 'طلبات الموظف' : 'Employee Requests'}</h1>
+        <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          {language === 'ar' ? 'طلب جديد' : 'New Request'}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {(Object.keys(REQUEST_TYPE_INFO) as RequestType[]).map((type) => {
+          const info = REQUEST_TYPE_INFO[type];
+          const Icon = info.icon;
+          return (
+            <Card key={type} className="cursor-pointer hover:shadow-md" onClick={() => { setSelectedType(type); resetForm(); setDialogOpen(true); }}>
+              <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                <Icon className="h-8 w-8 mb-2 text-primary" />
+                <span className="text-sm font-medium">{language === 'ar' ? info.labelAr : info.labelEn}</span>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {vacationBalances.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">{language === 'ar' ? 'أرصدة الإجازات' : 'Vacation Balances'}</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {vacationBalances.map((balance: any) => (
+                <div key={balance.id} className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? balance.vacation_codes?.name_ar || balance.vacation_codes?.name_en : balance.vacation_codes?.name_en}</p>
+                  <p className="text-xl font-bold text-primary">{balance.balance - balance.used_days}<span className="text-sm font-normal text-muted-foreground ml-1">/ {balance.balance}</span></p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader><CardTitle className="text-lg">{language === 'ar' ? 'سجل الطلبات' : 'Request History'}</CardTitle></CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[400px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Request #'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {requests.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">{language === 'ar' ? 'لا توجد طلبات' : 'No requests found'}</TableCell></TableRow>
+                ) : requests.map((request: any) => {
+                  const typeInfo = REQUEST_TYPE_INFO[request.request_type as RequestType];
+                  const statusInfo = STATUS_INFO[request.status] || STATUS_INFO.pending;
+                  const TypeIcon = typeInfo?.icon || FileText;
+                  const StatusIcon = statusInfo.icon;
+                  return (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-mono text-sm">{request.request_number}</TableCell>
+                      <TableCell><Badge className={typeInfo?.color || ''}><TypeIcon className="h-3 w-3 mr-1" />{language === 'ar' ? typeInfo?.labelAr : typeInfo?.labelEn}</Badge></TableCell>
+                      <TableCell><Badge className={statusInfo.color}><StatusIcon className="h-3 w-3 mr-1" />{language === 'ar' ? statusInfo.labelAr : statusInfo.labelEn}</Badge></TableCell>
+                      <TableCell className="text-sm">{format(new Date(request.created_at), 'yyyy-MM-dd')}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{language === 'ar' ? REQUEST_TYPE_INFO[selectedType].labelAr : REQUEST_TYPE_INFO[selectedType].labelEn}</DialogTitle>
+          </DialogHeader>
+          <Tabs value={selectedType} onValueChange={(v) => { setSelectedType(v as RequestType); resetForm(); }}>
+            <TabsList className="grid grid-cols-5 w-full">
+              {(Object.keys(REQUEST_TYPE_INFO) as RequestType[]).map((type) => {
+                const info = REQUEST_TYPE_INFO[type];
+                const Icon = info.icon;
+                return <TabsTrigger key={type} value={type}><Icon className="h-4 w-4" /></TabsTrigger>;
+              })}
+            </TabsList>
+          </Tabs>
+          <div className="space-y-4 py-4">
+            {(selectedType === 'sick_leave' || selectedType === 'vacation') && (
+              <>
+                <Select value={vacationCodeId} onValueChange={setVacationCodeId}>
+                  <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'نوع الإجازة' : 'Leave Type'} /></SelectTrigger>
+                  <SelectContent>
+                    {vacationBalances.map((b: any) => (
+                      <SelectItem key={b.vacation_code_id} value={b.vacation_code_id}>
+                        {language === 'ar' ? b.vacation_codes?.name_ar || b.vacation_codes?.name_en : b.vacation_codes?.name_en} ({b.balance - b.used_days} {language === 'ar' ? 'متاح' : 'avail'})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {vacationCodeId && (
+                  <div className={`p-2 rounded text-sm ${calculateTotalDays() > getAvailableBalance() ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    {language === 'ar' ? 'المتاح:' : 'Available:'} {getAvailableBalance()} | {language === 'ar' ? 'المطلوب:' : 'Requested:'} {calculateTotalDays()}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{startDate ? format(startDate, 'yyyy-MM-dd') : (language === 'ar' ? 'من' : 'From')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} /></PopoverContent></Popover>
+                  <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{endDate ? format(endDate, 'yyyy-MM-dd') : (language === 'ar' ? 'إلى' : 'To')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} /></PopoverContent></Popover>
+                </div>
+              </>
+            )}
+            {selectedType === 'delay' && (
+              <>
+                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{delayDate ? format(delayDate, 'yyyy-MM-dd') : (language === 'ar' ? 'تاريخ التأخير' : 'Delay Date')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={delayDate} onSelect={setDelayDate} /></PopoverContent></Popover>
+                <Input type="number" placeholder={language === 'ar' ? 'الدقائق' : 'Minutes'} value={delayMinutes} onChange={(e) => setDelayMinutes(e.target.value)} />
+                <Input type="time" value={actualArrival} onChange={(e) => setActualArrival(e.target.value)} />
+              </>
+            )}
+            {selectedType === 'expense_refund' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input type="number" step="0.01" placeholder={language === 'ar' ? 'المبلغ' : 'Amount'} value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} />
+                  <Select value={expenseCurrencyId} onValueChange={setExpenseCurrencyId}>
+                    <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'العملة' : 'Currency'} /></SelectTrigger>
+                    <SelectContent>{currencies.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.currency_code}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <Textarea placeholder={language === 'ar' ? 'وصف المصروفات' : 'Expense Description'} value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} />
+              </>
+            )}
+            <Textarea placeholder={language === 'ar' ? 'السبب' : 'Reason'} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+            <Button onClick={handleSubmit} disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{language === 'ar' ? 'إرسال' : 'Submit'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default EmployeeSelfRequests;

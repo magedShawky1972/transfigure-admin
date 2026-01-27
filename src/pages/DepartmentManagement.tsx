@@ -105,6 +105,8 @@ type DepartmentAdmin = {
   is_purchase_admin: boolean;
   admin_order: number;
   requires_cost_center: boolean;
+  is_department_manager: boolean;
+  approve_employee_request: boolean;
   profiles: {
     user_name: string;
     email: string;
@@ -128,9 +130,11 @@ interface SortableAdminItemProps {
   onRemove: () => void;
   onTogglePurchase: (adminId: string, isPurchase: boolean) => void;
   onToggleCostCenter: (adminId: string, requiresCostCenter: boolean) => void;
+  onToggleDeptManager: (adminId: string, isDeptManager: boolean) => void;
+  onToggleApproveRequest: (adminId: string, approveRequest: boolean) => void;
 }
 
-const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase, onToggleCostCenter }: SortableAdminItemProps) => {
+const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase, onToggleCostCenter, onToggleDeptManager, onToggleApproveRequest }: SortableAdminItemProps) => {
   const {
     attributes,
     listeners,
@@ -178,6 +182,16 @@ const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase,
                   {language === 'ar' ? 'مركز تكلفة' : 'Cost Center'}
                 </Badge>
               )}
+              {admin.is_department_manager && (
+                <Badge variant="default" className="flex items-center gap-1 bg-blue-600">
+                  {language === 'ar' ? 'مدير القسم' : 'Dept Manager'}
+                </Badge>
+              )}
+              {admin.approve_employee_request && (
+                <Badge variant="outline" className="flex items-center gap-1 text-green-600 border-green-300">
+                  {language === 'ar' ? 'طلبات الموظفين' : 'Emp Requests'}
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {admin.profiles.email}
@@ -185,7 +199,7 @@ const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase,
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border" title={language === 'ar' ? 'مركز تكلفة مطلوب' : 'Requires Cost Center'}>
           <span className="text-xs text-muted-foreground">{language === 'ar' ? 'م.ت' : 'CC'}</span>
           <Checkbox
@@ -193,11 +207,25 @@ const SortableAdminItem = ({ admin, index, language, onRemove, onTogglePurchase,
             onCheckedChange={(checked) => onToggleCostCenter(admin.id, !!checked)}
           />
         </div>
-        <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border">
+        <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border" title={language === 'ar' ? 'مسؤول مشتريات' : 'Purchase Admin'}>
           <ShoppingCart className="h-3 w-3 text-muted-foreground" />
           <Switch
             checked={admin.is_purchase_admin}
             onCheckedChange={(checked) => onTogglePurchase(admin.id, checked)}
+          />
+        </div>
+        <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border" title={language === 'ar' ? 'اعتماد طلبات الموظفين' : 'Approve Employee Requests'}>
+          <span className="text-xs text-muted-foreground">{language === 'ar' ? 'طلبات' : 'Req'}</span>
+          <Checkbox
+            checked={admin.approve_employee_request}
+            onCheckedChange={(checked) => onToggleApproveRequest(admin.id, !!checked)}
+          />
+        </div>
+        <div className="flex items-center gap-2 px-2 py-1 bg-background rounded border" title={language === 'ar' ? 'مدير القسم' : 'Department Manager'}>
+          <span className="text-xs text-muted-foreground">{language === 'ar' ? 'مدير' : 'Mgr'}</span>
+          <Switch
+            checked={admin.is_department_manager}
+            onCheckedChange={(checked) => onToggleDeptManager(admin.id, checked)}
           />
         </div>
         <Button
@@ -625,6 +653,58 @@ const DepartmentManagement = () => {
         description: language === 'ar' 
           ? `تم ${requiresCostCenter ? 'تفعيل' : 'إلغاء'} متطلب مركز التكلفة` 
           : `Cost center requirement ${requiresCostCenter ? 'enabled' : 'disabled'}`,
+      });
+
+      await fetchAdmins();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleDeptManager = async (adminId: string, isDeptManager: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("department_admins")
+        .update({ is_department_manager: isDeptManager })
+        .eq("id", adminId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم ${isDeptManager ? 'تعيين' : 'إلغاء'} كمدير قسم` 
+          : `Admin ${isDeptManager ? 'set as' : 'removed from'} department manager`,
+      });
+
+      await fetchAdmins();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleApproveRequest = async (adminId: string, approveRequest: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("department_admins")
+        .update({ approve_employee_request: approveRequest })
+        .eq("id", adminId);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم ${approveRequest ? 'تفعيل' : 'إلغاء'} صلاحية اعتماد طلبات الموظفين` 
+          : `Employee request approval ${approveRequest ? 'enabled' : 'disabled'}`,
       });
 
       await fetchAdmins();
@@ -1266,6 +1346,8 @@ const DepartmentManagement = () => {
                                 onRemove={() => handleRemoveAdmin(admin.id)}
                                 onTogglePurchase={handleTogglePurchaseAdmin}
                                 onToggleCostCenter={handleToggleCostCenter}
+                                onToggleDeptManager={handleToggleDeptManager}
+                                onToggleApproveRequest={handleToggleApproveRequest}
                               />
                             ))}
                           </div>
