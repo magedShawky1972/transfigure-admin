@@ -580,17 +580,23 @@ const TreasuryEntry = () => {
         <title>${isRtl ? "سند خزينة" : "Treasury Voucher"} - ${entry.entry_number}</title>
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { 
+          html, body { 
+            height: 100%;
             font-family: Arial, sans-serif; 
-            padding: 30px;
+            padding: 40px;
             color: #000;
             background: white;
+          }
+          .voucher-container {
             position: relative;
+            max-width: 700px;
+            margin: 0 auto;
+            height: auto;
           }
           .ribbon-container {
             position: absolute;
             top: 0;
-            right: 0;
+            ${isRtl ? "left: 0;" : "right: 0;"}
             width: 150px;
             height: 150px;
             overflow: hidden;
@@ -599,10 +605,10 @@ const TreasuryEntry = () => {
           .ribbon {
             position: absolute;
             top: 30px;
-            right: -40px;
+            ${isRtl ? "left: -40px;" : "right: -40px;"}
             width: 180px;
             text-align: center;
-            transform: rotate(45deg);
+            transform: rotate(${isRtl ? "-45deg" : "45deg"});
             color: white;
             padding: 8px 0;
             font-weight: bold;
@@ -615,111 +621,110 @@ const TreasuryEntry = () => {
           .header {
             text-align: center;
             border-bottom: 2px solid #000;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
           }
           .header img {
-            width: 120px;
+            width: 100px;
             height: auto;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
           }
           .header h1 {
-            font-size: 22px;
+            font-size: 26px;
             margin-bottom: 5px;
           }
           .info-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
           }
           .info-box {
             border: 1px solid #000;
-            padding: 10px;
+            padding: 12px;
           }
           .info-box label {
-            font-size: 11px;
+            font-size: 12px;
             color: #666;
             display: block;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
           }
           .info-box span {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: bold;
           }
           .amount-section {
-            border: 2px solid #000;
-            padding: 20px;
-            margin-bottom: 25px;
+            border: 3px solid #000;
+            padding: 30px;
+            margin-bottom: 30px;
             text-align: center;
           }
           .amount-section .label {
-            font-size: 14px;
-            margin-bottom: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
           }
           .amount-section .value {
-            font-size: 28px;
+            font-size: 36px;
             font-weight: bold;
             font-family: monospace;
           }
           .amount-section .currency {
-            font-size: 16px;
+            font-size: 18px;
             color: #666;
-            margin-top: 5px;
+            margin-top: 10px;
           }
           .voided { color: #dc2626; }
           .description-box {
             border: 1px solid #000;
-            padding: 15px;
-            margin-bottom: 25px;
-            min-height: 60px;
+            padding: 20px;
+            margin-bottom: 30px;
+            min-height: 80px;
           }
           .description-box label {
-            font-size: 11px;
+            font-size: 12px;
             color: #666;
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
           }
           .signatures {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
-            margin-top: 50px;
+            gap: 40px;
+            margin-top: 60px;
           }
           .signature-box {
             text-align: center;
           }
           .signature-box .line {
             border-bottom: 1px solid #000;
-            height: 50px;
-            margin-bottom: 8px;
+            height: 60px;
+            margin-bottom: 10px;
           }
           .signature-box label {
-            font-size: 12px;
+            font-size: 13px;
             font-weight: bold;
           }
           .footer {
-            margin-top: 30px;
+            margin-top: 40px;
             text-align: center;
             font-size: 11px;
             color: #666;
             border-top: 1px solid #ccc;
-            padding-top: 10px;
+            padding-top: 15px;
           }
           @media print {
-            body { padding: 15px; }
-            @page { size: A5; margin: 10mm; }
+            html, body { 
+              padding: 20px;
+              height: auto;
+            }
+            @page { 
+              size: A4; 
+              margin: 15mm; 
+            }
+            .voucher-container {
+              max-width: 100%;
+            }
             * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              color-adjust: exact !important;
-            }
-            .ribbon {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              color-adjust: exact !important;
-            }
-            .voided {
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
               color-adjust: exact !important;
@@ -728,85 +733,87 @@ const TreasuryEntry = () => {
         </style>
       </head>
       <body>
-        <div class="ribbon-container">
-          <div class="ribbon">${statusLabel}</div>
-        </div>
+        <div class="voucher-container">
+          <div class="ribbon-container">
+            <div class="ribbon">${statusLabel}</div>
+          </div>
 
-        <div class="header">
-          <img src="${logoUrl}" alt="Logo" />
-          <h1>${entry.entry_type === "receipt" ? (isRtl ? "سند قبض" : "Receipt Voucher") : (isRtl ? "سند صرف" : "Payment Voucher")}</h1>
-        </div>
+          <div class="header">
+            <img src="${logoUrl}" alt="Logo" />
+            <h1>${entry.entry_type === "receipt" ? (isRtl ? "سند قبض" : "Receipt Voucher") : (isRtl ? "سند صرف" : "Payment Voucher")}</h1>
+          </div>
 
-        <div class="info-grid">
-          <div class="info-box">
-            <label>${isRtl ? "رقم السند" : "Voucher No."}</label>
-            <span>${entry.entry_number}</span>
+          <div class="info-grid">
+            <div class="info-box">
+              <label>${isRtl ? "رقم السند" : "Voucher No."}</label>
+              <span>${entry.entry_number}</span>
+            </div>
+            <div class="info-box">
+              <label>${isRtl ? "التاريخ" : "Date"}</label>
+              <span>${format(new Date(entry.entry_date), "yyyy-MM-dd")}</span>
+            </div>
+            <div class="info-box">
+              <label>${isRtl ? "الخزينة" : "Treasury"}</label>
+              <span>${treasuryName}</span>
+            </div>
+            <div class="info-box">
+              <label>${isRtl ? "النوع" : "Type"}</label>
+              <span>${entryTypeLabel}</span>
+            </div>
+            <div class="info-box">
+              <label>${isRtl ? "الحالة" : "Status"}</label>
+              <span>${statusLabel}</span>
+            </div>
+            <div class="info-box">
+              <label>${isRtl ? "العملة" : "Currency"}</label>
+              <span>${currencyCode}</span>
+            </div>
           </div>
-          <div class="info-box">
-            <label>${isRtl ? "التاريخ" : "Date"}</label>
-            <span>${format(new Date(entry.entry_date), "yyyy-MM-dd")}</span>
-          </div>
-          <div class="info-box">
-            <label>${isRtl ? "الخزينة" : "Treasury"}</label>
-            <span>${treasuryName}</span>
-          </div>
-          <div class="info-box">
-            <label>${isRtl ? "النوع" : "Type"}</label>
-            <span>${entryTypeLabel}</span>
-          </div>
-          <div class="info-box">
-            <label>${isRtl ? "الحالة" : "Status"}</label>
-            <span>${statusLabel}</span>
-          </div>
-          <div class="info-box">
-            <label>${isRtl ? "العملة" : "Currency"}</label>
-            <span>${currencyCode}</span>
-          </div>
-        </div>
 
-        <div class="amount-section">
-          <div class="label">${isRtl ? "المبلغ" : "Amount"}</div>
-          <div class="value ${entry.status === "voided" ? "voided" : ""}">
-            ${(entry.converted_amount || entry.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div class="amount-section">
+            <div class="label">${isRtl ? "المبلغ" : "Amount"}</div>
+            <div class="value ${entry.status === "voided" ? "voided" : ""}">
+              ${(entry.converted_amount || entry.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div class="currency">${currencyCode}</div>
           </div>
-          <div class="currency">${currencyCode}</div>
-        </div>
 
-        ${entry.balance_before !== null || entry.balance_after !== null ? `
-        <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
-          <div class="info-box">
-            <label>${isRtl ? "الرصيد قبل" : "Balance Before"}</label>
-            <span>${entry.balance_before?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
+          ${entry.balance_before !== null || entry.balance_after !== null ? `
+          <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="info-box">
+              <label>${isRtl ? "الرصيد قبل" : "Balance Before"}</label>
+              <span>${entry.balance_before?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
+            </div>
+            <div class="info-box">
+              <label>${isRtl ? "الرصيد بعد" : "Balance After"}</label>
+              <span>${entry.balance_after?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
+            </div>
           </div>
-          <div class="info-box">
-            <label>${isRtl ? "الرصيد بعد" : "Balance After"}</label>
-            <span>${entry.balance_after?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
-          </div>
-        </div>
-        ` : ""}
+          ` : ""}
 
-        <div class="description-box">
-          <label>${isRtl ? "الوصف / البيان" : "Description"}</label>
-          <div>${entry.description || "-"}</div>
-        </div>
+          <div class="description-box">
+            <label>${isRtl ? "الوصف / البيان" : "Description"}</label>
+            <div>${entry.description || "-"}</div>
+          </div>
 
-        <div class="signatures">
-          <div class="signature-box">
-            <div class="line"></div>
-            <label>${isRtl ? "المحضر" : "Prepared By"}</label>
+          <div class="signatures">
+            <div class="signature-box">
+              <div class="line"></div>
+              <label>${isRtl ? "المحضر" : "Prepared By"}</label>
+            </div>
+            <div class="signature-box">
+              <div class="line"></div>
+              <label>${isRtl ? "المراجع" : "Reviewed By"}</label>
+            </div>
+            <div class="signature-box">
+              <div class="line"></div>
+              <label>${isRtl ? "المعتمد" : "Approved By"}</label>
+            </div>
           </div>
-          <div class="signature-box">
-            <div class="line"></div>
-            <label>${isRtl ? "المراجع" : "Reviewed By"}</label>
-          </div>
-          <div class="signature-box">
-            <div class="line"></div>
-            <label>${isRtl ? "المعتمد" : "Approved By"}</label>
-          </div>
-        </div>
 
-        <div class="footer">
-          ${isRtl ? "تم الطباعة بتاريخ:" : "Printed on:"} ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}
+          <div class="footer">
+            ${isRtl ? "تم الطباعة بتاريخ:" : "Printed on:"} ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}
+          </div>
         </div>
       </body>
       </html>
