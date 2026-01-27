@@ -28,6 +28,7 @@ interface ShiftClosingDetailsDialogProps {
   shiftSessionId: string | null;
   userName: string;
   shiftName: string;
+  onDataChanged?: () => void;
 }
 
 interface ShiftSession {
@@ -63,6 +64,7 @@ export default function ShiftClosingDetailsDialog({
   shiftSessionId,
   userName,
   shiftName,
+  onDataChanged,
 }: ShiftClosingDetailsDialogProps) {
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
@@ -80,8 +82,15 @@ export default function ShiftClosingDetailsDialog({
 
   useEffect(() => {
     if (open && shiftSessionId) {
+      // Reset state and fetch fresh data when dialog opens
+      setBrandBalances([]);
+      setLudoTransactions([]);
+      setShiftSession(null);
+      setEditingBalanceId(null);
+      setEditingType(null);
+      setEditValue("");
       fetchClosingDetails();
-      setActiveTab("closing"); // Reset to default tab when opening
+      setActiveTab("closing");
     }
   }, [open, shiftSessionId]);
 
@@ -324,6 +333,9 @@ export default function ShiftClosingDetailsDialog({
 
       toast.success(language === "ar" ? "تم حفظ القيمة بنجاح" : "Value saved successfully");
       handleCancelEdit();
+      
+      // Notify parent that data changed
+      onDataChanged?.();
     } catch (error: any) {
       console.error("Error saving balance:", error);
       toast.error(language === "ar" ? "فشل في حفظ القيمة" : "Failed to save value");
