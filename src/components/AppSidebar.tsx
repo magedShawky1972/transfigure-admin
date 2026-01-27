@@ -152,6 +152,9 @@ export function AppSidebar() {
     "/update-bank-ledger": "updateBankLedger",
     "/cost-center-setup": "costCenterSetup",
     "/void-payment": "voidPayment",
+    "/employee-self-requests": "employeeRequests",
+    "/employee-request-approvals": "employeeRequestApprovals",
+    "/hr-manager-setup": "hrManagerSetup",
   };
 
   useEffect(() => {
@@ -282,7 +285,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "لوحة التذاكر" : "Ticket Dashboard", url: "/ticket-dashboard", icon: TicketCheck },
         { title: language === 'ar' ? "لوحة الورديات" : "Shift Dashboard", url: "/shift-dashboard", icon: Clock },
         { title: language === 'ar' ? "لوحة المهام" : "Task Dashboard", url: "/task-dashboard", icon: FolderKanban },
-        { title: language === 'ar' ? "لوحة المستخدم" : "User Dashboard", url: "/user-dashboard", icon: Users },
+        { title: language === 'ar' ? "لوحة الموظف" : "Employee Dashboard", url: "/user-dashboard", icon: Users },
         { title: language === 'ar' ? "البرامج والاشتراكات" : "Software & Subscription", url: "/software-licenses", icon: Key },
         { title: t("menu.reports"), url: "/reports", icon: FileBarChart },
         { title: language === 'ar' ? "توثيق API" : "API Documentation", url: "/api-documentation", icon: FileText },
@@ -333,6 +336,9 @@ export function AppSidebar() {
       label: language === 'ar' ? 'الموارد البشرية' : 'HR Management',
       items: [
         { title: language === 'ar' ? 'إعداد الموظفين' : 'Employee Setup', url: "/employee-setup", icon: UserCircle },
+        { title: language === 'ar' ? 'طلبات الموظفين' : 'Employee Requests', url: "/employee-self-requests", icon: ClipboardList },
+        { title: language === 'ar' ? 'اعتماد الطلبات' : 'Request Approvals', url: "/employee-request-approvals", icon: ClipboardCheck },
+        { title: language === 'ar' ? 'إعداد مديري HR' : 'HR Manager Setup', url: "/hr-manager-setup", icon: Users },
         { title: language === 'ar' ? 'إعداد الإجازات' : 'Vacation Setup', url: "/vacation-setup", icon: Palmtree },
         { title: language === 'ar' ? 'إدارة الحضور' : 'Timesheet Management', url: "/timesheet-management", icon: ClipboardList },
         { title: language === 'ar' ? 'سجلات حضور ZK' : 'ZK Attendance Logs', url: "/zk-attendance-logs", icon: Clock },

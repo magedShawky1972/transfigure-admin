@@ -1305,27 +1305,33 @@ export type Database = {
       department_admins: {
         Row: {
           admin_order: number
+          approve_employee_request: boolean
           created_at: string
           department_id: string
           id: string
+          is_department_manager: boolean
           is_purchase_admin: boolean
           requires_cost_center: boolean
           user_id: string
         }
         Insert: {
           admin_order?: number
+          approve_employee_request?: boolean
           created_at?: string
           department_id: string
           id?: string
+          is_department_manager?: boolean
           is_purchase_admin?: boolean
           requires_cost_center?: boolean
           user_id: string
         }
         Update: {
           admin_order?: number
+          approve_employee_request?: boolean
           created_at?: string
           department_id?: string
           id?: string
+          is_department_manager?: boolean
           is_purchase_admin?: boolean
           requires_cost_center?: boolean
           user_id?: string
@@ -1843,6 +1849,134 @@ export type Database = {
             columns: ["job_position_id"]
             isOneToOne: false
             referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_requests: {
+        Row: {
+          actual_arrival_time: string | null
+          created_at: string | null
+          current_approval_level: number | null
+          current_phase: string | null
+          delay_date: string | null
+          delay_minutes: number | null
+          department_id: string | null
+          employee_id: string
+          end_date: string | null
+          expense_amount: number | null
+          expense_currency_id: string | null
+          expense_description: string | null
+          expense_receipt_url: string | null
+          hr_approved_at: string | null
+          hr_approved_by: string | null
+          id: string
+          manager_approved_at: string | null
+          manager_approved_by: string | null
+          reason: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          request_date: string | null
+          request_number: string
+          request_type: string
+          start_date: string | null
+          status: string
+          total_days: number | null
+          updated_at: string | null
+          vacation_code_id: string | null
+        }
+        Insert: {
+          actual_arrival_time?: string | null
+          created_at?: string | null
+          current_approval_level?: number | null
+          current_phase?: string | null
+          delay_date?: string | null
+          delay_minutes?: number | null
+          department_id?: string | null
+          employee_id: string
+          end_date?: string | null
+          expense_amount?: number | null
+          expense_currency_id?: string | null
+          expense_description?: string | null
+          expense_receipt_url?: string | null
+          hr_approved_at?: string | null
+          hr_approved_by?: string | null
+          id?: string
+          manager_approved_at?: string | null
+          manager_approved_by?: string | null
+          reason?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          request_date?: string | null
+          request_number: string
+          request_type: string
+          start_date?: string | null
+          status?: string
+          total_days?: number | null
+          updated_at?: string | null
+          vacation_code_id?: string | null
+        }
+        Update: {
+          actual_arrival_time?: string | null
+          created_at?: string | null
+          current_approval_level?: number | null
+          current_phase?: string | null
+          delay_date?: string | null
+          delay_minutes?: number | null
+          department_id?: string | null
+          employee_id?: string
+          end_date?: string | null
+          expense_amount?: number | null
+          expense_currency_id?: string | null
+          expense_description?: string | null
+          expense_receipt_url?: string | null
+          hr_approved_at?: string | null
+          hr_approved_by?: string | null
+          id?: string
+          manager_approved_at?: string | null
+          manager_approved_by?: string | null
+          reason?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          request_date?: string | null
+          request_number?: string
+          request_type?: string
+          start_date?: string | null
+          status?: string
+          total_days?: number | null
+          updated_at?: string | null
+          vacation_code_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_requests_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_requests_expense_currency_id_fkey"
+            columns: ["expense_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_requests_vacation_code_id_fkey"
+            columns: ["vacation_code_id"]
+            isOneToOne: false
+            referencedRelation: "vacation_codes"
             referencedColumns: ["id"]
           },
         ]
@@ -2718,6 +2852,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      hr_managers: {
+        Row: {
+          admin_order: number
+          created_at: string | null
+          id: string
+          is_active: boolean
+          user_id: string
+        }
+        Insert: {
+          admin_order?: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          user_id: string
+        }
+        Update: {
+          admin_order?: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          user_id?: string
+        }
+        Relationships: []
       }
       hyberpaystatement: {
         Row: {
