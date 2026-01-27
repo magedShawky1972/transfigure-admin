@@ -790,9 +790,8 @@ const TreasuryEntry = () => {
                 <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
                 <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
                 <TableHead>{language === "ar" ? "السعر" : "Rate"}</TableHead>
-                <TableHead>{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
-                <TableHead>{language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}</TableHead>
                 <TableHead>{language === "ar" ? "المبلغ بالريال" : "Amount (SAR)"}</TableHead>
+                <TableHead>{language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}</TableHead>
                 <TableHead>{language === "ar" ? "الرصيد قبل" : "Bal. Before"}</TableHead>
                 <TableHead>{language === "ar" ? "الرصيد بعد" : "Bal. After"}</TableHead>
                 <TableHead>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</TableHead>
@@ -823,16 +822,15 @@ const TreasuryEntry = () => {
                   <TableCell className="text-xs">{entry.exchange_rate?.toFixed(4) || "-"}</TableCell>
                   <TableCell className="font-semibold">
                     <span className={entry.entry_type === "receipt" ? "text-green-600" : "text-red-600"}>
-                      {entry.entry_type === "receipt" ? "+" : "-"}{entry.amount.toLocaleString()}
+                      {entry.entry_type === "receipt" ? "+" : "-"}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </TableCell>
                   <TableCell className="font-semibold text-amber-600">
-                    <span>
-                      {getAmountInTreasuryCurrency(entry).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {getTreasuryCurrencyCode(entry.treasury_id)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="font-semibold text-primary">
-                    {entry.converted_amount?.toLocaleString() || "-"}
+                    {entry.converted_amount ? (
+                      <span>
+                        {entry.converted_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {getTreasuryCurrencyCode(entry.treasury_id)}
+                      </span>
+                    ) : "-"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {entry.balance_before?.toLocaleString() || "-"}
