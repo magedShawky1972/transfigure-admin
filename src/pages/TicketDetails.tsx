@@ -45,6 +45,7 @@ type Ticket = {
   budget_value: number | null;
   qty: number | null;
   uom: string | null;
+  cost_center_id: string | null;
   departments: {
     department_name: string;
   };
@@ -846,6 +847,7 @@ const TicketDetails = () => {
             requester_id: ticket.user_id,
             request_date: new Date().toISOString().split("T")[0],
             status: "pending",
+            cost_center_id: ticket.cost_center_id || null,
             notes: language === 'ar' 
               ? `تم إنشاؤه تلقائياً من تذكرة الشراء رقم ${ticket.ticket_number}`
               : `Auto-created from purchase ticket ${ticket.ticket_number}`,
