@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { format } from "date-fns";
+import { PRINT_LOGO_PATH } from "@/lib/printLogo";
 
 interface VoidPaymentPrintProps {
   language: string;
@@ -85,6 +86,11 @@ export const VoidPaymentPrint = forwardRef<HTMLDivElement, VoidPaymentPrintProps
 
         {/* Header */}
         <div className="text-center border-b-2 border-black pb-4 mb-6 relative" style={{ zIndex: 1 }}>
+          <img 
+            src={PRINT_LOGO_PATH} 
+            alt="ASUS Card" 
+            style={{ width: "120px", height: "auto", margin: "0 auto 10px" }} 
+          />
           <h1 className="text-2xl font-bold mb-2">
             {isRtl ? "سند إلغاء دفع" : "Payment Void Voucher"}
           </h1>

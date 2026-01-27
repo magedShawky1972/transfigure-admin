@@ -17,6 +17,7 @@ import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOf
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { getPrintLogoUrl } from "@/lib/printLogo";
 import { TransactionTypeChart } from "@/components/TransactionTypeChart";
 import { UserTransactionCountChart } from "@/components/UserTransactionCountChart";
 import { UserTransactionValueChart } from "@/components/UserTransactionValueChart";
@@ -1700,8 +1701,11 @@ const Dashboard = () => {
         </style>
       </head>
       <body>
-        <h1>${language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</h1>
-        <div class="date-range">${dateRangeText}</div>
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="${getPrintLogoUrl()}" alt="ASUS Card" style="width: 120px; height: auto; margin: 0 auto 10px; display: block;" />
+          <h1>${language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</h1>
+          <div class="date-range">${dateRangeText}</div>
+        </div>
         <table>
           <thead>
             <tr>

@@ -28,6 +28,7 @@ import {
   getKSATimeFormatted 
 } from "@/lib/ksaTime";
 import purpleCardLogo from "@/assets/purple-card-logo.png";
+import { getPrintLogoUrl } from "@/lib/printLogo";
 import sallaLogo from "@/assets/salla-logo.png";
 
 interface Brand {

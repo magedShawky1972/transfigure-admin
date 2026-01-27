@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
+import { getPrintLogoUrl } from "@/lib/printLogo";
 
 interface ExpensePaymentPrintProps {
   request: {
@@ -158,6 +159,7 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
             </div>
             
             <div className="header">
+              <img src={getPrintLogoUrl()} alt="ASUS Card" style={{ width: "120px", height: "auto", margin: "0 auto 10px", display: "block" }} />
               <h1>{language === "ar" ? "سند صرف" : "Payment Voucher"}</h1>
               <p>{language === "ar" ? "رقم السند" : "Voucher No"}: {paymentDetails.entryNumber}</p>
               <p>{language === "ar" ? "التاريخ" : "Date"}: {format(new Date(paymentDetails.paymentDate), "yyyy-MM-dd")}</p>
