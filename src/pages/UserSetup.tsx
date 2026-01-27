@@ -150,6 +150,9 @@ interface UserPermission {
       labelEn: "HR Management",
       items: [
         { key: "employeeSetup", label: "إعداد الموظفين", labelEn: "Employee Setup" },
+        { key: "employeeRequests", label: "طلبات الموظف", labelEn: "Employee Requests" },
+        { key: "employeeRequestApprovals", label: "اعتماد طلبات الموظفين", labelEn: "Employee Request Approvals" },
+        { key: "hrManagerSetup", label: "إعداد مديري الموارد البشرية", labelEn: "HR Manager Setup" },
         { key: "vacationSetup", label: "إعداد الإجازات", labelEn: "Vacation Setup" },
         { key: "timesheetManagement", label: "إدارة الحضور", labelEn: "Timesheet Management" },
         { key: "zkAttendanceLogs", label: "سجلات حضور ZK", labelEn: "ZK Attendance Logs" },
