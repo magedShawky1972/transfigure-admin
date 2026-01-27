@@ -75,6 +75,7 @@ const ExpenseEntryForm = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const isViewOnly = searchParams.get('view') === 'true';
+  const shouldPrint = searchParams.get('print') === 'true';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -117,6 +118,13 @@ const ExpenseEntryForm = () => {
       loadEntry(id);
     }
   }, [id, expenseTypes]);
+
+  // Auto-trigger print if print param is passed
+  useEffect(() => {
+    if (shouldPrint && existingEntryId && !loading && lines.length > 0) {
+      handlePrint();
+    }
+  }, [shouldPrint, existingEntryId, loading, lines.length]);
 
   // Auto-load currency and rate when bank/treasury changes
   useEffect(() => {

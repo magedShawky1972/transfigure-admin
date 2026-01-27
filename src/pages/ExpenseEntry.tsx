@@ -1035,6 +1035,16 @@ const ExpenseEntryPage = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          {/* Print button */}
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => navigate(`/expense-entry/${entry.id}?print=true`)}
+                            title={language === "ar" ? "طباعة" : "Print"}
+                          >
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                          
                           {/* View button - passes view mode for approved/paid/posted entries */}
                           <Button 
                             size="sm" 
