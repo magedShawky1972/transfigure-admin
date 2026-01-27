@@ -1,7 +1,7 @@
 // ASUS Card logo for print documents
 // This logo is used in all reports and print documents except Order Payment Report invoice
 
-import asusCardLogo from "@/assets/asus-card-logo.jpg";
+import asusCardLogo from "@/assets/asus-card-logo.png";
 
 export const PRINT_LOGO_PATH = asusCardLogo;
 
