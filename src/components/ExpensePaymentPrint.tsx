@@ -25,9 +25,10 @@ interface ExpensePaymentPrintProps {
     treasuryCurrencyCode?: string;
   };
   language: string;
+  buttonLabel?: string;
 }
 
-export const ExpensePaymentPrint = ({ request, paymentDetails, language }: ExpensePaymentPrintProps) => {
+export const ExpensePaymentPrint = ({ request, paymentDetails, language, buttonLabel }: ExpensePaymentPrintProps) => {
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -145,9 +146,9 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={handlePrint}>
+      <Button variant="outline" size="sm" onClick={handlePrint} title={buttonLabel || (language === "ar" ? "طباعة الدفع" : "Print Payment")}>
         <Printer className="h-4 w-4 mr-1" />
-        {language === "ar" ? "طباعة" : "Print"}
+        {buttonLabel || (language === "ar" ? "طباعة الدفع" : "Print Payment")}
       </Button>
       
       <div style={{ display: "none" }}>
