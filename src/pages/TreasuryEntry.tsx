@@ -542,6 +542,271 @@ const TreasuryEntry = () => {
     return 0;
   };
 
+  // Print individual treasury entry
+  const handlePrintEntry = (entry: TreasuryEntryType) => {
+    const isRtl = language === "ar";
+    const printWindow = window.open("", "_blank", "width=800,height=600");
+    if (!printWindow) {
+      toast.error(isRtl ? "فشل فتح نافذة الطباعة" : "Failed to open print window");
+      return;
+    }
+
+    const logoUrl = getPrintLogoUrl();
+    const treasuryName = getTreasuryName(entry.treasury_id);
+    const entryTypeLabel = getEntryTypeLabel(entry.entry_type);
+    const statusLabel = getStatusLabel(entry.status);
+    const debit = getDebitAmount(entry);
+    const credit = getCreditAmount(entry);
+    const currencyCode = getTreasuryCurrencyCode(entry.treasury_id);
+
+    // Status ribbon colors
+    const getStatusColor = (status: string) => {
+      switch(status) {
+        case "draft": return "#ef4444";
+        case "pending_approval": return "#f59e0b";
+        case "approved": return "#3b82f6";
+        case "posted": return "#22c55e";
+        case "voided": return "#6b7280";
+        case "rejected": return "#dc2626";
+        default: return "#6b7280";
+      }
+    };
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="${isRtl ? "rtl" : "ltr"}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${isRtl ? "سند خزينة" : "Treasury Voucher"} - ${entry.entry_number}</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 30px;
+            color: #000;
+            background: white;
+            position: relative;
+          }
+          .ribbon-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            overflow: hidden;
+            pointer-events: none;
+          }
+          .ribbon {
+            position: absolute;
+            top: 30px;
+            right: -40px;
+            width: 180px;
+            text-align: center;
+            transform: rotate(45deg);
+            color: white;
+            padding: 8px 0;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            letter-spacing: 1px;
+            background-color: ${getStatusColor(entry.status)};
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+          }
+          .header img {
+            width: 120px;
+            height: auto;
+            margin-bottom: 10px;
+          }
+          .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+          }
+          .info-box {
+            border: 1px solid #000;
+            padding: 10px;
+          }
+          .info-box label {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-bottom: 4px;
+          }
+          .info-box span {
+            font-size: 14px;
+            font-weight: bold;
+          }
+          .amount-section {
+            border: 2px solid #000;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+          }
+          .amount-section .label {
+            font-size: 14px;
+            margin-bottom: 10px;
+          }
+          .amount-section .value {
+            font-size: 28px;
+            font-weight: bold;
+            font-family: monospace;
+          }
+          .amount-section .currency {
+            font-size: 16px;
+            color: #666;
+            margin-top: 5px;
+          }
+          .debit { color: #16a34a; }
+          .credit { color: #dc2626; }
+          .description-box {
+            border: 1px solid #000;
+            padding: 15px;
+            margin-bottom: 25px;
+            min-height: 60px;
+          }
+          .description-box label {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-bottom: 8px;
+          }
+          .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 50px;
+          }
+          .signature-box {
+            text-align: center;
+          }
+          .signature-box .line {
+            border-bottom: 1px solid #000;
+            height: 50px;
+            margin-bottom: 8px;
+          }
+          .signature-box label {
+            font-size: 12px;
+            font-weight: bold;
+          }
+          .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+          }
+          @media print {
+            body { padding: 15px; }
+            @page { size: A5; margin: 10mm; }
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="ribbon-container">
+          <div class="ribbon">${statusLabel}</div>
+        </div>
+
+        <div class="header">
+          <img src="${logoUrl}" alt="Logo" />
+          <h1>${entry.entry_type === "receipt" ? (isRtl ? "سند قبض" : "Receipt Voucher") : (isRtl ? "سند صرف" : "Payment Voucher")}</h1>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-box">
+            <label>${isRtl ? "رقم السند" : "Voucher No."}</label>
+            <span>${entry.entry_number}</span>
+          </div>
+          <div class="info-box">
+            <label>${isRtl ? "التاريخ" : "Date"}</label>
+            <span>${format(new Date(entry.entry_date), "yyyy-MM-dd")}</span>
+          </div>
+          <div class="info-box">
+            <label>${isRtl ? "الخزينة" : "Treasury"}</label>
+            <span>${treasuryName}</span>
+          </div>
+          <div class="info-box">
+            <label>${isRtl ? "النوع" : "Type"}</label>
+            <span>${entryTypeLabel}</span>
+          </div>
+          <div class="info-box">
+            <label>${isRtl ? "الحالة" : "Status"}</label>
+            <span>${statusLabel}</span>
+          </div>
+          <div class="info-box">
+            <label>${isRtl ? "العملة" : "Currency"}</label>
+            <span>${currencyCode}</span>
+          </div>
+        </div>
+
+        <div class="amount-section">
+          <div class="label">${debit > 0 ? (isRtl ? "مدين (وارد)" : "Debit (Received)") : (isRtl ? "دائن (صادر)" : "Credit (Paid)")}</div>
+          <div class="value ${debit > 0 ? "debit" : "credit"}">
+            ${(debit > 0 ? debit : credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div class="currency">${currencyCode}</div>
+        </div>
+
+        ${entry.balance_before !== null || entry.balance_after !== null ? `
+        <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="info-box">
+            <label>${isRtl ? "الرصيد قبل" : "Balance Before"}</label>
+            <span>${entry.balance_before?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
+          </div>
+          <div class="info-box">
+            <label>${isRtl ? "الرصيد بعد" : "Balance After"}</label>
+            <span>${entry.balance_after?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
+          </div>
+        </div>
+        ` : ""}
+
+        <div class="description-box">
+          <label>${isRtl ? "الوصف / البيان" : "Description"}</label>
+          <div>${entry.description || "-"}</div>
+        </div>
+
+        <div class="signatures">
+          <div class="signature-box">
+            <div class="line"></div>
+            <label>${isRtl ? "المحضر" : "Prepared By"}</label>
+          </div>
+          <div class="signature-box">
+            <div class="line"></div>
+            <label>${isRtl ? "المراجع" : "Reviewed By"}</label>
+          </div>
+          <div class="signature-box">
+            <div class="line"></div>
+            <label>${isRtl ? "المعتمد" : "Approved By"}</label>
+          </div>
+        </div>
+
+        <div class="footer">
+          ${isRtl ? "تم الطباعة بتاريخ:" : "Printed on:"} ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
   const handlePrintLedger = () => {
     const selectedTreasury = selectedTreasuryFilter !== "all" 
       ? treasuries.find(t => t.id === selectedTreasuryFilter)
@@ -1106,6 +1371,7 @@ const TreasuryEntry = () => {
                   <TableHead className="text-right text-red-600">{language === "ar" ? "دائن" : "Cr."}</TableHead>
                   <TableHead className="text-right">{language === "ar" ? "الرصيد" : "Balance"}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                  <TableHead className="w-[60px]">{language === "ar" ? "طباعة" : "Print"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1139,6 +1405,7 @@ const TreasuryEntry = () => {
                       {language === "ar" ? "افتتاحي" : "Opening"}
                     </span>
                   </TableCell>
+                  <TableCell></TableCell>
                 </TableRow>
                 {(() => {
                   let runningBalance = openingBalance;
@@ -1180,13 +1447,23 @@ const TreasuryEntry = () => {
                             {getStatusLabel(entry.status)}
                           </span>
                         </TableCell>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => handlePrintEntry(entry)}
+                            title={language === "ar" ? "طباعة" : "Print"}
+                          >
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   });
                 })()}
                 {entries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       {language === "ar" ? "لا توجد قيود" : "No entries found"}
                     </TableCell>
                   </TableRow>
