@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
-import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload, Lock } from "lucide-react";
+import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload, Lock, Undo2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as XLSX from "xlsx";
@@ -61,6 +61,9 @@ interface ExpenseEntry {
   exchange_rate: number | null;
   grand_total: number;
   status: string;
+  // Computed fields for UI logic
+  has_linked_payment?: boolean;
+  from_expense_request?: boolean;
 }
 
 interface CostCenter {
@@ -161,7 +164,55 @@ const ExpenseEntryPage = () => {
         .order("entry_date", { ascending: false });
 
       if (error) throw error;
-      setEntries((data || []) as unknown as ExpenseEntry[]);
+      
+      const entriesData = (data || []) as ExpenseEntry[];
+      
+      // Check which entries have linked payments (treasury_entries or bank_entries)
+      const entryIds = entriesData.map(e => e.id);
+      
+      // Check treasury_entries for linked payments
+      const { data: treasuryPayments } = await supabase
+        .from("treasury_entries")
+        .select("reference_id")
+        .eq("reference_type", "expense_entry")
+        .in("reference_id", entryIds);
+      
+      // Check bank_entries for linked payments (if they have reference fields)
+      const { data: bankPayments } = await supabase
+        .from("bank_entries")
+        .select("reference_id")
+        .eq("reference_type", "expense_entry")
+        .in("reference_id", entryIds);
+      
+      const linkedPaymentIds = new Set([
+        ...(treasuryPayments || []).map(p => p.reference_id),
+        ...(bankPayments || []).map(p => p.reference_id),
+      ]);
+      
+      // Check expense_requests to see if any expense_entry came from there
+      const expenseRefs = entriesData
+        .filter(e => e.expense_reference)
+        .map(e => e.expense_reference as string);
+      
+      const { data: expenseRequests } = expenseRefs.length > 0 
+        ? await supabase
+            .from("expense_requests")
+            .select("request_number")
+            .in("request_number", expenseRefs)
+        : { data: [] };
+      
+      const fromExpenseRequestRefs = new Set(
+        (expenseRequests || []).map(r => r.request_number)
+      );
+      
+      // Enrich entries with computed flags
+      const enrichedEntries = entriesData.map(entry => ({
+        ...entry,
+        has_linked_payment: linkedPaymentIds.has(entry.id),
+        from_expense_request: entry.expense_reference ? fromExpenseRequestRefs.has(entry.expense_reference) : false,
+      }));
+      
+      setEntries(enrichedEntries);
     } catch (error) {
       console.error("Error fetching entries:", error);
     }
@@ -382,6 +433,44 @@ const ExpenseEntryPage = () => {
     } catch (error: any) {
       console.error("Error deleting entry:", error);
       toast.error(error.message || (language === "ar" ? "خطأ في حذف القيد" : "Error deleting entry"));
+    }
+  };
+
+  // Rollback approved entry to pending (only for manual entries without payments)
+  const handleRollbackApproval = async (entryId: string) => {
+    try {
+      const entry = entries.find(e => e.id === entryId);
+      if (!entry) {
+        toast.error(language === "ar" ? "القيد غير موجود" : "Entry not found");
+        return;
+      }
+
+      // Safety checks
+      if (entry.has_linked_payment) {
+        toast.error(language === "ar" ? "لا يمكن التراجع - يوجد دفعة مرتبطة" : "Cannot rollback - has linked payment");
+        return;
+      }
+      if (entry.from_expense_request) {
+        toast.error(language === "ar" ? "لا يمكن التراجع - قادم من طلب مصروف" : "Cannot rollback - from expense request");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("expense_entries")
+        .update({
+          status: "pending",
+          approved_by: null,
+          approved_at: null,
+        })
+        .eq("id", entryId);
+
+      if (error) throw error;
+
+      toast.success(language === "ar" ? "تم التراجع عن الاعتماد" : "Approval rolled back");
+      fetchEntries();
+    } catch (error: any) {
+      console.error("Error rolling back approval:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في التراجع" : "Error rolling back"));
     }
   };
 
@@ -735,9 +824,18 @@ const ExpenseEntryPage = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => navigate(`/expense-entry/${entry.id}`)}>
+                          {/* View button - passes view mode for approved/paid/posted entries */}
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => navigate(`/expense-entry/${entry.id}${['approved', 'paid', 'posted'].includes(entry.status) ? '?view=true' : ''}`)}
+                            title={['approved', 'paid', 'posted'].includes(entry.status) 
+                              ? (language === "ar" ? "عرض فقط" : "View only")
+                              : (language === "ar" ? "عرض/تعديل" : "View/Edit")}
+                          >
                             <Eye className="h-3 w-3" />
                           </Button>
+                          
                           {entry.status === "draft" && (
                             <>
                               <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleStatusChange(entry.id, "pending")}>
@@ -775,6 +873,7 @@ const ExpenseEntryPage = () => {
                               </AlertDialog>
                             </>
                           )}
+                          
                           {entry.status === "pending" && (
                             <>
                               <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleStatusChange(entry.id, "approved")}>
@@ -785,12 +884,40 @@ const ExpenseEntryPage = () => {
                               </Button>
                             </>
                           )}
+                          
+                          {/* Approved status: show Pay button only if manual entry without payment, OR show rollback */}
                           {entry.status === "approved" && (
-                            <Button size="sm" variant="default" onClick={() => handleStatusChange(entry.id, "paid")}>
-                              <DollarSign className="h-3 w-3" />
-                            </Button>
+                            <>
+                              {/* Pay button: only show if NOT from expense_request AND NOT has linked payment */}
+                              {!entry.from_expense_request && !entry.has_linked_payment && (
+                                <Button size="sm" variant="default" onClick={() => handleStatusChange(entry.id, "paid")}>
+                                  <DollarSign className="h-3 w-3" />
+                                </Button>
+                              )}
+                              
+                              {/* Rollback button: only show if manual entry without payment */}
+                              {!entry.from_expense_request && !entry.has_linked_payment && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="text-orange-600 hover:text-orange-700"
+                                  onClick={() => handleRollbackApproval(entry.id)}
+                                  title={language === "ar" ? "التراجع عن الاعتماد" : "Rollback approval"}
+                                >
+                                  <Undo2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                              
+                              {/* Lock icon if from expense_request or has payment */}
+                              {(entry.from_expense_request || entry.has_linked_payment) && (
+                                <span title={language === "ar" ? "لا يمكن التعديل من هنا" : "Cannot modify from here"}>
+                                  <Lock className="h-4 w-4 text-muted-foreground" />
+                                </span>
+                              )}
+                            </>
                           )}
-                          {entry.status === "posted" && (
+                          
+                          {(entry.status === "paid" || entry.status === "posted") && (
                             <span title={language === "ar" ? "مرحّل - لا يمكن التعديل" : "Posted - Cannot edit"}>
                               <Lock className="h-4 w-4 text-muted-foreground" />
                             </span>
