@@ -75,11 +75,23 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
     const isRtl = language === "ar";
     const isDraft = status === "draft";
     const isPending = status === "pending";
+    const isApproved = status === "approved";
+    const isPosted = status === "posted";
 
     const getStatusLabel = () => {
       if (isDraft) return isRtl ? "مسودة" : "DRAFT";
-      if (isPending) return isRtl ? "في الانتظار" : "PENDING";
+      if (isPending) return isRtl ? "معلق" : "PENDING";
+      if (isApproved) return isRtl ? "معتمد" : "APPROVED";
+      if (isPosted) return isRtl ? "مدفوع" : "PAID";
       return "";
+    };
+
+    const getStatusColor = () => {
+      if (isDraft) return "#ef4444"; // red
+      if (isPending) return "#f59e0b"; // orange
+      if (isApproved) return "#3b82f6"; // blue
+      if (isPosted) return "#22c55e"; // green
+      return "#6b7280"; // gray
     };
 
     return (
@@ -91,7 +103,7 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
         style={{ fontFamily: "Arial, sans-serif", color: "#000" }}
       >
         {/* Status Ribbon - Top Right Corner */}
-        {(isDraft || isPending || status === "posted") && (
+        {(isDraft || isPending || isApproved || isPosted) && (
           <div 
             className="absolute overflow-hidden pointer-events-none"
             style={{ 
@@ -110,7 +122,7 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
                 width: "180px",
                 textAlign: "center",
                 transform: "rotate(45deg)",
-                backgroundColor: isDraft ? "#ef4444" : isPending ? "#f59e0b" : "#22c55e",
+                backgroundColor: getStatusColor(),
                 color: "white",
                 padding: "8px 0",
                 fontWeight: "bold",
@@ -120,7 +132,7 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
                 letterSpacing: "1px"
               }}
             >
-              {isDraft ? (isRtl ? "مسودة" : "DRAFT") : isPending ? (isRtl ? "معلق" : "PENDING") : (isRtl ? "مدفوع" : "PAID")}
+              {getStatusLabel()}
             </div>
           </div>
         )}
