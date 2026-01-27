@@ -14,11 +14,13 @@ import { Plus, Check, X, DollarSign, FileText, Eye, Receipt, Trash2, Upload, Loc
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as XLSX from "xlsx";
+import { convertFromBaseCurrency, convertToBaseCurrency, type CurrencyRate as CurrencyRateType } from "@/lib/currencyConversion";
 
 interface Bank {
   id: string;
   bank_name: string;
   bank_name_ar: string | null;
+  current_balance: number | null;
 }
 
 interface Treasury {
@@ -26,12 +28,17 @@ interface Treasury {
   treasury_name: string;
   treasury_name_ar: string | null;
   currency_id: string | null;
+  current_balance: number | null;
 }
 
 interface Currency {
   id: string;
   currency_code: string;
+  currency_name: string;
+  currency_name_ar?: string | null;
+  symbol?: string | null;
   is_base: boolean;
+  is_active: boolean;
 }
 
 interface CurrencyRate {
@@ -112,12 +119,12 @@ const ExpenseEntryPage = () => {
     setLoading(true);
     try {
       const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes, costCentersRes, currencyRatesRes] = await Promise.all([
-        supabase.from("banks").select("id, bank_name, bank_name_ar").eq("is_active", true),
-        supabase.from("treasuries").select("id, treasury_name, treasury_name_ar, currency_id").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code, is_base").eq("is_active", true),
+        supabase.from("banks").select("id, bank_name, bank_name_ar, current_balance").eq("is_active", true),
+        supabase.from("treasuries").select("id, treasury_name, treasury_name_ar, currency_id, current_balance").eq("is_active", true),
+        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, symbol, is_base, is_active").eq("is_active", true),
         supabase.from("expense_types").select("id, expense_code, expense_name").eq("is_active", true),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
-        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator"),
+        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator, effective_date, created_at, updated_at"),
       ]);
 
       if (banksRes.error) throw banksRes.error;
@@ -171,38 +178,66 @@ const ExpenseEntryPage = () => {
         const entry = entries.find(e => e.id === entryId);
         if (!entry) throw new Error("Entry not found");
 
-        updateData.paid_by = currentUserId;
-        updateData.paid_at = new Date().toISOString();
-
         // Fetch full entry to get grand_total and currency_id
         const { data: fullEntry } = await supabase
           .from("expense_entries")
-          .select("grand_total, currency_id, exchange_rate")
+          .select("grand_total, currency_id, exchange_rate, cost_center_id")
           .eq("id", entryId)
           .single();
 
         const grandTotal = fullEntry?.grand_total || 0;
+        const baseCurrency = currencies.find(c => c.is_base);
 
         // Create bank or treasury entry and post to ledger
         if (entry.payment_method === "bank" && entry.bank_id) {
+          // Get bank data
+          const bank = banks.find(b => b.id === entry.bank_id);
+          if (!bank) {
+            toast.error(language === "ar" ? "البنك غير موجود" : "Bank not found");
+            return;
+          }
+
+          // Validate bank balance
+          const bankBalance = bank.current_balance || 0;
+          if (grandTotal > bankBalance) {
+            toast.error(
+              language === "ar" 
+                ? `رصيد البنك غير كافٍ. المطلوب: ${grandTotal.toFixed(2)}, المتاح: ${bankBalance.toFixed(2)}` 
+                : `Insufficient bank balance. Required: ${grandTotal.toFixed(2)}, Available: ${bankBalance.toFixed(2)}`
+            );
+            return;
+          }
+
+          const balanceBefore = bankBalance;
+          const newBalance = bankBalance - grandTotal;
           const entryNumber = `BNK${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}${String(new Date().getSeconds()).padStart(2, "0")}`;
           
-          await supabase.from("bank_entries").insert({
+          const { error: bankError } = await supabase.from("bank_entries").insert({
             entry_number: entryNumber,
             bank_id: entry.bank_id,
-            entry_type: "withdrawal",
+            entry_type: "payment",
             amount: grandTotal,
             description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
-            status: "approved",
+            status: "posted",
             approved_by: currentUserId,
             approved_at: new Date().toISOString(),
+            posted_by: currentUserId,
+            posted_at: new Date().toISOString(),
+            from_currency_id: fullEntry?.currency_id,
+            exchange_rate: fullEntry?.exchange_rate || 1,
+            converted_amount: grandTotal,
+            balance_after: newBalance,
           });
 
-          // Update bank balance
-          const { data: bankData } = await supabase.from("banks").select("current_balance").eq("id", entry.bank_id).single();
-          const newBalance = (bankData?.current_balance || 0) - grandTotal;
+          if (bankError) {
+            console.error("Error creating bank entry:", bankError);
+            toast.error(language === "ar" ? "خطأ في إنشاء قيد البنك" : "Error creating bank entry");
+            return;
+          }
+
+          // Update bank balance manually (can be replaced by trigger in future)
           await supabase.from("banks").update({ current_balance: newBalance }).eq("id", entry.bank_id);
 
           // Post to treasury ledger (bank)
@@ -220,43 +255,76 @@ const ExpenseEntryPage = () => {
             exchange_rate: fullEntry?.exchange_rate || 1,
             created_by: currentUserId,
           });
+
+          toast.success(language === "ar" ? "تم إنشاء قيد البنك وخصم الرصيد" : "Bank entry created and balance deducted");
         } else if (entry.payment_method === "treasury" && entry.treasury_id) {
+          // Get treasury data
+          const treasury = treasuries.find(t => t.id === entry.treasury_id);
+          if (!treasury) {
+            toast.error(language === "ar" ? "الخزينة غير موجودة" : "Treasury not found");
+            return;
+          }
+
+          // Convert expense amount to treasury's currency using centralized conversion
+          const expenseInTreasuryCurrency = convertFromBaseCurrency(
+            grandTotal,
+            treasury.currency_id || null,
+            currencyRates as CurrencyRateType[],
+            baseCurrency || null
+          );
+
+          // Validate treasury has sufficient balance in its own currency
+          const treasuryBalance = treasury.current_balance || 0;
+          if (expenseInTreasuryCurrency > treasuryBalance) {
+            const treasuryCurrency = currencies.find(c => c.id === treasury.currency_id);
+            toast.error(
+              language === "ar" 
+                ? `رصيد الخزينة غير كافٍ. المطلوب: ${expenseInTreasuryCurrency.toFixed(2)}, المتاح: ${treasuryBalance.toFixed(2)} (${treasuryCurrency?.currency_code || ""})` 
+                : `Insufficient treasury balance. Required: ${expenseInTreasuryCurrency.toFixed(2)}, Available: ${treasuryBalance.toFixed(2)} (${treasuryCurrency?.currency_code || ""})`
+            );
+            return;
+          }
+
+          const balanceBefore = treasuryBalance;
+          const newBalance = treasuryBalance - expenseInTreasuryCurrency;
           const entryNumber = `TRS${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}${String(new Date().getSeconds()).padStart(2, "0")}`;
           
-          await supabase.from("treasury_entries").insert({
+          const { error: treasuryError } = await supabase.from("treasury_entries").insert({
             entry_number: entryNumber,
             treasury_id: entry.treasury_id,
-            entry_type: "withdrawal",
+            entry_type: "payment",
             amount: grandTotal,
             description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
-            status: "approved",
+            expense_entry_id: entryId,
+            status: "posted",
             approved_by: currentUserId,
             approved_at: new Date().toISOString(),
-          });
-
-          // Update treasury balance
-          const { data: treasuryData } = await supabase.from("treasuries").select("current_balance").eq("id", entry.treasury_id).single();
-          const newBalance = (treasuryData?.current_balance || 0) - grandTotal;
-          await supabase.from("treasuries").update({ current_balance: newBalance }).eq("id", entry.treasury_id);
-
-          // Post to treasury ledger
-          await supabase.from("treasury_ledger").insert({
-            treasury_id: entry.treasury_id,
-            entry_date: new Date().toISOString(),
-            reference_type: "expense_entry",
-            reference_id: entryId,
-            reference_number: entry.entry_number,
-            description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
-            credit_amount: grandTotal,
-            debit_amount: 0,
-            balance_after: newBalance,
-            currency_id: fullEntry?.currency_id,
+            posted_by: currentUserId,
+            posted_at: new Date().toISOString(),
+            from_currency_id: fullEntry?.currency_id,
             exchange_rate: fullEntry?.exchange_rate || 1,
-            created_by: currentUserId,
+            converted_amount: expenseInTreasuryCurrency,
+            balance_before: balanceBefore,
+            balance_after: newBalance,
+            cost_center_id: fullEntry?.cost_center_id,
           });
+
+          if (treasuryError) {
+            console.error("Error creating treasury entry:", treasuryError);
+            toast.error(language === "ar" ? "خطأ في إنشاء قيد الخزينة" : "Error creating treasury entry");
+            return;
+          }
+
+          // Treasury balance is automatically recalculated by database trigger
+          toast.success(language === "ar" ? "تم إنشاء قيد الخزينة وخصم الرصيد" : "Treasury entry created and balance deducted");
         }
+
+        // Update expense entry status to "posted"
+        updateData.status = "posted";
+        updateData.paid_by = currentUserId;
+        updateData.paid_at = new Date().toISOString();
       }
 
       const { error } = await supabase.from("expense_entries").update(updateData).eq("id", entryId);
@@ -264,6 +332,7 @@ const ExpenseEntryPage = () => {
 
       toast.success(language === "ar" ? "تم تحديث الحالة" : "Status updated");
       fetchEntries();
+      fetchData(); // Refresh master data to get updated balances
     } catch (error: any) {
       console.error("Error updating status:", error);
       toast.error(error.message || (language === "ar" ? "خطأ في التحديث" : "Error updating"));
