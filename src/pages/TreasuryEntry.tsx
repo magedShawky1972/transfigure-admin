@@ -10,10 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Vault, Save, Check, Send, ArrowRightLeft, Filter, LayoutList, BookOpen } from "lucide-react";
+import { Plus, Vault, Save, Check, Send, ArrowRightLeft, Filter, LayoutList, BookOpen, CalendarIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { 
   convertFromBaseCurrency, 
@@ -122,6 +125,9 @@ const TreasuryEntry = () => {
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [selectedTreasuryFilter, setSelectedTreasuryFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"standard" | "ledger">("ledger");
+  const [dateFrom, setDateFrom] = useState<Date>(new Date("2000-01-01"));
+  const [dateTo, setDateTo] = useState<Date>(new Date());
+  const [openingBalance, setOpeningBalance] = useState<number>(0);
   const [formData, setFormData] = useState({
     treasury_id: "",
     entry_date: format(new Date(), "yyyy-MM-dd"),
@@ -143,7 +149,7 @@ const TreasuryEntry = () => {
   useEffect(() => {
     fetchData();
     getCurrentUser();
-  }, [selectedTreasuryFilter]);
+  }, [selectedTreasuryFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     // Auto-calculate converted amount using proper currency conversion
@@ -187,15 +193,36 @@ const TreasuryEntry = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Build entries query with optional treasury filter
-      let entriesQuery = supabase.from("treasury_entries").select("*").order("entry_date", { ascending: false }).limit(500);
+      // Build entries query with optional treasury filter and date range
+      const fromDateStr = format(dateFrom, "yyyy-MM-dd");
+      const toDateStr = format(dateTo, "yyyy-MM-dd");
+      
+      let entriesQuery = supabase
+        .from("treasury_entries")
+        .select("*")
+        .gte("entry_date", fromDateStr)
+        .lte("entry_date", toDateStr)
+        .order("entry_date", { ascending: true })
+        .limit(1000);
+      
       if (selectedTreasuryFilter !== "all") {
         entriesQuery = entriesQuery.eq("treasury_id", selectedTreasuryFilter);
       }
 
-      const [entriesRes, treasuriesRes, banksRes, currenciesRes, ratesRes, requestsRes, costCentersRes] = await Promise.all([
+      // Query for opening balance (sum of all entries before dateFrom for selected treasury)
+      let openingBalanceQuery = supabase
+        .from("treasury_entries")
+        .select("entry_type, converted_amount, amount")
+        .lt("entry_date", fromDateStr)
+        .eq("status", "posted");
+      
+      if (selectedTreasuryFilter !== "all") {
+        openingBalanceQuery = openingBalanceQuery.eq("treasury_id", selectedTreasuryFilter);
+      }
+
+      const [entriesRes, treasuriesRes, banksRes, currenciesRes, ratesRes, requestsRes, costCentersRes, openingBalanceRes] = await Promise.all([
         entriesQuery,
-        supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id").eq("is_active", true),
+        supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id, opening_balance").eq("is_active", true),
         supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, symbol, is_base, is_active").eq("is_active", true),
         supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator, effective_date, created_at, updated_at").order("effective_date", { ascending: false }),
@@ -203,6 +230,7 @@ const TreasuryEntry = () => {
           .eq("payment_method", "treasury")
           .eq("status", "approved"),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
+        openingBalanceQuery,
       ]);
 
       if (entriesRes.error) throw entriesRes.error;
@@ -213,6 +241,31 @@ const TreasuryEntry = () => {
       if (requestsRes.error) throw requestsRes.error;
       if (costCentersRes.error) throw costCentersRes.error;
 
+      // Calculate opening balance from entries before date range
+      let calcOpeningBalance = 0;
+      
+      // Get treasury opening_balance if a specific treasury is selected
+      if (selectedTreasuryFilter !== "all") {
+        const selectedTreasury = treasuriesRes.data?.find(t => t.id === selectedTreasuryFilter);
+        calcOpeningBalance = selectedTreasury?.opening_balance || 0;
+      } else {
+        // Sum all treasuries' opening balances
+        calcOpeningBalance = (treasuriesRes.data || []).reduce((sum, t) => sum + (t.opening_balance || 0), 0);
+      }
+      
+      // Add transactions before the date range
+      if (openingBalanceRes.data) {
+        for (const entry of openingBalanceRes.data) {
+          const amount = entry.converted_amount || entry.amount || 0;
+          if (entry.entry_type === "receipt" || entry.entry_type === "void_reversal") {
+            calcOpeningBalance += amount;
+          } else if (entry.entry_type === "payment" || entry.entry_type === "transfer") {
+            calcOpeningBalance -= amount;
+          }
+        }
+      }
+      
+      setOpeningBalance(calcOpeningBalance);
       setEntries(entriesRes.data || []);
       setTreasuries(treasuriesRes.data || []);
       setBanks(banksRes.data || []);
@@ -809,6 +862,44 @@ const TreasuryEntry = () => {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>{language === "ar" ? "قيود الخزينة" : "Treasury Entries"}</CardTitle>
           <div className="flex items-center gap-4">
+            {/* Date Range Filter */}
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateFrom ? format(dateFrom, "yyyy-MM-dd") : <span>{language === "ar" ? "من" : "From"}</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={(date) => date && setDateFrom(date)}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground">-</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateTo ? format(dateTo, "yyyy-MM-dd") : <span>{language === "ar" ? "إلى" : "To"}</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={(date) => date && setDateTo(date)}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             {/* Treasury Filter */}
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
@@ -853,53 +944,81 @@ const TreasuryEntry = () => {
                   <TableHead>{language === "ar" ? "الوصف" : "Description"}</TableHead>
                   <TableHead className="text-right text-green-600">{language === "ar" ? "مدين" : "Dr."}</TableHead>
                   <TableHead className="text-right text-red-600">{language === "ar" ? "دائن" : "Cr."}</TableHead>
-                  <TableHead className="text-right">{language === "ar" ? "الرصيد قبل" : "Bal. Before"}</TableHead>
-                  <TableHead className="text-right">{language === "ar" ? "الرصيد بعد" : "Bal. After"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "الرصيد" : "Balance"}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => {
-                  const debit = getDebitAmount(entry);
-                  const credit = getCreditAmount(entry);
-                  return (
-                    <TableRow key={entry.id} className={entry.status === "voided" ? "opacity-60" : ""}>
-                      <TableCell className="font-mono text-xs">{entry.entry_number}</TableCell>
-                      <TableCell className="text-xs">{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={entry.entry_type === "receipt" ? "default" : entry.entry_type === "void_reversal" ? "outline" : "secondary"} 
-                          className="text-xs"
-                        >
-                          {getEntryTypeLabel(entry.entry_type)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate">
-                        {entry.description || "-"}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">
-                        {debit > 0 ? debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-red-600">
-                        {credit > 0 ? credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
-                        {entry.balance_before?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}
-                      </TableCell>
-                      <TableCell className="text-right text-xs font-medium">
-                        {entry.balance_after?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[entry.status] || ""}`}>
-                          {getStatusLabel(entry.status)}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {/* Opening Balance Row */}
+                <TableRow className="bg-muted/50 font-medium">
+                  <TableCell className="font-mono text-xs">-</TableCell>
+                  <TableCell className="text-xs">{format(dateFrom, "yyyy-MM-dd")}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      {language === "ar" ? "رصيد افتتاحي" : "Opening Balance"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {language === "ar" ? "رصيد افتتاحي للفترة" : "Opening balance for period"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-green-600">-</TableCell>
+                  <TableCell className="text-right font-semibold text-red-600">-</TableCell>
+                  <TableCell className="text-right text-xs font-bold text-blue-600">
+                    {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell>
+                    <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                      {language === "ar" ? "افتتاحي" : "Opening"}
+                    </span>
+                  </TableCell>
+                </TableRow>
+                {(() => {
+                  let runningBalance = openingBalance;
+                  return entries.map((entry) => {
+                    const debit = getDebitAmount(entry);
+                    const credit = getCreditAmount(entry);
+                    // Update running balance based on entry type
+                    if (entry.status === "posted") {
+                      runningBalance += debit - credit;
+                    }
+                    return (
+                      <TableRow key={entry.id} className={entry.status === "voided" ? "opacity-60" : ""}>
+                        <TableCell className="font-mono text-xs">{entry.entry_number}</TableCell>
+                        <TableCell className="text-xs">{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={entry.entry_type === "receipt" ? "default" : entry.entry_type === "void_reversal" ? "outline" : "secondary"} 
+                            className="text-xs"
+                          >
+                            {getEntryTypeLabel(entry.entry_type)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate">
+                          {entry.description || "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-green-600">
+                          {debit > 0 ? debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-red-600">
+                          {credit > 0 ? credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right text-xs font-medium">
+                          {entry.status === "posted" 
+                            ? runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[entry.status] || ""}`}>
+                            {getStatusLabel(entry.status)}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  });
+                })()}
                 {entries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       {language === "ar" ? "لا توجد قيود" : "No entries found"}
                     </TableCell>
                   </TableRow>
