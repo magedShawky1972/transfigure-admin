@@ -187,6 +187,14 @@ const ExpenseEntryPage = () => {
 
         const grandTotal = fullEntry?.grand_total || 0;
         const baseCurrency = currencies.find(c => c.is_base);
+        
+        // grand_total is stored in the ORIGINAL currency, need to convert to SAR (base currency) first
+        const grandTotalInSAR = convertToBaseCurrency(
+          grandTotal,
+          fullEntry?.currency_id || null,
+          currencyRates as CurrencyRateType[],
+          baseCurrency || null
+        );
 
         // Create bank or treasury entry and post to ledger
         if (entry.payment_method === "bank" && entry.bank_id) {
@@ -197,26 +205,26 @@ const ExpenseEntryPage = () => {
             return;
           }
 
-          // Validate bank balance
+          // Validate bank balance (banks typically use SAR)
           const bankBalance = bank.current_balance || 0;
-          if (grandTotal > bankBalance) {
+          if (grandTotalInSAR > bankBalance) {
             toast.error(
               language === "ar" 
-                ? `رصيد البنك غير كافٍ. المطلوب: ${grandTotal.toFixed(2)}, المتاح: ${bankBalance.toFixed(2)}` 
-                : `Insufficient bank balance. Required: ${grandTotal.toFixed(2)}, Available: ${bankBalance.toFixed(2)}`
+                ? `رصيد البنك غير كافٍ. المطلوب: ${grandTotalInSAR.toFixed(2)} SAR, المتاح: ${bankBalance.toFixed(2)}` 
+                : `Insufficient bank balance. Required: ${grandTotalInSAR.toFixed(2)} SAR, Available: ${bankBalance.toFixed(2)}`
             );
             return;
           }
 
           const balanceBefore = bankBalance;
-          const newBalance = bankBalance - grandTotal;
+          const newBalance = bankBalance - grandTotalInSAR;
           const entryNumber = `BNK${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}${String(new Date().getSeconds()).padStart(2, "0")}`;
           
           const { error: bankError } = await supabase.from("bank_entries").insert({
             entry_number: entryNumber,
             bank_id: entry.bank_id,
             entry_type: "payment",
-            amount: grandTotal,
+            amount: grandTotalInSAR,
             description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
@@ -227,7 +235,7 @@ const ExpenseEntryPage = () => {
             posted_at: new Date().toISOString(),
             from_currency_id: fullEntry?.currency_id,
             exchange_rate: fullEntry?.exchange_rate || 1,
-            converted_amount: grandTotal,
+            converted_amount: grandTotalInSAR,
             balance_after: newBalance,
           });
 
@@ -248,7 +256,7 @@ const ExpenseEntryPage = () => {
             reference_id: entryId,
             reference_number: entry.entry_number,
             description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
-            credit_amount: grandTotal,
+            credit_amount: grandTotalInSAR,
             debit_amount: 0,
             balance_after: newBalance,
             currency_id: fullEntry?.currency_id,
@@ -265,9 +273,9 @@ const ExpenseEntryPage = () => {
             return;
           }
 
-          // Convert expense amount to treasury's currency using centralized conversion
+          // Convert expense amount from SAR to treasury's currency using centralized conversion
           const expenseInTreasuryCurrency = convertFromBaseCurrency(
-            grandTotal,
+            grandTotalInSAR,
             treasury.currency_id || null,
             currencyRates as CurrencyRateType[],
             baseCurrency || null
@@ -293,7 +301,7 @@ const ExpenseEntryPage = () => {
             entry_number: entryNumber,
             treasury_id: entry.treasury_id,
             entry_type: "payment",
-            amount: grandTotal,
+            amount: grandTotalInSAR,
             description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
@@ -322,8 +330,8 @@ const ExpenseEntryPage = () => {
           toast.success(language === "ar" ? "تم إنشاء قيد الخزينة وخصم الرصيد" : "Treasury entry created and balance deducted");
         }
 
-        // Update expense entry status to "posted"
-        updateData.status = "posted";
+        // Update expense entry status to "paid" (not "posted" due to constraint)
+        updateData.status = "paid";
         updateData.paid_by = currentUserId;
         updateData.paid_at = new Date().toISOString();
       }
