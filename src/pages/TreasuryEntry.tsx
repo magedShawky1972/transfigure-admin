@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Vault, Save, Check, Send, ArrowRightLeft, Filter, LayoutList, BookOpen, CalendarIcon } from "lucide-react";
+import { Plus, Vault, Save, Check, Send, ArrowRightLeft, Filter, LayoutList, BookOpen, CalendarIcon, Printer } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
@@ -541,6 +541,157 @@ const TreasuryEntry = () => {
     return 0;
   };
 
+  const handlePrintLedger = () => {
+    const selectedTreasury = selectedTreasuryFilter !== "all" 
+      ? treasuries.find(t => t.id === selectedTreasuryFilter)
+      : null;
+    const treasuryName = selectedTreasury 
+      ? (language === "ar" && selectedTreasury.treasury_name_ar 
+          ? selectedTreasury.treasury_name_ar 
+          : selectedTreasury.treasury_name)
+      : (language === "ar" ? "جميع الخزائن" : "All Treasuries");
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error(language === "ar" ? "فشل فتح نافذة الطباعة" : "Failed to open print window");
+      return;
+    }
+
+    // Build entry rows
+    let runningBalance = openingBalance;
+    let totalDebit = openingBalance > 0 ? openingBalance : 0;
+    let totalCredit = openingBalance < 0 ? Math.abs(openingBalance) : 0;
+    const statusLabels: Record<string, { en: string; ar: string }> = {
+      draft: { en: "Draft", ar: "مسودة" },
+      pending_approval: { en: "Pending", ar: "معلق" },
+      approved: { en: "Approved", ar: "معتمد" },
+      posted: { en: "Posted", ar: "مرحل" },
+      rejected: { en: "Rejected", ar: "مرفوض" },
+      voided: { en: "Voided", ar: "ملغى" },
+    };
+
+    const entryRows = entries.map(entry => {
+      const debit = getDebitAmount(entry);
+      const credit = getCreditAmount(entry);
+      totalDebit += debit;
+      totalCredit += credit;
+      if (entry.status === "posted") {
+        runningBalance += debit - credit;
+      }
+      const statusLabel = statusLabels[entry.status] 
+        ? (language === "ar" ? statusLabels[entry.status].ar : statusLabels[entry.status].en) 
+        : entry.status;
+      const voidedClass = entry.status === "voided" ? "opacity-60" : "";
+      const debitStr = debit > 0 ? debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+      const creditStr = credit > 0 ? credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+      const balanceStr = entry.status === "posted" ? runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+      
+      return '<tr class="' + voidedClass + '">' +
+        '<td class="font-mono">' + entry.entry_number + '</td>' +
+        '<td>' + format(new Date(entry.entry_date), "yyyy-MM-dd") + '</td>' +
+        '<td>' + getEntryTypeLabel(entry.entry_type) + '</td>' +
+        '<td>' + (entry.description || "-") + '</td>' +
+        '<td class="text-end">' + debitStr + '</td>' +
+        '<td class="text-end">' + creditStr + '</td>' +
+        '<td class="text-end font-semibold">' + balanceStr + '</td>' +
+        '<td class="text-center">' + statusLabel + '</td>' +
+        '</tr>';
+    }).join("");
+
+    const totalsRow = '<tr class="bg-gray font-bold">' +
+      '<td colspan="4" class="text-end">' + (language === "ar" ? "الإجمالي" : "Total") + '</td>' +
+      '<td class="text-end">' + totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+      '<td class="text-end">' + totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+      '<td class="text-end">' + runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+      '<td></td>' +
+      '</tr>';
+
+    const obDebit = openingBalance > 0 ? openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+    const obCredit = openingBalance < 0 ? Math.abs(openingBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+    const obBalance = openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const printContent = '<!DOCTYPE html>' +
+      '<html dir="' + (language === "ar" ? "rtl" : "ltr") + '">' +
+      '<head>' +
+        '<title>' + (language === "ar" ? "دفتر الخزينة" : "Treasury Ledger") + '</title>' +
+        '<style>' +
+          '* { margin: 0; padding: 0; box-sizing: border-box; }' +
+          'body { font-family: Arial, sans-serif; padding: 20px; background: white; color: black; }' +
+          'table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
+          'th, td { border: 1px solid #ccc; padding: 6px 8px; }' +
+          'th { background: #f3f4f6; font-weight: bold; }' +
+          '.text-end { text-align: ' + (language === "ar" ? "left" : "right") + '; }' +
+          '.text-center { text-align: center; }' +
+          '.text-start { text-align: ' + (language === "ar" ? "right" : "left") + '; }' +
+          '.font-mono { font-family: monospace; }' +
+          '.font-bold { font-weight: bold; }' +
+          '.font-semibold { font-weight: 600; }' +
+          '.bg-blue { background: #eff6ff; }' +
+          '.bg-gray { background: #f3f4f6; }' +
+          '.opacity-60 { opacity: 0.6; }' +
+          'h1 { font-size: 24px; margin-bottom: 8px; }' +
+          '.header { text-align: center; margin-bottom: 20px; }' +
+          '.header p { margin: 4px 0; }' +
+          '.footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; justify-content: space-between; font-size: 11px; color: #666; }' +
+          '@media print { body { padding: 10px; } @page { margin: 10mm; } }' +
+        '</style>' +
+      '</head>' +
+      '<body>' +
+        '<div class="header">' +
+          '<h1>' + (language === "ar" ? "دفتر الخزينة" : "Treasury Ledger") + '</h1>' +
+          '<p style="font-size: 16px; font-weight: 600;">' + treasuryName + '</p>' +
+          '<p style="font-size: 12px; color: #666;">' +
+            (language === "ar" ? "الفترة من" : "Period from") + ' ' +
+            format(dateFrom, "yyyy-MM-dd") + ' ' +
+            (language === "ar" ? "إلى" : "to") + ' ' +
+            format(dateTo, "yyyy-MM-dd") +
+          '</p>' +
+          '<p style="font-size: 10px; color: #999;">' +
+            (language === "ar" ? "تاريخ الطباعة:" : "Print Date:") + ' ' +
+            format(new Date(), "yyyy-MM-dd HH:mm") +
+          '</p>' +
+        '</div>' +
+        '<table>' +
+          '<thead>' +
+            '<tr>' +
+              '<th class="text-start">' + (language === "ar" ? "رقم القيد" : "Entry No.") + '</th>' +
+              '<th class="text-start">' + (language === "ar" ? "التاريخ" : "Date") + '</th>' +
+              '<th class="text-start">' + (language === "ar" ? "النوع" : "Type") + '</th>' +
+              '<th class="text-start">' + (language === "ar" ? "الوصف" : "Description") + '</th>' +
+              '<th class="text-end">' + (language === "ar" ? "مدين" : "Dr.") + '</th>' +
+              '<th class="text-end">' + (language === "ar" ? "دائن" : "Cr.") + '</th>' +
+              '<th class="text-end">' + (language === "ar" ? "الرصيد" : "Balance") + '</th>' +
+              '<th class="text-center">' + (language === "ar" ? "الحالة" : "Status") + '</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' +
+            '<tr class="bg-blue font-semibold">' +
+              '<td class="font-mono">OB-' + format(dateFrom, "yyyyMMdd") + '</td>' +
+              '<td>' + format(dateFrom, "yyyy-MM-dd") + '</td>' +
+              '<td>' + (language === "ar" ? "رصيد افتتاحي" : "Opening Balance") + '</td>' +
+              '<td>' + (language === "ar" ? "رصيد افتتاحي للفترة" : "Opening balance for period") + '</td>' +
+              '<td class="text-end">' + obDebit + '</td>' +
+              '<td class="text-end">' + obCredit + '</td>' +
+              '<td class="text-end font-bold">' + obBalance + '</td>' +
+              '<td class="text-center">' + (language === "ar" ? "افتتاحي" : "Opening") + '</td>' +
+            '</tr>' +
+            entryRows +
+            totalsRow +
+          '</tbody>' +
+        '</table>' +
+        '<div class="footer">' +
+          '<span>' + (language === "ar" ? "عدد القيود:" : "Entries Count:") + ' ' + entries.length + '</span>' +
+        '</div>' +
+      '</body>' +
+      '</html>';
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
   const handleExpenseRequestSelect = (requestId: string) => {
     const request = expenseRequests.find(r => r.id === requestId);
     if (request) {
@@ -930,6 +1081,13 @@ const TreasuryEntry = () => {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
+            {/* Print Button */}
+            {viewMode === "ledger" && (
+              <Button variant="outline" size="sm" onClick={handlePrintLedger} className="gap-1">
+                <Printer className="h-4 w-4" />
+                {language === "ar" ? "طباعة" : "Print"}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
