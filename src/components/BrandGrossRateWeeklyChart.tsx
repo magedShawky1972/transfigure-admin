@@ -31,14 +31,18 @@ const VIBRANT_COLORS = [
   '#F59E0B', // Amber
 ];
 
-export const BrandGrossRateWeeklyChart = () => {
+interface BrandGrossRateWeeklyChartProps {
+  brandFilter?: string;
+}
+
+export const BrandGrossRateWeeklyChart = ({ brandFilter }: BrandGrossRateWeeklyChartProps) => {
   const { language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BrandGrossData[]>([]);
 
   useEffect(() => {
     fetchGrossRateData();
-  }, []);
+  }, [brandFilter]);
 
   const fetchGrossRateData = async () => {
     try {
@@ -49,13 +53,20 @@ export const BrandGrossRateWeeklyChart = () => {
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
 
-      const { data: transactions, error } = await supabase
+      let query = supabase
         .from('purpletransaction')
         .select('brand_name, total, profit')
         .gte('created_at_date', oneWeekAgoStr)
         .eq('is_deleted', false)
         .not('brand_name', 'is', null)
         .not('total', 'is', null);
+      
+      // Apply brand filter if provided
+      if (brandFilter) {
+        query = query.eq('brand_name', brandFilter);
+      }
+
+      const { data: transactions, error } = await query;
 
       if (error) throw error;
 

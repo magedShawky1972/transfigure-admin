@@ -381,11 +381,14 @@ const Dashboard = () => {
         setNewCustomersCount(newCustomersCount || 0);
       }
 
-      // Use RPC function for fast aggregated metrics
+      // Use RPC function for fast aggregated metrics with optional brand filter
+      const brandParam = globalBrandFilter !== 'all' ? globalBrandFilter : null;
+      
       const { data: summary, error: summaryError } = await supabase
         .rpc('transactions_summary', {
           date_from: startDate,
-          date_to: endDate
+          date_to: endDate,
+          p_brand_name: brandParam
         });
 
       if (summaryError) throw summaryError;
@@ -397,19 +400,22 @@ const Dashboard = () => {
         const transactionCount = Number(stats.tx_count || 0);
         const avgOrderValue = transactionCount > 0 ? totalSales / transactionCount : 0;
 
-        // Use optimized RPC functions for fast aggregation
+        // Use optimized RPC functions for fast aggregation with brand filter
         const [cogsResult, chargesResult, pointsResult] = await Promise.all([
           supabase.rpc('get_cost_of_sales', {
             date_from: startDate,
-            date_to: endDate
+            date_to: endDate,
+            p_brand_name: brandParam
           }),
           supabase.rpc('get_epayment_charges', {
             date_from: startDate,
-            date_to: endDate
+            date_to: endDate,
+            p_brand_name: brandParam
           }),
           supabase.rpc('get_points_summary', {
             date_from: startDate,
-            date_to: endDate
+            date_to: endDate,
+            p_brand_name: brandParam
           })
         ]);
 
@@ -675,12 +681,18 @@ const Dashboard = () => {
         const endInt = parseInt(format(end, "yyyyMMdd"));
         
         while (true) {
-          const { data, error } = await (supabase as any)
+          let npQuery = (supabase as any)
             .from('purpletransaction')
             .select('total, cost_sold, bank_fee, payment_method')
             .gte('created_at_date_int', startInt)
-            .lte('created_at_date_int', endInt)
-            .range(fromNP, fromNP + pageSize - 1);
+            .lte('created_at_date_int', endInt);
+          
+          // Apply global brand filter for monthly comparison
+          if (globalBrandFilter !== 'all') {
+            npQuery = npQuery.eq('brand_name', globalBrandFilter);
+          }
+          
+          const { data, error } = await npQuery.range(fromNP, fromNP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
           // Filter out point transactions on client-side
@@ -693,13 +705,19 @@ const Dashboard = () => {
         let fromP = 0;
         let pointData: any[] = [];
         while (true) {
-          const { data, error } = await (supabase as any)
+          let pQuery = (supabase as any)
             .from('purpletransaction')
             .select('id, order_number, total')
             .ilike('payment_method', 'point')
             .gte('created_at_date_int', startInt)
-            .lte('created_at_date_int', endInt)
-            .range(fromP, fromP + pageSize - 1);
+            .lte('created_at_date_int', endInt);
+          
+          // Apply global brand filter for monthly comparison
+          if (globalBrandFilter !== 'all') {
+            pQuery = pQuery.eq('brand_name', globalBrandFilter);
+          }
+          
+          const { data, error } = await pQuery.range(fromP, fromP + pageSize - 1);
           if (error) throw error;
           const batch = data || [];
           pointData = pointData.concat(batch);
@@ -2927,7 +2945,7 @@ const Dashboard = () => {
 
       {/* Brand Gross Rate Chart - Last 7 Days */}
       {hasAccess("brand_gross_rate_weekly") && (
-        <BrandGrossRateWeeklyChart />
+        <BrandGrossRateWeeklyChart brandFilter={globalBrandFilter !== 'all' ? globalBrandFilter : undefined} />
       )}
 
       {/* Coins by Brand Grid */}

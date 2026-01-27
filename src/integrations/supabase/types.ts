@@ -7879,10 +7879,12 @@ export type Database = {
           total_amount: number
         }[]
       }
-      get_cost_of_sales: {
-        Args: { date_from: string; date_to: string }
-        Returns: number
-      }
+      get_cost_of_sales:
+        | { Args: { date_from: string; date_to: string }; Returns: number }
+        | {
+            Args: { date_from: string; date_to: string; p_brand_name?: string }
+            Returns: number
+          }
       get_db_functions_info: {
         Args: never
         Returns: {
@@ -7900,10 +7902,12 @@ export type Database = {
         Args: { config_id: string }
         Returns: string
       }
-      get_epayment_charges: {
-        Args: { date_from: string; date_to: string }
-        Returns: number
-      }
+      get_epayment_charges:
+        | { Args: { date_from: string; date_to: string }; Returns: number }
+        | {
+            Args: { date_from: string; date_to: string; p_brand_name?: string }
+            Returns: number
+          }
       get_foreign_keys_info: {
         Args: never
         Returns: {
@@ -7945,13 +7949,21 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_points_summary: {
-        Args: { date_from: string; date_to: string }
-        Returns: {
-          total_cost: number
-          total_sales: number
-        }[]
-      }
+      get_points_summary:
+        | {
+            Args: { date_from: string; date_to: string }
+            Returns: {
+              total_cost: number
+              total_sales: number
+            }[]
+          }
+        | {
+            Args: { date_from: string; date_to: string; p_brand_name?: string }
+            Returns: {
+              total_cost: number
+              total_sales: number
+            }[]
+          }
       get_primary_keys_info: {
         Args: never
         Returns: {
@@ -8046,14 +8058,23 @@ export type Database = {
           total_sum: number
         }[]
       }
-      transactions_summary: {
-        Args: { date_from: string; date_to: string }
-        Returns: {
-          total_profit: number
-          total_sales: number
-          tx_count: number
-        }[]
-      }
+      transactions_summary:
+        | {
+            Args: { date_from: string; date_to: string }
+            Returns: {
+              total_profit: number
+              total_sales: number
+              tx_count: number
+            }[]
+          }
+        | {
+            Args: { date_from: string; date_to: string; p_brand_name?: string }
+            Returns: {
+              total_profit: number
+              total_sales: number
+              tx_count: number
+            }[]
+          }
       update_bank_fees_from_payment_brand: { Args: never; Returns: number }
       update_ordertotals_bank_fees: { Args: never; Returns: number }
       update_ordertotals_bank_fees_by_brand:
