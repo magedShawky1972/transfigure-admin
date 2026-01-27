@@ -268,7 +268,7 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
         <div className="grid grid-cols-3 gap-8 mt-12 text-sm">
           <div className="text-center">
             <div className="border-b border-black pb-16 mb-2"></div>
-            <p className="font-semibold">{isRtl ? "المحضر" : "Prepared By"}</p>
+            <p className="font-semibold">{isRtl ? "مقدم الطلب" : "Prepared By"}</p>
             <p className="text-xs text-gray-600">{isRtl ? "الاسم والتوقيع" : "Name & Signature"}</p>
           </div>
           <div className="text-center">
