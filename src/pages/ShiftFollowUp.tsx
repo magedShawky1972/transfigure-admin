@@ -886,6 +886,7 @@ export default function ShiftFollowUp() {
         })()}
         userName={selectedAssignment?.profiles.user_name || ""}
         shiftName={selectedAssignment?.shifts.shift_name || ""}
+        onDataChanged={fetchAssignments}
       />
 
       {/* Reopen Confirmation Dialog */}
