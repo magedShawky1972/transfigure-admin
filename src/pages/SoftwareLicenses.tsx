@@ -817,7 +817,7 @@ ${renewNotes ? `Additional Notes:\n${renewNotes}` : ""}`;
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="text-muted-foreground">{language === "ar" ? "التكلفة:" : "Cost:"}</span>
+                    <span className="text-muted-foreground">{language === "ar" ? "التكلفة الشهرية:" : "Monthly Cost:"}</span>
                     <span className="text-lg font-bold">
                       {formatNumber(Number(license.cost))} {currencies.find(c => c.id === license.currency_id)?.currency_code || ''}
                     </span>
