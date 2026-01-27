@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import purpleCardLogo from "@/assets/purple-card-logo.png";
+import { getPrintLogoUrl } from "@/lib/printLogo";
 import * as XLSX from "xlsx";
 
 const SoftwareLicensesReport = () => {
@@ -435,7 +435,7 @@ const SoftwareLicensesReport = () => {
       </head>
       <body>
         <div class="header">
-          <img src="${purpleCardLogo}" class="logo" alt="Logo" />
+          <img src="${getPrintLogoUrl()}" class="logo" alt="Logo" />
           <div class="title">Software Licenses Report</div>
           <div class="subtitle">Generated on ${format(new Date(), "MMMM dd, yyyy 'at' HH:mm")}</div>
         </div>

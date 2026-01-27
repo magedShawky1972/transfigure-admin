@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { getPrintLogoUrl } from "@/lib/printLogo";
 import { 
   convertFromBaseCurrency, 
   convertToBaseCurrency, 
@@ -638,6 +639,7 @@ const TreasuryEntry = () => {
       '</head>' +
       '<body>' +
         '<div class="header">' +
+          '<img src="' + getPrintLogoUrl() + '" alt="ASUS Card" style="width: 120px; height: auto; margin: 0 auto 10px; display: block;" />' +
           '<h1>' + (language === "ar" ? "دفتر الخزينة" : "Treasury Ledger") + '</h1>' +
           '<p style="font-size: 16px; font-weight: 600;">' + treasuryName + '</p>' +
           '<p style="font-size: 12px; color: #666;">' +
