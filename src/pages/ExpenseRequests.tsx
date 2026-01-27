@@ -12,12 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus, Printer, Edit, Undo2, FileCheck } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus, Printer, Edit, Undo2 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { ExpensePaymentPrint } from "@/components/ExpensePaymentPrint";
+import { ExpenseEntryPrintButton } from "@/components/ExpenseEntryPrintButton";
 import { 
   convertFromBaseCurrency, 
   convertToBaseCurrency,
@@ -117,7 +117,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const ExpenseRequests = () => {
   const { language } = useLanguage();
-  const navigate = useNavigate();
   const [requests, setRequests] = useState<ExpenseRequest[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -690,26 +689,6 @@ const ExpenseRequests = () => {
     return cc ? (language === "ar" && cc.cost_center_name_ar ? cc.cost_center_name_ar : cc.cost_center_name) : "-";
   };
 
-  const handlePrintExpense = async (requestNumber: string) => {
-    try {
-      const { data: expenseEntry, error } = await supabase
-        .from("expense_entries")
-        .select("id")
-        .eq("expense_reference", requestNumber)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (expenseEntry) {
-        navigate(`/expense-entry/${expenseEntry.id}?print=true`);
-      } else {
-        toast.error(language === "ar" ? "لم يتم العثور على قيد المصروف" : "Expense entry not found");
-      }
-    } catch (error) {
-      console.error("Error finding expense entry:", error);
-      toast.error(language === "ar" ? "خطأ في البحث عن قيد المصروف" : "Error finding expense entry");
-    }
-  };
 
   const openEditDialog = (request: ExpenseRequest) => {
     setEditingRequest(request);
@@ -1176,15 +1155,10 @@ const ExpenseRequests = () => {
                       {request.status === "paid" && (
                         <>
                           {/* Print Expense Entry */}
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handlePrintExpense(request.request_number)}
-                            title={language === "ar" ? "طباعة المصروف" : "Print Expense"}
-                          >
-                            <FileCheck className="h-4 w-4 mr-1" />
-                            {language === "ar" ? "طباعة المصروف" : "Print Expense"}
-                          </Button>
+                          <ExpenseEntryPrintButton 
+                            requestNumber={request.request_number}
+                            language={language}
+                          />
                           {/* Print Payment Voucher */}
                           {request.paid_at && (
                             <ExpensePaymentPrint
