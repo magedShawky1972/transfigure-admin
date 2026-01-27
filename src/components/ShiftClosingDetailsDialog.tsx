@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ImageIcon, Gamepad2, LogIn, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Loader2, ImageIcon, Gamepad2, LogIn, LogOut, Edit2, Save, X } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -68,6 +71,12 @@ export default function ShiftClosingDetailsDialog({
   const [shiftSession, setShiftSession] = useState<ShiftSession | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("closing");
+  
+  // Editing state for brand balances
+  const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
+  const [editingType, setEditingType] = useState<"opening" | "closing" | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open && shiftSessionId) {
@@ -274,6 +283,55 @@ export default function ShiftClosingDetailsDialog({
   const text = translations[language as keyof typeof translations] || translations.en;
   const ludoSummary = getLudoSummary();
 
+  const handleEditBalance = (balanceId: string, type: "opening" | "closing", currentValue: number | null) => {
+    setEditingBalanceId(balanceId);
+    setEditingType(type);
+    setEditValue(currentValue?.toString() || "0");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBalanceId(null);
+    setEditingType(null);
+    setEditValue("");
+  };
+
+  const handleSaveBalance = async () => {
+    if (!editingBalanceId || !editingType) return;
+    
+    setSaving(true);
+    try {
+      const numValue = parseFloat(editValue) || 0;
+      const updateData = editingType === "opening" 
+        ? { opening_balance: numValue }
+        : { closing_balance: numValue };
+      
+      const { error } = await supabase
+        .from("shift_brand_balances")
+        .update(updateData)
+        .eq("id", editingBalanceId);
+
+      if (error) throw error;
+
+      // Update local state
+      setBrandBalances(prev => prev.map(b => {
+        if (b.id === editingBalanceId) {
+          return editingType === "opening"
+            ? { ...b, opening_balance: numValue }
+            : { ...b, closing_balance: numValue };
+        }
+        return b;
+      }));
+
+      toast.success(language === "ar" ? "تم حفظ القيمة بنجاح" : "Value saved successfully");
+      handleCancelEdit();
+    } catch (error: any) {
+      console.error("Error saving balance:", error);
+      toast.error(language === "ar" ? "فشل في حفظ القيمة" : "Failed to save value");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const renderBrandCards = (type: "opening" | "closing") => {
     const hasData = brandBalances.some((b) => 
       type === "opening" ? b.openingImageUrl : b.closingImageUrl
@@ -294,6 +352,8 @@ export default function ShiftClosingDetailsDialog({
           const balanceValue = type === "opening" ? balance.opening_balance : balance.closing_balance;
           const balanceLabel = type === "opening" ? text.openingBalance : text.closingBalance;
 
+          const isEditing = editingBalanceId === balance.id && editingType === type;
+          
           return (
             <Card key={balance.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
@@ -301,9 +361,50 @@ export default function ShiftClosingDetailsDialog({
                   <h3 className="font-semibold text-lg">{balance.brand_name}</h3>
                   <div className="text-right">
                     <div className="text-xs text-muted-foreground">{balanceLabel}</div>
-                    <div className="text-2xl font-bold text-primary">
-                      {balanceValue !== null ? balanceValue.toLocaleString() : "-"}
-                    </div>
+                    {isEditing ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          type="number"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="w-32 h-8 text-right"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={handleSaveBalance}
+                          disabled={saving}
+                        >
+                          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-green-600" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={handleCancelEdit}
+                          disabled={saving}
+                        >
+                          <X className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="text-2xl font-bold text-primary">
+                          {balanceValue !== null ? balanceValue.toLocaleString() : "-"}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => handleEditBalance(balance.id, type, balanceValue)}
+                          title={language === "ar" ? "تعديل القيمة" : "Edit value"}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
