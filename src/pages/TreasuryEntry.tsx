@@ -709,8 +709,21 @@ const TreasuryEntry = () => {
           @media print {
             body { padding: 15px; }
             @page { size: A5; margin: 10mm; }
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+            .ribbon {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+            .voided {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
           }
         </style>
       </head>
