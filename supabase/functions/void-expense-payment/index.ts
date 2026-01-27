@@ -80,10 +80,19 @@ serve(async (req) => {
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const expenseRequestId = body.expense_request_id;
+    const expenseEntryId = body.expense_entry_id;
+    const sourceType = body.source_type as string || "expense_request";
     const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-    if (!isUuid(expenseRequestId)) {
+    // Validate IDs based on source type
+    if (sourceType === "expense_request" && !isUuid(expenseRequestId)) {
       return new Response(JSON.stringify({ error: "invalid_expense_request_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (sourceType === "expense_entry" && !isUuid(expenseEntryId)) {
+      return new Response(JSON.stringify({ error: "invalid_expense_entry_id" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -108,83 +117,260 @@ serve(async (req) => {
       });
     }
 
-    // Load request
-    const { data: request, error: reqErr } = await serviceClient
-      .from("expense_requests")
-      .select(
-        "id, request_number, description, amount, base_currency_amount, status, paid_at, paid_by, treasury_id, currency_id",
-      )
-      .eq("id", expenseRequestId)
-      .maybeSingle();
-
-    if (reqErr || !request) {
-      return new Response(JSON.stringify({ error: "request_not_found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (request.status !== "paid") {
-      return new Response(JSON.stringify({ error: "request_not_paid" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Fetch all linked treasury entries
-    const { data: treasuryEntries, error: teErr } = await serviceClient
-      .from("treasury_entries")
-      .select("id, entry_number, converted_amount")
-      .eq("expense_request_id", expenseRequestId);
-
-    if (teErr) {
-      return new Response(JSON.stringify({ error: "failed_to_fetch_treasury_entries" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const treasuryEntryIds = (treasuryEntries ?? []).map((e) => e.id);
-    const treasuryAmountTotal = (treasuryEntries ?? []).reduce(
-      (sum, e) => sum + (Number(e.converted_amount) || 0),
-      0,
-    );
-    const treasuryEntryNumber = treasuryEntries?.[0]?.entry_number ?? null;
-
-    // Fetch expense entry (linked by expense_reference)
-    const { data: expenseEntry, error: eeErr } = await serviceClient
-      .from("expense_entries")
-      .select("id")
-      .eq("expense_reference", request.request_number)
-      .maybeSingle();
-
-    if (eeErr) {
-      return new Response(JSON.stringify({ error: "failed_to_fetch_expense_entry" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { data: profile } = await serviceClient
       .from("profiles")
       .select("user_name")
       .eq("user_id", userId)
       .maybeSingle();
 
+    let deletedCount = 0;
+    let requestNumber = "";
+    let description = "";
+    let amount = 0;
+    let treasuryAmountTotal = 0;
+    let treasuryEntryNumber: string | null = null;
+    let treasuryId: string | null = null;
+    let paidAt: string | null = null;
+
+    if (sourceType === "expense_request") {
+      // Handle expense_request void (original logic)
+      const { data: request, error: reqErr } = await serviceClient
+        .from("expense_requests")
+        .select(
+          "id, request_number, description, amount, base_currency_amount, status, paid_at, paid_by, treasury_id, currency_id",
+        )
+        .eq("id", expenseRequestId)
+        .maybeSingle();
+
+      if (reqErr || !request) {
+        return new Response(JSON.stringify({ error: "request_not_found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (request.status !== "paid") {
+        return new Response(JSON.stringify({ error: "request_not_paid" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      requestNumber = request.request_number;
+      description = request.description;
+      amount = request.amount;
+      treasuryId = request.treasury_id;
+      paidAt = request.paid_at;
+
+      // Fetch all linked treasury entries
+      const { data: treasuryEntries, error: teErr } = await serviceClient
+        .from("treasury_entries")
+        .select("id, entry_number, converted_amount")
+        .eq("expense_request_id", expenseRequestId);
+
+      if (teErr) {
+        return new Response(JSON.stringify({ error: "failed_to_fetch_treasury_entries" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const treasuryEntryIds = (treasuryEntries ?? []).map((e) => e.id);
+      treasuryAmountTotal = (treasuryEntries ?? []).reduce(
+        (sum, e) => sum + (Number(e.converted_amount) || 0),
+        0,
+      );
+      treasuryEntryNumber = treasuryEntries?.[0]?.entry_number ?? null;
+
+      // Fetch expense entry (linked by expense_reference)
+      const { data: expenseEntry } = await serviceClient
+        .from("expense_entries")
+        .select("id")
+        .eq("expense_reference", request.request_number)
+        .maybeSingle();
+
+      // Delete treasury entries (service role => real delete)
+      if (treasuryEntryIds.length > 0) {
+        const { data: deletedRows, error: delErr } = await serviceClient
+          .from("treasury_entries")
+          .delete()
+          .in("id", treasuryEntryIds)
+          .select("id");
+
+        if (delErr) {
+          return new Response(JSON.stringify({ error: "failed_to_delete_treasury_entries", details: delErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        deletedCount = deletedRows?.length ?? 0;
+      }
+
+      // Reopen expense entry
+      if (expenseEntry?.id) {
+        await serviceClient
+          .from("expense_entries")
+          .update({ status: "approved", paid_by: null, paid_at: null })
+          .eq("id", expenseEntry.id);
+      }
+
+      // Reopen expense request
+      const { error: updReqErr } = await serviceClient
+        .from("expense_requests")
+        .update({ status: "approved", paid_by: null, paid_at: null })
+        .eq("id", request.id);
+
+      if (updReqErr) {
+        return new Response(JSON.stringify({ error: "failed_to_update_request", details: updReqErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+    } else if (sourceType === "expense_entry") {
+      // Handle expense_entry void (manual entries)
+      const { data: entry, error: entryErr } = await serviceClient
+        .from("expense_entries")
+        .select(
+          "id, entry_number, expense_reference, grand_total, status, paid_at, paid_by, treasury_id, bank_id, payment_method, currency_id",
+        )
+        .eq("id", expenseEntryId)
+        .maybeSingle();
+
+      if (entryErr || !entry) {
+        return new Response(JSON.stringify({ error: "entry_not_found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (entry.status !== "paid") {
+        return new Response(JSON.stringify({ error: "entry_not_paid" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      requestNumber = entry.entry_number;
+      description = entry.expense_reference || "Manual Entry";
+      amount = entry.grand_total;
+      treasuryId = entry.treasury_id;
+      paidAt = entry.paid_at;
+
+      // Fetch treasury entries linked to this expense_entry
+      const { data: treasuryEntries } = await serviceClient
+        .from("treasury_entries")
+        .select("id, entry_number, converted_amount")
+        .eq("reference_type", "expense_entry")
+        .eq("reference_id", expenseEntryId);
+
+      // Fetch bank entries linked to this expense_entry
+      const { data: bankEntries } = await serviceClient
+        .from("bank_entries")
+        .select("id, entry_number, converted_amount")
+        .eq("reference_type", "expense_entry")
+        .eq("reference_id", expenseEntryId);
+
+      const treasuryEntryIds = (treasuryEntries ?? []).map((e) => e.id);
+      const bankEntryIds = (bankEntries ?? []).map((e) => e.id);
+      treasuryAmountTotal = (treasuryEntries ?? []).reduce(
+        (sum, e) => sum + (Number(e.converted_amount) || 0),
+        0,
+      ) + (bankEntries ?? []).reduce(
+        (sum, e) => sum + (Number(e.converted_amount) || 0),
+        0,
+      );
+      treasuryEntryNumber = treasuryEntries?.[0]?.entry_number || bankEntries?.[0]?.entry_number || null;
+
+      // Delete treasury entries
+      if (treasuryEntryIds.length > 0) {
+        const { data: deletedRows, error: delErr } = await serviceClient
+          .from("treasury_entries")
+          .delete()
+          .in("id", treasuryEntryIds)
+          .select("id");
+
+        if (delErr) {
+          return new Response(JSON.stringify({ error: "failed_to_delete_treasury_entries", details: delErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        deletedCount += deletedRows?.length ?? 0;
+      }
+
+      // Delete bank entries
+      if (bankEntryIds.length > 0) {
+        const { data: deletedRows, error: delErr } = await serviceClient
+          .from("bank_entries")
+          .delete()
+          .in("id", bankEntryIds)
+          .select("id");
+
+        if (delErr) {
+          return new Response(JSON.stringify({ error: "failed_to_delete_bank_entries", details: delErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        deletedCount += deletedRows?.length ?? 0;
+      }
+
+      // Also delete treasury_ledger entries for this expense_entry
+      await serviceClient
+        .from("treasury_ledger")
+        .delete()
+        .eq("reference_type", "expense_entry")
+        .eq("reference_id", expenseEntryId);
+
+      // Update bank balance if payment was via bank
+      if (entry.payment_method === "bank" && entry.bank_id && bankEntries && bankEntries.length > 0) {
+        const totalBankAmount = bankEntries.reduce((sum, e) => sum + (Number(e.converted_amount) || 0), 0);
+        // Get current balance and add back the amount
+        const { data: bank } = await serviceClient
+          .from("banks")
+          .select("current_balance")
+          .eq("id", entry.bank_id)
+          .single();
+        
+        if (bank) {
+          await serviceClient
+            .from("banks")
+            .update({ current_balance: (bank.current_balance || 0) + totalBankAmount })
+            .eq("id", entry.bank_id);
+        }
+      }
+
+      // Reopen expense entry to approved
+      const { error: updEntryErr } = await serviceClient
+        .from("expense_entries")
+        .update({ status: "approved", paid_by: null, paid_at: null })
+        .eq("id", entry.id);
+
+      if (updEntryErr) {
+        return new Response(JSON.stringify({ error: "failed_to_update_expense_entry", details: updEntryErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Insert void history
     const { error: vhErr } = await serviceClient.from("void_payment_history").insert({
-      expense_request_id: request.id,
-      request_number: request.request_number,
-      description: request.description,
-      original_amount: request.amount,
-      treasury_amount: treasuryEntries?.length ? treasuryAmountTotal : null,
-      // currency codes are optional in history; frontend prints from history
+      expense_request_id: sourceType === "expense_request" ? expenseRequestId : expenseEntryId,
+      request_number: requestNumber,
+      description: description,
+      original_amount: amount,
+      treasury_amount: treasuryAmountTotal || null,
       currency_code: null,
       treasury_currency_code: null,
-      treasury_id: request.treasury_id,
+      treasury_id: treasuryId,
       treasury_name: null,
       treasury_entry_number: treasuryEntryNumber,
-      original_paid_at: request.paid_at,
+      original_paid_at: paidAt,
       voided_by: userId,
       voided_by_name: profile?.user_name ?? userEmail ?? null,
       reason,
@@ -197,61 +383,15 @@ serve(async (req) => {
       });
     }
 
-    // Delete treasury entries (service role => real delete)
-    let deletedCount = 0;
-    if (treasuryEntryIds.length > 0) {
-      const { data: deletedRows, error: delErr } = await serviceClient
-        .from("treasury_entries")
-        .delete()
-        .in("id", treasuryEntryIds)
-        .select("id");
-
-      if (delErr) {
-        return new Response(JSON.stringify({ error: "failed_to_delete_treasury_entries", details: delErr.message }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      deletedCount = deletedRows?.length ?? 0;
-    }
-
-    // Reopen expense entry
-    if (expenseEntry?.id) {
-      const { error: updEeErr } = await serviceClient
-        .from("expense_entries")
-        .update({ status: "approved", paid_by: null, paid_at: null })
-        .eq("id", expenseEntry.id);
-      if (updEeErr) {
-        return new Response(JSON.stringify({ error: "failed_to_update_expense_entry", details: updEeErr.message }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    // Reopen expense request
-    const { error: updReqErr } = await serviceClient
-      .from("expense_requests")
-      .update({ status: "approved", paid_by: null, paid_at: null })
-      .eq("id", request.id);
-
-    if (updReqErr) {
-      return new Response(JSON.stringify({ error: "failed_to_update_request", details: updReqErr.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Audit log (best effort)
     await serviceClient.from("audit_logs").insert({
       user_id: userId,
       action: "VOID_PAYMENT",
-      table_name: "expense_requests",
-      record_id: request.id,
+      table_name: sourceType === "expense_request" ? "expense_requests" : "expense_entries",
+      record_id: sourceType === "expense_request" ? expenseRequestId : expenseEntryId,
       old_data: {
         status: "paid",
-        treasury_entry_ids: treasuryEntryIds,
+        source_type: sourceType,
       },
       new_data: {
         status: "approved",
@@ -264,7 +404,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         deletedCount,
-        treasuryEntryIds,
+        sourceType,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
