@@ -145,7 +145,7 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
             style={{ width: "120px", height: "auto", margin: "0 auto 10px" }} 
           />
           <h1 className="text-2xl font-bold mb-2">
-            {isRtl ? "سند صرف مصروفات" : "Expense Payment Voucher"}
+            {isRtl ? "طلب صرف" : "Expense Payment Voucher"}
           </h1>
           <p className="text-sm text-gray-600">
             {isRtl ? "نسخة أصلية" : "Original Copy"}
@@ -174,8 +174,8 @@ export const ExpenseEntryPrint = forwardRef<HTMLDivElement, ExpenseEntryPrintPro
                   ? "بنك"
                   : "Bank"
                 : isRtl
-                ? "خزينة"
-                : "Treasury"}
+                ? "نقدى"
+                : "Cash"}
             </span>
           </div>
           <div className="border p-2">
