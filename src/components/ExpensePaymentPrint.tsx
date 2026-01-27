@@ -206,12 +206,6 @@ export const ExpensePaymentPrint = ({ request, paymentDetails, language }: Expen
               </div>
             </div>
             
-            {request.notes && (
-              <div className="row">
-                <label>{language === "ar" ? "الغرض:" : "Purpose:"}</label>
-                <span>{request.notes}</span>
-              </div>
-            )}
             
             <div className="signature-section">
               <div className="signature-box">

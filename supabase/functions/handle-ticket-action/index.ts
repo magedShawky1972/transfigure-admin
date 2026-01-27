@@ -603,6 +603,7 @@ const handler = async (req: Request): Promise<Response> => {
             requester_id: ticket.user_id,
             request_date: new Date().toISOString().split("T")[0],
             status: "pending",
+            cost_center_id: ticket.cost_center_id || null,
             notes: `تم إنشاؤه تلقائياً من تذكرة الشراء رقم ${ticket.ticket_number}`,
           });
 
