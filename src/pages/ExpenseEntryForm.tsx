@@ -219,6 +219,18 @@ const ExpenseEntryForm = () => {
 
       if (linesError) throw linesError;
 
+      // Fetch creator's name from profiles
+      if (entry.created_by) {
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("user_name")
+          .eq("id", entry.created_by)
+          .single();
+        if (creatorProfile?.user_name) {
+          setCurrentUserName(creatorProfile.user_name);
+        }
+      }
+
       setExistingEntryId(entry.id);
       setEntryNumber(entry.entry_number);
       setEntryDate(entry.entry_date);
