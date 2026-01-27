@@ -21,6 +21,7 @@ interface Bank {
   bank_name: string;
   bank_name_ar: string | null;
   current_balance: number | null;
+  currency_id: string | null;
 }
 
 interface Treasury {
@@ -122,7 +123,7 @@ const ExpenseEntryPage = () => {
     setLoading(true);
     try {
       const [banksRes, treasuriesRes, currenciesRes, expenseTypesRes, costCentersRes, currencyRatesRes] = await Promise.all([
-        supabase.from("banks").select("id, bank_name, bank_name_ar, current_balance").eq("is_active", true),
+        supabase.from("banks").select("id, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
         supabase.from("treasuries").select("id, treasury_name, treasury_name_ar, currency_id, current_balance").eq("is_active", true),
         supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, symbol, is_base, is_active").eq("is_active", true),
         supabase.from("expense_types").select("id, expense_code, expense_name").eq("is_active", true),
@@ -256,26 +257,38 @@ const ExpenseEntryPage = () => {
             return;
           }
 
-          // Validate bank balance (banks typically use SAR)
+          // Get base currency for conversions
+          const baseCurrencyObj = currencies.find(c => c.is_base) || null;
+
+          // Convert SAR amount to bank's currency
+          const expenseInBankCurrency = convertFromBaseCurrency(
+            grandTotalInSAR,
+            bank.currency_id || null,
+            currencyRates as CurrencyRateType[],
+            baseCurrencyObj
+          );
+
+          // Validate bank balance in its own currency
           const bankBalance = bank.current_balance || 0;
-          if (grandTotalInSAR > bankBalance) {
+          if (expenseInBankCurrency > bankBalance) {
+            const bankCurrency = currencies.find(c => c.id === bank.currency_id);
             toast.error(
               language === "ar" 
-                ? `رصيد البنك غير كافٍ. المطلوب: ${grandTotalInSAR.toFixed(2)} SAR, المتاح: ${bankBalance.toFixed(2)}` 
-                : `Insufficient bank balance. Required: ${grandTotalInSAR.toFixed(2)} SAR, Available: ${bankBalance.toFixed(2)}`
+                ? `رصيد البنك غير كافٍ. المطلوب: ${expenseInBankCurrency.toFixed(2)}, المتاح: ${bankBalance.toFixed(2)} (${bankCurrency?.currency_code || ""})` 
+                : `Insufficient bank balance. Required: ${expenseInBankCurrency.toFixed(2)}, Available: ${bankBalance.toFixed(2)} (${bankCurrency?.currency_code || ""})`
             );
             return;
           }
 
           const balanceBefore = bankBalance;
-          const newBalance = bankBalance - grandTotalInSAR;
+          const newBalance = bankBalance - expenseInBankCurrency;
           const entryNumber = `BNK${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}${String(new Date().getSeconds()).padStart(2, "0")}`;
           
           const { error: bankError } = await supabase.from("bank_entries").insert({
             entry_number: entryNumber,
             bank_id: entry.bank_id,
             entry_type: "payment",
-            amount: grandTotalInSAR,
+            amount: grandTotalInSAR, // Amount in SAR (base currency)
             description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
             entry_date: new Date().toISOString().split("T")[0],
             created_by: currentUserId,
@@ -286,8 +299,10 @@ const ExpenseEntryPage = () => {
             posted_at: new Date().toISOString(),
             from_currency_id: fullEntry?.currency_id,
             exchange_rate: fullEntry?.exchange_rate || 1,
-            converted_amount: grandTotalInSAR,
+            converted_amount: expenseInBankCurrency, // Amount in bank's currency
             balance_after: newBalance,
+            reference_type: "expense_entry",
+            reference_id: entryId,
           });
 
           if (bankError) {
@@ -307,10 +322,10 @@ const ExpenseEntryPage = () => {
             reference_id: entryId,
             reference_number: entry.entry_number,
             description: `${language === "ar" ? "مصروفات: " : "Expense Entry: "}${entry.entry_number}`,
-            credit_amount: grandTotalInSAR,
+            credit_amount: expenseInBankCurrency, // In bank's currency
             debit_amount: 0,
             balance_after: newBalance,
-            currency_id: fullEntry?.currency_id,
+            currency_id: bank.currency_id,
             exchange_rate: fullEntry?.exchange_rate || 1,
             created_by: currentUserId,
           });
@@ -643,64 +658,94 @@ const ExpenseEntryPage = () => {
     return baseCurrency?.currency_code || "SAR";
   };
 
-  // Calculate original value from grand_total (SAR) and exchange_rate
-  const getOriginalValue = (grandTotal: number, exchangeRate: number | null, currencyId: string | null) => {
-    if (!currencyId || !grandTotal) return grandTotal;
+  // Get base currency object
+  const baseCurrency = currencies.find(c => c.is_base) || null;
+
+  /**
+   * Get the amount in original currency
+   * - Manual entries: grand_total IS the original amount
+   * - Expense-request entries: grand_total is SAR, reverse-convert to original
+   */
+  const getAmountInOriginalCurrency = (entry: ExpenseEntry) => {
+    if (!entry.grand_total) return 0;
     
-    // Check if already base currency (no conversion needed)
-    const currency = currencies.find(c => c.id === currencyId);
-    if (currency?.is_base) return grandTotal;
-    
-    // If no exchange rate stored, return as-is
-    if (!exchangeRate || exchangeRate <= 0) return grandTotal;
-    
-    // Find the conversion operator for this currency
-    const rate = currencyRates.find(r => r.currency_id === currencyId);
-    const operator = rate?.conversion_operator || 'multiply';
-    
-    // Reverse the conversion to get original value
-    // If operator is 'multiply': SAR = Original * rate, so Original = SAR / rate
-    // If operator is 'divide': SAR = Original / rate, so Original = SAR * rate
-    if (operator === 'multiply') {
-      return grandTotal / exchangeRate;
-    } else {
-      return grandTotal * exchangeRate;
+    // If entry is from expense_request, grand_total is already SAR
+    // Need to reverse-convert to original currency
+    if (entry.from_expense_request) {
+      return convertFromBaseCurrency(
+        entry.grand_total,
+        entry.currency_id,
+        currencyRates as CurrencyRateType[],
+        baseCurrency
+      );
     }
+    // Manual entry: grand_total IS the original amount
+    return entry.grand_total;
   };
 
-  // Get treasury currency code
-  const getTreasuryCurrency = (treasuryId: string | null) => {
-    if (!treasuryId) return null;
-    const treasury = treasuries.find(t => t.id === treasuryId);
-    if (!treasury?.currency_id) return null;
-    const currency = currencies.find(c => c.id === treasury.currency_id);
-    return currency?.currency_code || null;
+  /**
+   * Get the amount in SAR (base currency)
+   * - Manual entries: convert grand_total to SAR
+   * - Expense-request entries: grand_total is already SAR
+   */
+  const getAmountInSAR = (entry: ExpenseEntry) => {
+    if (!entry.grand_total) return 0;
+    
+    // If entry is from expense_request, grand_total is already SAR
+    if (entry.from_expense_request) {
+      return entry.grand_total;
+    }
+    // Manual entry: convert from original currency to SAR
+    return convertToBaseCurrency(
+      entry.grand_total,
+      entry.currency_id,
+      currencyRates as CurrencyRateType[],
+      baseCurrency
+    );
   };
 
-  // Convert SAR amount to treasury currency
-  const convertToTreasuryCurrency = (sarAmount: number, treasuryId: string | null) => {
-    if (!treasuryId || !sarAmount) return sarAmount;
-    
-    const treasury = treasuries.find(t => t.id === treasuryId);
-    if (!treasury?.currency_id) return sarAmount;
-    
-    // Check if treasury currency is base currency
-    const treasuryCurrency = currencies.find(c => c.id === treasury.currency_id);
-    if (treasuryCurrency?.is_base) return sarAmount;
-    
-    // Find rate for treasury currency
-    const rate = currencyRates.find(r => r.currency_id === treasury.currency_id);
-    if (!rate || rate.rate_to_base <= 0) return sarAmount;
-    
-    // Convert FROM base (SAR) TO treasury currency
-    // If operator is 'multiply': SAR = Original * rate, so Original = SAR / rate
-    // If operator is 'divide': SAR = Original / rate, so Original = SAR * rate
-    const operator = rate.conversion_operator || 'multiply';
-    if (operator === 'multiply') {
-      return sarAmount / rate.rate_to_base;
-    } else {
-      return sarAmount * rate.rate_to_base;
+  // Get payment currency code (treasury or bank)
+  const getPaymentCurrency = (entry: ExpenseEntry) => {
+    if (entry.payment_method === "treasury" && entry.treasury_id) {
+      const treasury = treasuries.find(t => t.id === entry.treasury_id);
+      if (!treasury?.currency_id) return null;
+      const currency = currencies.find(c => c.id === treasury.currency_id);
+      return currency?.currency_code || null;
+    } else if (entry.payment_method === "bank" && entry.bank_id) {
+      const bank = banks.find(b => b.id === entry.bank_id);
+      if (!bank?.currency_id) return null;
+      const currency = currencies.find(c => c.id === bank.currency_id);
+      return currency?.currency_code || null;
     }
+    return null;
+  };
+
+  /**
+   * Get amount in payment currency (treasury or bank currency)
+   * First calculates SAR amount, then converts to payment method's currency
+   */
+  const getAmountInPaymentCurrency = (entry: ExpenseEntry) => {
+    const sarAmount = getAmountInSAR(entry);
+    if (!sarAmount) return 0;
+    
+    if (entry.payment_method === "treasury" && entry.treasury_id) {
+      const treasury = treasuries.find(t => t.id === entry.treasury_id);
+      return convertFromBaseCurrency(
+        sarAmount,
+        treasury?.currency_id || null,
+        currencyRates as CurrencyRateType[],
+        baseCurrency
+      );
+    } else if (entry.payment_method === "bank" && entry.bank_id) {
+      const bank = banks.find(b => b.id === entry.bank_id);
+      return convertFromBaseCurrency(
+        sarAmount,
+        bank?.currency_id || null,
+        currencyRates as CurrencyRateType[],
+        baseCurrency
+      );
+    }
+    return sarAmount;
   };
 
   if (loading || importing) return <LoadingOverlay />;
@@ -775,7 +820,7 @@ const ExpenseEntryPage = () => {
                   <TableHead>{language === "ar" ? "البنك/الخزينة" : "Bank/Treasury"}</TableHead>
                   <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
                   <TableHead className="text-right">{language === "ar" ? "القيمة الأصلية" : "Original Value"}</TableHead>
-                  <TableHead className="text-right">{language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "مبلغ الدفع" : "Payment Amount"}</TableHead>
                   <TableHead className="text-right">{language === "ar" ? `المبلغ بـ ${getBaseCurrency()}` : `Amount (${getBaseCurrency()})`}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
@@ -809,15 +854,15 @@ const ExpenseEntryPage = () => {
                       </TableCell>
                       <TableCell>{getCurrencyCode(entry.currency_id)}</TableCell>
                       <TableCell className="text-right font-semibold">
-                        {formatNumber(getOriginalValue(entry.grand_total, entry.exchange_rate, entry.currency_id))}
+                        {formatNumber(getAmountInOriginalCurrency(entry))}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-amber-600">
-                        {entry.payment_method === "treasury" && entry.treasury_id ? (
-                          <span>{formatNumber(convertToTreasuryCurrency(entry.grand_total, entry.treasury_id))} {getTreasuryCurrency(entry.treasury_id)}</span>
+                        {getPaymentCurrency(entry) ? (
+                          <span>{formatNumber(getAmountInPaymentCurrency(entry))} {getPaymentCurrency(entry)}</span>
                         ) : "-"}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-primary">
-                        {formatNumber(entry.grand_total)}
+                        {formatNumber(getAmountInSAR(entry))}
                       </TableCell>
                       <TableCell>
                         <Badge className={STATUS_COLORS[entry.status]}>{getStatusLabel(entry.status)}</Badge>
