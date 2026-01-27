@@ -2075,6 +2075,8 @@ const Dashboard = () => {
     { key: "transaction_type", label: "Transaction Type", labelAr: "نوع المعاملة", enabled: hasAccess("transaction_type_chart") },
     { key: "user_transaction_count", label: "Transaction Count by User", labelAr: "عدد المعاملات حسب المستخدم", enabled: hasAccess("user_transaction_count_chart") },
     { key: "user_transaction_value", label: "Transaction Value by User", labelAr: "قيمة المعاملات حسب المستخدم", enabled: hasAccess("user_transaction_value_chart") },
+    { key: "product_summary", label: "Product Sales Summary", labelAr: "ملخص مبيعات المنتجات", enabled: hasAccess("product_summary_table") && productSummary.length > 0 },
+    { key: "customer_purchases", label: "Customer Purchase Summary", labelAr: "ملخص مشتريات العملاء", enabled: hasAccess("customer_purchases_table") && customerPurchases.length > 0 },
   ];
 
   const handlePrintDashboard = (selectedSections: string[]) => {
@@ -2411,6 +2413,74 @@ const Dashboard = () => {
                   </tr>
                 `).join('')}
               </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('product_summary') && productSummary.length > 0 ? `
+          <div class="section">
+            <h2>${language === 'ar' ? 'ملخص مبيعات المنتجات' : 'Product Sales Summary'}</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'المنتج' : 'Product'}</th>
+                  <th class="text-right">${language === 'ar' ? 'الكمية' : 'Quantity'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${productSummary.slice(0, 50).map((item: any) => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td class="text-right">${item.qty.toLocaleString()}</td>
+                    <td class="text-right">${formatCurrency(item.value)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid #000;">
+                  <td>${language === 'ar' ? 'الإجمالي' : 'Total'}</td>
+                  <td class="text-right">${productSummary.reduce((sum: number, item: any) => sum + item.qty, 0).toLocaleString()}</td>
+                  <td class="text-right">${formatCurrency(productSummary.reduce((sum: number, item: any) => sum + item.value, 0))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('customer_purchases') && customerPurchases.length > 0 ? `
+          <div class="section">
+            <h2>${language === 'ar' ? 'ملخص مشتريات العملاء' : 'Customer Purchase Summary'}</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'العميل' : 'Customer'}</th>
+                  <th>${language === 'ar' ? 'الهاتف' : 'Phone'}</th>
+                  <th>${language === 'ar' ? 'العلامة' : 'Brand'}</th>
+                  <th>${language === 'ar' ? 'المنتج' : 'Product'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المعاملات' : 'Transactions'}</th>
+                  <th class="text-right">${language === 'ar' ? 'الإجمالي' : 'Total'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${customerPurchases.slice(0, 50).map((item: any) => `
+                  <tr>
+                    <td>${item.customerName}</td>
+                    <td>${item.customerPhone}</td>
+                    <td>${item.category}</td>
+                    <td>${item.product}</td>
+                    <td class="text-right">${item.transactionCount}</td>
+                    <td class="text-right">${formatCurrency(item.totalValue)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid #000;">
+                  <td colspan="4">${language === 'ar' ? 'الإجمالي' : 'Total'}</td>
+                  <td class="text-right">${customerPurchases.reduce((sum: number, item: any) => sum + item.transactionCount, 0).toLocaleString()}</td>
+                  <td class="text-right">${formatCurrency(customerPurchases.reduce((sum: number, item: any) => sum + item.totalValue, 0))}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         ` : ''}
