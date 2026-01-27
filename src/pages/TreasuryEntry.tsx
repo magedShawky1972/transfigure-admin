@@ -951,7 +951,7 @@ const TreasuryEntry = () => {
               <TableBody>
                 {/* Opening Balance Row */}
                 <TableRow className="bg-muted/50 font-medium">
-                  <TableCell className="font-mono text-xs">-</TableCell>
+                  <TableCell className="font-mono text-xs">OB-{format(dateFrom, "yyyyMMdd")}</TableCell>
                   <TableCell className="text-xs">{format(dateFrom, "yyyy-MM-dd")}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
@@ -961,8 +961,16 @@ const TreasuryEntry = () => {
                   <TableCell className="text-xs">
                     {language === "ar" ? "رصيد افتتاحي للفترة" : "Opening balance for period"}
                   </TableCell>
-                  <TableCell className="text-right font-semibold text-green-600">-</TableCell>
-                  <TableCell className="text-right font-semibold text-red-600">-</TableCell>
+                  <TableCell className="text-right font-semibold text-green-600">
+                    {openingBalance > 0 
+                      ? openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                      : "-"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-red-600">
+                    {openingBalance < 0 
+                      ? Math.abs(openingBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                      : "-"}
+                  </TableCell>
                   <TableCell className="text-right text-xs font-bold text-blue-600">
                     {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
