@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, ImageIcon, Gamepad2, LogIn, LogOut, Edit2, Save, X } from "lucide-react";
+import { Loader2, ImageIcon, Gamepad2, LogIn, LogOut, Edit2, Save, X, RotateCcw } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -79,6 +79,7 @@ export default function ShiftClosingDetailsDialog({
   const [editingType, setEditingType] = useState<"opening" | "closing" | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [rereadingKey, setRereadingKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && shiftSessionId) {
@@ -314,12 +315,16 @@ export default function ShiftClosingDetailsDialog({
         ? { opening_balance: numValue }
         : { closing_balance: numValue };
       
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from("shift_brand_balances")
         .update(updateData)
-        .eq("id", editingBalanceId);
+        .eq("id", editingBalanceId)
+        .select("id");
 
       if (error) throw error;
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error(language === "ar" ? "لا توجد صلاحية للتعديل" : "No permission to update");
+      }
 
       // Update local state
       setBrandBalances(prev => prev.map(b => {
@@ -336,11 +341,66 @@ export default function ShiftClosingDetailsDialog({
       
       // Notify parent that data changed
       onDataChanged?.();
+
+      // Refetch from DB to guarantee fresh data on reopen
+      await fetchClosingDetails();
     } catch (error: any) {
       console.error("Error saving balance:", error);
       toast.error(language === "ar" ? "فشل في حفظ القيمة" : "Failed to save value");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRereadByAi = async (balance: BrandBalance, type: "opening" | "closing") => {
+    const imageUrl = type === "opening" ? balance.openingImageUrl : balance.closingImageUrl;
+    if (!imageUrl) {
+      toast.error(language === "ar" ? "لا توجد صورة لإعادة القراءة" : "No image to reread");
+      return;
+    }
+
+    const key = `${balance.id}:${type}`;
+    setRereadingKey(key);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-shift-closing-number", {
+        body: {
+          imageUrl,
+          brandId: balance.brand_id,
+          brandName: balance.brand_name,
+        },
+      });
+
+      if (error) throw error;
+
+      const extractedNumber = data?.extractedNumber;
+      if (extractedNumber === null || extractedNumber === undefined || Number.isNaN(Number(extractedNumber))) {
+        throw new Error(language === "ar" ? "تعذر استخراج الرقم" : "Failed to extract number");
+      }
+
+      const updateData = type === "opening"
+        ? { opening_balance: Number(extractedNumber) }
+        : { closing_balance: Number(extractedNumber) };
+
+      const { data: updatedRows, error: updateError } = await supabase
+        .from("shift_brand_balances")
+        .update(updateData)
+        .eq("id", balance.id)
+        .select("id");
+
+      if (updateError) throw updateError;
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error(language === "ar" ? "لا توجد صلاحية للتعديل" : "No permission to update");
+      }
+
+      toast.success(language === "ar" ? "تمت إعادة القراءة وحفظ القيمة" : "Re-read completed and saved");
+      onDataChanged?.();
+      await fetchClosingDetails();
+    } catch (e: any) {
+      console.error("Error rereading by AI:", e);
+      toast.error(language === "ar" ? "فشلت إعادة القراءة" : "Re-read failed");
+    } finally {
+      setRereadingKey(null);
     }
   };
 
@@ -369,7 +429,7 @@ export default function ShiftClosingDetailsDialog({
           return (
             <Card key={balance.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
-                <div className="flex justify-between items-center">
+                 <div className="flex justify-between items-center">
                   <h3 className="font-semibold text-lg">{balance.brand_name}</h3>
                   <div className="text-right">
                     <div className="text-xs text-muted-foreground">{balanceLabel}</div>
@@ -406,6 +466,20 @@ export default function ShiftClosingDetailsDialog({
                         <div className="text-2xl font-bold text-primary">
                           {balanceValue !== null ? balanceValue.toLocaleString() : "-"}
                         </div>
+                         <Button
+                           size="sm"
+                           variant="ghost"
+                           className="h-6 w-6 p-0"
+                           onClick={() => handleRereadByAi(balance, type)}
+                           disabled={rereadingKey === `${balance.id}:${type}`}
+                           title={language === "ar" ? "إعادة القراءة بالذكاء الاصطناعي" : "Re-read with AI"}
+                         >
+                           {rereadingKey === `${balance.id}:${type}` ? (
+                             <Loader2 className="h-3 w-3 animate-spin" />
+                           ) : (
+                             <RotateCcw className="h-3 w-3" />
+                           )}
+                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
