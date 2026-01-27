@@ -174,6 +174,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
       content: userContent
     });
 
+    // Use gemini-2.5-pro for better accuracy with Arabic numerals
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -181,8 +182,9 @@ Return ONLY the JSON object, no other text or markdown formatting.`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages,
+        max_tokens: 500,
       }),
     });
 
