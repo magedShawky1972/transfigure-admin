@@ -778,18 +778,6 @@ const TreasuryEntry = () => {
             <div class="currency">${currencyCode}</div>
           </div>
 
-          ${entry.balance_before !== null || entry.balance_after !== null ? `
-          <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
-            <div class="info-box">
-              <label>${isRtl ? "الرصيد قبل" : "Balance Before"}</label>
-              <span>${entry.balance_before?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
-            </div>
-            <div class="info-box">
-              <label>${isRtl ? "الرصيد بعد" : "Balance After"}</label>
-              <span>${entry.balance_after?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "-"}</span>
-            </div>
-          </div>
-          ` : ""}
 
           <div class="description-box">
             <label>${isRtl ? "الوصف / البيان" : "Description"}</label>
