@@ -23,6 +23,7 @@ import { UserTransactionCountChart } from "@/components/UserTransactionCountChar
 import { UserTransactionValueChart } from "@/components/UserTransactionValueChart";
 import { BrandGrossRateChart } from "@/components/BrandGrossRateChart";
 import { BrandGrossRateWeeklyChart } from "@/components/BrandGrossRateWeeklyChart";
+import { DashboardPrintDialog, PrintSection } from "@/components/DashboardPrintDialog";
 
 interface Transaction {
   id: string;
@@ -175,6 +176,13 @@ const Dashboard = () => {
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [allCustomers, setAllCustomers] = useState<string[]>([]);
   const [allPhones, setAllPhones] = useState<string[]>([]);
+  
+  // Global Brand Filter
+  const [globalBrandFilter, setGlobalBrandFilter] = useState<string>("all");
+  const [availableBrands, setAvailableBrands] = useState<{ brand_code: string; brand_name: string }[]>([]);
+  
+  // Print Dialog
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
@@ -295,6 +303,22 @@ const Dashboard = () => {
     loadPermissions();
   }, []);
 
+  // Fetch available brands for global filter
+  useEffect(() => {
+    const fetchBrands = async () => {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('brand_code, brand_name')
+        .eq('status', 'active')
+        .order('brand_name');
+      
+      if (!error && data) {
+        setAvailableBrands(data);
+      }
+    };
+    fetchBrands();
+  }, []);
+
   // Removed auto-fetch - user must click Apply button to load data
 
   // Helper function to check if user has access to a component
@@ -413,13 +437,19 @@ const Dashboard = () => {
       }
 
       // Fetch only recent 5 transactions for display using integer date column
-      const { data: recentTxns, error: recentError } = await supabase
+      let recentQuery = supabase
         .from('purpletransaction')
         .select('*')
         .gte('created_at_date_int', startInt)
         .lte('created_at_date_int', endInt)
-        .order('created_at_date_int', { ascending: false })
-        .limit(5);
+        .order('created_at_date_int', { ascending: false });
+      
+      // Apply global brand filter
+      if (globalBrandFilter !== 'all') {
+        recentQuery = recentQuery.eq('brand_name', globalBrandFilter);
+      }
+      
+      const { data: recentTxns, error: recentError } = await recentQuery.limit(5);
 
       if (!recentError && recentTxns) {
         setRecentTransactions(recentTxns as unknown as Transaction[]);
@@ -531,13 +561,19 @@ const Dashboard = () => {
       let transactions: Transaction[] = [];
       
       while (true) {
-        const { data, error } = await (supabase as any)
+        let query = (supabase as any)
           .from('purpletransaction')
           .select('*')
           .order('created_at_date_int', { ascending: false })
           .gte('created_at_date_int', startInt)
-          .lte('created_at_date_int', endInt)
-          .range(from, from + pageSize - 1);
+          .lte('created_at_date_int', endInt);
+        
+        // Apply global brand filter
+        if (globalBrandFilter !== 'all') {
+          query = query.eq('brand_name', globalBrandFilter);
+        }
+        
+        const { data, error } = await query.range(from, from + pageSize - 1);
 
         if (error) throw error;
 
@@ -567,7 +603,10 @@ const Dashboard = () => {
         .lte('created_at_date_int', trendEndInt)
         .order('created_at_date_int', { ascending: true });
 
-      if (trendBrandFilter !== 'all') {
+      // Apply global brand filter first, then trend-specific filter
+      if (globalBrandFilter !== 'all') {
+        trendBase = trendBase.eq('brand_name', globalBrandFilter);
+      } else if (trendBrandFilter !== 'all') {
         trendBase = trendBase.eq('brand_name', trendBrandFilter);
       }
 
@@ -951,13 +990,19 @@ const Dashboard = () => {
       let transactions: Transaction[] = [];
       
       while (true) {
-        const { data, error } = await (supabase as any)
+        let query = (supabase as any)
           .from('purpletransaction')
           .select('*')
           .order('created_at_date_int', { ascending: false })
           .gte('created_at_date_int', startInt)
-          .lte('created_at_date_int', endInt)
-          .range(from, from + pageSize - 1);
+          .lte('created_at_date_int', endInt);
+        
+        // Apply global brand filter
+        if (globalBrandFilter !== 'all') {
+          query = query.eq('brand_name', globalBrandFilter);
+        }
+        
+        const { data, error } = await query.range(from, from + pageSize - 1);
 
         if (error) throw error;
 
@@ -1997,6 +2042,372 @@ const Dashboard = () => {
     { label: t("dashboard.netSales"), value: metrics.totalSales - metrics.costOfSales - (includePointCost ? metrics.pointsCostSold : 0) - metrics.ePaymentCharges, percentage: ((metrics.totalSales - metrics.costOfSales - (includePointCost ? metrics.pointsCostSold : 0) - metrics.ePaymentCharges) / metrics.totalSales) * 100 },
   ];
 
+  // Print Sections Configuration
+  const printSections: PrintSection[] = [
+    { key: "metrics_cards", label: "Metrics Cards", labelAr: "بطاقات المؤشرات", enabled: metricCards.length > 0 },
+    { key: "income_statement", label: "Income Statement", labelAr: "قائمة الدخل", enabled: hasAccess("income_statement") },
+    { key: "brand_sales_grid", label: "Brand Sales Overview", labelAr: "مبيعات العلامات التجارية", enabled: hasAccess("brand_sales_grid") },
+    { key: "coins_by_brand", label: "Coins by Brand", labelAr: "العملات حسب العلامة التجارية", enabled: hasAccess("coins_by_brand") },
+    { key: "sales_trend", label: "Sales Trend", labelAr: "اتجاه المبيعات", enabled: hasAccess("sales_trend_chart") },
+    { key: "top_brands", label: "Top 5 Brands", labelAr: "أفضل 5 علامات تجارية", enabled: hasAccess("top_brands_chart") },
+    { key: "top_products", label: "Top 5 Products", labelAr: "أفضل 5 منتجات", enabled: hasAccess("top_products_chart") },
+    { key: "month_comparison", label: "Month Comparison", labelAr: "مقارنة الأشهر", enabled: hasAccess("month_comparison_chart") },
+    { key: "payment_methods", label: "Payment Methods", labelAr: "طرق الدفع", enabled: hasAccess("payment_methods_chart") },
+    { key: "payment_brands", label: "Payment Brands", labelAr: "علامات الدفع", enabled: hasAccess("payment_brands_chart") },
+    { key: "transaction_type", label: "Transaction Type", labelAr: "نوع المعاملة", enabled: hasAccess("transaction_type_chart") },
+    { key: "user_transaction_count", label: "Transaction Count by User", labelAr: "عدد المعاملات حسب المستخدم", enabled: hasAccess("user_transaction_count_chart") },
+    { key: "user_transaction_value", label: "Transaction Value by User", labelAr: "قيمة المعاملات حسب المستخدم", enabled: hasAccess("user_transaction_value_chart") },
+  ];
+
+  const handlePrintDashboard = (selectedSections: string[]) => {
+    const dateRange = getDateRange();
+    const dateRangeText = dateRange 
+      ? `${format(dateRange.start, "yyyy-MM-dd")} - ${format(dateRange.end, "yyyy-MM-dd")}`
+      : '';
+    const brandFilterText = globalBrandFilter !== 'all' ? globalBrandFilter : (language === 'ar' ? 'جميع العلامات' : 'All Brands');
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <title>${language === 'ar' ? 'لوحة المبيعات' : 'Sales Dashboard'}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .header img { width: 120px; margin-bottom: 10px; }
+          .header h1 { margin: 10px 0; font-size: 24px; }
+          .header .date-range { color: #666; font-size: 14px; }
+          .header .brand-filter { color: #8B5CF6; font-size: 14px; font-weight: bold; margin-top: 5px; }
+          .section { margin-bottom: 30px; page-break-inside: avoid; }
+          .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px; }
+          .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+          .metric-card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; }
+          .metric-card .title { font-size: 12px; color: #666; }
+          .metric-card .value { font-size: 20px; font-weight: bold; margin-top: 5px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: ${language === 'ar' ? 'right' : 'left'}; }
+          th { background-color: #f5f5f5; font-weight: bold; }
+          .text-right { text-align: right; }
+          .total-row { font-weight: bold; background-color: #f0f0f0; }
+          @media print { 
+            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .section { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="${getPrintLogoUrl()}" alt="Logo" />
+          <h1>${language === 'ar' ? 'لوحة المبيعات' : 'Sales Dashboard'}</h1>
+          <div class="date-range">${dateRangeText}</div>
+          <div class="brand-filter">${language === 'ar' ? 'العلامة التجارية:' : 'Brand:'} ${brandFilterText}</div>
+        </div>
+
+        ${selectedSections.includes('metrics_cards') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'المؤشرات الرئيسية' : 'Key Metrics'}</div>
+            <div class="metrics-grid">
+              ${metricCards.map(card => `
+                <div class="metric-card">
+                  <div class="title">${card.title}</div>
+                  <div class="value">${card.value}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('income_statement') ? `
+          <div class="section">
+            <div class="section-title">${t("dashboard.incomeStatement")}</div>
+            <table>
+              <tbody>
+                ${incomeStatementData.map((item, index) => `
+                  <tr class="${index === incomeStatementData.length - 1 ? 'total-row' : ''}">
+                    <td>${item.label}</td>
+                    <td class="text-right">${item.percentage > 0 && item.percentage !== 100 ? item.percentage.toFixed(2) + '%' : ''}</td>
+                    <td class="text-right">${formatCurrency(item.value)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('brand_sales_grid') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'مبيعات العلامات التجارية' : 'Brand Sales Overview'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>${language === 'ar' ? 'العلامة التجارية' : 'Brand'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+                  <th class="text-right">${language === 'ar' ? 'التكلفة' : 'Cost'}</th>
+                  <th class="text-right">${language === 'ar' ? 'الربح' : 'Profit'}</th>
+                  <th class="text-right">${language === 'ar' ? 'النسبة %' : 'Profit %'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المعاملات' : 'Transactions'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${brandSalesGrid.map((brand, index) => `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td>${brand.brandName}</td>
+                    <td class="text-right">${brand.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="text-right">${brand.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="text-right">${brand.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="text-right">${brand.profitPercentage.toFixed(1)}%</td>
+                    <td class="text-right">${brand.transactionCount.toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+                <tr class="total-row">
+                  <td></td>
+                  <td>${language === 'ar' ? 'المجموع' : 'Total'}</td>
+                  <td class="text-right">${brandSalesGrid.reduce((sum, b) => sum + b.totalSales, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">${brandSalesGrid.reduce((sum, b) => sum + b.totalCost, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">${brandSalesGrid.reduce((sum, b) => sum + b.totalProfit, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">${(() => {
+                    const totalSales = brandSalesGrid.reduce((sum, b) => sum + b.totalSales, 0);
+                    const totalProfit = brandSalesGrid.reduce((sum, b) => sum + b.totalProfit, 0);
+                    return totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : '0.0';
+                  })()}%</td>
+                  <td class="text-right">${brandSalesGrid.reduce((sum, b) => sum + b.transactionCount, 0).toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('coins_by_brand') ? `
+          <div class="section">
+            <div class="section-title">${t("dashboard.coinsByBrand")}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${t("dashboard.brandName")}</th>
+                  <th class="text-right">${t("dashboard.totalCoins")}</th>
+                  <th class="text-right">USD$</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${coinsByBrand.map(item => `
+                  <tr>
+                    <td>${item.brand_name}</td>
+                    <td class="text-right">${item.total_coins.toLocaleString()}</td>
+                    <td class="text-right">${item.usd_value > 0 ? '$' + item.usd_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
+                  </tr>
+                `).join('')}
+                <tr class="total-row">
+                  <td>${language === 'ar' ? 'الإجمالي' : 'Total'}</td>
+                  <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + item.total_coins, 0).toLocaleString()}</td>
+                  <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('top_brands') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'أفضل 5 علامات تجارية' : 'Top 5 Brands'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>${language === 'ar' ? 'العلامة التجارية' : 'Brand'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topBrands.map((brand, index) => `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td>${brand.name}</td>
+                    <td class="text-right">${formatCurrency(brand.value)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('top_products') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'أفضل 5 منتجات' : 'Top 5 Products'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>${language === 'ar' ? 'المنتج' : 'Product'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topProducts.map((product, index) => `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td>${product.name}</td>
+                    <td class="text-right">${formatCurrency(product.value)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('month_comparison') ? `
+          <div class="section">
+            <div class="section-title">${t("dashboard.monthComparison")}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'الشهر' : 'Month'}</th>
+                  <th class="text-right">${t("dashboard.sales")}</th>
+                  <th class="text-right">${t("dashboard.profit")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${monthComparison.map(month => `
+                  <tr>
+                    <td>${month.month}</td>
+                    <td class="text-right">${formatCurrency(month.sales)}</td>
+                    <td class="text-right">${formatCurrency(month.profit)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('payment_methods') ? `
+          <div class="section">
+            <div class="section-title">${t("dashboard.paymentMethods")}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${paymentMethods.map(method => `
+                  <tr>
+                    <td>${method.name}</td>
+                    <td class="text-right">${formatCurrency(method.value)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('payment_brands') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'علامات الدفع' : 'Payment Brands'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'علامة الدفع' : 'Payment Brand'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${paymentBrands.map(brand => `
+                  <tr>
+                    <td>${brand.name}</td>
+                    <td class="text-right">${formatCurrency(brand.value)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('transaction_type') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'نوع المعاملة' : 'Transaction Type'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'النوع' : 'Type'}</th>
+                  <th class="text-right">${language === 'ar' ? 'العدد' : 'Count'}</th>
+                  <th class="text-right">${language === 'ar' ? 'النسبة' : 'Percentage'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${transactionTypeData.map(item => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td class="text-right">${item.value.toLocaleString()}</td>
+                    <td class="text-right">${item.percentage.toFixed(1)}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('user_transaction_count') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'عدد المعاملات حسب المستخدم' : 'Transaction Count by User'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'المستخدم' : 'User'}</th>
+                  <th class="text-right">${language === 'ar' ? 'العدد' : 'Count'}</th>
+                  <th class="text-right">${language === 'ar' ? 'النسبة' : 'Percentage'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${userTransactionCountData.map(item => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td class="text-right">${item.value.toLocaleString()}</td>
+                    <td class="text-right">${item.percentage.toFixed(1)}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('user_transaction_value') ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'قيمة المعاملات حسب المستخدم' : 'Transaction Value by User'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'المستخدم' : 'User'}</th>
+                  <th class="text-right">${language === 'ar' ? 'القيمة' : 'Value'}</th>
+                  <th class="text-right">${language === 'ar' ? 'النسبة' : 'Percentage'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${userTransactionValueData.map(item => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td class="text-right">${formatCurrency(item.value)}</td>
+                    <td class="text-right">${item.percentage.toFixed(1)}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -2021,7 +2432,7 @@ const Dashboard = () => {
             </label>
           </div>
           <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[150px]">
               <label className="text-sm font-medium mb-2 block">{t("dashboard.dateRange")}</label>
               <Select value={dateFilter} onValueChange={setDateFilter}>
                 <SelectTrigger>
@@ -2038,7 +2449,7 @@ const Dashboard = () => {
 
             {dateFilter === "dateRange" && (
               <>
-                <div className="flex-1 min-w-[200px]">
+                <div className="flex-1 min-w-[150px]">
                   <label className="text-sm font-medium mb-2 block">{t("dashboard.from")}</label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -2062,7 +2473,7 @@ const Dashboard = () => {
                   </Popover>
                 </div>
 
-                <div className="flex-1 min-w-[200px]">
+                <div className="flex-1 min-w-[150px]">
                   <label className="text-sm font-medium mb-2 block">{t("dashboard.to")}</label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -2088,16 +2499,43 @@ const Dashboard = () => {
               </>
             )}
 
-            <div className="flex flex-col gap-2">
+            <div className="flex-1 min-w-[180px]">
+              <label className="text-sm font-medium mb-2 block">
+                {language === 'ar' ? 'تصفية حسب العلامة التجارية' : 'Filter by Brand'}
+              </label>
+              <Select value={globalBrandFilter} onValueChange={setGlobalBrandFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'جميع العلامات' : 'All Brands'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'جميع العلامات التجارية' : 'All Brands'}</SelectItem>
+                  {availableBrands.map(brand => (
+                    <SelectItem key={brand.brand_code} value={brand.brand_name}>
+                      {brand.brand_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2 items-end">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDateInfo(true)}
-                className="w-fit self-center"
+                className="h-10"
               >
                 <Info className="h-4 w-4" />
               </Button>
               <Button onClick={handleApplyFilter}>{t("dashboard.apply")}</Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setPrintDialogOpen(true)}
+                className="gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                {language === 'ar' ? 'طباعة' : 'Print'}
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -4066,6 +4504,14 @@ const Dashboard = () => {
           message={language === 'ar' ? 'جاري تحميل معاملات النقاط...' : 'Loading Point Transactions...'}
         />
       )}
+
+      {/* Print Dashboard Dialog */}
+      <DashboardPrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        sections={printSections}
+        onPrint={handlePrintDashboard}
+      />
     </div>
   );
 };
