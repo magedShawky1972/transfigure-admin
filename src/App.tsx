@@ -8,6 +8,9 @@ import Layout from "./components/Layout";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import Dashboard from "./pages/Dashboard";
 import ExcelSheets from "./pages/ExcelSheets";
+import EmployeeSelfRequests from "./pages/EmployeeSelfRequests";
+import EmployeeRequestApprovals from "./pages/EmployeeRequestApprovals";
+import HRManagerSetup from "./pages/HRManagerSetup";
 import ApiDocumentation from "./pages/ApiDocumentation";
 import TableGenerator from "./pages/TableGenerator";
 import Reports from "./pages/Reports";
@@ -251,6 +254,9 @@ const App = () => (
               <Route path="/reports/manual-shift-transactions" element={<ManualShiftTransactionReport />} />
               <Route path="/project-setup" element={<ProjectSetup />} />
               <Route path="/void-payment" element={<VoidPayment />} />
+              <Route path="/employee-self-requests" element={<EmployeeSelfRequests />} />
+              <Route path="/employee-request-approvals" element={<EmployeeRequestApprovals />} />
+              <Route path="/hr-manager-setup" element={<HRManagerSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
