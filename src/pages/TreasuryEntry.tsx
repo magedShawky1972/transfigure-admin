@@ -667,8 +667,7 @@ const TreasuryEntry = () => {
             color: #666;
             margin-top: 5px;
           }
-          .debit { color: #16a34a; }
-          .credit { color: #dc2626; }
+          .voided { color: #dc2626; }
           .description-box {
             border: 1px solid #000;
             padding: 15px;
@@ -753,9 +752,9 @@ const TreasuryEntry = () => {
         </div>
 
         <div class="amount-section">
-          <div class="label">${debit > 0 ? (isRtl ? "مدين (وارد)" : "Debit (Received)") : (isRtl ? "دائن (صادر)" : "Credit (Paid)")}</div>
-          <div class="value ${debit > 0 ? "debit" : "credit"}">
-            ${(debit > 0 ? debit : credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div class="label">${isRtl ? "المبلغ" : "Amount"}</div>
+          <div class="value ${entry.status === "voided" ? "voided" : ""}">
+            ${(entry.converted_amount || entry.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div class="currency">${currencyCode}</div>
         </div>
