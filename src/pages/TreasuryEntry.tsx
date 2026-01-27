@@ -625,7 +625,7 @@ const TreasuryEntry = () => {
             margin-bottom: 30px;
           }
           .header img {
-            width: 100px;
+            width: 130px;
             height: auto;
             margin-bottom: 15px;
           }
