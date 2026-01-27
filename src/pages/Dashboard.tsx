@@ -140,6 +140,7 @@ const Dashboard = () => {
   
   // New Customers Dialog
   const [newCustomersCount, setNewCustomersCount] = useState(0);
+  const [brandCustomersCount, setBrandCustomersCount] = useState(0);
   const [newCustomersDialogOpen, setNewCustomersDialogOpen] = useState(false);
   const [newCustomersList, setNewCustomersList] = useState<any[]>([]);
   const [newCustomersSortColumn, setNewCustomersSortColumn] = useState<'name' | 'phone' | 'creation_date'>('creation_date');
@@ -353,6 +354,7 @@ const Dashboard = () => {
       });
       setRecentTransactions([]);
       setNewCustomersCount(0);
+      setBrandCustomersCount(0);
       
       const dateRange = getDateRange();
       const dateRangeInt = getDateRangeInt();
@@ -370,7 +372,7 @@ const Dashboard = () => {
       setAppliedStartStr(startStr);
       setAppliedEndNextStr(endStr);
 
-      // Fetch new customers count only
+      // Fetch new customers count only (not filtered by brand since customers table doesn't have brand)
       const { count: newCustomersCount, error: customersError } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
@@ -379,6 +381,24 @@ const Dashboard = () => {
 
       if (!customersError) {
         setNewCustomersCount(newCustomersCount || 0);
+      }
+
+      // Fetch brand-specific customer count (distinct customers who purchased this brand)
+      if (globalBrandFilter !== 'all') {
+        const { data: brandCustomerData, error: brandCustomerError } = await supabase
+          .from('purpletransaction')
+          .select('customer_phone')
+          .eq('brand_name', globalBrandFilter)
+          .gte('created_at_date_int', startInt)
+          .lte('created_at_date_int', endInt);
+        
+        if (!brandCustomerError && brandCustomerData) {
+          // Count distinct customer phones
+          const distinctPhones = new Set(brandCustomerData.map(t => t.customer_phone).filter(Boolean));
+          setBrandCustomersCount(distinctPhones.size);
+        }
+      } else {
+        setBrandCustomersCount(0);
       }
 
       // Use RPC function for fast aggregated metrics with optional brand filter
@@ -2045,6 +2065,14 @@ const Dashboard = () => {
       gradient: "from-indigo-500 to-purple-500",
       onClick: handleNewCustomersClick,
     },
+    // Brand Customers card - only shown when a brand is selected
+    ...(globalBrandFilter !== 'all' ? [{
+      key: "brand_customers",
+      title: language === 'ar' ? 'عملاء العلامة التجارية' : 'Brand Customers',
+      value: brandCustomersCount.toLocaleString(),
+      icon: TrendingUp,
+      gradient: "from-teal-500 to-cyan-500",
+    }] : []),
   ].filter(card => hasAccess(card.key));
 
   // Income Statement Data
@@ -2225,6 +2253,34 @@ const Dashboard = () => {
                   <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
               </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${selectedSections.includes('sales_trend') && salesTrend.length > 0 ? `
+          <div class="section">
+            <div class="section-title">${language === 'ar' ? 'اتجاه المبيعات' : 'Sales Trend'}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'ar' ? 'التاريخ' : 'Date'}</th>
+                  <th class="text-right">${language === 'ar' ? 'المبيعات' : 'Sales'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${salesTrend.map(item => `
+                  <tr>
+                    <td>${item.date}</td>
+                    <td class="text-right">${formatCurrency(item.sales)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr class="total-row">
+                  <td>${language === 'ar' ? 'الإجمالي' : 'Total'}</td>
+                  <td class="text-right">${formatCurrency(salesTrend.reduce((sum, item) => sum + item.sales, 0))}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         ` : ''}
