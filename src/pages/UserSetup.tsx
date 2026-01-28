@@ -134,7 +134,6 @@ interface UserPermission {
         { key: "brandType", label: "نوع العلامة", labelEn: "Brand Type" },
         { key: "productSetup", label: "إعداد المنتجات", labelEn: "Product Setup" },
         { key: "paymentMethodSetup", label: "إعداد طرق الدفع", labelEn: "Payment Method Setup" },
-        { key: "department_management", label: "إدارة الأقسام", labelEn: "Department Management" },
         { key: "shiftSetup", label: "إعداد الورديات", labelEn: "Shift Setup" },
         { key: "shiftCalendar", label: "تقويم الورديات", labelEn: "Shift Calendar" },
         { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
@@ -164,6 +163,7 @@ interface UserPermission {
         { key: "hrVacationCalendar", label: "تقويم الإجازات", labelEn: "Vacation Calendar" },
         { key: "companyHierarchy", label: "الهيكل التنظيمي", labelEn: "Company Hierarchy" },
         { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
+        { key: "department_management", label: "إدارة الأقسام", labelEn: "Department Management" },
       ]
     },
     {
