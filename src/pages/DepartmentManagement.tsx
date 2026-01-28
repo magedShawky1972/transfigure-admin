@@ -897,15 +897,24 @@ const DepartmentManagement = () => {
 
   const [activeTab, setActiveTab] = useState<"normal" | "outsource">("normal");
 
+  const getDepartmentDisplayName = (dept: Department) => {
+    if (language === 'ar' && dept.department_name_ar) {
+      return dept.department_name_ar;
+    }
+    return dept.department_name;
+  };
+
   const filteredDepartments = departments.filter(dept => {
-    const matchesSearch = dept.department_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const nameToSearch = getDepartmentDisplayName(dept);
+    const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      dept.department_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       dept.department_code.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === "outsource" ? dept.is_outsource : !dept.is_outsource;
     return matchesSearch && matchesTab;
   });
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">
@@ -1197,15 +1206,15 @@ const DepartmentManagement = () => {
                 open={isExpanded}
                 onOpenChange={() => toggleDeptExpanded(dept.id)}
               >
-                <Card className={`${dept.parent_department_id ? 'ml-4 sm:ml-8 border-l-4 border-l-primary/30' : ''}`}>
+                <Card className={`${dept.parent_department_id ? (language === 'ar' ? 'mr-4 sm:mr-8 border-r-4 border-r-primary/30' : 'ml-4 sm:ml-8 border-l-4 border-l-primary/30') : ''}`}>
                   <CollapsibleTrigger asChild>
                     <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? '' : (language === 'ar' ? 'rotate-90' : '-rotate-90')}`} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <CardTitle className="text-base">{dept.department_name}</CardTitle>
+                              <CardTitle className="text-base">{getDepartmentDisplayName(dept)}</CardTitle>
                               <span className="text-xs text-muted-foreground">({dept.department_code})</span>
                               {childDepartments.length > 0 && (
                                 <Badge variant="outline" className="text-xs">
@@ -1221,7 +1230,7 @@ const DepartmentManagement = () => {
                             </div>
                             {parentDept && (
                               <p className="text-xs text-primary mt-0.5">
-                                ← {parentDept.department_name}
+                                {language === 'ar' ? '→' : '←'} {getDepartmentDisplayName(parentDept)}
                               </p>
                             )}
                           </div>
@@ -1229,7 +1238,7 @@ const DepartmentManagement = () => {
                         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                           <DepartmentTaskPhases
                             departmentId={dept.id}
-                            departmentName={dept.department_name}
+                            departmentName={getDepartmentDisplayName(dept)}
                           />
                           <Button
                             size="sm"

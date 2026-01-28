@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 interface Department {
   id: string;
   department_name: string;
+  department_name_ar?: string | null;
   department_code: string;
   parent_department_id: string | null;
   is_active: boolean;
@@ -25,6 +26,7 @@ interface DepartmentNodeProps {
   level: number;
   selectedId?: string | null;
   onSelect?: (departmentId: string | null) => void;
+  language?: string;
 }
 
 const DepartmentNode = ({ 
@@ -33,10 +35,18 @@ const DepartmentNode = ({
   allDepartments, 
   level, 
   selectedId, 
-  onSelect 
+  onSelect,
+  language = 'en'
 }: DepartmentNodeProps) => {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = children.length > 0;
+
+  const getDepartmentDisplayName = (dept: Department) => {
+    if (language === 'ar' && dept.department_name_ar) {
+      return dept.department_name_ar;
+    }
+    return dept.department_name;
+  };
 
   return (
     <div>
@@ -47,7 +57,7 @@ const DepartmentNode = ({
             ? "bg-primary text-primary-foreground" 
             : "hover:bg-muted"
         )}
-        style={{ paddingLeft: `${level * 16 + 8}px` }}
+        style={{ paddingInlineStart: `${level * 16 + 8}px` }}
         onClick={() => onSelect?.(department.id)}
       >
         {hasChildren ? (
@@ -62,14 +72,14 @@ const DepartmentNode = ({
             {expanded ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className={cn("h-4 w-4", language === 'ar' && "rotate-180")} />
             )}
           </button>
         ) : (
           <span className="w-5" />
         )}
         <Building2 className="h-4 w-4 shrink-0" />
-        <span className="font-medium truncate">{department.department_name}</span>
+        <span className="font-medium truncate">{getDepartmentDisplayName(department)}</span>
         <span className="text-xs opacity-70 shrink-0">({department.department_code})</span>
       </div>
       
@@ -88,6 +98,7 @@ const DepartmentNode = ({
                 level={level + 1}
                 selectedId={selectedId}
                 onSelect={onSelect}
+                language={language}
               />
             );
           })}
@@ -120,7 +131,7 @@ const DepartmentHierarchy = ({
   }
 
   return (
-    <div className="border rounded-lg p-2 max-h-[300px] overflow-y-auto">
+    <div className="border rounded-lg p-2 max-h-[300px] overflow-y-auto" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {onSelect && (
         <div
           className={cn(
@@ -151,6 +162,7 @@ const DepartmentHierarchy = ({
             level={0}
             selectedId={selectedId}
             onSelect={onSelect}
+            language={language}
           />
         );
       })}
