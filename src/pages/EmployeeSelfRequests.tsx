@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,11 +25,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
 import {
   Plus,
   Calendar as CalendarIcon,
@@ -47,10 +43,11 @@ import {
   Loader2,
   Thermometer,
   Palmtree,
-  AlertCircle,
   CheckCircle2,
   XCircle,
   HourglassIcon,
+  Upload,
+  Paperclip,
 } from "lucide-react";
 
 type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'expense_refund' | 'experience_certificate';
@@ -77,6 +74,7 @@ const EmployeeSelfRequests = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [vacationBalances, setVacationBalances] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
@@ -94,6 +92,10 @@ const EmployeeSelfRequests = () => {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseCurrencyId, setExpenseCurrencyId] = useState('');
   const [expenseDescription, setExpenseDescription] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentFileName, setAttachmentFileName] = useState('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchData();
@@ -153,6 +155,8 @@ const EmployeeSelfRequests = () => {
     setExpenseAmount('');
     setExpenseCurrencyId('');
     setExpenseDescription('');
+    setAttachmentUrl('');
+    setAttachmentFileName('');
   };
 
   const calculateTotalDays = () => {
@@ -171,8 +175,61 @@ const EmployeeSelfRequests = () => {
     return 0;
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `employee-requests/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('attachments')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('attachments')
+        .getPublicUrl(filePath);
+
+      setAttachmentUrl(publicUrl);
+      setAttachmentFileName(file.name);
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم رفع المرفق بنجاح' : 'Attachment uploaded successfully',
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const requiresAttachment = (type: RequestType): boolean => {
+    return type === 'sick_leave' || type === 'expense_refund';
+  };
+
   const handleSubmit = async () => {
     if (!employee) return;
+
+    // Validate mandatory attachment for sick_leave and expense_refund
+    if (requiresAttachment(selectedType) && !attachmentUrl) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'المرفق إلزامي لهذا النوع من الطلبات' : 'Attachment is mandatory for this request type',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -190,6 +247,10 @@ const EmployeeSelfRequests = () => {
         requestData.total_days = calculateTotalDays();
       }
 
+      if (selectedType === 'sick_leave') {
+        requestData.attachment_url = attachmentUrl;
+      }
+
       if (selectedType === 'delay') {
         requestData.delay_date = delayDate ? format(delayDate, 'yyyy-MM-dd') : null;
         requestData.delay_minutes = parseInt(delayMinutes);
@@ -200,6 +261,7 @@ const EmployeeSelfRequests = () => {
         requestData.expense_amount = parseFloat(expenseAmount);
         requestData.expense_currency_id = expenseCurrencyId;
         requestData.expense_description = expenseDescription;
+        requestData.expense_receipt_url = attachmentUrl;
       }
 
       const { error } = await supabase.from('employee_requests').insert(requestData);
@@ -307,15 +369,8 @@ const EmployeeSelfRequests = () => {
           <DialogHeader>
             <DialogTitle>{language === 'ar' ? REQUEST_TYPE_INFO[selectedType].labelAr : REQUEST_TYPE_INFO[selectedType].labelEn}</DialogTitle>
           </DialogHeader>
-          <Tabs value={selectedType} onValueChange={(v) => { setSelectedType(v as RequestType); resetForm(); }}>
-            <TabsList className="grid grid-cols-5 w-full">
-              {(Object.keys(REQUEST_TYPE_INFO) as RequestType[]).map((type) => {
-                const info = REQUEST_TYPE_INFO[type];
-                const Icon = info.icon;
-                return <TabsTrigger key={type} value={type}><Icon className="h-4 w-4" /></TabsTrigger>;
-              })}
-            </TabsList>
-          </Tabs>
+          
+          {/* Removed Tabs component - now shows only the selected type form */}
           <div className="space-y-4 py-4">
             {(selectedType === 'sick_leave' || selectedType === 'vacation') && (
               <>
@@ -340,6 +395,46 @@ const EmployeeSelfRequests = () => {
                 </div>
               </>
             )}
+
+            {/* Sick Leave Attachment - Mandatory */}
+            {selectedType === 'sick_leave' && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  {language === 'ar' ? 'المرفق (إلزامي)' : 'Attachment (Required)'}
+                  <span className="text-red-500">*</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*,.pdf"
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex-1"
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    {language === 'ar' ? 'رفع مرفق' : 'Upload Attachment'}
+                  </Button>
+                  {attachmentFileName && (
+                    <div className="flex items-center gap-1 text-sm text-green-600">
+                      <Paperclip className="h-4 w-4" />
+                      <span className="truncate max-w-[150px]">{attachmentFileName}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {selectedType === 'delay' && (
               <>
                 <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{delayDate ? format(delayDate, 'yyyy-MM-dd') : (language === 'ar' ? 'تاريخ التأخير' : 'Delay Date')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={delayDate} onSelect={setDelayDate} /></PopoverContent></Popover>
@@ -347,6 +442,7 @@ const EmployeeSelfRequests = () => {
                 <Input type="time" value={actualArrival} onChange={(e) => setActualArrival(e.target.value)} />
               </>
             )}
+
             {selectedType === 'expense_refund' && (
               <>
                 <div className="grid grid-cols-2 gap-4">
@@ -357,8 +453,46 @@ const EmployeeSelfRequests = () => {
                   </Select>
                 </div>
                 <Textarea placeholder={language === 'ar' ? 'وصف المصروفات' : 'Expense Description'} value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} />
+                
+                {/* Expense Refund Attachment - Mandatory */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    {language === 'ar' ? 'إيصال المصروفات (إلزامي)' : 'Expense Receipt (Required)'}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept="image/*,.pdf"
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="flex-1"
+                    >
+                      {uploading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4 mr-2" />
+                      )}
+                      {language === 'ar' ? 'رفع الإيصال' : 'Upload Receipt'}
+                    </Button>
+                    {attachmentFileName && (
+                      <div className="flex items-center gap-1 text-sm text-green-600">
+                        <Paperclip className="h-4 w-4" />
+                        <span className="truncate max-w-[150px]">{attachmentFileName}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </>
             )}
+            
             <Textarea placeholder={language === 'ar' ? 'السبب' : 'Reason'} value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
           <DialogFooter>
