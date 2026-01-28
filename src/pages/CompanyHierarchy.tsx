@@ -274,13 +274,23 @@ const CompanyHierarchy = () => {
     const activeDepts = departments.filter(d => d.is_active && !d.is_outsource);
     const newPositions = new Map<string, NodePosition>();
     
-    activeDepts.forEach((dept) => {
+    // Sort departments: root departments first, then by hierarchy level
+    const sortedDepts: Department[] = [];
+    const addDeptWithChildren = (parentId: string | null) => {
+      const children = activeDepts.filter(d => d.parent_department_id === parentId);
+      children.forEach(child => {
+        sortedDepts.push(child);
+        addDeptWithChildren(child.id);
+      });
+    };
+    addDeptWithChildren(null); // Start from root departments
+    
+    sortedDepts.forEach((dept) => {
       if (dept.position_x !== null && dept.position_y !== null && 
           dept.position_x !== undefined && dept.position_y !== undefined) {
         newPositions.set(dept.id, { id: dept.id, x: dept.position_x, y: dept.position_y });
       } else {
-        const index = activeDepts.indexOf(dept);
-        const rootDepts = activeDepts.filter(d => !d.parent_department_id);
+        const rootDepts = sortedDepts.filter(d => !d.parent_department_id);
         const isRoot = !dept.parent_department_id;
         
         if (isRoot) {
@@ -292,7 +302,7 @@ const CompanyHierarchy = () => {
           });
         } else {
           const parentPos = newPositions.get(dept.parent_department_id!);
-          const siblings = activeDepts.filter(d => d.parent_department_id === dept.parent_department_id);
+          const siblings = sortedDepts.filter(d => d.parent_department_id === dept.parent_department_id);
           const siblingIndex = siblings.indexOf(dept);
           
           if (parentPos) {
@@ -302,6 +312,7 @@ const CompanyHierarchy = () => {
               y: parentPos.y + 180
             });
           } else {
+            const index = sortedDepts.indexOf(dept);
             newPositions.set(dept.id, { id: dept.id, x: 100 + index * 200, y: 50 + index * 100 });
           }
         }
