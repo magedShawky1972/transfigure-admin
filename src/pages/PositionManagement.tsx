@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Briefcase, Users, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { usePageAccess } from "@/hooks/usePageAccess";
-import AccessDenied from "@/components/AccessDenied";
+import { AccessDenied } from "@/components/AccessDenied";
 
 interface JobPosition {
   id: string;
