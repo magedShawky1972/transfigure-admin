@@ -322,7 +322,6 @@ export function AppSidebar() {
         { title: t("menu.brandType"), url: "/brand-type", icon: Settings },
         { title: t("menu.productSetup"), url: "/product-setup", icon: Database },
         { title: language === 'ar' ? 'إعداد طرق الدفع' : 'Payment Method Setup', url: "/payment-method-setup", icon: CreditCard },
-        { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
         { title: language === 'ar' ? 'إعداد الورديات' : 'Shift Setup', url: "/shift-setup", icon: Clock },
         { title: language === 'ar' ? 'تقويم الورديات' : 'Shift Calendar', url: "/shift-calendar", icon: BarChart3 },
         { title: language === 'ar' ? 'إعداد العملات' : 'Currency Setup', url: "/currency-setup", icon: DollarSign },
@@ -350,6 +349,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'تقويم الإجازات' : 'Vacation Calendar', url: "/hr-vacation-calendar", icon: Palmtree },
         { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
         { title: language === 'ar' ? "أخبار الشركة" : "Company News", url: "/company-news", icon: FileText },
+        { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
       ]
     },
     {
