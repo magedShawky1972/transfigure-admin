@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
@@ -53,8 +54,10 @@ interface Department {
 interface JobPosition {
   id: string;
   position_name: string;
+  position_name_ar: string | null;
   department_id: string | null;
   is_active: boolean;
+  position_level: number | null;
 }
 
 interface Employee {
@@ -326,7 +329,7 @@ const CompanyHierarchy = () => {
     try {
       const [deptRes, jobRes, empRes, assignRes] = await Promise.all([
         supabase.from("departments").select("*").order("display_order").order("department_name"),
-        supabase.from("job_positions").select("*").order("position_name"),
+        supabase.from("job_positions").select("id, position_name, position_name_ar, department_id, is_active, position_level").order("position_level", { ascending: true, nullsFirst: false }).order("position_name"),
         supabase.from("employees").select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number, job_position_id, department_id, photo_url, employment_status, user_id, email").eq("employment_status", "active"),
         supabase.from("hierarchy_assignments").select("id, employee_id, department_id, job_position_id"),
       ]);
@@ -757,6 +760,52 @@ const CompanyHierarchy = () => {
     return employees.filter(e => assignedEmpIds.includes(e.id));
   };
 
+  // Get job position info for an employee
+  const getJobPositionInfo = (emp: Employee) => {
+    if (!emp.job_position_id) return null;
+    return jobPositions.find(j => j.id === emp.job_position_id) || null;
+  };
+
+  // Group employees by their position level for a department
+  const getEmployeesGroupedByLevel = (deptId: string) => {
+    // Get all employees in this department (both via hierarchy_assignments and department_id)
+    const assignedEmpIds = hierarchyAssignments
+      .filter(a => a.department_id === deptId)
+      .map(a => a.employee_id);
+    
+    const deptEmployees = employees.filter(e => 
+      assignedEmpIds.includes(e.id) || e.department_id === deptId
+    );
+    
+    // Group by position level
+    const grouped = new Map<number, { job: JobPosition | null; employees: Employee[] }[]>();
+    
+    deptEmployees.forEach(emp => {
+      const job = emp.job_position_id ? jobPositions.find(j => j.id === emp.job_position_id) : null;
+      const level = job?.position_level ?? 999; // Unassigned goes to bottom
+      
+      if (!grouped.has(level)) {
+        grouped.set(level, []);
+      }
+      
+      const levelGroup = grouped.get(level)!;
+      const existingJobGroup = levelGroup.find(g => g.job?.id === job?.id);
+      
+      if (existingJobGroup) {
+        existingJobGroup.employees.push(emp);
+      } else {
+        levelGroup.push({ job, employees: [emp] });
+      }
+    });
+    
+    // Sort levels and return
+    const sortedLevels = Array.from(grouped.keys()).sort((a, b) => a - b);
+    return sortedLevels.map(level => ({
+      level,
+      groups: grouped.get(level)!
+    }));
+  };
+
   const getAllActiveEmployees = () => {
     return employees.filter(e => e.employment_status === 'active');
   };
@@ -1097,44 +1146,91 @@ const CompanyHierarchy = () => {
                         </div>
                       </div>
 
-                      {directEmployees.length > 0 && (
-                        <div className="mt-2 flex items-center justify-center gap-2 px-2 py-2 bg-muted rounded-md flex-wrap">
-                          {directEmployees.map(emp => (
-                            <TooltipProvider key={emp.id}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="relative group/emp">
-                                    <Avatar 
-                                      className="h-8 w-8 cursor-pointer ring-2 ring-background hover:ring-primary transition-all" 
-                                      onClick={() => handleOpenEmployeeProfile(emp)}
-                                    >
-                                      <AvatarImage src={emp.photo_url || undefined} />
-                                      <AvatarFallback className="text-xs font-medium">{emp.first_name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <Button
-                                      size="icon"
-                                      variant="destructive"
-                                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full opacity-0 group-hover/emp:opacity-100 transition-opacity"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRemoveEmployeeFromDept(emp.id, getEmployeeName(emp), dept.id);
-                                      }}
-                                    >
-                                      <X className="h-2.5 w-2.5" />
-                                    </Button>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <div className="text-center">
-                                    <div>{getEmployeeName(emp)}</div>
-                                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'انقر للإزالة' : 'Click X to remove'}</div>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                      )}
+                      {/* Employees grouped by position level */}
+                      {(() => {
+                        const groupedByLevel = getEmployeesGroupedByLevel(dept.id);
+                        if (groupedByLevel.length === 0) return null;
+                        
+                        return (
+                          <div className="mt-2 space-y-1">
+                            {groupedByLevel.map(({ level, groups }) => (
+                              <div key={level} className="bg-muted/80 rounded-md px-2 py-1.5">
+                                {/* Level header */}
+                                <div className="flex items-center gap-1 mb-1">
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-[10px] px-1.5 py-0 h-4 bg-background/50"
+                                  >
+                                    {level === 999 
+                                      ? (language === 'ar' ? 'غير محدد' : 'N/A')
+                                      : `L${level}`
+                                    }
+                                  </Badge>
+                                  <div className="flex-1 h-px bg-border/50" />
+                                </div>
+                                
+                                {/* Employees in this level */}
+                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                  {groups.map(({ job, employees: groupEmps }) => (
+                                    groupEmps.map(emp => (
+                                      <TooltipProvider key={emp.id}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="relative group/emp">
+                                              <Avatar 
+                                                className="h-8 w-8 cursor-pointer ring-2 ring-background hover:ring-primary transition-all" 
+                                                onClick={() => handleOpenEmployeeProfile(emp)}
+                                              >
+                                                <AvatarImage src={emp.photo_url || undefined} />
+                                                <AvatarFallback className="text-xs font-medium">
+                                                  {emp.first_name.charAt(0)}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <Button
+                                                size="icon"
+                                                variant="destructive"
+                                                className="absolute -top-1 -right-1 h-4 w-4 rounded-full opacity-0 group-hover/emp:opacity-100 transition-opacity"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleRemoveEmployeeFromDept(emp.id, getEmployeeName(emp), dept.id);
+                                                }}
+                                              >
+                                                <X className="h-2.5 w-2.5" />
+                                              </Button>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="bottom" className="max-w-[200px]">
+                                            <div className="text-center space-y-1">
+                                              <div className="font-medium">{getEmployeeName(emp)}</div>
+                                              {job && (
+                                                <>
+                                                  <div className="text-xs text-muted-foreground">
+                                                    {language === 'ar' && job.position_name_ar 
+                                                      ? job.position_name_ar 
+                                                      : job.position_name}
+                                                  </div>
+                                                  <Badge variant="secondary" className="text-[10px]">
+                                                    {language === 'ar' ? `المستوى ${job.position_level ?? 0}` : `Level ${job.position_level ?? 0}`}
+                                                  </Badge>
+                                                </>
+                                              )}
+                                              {!job && (
+                                                <div className="text-xs text-muted-foreground">
+                                                  {language === 'ar' ? 'بدون وظيفة' : 'No position'}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    ))
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
 
                     </div>
                   );
