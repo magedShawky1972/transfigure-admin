@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Briefcase, ArrowUp, ArrowDown, Save, Users } from "lucide-react";
+import { Briefcase, ArrowUp, ArrowDown, Save, Users, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface JobPosition {
@@ -27,6 +27,13 @@ interface Employee {
   last_name_ar: string | null;
   employee_number: string;
   job_position_id: string | null;
+  department_id: string | null;
+}
+
+interface Department {
+  id: string;
+  department_name: string;
+  parent_department_id: string | null;
 }
 
 interface PositionHierarchyDialogProps {
@@ -49,6 +56,7 @@ const PositionHierarchyDialog = ({
   const { toast } = useToast();
   const [positions, setPositions] = useState<JobPosition[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editedLevels, setEditedLevels] = useState<Map<string, number>>(new Map());
@@ -59,22 +67,45 @@ const PositionHierarchyDialog = ({
     }
   }, [open, departmentId]);
 
+  // Get all descendant department IDs (including the parent)
+  const getAllDescendantDeptIds = (parentId: string, allDepts: Department[]): string[] => {
+    const result: string[] = [parentId];
+    const children = allDepts.filter(d => d.parent_department_id === parentId);
+    for (const child of children) {
+      result.push(...getAllDescendantDeptIds(child.id, allDepts));
+    }
+    return result;
+  };
+
   const fetchPositions = async () => {
     if (!departmentId) return;
     setLoading(true);
     try {
+      // First fetch all departments to build hierarchy
+      const { data: allDepts, error: deptError } = await supabase
+        .from("departments")
+        .select("id, department_name, parent_department_id")
+        .eq("is_active", true);
+
+      if (deptError) throw deptError;
+      setDepartments(allDepts || []);
+
+      // Get all descendant department IDs
+      const deptIds = getAllDescendantDeptIds(departmentId, allDepts || []);
+
+      // Fetch positions and employees from all descendant departments
       const [posRes, empRes] = await Promise.all([
         supabase
           .from("job_positions")
           .select("id, position_name, position_name_ar, department_id, is_active, position_level")
-          .eq("department_id", departmentId)
+          .in("department_id", deptIds)
           .eq("is_active", true)
           .order("position_level", { ascending: true, nullsFirst: false })
           .order("position_name"),
         supabase
           .from("employees")
-          .select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number, job_position_id")
-          .eq("department_id", departmentId)
+          .select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number, job_position_id, department_id")
+          .in("department_id", deptIds)
           .eq("employment_status", "active"),
       ]);
 
@@ -106,6 +137,12 @@ const PositionHierarchyDialog = ({
       return `${emp.first_name_ar} ${emp.last_name_ar || ""}`.trim();
     }
     return `${emp.first_name} ${emp.last_name}`.trim();
+  };
+
+  const getDepartmentName = (deptId: string | null) => {
+    if (!deptId) return "";
+    const dept = departments.find((d) => d.id === deptId);
+    return dept?.department_name || "";
   };
 
   const handleLevelChange = (positionId: string, newLevel: number) => {
@@ -242,7 +279,7 @@ const PositionHierarchyDialog = ({
                             </div>
                             
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">
                                   {language === "ar" && position.position_name_ar
                                     ? position.position_name_ar
@@ -252,6 +289,12 @@ const PositionHierarchyDialog = ({
                                   <Users className="h-3 w-3 mr-1" />
                                   {posEmployees.length}
                                 </Badge>
+                                {position.department_id !== departmentId && (
+                                  <Badge variant="outline" className="text-xs">
+                                    <Building2 className="h-3 w-3 mr-1" />
+                                    {getDepartmentName(position.department_id)}
+                                  </Badge>
+                                )}
                               </div>
                               {posEmployees.length > 0 && (
                                 <div className="text-xs text-muted-foreground mt-1">
