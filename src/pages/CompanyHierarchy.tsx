@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save, Printer, ZoomIn, ZoomOut } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save, Printer, ZoomIn, ZoomOut, UserMinus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import html2canvas from "html2canvas";
+import PositionHierarchyDialog from "@/components/PositionHierarchyDialog";
 
 const DEPARTMENT_COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e",
@@ -105,6 +106,8 @@ const CompanyHierarchy = () => {
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [assignUserDialogOpen, setAssignUserDialogOpen] = useState(false);
   const [assignToDeptDialogOpen, setAssignToDeptDialogOpen] = useState(false);
+  const [positionHierarchyDialogOpen, setPositionHierarchyDialogOpen] = useState(false);
+  const [selectedDeptForHierarchy, setSelectedDeptForHierarchy] = useState<Department | null>(null);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [editingJob, setEditingJob] = useState<JobPosition | null>(null);
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
@@ -639,6 +642,11 @@ const CompanyHierarchy = () => {
     setAssignToDeptDialogOpen(true);
   };
 
+  const handleOpenPositionHierarchy = (dept: Department) => {
+    setSelectedDeptForHierarchy(dept);
+    setPositionHierarchyDialogOpen(true);
+  };
+
   const handleAssignEmployeeToJob = async (empId: string) => {
     if (!selectedJobId || !selectedDeptId) return;
 
@@ -891,7 +899,7 @@ const CompanyHierarchy = () => {
               {language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy'}
             </h1>
             <p className="text-muted-foreground">
-              {language === 'ar' ? 'اسحب الأقسام لإعادة ترتيبها بحرية' : 'Drag departments to rearrange freely'}
+              {language === 'ar' ? 'اسحب الأقسام لإعادة ترتيبها • انقر مرتين على القسم لهرم الوظائف' : 'Drag to rearrange • Double-click department for position hierarchy'}
             </p>
           </div>
         </div>
@@ -1033,6 +1041,7 @@ const CompanyHierarchy = () => {
                         )}
                         style={{ backgroundColor: deptColor }}
                         onMouseDown={(e) => handleMouseDown(e, dept.id)}
+                        onDoubleClick={() => handleOpenPositionHierarchy(dept)}
                       >
                         <div className="flex items-center justify-center gap-1">
                           <GripVertical className="h-4 w-4 opacity-50" />
@@ -1083,12 +1092,33 @@ const CompanyHierarchy = () => {
                             <TooltipProvider key={emp.id}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-background hover:ring-primary transition-all" onClick={() => handleOpenEmployeeProfile(emp)}>
-                                    <AvatarImage src={emp.photo_url || undefined} />
-                                    <AvatarFallback className="text-xs font-medium">{emp.first_name.charAt(0)}</AvatarFallback>
-                                  </Avatar>
+                                  <div className="relative group/emp">
+                                    <Avatar 
+                                      className="h-8 w-8 cursor-pointer ring-2 ring-background hover:ring-primary transition-all" 
+                                      onClick={() => handleOpenEmployeeProfile(emp)}
+                                    >
+                                      <AvatarImage src={emp.photo_url || undefined} />
+                                      <AvatarFallback className="text-xs font-medium">{emp.first_name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <Button
+                                      size="icon"
+                                      variant="destructive"
+                                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full opacity-0 group-hover/emp:opacity-100 transition-opacity"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveEmployeeFromDept(emp.id, getEmployeeName(emp), dept.id);
+                                      }}
+                                    >
+                                      <X className="h-2.5 w-2.5" />
+                                    </Button>
+                                  </div>
                                 </TooltipTrigger>
-                                <TooltipContent>{getEmployeeName(emp)}</TooltipContent>
+                                <TooltipContent>
+                                  <div className="text-center">
+                                    <div>{getEmployeeName(emp)}</div>
+                                    <div className="text-xs text-muted-foreground">{language === 'ar' ? 'انقر للإزالة' : 'Click X to remove'}</div>
+                                  </div>
+                                </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           ))}
@@ -1432,6 +1462,16 @@ const CompanyHierarchy = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Position Hierarchy Dialog */}
+      <PositionHierarchyDialog
+        open={positionHierarchyDialogOpen}
+        onOpenChange={setPositionHierarchyDialogOpen}
+        departmentId={selectedDeptForHierarchy?.id || null}
+        departmentName={selectedDeptForHierarchy?.department_name || ""}
+        language={language}
+        onRefresh={fetchData}
+      />
     </div>
   );
 };
