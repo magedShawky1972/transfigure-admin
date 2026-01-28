@@ -184,7 +184,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
         messages,
-        max_tokens: 500,
+        max_tokens: 2000,
       }),
     });
 
