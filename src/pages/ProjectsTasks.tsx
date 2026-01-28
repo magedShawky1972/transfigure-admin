@@ -1348,9 +1348,10 @@ const ProjectsTasks = () => {
                               }
                               
                               // Regular user with position level: show users with lower hierarchy (higher level number)
+                              // Users without position_level are treated as lowest rank (can be assigned by anyone with a level)
                               if (currentUserPositionLevel !== null) {
                                 return deptUsers.filter(u => 
-                                  u.position_level !== null && u.position_level > currentUserPositionLevel
+                                  u.position_level === null || u.position_level > currentUserPositionLevel
                                 );
                               }
                               
@@ -1375,9 +1376,10 @@ const ProjectsTasks = () => {
                             }
                             
                             // Regular user with position level: show users with lower hierarchy (higher level number)
+                            // Users without position_level are treated as lowest rank (can be assigned by anyone with a level)
                             if (currentUserPositionLevel !== null) {
                               return deptUsers.filter(u => 
-                                u.position_level !== null && u.position_level > currentUserPositionLevel
+                                u.position_level === null || u.position_level > currentUserPositionLevel
                               );
                             }
                             
