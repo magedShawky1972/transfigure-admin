@@ -170,6 +170,38 @@ const JobSetup = () => {
     if (!selectedJob) return;
 
     try {
+      // Check if job is linked to employees
+      const { count: empCount } = await supabase
+        .from("employees")
+        .select("*", { count: "exact", head: true })
+        .eq("job_position_id", selectedJob.id);
+
+      if (empCount && empCount > 0) {
+        toast.error(
+          language === "ar"
+            ? `لا يمكن حذف الوظيفة - مرتبطة بـ ${empCount} موظف`
+            : `Cannot delete job - linked to ${empCount} employee(s)`
+        );
+        setDeleteDialogOpen(false);
+        return;
+      }
+
+      // Check if job is linked to user profiles
+      const { count: profileCount } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("job_position_id", selectedJob.id);
+
+      if (profileCount && profileCount > 0) {
+        toast.error(
+          language === "ar"
+            ? `لا يمكن حذف الوظيفة - مرتبطة بـ ${profileCount} مستخدم`
+            : `Cannot delete job - linked to ${profileCount} user(s)`
+        );
+        setDeleteDialogOpen(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("job_positions")
         .delete()
