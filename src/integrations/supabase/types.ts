@@ -2548,6 +2548,7 @@ export type Database = {
           created_at: string | null
           currency_id: string | null
           description: string
+          employee_request_id: string | null
           exchange_rate: number | null
           expense_type_id: string | null
           id: string
@@ -2582,6 +2583,7 @@ export type Database = {
           created_at?: string | null
           currency_id?: string | null
           description: string
+          employee_request_id?: string | null
           exchange_rate?: number | null
           expense_type_id?: string | null
           id?: string
@@ -2616,6 +2618,7 @@ export type Database = {
           created_at?: string | null
           currency_id?: string | null
           description?: string
+          employee_request_id?: string | null
           exchange_rate?: number | null
           expense_type_id?: string | null
           id?: string
@@ -2658,6 +2661,13 @@ export type Database = {
             columns: ["currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_requests_employee_request_id_fkey"
+            columns: ["employee_request_id"]
+            isOneToOne: false
+            referencedRelation: "employee_requests"
             referencedColumns: ["id"]
           },
           {
