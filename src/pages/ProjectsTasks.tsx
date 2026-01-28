@@ -118,6 +118,8 @@ interface Profile {
   user_name: string;
   default_department_id: string | null;
   avatar_url?: string | null;
+  job_position_id?: string | null;
+  position_level?: number | null; // Position hierarchy level (0 = highest)
   departmentMemberships?: string[]; // Additional department IDs from department_members
 }
 
@@ -170,6 +172,7 @@ const ProjectsTasks = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [taskPhases, setTaskPhases] = useState<TaskPhase[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserPositionLevel, setCurrentUserPositionLevel] = useState<number | null>(null);
   const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false, managedProjectIds: [] });
   const [loading, setLoading] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -426,7 +429,7 @@ const ProjectsTasks = () => {
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
-        supabase.from('job_positions').select('id, department_id').eq('is_active', true),
+        supabase.from('job_positions').select('id, department_id, position_level').eq('is_active', true),
         supabase.from('project_members').select('*'),
         supabase.from('department_members').select('user_id, department_id')
       ]);
@@ -481,14 +484,26 @@ const ProjectsTasks = () => {
         setProjects(projectsWithMembers);
       }
       
-      // Build job position to department map from organizational chart
+      // Build job position maps from organizational chart
       const jobPositions = jobPositionsRes.data || [];
       const jobToDeptMap = new Map<string, string>();
-      jobPositions.forEach((jp: { id: string; department_id: string | null }) => {
+      const jobToLevelMap = new Map<string, number>();
+      jobPositions.forEach((jp: { id: string; department_id: string | null; position_level: number | null }) => {
         if (jp.department_id) {
           jobToDeptMap.set(jp.id, jp.department_id);
         }
+        if (jp.position_level !== null) {
+          jobToLevelMap.set(jp.id, jp.position_level);
+        }
       });
+      
+      // Get current user's position level
+      const currentUserProfile = usersRes.data?.find((u: any) => u.user_id === user.id);
+      if (currentUserProfile?.job_position_id && jobToLevelMap.has(currentUserProfile.job_position_id)) {
+        setCurrentUserPositionLevel(jobToLevelMap.get(currentUserProfile.job_position_id)!);
+      } else {
+        setCurrentUserPositionLevel(null);
+      }
       
       // Build a map of user_id -> department_ids from department_members table
       const deptMembersData = allDeptMembersRes.data || [];
@@ -500,13 +515,20 @@ const ProjectsTasks = () => {
         userDeptMembershipMap.get(dm.user_id)!.push(dm.department_id);
       });
       
-      // Enhance users with department info from organizational chart (job_position, default_department, and department_members)
+      // Enhance users with department info and position level from organizational chart
       if (usersRes.data) {
         const usersWithDepts = usersRes.data.map((u: any) => {
           const deptIds: string[] = [];
-          // Add department from job position (organizational chart)
-          if (u.job_position_id && jobToDeptMap.has(u.job_position_id)) {
-            deptIds.push(jobToDeptMap.get(u.job_position_id)!);
+          let positionLevel: number | null = null;
+          
+          // Add department and position level from job position (organizational chart)
+          if (u.job_position_id) {
+            if (jobToDeptMap.has(u.job_position_id)) {
+              deptIds.push(jobToDeptMap.get(u.job_position_id)!);
+            }
+            if (jobToLevelMap.has(u.job_position_id)) {
+              positionLevel = jobToLevelMap.get(u.job_position_id)!;
+            }
           }
           // Also add default department if different
           if (u.default_department_id && !deptIds.includes(u.default_department_id)) {
@@ -524,6 +546,8 @@ const ProjectsTasks = () => {
             user_name: u.user_name,
             default_department_id: u.default_department_id,
             avatar_url: u.avatar_url,
+            job_position_id: u.job_position_id,
+            position_level: positionLevel,
             departmentMemberships: deptIds
           };
         });
@@ -1311,25 +1335,55 @@ const ProjectsTasks = () => {
                         <Select value={taskForm.assigned_to[0] || ''} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: [v] })}>
                           <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
                           <SelectContent>
-                            {(userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)
-                              ? users.filter(u => 
-                                  u.default_department_id === taskForm.department_id || 
-                                  (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
-                                )
-                              : users.filter(u => u.user_id === currentUserId)
-                            ).map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
+                            {(() => {
+                              // Filter users in the selected department
+                              const deptUsers = users.filter(u => 
+                                u.default_department_id === taskForm.department_id || 
+                                (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
+                              );
+                              
+                              // System admin or department admin: show all users in department
+                              if (userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)) {
+                                return deptUsers;
+                              }
+                              
+                              // Regular user with position level: show users with lower hierarchy (higher level number)
+                              if (currentUserPositionLevel !== null) {
+                                return deptUsers.filter(u => 
+                                  u.position_level !== null && u.position_level > currentUserPositionLevel
+                                );
+                              }
+                              
+                              // User without position level: can only assign to themselves
+                              return users.filter(u => u.user_id === currentUserId);
+                            })().map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       ) : (
                         // Multi-select for new task
                         <div className="border rounded-md p-2 max-h-[150px] overflow-y-auto">
-                          {(userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)
-                            ? users.filter(u => 
-                                u.default_department_id === taskForm.department_id || 
-                                (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
-                              )
-                            : users.filter(u => u.user_id === currentUserId)
-                          ).map(u => (
+                          {(() => {
+                            // Filter users in the selected department
+                            const deptUsers = users.filter(u => 
+                              u.default_department_id === taskForm.department_id || 
+                              (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
+                            );
+                            
+                            // System admin or department admin: show all users in department
+                            if (userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)) {
+                              return deptUsers;
+                            }
+                            
+                            // Regular user with position level: show users with lower hierarchy (higher level number)
+                            if (currentUserPositionLevel !== null) {
+                              return deptUsers.filter(u => 
+                                u.position_level !== null && u.position_level > currentUserPositionLevel
+                              );
+                            }
+                            
+                            // User without position level: can only assign to themselves
+                            return users.filter(u => u.user_id === currentUserId);
+                          })().map(u => (
                             <div key={u.user_id} className="flex items-center gap-2 py-1">
                               <Checkbox 
                                 id={`user-${u.user_id}`}
