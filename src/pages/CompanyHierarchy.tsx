@@ -130,7 +130,7 @@ const CompanyHierarchy = () => {
   const [savingEmployee, setSavingEmployee] = useState(false);
 
   // Form states
-  const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "__none__" });
+  const [deptForm, setDeptForm] = useState({ name: "", code: "", parentId: "__none__", positionX: 0, positionY: 0 });
   const [jobForm, setJobForm] = useState({ name: "", departmentId: "", existingJobId: "" });
   const [jobMode, setJobMode] = useState<"existing" | "new">("existing");
   const [selectedJobEmployees, setSelectedJobEmployees] = useState<string[]>([]);
@@ -512,16 +512,19 @@ const CompanyHierarchy = () => {
 
   const handleAddDepartment = (parentId: string | null = null) => {
     setEditingDept(null);
-    setDeptForm({ name: "", code: "", parentId: parentId || "__none__" });
+    setDeptForm({ name: "", code: "", parentId: parentId || "__none__", positionX: 100, positionY: 50 });
     setDeptDialogOpen(true);
   };
 
   const handleEditDepartment = (dept: Department) => {
     setEditingDept(dept);
+    const pos = nodePositions.get(dept.id);
     setDeptForm({
       name: dept.department_name,
       code: dept.department_code,
       parentId: dept.parent_department_id || "__none__",
+      positionX: pos?.x ?? dept.position_x ?? 100,
+      positionY: pos?.y ?? dept.position_y ?? 50,
     });
     setDeptDialogOpen(true);
   };
@@ -537,11 +540,21 @@ const CompanyHierarchy = () => {
         department_name: deptForm.name.trim(),
         department_code: deptForm.code.trim(),
         parent_department_id: deptForm.parentId === "__none__" ? null : deptForm.parentId,
+        position_x: deptForm.positionX,
+        position_y: deptForm.positionY,
       };
 
       if (editingDept) {
         const { error } = await supabase.from("departments").update(data).eq("id", editingDept.id);
         if (error) throw error;
+        
+        // Update node positions immediately
+        setNodePositions(prev => {
+          const newMap = new Map(prev);
+          newMap.set(editingDept.id, { id: editingDept.id, x: deptForm.positionX, y: deptForm.positionY });
+          return newMap;
+        });
+        
         toast({ title: language === 'ar' ? "تم تحديث القسم" : "Department updated" });
       } else {
         const { error } = await supabase.from("departments").insert(data);
@@ -1392,6 +1405,29 @@ const CompanyHierarchy = () => {
                 </SelectContent>
               </Select>
             </div>
+            {editingDept && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{language === 'ar' ? 'الموقع الأفقي (X)' : 'Position X'}</Label>
+                  <Input 
+                    type="number" 
+                    value={deptForm.positionX} 
+                    onChange={(e) => setDeptForm({ ...deptForm, positionX: parseInt(e.target.value) || 0 })} 
+                  />
+                </div>
+                <div>
+                  <Label>{language === 'ar' ? 'الموقع العمودي (Y)' : 'Position Y'}</Label>
+                  <Input 
+                    type="number" 
+                    value={deptForm.positionY} 
+                    onChange={(e) => setDeptForm({ ...deptForm, positionY: parseInt(e.target.value) || 0 })} 
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === 'ar' ? 'نفس قيمة Y = نفس الصف' : 'Same Y value = same row'}
+                  </p>
+                </div>
+              </div>
+            )}
             <Button onClick={handleSaveDepartment} className="w-full">{language === 'ar' ? 'حفظ' : 'Save'}</Button>
           </div>
         </DialogContent>
