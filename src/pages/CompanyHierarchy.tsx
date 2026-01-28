@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save, Printer, ZoomIn, ZoomOut, UserMinus, AlignHorizontalDistributeCenter } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save, Printer, ZoomIn, ZoomOut, UserMinus, AlignHorizontalDistributeCenter, Lock, Unlock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -103,6 +103,7 @@ const CompanyHierarchy = () => {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [canEditUsers, setCanEditUsers] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isDesignLocked, setIsDesignLocked] = useState(true);
 
   // Dialog states
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
@@ -351,6 +352,7 @@ const CompanyHierarchy = () => {
   };
 
   const handleMouseDown = (e: React.MouseEvent, deptId: string) => {
+    if (isDesignLocked) return; // Prevent dragging when locked
     e.preventDefault();
     const pos = nodePositions.get(deptId);
     if (!pos) return;
@@ -1059,15 +1061,32 @@ const CompanyHierarchy = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant={isDesignLocked ? "secondary" : "default"} 
+            onClick={() => setIsDesignLocked(!isDesignLocked)}
+            className={isDesignLocked ? "" : "bg-amber-500 hover:bg-amber-600 text-white"}
+          >
+            {isDesignLocked ? (
+              <>
+                <Lock className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'مقفل' : 'Locked'}
+              </>
+            ) : (
+              <>
+                <Unlock className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'مفتوح' : 'Unlocked'}
+              </>
+            )}
+          </Button>
           <Button variant="outline" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             {language === 'ar' ? 'طباعة' : 'Print'}
           </Button>
-          <Button variant="outline" onClick={handleAutoAlign}>
+          <Button variant="outline" onClick={handleAutoAlign} disabled={isDesignLocked}>
             <AlignHorizontalDistributeCenter className="h-4 w-4 mr-2" />
             {language === 'ar' ? 'محاذاة تلقائية' : 'Auto Align'}
           </Button>
-          <Button variant="outline" onClick={handleResetPositions}>
+          <Button variant="outline" onClick={handleResetPositions} disabled={isDesignLocked}>
             <RotateCcw className="h-4 w-4 mr-2" />
             {language === 'ar' ? 'إعادة تعيين' : 'Reset Layout'}
           </Button>
@@ -1231,7 +1250,8 @@ const CompanyHierarchy = () => {
                     >
                       <div
                         className={cn(
-                          "relative px-4 py-3 rounded-lg text-white font-semibold text-center transition-all cursor-move hover:shadow-lg",
+                          "relative px-4 py-3 rounded-lg text-white font-semibold text-center transition-all hover:shadow-lg",
+                          isDesignLocked ? "cursor-default" : "cursor-move",
                           draggingId === dept.id && "shadow-2xl ring-2 ring-white"
                         )}
                         style={{ backgroundColor: deptColor }}
@@ -1405,7 +1425,7 @@ const CompanyHierarchy = () => {
                 </SelectContent>
               </Select>
             </div>
-            {editingDept && (
+            {editingDept && !isDesignLocked && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>{language === 'ar' ? 'الموقع الأفقي (X)' : 'Position X'}</Label>
@@ -1426,6 +1446,12 @@ const CompanyHierarchy = () => {
                     {language === 'ar' ? 'نفس قيمة Y = نفس الصف' : 'Same Y value = same row'}
                   </p>
                 </div>
+              </div>
+            )}
+            {editingDept && isDesignLocked && (
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                <Lock className="h-4 w-4" />
+                {language === 'ar' ? 'التصميم مقفل. افتح القفل لتعديل المواقع.' : 'Design is locked. Unlock to edit positions.'}
               </div>
             )}
             <Button onClick={handleSaveDepartment} className="w-full">{language === 'ar' ? 'حفظ' : 'Save'}</Button>
