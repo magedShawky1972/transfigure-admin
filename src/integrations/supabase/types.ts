@@ -3205,6 +3205,7 @@ export type Database = {
           department_id: string | null
           id: string
           is_active: boolean
+          position_level: number | null
           position_name: string
           position_name_ar: string | null
           updated_at: string
@@ -3214,6 +3215,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           is_active?: boolean
+          position_level?: number | null
           position_name: string
           position_name_ar?: string | null
           updated_at?: string
@@ -3223,6 +3225,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           is_active?: boolean
+          position_level?: number | null
           position_name?: string
           position_name_ar?: string | null
           updated_at?: string
