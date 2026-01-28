@@ -93,31 +93,48 @@ const PositionHierarchyDialog = ({
       // Get all descendant department IDs
       const deptIds = getAllDescendantDeptIds(departmentId, allDepts || []);
 
-      // Fetch positions and employees from all descendant departments
-      const [posRes, empRes] = await Promise.all([
-        supabase
-          .from("job_positions")
-          .select("id, position_name, position_name_ar, department_id, is_active, position_level")
-          .in("department_id", deptIds)
-          .eq("is_active", true)
-          .order("position_level", { ascending: true, nullsFirst: false })
-          .order("position_name"),
-        supabase
-          .from("employees")
-          .select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number, job_position_id, department_id")
-          .in("department_id", deptIds)
-          .eq("employment_status", "active"),
-      ]);
+      // First fetch employees from all descendant departments
+      const { data: empData, error: empError } = await supabase
+        .from("employees")
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number, job_position_id, department_id")
+        .in("department_id", deptIds)
+        .eq("employment_status", "active");
 
-      if (posRes.error) throw posRes.error;
-      if (empRes.error) throw empRes.error;
+      if (empError) throw empError;
+      setEmployees(empData || []);
 
-      setPositions(posRes.data || []);
-      setEmployees(empRes.data || []);
+      // Collect unique job_position_ids from employees
+      const employeePositionIds = [...new Set(
+        (empData || [])
+          .map(e => e.job_position_id)
+          .filter((id): id is string => id !== null)
+      )];
+
+      // Fetch positions that EITHER belong to departments OR are used by employees
+      let positionsQuery = supabase
+        .from("job_positions")
+        .select("id, position_name, position_name_ar, department_id, is_active, position_level")
+        .eq("is_active", true);
+
+      if (employeePositionIds.length > 0) {
+        // Use OR filter: department_id in deptIds OR id in employeePositionIds
+        const deptFilter = deptIds.map(id => `department_id.eq.${id}`).join(',');
+        const posFilter = employeePositionIds.map(id => `id.eq.${id}`).join(',');
+        positionsQuery = positionsQuery.or(`${deptFilter},${posFilter}`);
+      } else {
+        positionsQuery = positionsQuery.in("department_id", deptIds);
+      }
+
+      const { data: posData, error: posError } = await positionsQuery
+        .order("position_level", { ascending: true, nullsFirst: false })
+        .order("position_name");
+
+      if (posError) throw posError;
+      setPositions(posData || []);
       
       // Initialize edited levels
       const levels = new Map<string, number>();
-      (posRes.data || []).forEach((pos) => {
+      (posData || []).forEach((pos) => {
         levels.set(pos.id, pos.position_level ?? 0);
       });
       setEditedLevels(levels);
