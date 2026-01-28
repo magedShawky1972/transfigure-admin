@@ -1082,23 +1082,35 @@ const CompanyHierarchy = () => {
                   {(() => {
                     const yPositions = new Set<number>();
                     nodePositions.forEach((pos) => {
-                      yPositions.add(Math.round(pos.y / 10) * 10); // Round to nearest 10 for grouping
+                      // Group Y positions by rounding to nearest 50px for cleaner rows
+                      yPositions.add(Math.round(pos.y / 50) * 50);
                     });
                     const sortedYs = Array.from(yPositions).sort((a, b) => a - b);
                     
                     return sortedYs.map((y, idx) => (
-                      <line
-                        key={`row-line-${idx}`}
-                        x1={0}
-                        y1={y + 20}
-                        x2={canvasSize.width}
-                        y2={y + 20}
-                        stroke="hsl(var(--border))"
-                        strokeWidth={1}
-                        strokeDasharray="8 4"
-                        opacity={0.5}
-                        className="print:opacity-30"
-                      />
+                      <g key={`row-${idx}`}>
+                        {/* Row line */}
+                        <line
+                          x1={0}
+                          y1={y}
+                          x2={canvasSize.width}
+                          y2={y}
+                          stroke="#64748b"
+                          strokeWidth={1}
+                          strokeDasharray="6 4"
+                          opacity={0.3}
+                        />
+                        {/* Row label */}
+                        <text
+                          x={8}
+                          y={y + 14}
+                          fill="#64748b"
+                          fontSize={10}
+                          opacity={0.5}
+                        >
+                          {language === 'ar' ? `صف ${idx + 1}` : `Row ${idx + 1}`}
+                        </text>
+                      </g>
                     ));
                   })()}
                   {renderConnectionLines()}
