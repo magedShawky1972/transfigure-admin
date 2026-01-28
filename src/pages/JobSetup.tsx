@@ -170,24 +170,6 @@ const JobSetup = () => {
     if (!selectedJob) return;
 
     try {
-      // Check if any employees are linked to this job position
-      const { count, error: countError } = await supabase
-        .from("employees")
-        .select("*", { count: "exact", head: true })
-        .eq("job_position_id", selectedJob.id);
-
-      if (countError) throw countError;
-
-      if (count && count > 0) {
-        toast.error(
-          language === "ar"
-            ? `لا يمكن حذف الوظيفة - مرتبطة بـ ${count} موظف`
-            : `Cannot delete job - linked to ${count} employee(s)`
-        );
-        setDeleteDialogOpen(false);
-        return;
-      }
-
       const { error } = await supabase
         .from("job_positions")
         .delete()
