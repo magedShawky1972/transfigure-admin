@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save, Printer, ZoomIn, ZoomOut, UserMinus } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, Trash2, UserPlus, X, GripVertical, Palette, RotateCcw, Save, Printer, ZoomIn, ZoomOut, UserMinus, AlignHorizontalDistributeCenter } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -411,6 +411,88 @@ const CompanyHierarchy = () => {
       setTimeout(() => initializePositions(), 100);
       
       toast({ title: language === 'ar' ? 'تم إعادة تعيين المواقع' : 'Positions reset' });
+    } catch (error: any) {
+      toast({ title: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleAutoAlign = async () => {
+    try {
+      const activeDepts = departments.filter(d => d.is_active && !d.is_outsource);
+      
+      // Calculate hierarchy level for each department
+      const getLevel = (deptId: string | null, level = 0): number => {
+        if (!deptId) return level;
+        const dept = activeDepts.find(d => d.id === deptId);
+        if (!dept) return level;
+        return getLevel(dept.parent_department_id, level + 1);
+      };
+      
+      // Group departments by their hierarchy level
+      const levelGroups = new Map<number, Department[]>();
+      activeDepts.forEach(dept => {
+        const level = dept.parent_department_id 
+          ? getLevel(dept.parent_department_id, 1) 
+          : 0;
+        if (!levelGroups.has(level)) {
+          levelGroups.set(level, []);
+        }
+        levelGroups.get(level)!.push(dept);
+      });
+      
+      // Calculate new positions with aligned Y values
+      const newPositions = new Map<string, NodePosition>();
+      const ROW_HEIGHT = 220; // Vertical spacing between levels
+      const START_Y = 50;
+      const NODE_WIDTH = 200;
+      const HORIZONTAL_GAP = 30;
+      
+      // Sort levels and position each level
+      const sortedLevels = Array.from(levelGroups.keys()).sort((a, b) => a - b);
+      
+      sortedLevels.forEach(level => {
+        const deptsInLevel = levelGroups.get(level)!;
+        const y = START_Y + level * ROW_HEIGHT;
+        
+        // Sort departments by their current X position to maintain relative order
+        deptsInLevel.sort((a, b) => {
+          const posA = nodePositions.get(a.id);
+          const posB = nodePositions.get(b.id);
+          return (posA?.x || 0) - (posB?.x || 0);
+        });
+        
+        // Calculate total width needed
+        const totalWidth = deptsInLevel.length * NODE_WIDTH + (deptsInLevel.length - 1) * HORIZONTAL_GAP;
+        const startX = Math.max(50, (2000 - totalWidth) / 2); // Center on canvas
+        
+        deptsInLevel.forEach((dept, idx) => {
+          newPositions.set(dept.id, {
+            id: dept.id,
+            x: startX + idx * (NODE_WIDTH + HORIZONTAL_GAP),
+            y: y
+          });
+        });
+      });
+      
+      // Update database
+      for (const [deptId, pos] of newPositions) {
+        await supabase.from("departments").update({
+          position_x: pos.x,
+          position_y: pos.y
+        }).eq("id", deptId);
+      }
+      
+      // Update local state
+      setNodePositions(newPositions);
+      setDepartments(prev => prev.map(d => {
+        const pos = newPositions.get(d.id);
+        if (pos) {
+          return { ...d, position_x: pos.x, position_y: pos.y };
+        }
+        return d;
+      }));
+      
+      toast({ title: language === 'ar' ? 'تم محاذاة الأقسام' : 'Departments aligned' });
     } catch (error: any) {
       toast({ title: error.message, variant: "destructive" });
     }
@@ -967,6 +1049,10 @@ const CompanyHierarchy = () => {
           <Button variant="outline" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             {language === 'ar' ? 'طباعة' : 'Print'}
+          </Button>
+          <Button variant="outline" onClick={handleAutoAlign}>
+            <AlignHorizontalDistributeCenter className="h-4 w-4 mr-2" />
+            {language === 'ar' ? 'محاذاة تلقائية' : 'Auto Align'}
           </Button>
           <Button variant="outline" onClick={handleResetPositions}>
             <RotateCcw className="h-4 w-4 mr-2" />
