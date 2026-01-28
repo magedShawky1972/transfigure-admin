@@ -1076,7 +1076,31 @@ const CompanyHierarchy = () => {
                 className="origin-top-left"
                 style={{ transform: `scale(${zoomLevel})`, width: canvasSize.width, height: canvasSize.height }}
               >
+                {/* Row alignment lines */}
                 <svg className="absolute inset-0 pointer-events-none" width={canvasSize.width} height={canvasSize.height}>
+                  {/* Light horizontal row lines for alignment */}
+                  {(() => {
+                    const yPositions = new Set<number>();
+                    nodePositions.forEach((pos) => {
+                      yPositions.add(Math.round(pos.y / 10) * 10); // Round to nearest 10 for grouping
+                    });
+                    const sortedYs = Array.from(yPositions).sort((a, b) => a - b);
+                    
+                    return sortedYs.map((y, idx) => (
+                      <line
+                        key={`row-line-${idx}`}
+                        x1={0}
+                        y1={y + 20}
+                        x2={canvasSize.width}
+                        y2={y + 20}
+                        stroke="hsl(var(--border))"
+                        strokeWidth={1}
+                        strokeDasharray="8 4"
+                        opacity={0.5}
+                        className="print:opacity-30"
+                      />
+                    ));
+                  })()}
                   {renderConnectionLines()}
                 </svg>
 
