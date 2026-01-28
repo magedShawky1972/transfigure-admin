@@ -298,8 +298,7 @@ const PositionHierarchyDialog = ({
                               </div>
                               {posEmployees.length > 0 && (
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  {posEmployees.slice(0, 3).map((e) => getEmployeeName(e)).join(", ")}
-                                  {posEmployees.length > 3 && ` +${posEmployees.length - 3}`}
+                                  {posEmployees.map((e) => getEmployeeName(e)).join(", ")}
                                 </div>
                               )}
                             </div>
