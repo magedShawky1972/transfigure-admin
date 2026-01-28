@@ -1856,6 +1856,7 @@ export type Database = {
       employee_requests: {
         Row: {
           actual_arrival_time: string | null
+          attachment_url: string | null
           created_at: string | null
           current_approval_level: number | null
           current_phase: string | null
@@ -1888,6 +1889,7 @@ export type Database = {
         }
         Insert: {
           actual_arrival_time?: string | null
+          attachment_url?: string | null
           created_at?: string | null
           current_approval_level?: number | null
           current_phase?: string | null
@@ -1920,6 +1922,7 @@ export type Database = {
         }
         Update: {
           actual_arrival_time?: string | null
+          attachment_url?: string | null
           created_at?: string | null
           current_approval_level?: number | null
           current_phase?: string | null
