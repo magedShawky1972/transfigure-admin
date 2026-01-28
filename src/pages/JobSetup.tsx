@@ -221,7 +221,8 @@ const JobSetup = () => {
     setSelectedJob(job);
     setLoadingLinked(true);
     setLinkedDialogOpen(true);
-    setLinkedUsers([]); // Clear users since we only show employees now
+    setLinkedUsers([]);
+    setLinkedEmployees([]);
 
     try {
       // Fetch employees linked to this job
@@ -232,6 +233,15 @@ const JobSetup = () => {
 
       if (empError) throw empError;
       setLinkedEmployees(employees || []);
+
+      // Fetch user profiles linked to this job
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, user_name, email")
+        .eq("job_position_id", job.id);
+
+      if (profileError) throw profileError;
+      setLinkedUsers(profiles || []);
     } catch (error) {
       console.error("Error fetching linked data:", error);
       toast.error(language === "ar" ? "خطأ في تحميل البيانات" : "Error loading data");
