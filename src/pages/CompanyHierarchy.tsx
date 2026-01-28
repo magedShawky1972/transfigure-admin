@@ -40,6 +40,7 @@ const DEPARTMENT_COLORS = [
 interface Department {
   id: string;
   department_name: string;
+  department_name_ar: string | null;
   department_code: string;
   parent_department_id: string | null;
   is_active: boolean;
@@ -143,6 +144,13 @@ const CompanyHierarchy = () => {
       return `${emp.first_name_ar} ${emp.last_name_ar || ''}`.trim();
     }
     return `${emp.first_name} ${emp.last_name}`.trim();
+  };
+
+  const getDepartmentName = (dept: Department) => {
+    if (language === 'ar' && dept.department_name_ar) {
+      return dept.department_name_ar;
+    }
+    return dept.department_name;
   };
 
   const handleOpenEmployeeProfile = (emp: Employee) => {
@@ -1261,7 +1269,7 @@ const CompanyHierarchy = () => {
                         <div className="flex items-center justify-center gap-1">
                           <GripVertical className="h-4 w-4 opacity-50" />
                           <div>
-                            <div className="text-sm font-bold">{dept.department_name}</div>
+                            <div className="text-sm font-bold">{getDepartmentName(dept)}</div>
                             <div className="text-xs opacity-80">{dept.department_code}</div>
                           </div>
                         </div>
