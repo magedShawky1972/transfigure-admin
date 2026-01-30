@@ -154,7 +154,7 @@ Return ONLY the JSON object, no other text or markdown formatting.`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-lite",
         messages,
       }),
     });
