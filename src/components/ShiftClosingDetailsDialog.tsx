@@ -398,7 +398,18 @@ export default function ShiftClosingDetailsDialog({
       await fetchClosingDetails();
     } catch (e: any) {
       console.error("Error rereading by AI:", e);
-      toast.error(language === "ar" ? "فشلت إعادة القراءة" : "Re-read failed");
+      
+      // Check for specific error types
+      const errorMessage = e?.message || "";
+      let errorText = language === "ar" ? "فشلت إعادة القراءة - يمكنك التعديل يدوياً" : "Re-read failed - you can edit manually";
+      
+      if (errorMessage.includes("429") || errorMessage.includes("Rate limit")) {
+        errorText = language === "ar" ? "تم تجاوز حد الطلبات - يرجى التعديل يدوياً" : "Rate limit exceeded - please edit manually";
+      } else if (errorMessage.includes("402") || errorMessage.includes("credits") || errorMessage.includes("Payment")) {
+        errorText = language === "ar" ? "رصيد AI غير كافٍ - يرجى التعديل يدوياً" : "AI credits exhausted - please edit manually";
+      }
+      
+      toast.error(errorText);
     } finally {
       setRereadingKey(null);
     }

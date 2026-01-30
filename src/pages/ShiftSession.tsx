@@ -556,10 +556,24 @@ const ShiftSession = () => {
       }
     } catch (error: any) {
       console.error("Error extracting opening number:", error);
-      setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: "فشل في قراءة الصورة - يرجى المحاولة مرة أخرى" }));
+      
+      // Check for specific error types
+      const errorMessage = error?.message || "";
+      let userFriendlyError = "فشل في قراءة الصورة - يرجى الإدخال يدوياً";
+      let toastDescription = "فشل في قراءة الصورة. يمكنك إدخال الرقم يدوياً.";
+      
+      if (errorMessage.includes("429") || errorMessage.includes("Rate limit")) {
+        userFriendlyError = "تم تجاوز حد الطلبات - يرجى الإدخال يدوياً";
+        toastDescription = "تم تجاوز حد استخدام AI. يرجى إدخال الرقم يدوياً.";
+      } else if (errorMessage.includes("402") || errorMessage.includes("credits") || errorMessage.includes("Payment")) {
+        userFriendlyError = "رصيد AI غير كافٍ - يرجى الإدخال يدوياً";
+        toastDescription = "رصيد AI غير متوفر. يرجى إدخال الرقم يدوياً.";
+      }
+      
+      setOpeningBrandErrors((prev) => ({ ...prev, [brandId]: userFriendlyError }));
       toast({
         title: t("error") || "خطأ",
-        description: "فشل في قراءة الصورة. يرجى رفع صورة أخرى.",
+        description: toastDescription,
         variant: "destructive",
       });
     } finally {
@@ -1344,11 +1358,24 @@ const ShiftSession = () => {
       }
     } catch (error: any) {
       console.error("Error extracting number:", error);
-      // Set error for extraction failure
-      setBrandErrors((prev) => ({ ...prev, [brandId]: "فشل في قراءة الصورة - يرجى المحاولة مرة أخرى" }));
+      
+      // Check for specific error types
+      const errorMessage = error?.message || "";
+      let userFriendlyError = "فشل في قراءة الصورة - يرجى الإدخال يدوياً";
+      let toastDescription = "فشل في قراءة الصورة. يمكنك إدخال الرقم يدوياً.";
+      
+      if (errorMessage.includes("429") || errorMessage.includes("Rate limit")) {
+        userFriendlyError = "تم تجاوز حد الطلبات - يرجى الإدخال يدوياً";
+        toastDescription = "تم تجاوز حد استخدام AI. يرجى إدخال الرقم يدوياً.";
+      } else if (errorMessage.includes("402") || errorMessage.includes("credits") || errorMessage.includes("Payment")) {
+        userFriendlyError = "رصيد AI غير كافٍ - يرجى الإدخال يدوياً";
+        toastDescription = "رصيد AI غير متوفر. يرجى إدخال الرقم يدوياً.";
+      }
+      
+      setBrandErrors((prev) => ({ ...prev, [brandId]: userFriendlyError }));
       toast({
         title: t("error") || "خطأ",
-        description: "فشل في قراءة الصورة. يرجى رفع صورة أخرى.",
+        description: toastDescription,
         variant: "destructive",
       });
     } finally {
@@ -1767,7 +1794,28 @@ const ShiftSession = () => {
                           )}
                         </CardTitle>
                         {brandErrors[brand.id] && (
-                          <p className="text-xs text-destructive">{brandErrors[brand.id]}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-destructive flex-1">{brandErrors[brand.id]}</p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-xs gap-1 border-primary text-primary hover:bg-primary/10"
+                              onClick={() => {
+                                // Focus the input for manual entry for this specific brand
+                                const input = document.getElementById(`balance-input-${brand.id}`) as HTMLInputElement;
+                                if (input) input.focus();
+                                // Clear the error
+                                setBrandErrors((prev) => ({ ...prev, [brand.id]: null }));
+                                toast({
+                                  title: "إدخال يدوي",
+                                  description: "يمكنك الآن إدخال الرقم يدوياً في الحقل أدناه",
+                                });
+                              }}
+                            >
+                              <Keyboard className="h-3 w-3" />
+                              إدخال يدوي
+                            </Button>
+                          </div>
                         )}
                       </CardHeader>
                       <CardContent className="p-3 sm:p-4 space-y-3">
@@ -1775,6 +1823,7 @@ const ShiftSession = () => {
                           <Label>{t("closingBalance")}</Label>
                           <div className="relative">
                             <Input
+                              id={`balance-input-${brand.id}`}
                               type="number"
                               value={balances[brand.id]?.closing_balance || ""}
                               onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
