@@ -108,7 +108,8 @@ Deno.serve(async (req) => {
 
     // Validate required fields based on configuration
     const requiredFields = fieldConfigs.map((config: any) => config.field_name);
-    const missingFields = requiredFields.filter((field: string) => !body[field]);
+    // Use proper null/undefined check - don't treat 0 or false as missing
+    const missingFields = requiredFields.filter((field: string) => body[field] === undefined || body[field] === null);
     
     if (missingFields.length > 0) {
       responseStatus = 400;
