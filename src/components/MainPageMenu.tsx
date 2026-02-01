@@ -179,7 +179,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Vacation Calendar", titleAr: "تقويم الإجازات", url: "/hr-vacation-calendar", icon: Palmtree },
       { title: "Company Hierarchy", titleAr: "الهيكل التنظيمي", url: "/company-hierarchy", icon: Building2 },
       { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
-      { title: "Acknowledgment Documents", titleAr: "إقرارات الموظفين", url: "/acknowledgment-documents", icon: ClipboardCheck },
+      { title: "Administrative Decisions", titleAr: "القرارات الإدارية", url: "/acknowledgment-documents", icon: ClipboardCheck },
     ]
   },
   {

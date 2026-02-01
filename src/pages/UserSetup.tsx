@@ -164,7 +164,7 @@ interface UserPermission {
         { key: "companyHierarchy", label: "الهيكل التنظيمي", labelEn: "Company Hierarchy" },
         { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
         { key: "department_management", label: "إدارة الأقسام", labelEn: "Department Management" },
-        { key: "acknowledgmentDocuments", label: "إقرارات الموظفين", labelEn: "Acknowledgment Documents" },
+        { key: "acknowledgmentDocuments", label: "القرارات الإدارية", labelEn: "Administrative Decisions" },
       ]
     },
     {

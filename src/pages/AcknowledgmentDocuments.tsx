@@ -111,7 +111,7 @@ const AcknowledgmentDocuments = () => {
 
   const t = {
     ar: {
-      pageTitle: "إقرارات الموظفين",
+      pageTitle: "القرارات الإدارية",
       addDocument: "إضافة إقرار",
       editDocument: "تعديل الإقرار",
       title: "العنوان (إنجليزي)",
