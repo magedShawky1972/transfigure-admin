@@ -1377,14 +1377,17 @@ const ProjectsTasks = () => {
                             
                             // Regular user with position level: show users with lower hierarchy (higher level number)
                             // Users without position_level are treated as lowest rank (can be assigned by anyone with a level)
+                            // ALWAYS include current user (self-assignment is always allowed)
                             if (currentUserPositionLevel !== null) {
                               return deptUsers.filter(u => 
-                                u.position_level === null || u.position_level > currentUserPositionLevel
+                                u.user_id === currentUserId || // Always allow self-assignment
+                                u.position_level === null || 
+                                u.position_level > currentUserPositionLevel
                               );
                             }
                             
                             // User without position level: can only assign to themselves
-                            return users.filter(u => u.user_id === currentUserId);
+                            return deptUsers.filter(u => u.user_id === currentUserId);
                           })().map(u => (
                             <div key={u.user_id} className="flex items-center gap-2 py-1">
                               <Checkbox 
