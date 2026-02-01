@@ -293,6 +293,59 @@ const ShiftSession = () => {
       if (brandsError) throw brandsError;
       setBrands(brandsData || []);
 
+      // Find the valid assignment for current time to check attendance
+      let validAssignment = null;
+      for (const assignment of assignments) {
+        const shiftData = assignment.shifts as { shift_name: string; shift_start_time: string; shift_end_time: string } | null;
+        if (!shiftData) continue;
+
+        const [startHours, startMinutes] = shiftData.shift_start_time.split(':').map(Number);
+        const startTimeInMinutes = startHours * 60 + startMinutes;
+
+        const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
+        const endTimeInMinutes = endHours * 60 + endMinutes;
+
+        const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
+
+        if (isOvernightShift) {
+          if (assignment.assignment_date === today && currentTimeInMinutes >= startTimeInMinutes) {
+            validAssignment = assignment;
+            break;
+          }
+          if (assignment.assignment_date === yesterday && currentTimeInMinutes <= endTimeInMinutes) {
+            validAssignment = assignment;
+            break;
+          }
+        } else {
+          if (currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes) {
+            validAssignment = assignment;
+            break;
+          }
+        }
+      }
+
+      // Check if user has recorded attendance for this shift - show dialog automatically if not
+      if (validAssignment) {
+        const { data: existingAttendance } = await supabase
+          .from("shift_attendance")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("shift_assignment_id", validAssignment.id)
+          .maybeSingle();
+
+        if (!existingAttendance) {
+          const shiftInfo = validAssignment.shifts as { shift_name: string; shift_start_time: string; shift_end_time: string } | null;
+          setPendingShiftAssignment({
+            id: validAssignment.id,
+            assignment_date: validAssignment.assignment_date,
+            shift_id: validAssignment.shift_id,
+            shifts: shiftInfo,
+          });
+          setAttendanceRequired(true);
+          setShowAttendanceDialog(true);
+        }
+      }
+
       setLoading(false);
     } catch (error: any) {
       console.error("Error loading data:", error);
