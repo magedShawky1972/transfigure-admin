@@ -351,7 +351,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
         { title: language === 'ar' ? "أخبار الشركة" : "Company News", url: "/company-news", icon: FileText },
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
-        { title: language === 'ar' ? "إقرارات الموظفين" : "Acknowledgment Documents", url: "/acknowledgment-documents", icon: ClipboardCheck },
+        { title: language === 'ar' ? "القرارات الإدارية" : "Administrative Decisions", url: "/acknowledgment-documents", icon: ClipboardCheck },
       ]
     },
     {
