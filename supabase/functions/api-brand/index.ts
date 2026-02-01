@@ -1,6 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// Table configuration for test vs production mode
+const TABLE_CONFIG = {
+  test: {
+    brands: 'testbrands',
+  },
+  production: {
+    brands: 'brands',
+  }
+};
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   let requestBody: any = null;
@@ -83,6 +93,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch API mode from settings
+    const { data: modeData } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'api_mode')
+      .single();
+
+    const apiMode = (modeData?.setting_value === 'production') ? 'production' : 'test';
+    const tables = TABLE_CONFIG[apiMode];
+    
+    console.log(`API Mode: ${apiMode}, Using tables:`, tables);
+
     const body = await req.json();
     requestBody = body;
     console.log('Received brand data:', JSON.stringify(body));
@@ -124,9 +146,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert to testbrands table (for testing purposes)
-    const { data: testData, error: testError } = await supabase
-      .from('testbrands')
+    // Upsert to brands table based on mode
+    const { data: resultData, error: upsertError } = await supabase
+      .from(tables.brands)
       .upsert({
         brand_code: body.Brand_Code,
         brand_name: body.Brand_Name,
@@ -138,26 +160,27 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (testError) {
-      console.error('Error upserting to testbrands:', testError);
+    if (upsertError) {
+      console.error(`Error upserting to ${tables.brands}:`, upsertError);
       responseStatus = 400;
-      responseMessage = testError.message;
+      responseMessage = upsertError.message;
       success = false;
       await logApiCall();
-      return new Response(JSON.stringify({ error: testError.message }), {
+      return new Response(JSON.stringify({ error: upsertError.message }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Successfully upserted to testbrands:', testData);
-    responseMessage = 'Brand saved to testbrands table';
+    console.log(`Successfully upserted to ${tables.brands}:`, resultData);
+    responseMessage = `Brand saved to ${tables.brands} table (${apiMode} mode)`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: responseMessage,
-      data: testData 
+      mode: apiMode,
+      data: resultData 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

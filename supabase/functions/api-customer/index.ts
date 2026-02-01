@@ -1,6 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// Table configuration for test vs production mode
+const TABLE_CONFIG = {
+  test: {
+    customers: 'testcustomers',
+  },
+  production: {
+    customers: 'customers',
+  }
+};
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   let requestBody: any = null;
@@ -83,6 +93,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch API mode from settings
+    const { data: modeData } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'api_mode')
+      .single();
+
+    const apiMode = (modeData?.setting_value === 'production') ? 'production' : 'test';
+    const tables = TABLE_CONFIG[apiMode];
+    
+    console.log(`API Mode: ${apiMode}, Using tables:`, tables);
+
     const body = await req.json();
     requestBody = body;
     console.log('Received customer data:', JSON.stringify(body));
@@ -124,9 +146,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert to testcustomers table (for testing purposes)
-    const { data: testData, error: testError } = await supabase
-      .from('testcustomers')
+    // Upsert to customers table based on mode
+    const { data: resultData, error: upsertError } = await supabase
+      .from(tables.customers)
       .upsert({
         customer_phone: body.Customer_Phone,
         customer_name: body.Customer_name,
@@ -135,7 +157,7 @@ Deno.serve(async (req) => {
         status: body.Status ? 'active' : 'suspended',
         is_blocked: body.Is_blocked || false,
         block_reason: body.Block_reason,
-        register_date: body.Register_date,
+        creation_date: body.Register_date || new Date().toISOString().split('T')[0],
         last_transaction: body.Last_transaction,
       }, {
         onConflict: 'customer_phone'
@@ -143,26 +165,27 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (testError) {
-      console.error('Error upserting to testcustomers:', testError);
+    if (upsertError) {
+      console.error(`Error upserting to ${tables.customers}:`, upsertError);
       responseStatus = 400;
-      responseMessage = testError.message;
+      responseMessage = upsertError.message;
       success = false;
       await logApiCall();
-      return new Response(JSON.stringify({ error: testError.message }), {
+      return new Response(JSON.stringify({ error: upsertError.message }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Successfully upserted to testcustomers:', testData);
-    responseMessage = 'Customer saved to testcustomers table';
+    console.log(`Successfully upserted to ${tables.customers}:`, resultData);
+    responseMessage = `Customer saved to ${tables.customers} table (${apiMode} mode)`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: responseMessage,
-      data: testData 
+      mode: apiMode,
+      data: resultData 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

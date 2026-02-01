@@ -1,6 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// Table configuration for test vs production mode
+const TABLE_CONFIG = {
+  test: {
+    salesheader: 'testsalesheader',
+  },
+  production: {
+    salesheader: 'purpletransaction',
+  }
+};
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   let requestBody: any = null;
@@ -83,6 +93,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch API mode from settings
+    const { data: modeData } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'api_mode')
+      .single();
+
+    const apiMode = (modeData?.setting_value === 'production') ? 'production' : 'test';
+    const tables = TABLE_CONFIG[apiMode];
+    
+    console.log(`API Mode: ${apiMode}, Using tables:`, tables);
+
     const body = await req.json();
     requestBody = body;
     console.log('Received sales header data:', JSON.stringify(body));
@@ -124,10 +146,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert to testsalesheader table (for testing purposes)
-    const { data: testData, error: testError } = await supabase
-      .from('testsalesheader')
-      .upsert({
+    // Prepare data based on mode
+    let upsertData: Record<string, any>;
+    
+    if (apiMode === 'production') {
+      // Map to purpletransaction columns
+      upsertData = {
+        ordernumber: body.Order_Number,
+        customer_phone: body.Customer_Phone,
+        created_at: body.Order_date,
+        payment_term: body.Payment_Term,
+        user_name: body.Sales_person,
+        transaction_type: body.Transaction_Type,
+        media: body.Media,
+        profit_center: body.Profit_Center,
+        company: body.Company,
+        status: body.Status,
+        status_description: body.Status_Description,
+        customer_ip: body.Customer_IP,
+        device_fingerprint: body.Device_Fingerprint,
+        transaction_location: body.Transaction_Location,
+        register_user_id: body.Register_User_ID,
+        player_id: body.Player_Id,
+        is_point: body.Point === 1 || body.Point === '1' || body.Point === true,
+        point_value: body.Point_Value !== undefined ? parseFloat(body.Point_Value) : null,
+      };
+    } else {
+      // Map to testsalesheader columns
+      upsertData = {
         order_number: body.Order_Number,
         customer_phone: body.Customer_Phone,
         order_date: body.Order_date,
@@ -146,32 +192,40 @@ Deno.serve(async (req) => {
         player_id: body.Player_Id,
         is_point: body.Point === 1 || body.Point === '1' || body.Point === true,
         point_value: body.Point_Value !== undefined ? parseFloat(body.Point_Value) : null,
-      }, {
-        onConflict: 'order_number'
+      };
+    }
+
+    // Upsert to sales header table based on mode
+    const conflictColumn = apiMode === 'production' ? 'ordernumber' : 'order_number';
+    const { data: resultData, error: upsertError } = await supabase
+      .from(tables.salesheader)
+      .upsert(upsertData, {
+        onConflict: conflictColumn
       })
       .select()
       .single();
 
-    if (testError) {
-      console.error('Error upserting to testsalesheader:', testError);
+    if (upsertError) {
+      console.error(`Error upserting to ${tables.salesheader}:`, upsertError);
       responseStatus = 400;
-      responseMessage = testError.message;
+      responseMessage = upsertError.message;
       success = false;
       await logApiCall();
-      return new Response(JSON.stringify({ error: testError.message }), {
+      return new Response(JSON.stringify({ error: upsertError.message }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Successfully upserted to testsalesheader:', testData);
-    responseMessage = 'Sales header saved to testsalesheader table';
+    console.log(`Successfully upserted to ${tables.salesheader}:`, resultData);
+    responseMessage = `Sales header saved to ${tables.salesheader} table (${apiMode} mode)`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: responseMessage,
-      data: testData 
+      mode: apiMode,
+      data: resultData 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

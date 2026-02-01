@@ -1,6 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// Table configuration for test vs production mode
+const TABLE_CONFIG = {
+  test: {
+    salesline: 'testsalesline',
+  },
+  production: {
+    salesline: 'order_details',
+  }
+};
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   let requestBody: any = null;
@@ -83,6 +93,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch API mode from settings
+    const { data: modeData } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'api_mode')
+      .single();
+
+    const apiMode = (modeData?.setting_value === 'production') ? 'production' : 'test';
+    const tables = TABLE_CONFIG[apiMode];
+    
+    console.log(`API Mode: ${apiMode}, Using tables:`, tables);
+
     const body = await req.json();
     requestBody = body;
     console.log('Received sales line data:', JSON.stringify(body));
@@ -125,10 +147,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert to testsalesline table (for testing purposes)
-    const { data: testData, error: testError } = await supabase
-      .from('testsalesline')
-      .upsert({
+    // Prepare data based on mode
+    let upsertData: Record<string, any>;
+    let conflictColumns: string;
+    
+    if (apiMode === 'production') {
+      // Map to order_details columns
+      upsertData = {
+        ordernumber: body.Order_Number,
+        line_number: body.Line_Number,
+        line_status: body.Line_Status,
+        sku: body.Product_SKU,
+        product_id: body.Product_Id,
+        quantity: body.Quantity,
+        unit_price: body.Unit_price,
+        total: body.Total,
+        coins_number: body.Coins_Number,
+        cost_price: body.Cost_Price,
+        total_cost: body.Total_Cost,
+      };
+      conflictColumns = 'ordernumber,line_number';
+    } else {
+      // Map to testsalesline columns
+      upsertData = {
         order_number: body.Order_Number,
         line_number: body.Line_Number,
         line_status: body.Line_Status,
@@ -140,32 +181,40 @@ Deno.serve(async (req) => {
         coins_number: body.Coins_Number,
         cost_price: body.Cost_Price,
         total_cost: body.Total_Cost,
-      }, {
-        onConflict: 'order_number,line_number'
+      };
+      conflictColumns = 'order_number,line_number';
+    }
+
+    // Upsert to sales line table based on mode
+    const { data: resultData, error: upsertError } = await supabase
+      .from(tables.salesline)
+      .upsert(upsertData, {
+        onConflict: conflictColumns
       })
       .select()
       .single();
 
-    if (testError) {
-      console.error('Error upserting to testsalesline:', testError);
+    if (upsertError) {
+      console.error(`Error upserting to ${tables.salesline}:`, upsertError);
       responseStatus = 400;
-      responseMessage = testError.message;
+      responseMessage = upsertError.message;
       success = false;
       await logApiCall();
-      return new Response(JSON.stringify({ error: testError.message }), {
+      return new Response(JSON.stringify({ error: upsertError.message }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Successfully upserted to testsalesline:', testData);
-    responseMessage = 'Sales line saved to testsalesline table';
+    console.log(`Successfully upserted to ${tables.salesline}:`, resultData);
+    responseMessage = `Sales line saved to ${tables.salesline} table (${apiMode} mode)`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: responseMessage,
-      data: testData 
+      mode: apiMode,
+      data: resultData 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
