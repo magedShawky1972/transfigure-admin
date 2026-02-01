@@ -42,6 +42,7 @@ import {
   Shield,
   History,
   FileText,
+  FileCheck,
   Mail,
   Phone,
   MapPin,
@@ -49,6 +50,7 @@ import {
   Pencil,
   Plus,
 } from "lucide-react";
+import EmployeeAcknowledgments from "@/components/EmployeeAcknowledgments";
 import { format, differenceInDays } from "date-fns";
 
 interface Employee {
@@ -578,6 +580,10 @@ export default function EmployeeProfile() {
             <Phone className="h-4 w-4" />
             <span className="hidden sm:inline">{language === "ar" ? "جهات الاتصال" : "Contacts"}</span>
           </TabsTrigger>
+          <TabsTrigger value="acknowledgments" className="flex items-center gap-2 data-[state=active]:bg-background">
+            <FileCheck className="h-4 w-4" />
+            <span className="hidden sm:inline">{language === "ar" ? "الإقرارات" : "Acknowledgments"}</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -967,6 +973,21 @@ export default function EmployeeProfile() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Acknowledgments Tab */}
+        <TabsContent value="acknowledgments">
+          {employee.user_id ? (
+            <EmployeeAcknowledgments userId={employee.user_id} />
+          ) : (
+            <Card>
+              <CardContent className="py-8">
+                <p className="text-muted-foreground text-center">
+                  {language === "ar" ? "لا يوجد حساب مستخدم مرتبط" : "No linked user account"}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

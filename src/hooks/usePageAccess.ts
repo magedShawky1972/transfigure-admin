@@ -118,6 +118,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/update-bank-ledger": "updateBankLedger",
   "/cost-center-setup": "costCenterSetup",
   "/void-payment": "voidPayment",
+  "/acknowledgment-documents": "acknowledgmentDocuments",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {

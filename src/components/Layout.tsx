@@ -4,6 +4,7 @@ import { Moon, Sun, Languages, LogOut, Home, Clock, User, Key, Camera, Building2
 import { NotificationBell } from "@/components/NotificationBell";
 import { PushNotificationBar } from "@/components/PushNotificationBar";
 import { MainPageMenu } from "@/components/MainPageMenu";
+import { PendingAcknowledgmentDialog } from "@/components/PendingAcknowledgmentDialog";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -577,6 +578,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* Pending Acknowledgment Documents Dialog */}
+      {user && <PendingAcknowledgmentDialog />}
 
       {/* Profile Dialog */}
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
