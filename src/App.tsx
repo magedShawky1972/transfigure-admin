@@ -125,6 +125,7 @@ import CostCenterReport from "./pages/CostCenterReport";
 import ManualShiftTransactionReport from "./pages/ManualShiftTransactionReport";
 import ProjectSetup from "./pages/ProjectSetup";
 import VoidPayment from "./pages/VoidPayment";
+import AcknowledgmentDocuments from "./pages/AcknowledgmentDocuments";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -254,6 +255,7 @@ const App = () => (
               <Route path="/reports/manual-shift-transactions" element={<ManualShiftTransactionReport />} />
               <Route path="/project-setup" element={<ProjectSetup />} />
               <Route path="/void-payment" element={<VoidPayment />} />
+              <Route path="/acknowledgment-documents" element={<AcknowledgmentDocuments />} />
               <Route path="/employee-self-requests" element={<EmployeeSelfRequests />} />
               <Route path="/employee-request-approvals" element={<EmployeeRequestApprovals />} />
               <Route path="/hr-manager-setup" element={<HRManagerSetup />} />

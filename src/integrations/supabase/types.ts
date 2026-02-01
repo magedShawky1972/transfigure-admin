@@ -14,6 +14,119 @@ export type Database = {
   }
   public: {
     Tables: {
+      acknowledgment_documents: {
+        Row: {
+          content: string
+          content_ar: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          is_active: boolean | null
+          requires_signature: boolean | null
+          title: string
+          title_ar: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          content_ar?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_active?: boolean | null
+          requires_signature?: boolean | null
+          title: string
+          title_ar?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          content_ar?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_active?: boolean | null
+          requires_signature?: boolean | null
+          title?: string
+          title_ar?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      acknowledgment_recipients: {
+        Row: {
+          created_at: string | null
+          document_id: string
+          id: string
+          job_position_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document_id: string
+          id?: string
+          job_position_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document_id?: string
+          id?: string
+          job_position_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acknowledgment_recipients_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "acknowledgment_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acknowledgment_recipients_job_position_id_fkey"
+            columns: ["job_position_id"]
+            isOneToOne: false
+            referencedRelation: "job_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      acknowledgment_signatures: {
+        Row: {
+          document_id: string
+          id: string
+          ip_address: string | null
+          signed_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          document_id: string
+          id?: string
+          ip_address?: string | null
+          signed_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          document_id?: string
+          id?: string
+          ip_address?: string | null
+          signed_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acknowledgment_signatures_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "acknowledgment_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aggregated_order_mapping: {
         Row: {
           aggregated_order_number: string
