@@ -1,6 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// Table configuration for test vs production mode
+const TABLE_CONFIG = {
+  test: {
+    payment: 'testpayment',
+  },
+  production: {
+    payment: 'order_payment',
+  }
+};
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   let requestBody: any = null;
@@ -83,6 +93,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch API mode from settings
+    const { data: modeData } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'api_mode')
+      .single();
+
+    const apiMode = (modeData?.setting_value === 'production') ? 'production' : 'test';
+    const tables = TABLE_CONFIG[apiMode];
+    
+    console.log(`API Mode: ${apiMode}, Using tables:`, tables);
+
     const body = await req.json();
     requestBody = body;
     console.log('Received payment data:', JSON.stringify(body));
@@ -124,10 +146,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Insert to testpayment table (for testing purposes)
-    const { data: testData, error: testError } = await supabase
-      .from('testpayment')
-      .insert({
+    // Prepare data based on mode
+    let insertData: Record<string, any>;
+    
+    if (apiMode === 'production') {
+      // Map to order_payment columns
+      insertData = {
+        ordernumber: body.Order_number,
+        paymentmethod: body.Payment_method,
+        paymentbrand: body.Payment_brand,
+        paymentamount: body.Payment_Amount,
+        paymentreference: body.Payment_reference,
+        cardnumber: body.Payment_Card_Number,
+        bank_transaction_id: body.Bank_Transaction_Id,
+        redemption_ip: body.Redemption_IP,
+        payment_location: body.Payment_Location,
+      };
+    } else {
+      // Map to testpayment columns
+      insertData = {
         order_number: body.Order_number,
         payment_method: body.Payment_method,
         payment_brand: body.Payment_brand,
@@ -137,30 +174,37 @@ Deno.serve(async (req) => {
         bank_transaction_id: body.Bank_Transaction_Id,
         redemption_ip: body.Redemption_IP,
         payment_location: body.Payment_Location,
-      })
+      };
+    }
+
+    // Insert to payment table based on mode
+    const { data: resultData, error: insertError } = await supabase
+      .from(tables.payment)
+      .insert(insertData)
       .select()
       .single();
 
-    if (testError) {
-      console.error('Error inserting to testpayment:', testError);
+    if (insertError) {
+      console.error(`Error inserting to ${tables.payment}:`, insertError);
       responseStatus = 400;
-      responseMessage = testError.message;
+      responseMessage = insertError.message;
       success = false;
       await logApiCall();
-      return new Response(JSON.stringify({ error: testError.message }), {
+      return new Response(JSON.stringify({ error: insertError.message }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Successfully inserted to testpayment:', testData);
-    responseMessage = 'Payment saved to testpayment table';
+    console.log(`Successfully inserted to ${tables.payment}:`, resultData);
+    responseMessage = `Payment saved to ${tables.payment} table (${apiMode} mode)`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: responseMessage,
-      data: testData 
+      mode: apiMode,
+      data: resultData 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
