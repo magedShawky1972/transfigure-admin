@@ -155,6 +155,7 @@ export function AppSidebar() {
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
     "/hr-manager-setup": "hrManagerSetup",
+    "/acknowledgment-documents": "acknowledgmentDocuments",
   };
 
   useEffect(() => {
@@ -350,6 +351,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'الهيكل التنظيمي' : 'Company Hierarchy', url: "/company-hierarchy", icon: Building2 },
         { title: language === 'ar' ? "أخبار الشركة" : "Company News", url: "/company-news", icon: FileText },
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
+        { title: language === 'ar' ? "إقرارات الموظفين" : "Acknowledgment Documents", url: "/acknowledgment-documents", icon: ClipboardCheck },
       ]
     },
     {

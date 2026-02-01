@@ -6,7 +6,7 @@ import {
   LayoutDashboard, TicketCheck, Clock, FolderKanban, Users, Key, FileBarChart, FileText, Table2, Grid3x3,
   FileSpreadsheet, Database, MessageCircle, Calendar, Mail, Settings, UserCheck, TrendingUp, CreditCard,
   DollarSign, Building2, Truck, UserCircle, Palmtree, ClipboardList, Calculator, HeartPulse, Briefcase,
-  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target
+  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target, FileSignature
 } from "lucide-react";
 
 const URL_TO_PERMISSION: Record<string, string> = {
@@ -90,6 +90,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/payment-bank-link": "paymentBankLink",
   "/api-consumption-logs": "apiConsumptionLogs",
   "/update-bank-ledger": "updateBankLedger",
+  "/acknowledgment-documents": "acknowledgmentDocuments",
 };
 
 interface MenuItem {
@@ -178,6 +179,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Vacation Calendar", titleAr: "تقويم الإجازات", url: "/hr-vacation-calendar", icon: Palmtree },
       { title: "Company Hierarchy", titleAr: "الهيكل التنظيمي", url: "/company-hierarchy", icon: Building2 },
       { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
+      { title: "Acknowledgment Documents", titleAr: "إقرارات الموظفين", url: "/acknowledgment-documents", icon: ClipboardCheck },
     ]
   },
   {
