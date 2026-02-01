@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import LudoTransactionsSection from "@/components/LudoTransactionsSection";
+import ShiftAttendanceDialog from "@/components/ShiftAttendanceDialog";
 import { 
   getKSADateString, 
   getKSAYesterdayDateString,
@@ -109,6 +110,17 @@ const ShiftSession = () => {
   
   // Loading state for open shift button to prevent double-clicks
   const [openingShift, setOpeningShift] = useState(false);
+  
+  // Attendance dialog state
+  const [showAttendanceDialog, setShowAttendanceDialog] = useState(false);
+  const [pendingShiftAssignment, setPendingShiftAssignment] = useState<{
+    id: string;
+    assignment_date: string;
+    shift_id: string;
+    shifts: { shift_name: string; shift_start_time: string; shift_end_time: string } | null;
+  } | null>(null);
+  const [attendanceRequired, setAttendanceRequired] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
@@ -148,6 +160,9 @@ const ShiftSession = () => {
       if (profile) {
         setUserName(profile.user_name);
       }
+      
+      // Store user ID for attendance dialog
+      setCurrentUserId(user.id);
 
       // CRITICAL: First check if user has ANY open shift session (from any day)
       const { data: anyOpenSession } = await supabase
@@ -658,11 +673,33 @@ const ShiftSession = () => {
         return;
       }
 
-      // Find an assignment without any session (open or closed) for today
-      let assignment = assignments[0];
+      // Get the assignment for today
+      const assignment = assignments[0];
+      const shiftInfo = assignment.shifts as { shift_name: string; shift_start_time: string; shift_end_time: string } | null;
+
+      // Check if user has recorded attendance for this shift
+      const { data: existingAttendance } = await supabase
+        .from("shift_attendance")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("shift_assignment_id", assignment.id)
+        .maybeSingle();
+
+      if (!existingAttendance) {
+        // Show attendance dialog - user must record attendance first
+        setPendingShiftAssignment({
+          id: assignment.id,
+          assignment_date: today,
+          shift_id: assignment.shift_id,
+          shifts: shiftInfo,
+        });
+        setAttendanceRequired(true);
+        setShowAttendanceDialog(true);
+        return;
+      }
 
       // Check if current time is after shift end time
-      const shiftData = assignment.shifts as { shift_name: string; shift_end_time: string; shift_start_time?: string } | null;
+      const shiftData = shiftInfo;
       if (shiftData?.shift_end_time) {
         // Get current time in KSA using centralized function
         const currentTimeInMinutes = getKSATimeInMinutes();
@@ -2141,6 +2178,25 @@ const ShiftSession = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Shift Attendance Dialog */}
+      <ShiftAttendanceDialog
+        open={showAttendanceDialog}
+        onOpenChange={(open) => {
+          setShowAttendanceDialog(open);
+          if (!open) {
+            setOpeningShift(false);
+          }
+        }}
+        assignment={pendingShiftAssignment}
+        userId={currentUserId}
+        onAttendanceRecorded={() => {
+          setShowAttendanceDialog(false);
+          setAttendanceRequired(false);
+          // Try opening shift again after attendance is recorded
+          handleOpenShift();
+        }}
+      />
     </div>
   );
 };

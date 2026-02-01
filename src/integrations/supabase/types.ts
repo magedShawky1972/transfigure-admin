@@ -4905,6 +4905,91 @@ export type Database = {
           },
         ]
       }
+      shift_attendance: {
+        Row: {
+          attendance_date: string
+          check_in_time: string
+          created_at: string
+          device_info: string | null
+          id: string
+          location_lat: number | null
+          location_lng: number | null
+          notes: string | null
+          shift_assignment_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendance_date: string
+          check_in_time?: string
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          shift_assignment_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendance_date?: string
+          check_in_time?: string
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          shift_assignment_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_attendance_shift_assignment_id_fkey"
+            columns: ["shift_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "shift_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_attendance_reminders: {
+        Row: {
+          id: string
+          reminder_type: string
+          sent_at: string
+          shift_assignment_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          reminder_type: string
+          sent_at?: string
+          shift_assignment_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          reminder_type?: string
+          sent_at?: string
+          shift_assignment_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_attendance_reminders_shift_assignment_id_fkey"
+            columns: ["shift_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "shift_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_brand_balances: {
         Row: {
           brand_id: string
