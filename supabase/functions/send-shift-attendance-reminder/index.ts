@@ -101,12 +101,19 @@ serve(async (req) => {
       console.log(`Assignment ${assignment.id}: Shift starts at ${assignment.shifts.shift_start_time}, ` +
         `minutes until shift: ${minutesUntilShift}`);
 
-      // Check if we need to send 10min or 5min reminder
-      let reminderType: '10min' | '5min' | null = null;
+      // Check if we need to send 15min, 10min or 5min reminder
+      let reminderType: '15min' | '10min' | '5min' | null = null;
 
-      if (minutesUntilShift >= 9 && minutesUntilShift <= 11) {
+      // 15 minute reminder (14-16 minute window)
+      if (minutesUntilShift >= 14 && minutesUntilShift <= 16) {
+        reminderType = '15min';
+      }
+      // 10 minute reminder (9-11 minute window)
+      else if (minutesUntilShift >= 9 && minutesUntilShift <= 11) {
         reminderType = '10min';
-      } else if (minutesUntilShift >= 4 && minutesUntilShift <= 6) {
+      }
+      // 5 minute reminder (4-6 minute window)
+      else if (minutesUntilShift >= 4 && minutesUntilShift <= 6) {
         reminderType = '5min';
       }
 
@@ -139,14 +146,20 @@ serve(async (req) => {
         continue;
       }
 
-      // Send push notification
-      const title = reminderType === '10min' 
-        ? 'تذكير الحضور - 10 دقائق'
-        : 'تذكير الحضور - 5 دقائق';
-      
-      const body = reminderType === '10min'
-        ? `تبقى 10 دقائق على بدء وردية ${assignment.shifts.shift_name}. سجل حضورك الآن.`
-        : `تبقى 5 دقائق على بدء وردية ${assignment.shifts.shift_name}! سجل حضورك فوراً.`;
+      // Send push notification with appropriate message
+      let title: string;
+      let body: string;
+
+      if (reminderType === '15min') {
+        title = 'تذكير الحضور - 15 دقيقة';
+        body = `تبقى 15 دقيقة على بدء وردية ${assignment.shifts.shift_name}. استعد لتسجيل حضورك.`;
+      } else if (reminderType === '10min') {
+        title = 'تذكير الحضور - 10 دقائق';
+        body = `تبقى 10 دقائق على بدء وردية ${assignment.shifts.shift_name}. سجل حضورك الآن.`;
+      } else {
+        title = 'تذكير الحضور - 5 دقائق';
+        body = `تبقى 5 دقائق على بدء وردية ${assignment.shifts.shift_name}! سجل حضورك فوراً.`;
+      }
 
       console.log(`Sending ${reminderType} reminder to user ${assignment.user_id}`);
 
