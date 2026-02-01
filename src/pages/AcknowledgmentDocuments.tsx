@@ -506,10 +506,64 @@ const AcknowledgmentDocuments = () => {
 
       {/* Send to Recipients Dialog */}
       <Dialog open={recipientDialogOpen} onOpenChange={setRecipientDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{texts.sendTo}</DialogTitle>
           </DialogHeader>
+          
+          {/* Existing Recipients Section */}
+          {recipients.length > 0 && (
+            <div className="mb-4">
+              <Label className="text-sm font-medium mb-2 block">
+                {language === "ar" ? "المستلمين الحاليين" : "Current Recipients"}
+              </Label>
+              <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
+                {recipients.map((recipient) => {
+                  const userName = recipient.user_id
+                    ? users.find((u) => u.user_id === recipient.user_id)?.user_name
+                    : null;
+                  const jobName = recipient.job_position_id
+                    ? jobPositions.find((j) => j.id === recipient.job_position_id)
+                    : null;
+                  const displayName = userName || 
+                    (jobName 
+                      ? (language === "ar" && jobName.position_name_ar ? jobName.position_name_ar : jobName.position_name)
+                      : recipient.user_id || recipient.job_position_id);
+                  
+                  return (
+                    <Badge 
+                      key={recipient.id} 
+                      variant="secondary"
+                      className="flex items-center gap-1 px-2 py-1"
+                    >
+                      {recipient.user_id ? <Users className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
+                      {displayName}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { error } = await supabase
+                              .from("acknowledgment_recipients")
+                              .delete()
+                              .eq("id", recipient.id);
+                            if (error) throw error;
+                            setRecipients(recipients.filter((r) => r.id !== recipient.id));
+                            toast.success(language === "ar" ? "تم الحذف" : "Removed");
+                          } catch (err: any) {
+                            toast.error(err.message);
+                          }
+                        }}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <Tabs value={recipientForm.type} onValueChange={(v) => setRecipientForm({ ...recipientForm, type: v as "user" | "job" })}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="user">
@@ -524,7 +578,9 @@ const AcknowledgmentDocuments = () => {
             <TabsContent value="user" className="mt-4">
               <Label>{texts.selectUsers}</Label>
               <ScrollArea className="h-64 border rounded-md p-2 mt-2">
-                {users.map((user) => (
+                {users
+                  .filter((user) => !recipients.some((r) => r.user_id === user.user_id))
+                  .map((user) => (
                   <div key={user.user_id} className="flex items-center gap-2 py-1">
                     <Checkbox
                       id={`user-${user.user_id}`}
@@ -547,7 +603,9 @@ const AcknowledgmentDocuments = () => {
             <TabsContent value="job" className="mt-4">
               <Label>{texts.selectJobs}</Label>
               <ScrollArea className="h-64 border rounded-md p-2 mt-2">
-                {jobPositions.map((job) => (
+                {jobPositions
+                  .filter((job) => !recipients.some((r) => r.job_position_id === job.id))
+                  .map((job) => (
                   <div key={job.id} className="flex items-center gap-2 py-1">
                     <Checkbox
                       id={`job-${job.id}`}
@@ -572,7 +630,9 @@ const AcknowledgmentDocuments = () => {
             <Button variant="outline" onClick={() => setRecipientDialogOpen(false)}>
               {texts.cancel}
             </Button>
-            <Button onClick={handleSendToRecipients}>{texts.send}</Button>
+            <Button onClick={handleSendToRecipients} disabled={recipientForm.user_ids.length === 0 && recipientForm.job_position_ids.length === 0}>
+              {texts.send}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
