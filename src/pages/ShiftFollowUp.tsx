@@ -53,6 +53,9 @@ interface ShiftSession {
   closed_at: string | null;
   closing_notes: string | null;
   admin_notes: string | null;
+  // Added for missing images count
+  uploaded_images_count?: number;
+  required_images_count?: number;
 }
 
 interface ShiftAssignment {
@@ -171,6 +174,61 @@ export default function ShiftFollowUp() {
 
       if (assignmentError) throw assignmentError;
 
+      // Fetch required brands count (A-class, non-Ludo)
+      const { data: brandsData } = await supabase
+        .from("brands")
+        .select("id, brand_name")
+        .eq("status", "active")
+        .eq("abc_analysis", "A");
+
+      const requiredBrands = brandsData?.filter(brand => {
+        const brandNameLower = brand.brand_name.toLowerCase();
+        return !brandNameLower.includes("yalla ludo") && 
+               !brandNameLower.includes("يلا لودو") && 
+               !brandNameLower.includes("ludo");
+      }) || [];
+      const requiredImagesCount = requiredBrands.length;
+
+      // Fetch uploaded images count for each session
+      const sessionIds = assignmentData?.flatMap((a: any) => 
+        (Array.isArray(a.shift_sessions) ? a.shift_sessions : a.shift_sessions ? [a.shift_sessions] : [])
+          .map((s: any) => s.id)
+      ) || [];
+
+      let imagesCounts: Record<string, number> = {};
+      if (sessionIds.length > 0) {
+        const { data: balancesData } = await supabase
+          .from("shift_brand_balances")
+          .select("shift_session_id, receipt_image_path")
+          .in("shift_session_id", sessionIds)
+          .not("receipt_image_path", "is", null);
+
+        // Count images per session
+        balancesData?.forEach((balance: any) => {
+          if (balance.receipt_image_path) {
+            imagesCounts[balance.shift_session_id] = (imagesCounts[balance.shift_session_id] || 0) + 1;
+          }
+        });
+      }
+
+      // Enrich sessions with image counts
+      const enrichedAssignments = assignmentData?.map((assignment: any) => {
+        const sessions = Array.isArray(assignment.shift_sessions) 
+          ? assignment.shift_sessions 
+          : assignment.shift_sessions ? [assignment.shift_sessions] : [];
+        
+        const enrichedSessions = sessions.map((session: any) => ({
+          ...session,
+          uploaded_images_count: imagesCounts[session.id] || 0,
+          required_images_count: requiredImagesCount,
+        }));
+
+        return {
+          ...assignment,
+          shift_sessions: enrichedSessions,
+        };
+      });
+
       // Fetch user profiles separately
       const userIds = assignmentData?.map((a: any) => a.user_id) || [];
       const { data: profileData, error: profileError } = await supabase
@@ -201,7 +259,7 @@ export default function ShiftFollowUp() {
         shiftJobMap.get(sj.shift_id)?.push(sj.job_position_id);
       });
       
-      const enrichedData = assignmentData?.map((assignment: any) => ({
+      const enrichedData = enrichedAssignments?.map((assignment: any) => ({
         ...assignment,
         profiles: profileMap.get(assignment.user_id) || {
           user_name: "Unknown",
@@ -651,6 +709,7 @@ export default function ShiftFollowUp() {
                     <TableHead className="text-right">{t("End Time")}</TableHead>
                     <TableHead className="text-right">{t("Assigned Person")}</TableHead>
                     <TableHead className="text-right">{t("Status")}</TableHead>
+                    <TableHead className="text-right">{"الصور"}</TableHead>
                     <TableHead className="text-right">{t("Opened At")}</TableHead>
                     <TableHead className="text-right">{t("Closed At")}</TableHead>
                     <TableHead className="text-right">{t("User Notes") || "ملاحظات الموظف"}</TableHead>
@@ -716,6 +775,31 @@ export default function ShiftFollowUp() {
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(latestSession)}
+                      </TableCell>
+                      <TableCell>
+                        {latestSession ? (() => {
+                          const uploaded = latestSession.uploaded_images_count || 0;
+                          const required = latestSession.required_images_count || 0;
+                          const missing = required - uploaded;
+                          const isComplete = missing <= 0;
+                          
+                          return (
+                            <div className={`text-sm font-medium ${isComplete ? 'text-green-600' : 'text-amber-600'}`}>
+                              {isComplete ? (
+                                <span className="flex items-center gap-1">
+                                  ✅ {uploaded}/{required}
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  ⚠️ {uploaded}/{required}
+                                  <span className="text-xs text-destructive">
+                                    (ناقص {missing})
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })() : "-"}
                       </TableCell>
                       <TableCell className="text-sm">
                         {formatKSADateTime(latestSession?.opened_at || null, false)}
