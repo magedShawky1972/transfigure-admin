@@ -152,3 +152,9 @@ verify_jwt = false
 
 [functions.send-shift-overdue-reminder]
 verify_jwt = false
+
+[functions.process-zk-attendance]
+verify_jwt = false
+
+[functions.send-deduction-notification]
+verify_jwt = false
