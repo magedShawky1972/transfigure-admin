@@ -387,6 +387,8 @@ Deno.serve(async (req) => {
         batch_id: null,
         filter_from_date: targetDate,
         filter_to_date: targetDate,
+        // Mark for deduction notification if there's a deduction
+        deduction_notification_sent: deductionAmount > 0 ? false : null,
       };
 
       // Upsert the saved_attendance record
@@ -554,12 +556,35 @@ Deno.serve(async (req) => {
 
     console.log(`Processed ${results.length} attendance records`);
 
+    // Count employees with deductions
+    const employeesWithDeductions = results.filter(r => r.deduction_amount > 0);
+    console.log(`Found ${employeesWithDeductions.length} employees with deductions`);
+
+    // If this is evening processing and there are deductions, send deduction notifications
+    if (processType === 'evening' && employeesWithDeductions.length > 0) {
+      try {
+        console.log('Triggering deduction notifications...');
+        const { error: deductionNotifError } = await supabase.functions.invoke('send-deduction-notification', {
+          body: { target_date: targetDate },
+        });
+        
+        if (deductionNotifError) {
+          console.error('Error calling send-deduction-notification:', deductionNotifError);
+        } else {
+          console.log('Deduction notifications triggered successfully');
+        }
+      } catch (deductionError) {
+        console.error('Error invoking deduction notification function:', deductionError);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         message: `Processed ${results.length} attendance records`,
         processed_count: results.length,
         notifications_sent: notificationsToSend.length,
+        deductions_count: employeesWithDeductions.length,
         results,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
