@@ -1,10 +1,68 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Get yesterday's date in KSA timezone (UTC+3)
+function getYesterdayKSA(): string {
+  const now = new Date();
+  const ksaOffset = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+  const ksaDate = new Date(now.getTime() + ksaOffset);
+  ksaDate.setDate(ksaDate.getDate() - 1);
+  return ksaDate.toISOString().split('T')[0];
+}
+
+// Async email sending to not block the response
+async function sendEmailInBackground(
+  email: string, 
+  emailHtml: string, 
+  ccEmails: string[] = []
+) {
+  try {
+    const smtpClient = new SMTPClient({
+      connection: {
+        hostname: "smtp.hostinger.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: "edara@asuscards.com",
+          password: Deno.env.get("SMTP_PASSWORD") ?? "",
+        },
+      },
+    });
+
+    console.log("Attempting to send deduction email to:", email);
+
+    const emailConfig: {
+      from: string;
+      to: string;
+      subject: string;
+      content: string;
+      html: string;
+      cc?: string[];
+    } = {
+      from: "Edara Support <edara@asuscards.com>",
+      to: email,
+      subject: "إشعار خصم الحضور",
+      content: "text/html; charset=utf-8",
+      html: emailHtml,
+    };
+
+    if (ccEmails.length > 0) {
+      emailConfig.cc = ccEmails;
+      console.log(`Adding CC to HR managers: ${ccEmails.join(', ')}`);
+    }
+
+    await smtpClient.send(emailConfig);
+    await smtpClient.close();
+    console.log("Deduction email sent successfully to:", email);
+  } catch (emailError) {
+    console.error("Failed to send email to", email, ":", emailError);
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -17,26 +75,31 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    // Default to yesterday's date for deduction notifications
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const targetDate = body.target_date || yesterday.toISOString().split('T')[0];
+    // Default to yesterday in KSA timezone
+    const targetDate = body.target_date || getYesterdayKSA();
 
     console.log(`Sending deduction notifications for date: ${targetDate}`);
 
-    // Fetch attendance records with deductions that haven't been notified
-    // Exclude records with vacation_type set (employees on vacation)
+    // Fetch timesheet records with deduction rules that haven't been notified
+    // Join with employees and deduction_rules tables
     const { data: records, error: recError } = await supabase
-      .from('saved_attendance')
-      .select('*')
-      .eq('attendance_date', targetDate)
+      .from('timesheets')
+      .select(`
+        id, work_date, employee_id, status, late_minutes, in_time, out_time,
+        deduction_rule_id,
+        deduction_rule:deduction_rules(id, rule_name, rule_name_ar, deduction_value, deduction_type),
+        employee:employees!inner(
+          id, first_name, last_name, first_name_ar, last_name_ar, email, user_id, zk_employee_code
+        )
+      `)
+      .eq('work_date', targetDate)
       .eq('deduction_notification_sent', false)
-      .gt('deduction_amount', 0)
-      .is('vacation_type', null);
+      .not('deduction_rule_id', 'is', null)
+      .neq('status', 'vacation');
 
     if (recError) throw recError;
 
-    console.log(`Found ${records?.length || 0} records with deductions to notify (excluding vacations)`);
+    console.log(`Found ${records?.length || 0} timesheet records with deduction rules`);
 
     if (!records || records.length === 0) {
       return new Response(
@@ -45,23 +108,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get employee codes
-    const employeeCodes = [...new Set(records.map(r => r.employee_code))];
+    // Filter records where deduction_value > 0
+    const recordsWithDeductions = records.filter(r => {
+      const rule = r.deduction_rule as { deduction_value?: number } | null;
+      return rule && rule.deduction_value && rule.deduction_value > 0;
+    });
 
-    // Fetch employees with their user info
-    const { data: employees, error: empError } = await supabase
-      .from('employees')
-      .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, email, user_id, basic_salary')
-      .in('zk_employee_code', employeeCodes);
+    console.log(`Found ${recordsWithDeductions.length} records with actual deductions (deduction_value > 0)`);
 
-    if (empError) throw empError;
-
-    // Fetch deduction rules for context
-    const { data: deductionRules, error: drError } = await supabase
-      .from('deduction_rules')
-      .select('id, rule_name, rule_name_ar');
-
-    if (drError) throw drError;
+    if (recordsWithDeductions.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: 'No records with deductions > 0', count: 0 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Fetch active HR managers to CC on deduction emails
     const { data: hrManagers, error: hrError } = await supabase
@@ -90,23 +150,45 @@ Deno.serve(async (req) => {
       console.log(`Found ${hrManagerEmails.length} HR manager emails to CC`);
     }
 
-    const rulesMap = new Map((deductionRules || []).map(r => [r.id, r]));
-    const employeesMap = new Map((employees || []).map(e => [e.zk_employee_code, e]));
-
     let notificationsSent = 0;
 
-    for (const record of records) {
-      const employee = employeesMap.get(record.employee_code);
-      if (!employee || !employee.user_id) continue;
+    for (const record of recordsWithDeductions) {
+      const employee = record.employee as {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        first_name_ar: string | null;
+        last_name_ar: string | null;
+        email: string | null;
+        user_id: string | null;
+        zk_employee_code: string | null;
+      };
+      
+      const rule = record.deduction_rule as {
+        id: string;
+        rule_name: string | null;
+        rule_name_ar: string | null;
+        deduction_value: number;
+        deduction_type: string | null;
+      };
 
-      const rule = record.deduction_rule_id ? rulesMap.get(record.deduction_rule_id) : null;
+      if (!employee || !employee.user_id) {
+        console.log(`Skipping record ${record.id}: No employee or user_id found`);
+        continue;
+      }
+
       const ruleName = rule?.rule_name_ar || rule?.rule_name || 'خصم';
-      const employeeName = `${employee.first_name_ar || employee.first_name} ${employee.last_name_ar || employee.last_name}`;
+      const employeeName = `${employee.first_name_ar || employee.first_name || ''} ${employee.last_name_ar || employee.last_name || ''}`.trim();
+      
+      // Calculate percentage - deduction_value is stored as decimal (0.5 = 50%)
+      const percentage = rule.deduction_type === 'percentage' 
+        ? `${(rule.deduction_value * 100).toFixed(0)}%`
+        : `${rule.deduction_value}`;
 
       const notificationTitle = 'إشعار خصم الحضور';
-      const notificationBody = `تم تسجيل خصم بمبلغ ${record.deduction_amount?.toFixed(2)} ر.س بتاريخ ${targetDate}. السبب: ${ruleName}`;
+      const notificationBody = `تم تسجيل خصم بنسبة ${percentage} بتاريخ ${targetDate}. السبب: ${ruleName}`;
 
-      // Create internal notification (using 'custom' type as 'deduction' is not in allowed list)
+      // Create internal notification
       const { error: notifError } = await supabase.from('notifications').insert({
         user_id: employee.user_id,
         title: notificationTitle,
@@ -116,24 +198,22 @@ Deno.serve(async (req) => {
       });
 
       if (notifError) {
-        console.error(`Error creating notification for ${employee.zk_employee_code}:`, notifError);
+        console.error(`Error creating notification for employee ${employee.zk_employee_code}:`, notifError);
         continue;
       }
 
-      // Update notification sent flag
+      // Update notification sent flag on timesheets table
       await supabase
-        .from('saved_attendance')
+        .from('timesheets')
         .update({
           deduction_notification_sent: true,
           deduction_notification_sent_at: new Date().toISOString(),
         })
         .eq('id', record.id);
 
-      // Send email if configured - CC HR managers when deduction > 0
+      // Send email if employee has email
       if (employee.email) {
-        try {
-          // Professional styled email template matching other system emails
-          const emailHtml = `
+        const emailHtml = `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -248,12 +328,12 @@ Deno.serve(async (req) => {
           <span class="info-value">${record.out_time || 'غير مسجل'}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">السبب:</span>
+          <span class="info-label">نوع الخصم:</span>
           <span class="info-value">${ruleName}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">مبلغ الخصم:</span>
-          <span class="info-value deduction-amount">${record.deduction_amount?.toFixed(2)} ر.س</span>
+          <span class="info-label">نسبة الخصم:</span>
+          <span class="info-value deduction-amount">${percentage}</span>
         </div>
       </div>
       
@@ -270,41 +350,12 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-          const smtpClient = new SMTPClient({
-            connection: {
-              hostname: "smtp.hostinger.com",
-              port: 465,
-              tls: true,
-              auth: {
-                username: "edara@asuscards.com",
-                password: Deno.env.get("SMTP_PASSWORD") ?? "",
-              },
-            },
-          });
-
-          const emailConfig: any = {
-            from: "Edara HR <edara@asuscards.com>",
-            to: employee.email,
-            subject: "إشعار خصم الحضور",
-            content: "text/html; charset=utf-8",
-            html: emailHtml,
-          };
-
-          // Add CC to HR managers if deduction amount > 0 and there are HR managers
-          if (record.deduction_amount > 0 && hrManagerEmails.length > 0) {
-            emailConfig.cc = hrManagerEmails;
-            console.log(`Adding CC to HR managers for employee ${employee.zk_employee_code}: ${hrManagerEmails.join(', ')}`);
-          }
-
-          await smtpClient.send(emailConfig);
-          await smtpClient.close();
-          console.log(`Deduction email sent to ${employee.email}`);
-        } catch (emailError) {
-          console.error('Error sending email:', emailError);
-        }
+        // Send email async in background (same pattern as shift notification)
+        sendEmailInBackground(employee.email, emailHtml, hrManagerEmails);
       }
 
       notificationsSent++;
+      console.log(`Sent notification to ${employeeName} (${employee.zk_employee_code}) - ${ruleName} (${percentage})`);
     }
 
     console.log(`Sent ${notificationsSent} deduction notifications`);
@@ -314,6 +365,7 @@ Deno.serve(async (req) => {
         success: true,
         message: `Sent ${notificationsSent} deduction notifications`,
         count: notificationsSent,
+        date: targetDate,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
