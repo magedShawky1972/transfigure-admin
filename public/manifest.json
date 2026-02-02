@@ -1,7 +1,7 @@
 {
   "name": "إدارة - Edara Admin Platform",
   "short_name": "Edara",
-  "version": "1.9.6",
+  "version": "1.9.7",
   "description": "Comprehensive admin application for Excel sheet imports, API configuration, and data management",
   "start_url": "/",
   "display": "standalone",
