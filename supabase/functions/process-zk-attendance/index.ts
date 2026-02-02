@@ -183,6 +183,22 @@ Deno.serve(async (req) => {
 
     console.log(`Processing ZK attendance: type=${processType}, date=${targetDate}`);
 
+    // Fetch approved vacations/leaves for the target date
+    const { data: approvedLeaves, error: leaveError } = await supabase
+      .from('vacation_requests')
+      .select('employee_id')
+      .eq('status', 'approved')
+      .lte('start_date', targetDate)
+      .gte('end_date', targetDate);
+
+    if (leaveError) {
+      console.error('Error fetching approved leaves:', leaveError);
+    }
+
+    // Create a Set of employee IDs who are on approved leave
+    const employeesOnLeave = new Set((approvedLeaves || []).map(l => l.employee_id));
+    console.log(`Found ${employeesOnLeave.size} employees on approved leave for ${targetDate}`);
+
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
       .from('employees')
@@ -235,6 +251,11 @@ Deno.serve(async (req) => {
     for (const employee of (employees || [])) {
       if (!employee.zk_employee_code) continue;
 
+      // Skip employees who are on approved leave
+      if (employeesOnLeave.has(employee.id)) {
+        console.log(`Skipping ${employee.first_name} ${employee.last_name} - on approved leave`);
+        continue;
+      }
       const logs = employeeLogs.get(employee.zk_employee_code) || [];
       const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
 
