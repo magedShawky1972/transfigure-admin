@@ -40,14 +40,12 @@ async function sendEmailInBackground(
       from: string;
       to: string;
       subject: string;
-      content: string;
       html: string;
       cc?: string[];
     } = {
       from: "Edara Support <edara@asuscards.com>",
       to: email,
       subject: "إشعار خصم الحضور",
-      content: "text/html; charset=utf-8",
       html: emailHtml,
     };
 
