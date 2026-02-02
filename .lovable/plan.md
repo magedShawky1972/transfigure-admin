@@ -1,159 +1,111 @@
 
-# خطة إصلاح مشكلة عدم إغلاق الوردية
 
-## ملخص المشكلة
+# Automated Deduction Email Scheduling Plan
 
-في يوم 31 يناير، لم تتمكن الموظفة "جنه يحي" من إغلاق ورديتها، ولم يتمكن المشرف من الإغلاق القسري. بعد التحقيق، تم تحديد سببين رئيسيين:
+## Overview
+Set up automated scheduling for deduction notification emails at 10 AM (KSA time) with hourly retry for any failed notifications.
 
-### المشكلة الأولى: عدم رفع صور الإغلاق
-- الوردية تتطلب رفع صور لـ **10 علامات تجارية** من فئة A
-- الموظفة رفعت صورة واحدة فقط (زينا لايف)
-- العلامات التجارية الناقصة: بينمو، سول فري، سيلا شات، صدى لايف، هوى شات، هيلا شات، يوهو، فور فن، ماسا
+## Current State
+- **Existing cron job**: `zk-deduction-notification` runs at 5:00 AM (job ID 9) calling `send-deduction-notification`
+- **Edge function**: Already handles sending emails with CC to HR managers
+- **Database flags**: `deduction_notification_sent` and `deduction_notification_sent_at` columns exist in `saved_attendance`
 
-### المشكلة الثانية: خطأ في تصفية التواريخ (للإغلاق القسري)
-- الوردية فُتحت في `2026-01-30 21:01:58 UTC` (= `2026-01-31 00:01:58 بتوقيت السعودية`)
-- الكود يستخدم توقيت UTC بدلاً من توقيت السعودية عند البحث عن الورديات المفتوحة
-- عند اختيار تاريخ `31-01-2026`، النظام يبحث في نطاق UTC الخاطئ ولا يجد الوردية
+## Implementation Steps
 
----
+### 1. Update Cron Jobs (Database Change)
+Replace the existing deduction notification cron with two new schedules:
 
-## الحل المقترح
+**Main Schedule - 10:00 AM KSA (7:00 UTC)**:
+```
+Schedule: '0 7 * * *'  (10 AM KSA = 7 AM UTC)
+```
 
-### 1. إصلاح تصفية التواريخ في صفحة متابعة الورديات
+**Hourly Retry - Every Hour from 11 AM to 6 PM KSA**:
+```
+Schedule: '0 8-15 * * *'  (8 AM - 3 PM UTC = 11 AM - 6 PM KSA)
+```
 
-**الملف:** `src/pages/ShiftFollowUp.tsx`
+Both will call the existing `send-deduction-notification` edge function which already:
+- Defaults to yesterday's data
+- Only sends to records where `deduction_notification_sent = false`
+- Updates the flag after successful send
 
-**التغيير:**
-استبدال فلتر التاريخ بالتوقيت UTC في دوال `handleReopenShift` و `handleHardCloseShift` بدالة `isOnKSADate()` الموجودة.
+### 2. SQL Migration
+```sql
+-- Unschedule existing job
+SELECT cron.unschedule('zk-deduction-notification');
+
+-- Schedule main notification at 10 AM KSA (7 AM UTC)
+SELECT cron.schedule(
+  'zk-deduction-notification-10am',
+  '0 7 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/send-deduction-notification',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ..."}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+
+-- Schedule hourly retry from 11 AM to 6 PM KSA (8 AM - 3 PM UTC)
+SELECT cron.schedule(
+  'zk-deduction-notification-hourly-retry',
+  '0 8-15 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/send-deduction-notification',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ..."}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+## How It Works
 
 ```text
-الوضع الحالي (خاطئ):
-┌─────────────────────────────────────────────────┐
-│ const selectedDateStart = new Date(             │
-│   selectedDate + 'T00:00:00'                    │ ← UTC
-│ );                                              │
-│ const selectedDateEnd = new Date(               │
-│   selectedDate + 'T23:59:59'                    │ ← UTC
-│ );                                              │
-│ // يقارن opened_at مع نطاق UTC                  │
-└─────────────────────────────────────────────────┘
-
-الوضع المصحح:
-┌─────────────────────────────────────────────────┐
-│ // استخدام دالة isOnKSADate للمقارنة الصحيحة    │
-│ const sessionsForDate = normalizeSessionsToArray│
-│   (assignment.shift_sessions).filter(session => │
-│     session.opened_at &&                        │
-│     isOnKSADate(session.opened_at, selectedDate)│
-│   );                                            │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    Daily Deduction Email Flow                   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   8:30 PM    ZK Attendance Evening Process                      │
+│      │       └── Processes out-times, calculates deductions     │
+│      │       └── Creates saved_attendance records               │
+│      │       └── Sets deduction_notification_sent = false       │
+│      ▼                                                          │
+│   10:00 AM   Main Deduction Notification (Next Day)             │
+│      │       └── Queries yesterday's records with:              │
+│      │           • has_issues = true                            │
+│      │           • deduction_notification_sent = false          │
+│      │           • deduction_amount > 0                         │
+│      │       └── Sends emails to employees + CC HR managers     │
+│      │       └── Updates flag to true                           │
+│      ▼                                                          │
+│   11 AM -    Hourly Retry Check                                 │
+│   6 PM       └── Same query catches any failed sends            │
+│              └── Only sends to records still false              │
+│              └── Runs every hour for retries                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. إضافة ميزة الإغلاق القسري للمشرف بدون متطلبات
+## UI Status
+The existing "Mail Sent" column in Timesheet Management will automatically reflect:
+- **Green mail icon**: Email sent successfully (`deduction_notification_sent = true`)
+- **Grey mail icon**: Email pending/failed (`deduction_notification_sent = false`)
 
-**الملف:** `src/pages/ShiftFollowUp.tsx`
+## No Code Changes Required
+The existing `send-deduction-notification` edge function already:
+1. Defaults to yesterday's date
+2. Only processes unsent notifications
+3. Updates the sent flag after successful delivery
+4. Works with the retry logic (won't re-send already sent emails)
 
-**التغيير:**
-الإغلاق القسري من المشرف يجب أن يتجاوز جميع المتطلبات (الصور، أرقام الطلبات) لأنه موجود لحالات الطوارئ.
+## Technical Details
 
-### 3. إضافة تنبيهات وتحسينات للمستخدم
+| Schedule | Cron Expression | KSA Time | Purpose |
+|----------|----------------|----------|---------|
+| Main | `0 7 * * *` | 10:00 AM | Primary deduction emails |
+| Retry | `0 8-15 * * *` | 11 AM - 6 PM | Hourly retry for failures |
 
-**الملفات:** `src/pages/ShiftSession.tsx`
-
-**التغييرات:**
-- عرض قائمة واضحة بالعلامات التجارية الناقصة عند محاولة الإغلاق
-- إضافة مؤشر تقدم يوضح عدد الصور المرفوعة من الإجمالي المطلوب
-- إضافة تنبيه للمشرف عند وجود وردية مفتوحة لفترة طويلة
-
-### 4. إضافة آلية تنبيه تلقائي للورديات المتأخرة
-
-**ملف جديد:** `supabase/functions/send-shift-overdue-reminder/index.ts`
-
-**الوظيفة:**
-- إرسال تذكير تلقائي إذا لم تُغلق الوردية خلال ساعة من وقت الانتهاء المحدد
-- إشعار المشرفين بالورديات المتأخرة
-
----
-
-## التفاصيل التقنية
-
-### تعديل 1: إصلاح دالة handleHardCloseShift
-
-```typescript
-// في ShiftFollowUp.tsx
-
-const handleHardCloseShift = async () => {
-  if (!assignmentToHardClose) return;
-  
-  // استخدام isOnKSADate بدلاً من المقارنة اليدوية بـ UTC
-  const sessionsForDate = normalizeSessionsToArray(
-    assignmentToHardClose.shift_sessions
-  ).filter(session => {
-    if (!session.opened_at) return false;
-    return isOnKSADate(session.opened_at, selectedDate);
-  });
-  
-  // ... باقي الكود
-};
-```
-
-### تعديل 2: إصلاح دالة handleReopenShift
-
-```typescript
-// نفس التعديل لدالة handleReopenShift
-const handleReopenShift = async () => {
-  if (!assignmentToReopen) return;
-  
-  const sessionsForDate = normalizeSessionsToArray(
-    assignmentToReopen.shift_sessions
-  ).filter(session => {
-    if (!session.opened_at) return false;
-    return isOnKSADate(session.opened_at, selectedDate);
-  });
-  
-  // ... باقي الكود
-};
-```
-
-### تعديل 3: إضافة مؤشر تقدم الصور
-
-```typescript
-// في ShiftSession.tsx - عرض التقدم
-const uploadedCount = requiredBrands.filter(brand => 
-  balances[brand.id]?.receipt_image_path
-).length;
-
-const totalRequired = requiredBrands.length;
-
-// عرض: "تم رفع 1 من 9 صور مطلوبة"
-```
-
-### تعديل 4: Edge Function للتذكير بالورديات المتأخرة
-
-```typescript
-// supabase/functions/send-shift-overdue-reminder/index.ts
-// يعمل كل 30 دقيقة عبر cron job
-// يبحث عن الورديات المفتوحة التي تجاوزت وقت الانتهاء بساعة
-// يرسل إشعارات للمشرفين والموظف المعني
-```
-
----
-
-## خطة التنفيذ
-
-| الخطوة | الوصف | الأولوية |
-|--------|-------|----------|
-| 1 | إصلاح فلتر التاريخ في `handleHardCloseShift` | عالية |
-| 2 | إصلاح فلتر التاريخ في `handleReopenShift` | عالية |
-| 3 | إضافة مؤشر تقدم الصور | متوسطة |
-| 4 | إضافة edge function للتذكير | متوسطة |
-| 5 | تفعيل cron job للتذكير | متوسطة |
-| 6 | إغلاق الوردية العالقة يدوياً | فورية |
-
----
-
-## إجراء فوري مطلوب
-
-لإغلاق الوردية العالقة حالياً للموظفة "جنه يحي"، يمكن تنفيذ أحد الخيارين:
-1. استخدام الإغلاق القسري بعد تطبيق الإصلاح
-2. تحديث حالة الوردية مباشرة عبر قاعدة البيانات (Cloud View → Run SQL)
