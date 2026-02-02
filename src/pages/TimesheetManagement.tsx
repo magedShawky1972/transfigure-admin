@@ -133,6 +133,13 @@ export default function TimesheetManagement() {
       setEmployees(employeesRes.data || []);
       setDeductionRules(rulesRes.data || []);
 
+      // Only fetch timesheets if we have a valid date
+      if (!selectedDate) {
+        setTimesheets([]);
+        setLoading(false);
+        return;
+      }
+
       // Fetch timesheets
       let query = supabase
         .from("timesheets")
