@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
         filter_to_date: targetDate,
       };
 
-      // Upsert the record
+      // Upsert the saved_attendance record
       const { error: upsertError } = await supabase
         .from('saved_attendance')
         .upsert(attendanceRecord, {
@@ -337,7 +337,41 @@ Deno.serve(async (req) => {
         });
 
       if (upsertError) {
-        console.error(`Error upserting attendance for ${employee.zk_employee_code}:`, upsertError);
+        console.error(`Error upserting saved_attendance for ${employee.zk_employee_code}:`, upsertError);
+      }
+
+      // Also create/update timesheets record for Timesheet Management
+      const scheduledStart = attendanceType?.fixed_start_time || null;
+      const scheduledEnd = attendanceType?.fixed_end_time || null;
+      
+      const timesheetRecord = {
+        employee_id: employee.id,
+        work_date: targetDate,
+        scheduled_start: scheduledStart,
+        scheduled_end: scheduledEnd,
+        actual_start: inTime,
+        actual_end: processType === 'evening' ? outTime : null,
+        break_duration_minutes: 0,
+        status: hasIssues ? 'pending' : 'pending',
+        is_absent: !inTime && processType === 'evening',
+        absence_reason: !inTime && processType === 'evening' ? 'No check-in recorded' : null,
+        late_minutes: lateMinutes,
+        early_leave_minutes: earlyExitMinutes,
+        overtime_minutes: 0,
+        total_work_minutes: totalHours ? Math.round(totalHours * 60) : 0,
+        deduction_amount: deductionAmount,
+        overtime_amount: 0,
+        notes: `Auto-processed from ZK attendance (${processType})`,
+      };
+
+      const { error: timesheetError } = await supabase
+        .from('timesheets')
+        .upsert(timesheetRecord, {
+          onConflict: 'employee_id,work_date',
+        });
+
+      if (timesheetError) {
+        console.error(`Error upserting timesheet for ${employee.id}:`, timesheetError);
         continue;
       }
 
