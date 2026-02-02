@@ -237,7 +237,8 @@ export default function TimesheetManagement() {
             return late_minutes >= min && late_minutes <= max;
           });
 
-        if (lateRule) {
+        // Only assign rule if it has actual deduction value > 0
+        if (lateRule && lateRule.deduction_value > 0) {
           deduction_rule_id = lateRule.id;
           
           if (employee?.basic_salary) {
@@ -252,6 +253,10 @@ export default function TimesheetManagement() {
               deduction_amount = hourlyRate * (late_minutes / 60) * lateRule.deduction_value;
             }
           }
+        } else {
+          // Rule has 0% deduction or no rule found - don't assign
+          deduction_rule_id = null;
+          deduction_amount = 0;
         }
       } else {
         // No late minutes - clear deduction rule
@@ -666,19 +671,19 @@ export default function TimesheetManagement() {
                       <TableCell>
                         {Math.floor(ts.total_work_minutes / 60)}h {ts.total_work_minutes % 60}m
                       </TableCell>
-                      <TableCell className={ts.late_minutes > 0 ? "text-destructive font-medium" : ""}>
+                      <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : ""}>
                         {ts.late_minutes > 0 ? `${ts.late_minutes}m` : "-"}
                       </TableCell>
                       <TableCell className={ts.overtime_minutes > 0 ? "text-green-600 font-medium" : ""}>
                         {ts.overtime_minutes > 0 ? `${ts.overtime_minutes}m` : "-"}
                       </TableCell>
-                      <TableCell className={ts.deduction_rules ? "text-destructive font-medium" : ""}>
-                        {ts.deduction_rules 
+                      <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : ""}>
+                        {ts.deduction_rules && ts.deduction_rules.deduction_value > 0
                           ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
                           : "-"}
                       </TableCell>
-                      <TableCell className={ts.deduction_rules ? "text-destructive font-medium" : ""}>
-                        {ts.deduction_rules 
+                      <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : ""}>
+                        {ts.deduction_rules && ts.deduction_rules.deduction_value > 0
                           ? ts.deduction_rules.deduction_type === 'percentage' 
                             ? `${(ts.deduction_rules.deduction_value * 100).toFixed(0)}%`
                             : ts.deduction_rules.deduction_type === 'fixed'
