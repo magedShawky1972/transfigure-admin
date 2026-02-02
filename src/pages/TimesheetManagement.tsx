@@ -183,13 +183,14 @@ export default function TimesheetManagement() {
     }
   };
 
-  const calculateTimesheet = (data: typeof formData, employee: Employee | undefined): Partial<Timesheet> => {
+  const calculateTimesheet = (data: typeof formData, employee: Employee | undefined): Partial<Timesheet> & { deduction_rule_id?: string | null } => {
     let late_minutes = 0;
     let early_leave_minutes = 0;
     let overtime_minutes = 0;
     let total_work_minutes = 0;
     let deduction_amount = 0;
     let overtime_amount = 0;
+    let deduction_rule_id: string | null = null;
 
     if (data.is_absent) {
       // Find absence rule
@@ -197,8 +198,9 @@ export default function TimesheetManagement() {
       if (absenceRule && employee?.basic_salary) {
         const dailySalary = employee.basic_salary / 30;
         deduction_amount = dailySalary * absenceRule.deduction_value;
+        deduction_rule_id = absenceRule.id;
       }
-      return { late_minutes, early_leave_minutes, overtime_minutes, total_work_minutes, deduction_amount, overtime_amount };
+      return { late_minutes, early_leave_minutes, overtime_minutes, total_work_minutes, deduction_amount, overtime_amount, deduction_rule_id };
     }
 
     if (data.actual_start && data.actual_end && data.scheduled_start && data.scheduled_end) {
@@ -225,11 +227,8 @@ export default function TimesheetManagement() {
       // Calculate total work minutes
       total_work_minutes = differenceInMinutes(actualEnd, actualStart) - data.break_duration_minutes;
 
-      // Calculate deductions for late arrival
-      if (late_minutes > 0 && employee?.basic_salary) {
-        const dailySalary = employee.basic_salary / 30;
-        const hourlyRate = dailySalary / 8;
-
+      // Find matching deduction rule for late arrival
+      if (late_minutes > 0) {
         const lateRule = deductionRules
           .filter((r) => r.rule_type === "late_arrival")
           .find((r) => {
@@ -239,14 +238,25 @@ export default function TimesheetManagement() {
           });
 
         if (lateRule) {
-          if (lateRule.deduction_type === "fixed") {
-            deduction_amount = lateRule.deduction_value;
-          } else if (lateRule.deduction_type === "percentage") {
-            deduction_amount = dailySalary * lateRule.deduction_value;
-          } else if (lateRule.deduction_type === "hourly") {
-            deduction_amount = hourlyRate * (late_minutes / 60) * lateRule.deduction_value;
+          deduction_rule_id = lateRule.id;
+          
+          if (employee?.basic_salary) {
+            const dailySalary = employee.basic_salary / 30;
+            const hourlyRate = dailySalary / 8;
+
+            if (lateRule.deduction_type === "fixed") {
+              deduction_amount = lateRule.deduction_value;
+            } else if (lateRule.deduction_type === "percentage") {
+              deduction_amount = dailySalary * lateRule.deduction_value;
+            } else if (lateRule.deduction_type === "hourly") {
+              deduction_amount = hourlyRate * (late_minutes / 60) * lateRule.deduction_value;
+            }
           }
         }
+      } else {
+        // No late minutes - clear deduction rule
+        deduction_rule_id = null;
+        deduction_amount = 0;
       }
 
       // Calculate overtime pay
@@ -259,7 +269,7 @@ export default function TimesheetManagement() {
       }
     }
 
-    return { late_minutes, early_leave_minutes, overtime_minutes, total_work_minutes, deduction_amount, overtime_amount };
+    return { late_minutes, early_leave_minutes, overtime_minutes, total_work_minutes, deduction_amount, overtime_amount, deduction_rule_id };
   };
 
   const openAddDialog = () => {
@@ -396,6 +406,9 @@ export default function TimesheetManagement() {
         is_absent: formData.is_absent,
         absence_reason: formData.absence_reason || null,
         notes: formData.notes || null,
+        // Reset notification flag when editing so new deduction can be re-sent
+        deduction_notification_sent: false,
+        deduction_notification_sent_at: null,
         ...calculations,
       };
 
