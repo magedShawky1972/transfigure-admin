@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,12 +55,39 @@ Deno.serve(async (req) => {
 
     if (empError) throw empError;
 
-    // Fetch deduction rules for context
+  // Fetch deduction rules for context
     const { data: deductionRules, error: drError } = await supabase
       .from('deduction_rules')
       .select('id, rule_name, rule_name_ar');
 
     if (drError) throw drError;
+
+    // Fetch active HR managers to CC on deduction emails
+    const { data: hrManagers, error: hrError } = await supabase
+      .from('hr_managers')
+      .select('user_id')
+      .eq('is_active', true);
+
+    if (hrError) {
+      console.error('Error fetching HR managers:', hrError);
+    }
+
+    // Fetch HR manager emails from profiles
+    let hrManagerEmails: string[] = [];
+    if (hrManagers && hrManagers.length > 0) {
+      const hrUserIds = hrManagers.map(hr => hr.user_id);
+      const { data: hrProfiles } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('user_id', hrUserIds)
+        .not('email', 'is', null);
+
+      hrManagerEmails = (hrProfiles || [])
+        .map(p => p.email)
+        .filter((email): email is string => !!email);
+      
+      console.log(`Found ${hrManagerEmails.length} HR manager emails to CC`);
+    }
 
     const rulesMap = new Map((deductionRules || []).map(r => [r.id, r]));
     const employeesMap = new Map((employees || []).map(e => [e.zk_employee_code, e]));
@@ -106,18 +134,18 @@ Deno.serve(async (req) => {
         })
         .eq('id', record.id);
 
-      // Send email if configured
+      // Send email if configured - CC HR managers when deduction > 0
       if (employee.email) {
         try {
-          await supabase.functions.invoke('send-email-smtp', {
-            body: {
-              to: employee.email,
-              subject: notificationTitle,
-              html: `
+          const emailHtml = `
                 <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
                   <h2 style="color: #e53e3e;">${notificationTitle}</h2>
                   <p>${notificationBody}</p>
                   <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                    <tr>
+                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>الموظف:</strong></td>
+                      <td style="padding: 8px; border: 1px solid #ddd;">${employee.first_name_ar || employee.first_name} ${employee.last_name_ar || employee.last_name}</td>
+                    </tr>
                     <tr>
                       <td style="padding: 8px; border: 1px solid #ddd;"><strong>التاريخ:</strong></td>
                       <td style="padding: 8px; border: 1px solid #ddd;">${targetDate}</td>
@@ -143,9 +171,37 @@ Deno.serve(async (req) => {
                     ملاحظة: سيتم مراجعة واعتماد الخصومات في يوم 24 من كل شهر.
                   </p>
                 </div>
-              `,
+              `;
+
+          const smtpClient = new SMTPClient({
+            connection: {
+              hostname: "smtp.hostinger.com",
+              port: 465,
+              tls: true,
+              auth: {
+                username: "edara@asuscards.com",
+                password: Deno.env.get("SMTP_PASSWORD") ?? "",
+              },
             },
           });
+
+          const emailConfig: any = {
+            from: "Edara HR <edara@asuscards.com>",
+            to: employee.email,
+            subject: notificationTitle,
+            content: "auto",
+            html: emailHtml,
+          };
+
+          // Add CC to HR managers if deduction amount > 0 and there are HR managers
+          if (record.deduction_amount > 0 && hrManagerEmails.length > 0) {
+            emailConfig.cc = hrManagerEmails;
+            console.log(`Adding CC to HR managers for employee ${employee.zk_employee_code}: ${hrManagerEmails.join(', ')}`);
+          }
+
+          await smtpClient.send(emailConfig);
+          await smtpClient.close();
+          console.log(`Deduction email sent to ${employee.email}`);
         } catch (emailError) {
           console.error('Error sending email:', emailError);
         }
