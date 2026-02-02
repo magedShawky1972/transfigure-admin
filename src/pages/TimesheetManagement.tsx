@@ -71,12 +71,17 @@ interface Timesheet {
   overtime_minutes: number;
   total_work_minutes: number;
   deduction_amount: number;
+  deduction_rule_id: string | null;
   overtime_amount: number;
   notes: string | null;
   employees?: {
     employee_number: string;
     first_name: string;
     last_name: string;
+  };
+  deduction_rules?: {
+    rule_name: string;
+    rule_name_ar: string | null;
   };
 }
 
@@ -145,7 +150,8 @@ export default function TimesheetManagement() {
         .from("timesheets")
         .select(`
           *,
-          employees(employee_number, first_name, last_name)
+          employees(employee_number, first_name, last_name),
+          deduction_rules(rule_name, rule_name_ar)
         `)
         .eq("work_date", selectedDate)
         .order("employees(employee_number)");
@@ -517,6 +523,7 @@ export default function TimesheetManagement() {
                   <TableHead>{language === "ar" ? "ساعات العمل" : "Work Hours"}</TableHead>
                   <TableHead>{language === "ar" ? "التأخير" : "Late"}</TableHead>
                   <TableHead>{language === "ar" ? "الإضافي" : "Overtime"}</TableHead>
+                  <TableHead>{language === "ar" ? "نوع الخصم" : "Deduction Type"}</TableHead>
                   <TableHead>{language === "ar" ? "الخصم" : "Deduction"}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
@@ -525,13 +532,13 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : timesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
@@ -564,6 +571,11 @@ export default function TimesheetManagement() {
                       </TableCell>
                       <TableCell className={ts.overtime_minutes > 0 ? "text-green-600 font-medium" : ""}>
                         {ts.overtime_minutes > 0 ? `${ts.overtime_minutes}m` : "-"}
+                      </TableCell>
+                      <TableCell className={ts.deduction_rules ? "text-destructive font-medium" : ""}>
+                        {ts.deduction_rules 
+                          ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
+                          : "-"}
                       </TableCell>
                       <TableCell className={ts.deduction_amount > 0 ? "text-destructive font-medium" : ""}>
                         {ts.deduction_amount > 0 ? `${ts.deduction_amount.toFixed(2)}` : "-"}
