@@ -82,6 +82,8 @@ interface Timesheet {
   deduction_rules?: {
     rule_name: string;
     rule_name_ar: string | null;
+    deduction_type: string;
+    deduction_value: number;
   };
 }
 
@@ -151,7 +153,7 @@ export default function TimesheetManagement() {
         .select(`
           *,
           employees(employee_number, first_name, last_name),
-          deduction_rules(rule_name, rule_name_ar)
+          deduction_rules(rule_name, rule_name_ar, deduction_type, deduction_value)
         `)
         .eq("work_date", selectedDate)
         .order("employees(employee_number)");
@@ -577,8 +579,14 @@ export default function TimesheetManagement() {
                           ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
                           : "-"}
                       </TableCell>
-                      <TableCell className={ts.deduction_amount > 0 ? "text-destructive font-medium" : ""}>
-                        {ts.deduction_amount > 0 ? `${ts.deduction_amount.toFixed(2)}` : "-"}
+                      <TableCell className={ts.deduction_rules ? "text-destructive font-medium" : ""}>
+                        {ts.deduction_rules 
+                          ? ts.deduction_rules.deduction_type === 'percentage' 
+                            ? `${(ts.deduction_rules.deduction_value * 100).toFixed(0)}%`
+                            : ts.deduction_rules.deduction_type === 'fixed'
+                              ? `${ts.deduction_rules.deduction_value.toFixed(0)}`
+                              : `${ts.deduction_rules.deduction_value}`
+                          : "-"}
                       </TableCell>
                       <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
                       <TableCell>
