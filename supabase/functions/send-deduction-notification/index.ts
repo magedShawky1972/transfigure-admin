@@ -130,41 +130,46 @@ Deno.serve(async (req) => {
       // Send email if configured - CC HR managers when deduction > 0
       if (employee.email) {
         try {
-          const emailHtml = `
-                <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
-                  <h2 style="color: #e53e3e;">${notificationTitle}</h2>
-                  <p>${notificationBody}</p>
-                  <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-                    <tr>
-                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>الموظف:</strong></td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${employee.first_name_ar || employee.first_name} ${employee.last_name_ar || employee.last_name}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>التاريخ:</strong></td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${targetDate}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>وقت الدخول:</strong></td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${record.in_time || 'غير مسجل'}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>وقت الخروج:</strong></td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${record.out_time || 'غير مسجل'}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>مبلغ الخصم:</strong></td>
-                      <td style="padding: 8px; border: 1px solid #ddd; color: #e53e3e;">${record.deduction_amount?.toFixed(2)} ر.س</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>السبب:</strong></td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${ruleName}</td>
-                    </tr>
-                  </table>
-                  <p style="margin-top: 20px; color: #666; font-size: 12px;">
-                    ملاحظة: سيتم مراجعة واعتماد الخصومات في يوم 24 من كل شهر.
-                  </p>
-                </div>
-              `;
+          const emailHtml = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; padding: 20px; direction: rtl; text-align: right;">
+  <h2 style="color: #e53e3e;">${notificationTitle}</h2>
+  <p>${notificationBody}</p>
+  <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ddd;"><strong>الموظف:</strong></td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${employee.first_name_ar || employee.first_name} ${employee.last_name_ar || employee.last_name}</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ddd;"><strong>التاريخ:</strong></td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${targetDate}</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ddd;"><strong>وقت الدخول:</strong></td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${record.in_time || 'غير مسجل'}</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ddd;"><strong>وقت الخروج:</strong></td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${record.out_time || 'غير مسجل'}</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ddd;"><strong>مبلغ الخصم:</strong></td>
+      <td style="padding: 8px; border: 1px solid #ddd; color: #e53e3e;">${record.deduction_amount?.toFixed(2)} ر.س</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ddd;"><strong>السبب:</strong></td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${ruleName}</td>
+    </tr>
+  </table>
+  <p style="margin-top: 20px; color: #666; font-size: 12px;">
+    ملاحظة: سيتم مراجعة واعتماد الخصومات في يوم 24 من كل شهر.
+  </p>
+</body>
+</html>`;
 
           const smtpClient = new SMTPClient({
             connection: {
@@ -182,8 +187,12 @@ Deno.serve(async (req) => {
             from: "Edara HR <edara@asuscards.com>",
             to: employee.email,
             subject: notificationTitle,
-            content: "auto",
             html: emailHtml,
+            mimeContent: [{
+              mimeType: "text/html; charset=utf-8",
+              content: emailHtml,
+              transferEncoding: "base64",
+            }],
           };
 
           // Add CC to HR managers if deduction amount > 0 and there are HR managers
