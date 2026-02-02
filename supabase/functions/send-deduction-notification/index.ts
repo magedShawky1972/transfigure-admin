@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     const { data: records, error: recError } = await supabase
       .from('timesheets')
       .select(`
-        id, work_date, employee_id, status, late_minutes, in_time, out_time,
+        id, work_date, employee_id, status, late_minutes, actual_start, actual_end,
         deduction_rule_id,
         deduction_rule:deduction_rules(id, rule_name, rule_name_ar, deduction_value, deduction_type),
         employee:employees!inner(
@@ -321,11 +321,11 @@ Deno.serve(async (req) => {
         </div>
         <div class="info-row">
           <span class="info-label">وقت الدخول:</span>
-          <span class="info-value">${record.in_time || 'غير مسجل'}</span>
+          <span class="info-value">${record.actual_start || 'غير مسجل'}</span>
         </div>
         <div class="info-row">
           <span class="info-label">وقت الخروج:</span>
-          <span class="info-value">${record.out_time || 'غير مسجل'}</span>
+          <span class="info-value">${record.actual_end || 'غير مسجل'}</span>
         </div>
         <div class="info-row">
           <span class="info-label">نوع الخصم:</span>
