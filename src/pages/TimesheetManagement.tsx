@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2 } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface AttendanceType {
@@ -108,6 +108,7 @@ export default function TimesheetManagement() {
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(null);
   const [sendingDeductionMails, setSendingDeductionMails] = useState(false);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
@@ -262,6 +263,7 @@ export default function TimesheetManagement() {
   };
 
   const openAddDialog = () => {
+    setEditingTimesheet(null);
     setFormData({
       employee_id: "",
       work_date: selectedDate,
@@ -273,6 +275,23 @@ export default function TimesheetManagement() {
       is_absent: false,
       absence_reason: "",
       notes: "",
+    });
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (timesheet: Timesheet) => {
+    setEditingTimesheet(timesheet);
+    setFormData({
+      employee_id: timesheet.employee_id,
+      work_date: timesheet.work_date,
+      scheduled_start: timesheet.scheduled_start || "",
+      scheduled_end: timesheet.scheduled_end || "",
+      actual_start: timesheet.actual_start || "",
+      actual_end: timesheet.actual_end || "",
+      break_duration_minutes: timesheet.break_duration_minutes || 0,
+      is_absent: timesheet.is_absent,
+      absence_reason: timesheet.absence_reason || "",
+      notes: timesheet.notes || "",
     });
     setDialogOpen(true);
   };
@@ -667,16 +686,21 @@ export default function TimesheetManagement() {
                       </TableCell>
                       <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
                       <TableCell>
-                        {ts.status === "pending" && (
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleApprove(ts.id)}>
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleReject(ts.id)}>
-                              <XCircle className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)}>
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          {ts.status === "pending" && (
+                            <>
+                              <Button variant="ghost" size="icon" onClick={() => handleApprove(ts.id)}>
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleReject(ts.id)}>
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -687,19 +711,24 @@ export default function TimesheetManagement() {
         </CardContent>
       </Card>
 
-      {/* Add Entry Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {language === "ar" ? "إضافة سجل حضور" : "Add Timesheet Entry"}
+              {editingTimesheet 
+                ? (language === "ar" ? "تعديل سجل حضور" : "Edit Timesheet Entry")
+                : (language === "ar" ? "إضافة سجل حضور" : "Add Timesheet Entry")}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>{language === "ar" ? "الموظف *" : "Employee *"}</Label>
-              <Select value={formData.employee_id} onValueChange={handleEmployeeSelect}>
+              <Select 
+                value={formData.employee_id} 
+                onValueChange={handleEmployeeSelect}
+                disabled={!!editingTimesheet}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder={language === "ar" ? "اختر الموظف" : "Select Employee"} />
                 </SelectTrigger>
@@ -719,6 +748,7 @@ export default function TimesheetManagement() {
                 type="date"
                 value={formData.work_date}
                 onChange={(e) => setFormData({ ...formData, work_date: e.target.value })}
+                disabled={!!editingTimesheet}
               />
             </div>
 
