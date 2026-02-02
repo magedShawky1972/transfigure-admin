@@ -422,6 +422,7 @@ Deno.serve(async (req) => {
         overtime_minutes: 0,
         total_work_minutes: totalHours ? Math.round(totalHours * 60) : 0,
         deduction_amount: deductionAmount,
+        deduction_rule_id: deductionRuleId,
         overtime_amount: 0,
         notes: `Auto-processed from ZK attendance (${processType})`,
       };

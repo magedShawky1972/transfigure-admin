@@ -6730,6 +6730,7 @@ export type Database = {
           break_duration_minutes: number | null
           created_at: string
           deduction_amount: number | null
+          deduction_rule_id: string | null
           early_leave_minutes: number | null
           employee_id: string
           id: string
@@ -6754,6 +6755,7 @@ export type Database = {
           break_duration_minutes?: number | null
           created_at?: string
           deduction_amount?: number | null
+          deduction_rule_id?: string | null
           early_leave_minutes?: number | null
           employee_id: string
           id?: string
@@ -6778,6 +6780,7 @@ export type Database = {
           break_duration_minutes?: number | null
           created_at?: string
           deduction_amount?: number | null
+          deduction_rule_id?: string | null
           early_leave_minutes?: number | null
           employee_id?: string
           id?: string
@@ -6794,6 +6797,13 @@ export type Database = {
           work_date?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "timesheets_deduction_rule_id_fkey"
+            columns: ["deduction_rule_id"]
+            isOneToOne: false
+            referencedRelation: "deduction_rules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "timesheets_employee_id_fkey"
             columns: ["employee_id"]
