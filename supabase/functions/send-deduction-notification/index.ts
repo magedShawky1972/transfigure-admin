@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +14,124 @@ function getYesterdayKSA(): string {
   return ksaDate.toISOString().split('T')[0];
 }
 
+// Encode subject to Base64 for proper UTF-8 handling
+function encodeSubject(subject: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(subject);
+  const base64 = btoa(String.fromCharCode(...bytes));
+  return `=?UTF-8?B?${base64}?=`;
+}
+
+// Build raw email message with proper encoding
+function buildRawEmail(
+  from: string,
+  to: string,
+  cc: string[],
+  subject: string,
+  htmlBody: string
+): string {
+  const boundary = `boundary_${Date.now()}`;
+  const encodedSubject = encodeSubject(subject);
+  
+  let headers = [
+    `From: ${from}`,
+    `To: ${to}`,
+    cc.length > 0 ? `Cc: ${cc.join(', ')}` : '',
+    `Subject: ${encodedSubject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    '',
+  ].filter(Boolean).join('\r\n');
+  
+  // Encode HTML body as Base64
+  const encoder = new TextEncoder();
+  const htmlBytes = encoder.encode(htmlBody);
+  const htmlBase64 = btoa(String.fromCharCode(...htmlBytes));
+  
+  // Split base64 into 76-character lines
+  const lines = htmlBase64.match(/.{1,76}/g) || [];
+  
+  return headers + '\r\n' + lines.join('\r\n');
+}
+
+// Simple SMTP client for sending raw emails
+async function sendRawEmail(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  from: string,
+  to: string,
+  cc: string[],
+  rawMessage: string
+): Promise<void> {
+  const conn = await Deno.connectTls({ hostname: host, port });
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  async function read(): Promise<string> {
+    const buffer = new Uint8Array(1024);
+    const n = await conn.read(buffer);
+    return n ? decoder.decode(buffer.subarray(0, n)) : '';
+  }
+
+  async function write(cmd: string): Promise<void> {
+    await conn.write(encoder.encode(cmd + '\r\n'));
+  }
+
+  try {
+    // Read greeting
+    await read();
+    
+    // EHLO
+    await write(`EHLO localhost`);
+    await read();
+    
+    // AUTH LOGIN
+    await write(`AUTH LOGIN`);
+    await read();
+    
+    await write(btoa(username));
+    await read();
+    
+    await write(btoa(password));
+    const authResponse = await read();
+    if (!authResponse.startsWith('235')) {
+      throw new Error('SMTP Authentication failed');
+    }
+    
+    // MAIL FROM
+    await write(`MAIL FROM:<${username}>`);
+    await read();
+    
+    // RCPT TO (recipient)
+    await write(`RCPT TO:<${to}>`);
+    await read();
+    
+    // RCPT TO (CC recipients)
+    for (const ccEmail of cc) {
+      await write(`RCPT TO:<${ccEmail}>`);
+      await read();
+    }
+    
+    // DATA
+    await write(`DATA`);
+    await read();
+    
+    // Send raw message
+    await conn.write(encoder.encode(rawMessage + '\r\n.\r\n'));
+    await read();
+    
+    // QUIT
+    await write(`QUIT`);
+    
+    console.log('Email sent successfully via raw SMTP');
+  } finally {
+    conn.close();
+  }
+}
+
 // Async email sending to not block the response
 async function sendEmailInBackground(
   email: string, 
@@ -22,40 +139,31 @@ async function sendEmailInBackground(
   ccEmails: string[] = []
 ) {
   try {
-    const smtpClient = new SMTPClient({
-      connection: {
-        hostname: "smtp.hostinger.com",
-        port: 465,
-        tls: true,
-        auth: {
-          username: "edara@asuscards.com",
-          password: Deno.env.get("SMTP_PASSWORD") ?? "",
-        },
-      },
-    });
+    const smtpHost = "smtp.hostinger.com";
+    const smtpPort = 465;
+    const smtpUsername = "edara@asuscards.com";
+    const smtpPassword = Deno.env.get("SMTP_PASSWORD") ?? "";
+    const fromAddress = "Edara Support <edara@asuscards.com>";
+    const subject = "إشعار خصم الحضور";
 
     console.log("Attempting to send deduction email to:", email);
-
-    const emailConfig: {
-      from: string;
-      to: string;
-      subject: string;
-      html: string;
-      cc?: string[];
-    } = {
-      from: "Edara Support <edara@asuscards.com>",
-      to: email,
-      subject: "إشعار خصم الحضور",
-      html: emailHtml,
-    };
-
     if (ccEmails.length > 0) {
-      emailConfig.cc = ccEmails;
       console.log(`Adding CC to HR managers: ${ccEmails.join(', ')}`);
     }
 
-    await smtpClient.send(emailConfig);
-    await smtpClient.close();
+    const rawMessage = buildRawEmail(fromAddress, email, ccEmails, subject, emailHtml);
+    
+    await sendRawEmail(
+      smtpHost,
+      smtpPort,
+      smtpUsername,
+      smtpPassword,
+      smtpUsername,
+      email,
+      ccEmails,
+      rawMessage
+    );
+    
     console.log("Deduction email sent successfully to:", email);
   } catch (emailError) {
     console.error("Failed to send email to", email, ":", emailError);
