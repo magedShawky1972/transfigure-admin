@@ -5241,6 +5241,36 @@ export type Database = {
           },
         ]
       }
+      shift_overdue_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          overdue_minutes: number
+          shift_assignment_id: string
+          shift_name: string
+          shift_session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          overdue_minutes?: number
+          shift_assignment_id: string
+          shift_name: string
+          shift_session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          overdue_minutes?: number
+          shift_assignment_id?: string
+          shift_name?: string
+          shift_session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       shift_plan_details: {
         Row: {
           break_duration_minutes: number | null
