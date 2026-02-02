@@ -1,111 +1,119 @@
 
 
-# Automated Deduction Email Scheduling Plan
+# Fix Deduction Email Notifications
 
-## Overview
-Set up automated scheduling for deduction notification emails at 10 AM (KSA time) with hourly retry for any failed notifications.
+## Problem Analysis
 
-## Current State
-- **Existing cron job**: `zk-deduction-notification` runs at 5:00 AM (job ID 9) calling `send-deduction-notification`
-- **Edge function**: Already handles sending emails with CC to HR managers
-- **Database flags**: `deduction_notification_sent` and `deduction_notification_sent_at` columns exist in `saved_attendance`
+Based on my investigation, there are **three issues** to fix:
 
-## Implementation Steps
+### Issue 1: Wrong Data Source
+The current edge function reads from `saved_attendance` table, but you confirmed it should read from **`timesheets`** table instead.
 
-### 1. Update Cron Jobs (Database Change)
-Replace the existing deduction notification cron with two new schedules:
+### Issue 2: Deduction Amount vs Percentage Display
+The `deduction_amount` column in timesheets stores 0 for many records, but the `deduction_rule_id` is set with the correct rule. The email should display the **deduction percentage from the linked rule** (e.g., "50%" or "100%"), not the calculated SAR amount.
 
-**Main Schedule - 10:00 AM KSA (7:00 UTC)**:
-```
-Schedule: '0 7 * * *'  (10 AM KSA = 7 AM UTC)
-```
+Looking at the Feb-01 data:
+- Bassem: `deduction_rule_id` = Late 31-60 min (50%)
+- Mohamed Saad: `deduction_rule_id` = Late over 60 min (100%)
+- Mohamed Fahd: `deduction_rule_id` = Late over 60 min (100%)
+- Fadi Mounir: `deduction_rule_id` = Late over 60 min (100%)
 
-**Hourly Retry - Every Hour from 11 AM to 6 PM KSA**:
-```
-Schedule: '0 8-15 * * *'  (8 AM - 3 PM UTC = 11 AM - 6 PM KSA)
-```
+### Issue 3: Email Format Corruption
+Arabic text appears as encoded garbage. Need to match the working shift notification email pattern.
 
-Both will call the existing `send-deduction-notification` edge function which already:
-- Defaults to yesterday's data
-- Only sends to records where `deduction_notification_sent = false`
-- Updates the flag after successful send
+---
 
-### 2. SQL Migration
+## Solution
+
+### Step 1: Update Edge Function to Use `timesheets` Table
+
+Change the data source from `saved_attendance` to `timesheets`:
+- Join with `employees` table to get email and Arabic names
+- Join with `deduction_rules` to get the percentage value
+- Filter: `deduction_rule_id IS NOT NULL` AND percentage > 0 AND NOT on vacation
+
+### Step 2: Fix Email Recipient Logic
+
+Send emails only to employees who have:
+- A timesheet record for the target date
+- A `deduction_rule_id` linked to a rule with `deduction_value > 0`
+- Status is NOT "vacation"
+- Email has not been sent yet (track via a flag)
+
+### Step 3: Show Deduction as Percentage
+
+Display the deduction as percentage from the rule (e.g., "خصم 50%" or "خصم 100%") along with the Arabic rule name.
+
+### Step 4: Fix Arabic Email Format
+
+Copy the exact email sending pattern from `send-shift-open-notification`:
+- Use `sendEmailInBackground` async function
+- Same SMTP client configuration
+- Same `content: "text/html; charset=utf-8"` pattern
+
+---
+
+## Technical Changes
+
+### Database Migration
+
+Add `deduction_notification_sent` column to `timesheets` table:
+
 ```sql
--- Unschedule existing job
-SELECT cron.unschedule('zk-deduction-notification');
-
--- Schedule main notification at 10 AM KSA (7 AM UTC)
-SELECT cron.schedule(
-  'zk-deduction-notification-10am',
-  '0 7 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/send-deduction-notification',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ..."}'::jsonb,
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
-);
-
--- Schedule hourly retry from 11 AM to 6 PM KSA (8 AM - 3 PM UTC)
-SELECT cron.schedule(
-  'zk-deduction-notification-hourly-retry',
-  '0 8-15 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1/send-deduction-notification',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ..."}'::jsonb,
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
-);
+ALTER TABLE public.timesheets 
+ADD COLUMN IF NOT EXISTS deduction_notification_sent BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS deduction_notification_sent_at TIMESTAMPTZ;
 ```
 
-## How It Works
+### Edge Function Changes (`send-deduction-notification/index.ts`)
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    Daily Deduction Email Flow                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   8:30 PM    ZK Attendance Evening Process                      │
-│      │       └── Processes out-times, calculates deductions     │
-│      │       └── Creates saved_attendance records               │
-│      │       └── Sets deduction_notification_sent = false       │
-│      ▼                                                          │
-│   10:00 AM   Main Deduction Notification (Next Day)             │
-│      │       └── Queries yesterday's records with:              │
-│      │           • has_issues = true                            │
-│      │           • deduction_notification_sent = false          │
-│      │           • deduction_amount > 0                         │
-│      │       └── Sends emails to employees + CC HR managers     │
-│      │       └── Updates flag to true                           │
-│      ▼                                                          │
-│   11 AM -    Hourly Retry Check                                 │
-│   6 PM       └── Same query catches any failed sends            │
-│              └── Only sends to records still false              │
-│              └── Runs every hour for retries                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+1. **Query from timesheets instead of saved_attendance**:
+```typescript
+const { data: records } = await supabase
+  .from('timesheets')
+  .select(`
+    id, work_date, employee_id, status, late_minutes,
+    deduction_rule:deduction_rules(id, rule_name_ar, deduction_value),
+    employee:employees!inner(
+      id, first_name_ar, last_name_ar, email, user_id, zk_employee_code
+    )
+  `)
+  .eq('work_date', targetDate)
+  .eq('deduction_notification_sent', false)
+  .not('deduction_rule_id', 'is', null)
+  .neq('status', 'vacation');
 ```
 
-## UI Status
-The existing "Mail Sent" column in Timesheet Management will automatically reflect:
-- **Green mail icon**: Email sent successfully (`deduction_notification_sent = true`)
-- **Grey mail icon**: Email pending/failed (`deduction_notification_sent = false`)
+2. **Filter in code**: Only process records where `deduction_rule.deduction_value > 0`
 
-## No Code Changes Required
-The existing `send-deduction-notification` edge function already:
-1. Defaults to yesterday's date
-2. Only processes unsent notifications
-3. Updates the sent flag after successful delivery
-4. Works with the retry logic (won't re-send already sent emails)
+3. **Display percentage in email**:
+```typescript
+const percentage = (record.deduction_rule.deduction_value * 100).toFixed(0);
+// Shows "50%" or "100%"
+```
 
-## Technical Details
+4. **Use async email sending pattern** from shift notifications
 
-| Schedule | Cron Expression | KSA Time | Purpose |
-|----------|----------------|----------|---------|
-| Main | `0 7 * * *` | 10:00 AM | Primary deduction emails |
-| Retry | `0 8-15 * * *` | 11 AM - 6 PM | Hourly retry for failures |
+5. **Update timesheets table** after sending (not saved_attendance)
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| Database Migration | Add `deduction_notification_sent` columns to `timesheets` |
+| `supabase/functions/send-deduction-notification/index.ts` | Complete rewrite to use timesheets, fix email format, show percentage |
+
+---
+
+## Expected Result After Fix
+
+For Feb-01, emails will be sent to:
+1. **Bassem Frahat** - Rule: تأخير 31-60 دقيقة (50%)
+2. **Mohamed Saad** - Rule: تأخير أكثر من 60 دقيقة (100%)
+3. **Mohamed Fahd** - Rule: تأخير أكثر من 60 دقيقة (100%)
+4. **Fadi Mounir** - Rule: تأخير أكثر من 60 دقيقة (100%)
+
+Employees like Mostafa, Amr, Ahmed Waly will NOT receive emails because their `deduction_rule_id` is either null or points to a 0% rule.
 
