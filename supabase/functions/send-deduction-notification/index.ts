@@ -25,11 +25,11 @@ Deno.serve(async (req) => {
     console.log(`Sending deduction notifications for date: ${targetDate}`);
 
     // Fetch attendance records with deductions that haven't been notified
+    // Only filter by deduction_amount > 0 (not has_issues, since deductions can exist without issues flag)
     const { data: records, error: recError } = await supabase
       .from('saved_attendance')
       .select('*')
       .eq('attendance_date', targetDate)
-      .eq('has_issues', true)
       .eq('deduction_notification_sent', false)
       .gt('deduction_amount', 0);
 
@@ -104,20 +104,13 @@ Deno.serve(async (req) => {
       const notificationTitle = 'إشعار خصم الحضور';
       const notificationBody = `تم تسجيل خصم بمبلغ ${record.deduction_amount?.toFixed(2)} ر.س بتاريخ ${targetDate}. السبب: ${ruleName}`;
 
-      // Create internal notification
+      // Create internal notification (using 'custom' type as 'deduction' is not in allowed list)
       const { error: notifError } = await supabase.from('notifications').insert({
         user_id: employee.user_id,
         title: notificationTitle,
-        body: notificationBody,
-        type: 'deduction',
+        message: notificationBody,
+        type: 'custom',
         is_read: false,
-        data: {
-          date: targetDate,
-          in_time: record.in_time,
-          out_time: record.out_time,
-          deduction_amount: record.deduction_amount,
-          deduction_rule: ruleName,
-        },
       });
 
       if (notifError) {
