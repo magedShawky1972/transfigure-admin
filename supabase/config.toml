@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.void-expense-payment]
 verify_jwt = false
+
+[functions.send-shift-overdue-reminder]
+verify_jwt = false

@@ -291,14 +291,10 @@ export default function ShiftFollowUp() {
   const handleReopenShift = async () => {
     if (!assignmentToReopen) return;
     
-    // Filter sessions to only those opened on the selected date
-    const selectedDateStart = new Date(selectedDate + 'T00:00:00');
-    const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
-    
+    // Filter sessions to only those opened on the selected date using KSA timezone
     const sessionsForDate = normalizeSessionsToArray(assignmentToReopen.shift_sessions).filter(session => {
       if (!session.opened_at) return false;
-      const openedDate = new Date(session.opened_at);
-      return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+      return isOnKSADate(session.opened_at, selectedDate);
     });
     
     // Get the latest closed session for this date
@@ -403,14 +399,10 @@ export default function ShiftFollowUp() {
   const handleHardCloseShift = async () => {
     if (!assignmentToHardClose) return;
     
-    // Filter sessions to only those opened on the selected date
-    const selectedDateStart = new Date(selectedDate + 'T00:00:00');
-    const selectedDateEnd = new Date(selectedDate + 'T23:59:59');
-    
+    // Filter sessions to only those opened on the selected date using KSA timezone
     const sessionsForDate = normalizeSessionsToArray(assignmentToHardClose.shift_sessions).filter(session => {
       if (!session.opened_at) return false;
-      const openedDate = new Date(session.opened_at);
-      return openedDate >= selectedDateStart && openedDate <= selectedDateEnd;
+      return isOnKSADate(session.opened_at, selectedDate);
     });
     
     // Get the latest open session for this date
