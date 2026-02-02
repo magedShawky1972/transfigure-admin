@@ -74,12 +74,9 @@ function calculateDeduction(
   basicSalary: number | null,
   deductionRules: DeductionRule[]
 ): { amount: number; ruleId: string | null } {
-  if (!basicSalary || basicSalary <= 0) {
-    return { amount: 0, ruleId: null };
-  }
-
-  const dailySalary = basicSalary / 30;
-  const hourlyRate = dailySalary / 8;
+  const hasSalary = basicSalary && basicSalary > 0;
+  const dailySalary = hasSalary ? basicSalary / 30 : 0;
+  const hourlyRate = hasSalary ? dailySalary / 8 : 0;
   let deductionAmount = 0;
   let appliedRuleId: string | null = null;
 
@@ -87,10 +84,12 @@ function calculateDeduction(
   if (isAbsent) {
     const absenceRule = deductionRules.find(r => r.rule_type === 'absence');
     if (absenceRule) {
-      if (absenceRule.deduction_type === 'percentage') {
-        deductionAmount = dailySalary * absenceRule.deduction_value;
-      } else if (absenceRule.deduction_type === 'fixed') {
-        deductionAmount = absenceRule.deduction_value;
+      if (hasSalary) {
+        if (absenceRule.deduction_type === 'percentage') {
+          deductionAmount = dailySalary * absenceRule.deduction_value;
+        } else if (absenceRule.deduction_type === 'fixed') {
+          deductionAmount = absenceRule.deduction_value;
+        }
       }
       appliedRuleId = absenceRule.id;
     }
@@ -108,12 +107,14 @@ function calculateDeduction(
       });
 
     if (lateRule) {
-      if (lateRule.deduction_type === 'percentage') {
-        deductionAmount += dailySalary * lateRule.deduction_value;
-      } else if (lateRule.deduction_type === 'fixed') {
-        deductionAmount += lateRule.deduction_value;
-      } else if (lateRule.deduction_type === 'hourly') {
-        deductionAmount += hourlyRate * (lateMinutes / 60) * lateRule.deduction_value;
+      if (hasSalary) {
+        if (lateRule.deduction_type === 'percentage') {
+          deductionAmount += dailySalary * lateRule.deduction_value;
+        } else if (lateRule.deduction_type === 'fixed') {
+          deductionAmount += lateRule.deduction_value;
+        } else if (lateRule.deduction_type === 'hourly') {
+          deductionAmount += hourlyRate * (lateMinutes / 60) * lateRule.deduction_value;
+        }
       }
       appliedRuleId = lateRule.id;
     }
@@ -130,10 +131,12 @@ function calculateDeduction(
       });
 
     if (earlyRule) {
-      if (earlyRule.deduction_type === 'percentage') {
-        deductionAmount += dailySalary * earlyRule.deduction_value;
-      } else if (earlyRule.deduction_type === 'fixed') {
-        deductionAmount += earlyRule.deduction_value;
+      if (hasSalary) {
+        if (earlyRule.deduction_type === 'percentage') {
+          deductionAmount += dailySalary * earlyRule.deduction_value;
+        } else if (earlyRule.deduction_type === 'fixed') {
+          deductionAmount += earlyRule.deduction_value;
+        }
       }
       if (!appliedRuleId) appliedRuleId = earlyRule.id;
     }
