@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2 } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface AttendanceType {
@@ -108,6 +108,7 @@ export default function TimesheetManagement() {
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sendingDeductionMails, setSendingDeductionMails] = useState(false);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
   const [formData, setFormData] = useState({
@@ -167,30 +168,10 @@ export default function TimesheetManagement() {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Fetch saved_attendance to get mail sent status
-      const employeeCodes = (data || [])
-        .map(ts => ts.employees?.zk_employee_code)
-        .filter((code): code is string => !!code);
-
-      let mailStatusMap = new Map<string, boolean>();
-      if (employeeCodes.length > 0) {
-        const { data: attendanceData } = await supabase
-          .from("saved_attendance")
-          .select("employee_code, deduction_notification_sent")
-          .eq("attendance_date", selectedDate)
-          .in("employee_code", employeeCodes);
-
-        (attendanceData || []).forEach(att => {
-          mailStatusMap.set(att.employee_code, att.deduction_notification_sent === true);
-        });
-      }
-
-      // Merge mail status into timesheets
+      // Mail status is now directly on timesheets table (deduction_notification_sent)
       const timesheetsWithMailStatus = (data || []).map(ts => ({
         ...ts,
-        mailSent: ts.employees?.zk_employee_code 
-          ? mailStatusMap.get(ts.employees.zk_employee_code) || false 
-          : false
+        mailSent: ts.deduction_notification_sent === true
       }));
 
       setTimesheets(timesheetsWithMailStatus);
@@ -442,6 +423,47 @@ export default function TimesheetManagement() {
     }
   };
 
+  const handleResendDeductionMails = async () => {
+    if (!selectedDate) {
+      toast.error(language === "ar" ? "يرجى اختيار التاريخ" : "Please select a date");
+      return;
+    }
+
+    setSendingDeductionMails(true);
+    try {
+      // First reset the deduction_notification_sent flag for the selected date
+      const { error: resetError } = await supabase
+        .from('timesheets')
+        .update({ 
+          deduction_notification_sent: false, 
+          deduction_notification_sent_at: null 
+        })
+        .eq('work_date', selectedDate);
+
+      if (resetError) throw resetError;
+
+      // Call the edge function to send deduction notifications
+      const { data, error } = await supabase.functions.invoke('send-deduction-notification', {
+        body: { target_date: selectedDate }
+      });
+
+      if (error) throw error;
+
+      toast.success(
+        language === "ar" 
+          ? `تم إرسال ${data?.count || 0} رسائل خصم بنجاح` 
+          : `Successfully sent ${data?.count || 0} deduction emails`
+      );
+      
+      fetchData(); // Refresh to show updated mail status
+    } catch (error: any) {
+      console.error('Error sending deduction mails:', error);
+      toast.error(error.message || (language === "ar" ? "فشل في إرسال الرسائل" : "Failed to send emails"));
+    } finally {
+      setSendingDeductionMails(false);
+    }
+  };
+
   const getStatusBadge = (status: string, isAbsent: boolean) => {
     if (isAbsent) {
       return <Badge variant="destructive">{language === "ar" ? "غائب" : "Absent"}</Badge>;
@@ -466,10 +488,24 @@ export default function TimesheetManagement() {
             <Clock className="h-6 w-6" />
             {language === "ar" ? "إدارة سجل الحضور" : "Timesheet Management"}
           </CardTitle>
-          <Button onClick={openAddDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            {language === "ar" ? "إضافة سجل" : "Add Entry"}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleResendDeductionMails}
+              disabled={sendingDeductionMails || !selectedDate}
+            >
+              {sendingDeductionMails ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              {language === "ar" ? "إرسال رسائل الخصم" : "Send Deduction Mails"}
+            </Button>
+            <Button onClick={openAddDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              {language === "ar" ? "إضافة سجل" : "Add Entry"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Filters */}
