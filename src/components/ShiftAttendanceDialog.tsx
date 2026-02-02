@@ -50,7 +50,7 @@ const ShiftAttendanceDialog = ({
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [attendanceStatus, setAttendanceStatus] = useState<'present' | 'late'>('present');
+  const [attendanceStatus, setAttendanceStatus] = useState<'present' | 'late' | 'early'>('present');
   const [existingAttendance, setExistingAttendance] = useState<any>(null);
   const [checkingAttendance, setCheckingAttendance] = useState(true);
 
@@ -93,6 +93,9 @@ const ShiftAttendanceDialog = ({
     // If current time is past shift start time, mark as late
     if (currentTimeInMinutes > startTimeInMinutes) {
       setAttendanceStatus('late');
+    } else if (currentTimeInMinutes < startTimeInMinutes) {
+      // If current time is before shift start, mark as early (good!)
+      setAttendanceStatus('early');
     } else {
       setAttendanceStatus('present');
     }
@@ -141,7 +144,7 @@ const ShiftAttendanceDialog = ({
           user_id: userId,
           shift_assignment_id: assignment.id,
           attendance_date: getKSADateString(),
-          status: attendanceStatus,
+          status: attendanceStatus === 'early' ? 'present' : attendanceStatus, // Early counts as present
           notes: notes.trim() || null,
           location_lat: location?.lat || null,
           location_lng: location?.lng || null,
@@ -268,6 +271,11 @@ const ShiftAttendanceDialog = ({
                 <Badge variant="destructive" className="flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
                   {language === 'ar' ? "متأخر" : "Late"}
+                </Badge>
+              ) : attendanceStatus === 'early' ? (
+                <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                  <CheckCircle className="h-3 w-3" />
+                  {language === 'ar' ? "مبكر" : "Early"}
                 </Badge>
               ) : (
                 <Badge variant="default" className="flex items-center gap-1">

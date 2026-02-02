@@ -243,11 +243,15 @@ const ShiftSession = () => {
         const endTimeInMinutes = endHours * 60 + endMinutes;
 
         const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
+        
+        // Allow access 10 minutes before shift start
+        const earlyAccessMinutes = 10;
+        const effectiveStartTime = startTimeInMinutes - earlyAccessMinutes;
 
         if (isOvernightShift) {
-          // If assignment is for TODAY, overnight shift is only valid from start time (evening) onward.
+          // If assignment is for TODAY, overnight shift is valid from 10 min before start (evening) onward.
           if (assignment.assignment_date === today) {
-            if (currentTimeInMinutes >= startTimeInMinutes) {
+            if (currentTimeInMinutes >= effectiveStartTime) {
               hasValidShiftForCurrentTime = true;
               break;
             }
@@ -261,8 +265,8 @@ const ShiftSession = () => {
             }
           }
         } else {
-          // For regular shifts: valid if current time is between start and end
-          if (currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes) {
+          // For regular shifts: valid if current time is between 10 min before start and end
+          if (currentTimeInMinutes >= effectiveStartTime && currentTimeInMinutes <= endTimeInMinutes) {
             hasValidShiftForCurrentTime = true;
             break;
           }
@@ -306,9 +310,13 @@ const ShiftSession = () => {
         const endTimeInMinutes = endHours * 60 + endMinutes;
 
         const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
+        
+        // Allow access 10 minutes before shift start
+        const earlyAccessMinutes = 10;
+        const effectiveStartTime = startTimeInMinutes - earlyAccessMinutes;
 
         if (isOvernightShift) {
-          if (assignment.assignment_date === today && currentTimeInMinutes >= startTimeInMinutes) {
+          if (assignment.assignment_date === today && currentTimeInMinutes >= effectiveStartTime) {
             validAssignment = assignment;
             break;
           }
@@ -317,7 +325,7 @@ const ShiftSession = () => {
             break;
           }
         } else {
-          if (currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes) {
+          if (currentTimeInMinutes >= effectiveStartTime && currentTimeInMinutes <= endTimeInMinutes) {
             validAssignment = assignment;
             break;
           }
