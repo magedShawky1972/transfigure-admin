@@ -1869,6 +1869,45 @@ const ShiftSession = () => {
 
               {/* Closing Balances */}
               <div className="space-y-2">
+                {/* Progress Indicator for Required Brand Images */}
+                {(() => {
+                  const requiredBrands = brands.filter((brand) => {
+                    const brandNameLower = brand.brand_name.toLowerCase();
+                    return !brandNameLower.includes("yalla ludo") && 
+                           !brandNameLower.includes("يلا لودو") && 
+                           !brandNameLower.includes("ludo");
+                  });
+                  const uploadedCount = requiredBrands.filter(brand => 
+                    balances[brand.id]?.receipt_image_path
+                  ).length;
+                  const totalRequired = requiredBrands.length;
+                  const progressPercent = totalRequired > 0 ? (uploadedCount / totalRequired) * 100 : 0;
+                  const allUploaded = uploadedCount === totalRequired && totalRequired > 0;
+                  
+                  return totalRequired > 0 ? (
+                    <div className={`p-4 rounded-lg border-2 ${allUploaded ? 'bg-green-50 dark:bg-green-900/20 border-green-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold">
+                          {allUploaded ? '✅ اكتملت الصور المطلوبة' : '📷 تقدم رفع صور الإغلاق'}
+                        </span>
+                        <span className={`text-sm font-mono ${allUploaded ? 'text-green-700' : 'text-amber-700'}`}>
+                          {uploadedCount} / {totalRequired}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                        <div 
+                          className={`h-2.5 rounded-full transition-all duration-500 ${allUploaded ? 'bg-green-500' : 'bg-amber-500'}`}
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      {!allUploaded && (
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                          يجب رفع صور الإغلاق لجميع العلامات التجارية قبل إغلاق الوردية
+                        </p>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
                 <h3 className="font-semibold text-lg">{t("closingBalance") || "أرصدة الإغلاق"}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {brands.map((brand) => (
