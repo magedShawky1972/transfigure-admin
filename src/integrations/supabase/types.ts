@@ -4802,22 +4802,31 @@ export type Database = {
       saved_attendance: {
         Row: {
           attendance_date: string
+          auto_processed: boolean | null
           batch_id: string | null
           confirmed_at: string | null
           confirmed_by: string | null
           created_at: string
           deduction_amount: number | null
+          deduction_notification_sent: boolean | null
+          deduction_notification_sent_at: string | null
           deduction_rule_id: string | null
           difference_hours: number | null
           employee_code: string
+          entry_notification_sent: boolean | null
+          entry_notification_sent_at: string | null
+          exit_notification_sent: boolean | null
+          exit_notification_sent_at: string | null
           expected_hours: number | null
           filter_from_date: string | null
           filter_to_date: string | null
+          has_issues: boolean | null
           id: string
           in_time: string | null
           is_confirmed: boolean | null
           notes: string | null
           out_time: string | null
+          processing_source: string | null
           record_status: string | null
           saved_at: string
           saved_by: string
@@ -4828,22 +4837,31 @@ export type Database = {
         }
         Insert: {
           attendance_date: string
+          auto_processed?: boolean | null
           batch_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
           deduction_amount?: number | null
+          deduction_notification_sent?: boolean | null
+          deduction_notification_sent_at?: string | null
           deduction_rule_id?: string | null
           difference_hours?: number | null
           employee_code: string
+          entry_notification_sent?: boolean | null
+          entry_notification_sent_at?: string | null
+          exit_notification_sent?: boolean | null
+          exit_notification_sent_at?: string | null
           expected_hours?: number | null
           filter_from_date?: string | null
           filter_to_date?: string | null
+          has_issues?: boolean | null
           id?: string
           in_time?: string | null
           is_confirmed?: boolean | null
           notes?: string | null
           out_time?: string | null
+          processing_source?: string | null
           record_status?: string | null
           saved_at?: string
           saved_by: string
@@ -4854,22 +4872,31 @@ export type Database = {
         }
         Update: {
           attendance_date?: string
+          auto_processed?: boolean | null
           batch_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
           deduction_amount?: number | null
+          deduction_notification_sent?: boolean | null
+          deduction_notification_sent_at?: string | null
           deduction_rule_id?: string | null
           difference_hours?: number | null
           employee_code?: string
+          entry_notification_sent?: boolean | null
+          entry_notification_sent_at?: string | null
+          exit_notification_sent?: boolean | null
+          exit_notification_sent_at?: string | null
           expected_hours?: number | null
           filter_from_date?: string | null
           filter_to_date?: string | null
+          has_issues?: boolean | null
           id?: string
           in_time?: string | null
           is_confirmed?: boolean | null
           notes?: string | null
           out_time?: string | null
+          processing_source?: string | null
           record_status?: string | null
           saved_at?: string
           saved_by?: string
