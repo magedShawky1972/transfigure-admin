@@ -296,9 +296,15 @@ Deno.serve(async (req) => {
         ? Math.round((totalHours - expectedHours) * 100) / 100 
         : null;
 
-      // Determine if there are issues (deductions, missing data, etc.)
-      const hasIssues = deductionAmount > 0 || !inTime || (processType === 'evening' && !outTime);
-      const issueType = deductionAmount > 0 ? 'deduction' : (!inTime ? 'missing_in' : (!outTime && processType === 'evening' ? 'missing_out' : null));
+      // Determine if there are issues (deductions, late minutes, missing data, etc.)
+      // Has issues if: has deduction, or late > 15 min, or missing times
+      const hasIssues = deductionAmount > 0 || lateMinutes > 15 || earlyExitMinutes > 0 || !inTime || (processType === 'evening' && !outTime);
+      let issueType: string | null = null;
+      if (deductionAmount > 0) issueType = 'deduction';
+      else if (lateMinutes > 15) issueType = 'late';
+      else if (earlyExitMinutes > 0) issueType = 'early_exit';
+      else if (!inTime) issueType = 'missing_in';
+      else if (!outTime && processType === 'evening') issueType = 'missing_out';
 
       // Create or update saved_attendance record
       const attendanceRecord = {

@@ -43,7 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X, Save, ExternalLink } from "lucide-react";
+import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X, Save, ExternalLink, Zap, Sun, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -323,6 +323,7 @@ const ZKAttendanceLogs = () => {
   const [officialHolidays, setOfficialHolidays] = useState<OfficialHoliday[]>([]);
   const [holidayAttendanceTypes, setHolidayAttendanceTypes] = useState<HolidayAttendanceType[]>([]);
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([]);
+  const [autoProcessLoading, setAutoProcessLoading] = useState(false);
 
   // Handle multi-column sorting:
   // - Click: add/toggle column as primary sort
@@ -1693,6 +1694,45 @@ const ZKAttendanceLogs = () => {
     }
   };
 
+  // Auto-process ZK attendance logs to saved_attendance
+  const handleAutoProcess = async (processType: 'morning' | 'evening') => {
+    if (!fromDate) {
+      toast.error(isArabic ? "يرجى تحديد تاريخ البداية" : "Please select a from date");
+      return;
+    }
+
+    setAutoProcessLoading(true);
+    try {
+      const targetDate = format(fromDate, "yyyy-MM-dd");
+      
+      const { data, error } = await supabase.functions.invoke("process-zk-attendance", {
+        body: {
+          process_type: processType,
+          target_date: targetDate,
+          send_notifications: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(
+          isArabic
+            ? `تمت معالجة ${data.processed_count} سجل حضور${data.notifications_sent > 0 ? ` وإرسال ${data.notifications_sent} إشعار` : ""}`
+            : `Processed ${data.processed_count} attendance records${data.notifications_sent > 0 ? ` and sent ${data.notifications_sent} notifications` : ""}`
+        );
+        fetchLogs();
+      } else {
+        toast.error(data.error || (isArabic ? "فشل في معالجة السجلات" : "Failed to process records"));
+      }
+    } catch (error: any) {
+      console.error("Error auto-processing attendance:", error);
+      toast.error(isArabic ? "خطأ في معالجة السجلات" : "Error processing records");
+    } finally {
+      setAutoProcessLoading(false);
+    }
+  };
+
   // Print single employee summary with delay/overtime details
   const handlePrintEmployeeSummary = (emp: EmployeeTotalRecord) => {
     // Get the employee's daily records from sortedSummaryRecords
@@ -1938,6 +1978,33 @@ const ZKAttendanceLogs = () => {
                 <Save className={`h-4 w-4 mr-2 ${saveLoading ? "animate-spin" : ""}`} />
                 {isArabic ? "حفظ الملخص" : "Save Summary"}
               </Button>
+            )}
+            {/* Auto Process Buttons */}
+            {fromDate && (
+              <div className="flex border rounded-lg overflow-hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAutoProcess('morning')}
+                  disabled={autoProcessLoading}
+                  className="rounded-none border-0"
+                  title={isArabic ? "معالجة وقت الدخول" : "Process check-in time"}
+                >
+                  <Sun className={`h-4 w-4 mr-1 ${autoProcessLoading ? "animate-spin" : ""}`} />
+                  {isArabic ? "دخول" : "In"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAutoProcess('evening')}
+                  disabled={autoProcessLoading}
+                  className="rounded-none border-0 border-l"
+                  title={isArabic ? "معالجة وقت الخروج" : "Process check-out time"}
+                >
+                  <Moon className={`h-4 w-4 mr-1 ${autoProcessLoading ? "animate-spin" : ""}`} />
+                  {isArabic ? "خروج" : "Out"}
+                </Button>
+              </div>
             )}
             <Button
               variant="outline"
