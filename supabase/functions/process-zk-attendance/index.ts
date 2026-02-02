@@ -251,11 +251,49 @@ Deno.serve(async (req) => {
     for (const employee of (employees || [])) {
       if (!employee.zk_employee_code) continue;
 
-      // Skip employees who are on approved leave
-      if (employeesOnLeave.has(employee.id)) {
-        console.log(`Skipping ${employee.first_name} ${employee.last_name} - on approved leave`);
+      // Check if employee is on approved leave
+      const isOnLeave = employeesOnLeave.has(employee.id);
+      if (isOnLeave) {
+        console.log(`${employee.first_name} ${employee.last_name} is on approved leave - creating vacation record`);
+        
+        // Create vacation timesheet record
+        const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
+        const scheduledStart = attendanceType?.fixed_start_time || null;
+        const scheduledEnd = attendanceType?.fixed_end_time || null;
+        
+        const vacationTimesheetRecord = {
+          employee_id: employee.id,
+          work_date: targetDate,
+          scheduled_start: scheduledStart,
+          scheduled_end: scheduledEnd,
+          actual_start: null,
+          actual_end: null,
+          break_duration_minutes: 0,
+          status: 'vacation',
+          is_absent: false,
+          absence_reason: 'Approved vacation/leave',
+          late_minutes: 0,
+          early_leave_minutes: 0,
+          overtime_minutes: 0,
+          total_work_minutes: 0,
+          deduction_amount: 0,
+          overtime_amount: 0,
+          notes: 'On approved vacation/leave',
+        };
+
+        const { error: vacationError } = await supabase
+          .from('timesheets')
+          .upsert(vacationTimesheetRecord, {
+            onConflict: 'employee_id,work_date',
+          });
+
+        if (vacationError) {
+          console.error(`Error upserting vacation timesheet for ${employee.id}:`, vacationError);
+        }
+        
         continue;
       }
+      
       const logs = employeeLogs.get(employee.zk_employee_code) || [];
       const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
 
