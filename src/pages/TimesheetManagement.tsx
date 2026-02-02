@@ -414,6 +414,8 @@ export default function TimesheetManagement() {
         return <Badge className="bg-green-100 text-green-800">{language === "ar" ? "معتمد" : "Approved"}</Badge>;
       case "rejected":
         return <Badge variant="destructive">{language === "ar" ? "مرفوض" : "Rejected"}</Badge>;
+      case "vacation":
+        return <Badge className="bg-blue-100 text-blue-800">{language === "ar" ? "إجازة" : "Vacation"}</Badge>;
       default:
         return <Badge variant="secondary">{language === "ar" ? "معلق" : "Pending"}</Badge>;
     }
