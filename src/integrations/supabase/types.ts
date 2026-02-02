@@ -6730,6 +6730,8 @@ export type Database = {
           break_duration_minutes: number | null
           created_at: string
           deduction_amount: number | null
+          deduction_notification_sent: boolean | null
+          deduction_notification_sent_at: string | null
           deduction_rule_id: string | null
           early_leave_minutes: number | null
           employee_id: string
@@ -6755,6 +6757,8 @@ export type Database = {
           break_duration_minutes?: number | null
           created_at?: string
           deduction_amount?: number | null
+          deduction_notification_sent?: boolean | null
+          deduction_notification_sent_at?: string | null
           deduction_rule_id?: string | null
           early_leave_minutes?: number | null
           employee_id: string
@@ -6780,6 +6784,8 @@ export type Database = {
           break_duration_minutes?: number | null
           created_at?: string
           deduction_amount?: number | null
+          deduction_notification_sent?: boolean | null
+          deduction_notification_sent_at?: string | null
           deduction_rule_id?: string | null
           early_leave_minutes?: number | null
           employee_id?: string
