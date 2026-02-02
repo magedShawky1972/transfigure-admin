@@ -79,6 +79,12 @@ interface SavedAttendanceRecord {
   created_at: string;
   updated_by: string | null;
   updated_at: string;
+  auto_processed?: boolean;
+  processing_source?: string;
+  has_issues?: boolean;
+  entry_notification_sent?: boolean;
+  exit_notification_sent?: boolean;
+  deduction_notification_sent?: boolean;
 }
 
 interface Profile {
@@ -186,6 +192,7 @@ const SavedAttendance = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [confirmedFilter, setConfirmedFilter] = useState<string>("all");
   const [deductionFilter, setDeductionFilter] = useState<string>("all");
+  const [issuesFilter, setIssuesFilter] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -368,6 +375,13 @@ const SavedAttendance = () => {
         query = query.eq("is_confirmed", true);
       } else if (confirmedFilter === "pending") {
         query = query.eq("is_confirmed", false);
+      }
+
+      // Issues filter
+      if (issuesFilter === "with_issues") {
+        query = query.eq("has_issues", true);
+      } else if (issuesFilter === "no_issues") {
+        query = query.eq("has_issues", false);
       }
 
       const { data, error, count } = await query;
@@ -615,6 +629,7 @@ const SavedAttendance = () => {
     setSelectedEmployee("all");
     setConfirmedFilter("all");
     setDeductionFilter("all");
+    setIssuesFilter("all");
   };
 
   const handleDeleteBatch = async () => {
@@ -2236,7 +2251,19 @@ const SavedAttendance = () => {
               </SelectContent>
             </Select>
 
-            {(fromDate || toDate || searchCode || selectedEmployee !== "all" || confirmedFilter !== "all" || deductionFilter !== "all") && (
+            <Select value={issuesFilter} onValueChange={setIssuesFilter}>
+              <SelectTrigger className="w-[180px]">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                <SelectValue placeholder={isArabic ? "المشاكل" : "Issues"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "الكل" : "All"}</SelectItem>
+                <SelectItem value="with_issues">{isArabic ? "تحتاج مراجعة" : "Needs Review"}</SelectItem>
+                <SelectItem value="no_issues">{isArabic ? "بدون مشاكل" : "No Issues"}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(fromDate || toDate || searchCode || selectedEmployee !== "all" || confirmedFilter !== "all" || deductionFilter !== "all" || issuesFilter !== "all") && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -2247,6 +2274,7 @@ const SavedAttendance = () => {
                   setSelectedEmployee("all");
                   setConfirmedFilter("all");
                   setDeductionFilter("all");
+                  setIssuesFilter("all");
                 }}
               >
                 <X className="h-4 w-4 mr-1" />
