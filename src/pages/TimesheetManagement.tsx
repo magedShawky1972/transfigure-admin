@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface AttendanceType {
@@ -78,7 +78,9 @@ interface Timesheet {
     employee_number: string;
     first_name: string;
     last_name: string;
+    zk_employee_code: string | null;
   };
+  mailSent?: boolean;
   deduction_rules?: {
     rule_name: string;
     rule_name_ar: string | null;
@@ -152,7 +154,7 @@ export default function TimesheetManagement() {
         .from("timesheets")
         .select(`
           *,
-          employees(employee_number, first_name, last_name),
+          employees(employee_number, first_name, last_name, zk_employee_code),
           deduction_rules(rule_name, rule_name_ar, deduction_type, deduction_value)
         `)
         .eq("work_date", selectedDate)
@@ -164,7 +166,34 @@ export default function TimesheetManagement() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setTimesheets(data || []);
+
+      // Fetch saved_attendance to get mail sent status
+      const employeeCodes = (data || [])
+        .map(ts => ts.employees?.zk_employee_code)
+        .filter((code): code is string => !!code);
+
+      let mailStatusMap = new Map<string, boolean>();
+      if (employeeCodes.length > 0) {
+        const { data: attendanceData } = await supabase
+          .from("saved_attendance")
+          .select("employee_code, deduction_notification_sent")
+          .eq("attendance_date", selectedDate)
+          .in("employee_code", employeeCodes);
+
+        (attendanceData || []).forEach(att => {
+          mailStatusMap.set(att.employee_code, att.deduction_notification_sent === true);
+        });
+      }
+
+      // Merge mail status into timesheets
+      const timesheetsWithMailStatus = (data || []).map(ts => ({
+        ...ts,
+        mailSent: ts.employees?.zk_employee_code 
+          ? mailStatusMap.get(ts.employees.zk_employee_code) || false 
+          : false
+      }));
+
+      setTimesheets(timesheetsWithMailStatus);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -527,6 +556,7 @@ export default function TimesheetManagement() {
                   <TableHead>{language === "ar" ? "الإضافي" : "Overtime"}</TableHead>
                   <TableHead>{language === "ar" ? "نوع الخصم" : "Deduction Type"}</TableHead>
                   <TableHead>{language === "ar" ? "الخصم" : "Deduction"}</TableHead>
+                  <TableHead className="text-center">{language === "ar" ? "البريد" : "Mail Sent"}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
@@ -534,13 +564,13 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : timesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
@@ -587,6 +617,17 @@ export default function TimesheetManagement() {
                               ? `${ts.deduction_rules.deduction_value.toFixed(0)}`
                               : `${ts.deduction_rules.deduction_value}`
                           : "-"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {ts.deduction_rules && ts.deduction_amount > 0 ? (
+                          ts.mailSent ? (
+                            <Mail className="h-4 w-4 text-green-600 mx-auto" />
+                          ) : (
+                            <MailX className="h-4 w-4 text-muted-foreground mx-auto" />
+                          )
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
                       <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
                       <TableCell>
