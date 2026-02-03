@@ -126,6 +126,7 @@ import ManualShiftTransactionReport from "./pages/ManualShiftTransactionReport";
 import ProjectSetup from "./pages/ProjectSetup";
 import VoidPayment from "./pages/VoidPayment";
 import AcknowledgmentDocuments from "./pages/AcknowledgmentDocuments";
+import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -178,6 +179,7 @@ const App = () => (
               <Route path="/shift-calendar" element={<ShiftCalendar />} />
               <Route path="/shift-session" element={<ShiftSession />} />
               <Route path="/shift-follow-up" element={<ShiftFollowUp />} />
+              <Route path="/shift-attendance-report" element={<ShiftAttendanceReport />} />
               <Route path="/shift-dashboard" element={<ShiftDashboard />} />
               <Route path="/my-shifts" element={<MyShiftsCalendar />} />
               <Route path="/reports/shift-report" element={<ShiftReport />} />
