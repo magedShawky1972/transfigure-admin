@@ -664,8 +664,8 @@ export default function TimesheetManagement() {
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        {ts.actual_start && ts.actual_end
-                          ? `${ts.actual_start} - ${ts.actual_end}`
+                        {ts.actual_start || ts.actual_end
+                          ? `${ts.actual_start || '-'} - ${ts.actual_end || '-'}`
                           : "-"}
                       </TableCell>
                       <TableCell>
