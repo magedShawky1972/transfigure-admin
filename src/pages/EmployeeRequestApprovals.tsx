@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +40,7 @@ import {
   FileText,
   Eye,
   Filter,
+  AlertTriangle,
 } from "lucide-react";
 
 const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: string; color: string }> = {
@@ -63,8 +63,10 @@ const EmployeeRequestApprovals = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('pending');
   const [isHRManager, setIsHRManager] = useState(false);
+  const [hrManagerLevel, setHrManagerLevel] = useState<number | null>(null);
   const [userAdminDepts, setUserAdminDepts] = useState<string[]>([]);
   const [userAdminLevel, setUserAdminLevel] = useState<Map<string, number>>(new Map());
+  const [pendingApprovers, setPendingApprovers] = useState<Map<string, string>>(new Map());
 
   useEffect(() => { fetchUserPermissions(); }, []);
   useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, filterType, filterStatus]);
@@ -74,8 +76,11 @@ const EmployeeRequestApprovals = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: hrData } = await supabase.from('hr_managers').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
-      if (hrData) setIsHRManager(true);
+      const { data: hrData } = await supabase.from('hr_managers').select('id, admin_order').eq('user_id', user.id).eq('is_active', true).maybeSingle();
+      if (hrData) {
+        setIsHRManager(true);
+        setHrManagerLevel(hrData.admin_order);
+      }
 
       const { data: adminData } = await supabase.from('department_admins').select('department_id, admin_order').eq('user_id', user.id).eq('approve_employee_request', true);
       if (adminData && adminData.length > 0) {
@@ -89,14 +94,72 @@ const EmployeeRequestApprovals = () => {
 
   const fetchRequests = async () => {
     try {
-      let query = supabase.from('employee_requests').select('*, employees:employee_id(employee_name, employee_name_ar)').order('created_at', { ascending: false });
+      let query = supabase.from('employee_requests').select(`
+        *,
+        employees:employee_id(first_name, first_name_ar, last_name, last_name_ar),
+        departments:department_id(department_name, department_name_ar)
+      `).order('created_at', { ascending: false });
+      
       if (filterStatus === 'pending') query = query.in('status', ['pending', 'manager_approved', 'hr_pending']);
       else if (filterStatus !== 'all') query = query.eq('status', filterStatus);
       if (filterType !== 'all') query = query.eq('request_type', filterType);
 
       const { data } = await query;
-      setRequests(data || []);
+      if (data) {
+        setRequests(data);
+        // Fetch pending approvers for each request
+        await fetchPendingApprovers(data);
+      }
     } catch (error) { console.error(error); }
+  };
+
+  const fetchPendingApprovers = async (requestsList: any[]) => {
+    const approverMap = new Map<string, string>();
+    
+    for (const req of requestsList) {
+      if (['approved', 'rejected', 'cancelled'].includes(req.status)) continue;
+      
+      if (req.current_phase === 'manager') {
+        // Find department admin at this level
+        const { data: admins } = await supabase
+          .from('department_admins')
+          .select('user_id')
+          .eq('department_id', req.department_id)
+          .eq('approve_employee_request', true)
+          .eq('admin_order', req.current_approval_level);
+        
+        if (admins && admins.length > 0) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('user_id', admins[0].user_id)
+            .single();
+          approverMap.set(req.id, profile?.email || 'Unknown');
+        } else {
+          approverMap.set(req.id, language === 'ar' ? 'لا يوجد معتمد مُعيَّن' : 'No approver assigned');
+        }
+      } else if (req.current_phase === 'hr') {
+        // Find HR manager at this level
+        const { data: hrManagers } = await supabase
+          .from('hr_managers')
+          .select('user_id')
+          .eq('is_active', true)
+          .eq('admin_order', req.current_approval_level);
+        
+        if (hrManagers && hrManagers.length > 0) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('user_id', hrManagers[0].user_id)
+            .single();
+          approverMap.set(req.id, profile?.email || 'HR Manager');
+        } else {
+          approverMap.set(req.id, language === 'ar' ? 'لا يوجد مدير HR مُعيَّن' : 'No HR Manager assigned');
+        }
+      }
+    }
+    
+    setPendingApprovers(approverMap);
   };
 
   const handleAction = async () => {
@@ -117,7 +180,13 @@ const EmployeeRequestApprovals = () => {
             await supabase.from('employee_requests').update({ status: 'manager_approved', current_phase: 'hr', current_approval_level: 0, manager_approved_at: new Date().toISOString(), manager_approved_by: user.id }).eq('id', selectedRequest.id);
           }
         } else {
-          await supabase.from('employee_requests').update({ status: 'approved', hr_approved_at: new Date().toISOString(), hr_approved_by: user.id }).eq('id', selectedRequest.id);
+          // HR phase - check for next HR level
+          const { data: nextHR } = await supabase.from('hr_managers').select('admin_order').eq('is_active', true).gt('admin_order', selectedRequest.current_approval_level).order('admin_order').limit(1);
+          if (nextHR && nextHR.length > 0) {
+            await supabase.from('employee_requests').update({ current_approval_level: nextHR[0].admin_order, hr_approved_at: new Date().toISOString(), hr_approved_by: user.id }).eq('id', selectedRequest.id);
+          } else {
+            await supabase.from('employee_requests').update({ status: 'approved', hr_approved_at: new Date().toISOString(), hr_approved_by: user.id }).eq('id', selectedRequest.id);
+          }
         }
       }
       toast({ title: language === 'ar' ? 'تم' : 'Done' });
@@ -127,12 +196,33 @@ const EmployeeRequestApprovals = () => {
 
   const canTakeAction = (request: any) => {
     if (['approved', 'rejected', 'cancelled'].includes(request.status)) return false;
-    if (request.current_phase === 'hr' && isHRManager) return true;
+    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) return true;
     if (request.current_phase === 'manager' && request.department_id) {
       const userLevel = userAdminLevel.get(request.department_id);
       return userLevel !== undefined && request.current_approval_level === userLevel;
     }
     return false;
+  };
+
+  const getEmployeeName = (emp: any) => {
+    if (!emp) return '-';
+    if (language === 'ar') {
+      return `${emp.first_name_ar || emp.first_name || ''} ${emp.last_name_ar || emp.last_name || ''}`.trim() || '-';
+    }
+    return `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || '-';
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; labelAr: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+      pending: { label: 'Pending Manager', labelAr: 'بانتظار المدير', variant: 'secondary' },
+      manager_approved: { label: 'Pending HR', labelAr: 'بانتظار HR', variant: 'default' },
+      hr_pending: { label: 'Pending HR', labelAr: 'بانتظار HR', variant: 'default' },
+      approved: { label: 'Approved', labelAr: 'مقبول', variant: 'default' },
+      rejected: { label: 'Rejected', labelAr: 'مرفوض', variant: 'destructive' },
+      cancelled: { label: 'Cancelled', labelAr: 'ملغي', variant: 'outline' },
+    };
+    const config = statusConfig[status] || { label: status, labelAr: status, variant: 'outline' as const };
+    return <Badge variant={config.variant}>{language === 'ar' ? config.labelAr : config.label}</Badge>;
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -145,7 +235,7 @@ const EmployeeRequestApprovals = () => {
     <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">{language === 'ar' ? 'اعتماد الطلبات' : 'Request Approvals'}</h1>
-        {isHRManager && <Badge className="bg-blue-600">{language === 'ar' ? 'مدير HR' : 'HR Manager'}</Badge>}
+        {isHRManager && <Badge className="bg-blue-600">{language === 'ar' ? `مدير HR (المستوى ${hrManagerLevel})` : `HR Manager (Level ${hrManagerLevel})`}</Badge>}
       </div>
 
       <Card>
@@ -180,7 +270,7 @@ const EmployeeRequestApprovals = () => {
                 <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
                 <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
-                <TableHead>{language === 'ar' ? 'المرحلة' : 'Phase'}</TableHead>
+                <TableHead>{language === 'ar' ? 'بانتظار' : 'Waiting For'}</TableHead>
                 <TableHead>{language === 'ar' ? 'إجراء' : 'Action'}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
@@ -188,14 +278,28 @@ const EmployeeRequestApprovals = () => {
                   const info = REQUEST_TYPE_INFO[r.request_type] || REQUEST_TYPE_INFO.vacation;
                   const Icon = info.icon;
                   const canAct = canTakeAction(r);
-                  const employeeName = r.employees ? (language === 'ar' && r.employees.employee_name_ar ? r.employees.employee_name_ar : r.employees.employee_name) : '-';
+                  const employeeName = getEmployeeName(r.employees);
+                  const pendingApprover = pendingApprovers.get(r.id);
+                  const isStuck = pendingApprover?.includes('No') || pendingApprover?.includes('لا يوجد');
+                  
                   return (
                     <TableRow key={r.id} className={canAct ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}>
                       <TableCell className="font-mono text-sm">{r.request_number}</TableCell>
                       <TableCell className="font-medium">{employeeName}</TableCell>
                       <TableCell><Badge className={info.color}><Icon className="h-3 w-3 mr-1" />{language === 'ar' ? info.labelAr : info.labelEn}</Badge></TableCell>
-                      <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
-                      <TableCell><Badge variant="outline">{r.current_phase} L{r.current_approval_level}</Badge></TableCell>
+                      <TableCell>{getStatusBadge(r.status)}</TableCell>
+                      <TableCell>
+                        {['approved', 'rejected', 'cancelled'].includes(r.status) ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            {isStuck && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+                            <span className={isStuck ? 'text-orange-600 font-medium' : 'text-sm'}>
+                              {pendingApprover || '-'}
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {canAct ? (
                           <div className="flex gap-1">
