@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface ApiLog {
@@ -63,6 +63,7 @@ const ApiConsumptionLogs = () => {
   const [stats, setStats] = useState<ApiStats>({ total: 0, success: 0, failed: 0, avgTime: 0 });
   const [selectedLog, setSelectedLog] = useState<ApiLog | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [resending, setResending] = useState<string | null>(null);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -203,6 +204,42 @@ const ApiConsumptionLogs = () => {
   const viewLogDetails = (log: ApiLog) => {
     setSelectedLog(log);
     setDetailDialogOpen(true);
+  };
+
+  const resendRequest = async (log: ApiLog) => {
+    if (!log.request_body) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "لا يوجد بيانات للإرسال" : "No request body to send",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResending(log.id);
+    try {
+      const { data, error } = await supabase.functions.invoke(log.endpoint, {
+        body: log.request_body,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === "ar" ? "تم الإرسال" : "Sent",
+        description: language === "ar" ? "تم إرسال الطلب بنجاح" : "Request sent successfully",
+      });
+
+      // Refresh logs to see the new entry
+      fetchLogs();
+    } catch (error: any) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setResending(null);
+    }
   };
 
   // Show loading or access denied
@@ -403,13 +440,33 @@ const ApiConsumptionLogs = () => {
                         {log.api_key_description || "-"}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => viewLogDetails(log)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => viewLogDetails(log)}
+                            title={language === "ar" ? "عرض التفاصيل" : "View Details"}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {log.request_body && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => resendRequest(log)}
+                              disabled={resending === log.id}
+                              title={language === "ar" ? "إعادة الإرسال" : "Resend"}
+                            >
+                              {resending === log.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -511,6 +568,26 @@ const ApiConsumptionLogs = () => {
                     {language === "ar" ? "عنوان IP" : "Source IP"}
                   </label>
                   <p className="font-mono">{selectedLog.source_ip}</p>
+                </div>
+              )}
+
+              {selectedLog.request_body && (
+                <div className="pt-4 border-t">
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      resendRequest(selectedLog);
+                      setDetailDialogOpen(false);
+                    }}
+                    disabled={resending === selectedLog.id}
+                  >
+                    {resending === selectedLog.id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    {language === "ar" ? "إعادة إرسال الطلب" : "Resend Request"}
+                  </Button>
                 </div>
               )}
             </div>
