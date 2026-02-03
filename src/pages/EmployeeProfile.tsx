@@ -50,7 +50,9 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Printer,
 } from "lucide-react";
+import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import EmployeeAcknowledgments from "@/components/EmployeeAcknowledgments";
 import { format, differenceInDays } from "date-fns";
 
@@ -972,6 +974,11 @@ export default function EmployeeProfile() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
+                              <VacationRequestPrintButton
+                                requestId={request.id}
+                                source={request.source || "vacation_requests"}
+                                language={language}
+                              />
                               <Button
                                 variant="ghost"
                                 size="icon"

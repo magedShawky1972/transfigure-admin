@@ -48,7 +48,9 @@ import {
   User,
   Building,
   MessageSquare,
+  Printer,
 } from "lucide-react";
+import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
 
 const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: string; color: string }> = {
@@ -388,6 +390,15 @@ const EmployeeRequestApprovals = () => {
                           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewDialog(r)} title={language === 'ar' ? 'عرض التفاصيل' : 'View Details'}>
                             <Eye className="h-4 w-4" />
                           </Button>
+                          {r.request_type === 'vacation' && (
+                            <VacationRequestPrintButton
+                              requestId={r.id}
+                              source="employee_requests"
+                              language={language}
+                              size="icon"
+                              variant="ghost"
+                            />
+                          )}
                           {canAct && (
                             <>
                               <Button size="icon" className="h-8 w-8 bg-green-600 hover:bg-green-700" onClick={() => openActionDialog(r, 'approve')} title={language === 'ar' ? 'اعتماد' : 'Approve'}>
