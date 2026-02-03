@@ -1228,11 +1228,13 @@ export type Database = {
           block_reason: string | null
           created_at: string
           creation_date: string
+          customer_group: string | null
           customer_name: string
           customer_phone: string
           email: string | null
           id: string
           is_blocked: boolean
+          last_transaction: string | null
           partner_id: number | null
           partner_profile_id: number | null
           res_partner_id: number | null
@@ -1244,11 +1246,13 @@ export type Database = {
           block_reason?: string | null
           created_at?: string
           creation_date: string
+          customer_group?: string | null
           customer_name: string
           customer_phone: string
           email?: string | null
           id?: string
           is_blocked?: boolean
+          last_transaction?: string | null
           partner_id?: number | null
           partner_profile_id?: number | null
           res_partner_id?: number | null
@@ -1260,11 +1264,13 @@ export type Database = {
           block_reason?: string | null
           created_at?: string
           creation_date?: string
+          customer_group?: string | null
           customer_name?: string
           customer_phone?: string
           email?: string | null
           id?: string
           is_blocked?: boolean
+          last_transaction?: string | null
           partner_id?: number | null
           partner_profile_id?: number | null
           res_partner_id?: number | null
