@@ -146,86 +146,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare data based on mode
-    let upsertData: Record<string, any>;
+    // Log the received data but DO NOT insert into purpletransaction
+    // This will be handled as a separate process
+    console.log('Sales header data received (logging only, no DB insert):', JSON.stringify(body));
     
-    if (apiMode === 'production') {
-      // Map to purpletransaction columns
-      upsertData = {
-        ordernumber: body.Order_Number,
-        customer_phone: body.Customer_Phone,
-        created_at: body.Order_date,
-        payment_term: body.Payment_Term,
-        user_name: body.Sales_person,
-        transaction_type: body.Transaction_Type,
-        media: body.Media,
-        profit_center: body.Profit_Center,
-        company: body.Company,
-        status: body.Status,
-        status_description: body.Status_Description,
-        customer_ip: body.Customer_IP,
-        device_fingerprint: body.Device_Fingerprint,
-        transaction_location: body.Transaction_Location,
-        register_user_id: body.Register_User_ID,
-        player_id: body.Player_Id,
-        is_point: body.Point === 1 || body.Point === '1' || body.Point === true,
-        point_value: body.Point_Value !== undefined ? parseFloat(body.Point_Value) : null,
-      };
-    } else {
-      // Map to testsalesheader columns
-      upsertData = {
-        order_number: body.Order_Number,
-        customer_phone: body.Customer_Phone,
-        order_date: body.Order_date,
-        payment_term: body.Payment_Term,
-        sales_person: body.Sales_person,
-        transaction_type: body.Transaction_Type,
-        media: body.Media,
-        profit_center: body.Profit_Center,
-        company: body.Company,
-        status: body.Status,
-        status_description: body.Status_Description,
-        customer_ip: body.Customer_IP,
-        device_fingerprint: body.Device_Fingerprint,
-        transaction_location: body.Transaction_Location,
-        register_user_id: body.Register_User_ID,
-        player_id: body.Player_Id,
-        is_point: body.Point === 1 || body.Point === '1' || body.Point === true,
-        point_value: body.Point_Value !== undefined ? parseFloat(body.Point_Value) : null,
-      };
-    }
-
-    // Upsert to sales header table based on mode
-    const conflictColumn = apiMode === 'production' ? 'ordernumber' : 'order_number';
-    const { data: resultData, error: upsertError } = await supabase
-      .from(tables.salesheader)
-      .upsert(upsertData, {
-        onConflict: conflictColumn
-      })
-      .select()
-      .single();
-
-    if (upsertError) {
-      console.error(`Error upserting to ${tables.salesheader}:`, upsertError);
-      responseStatus = 400;
-      responseMessage = upsertError.message;
-      success = false;
-      await logApiCall();
-      return new Response(JSON.stringify({ error: upsertError.message }), {
-        status: responseStatus,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`Successfully upserted to ${tables.salesheader}:`, resultData);
-    responseMessage = `Sales header saved to ${tables.salesheader} table (${apiMode} mode)`;
+    responseMessage = `Sales header logged successfully (${apiMode} mode) - Data insertion disabled`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: responseMessage,
       mode: apiMode,
-      data: resultData 
+      note: 'Data was logged but not inserted into database. This is now a separate process.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
