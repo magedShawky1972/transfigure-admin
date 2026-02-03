@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -12,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -29,9 +31,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
-  CheckCircle2,
-  XCircle,
+  Check,
+  X,
   Loader2,
   Thermometer,
   Palmtree,
@@ -41,7 +44,12 @@ import {
   Eye,
   Filter,
   AlertTriangle,
+  Calendar,
+  User,
+  Building,
+  MessageSquare,
 } from "lucide-react";
+import { format } from "date-fns";
 
 const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: string; color: string }> = {
   sick_leave: { icon: Thermometer, labelAr: 'إجازة مرضية', labelEn: 'Sick Leave', color: 'bg-red-100 text-red-800' },
@@ -57,8 +65,10 @@ const EmployeeRequestApprovals = () => {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [actionComment, setActionComment] = useState('');
   const [processing, setProcessing] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('pending');
@@ -107,7 +117,6 @@ const EmployeeRequestApprovals = () => {
       const { data } = await query;
       if (data) {
         setRequests(data);
-        // Fetch pending approvers for each request
         await fetchPendingApprovers(data);
       }
     } catch (error) { console.error(error); }
@@ -120,7 +129,6 @@ const EmployeeRequestApprovals = () => {
       if (['approved', 'rejected', 'cancelled'].includes(req.status)) continue;
       
       if (req.current_phase === 'manager') {
-        // Find department admin at this level
         const { data: admins } = await supabase
           .from('department_admins')
           .select('user_id')
@@ -139,7 +147,6 @@ const EmployeeRequestApprovals = () => {
           approverMap.set(req.id, language === 'ar' ? 'لا يوجد معتمد مُعيَّن' : 'No approver assigned');
         }
       } else if (req.current_phase === 'hr') {
-        // Find HR manager at this level
         const { data: hrManagers } = await supabase
           .from('hr_managers')
           .select('user_id')
@@ -170,28 +177,90 @@ const EmployeeRequestApprovals = () => {
       if (!user) throw new Error('Not authenticated');
 
       if (actionType === 'reject') {
-        await supabase.from('employee_requests').update({ status: 'rejected', rejected_at: new Date().toISOString(), rejected_by: user.id, rejection_reason: rejectionReason }).eq('id', selectedRequest.id);
+        await supabase.from('employee_requests').update({ 
+          status: 'rejected', 
+          rejected_at: new Date().toISOString(), 
+          rejected_by: user.id, 
+          rejection_reason: actionComment 
+        }).eq('id', selectedRequest.id);
       } else {
+        const updateData: any = {};
+        if (actionComment) {
+          updateData.approval_comments = selectedRequest.approval_comments 
+            ? `${selectedRequest.approval_comments}\n---\n${actionComment}` 
+            : actionComment;
+        }
+        
         if (selectedRequest.current_phase === 'manager') {
           const { data: nextAdmin } = await supabase.from('department_admins').select('admin_order').eq('department_id', selectedRequest.department_id).eq('approve_employee_request', true).gt('admin_order', selectedRequest.current_approval_level).order('admin_order').limit(1);
           if (nextAdmin && nextAdmin.length > 0) {
-            await supabase.from('employee_requests').update({ current_approval_level: nextAdmin[0].admin_order, manager_approved_at: new Date().toISOString(), manager_approved_by: user.id }).eq('id', selectedRequest.id);
+            await supabase.from('employee_requests').update({ 
+              ...updateData,
+              current_approval_level: nextAdmin[0].admin_order, 
+              manager_approved_at: new Date().toISOString(), 
+              manager_approved_by: user.id 
+            }).eq('id', selectedRequest.id);
           } else {
-            await supabase.from('employee_requests').update({ status: 'manager_approved', current_phase: 'hr', current_approval_level: 0, manager_approved_at: new Date().toISOString(), manager_approved_by: user.id }).eq('id', selectedRequest.id);
+            await supabase.from('employee_requests').update({ 
+              ...updateData,
+              status: 'manager_approved', 
+              current_phase: 'hr', 
+              current_approval_level: 0, 
+              manager_approved_at: new Date().toISOString(), 
+              manager_approved_by: user.id 
+            }).eq('id', selectedRequest.id);
           }
         } else {
-          // HR phase - check for next HR level
           const { data: nextHR } = await supabase.from('hr_managers').select('admin_order').eq('is_active', true).gt('admin_order', selectedRequest.current_approval_level).order('admin_order').limit(1);
           if (nextHR && nextHR.length > 0) {
-            await supabase.from('employee_requests').update({ current_approval_level: nextHR[0].admin_order, hr_approved_at: new Date().toISOString(), hr_approved_by: user.id }).eq('id', selectedRequest.id);
+            await supabase.from('employee_requests').update({ 
+              ...updateData,
+              current_approval_level: nextHR[0].admin_order, 
+              hr_approved_at: new Date().toISOString(), 
+              hr_approved_by: user.id 
+            }).eq('id', selectedRequest.id);
           } else {
-            await supabase.from('employee_requests').update({ status: 'approved', hr_approved_at: new Date().toISOString(), hr_approved_by: user.id }).eq('id', selectedRequest.id);
+            await supabase.from('employee_requests').update({ 
+              ...updateData,
+              status: 'approved', 
+              hr_approved_at: new Date().toISOString(), 
+              hr_approved_by: user.id 
+            }).eq('id', selectedRequest.id);
           }
         }
       }
       toast({ title: language === 'ar' ? 'تم' : 'Done' });
-      setSelectedRequest(null); setActionType(null); setRejectionReason(''); fetchRequests();
-    } catch (error: any) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); } finally { setProcessing(false); }
+      closeActionDialog();
+      fetchRequests();
+    } catch (error: any) { 
+      toast({ title: 'Error', description: error.message, variant: 'destructive' }); 
+    } finally { 
+      setProcessing(false); 
+    }
+  };
+
+  const openActionDialog = (request: any, type: 'approve' | 'reject') => {
+    setSelectedRequest(request);
+    setActionType(type);
+    setActionComment('');
+    setActionDialogOpen(true);
+  };
+
+  const closeActionDialog = () => {
+    setActionDialogOpen(false);
+    setSelectedRequest(null);
+    setActionType(null);
+    setActionComment('');
+  };
+
+  const openViewDialog = (request: any) => {
+    setSelectedRequest(request);
+    setViewDialogOpen(true);
+  };
+
+  const closeViewDialog = () => {
+    setViewDialogOpen(false);
+    setSelectedRequest(null);
   };
 
   const canTakeAction = (request: any) => {
@@ -212,6 +281,11 @@ const EmployeeRequestApprovals = () => {
     return `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || '-';
   };
 
+  const getDepartmentName = (dept: any) => {
+    if (!dept) return '-';
+    return language === 'ar' ? (dept.department_name_ar || dept.department_name) : dept.department_name;
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; labelAr: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       pending: { label: 'Pending Manager', labelAr: 'بانتظار المدير', variant: 'secondary' },
@@ -225,10 +299,19 @@ const EmployeeRequestApprovals = () => {
     return <Badge variant={config.variant}>{language === 'ar' ? config.labelAr : config.label}</Badge>;
   };
 
+  const formatDate = (date: string | null) => {
+    if (!date) return '-';
+    try {
+      return format(new Date(date), 'yyyy-MM-dd');
+    } catch {
+      return date;
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   if (!isHRManager && userAdminDepts.length === 0) {
-    return <div className="p-6"><Card><CardContent className="py-12 text-center"><XCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p>{language === 'ar' ? 'غير مصرح' : 'Not Authorized'}</p></CardContent></Card></div>;
+    return <div className="p-6"><Card><CardContent className="py-12 text-center"><X className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p>{language === 'ar' ? 'غير مصرح' : 'Not Authorized'}</p></CardContent></Card></div>;
   }
 
   return (
@@ -301,12 +384,21 @@ const EmployeeRequestApprovals = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        {canAct ? (
-                          <div className="flex gap-1">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => { setSelectedRequest(r); setActionType('approve'); }}><CheckCircle2 className="h-4 w-4" /></Button>
-                            <Button size="sm" variant="destructive" onClick={() => { setSelectedRequest(r); setActionType('reject'); }}><XCircle className="h-4 w-4" /></Button>
-                          </div>
-                        ) : <Button size="sm" variant="ghost" onClick={() => setSelectedRequest(r)}><Eye className="h-4 w-4" /></Button>}
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewDialog(r)} title={language === 'ar' ? 'عرض التفاصيل' : 'View Details'}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canAct && (
+                            <>
+                              <Button size="icon" className="h-8 w-8 bg-green-600 hover:bg-green-700" onClick={() => openActionDialog(r, 'approve')} title={language === 'ar' ? 'اعتماد' : 'Approve'}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => openActionDialog(r, 'reject')} title={language === 'ar' ? 'رفض' : 'Reject'}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -317,13 +409,168 @@ const EmployeeRequestApprovals = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={!!selectedRequest && !!actionType} onOpenChange={() => { setSelectedRequest(null); setActionType(null); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{actionType === 'approve' ? (language === 'ar' ? 'تأكيد الاعتماد' : 'Confirm Approval') : (language === 'ar' ? 'تأكيد الرفض' : 'Confirm Rejection')}</DialogTitle></DialogHeader>
-          {actionType === 'reject' && <Textarea placeholder={language === 'ar' ? 'سبب الرفض' : 'Rejection reason'} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />}
+      {/* View Details Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              {language === 'ar' ? 'تفاصيل الطلب' : 'Request Details'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRequest?.request_number}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" />{language === 'ar' ? 'الموظف' : 'Employee'}</Label>
+                  <p className="font-medium">{getEmployeeName(selectedRequest.employees)}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground flex items-center gap-1"><Building className="h-3 w-3" />{language === 'ar' ? 'القسم' : 'Department'}</Label>
+                  <p className="font-medium">{getDepartmentName(selectedRequest.departments)}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground">{language === 'ar' ? 'نوع الطلب' : 'Request Type'}</Label>
+                  <div>{(() => {
+                    const info = REQUEST_TYPE_INFO[selectedRequest.request_type] || REQUEST_TYPE_INFO.vacation;
+                    const TypeIcon = info.icon;
+                    return <Badge className={info.color}><TypeIcon className="h-3 w-3 mr-1" />{language === 'ar' ? info.labelAr : info.labelEn}</Badge>;
+                  })()}</div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground">{language === 'ar' ? 'الحالة' : 'Status'}</Label>
+                  <div>{getStatusBadge(selectedRequest.status)}</div>
+                </div>
+              </div>
+
+              {(selectedRequest.start_date || selectedRequest.end_date) && (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{language === 'ar' ? 'من تاريخ' : 'From Date'}</Label>
+                      <p className="font-medium">{formatDate(selectedRequest.start_date)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{language === 'ar' ? 'إلى تاريخ' : 'To Date'}</Label>
+                      <p className="font-medium">{formatDate(selectedRequest.end_date)}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedRequest.request_type === 'expense_refund' && selectedRequest.amount && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" />{language === 'ar' ? 'المبلغ' : 'Amount'}</Label>
+                    <p className="font-medium text-lg">{selectedRequest.amount?.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}</p>
+                  </div>
+                </>
+              )}
+
+              {selectedRequest.notes && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground flex items-center gap-1"><MessageSquare className="h-3 w-3" />{language === 'ar' ? 'ملاحظات' : 'Notes'}</Label>
+                    <p className="text-sm bg-muted p-3 rounded-md">{selectedRequest.notes}</p>
+                  </div>
+                </>
+              )}
+
+              {selectedRequest.rejection_reason && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-red-600">{language === 'ar' ? 'سبب الرفض' : 'Rejection Reason'}</Label>
+                    <p className="text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-md text-red-700 dark:text-red-300">{selectedRequest.rejection_reason}</p>
+                  </div>
+                </>
+              )}
+
+              {selectedRequest.approval_comments && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-green-600">{language === 'ar' ? 'تعليقات الاعتماد' : 'Approval Comments'}</Label>
+                    <p className="text-sm bg-green-50 dark:bg-green-900/20 p-3 rounded-md text-green-700 dark:text-green-300 whitespace-pre-wrap">{selectedRequest.approval_comments}</p>
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              <div className="text-xs text-muted-foreground">
+                {language === 'ar' ? 'تاريخ الإنشاء:' : 'Created:'} {formatDate(selectedRequest.created_at)}
+              </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setSelectedRequest(null); setActionType(null); }}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
-            <Button variant={actionType === 'reject' ? 'destructive' : 'default'} onClick={handleAction} disabled={processing || (actionType === 'reject' && !rejectionReason)}>{processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{actionType === 'approve' ? (language === 'ar' ? 'اعتماد' : 'Approve') : (language === 'ar' ? 'رفض' : 'Reject')}</Button>
+            <Button variant="outline" onClick={closeViewDialog}>{language === 'ar' ? 'إغلاق' : 'Close'}</Button>
+            {selectedRequest && canTakeAction(selectedRequest) && (
+              <div className="flex gap-2">
+                <Button className="bg-green-600 hover:bg-green-700" onClick={() => { closeViewDialog(); openActionDialog(selectedRequest, 'approve'); }}>
+                  <Check className="h-4 w-4 mr-1" />{language === 'ar' ? 'اعتماد' : 'Approve'}
+                </Button>
+                <Button variant="destructive" onClick={() => { closeViewDialog(); openActionDialog(selectedRequest, 'reject'); }}>
+                  <X className="h-4 w-4 mr-1" />{language === 'ar' ? 'رفض' : 'Reject'}
+                </Button>
+              </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Action Dialog (Approve/Reject with Comment) */}
+      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {actionType === 'approve' ? (
+                <><Check className="h-5 w-5 text-green-600" />{language === 'ar' ? 'تأكيد الاعتماد' : 'Confirm Approval'}</>
+              ) : (
+                <><X className="h-5 w-5 text-red-600" />{language === 'ar' ? 'تأكيد الرفض' : 'Confirm Rejection'}</>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRequest?.request_number} - {getEmployeeName(selectedRequest?.employees)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{actionType === 'reject' ? (language === 'ar' ? 'سبب الرفض *' : 'Rejection Reason *') : (language === 'ar' ? 'تعليق (اختياري)' : 'Comment (Optional)')}</Label>
+              <Textarea 
+                placeholder={actionType === 'reject' ? (language === 'ar' ? 'أدخل سبب الرفض...' : 'Enter rejection reason...') : (language === 'ar' ? 'أضف تعليقاً...' : 'Add a comment...')} 
+                value={actionComment} 
+                onChange={(e) => setActionComment(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeActionDialog}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+            <Button 
+              variant={actionType === 'reject' ? 'destructive' : 'default'} 
+              className={actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
+              onClick={handleAction} 
+              disabled={processing || (actionType === 'reject' && !actionComment.trim())}
+            >
+              {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {actionType === 'approve' ? (
+                <><Check className="h-4 w-4 mr-1" />{language === 'ar' ? 'اعتماد' : 'Approve'}</>
+              ) : (
+                <><X className="h-4 w-4 mr-1" />{language === 'ar' ? 'رفض' : 'Reject'}</>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
