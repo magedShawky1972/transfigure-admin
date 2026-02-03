@@ -4454,19 +4454,30 @@ export type Database = {
           device_fingerprint: string | null
           id: string
           is_deleted: boolean
+          is_point: boolean | null
+          media: string | null
           order_number: string | null
           order_status: string | null
+          ordernumber: string | null
           payment_brand: string | null
           payment_method: string | null
+          payment_term: string | null
           payment_type: string | null
+          player_id: string | null
+          point_value: number | null
           product_id: string | null
           product_name: string | null
           profit: number | null
+          profit_center: string | null
           qty: number | null
+          register_user_id: number | null
           sendodoo: boolean | null
+          status: number | null
+          status_description: string | null
           total: number | null
           trans_type: string | null
           transaction_location: string | null
+          transaction_type: string | null
           unit_price: number | null
           updated_at: string
           user_name: string | null
@@ -4489,19 +4500,30 @@ export type Database = {
           device_fingerprint?: string | null
           id?: string
           is_deleted?: boolean
+          is_point?: boolean | null
+          media?: string | null
           order_number?: string | null
           order_status?: string | null
+          ordernumber?: string | null
           payment_brand?: string | null
           payment_method?: string | null
+          payment_term?: string | null
           payment_type?: string | null
+          player_id?: string | null
+          point_value?: number | null
           product_id?: string | null
           product_name?: string | null
           profit?: number | null
+          profit_center?: string | null
           qty?: number | null
+          register_user_id?: number | null
           sendodoo?: boolean | null
+          status?: number | null
+          status_description?: string | null
           total?: number | null
           trans_type?: string | null
           transaction_location?: string | null
+          transaction_type?: string | null
           unit_price?: number | null
           updated_at?: string
           user_name?: string | null
@@ -4524,19 +4546,30 @@ export type Database = {
           device_fingerprint?: string | null
           id?: string
           is_deleted?: boolean
+          is_point?: boolean | null
+          media?: string | null
           order_number?: string | null
           order_status?: string | null
+          ordernumber?: string | null
           payment_brand?: string | null
           payment_method?: string | null
+          payment_term?: string | null
           payment_type?: string | null
+          player_id?: string | null
+          point_value?: number | null
           product_id?: string | null
           product_name?: string | null
           profit?: number | null
+          profit_center?: string | null
           qty?: number | null
+          register_user_id?: number | null
           sendodoo?: boolean | null
+          status?: number | null
+          status_description?: string | null
           total?: number | null
           trans_type?: string | null
           transaction_location?: string | null
+          transaction_type?: string | null
           unit_price?: number | null
           updated_at?: string
           user_name?: string | null
