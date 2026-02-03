@@ -409,6 +409,18 @@ Deno.serve(async (req) => {
       const scheduledStart = attendanceType?.fixed_start_time || null;
       const scheduledEnd = attendanceType?.fixed_end_time || null;
       
+      // Calculate overtime - only if employee worked MORE than scheduled hours
+      // Overtime should offset late arrival and early exit first
+      let overtimeMinutes = 0;
+      if (outTime && attendanceType?.fixed_end_time) {
+        const scheduledEndMins = timeToMinutes(attendanceType.fixed_end_time);
+        const actualEndMins = timeToMinutes(outTime);
+        const extraMinutesAfterEnd = actualEndMins > scheduledEndMins ? actualEndMins - scheduledEndMins : 0;
+        // Net overtime = extra time at end minus late arrival and early exit
+        const netOvertime = extraMinutesAfterEnd - lateMinutes - earlyExitMinutes;
+        overtimeMinutes = netOvertime > 0 ? netOvertime : 0;
+      }
+      
       const timesheetRecord = {
         employee_id: employee.id,
         work_date: targetDate,
@@ -422,7 +434,7 @@ Deno.serve(async (req) => {
         absence_reason: !inTime && processType === 'evening' ? 'No check-in recorded' : null,
         late_minutes: lateMinutes,
         early_leave_minutes: earlyExitMinutes,
-        overtime_minutes: 0,
+        overtime_minutes: overtimeMinutes,
         total_work_minutes: totalHours ? Math.round(totalHours * 60) : 0,
         deduction_amount: deductionAmount,
         deduction_rule_id: deductionRuleId,

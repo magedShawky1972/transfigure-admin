@@ -219,10 +219,11 @@ export default function TimesheetManagement() {
         early_leave_minutes = differenceInMinutes(scheduledEnd, actualEnd);
       }
 
-      // Calculate overtime
-      if (actualEnd > scheduledEnd) {
-        overtime_minutes = differenceInMinutes(actualEnd, scheduledEnd);
-      }
+      // Calculate overtime - only count if worked MORE than scheduled hours
+      // Must first offset any late arrival time before counting overtime
+      const extraMinutesAfterEnd = actualEnd > scheduledEnd ? differenceInMinutes(actualEnd, scheduledEnd) : 0;
+      const netOvertime = extraMinutesAfterEnd - late_minutes - early_leave_minutes;
+      overtime_minutes = netOvertime > 0 ? netOvertime : 0;
 
       // Calculate total work minutes
       total_work_minutes = differenceInMinutes(actualEnd, actualStart) - data.break_duration_minutes;
