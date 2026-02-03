@@ -31,6 +31,7 @@ interface ShiftAttendanceRecord {
   location_lng: number | null;
   device_info: string | null;
   created_at: string;
+  shift_assignment_id: string | null;
   profiles: {
     user_name: string;
   } | null;
@@ -41,6 +42,7 @@ interface ShiftAttendanceRecord {
       shift_end_time: string;
     } | null;
   } | null;
+  checkout_time: string | null;
 }
 
 export default function ShiftAttendanceReport() {
@@ -70,6 +72,7 @@ export default function ShiftAttendanceReport() {
           location_lng,
           device_info,
           created_at,
+          shift_assignment_id,
           shift_assignments!shift_attendance_shift_assignment_id_fkey (
             shifts (
               shift_name,
@@ -92,11 +95,38 @@ export default function ShiftAttendanceReport() {
 
       if (profileError) throw profileError;
 
-      const profileMap = new Map(profileData?.map((p: any) => [p.user_id, p]));
+      // Fetch shift sessions to get checkout time (closed_at)
+      const assignmentIds: string[] = (data || [])
+        .map((r: any) => r.shift_assignment_id)
+        .filter((id: string | null): id is string => id !== null);
+      
+      const sessionMap = new Map<string, string | null>();
+      
+      if (assignmentIds.length > 0) {
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from("shift_sessions")
+          .select("shift_assignment_id, closed_at")
+          .gte("created_at", `${selectedDate}T00:00:00`)
+          .lt("created_at", `${selectedDate}T23:59:59`);
+        
+        if (!sessionsError && sessionsData) {
+          (sessionsData as any[]).forEach((s: any) => {
+            if (assignmentIds.includes(s.shift_assignment_id)) {
+              sessionMap.set(s.shift_assignment_id, s.closed_at);
+            }
+          });
+        }
+      }
+      
+      const profileMap = new Map<string, any>();
+      (profileData || []).forEach((p: any) => {
+        profileMap.set(p.user_id, p);
+      });
       
       const enrichedData = data?.map((record: any) => ({
         ...record,
         profiles: profileMap.get(record.user_id) || { user_name: "Unknown" },
+        checkout_time: sessionMap.get(record.shift_assignment_id) || null,
       }));
 
       setAttendanceRecords(enrichedData || []);
@@ -135,8 +165,8 @@ export default function ShiftAttendanceReport() {
     }
   };
 
-  const openGoogleMaps = (lat: number, lng: number) => {
-    window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+  const getGoogleMapsUrl = (lat: number, lng: number) => {
+    return `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
   };
 
   if (accessLoading) {
@@ -198,7 +228,8 @@ export default function ShiftAttendanceReport() {
                   <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
                   <TableHead>{language === 'ar' ? 'الوردية' : 'Shift'}</TableHead>
                   <TableHead>{language === 'ar' ? 'وقت البدء' : 'Start Time'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'وقت التسجيل' : 'Check-in Time'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'وقت التسجيل' : 'Check-in'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'وقت الخروج' : 'Check-out'}</TableHead>
                   <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                   <TableHead>{language === 'ar' ? 'الموقع' : 'Location'}</TableHead>
                   <TableHead>{language === 'ar' ? 'ملاحظات' : 'Notes'}</TableHead>
@@ -207,22 +238,24 @@ export default function ShiftAttendanceReport() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
                     </TableCell>
                   </TableRow>
                 ) : attendanceRecords.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {language === 'ar' ? 'لا توجد سجلات حضور لهذا التاريخ' : 'No attendance records for this date'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   attendanceRecords.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell className="font-medium flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        {record.profiles?.user_name || '-'}
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          {record.profiles?.user_name || '-'}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {record.shift_assignments?.shifts?.shift_name || '-'}
@@ -233,20 +266,23 @@ export default function ShiftAttendanceReport() {
                       <TableCell className="font-mono">
                         {formatCheckInTime(record.check_in_time)}
                       </TableCell>
+                      <TableCell className="font-mono">
+                        {record.checkout_time ? formatCheckInTime(record.checkout_time) : '-'}
+                      </TableCell>
                       <TableCell>
                         {getStatusBadge(record.status)}
                       </TableCell>
                       <TableCell>
                         {record.location_lat && record.location_lng ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openGoogleMaps(record.location_lat!, record.location_lng!)}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                          <a
+                            href={getGoogleMapsUrl(record.location_lat, record.location_lng)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             <MapPin className="h-4 w-4" />
                             {language === 'ar' ? 'عرض' : 'View'}
-                          </Button>
+                          </a>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
