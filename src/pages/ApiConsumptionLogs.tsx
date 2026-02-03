@@ -216,13 +216,46 @@ const ApiConsumptionLogs = () => {
       return;
     }
 
+    if (!log.api_key_id) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "لا يوجد مفتاح API للإرسال" : "No API key associated with this request",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setResending(log.id);
     try {
-      const { data, error } = await supabase.functions.invoke(log.endpoint, {
-        body: log.request_body,
-      });
+      // Fetch the API key from the database
+      const { data: apiKeyData, error: apiKeyError } = await supabase
+        .from("api_keys")
+        .select("api_key")
+        .eq("id", log.api_key_id)
+        .single();
 
-      if (error) throw error;
+      if (apiKeyError || !apiKeyData) {
+        throw new Error(language === "ar" ? "تعذر جلب مفتاح API" : "Failed to fetch API key");
+      }
+
+      // Make direct fetch request with the original API key
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${log.endpoint}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": apiKeyData.api_key,
+          },
+          body: JSON.stringify(log.request_body),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
 
       toast({
         title: language === "ar" ? "تم الإرسال" : "Sent",
