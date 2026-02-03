@@ -119,6 +119,7 @@ interface VacationRequest {
   status: string;
   reason: string | null;
   vacation_codes?: { code: string; name_en: string } | null;
+  source?: 'vacation_requests' | 'employee_requests'; // Track origin
 }
 
 interface Timesheet {
@@ -186,7 +187,7 @@ export default function EmployeeProfile() {
   const fetchEmployeeData = async () => {
     setLoading(true);
     try {
-      const [employeeRes, historyRes, vacationRes, timesheetRes, vacationTypesRes] = await Promise.all([
+      const [employeeRes, historyRes, vacationRes, timesheetRes, vacationTypesRes, employeeRequestsVacationRes] = await Promise.all([
         supabase
           .from("employees")
           .select(`
@@ -236,17 +237,66 @@ export default function EmployeeProfile() {
           .eq("employee_id", id)
           .eq("year", new Date().getFullYear())
           .order("vacation_code_id", { ascending: true }),
+        // Also fetch approved vacations from employee_requests (Employee Self-Service workflow)
         supabase
-          .from("employee_contacts")
-          .select("id, contact_type, contact_name, contact_phone, contact_address, is_emergency_contact")
+          .from("employee_requests")
+          .select(`
+            id,
+            start_date,
+            end_date,
+            total_days,
+            status,
+            reason,
+            vacation_code_id,
+            vacation_codes(code, name_en)
+          `)
           .eq("employee_id", id)
-          .order("created_at", { ascending: false }),
+          .eq("request_type", "vacation")
+          .order("start_date", { ascending: false })
+          .limit(10),
       ]);
 
       if (employeeRes.error) throw employeeRes.error;
       setEmployee(employeeRes.data);
       setJobHistory(historyRes.data || []);
-      setVacationRequests(vacationRes.data || []);
+      
+      // Merge vacation_requests and employee_requests (vacation type)
+      const vacationRequestsData: VacationRequest[] = (vacationRes.data || []).map((v: any) => ({
+        id: v.id,
+        start_date: v.start_date,
+        end_date: v.end_date,
+        total_days: v.total_days,
+        status: v.status,
+        reason: v.reason,
+        vacation_codes: v.vacation_codes,
+        source: 'vacation_requests' as const,
+      }));
+      
+      const employeeVacationRequests: VacationRequest[] = (employeeRequestsVacationRes.data || []).map((req: any) => ({
+        id: req.id,
+        start_date: req.start_date,
+        end_date: req.end_date,
+        total_days: req.total_days,
+        status: req.status,
+        reason: req.reason,
+        vacation_codes: req.vacation_codes,
+        source: 'employee_requests' as const,
+      }));
+      
+      // Combine and deduplicate by date range (in case same vacation exists in both)
+      const allVacations: VacationRequest[] = [...vacationRequestsData];
+      for (const empVac of employeeVacationRequests) {
+        const isDuplicate = allVacations.some(
+          v => v.start_date === empVac.start_date && v.end_date === empVac.end_date
+        );
+        if (!isDuplicate) {
+          allVacations.push(empVac);
+        }
+      }
+      // Sort by start_date descending
+      allVacations.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
+      
+      setVacationRequests(allVacations);
       setTimesheets(timesheetRes.data || []);
       setEmployeeVacationTypes(vacationTypesRes.data as EmployeeVacationType[] || []);
       
