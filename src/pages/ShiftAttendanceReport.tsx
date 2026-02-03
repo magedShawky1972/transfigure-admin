@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { ar } from "date-fns/locale";
 import { Calendar, RefreshCw, MapPin, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getKSADateString } from "@/lib/ksaTime";
+import { getKSADateString, formatKSADateTime } from "@/lib/ksaTime";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 
@@ -110,14 +108,8 @@ export default function ShiftAttendanceReport() {
     }
   };
 
-  const formatTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return date.toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
+  const formatCheckInTime = (dateTimeString: string) => {
+    return formatKSADateTime(dateTimeString, true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -239,7 +231,7 @@ export default function ShiftAttendanceReport() {
                         {record.shift_assignments?.shifts?.shift_start_time || '-'}
                       </TableCell>
                       <TableCell className="font-mono">
-                        {formatTime(record.check_in_time)}
+                        {formatCheckInTime(record.check_in_time)}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(record.status)}
