@@ -73,164 +73,311 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
       <div
         ref={ref}
         data-print-content="true"
-        className="bg-white p-8 min-h-screen print:p-4 relative"
+        className="bg-white min-h-screen relative"
         dir={isRtl ? "rtl" : "ltr"}
-        style={{ fontFamily: "Arial, sans-serif", color: "#000" }}
+        style={{ 
+          fontFamily: "Arial, sans-serif", 
+          color: "#000",
+          maxWidth: "700px",
+          margin: "0 auto",
+          padding: "20px 30px"
+        }}
       >
         {/* Status Ribbon */}
         <div
-          className="absolute overflow-hidden pointer-events-none"
           style={{
+            position: "absolute",
             top: 0,
             right: isRtl ? "auto" : 0,
             left: isRtl ? 0 : "auto",
             width: "150px",
             height: "150px",
+            overflow: "hidden",
+            pointerEvents: "none",
             zIndex: 10,
           }}
         >
           <div
             style={{
               position: "absolute",
-              top: "30px",
-              right: isRtl ? "auto" : "-40px",
-              left: isRtl ? "-40px" : "auto",
+              top: "28px",
+              right: isRtl ? "auto" : "-45px",
+              left: isRtl ? "-45px" : "auto",
               width: "180px",
               textAlign: "center",
               transform: isRtl ? "rotate(-45deg)" : "rotate(45deg)",
               backgroundColor: getStatusColor(status),
               color: "white",
-              padding: "8px 0",
+              padding: "6px 0",
               fontWeight: "bold",
-              fontSize: "12px",
+              fontSize: "11px",
               textTransform: "uppercase",
               boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-              letterSpacing: "1px",
+              letterSpacing: "0.5px",
             }}
           >
             {getStatusLabel(status)}
           </div>
         </div>
 
-        {/* Header */}
-        <div className="text-center border-b-2 border-black pb-4 mb-6 relative" style={{ zIndex: 1 }}>
+        {/* Header with Logo */}
+        <div style={{ textAlign: "center", marginBottom: "20px", paddingTop: "10px" }}>
           <img
             src={PRINT_LOGO_PATH}
             alt="Company Logo"
-            style={{ width: "120px", height: "auto", margin: "0 auto 10px" }}
+            style={{ width: "140px", height: "auto", margin: "0 auto 15px" }}
           />
-          <h1 className="text-2xl font-bold mb-2">
+          <h1 style={{ 
+            fontSize: "22px", 
+            fontWeight: "bold", 
+            margin: "0 0 8px 0",
+            color: "#1a1a1a"
+          }}>
             {isRtl ? "طلب إجازة" : "Vacation Request"}
           </h1>
-          {requestNumber && (
-            <p className="text-sm text-gray-600 font-mono">
-              {isRtl ? `رقم الطلب: ${requestNumber}` : `Request #: ${requestNumber}`}
-            </p>
-          )}
-          {createdAt && (
-            <p className="text-sm text-gray-600">
-              {isRtl ? `تاريخ الطلب: ` : `Request Date: `}
-              {format(new Date(createdAt), "yyyy-MM-dd")}
-            </p>
-          )}
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "center", 
+            gap: "30px",
+            fontSize: "12px",
+            color: "#555"
+          }}>
+            {requestNumber && (
+              <span>
+                <strong>{isRtl ? "رقم الطلب:" : "Request #:"}</strong> {requestNumber}
+              </span>
+            )}
+            {createdAt && (
+              <span>
+                <strong>{isRtl ? "تاريخ الطلب:" : "Date:"}</strong> {format(new Date(createdAt), "yyyy-MM-dd")}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Employee Information */}
-        <div className="border border-black p-4 mb-6">
-          <h2 className="font-bold text-lg mb-4 border-b pb-2">
+        {/* Divider */}
+        <div style={{ borderBottom: "2px solid #333", marginBottom: "20px" }} />
+
+        {/* Employee Information Section */}
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ 
+            fontSize: "14px", 
+            fontWeight: "bold", 
+            backgroundColor: "#f5f5f5",
+            padding: "8px 12px",
+            margin: "0 0 12px 0",
+            borderRadius: "4px",
+            borderRight: isRtl ? "4px solid #2563eb" : "none",
+            borderLeft: isRtl ? "none" : "4px solid #2563eb"
+          }}>
             {isRtl ? "بيانات الموظف" : "Employee Information"}
           </h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "اسم الموظف:" : "Employee Name:"}</span>
-              <span>{employeeName}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "الرقم الوظيفي:" : "Employee No:"}</span>
-              <span className="font-mono">{employeeNumber}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "القسم:" : "Department:"}</span>
-              <span>{departmentName}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "المسمى الوظيفي:" : "Position:"}</span>
-              <span>{positionName}</span>
-            </div>
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "اسم الموظف:" : "Employee Name:"}
+                </td>
+                <td style={{ padding: "8px 12px", width: "25%" }}>{employeeName}</td>
+                <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "الرقم الوظيفي:" : "Employee No:"}
+                </td>
+                <td style={{ padding: "8px 12px", width: "25%", fontFamily: "monospace" }}>{employeeNumber}</td>
+              </tr>
+              <tr style={{ backgroundColor: "#fafafa" }}>
+                <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "القسم:" : "Department:"}
+                </td>
+                <td style={{ padding: "8px 12px" }}>{departmentName}</td>
+                <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "المسمى الوظيفي:" : "Position:"}
+                </td>
+                <td style={{ padding: "8px 12px" }}>{positionName}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        {/* Vacation Details */}
-        <div className="border border-black p-4 mb-6">
-          <h2 className="font-bold text-lg mb-4 border-b pb-2">
+        {/* Vacation Details Section */}
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ 
+            fontSize: "14px", 
+            fontWeight: "bold", 
+            backgroundColor: "#f5f5f5",
+            padding: "8px 12px",
+            margin: "0 0 12px 0",
+            borderRadius: "4px",
+            borderRight: isRtl ? "4px solid #16a34a" : "none",
+            borderLeft: isRtl ? "none" : "4px solid #16a34a"
+          }}>
             {isRtl ? "تفاصيل الإجازة" : "Vacation Details"}
           </h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "نوع الإجازة:" : "Vacation Type:"}</span>
-              <span>{vacationType}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "عدد الأيام:" : "Total Days:"}</span>
-              <span className="font-bold text-lg">{totalDays} {isRtl ? "يوم" : "days"}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "تاريخ البداية:" : "Start Date:"}</span>
-              <span>{format(new Date(startDate), "yyyy-MM-dd")}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-dashed">
-              <span className="font-semibold">{isRtl ? "تاريخ النهاية:" : "End Date:"}</span>
-              <span>{format(new Date(endDate), "yyyy-MM-dd")}</span>
-            </div>
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "نوع الإجازة:" : "Vacation Type:"}
+                </td>
+                <td style={{ padding: "8px 12px", width: "25%" }}>{vacationType}</td>
+                <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "عدد الأيام:" : "Total Days:"}
+                </td>
+                <td style={{ padding: "8px 12px", width: "25%" }}>
+                  <span style={{ 
+                    fontWeight: "bold", 
+                    fontSize: "15px",
+                    color: "#2563eb"
+                  }}>
+                    {totalDays} {isRtl ? "يوم" : "days"}
+                  </span>
+                </td>
+              </tr>
+              <tr style={{ backgroundColor: "#fafafa" }}>
+                <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "تاريخ البداية:" : "Start Date:"}
+                </td>
+                <td style={{ padding: "8px 12px" }}>{format(new Date(startDate), "yyyy-MM-dd")}</td>
+                <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
+                  {isRtl ? "تاريخ النهاية:" : "End Date:"}
+                </td>
+                <td style={{ padding: "8px 12px" }}>{format(new Date(endDate), "yyyy-MM-dd")}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        {/* Reason / Description */}
+        {/* Reason Section */}
         {reason && (
-          <div className="border border-black p-4 mb-6">
-            <h2 className="font-bold text-lg mb-2">
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ 
+              fontSize: "14px", 
+              fontWeight: "bold", 
+              backgroundColor: "#f5f5f5",
+              padding: "8px 12px",
+              margin: "0 0 12px 0",
+              borderRadius: "4px",
+              borderRight: isRtl ? "4px solid #f59e0b" : "none",
+              borderLeft: isRtl ? "none" : "4px solid #f59e0b"
+            }}>
               {isRtl ? "السبب / الوصف" : "Reason / Description"}
             </h2>
-            <p className="text-sm whitespace-pre-wrap">{reason}</p>
+            <div style={{ 
+              padding: "12px", 
+              backgroundColor: "#fffbeb",
+              borderRadius: "4px",
+              fontSize: "13px",
+              lineHeight: "1.6",
+              border: "1px solid #fef3c7"
+            }}>
+              {reason}
+            </div>
           </div>
         )}
 
-        {/* Approval Comments / Notes */}
+        {/* Approval Comments Section */}
         {approvalComments && (
-          <div className="border border-black p-4 mb-6">
-            <h2 className="font-bold text-lg mb-2">
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ 
+              fontSize: "14px", 
+              fontWeight: "bold", 
+              backgroundColor: "#f5f5f5",
+              padding: "8px 12px",
+              margin: "0 0 12px 0",
+              borderRadius: "4px",
+              borderRight: isRtl ? "4px solid #8b5cf6" : "none",
+              borderLeft: isRtl ? "none" : "4px solid #8b5cf6"
+            }}>
               {isRtl ? "ملاحظات الاعتماد" : "Approval Notes"}
             </h2>
-            <p className="text-sm whitespace-pre-wrap">{approvalComments}</p>
+            <div style={{ 
+              padding: "12px", 
+              backgroundColor: "#f5f3ff",
+              borderRadius: "4px",
+              fontSize: "13px",
+              lineHeight: "1.6",
+              border: "1px solid #ede9fe"
+            }}>
+              {approvalComments}
+            </div>
           </div>
         )}
 
         {/* Signature Section */}
-        <div className="grid grid-cols-3 gap-8 mt-12 text-sm">
-          <div className="text-center">
-            <div className="border-b border-black pb-16 mb-2"></div>
-            <p className="font-semibold">{isRtl ? "الموظف" : "Employee"}</p>
-            <p className="text-xs text-gray-600">{isRtl ? "الاسم والتوقيع" : "Name & Signature"}</p>
-          </div>
-          <div className="text-center">
-            <div className="border-b border-black pb-16 mb-2"></div>
-            <p className="font-semibold">{isRtl ? "مدير القسم" : "Department Manager"}</p>
-            <p className="text-xs text-gray-600">{isRtl ? "الاسم والتوقيع" : "Name & Signature"}</p>
-          </div>
-          <div className="text-center">
-            <div className="border-b border-black pb-16 mb-2"></div>
-            <p className="font-semibold">{isRtl ? "الموارد البشرية" : "HR Manager"}</p>
-            <p className="text-xs text-gray-600">{isRtl ? "الاسم والتوقيع" : "Name & Signature"}</p>
-          </div>
+        <div style={{ marginTop: "40px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ 
+                  width: "33.33%", 
+                  textAlign: "center", 
+                  padding: "10px",
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                  borderBottom: "2px solid #e5e7eb"
+                }}>
+                  {isRtl ? "الموظف" : "Employee"}
+                </th>
+                <th style={{ 
+                  width: "33.33%", 
+                  textAlign: "center", 
+                  padding: "10px",
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                  borderBottom: "2px solid #e5e7eb"
+                }}>
+                  {isRtl ? "مدير القسم" : "Department Manager"}
+                </th>
+                <th style={{ 
+                  width: "33.33%", 
+                  textAlign: "center", 
+                  padding: "10px",
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                  borderBottom: "2px solid #e5e7eb"
+                }}>
+                  {isRtl ? "الموارد البشرية" : "HR Manager"}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ height: "70px", verticalAlign: "bottom", textAlign: "center" }}>
+                  <div style={{ borderBottom: "1px solid #999", width: "80%", margin: "0 auto" }} />
+                </td>
+                <td style={{ height: "70px", verticalAlign: "bottom", textAlign: "center" }}>
+                  <div style={{ borderBottom: "1px solid #999", width: "80%", margin: "0 auto" }} />
+                </td>
+                <td style={{ height: "70px", verticalAlign: "bottom", textAlign: "center" }}>
+                  <div style={{ borderBottom: "1px solid #999", width: "80%", margin: "0 auto" }} />
+                </td>
+              </tr>
+              <tr>
+                <td style={{ textAlign: "center", padding: "8px", fontSize: "11px", color: "#666" }}>
+                  {isRtl ? "الاسم والتوقيع" : "Name & Signature"}
+                </td>
+                <td style={{ textAlign: "center", padding: "8px", fontSize: "11px", color: "#666" }}>
+                  {isRtl ? "الاسم والتوقيع" : "Name & Signature"}
+                </td>
+                <td style={{ textAlign: "center", padding: "8px", fontSize: "11px", color: "#666" }}>
+                  {isRtl ? "الاسم والتوقيع" : "Name & Signature"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {/* Footer */}
-        <div className="mt-8 pt-4 border-t border-gray-300 text-xs text-gray-500 text-center">
-          <p>
-            {isRtl
-              ? `تم الطباعة بتاريخ: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`
-              : `Printed on: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
-          </p>
+        <div style={{ 
+          marginTop: "30px", 
+          paddingTop: "15px", 
+          borderTop: "1px solid #e5e7eb",
+          textAlign: "center",
+          fontSize: "10px",
+          color: "#888"
+        }}>
+          {isRtl
+            ? `تم الطباعة بتاريخ: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`
+            : `Printed on: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`}
         </div>
 
         {/* Print Styles */}
@@ -257,6 +404,8 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
               width: 100% !important;
               height: auto !important;
               background: white !important;
+              padding: 15mm !important;
+              max-width: none !important;
             }
 
             @page {
