@@ -4448,8 +4448,10 @@ export type Database = {
           created_at: string
           created_at_date: string | null
           created_at_date_int: number | null
+          customer_ip: string | null
           customer_name: string | null
           customer_phone: string | null
+          device_fingerprint: string | null
           id: string
           is_deleted: boolean
           order_number: string | null
@@ -4464,6 +4466,7 @@ export type Database = {
           sendodoo: boolean | null
           total: number | null
           trans_type: string | null
+          transaction_location: string | null
           unit_price: number | null
           updated_at: string
           user_name: string | null
@@ -4480,8 +4483,10 @@ export type Database = {
           created_at?: string
           created_at_date?: string | null
           created_at_date_int?: number | null
+          customer_ip?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          device_fingerprint?: string | null
           id?: string
           is_deleted?: boolean
           order_number?: string | null
@@ -4496,6 +4501,7 @@ export type Database = {
           sendodoo?: boolean | null
           total?: number | null
           trans_type?: string | null
+          transaction_location?: string | null
           unit_price?: number | null
           updated_at?: string
           user_name?: string | null
@@ -4512,8 +4518,10 @@ export type Database = {
           created_at?: string
           created_at_date?: string | null
           created_at_date_int?: number | null
+          customer_ip?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          device_fingerprint?: string | null
           id?: string
           is_deleted?: boolean
           order_number?: string | null
@@ -4528,6 +4536,7 @@ export type Database = {
           sendodoo?: boolean | null
           total?: number | null
           trans_type?: string | null
+          transaction_location?: string | null
           unit_price?: number | null
           updated_at?: string
           user_name?: string | null
