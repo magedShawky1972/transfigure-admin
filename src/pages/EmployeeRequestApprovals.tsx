@@ -451,6 +451,16 @@ const EmployeeRequestApprovals = () => {
                 </div>
               </div>
 
+              {selectedRequest.reason && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground flex items-center gap-1"><FileText className="h-3 w-3" />{language === 'ar' ? 'الوصف' : 'Description'}</Label>
+                    <p className="text-sm bg-muted p-3 rounded-md">{selectedRequest.reason}</p>
+                  </div>
+                </>
+              )}
+
               {(selectedRequest.start_date || selectedRequest.end_date) && (
                 <>
                   <Separator />
