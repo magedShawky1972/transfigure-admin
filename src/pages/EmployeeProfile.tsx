@@ -49,6 +49,7 @@ import {
   Building2,
   Pencil,
   Plus,
+  Trash2,
 } from "lucide-react";
 import EmployeeAcknowledgments from "@/components/EmployeeAcknowledgments";
 import { format, differenceInDays } from "date-fns";
@@ -166,6 +167,9 @@ export default function EmployeeProfile() {
   // Vacation dialog state
   const [vacationDialogOpen, setVacationDialogOpen] = useState(false);
   const [savingVacation, setSavingVacation] = useState(false);
+  const [editingVacation, setEditingVacation] = useState<VacationRequest | null>(null);
+  const [deleteVacationDialogOpen, setDeleteVacationDialogOpen] = useState(false);
+  const [vacationToDelete, setVacationToDelete] = useState<VacationRequest | null>(null);
   const [vacationFormData, setVacationFormData] = useState({
     vacation_code_id: "",
     start_date: "",
@@ -375,17 +379,31 @@ export default function EmployeeProfile() {
     return selectedType ? selectedType.balance - selectedType.used_days : 0;
   };
 
-  const openVacationDialog = () => {
-    setVacationFormData({
-      vacation_code_id: "",
-      start_date: "",
-      end_date: "",
-      reason: "",
-    });
+  const openVacationDialog = (vacation?: VacationRequest) => {
+    if (vacation) {
+      setEditingVacation(vacation);
+      const vacationType = employeeVacationTypes.find(
+        (evt) => evt.vacation_codes?.name_en === vacation.vacation_codes?.name_en
+      );
+      setVacationFormData({
+        vacation_code_id: vacationType?.vacation_code_id || "",
+        start_date: vacation.start_date,
+        end_date: vacation.end_date,
+        reason: vacation.reason || "",
+      });
+    } else {
+      setEditingVacation(null);
+      setVacationFormData({
+        vacation_code_id: "",
+        start_date: "",
+        end_date: "",
+        reason: "",
+      });
+    }
     setVacationDialogOpen(true);
   };
 
-  const handleAddVacation = async () => {
+  const handleSaveVacation = async () => {
     if (!vacationFormData.vacation_code_id || !vacationFormData.start_date || !vacationFormData.end_date) {
       toast.error(language === "ar" ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
       return;
@@ -397,55 +415,134 @@ export default function EmployeeProfile() {
       return;
     }
 
+    // For edit: calculate the difference in days
+    const previousDays = editingVacation?.total_days || 0;
+    const daysDifference = totalDays - previousDays;
+
     const availableBalance = getSelectedVacationTypeBalance();
-    if (totalDays > availableBalance) {
+    if (daysDifference > availableBalance) {
       toast.error(
         language === "ar" 
-          ? `الرصيد المتاح (${availableBalance} يوم) غير كافٍ لعدد الأيام المطلوبة (${totalDays} يوم)` 
-          : `Available balance (${availableBalance} days) is not sufficient for requested days (${totalDays} days)`
+          ? `الرصيد المتاح (${availableBalance} يوم) غير كافٍ لعدد الأيام الإضافية المطلوبة (${daysDifference} يوم)` 
+          : `Available balance (${availableBalance} days) is not sufficient for additional requested days (${daysDifference} days)`
       );
       return;
     }
 
     setSavingVacation(true);
     try {
-      // Insert vacation request with approved status (automatic)
-      const { error: insertError } = await supabase.from("vacation_requests").insert({
-        employee_id: id,
-        vacation_code_id: vacationFormData.vacation_code_id,
-        start_date: vacationFormData.start_date,
-        end_date: vacationFormData.end_date,
-        total_days: totalDays,
-        status: "approved",
-        reason: vacationFormData.reason || null,
-        approved_at: new Date().toISOString(),
-      });
-
-      if (insertError) throw insertError;
-
-      // Update employee_vacation_types to deduct used_days
-      const selectedVacationType = employeeVacationTypes.find(
-        (evt) => evt.vacation_code_id === vacationFormData.vacation_code_id
-      );
-      
-      if (selectedVacationType) {
+      if (editingVacation) {
+        // Update existing vacation request
         const { error: updateError } = await supabase
-          .from("employee_vacation_types")
-          .update({ 
-            used_days: selectedVacationType.used_days + totalDays
+          .from("vacation_requests")
+          .update({
+            vacation_code_id: vacationFormData.vacation_code_id,
+            start_date: vacationFormData.start_date,
+            end_date: vacationFormData.end_date,
+            total_days: totalDays,
+            reason: vacationFormData.reason || null,
           })
-          .eq("id", selectedVacationType.id);
+          .eq("id", editingVacation.id);
 
         if (updateError) throw updateError;
+
+        // Update employee_vacation_types to adjust used_days
+        if (daysDifference !== 0) {
+          const selectedVacationType = employeeVacationTypes.find(
+            (evt) => evt.vacation_code_id === vacationFormData.vacation_code_id
+          );
+          
+          if (selectedVacationType) {
+            const { error: balanceError } = await supabase
+              .from("employee_vacation_types")
+              .update({ 
+                used_days: selectedVacationType.used_days + daysDifference
+              })
+              .eq("id", selectedVacationType.id);
+
+            if (balanceError) throw balanceError;
+          }
+        }
+
+        toast.success(language === "ar" ? "تم تحديث الإجازة بنجاح" : "Vacation updated successfully");
+      } else {
+        // Insert new vacation request with approved status
+        const { error: insertError } = await supabase.from("vacation_requests").insert({
+          employee_id: id,
+          vacation_code_id: vacationFormData.vacation_code_id,
+          start_date: vacationFormData.start_date,
+          end_date: vacationFormData.end_date,
+          total_days: totalDays,
+          status: "approved",
+          reason: vacationFormData.reason || null,
+          approved_at: new Date().toISOString(),
+        });
+
+        if (insertError) throw insertError;
+
+        // Update employee_vacation_types to deduct used_days
+        const selectedVacationType = employeeVacationTypes.find(
+          (evt) => evt.vacation_code_id === vacationFormData.vacation_code_id
+        );
+        
+        if (selectedVacationType) {
+          const { error: updateError } = await supabase
+            .from("employee_vacation_types")
+            .update({ 
+              used_days: selectedVacationType.used_days + totalDays
+            })
+            .eq("id", selectedVacationType.id);
+
+          if (updateError) throw updateError;
+        }
+
+        toast.success(language === "ar" ? "تم إضافة الإجازة بنجاح" : "Vacation added successfully");
       }
 
-      toast.success(language === "ar" ? "تم إضافة الإجازة بنجاح" : "Vacation added successfully");
       setVacationDialogOpen(false);
+      setEditingVacation(null);
       fetchEmployeeData(); // Refresh data
     } catch (error: any) {
       toast.error(error.message);
     } finally {
       setSavingVacation(false);
+    }
+  };
+
+  const handleDeleteVacation = async () => {
+    if (!vacationToDelete) return;
+
+    try {
+      // First, restore the used_days to the vacation balance
+      const vacationType = employeeVacationTypes.find(
+        (evt) => evt.vacation_codes?.name_en === vacationToDelete.vacation_codes?.name_en
+      );
+
+      if (vacationType) {
+        const { error: balanceError } = await supabase
+          .from("employee_vacation_types")
+          .update({ 
+            used_days: Math.max(0, vacationType.used_days - vacationToDelete.total_days)
+          })
+          .eq("id", vacationType.id);
+
+        if (balanceError) throw balanceError;
+      }
+
+      // Delete the vacation request
+      const { error: deleteError } = await supabase
+        .from("vacation_requests")
+        .delete()
+        .eq("id", vacationToDelete.id);
+
+      if (deleteError) throw deleteError;
+
+      toast.success(language === "ar" ? "تم حذف الإجازة بنجاح" : "Vacation deleted successfully");
+      setDeleteVacationDialogOpen(false);
+      setVacationToDelete(null);
+      fetchEmployeeData(); // Refresh data
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -789,7 +886,7 @@ export default function EmployeeProfile() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>{language === "ar" ? "طلبات الإجازة" : "Vacation Requests"}</CardTitle>
-                <Button onClick={openVacationDialog} disabled={employeeVacationTypes.length === 0}>
+                <Button onClick={() => openVacationDialog()} disabled={employeeVacationTypes.length === 0}>
                   <Plus className="h-4 w-4 mr-2" />
                   {language === "ar" ? "إضافة إجازة" : "Add Vacation"}
                 </Button>
@@ -803,12 +900,13 @@ export default function EmployeeProfile() {
                       <TableHead>{language === "ar" ? "إلى" : "To"}</TableHead>
                       <TableHead>{language === "ar" ? "عدد الأيام" : "Days"}</TableHead>
                       <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                      <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {vacationRequests.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           {language === "ar" ? "لا توجد طلبات إجازة" : "No vacation requests"}
                         </TableCell>
                       </TableRow>
@@ -821,6 +919,27 @@ export default function EmployeeProfile() {
                           <TableCell>{request.total_days}</TableCell>
                           <TableCell>
                             <Badge className={getStatusColor(request.status)}>{request.status}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openVacationDialog(request)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setVacationToDelete(request);
+                                  setDeleteVacationDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -991,12 +1110,17 @@ export default function EmployeeProfile() {
         </TabsContent>
       </Tabs>
 
-      {/* Add Vacation Dialog */}
-      <Dialog open={vacationDialogOpen} onOpenChange={setVacationDialogOpen}>
+      {/* Add/Edit Vacation Dialog */}
+      <Dialog open={vacationDialogOpen} onOpenChange={(open) => {
+        setVacationDialogOpen(open);
+        if (!open) setEditingVacation(null);
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
-              {language === "ar" ? "إضافة إجازة" : "Add Vacation"}
+              {editingVacation
+                ? language === "ar" ? "تعديل الإجازة" : "Edit Vacation"
+                : language === "ar" ? "إضافة إجازة" : "Add Vacation"}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1083,7 +1207,7 @@ export default function EmployeeProfile() {
             <Button variant="outline" onClick={() => setVacationDialogOpen(false)}>
               {language === "ar" ? "إلغاء" : "Cancel"}
             </Button>
-            <Button onClick={handleAddVacation} disabled={savingVacation}>
+            <Button onClick={handleSaveVacation} disabled={savingVacation}>
               {savingVacation
                 ? language === "ar"
                   ? "جاري الحفظ..."
@@ -1091,6 +1215,28 @@ export default function EmployeeProfile() {
                 : language === "ar"
                 ? "حفظ"
                 : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Vacation Confirmation Dialog */}
+      <Dialog open={deleteVacationDialogOpen} onOpenChange={setDeleteVacationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "تأكيد الحذف" : "Confirm Delete"}</DialogTitle>
+          </DialogHeader>
+          <p>
+            {language === "ar"
+              ? `هل أنت متأكد من حذف هذه الإجازة؟ سيتم إرجاع ${vacationToDelete?.total_days || 0} يوم إلى الرصيد.`
+              : `Are you sure you want to delete this vacation? ${vacationToDelete?.total_days || 0} day(s) will be restored to the balance.`}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteVacationDialogOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteVacation}>
+              {language === "ar" ? "حذف" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
