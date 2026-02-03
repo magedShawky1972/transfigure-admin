@@ -166,7 +166,7 @@ export default function ShiftAttendanceReport() {
   };
 
   const getGoogleMapsUrl = (lat: number, lng: number) => {
-    return `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
   };
 
   if (accessLoading) {
