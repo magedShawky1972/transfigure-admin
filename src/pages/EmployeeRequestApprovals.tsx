@@ -89,7 +89,7 @@ const EmployeeRequestApprovals = () => {
 
   const fetchRequests = async () => {
     try {
-      let query = supabase.from('employee_requests').select('*').order('created_at', { ascending: false });
+      let query = supabase.from('employee_requests').select('*, employees:employee_id(employee_name, employee_name_ar)').order('created_at', { ascending: false });
       if (filterStatus === 'pending') query = query.in('status', ['pending', 'manager_approved', 'hr_pending']);
       else if (filterStatus !== 'all') query = query.eq('status', filterStatus);
       if (filterType !== 'all') query = query.eq('request_type', filterType);
@@ -177,26 +177,29 @@ const EmployeeRequestApprovals = () => {
             <Table>
               <TableHeader><TableRow>
                 <TableHead>{language === 'ar' ? 'رقم' : '#'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
                 <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                 <TableHead>{language === 'ar' ? 'المرحلة' : 'Phase'}</TableHead>
                 <TableHead>{language === 'ar' ? 'إجراء' : 'Action'}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {requests.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center">{language === 'ar' ? 'لا توجد طلبات' : 'No requests'}</TableCell></TableRow> : requests.map((r: any) => {
+                {requests.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center">{language === 'ar' ? 'لا توجد طلبات' : 'No requests'}</TableCell></TableRow> : requests.map((r: any) => {
                   const info = REQUEST_TYPE_INFO[r.request_type] || REQUEST_TYPE_INFO.vacation;
                   const Icon = info.icon;
                   const canAct = canTakeAction(r);
+                  const employeeName = r.employees ? (language === 'ar' && r.employees.employee_name_ar ? r.employees.employee_name_ar : r.employees.employee_name) : '-';
                   return (
-                    <TableRow key={r.id} className={canAct ? 'bg-yellow-50' : ''}>
+                    <TableRow key={r.id} className={canAct ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}>
                       <TableCell className="font-mono text-sm">{r.request_number}</TableCell>
+                      <TableCell className="font-medium">{employeeName}</TableCell>
                       <TableCell><Badge className={info.color}><Icon className="h-3 w-3 mr-1" />{language === 'ar' ? info.labelAr : info.labelEn}</Badge></TableCell>
                       <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
                       <TableCell><Badge variant="outline">{r.current_phase} L{r.current_approval_level}</Badge></TableCell>
                       <TableCell>
                         {canAct ? (
                           <div className="flex gap-1">
-                            <Button size="sm" className="bg-green-600" onClick={() => { setSelectedRequest(r); setActionType('approve'); }}><CheckCircle2 className="h-4 w-4" /></Button>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => { setSelectedRequest(r); setActionType('approve'); }}><CheckCircle2 className="h-4 w-4" /></Button>
                             <Button size="sm" variant="destructive" onClick={() => { setSelectedRequest(r); setActionType('reject'); }}><XCircle className="h-4 w-4" /></Button>
                           </div>
                         ) : <Button size="sm" variant="ghost" onClick={() => setSelectedRequest(r)}><Eye className="h-4 w-4" /></Button>}
