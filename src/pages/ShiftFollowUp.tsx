@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import ShiftClosingDetailsDialog from "@/components/ShiftClosingDetailsDialog";
+import ShiftAttendanceReportDialog from "@/components/ShiftAttendanceReportDialog";
 import { getKSADateString, formatKSADateTime, isOnKSADate, getKSATimeInMinutes } from "@/lib/ksaTime";
 
 interface ShiftSession {
@@ -95,7 +96,7 @@ interface User {
 }
 
 export default function ShiftFollowUp() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedDate, setSelectedDate] = useState<string>(getKSADateString());
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -117,6 +118,9 @@ export default function ShiftFollowUp() {
   const [editingNoteSessionId, setEditingNoteSessionId] = useState<string | null>(null);
   const [adminNoteValue, setAdminNoteValue] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
+  const [attendanceUserId, setAttendanceUserId] = useState<string | undefined>(undefined);
+  const [attendanceUserName, setAttendanceUserName] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetchUsers();
@@ -871,6 +875,19 @@ export default function ShiftFollowUp() {
                                   >
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-blue-600 hover:text-blue-800"
+                                    onClick={() => {
+                                      setAttendanceUserId(assignment.user_id);
+                                      setAttendanceUserName(assignment.profiles.user_name);
+                                      setAttendanceDialogOpen(true);
+                                    }}
+                                    title={language === 'ar' ? "سجل الحضور" : "Attendance"}
+                                  >
+                                    <ClipboardCheck className="h-4 w-4" />
+                                  </Button>
                                   {!currentStatus && (
                                     <Button
                                       size="sm"
@@ -1100,6 +1117,15 @@ export default function ShiftFollowUp() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Shift Attendance Report Dialog */}
+      <ShiftAttendanceReportDialog
+        open={attendanceDialogOpen}
+        onOpenChange={setAttendanceDialogOpen}
+        selectedDate={selectedDate}
+        selectedUserId={attendanceUserId}
+        selectedUserName={attendanceUserName}
+      />
     </div>
   );
 }
