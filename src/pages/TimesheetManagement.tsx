@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -124,7 +125,7 @@ export default function TimesheetManagement() {
     absence_reason: "",
     notes: "",
   });
-  const [frequentlyLateEmployees, setFrequentlyLateEmployees] = useState<{name: string; count: number}[]>([]);
+  const [frequentlyLateEmployees, setFrequentlyLateEmployees] = useState<{name: string; count: number; photoUrl: string | null}[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -144,7 +145,7 @@ export default function TimesheetManagement() {
         .select(`
           employee_id,
           late_minutes,
-          employees(first_name, last_name)
+          employees(first_name, last_name, photo_url)
         `)
         .gt("late_minutes", 0)
         .gte("work_date", thirtyDaysAgo);
@@ -152,16 +153,17 @@ export default function TimesheetManagement() {
       if (error) throw error;
       
       // Group by employee and count late occurrences
-      const lateCount = new Map<string, {name: string; count: number}>();
+      const lateCount = new Map<string, {name: string; count: number; photoUrl: string | null}>();
       
       (data || []).forEach((record: any) => {
         const empId = record.employee_id;
         const empName = record.employees ? `${record.employees.first_name} ${record.employees.last_name}` : "Unknown";
+        const photoUrl = record.employees?.photo_url || null;
         
         if (lateCount.has(empId)) {
           lateCount.get(empId)!.count++;
         } else {
-          lateCount.set(empId, { name: empName, count: 1 });
+          lateCount.set(empId, { name: empName, count: 1, photoUrl });
         }
       });
       
@@ -678,10 +680,16 @@ export default function TimesheetManagement() {
                     {language === "ar" ? "لا يوجد موظفين متكررين" : "No frequent offenders"}
                   </p>
                 ) : (
-                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                  <div className="space-y-1.5 max-h-28 overflow-y-auto">
                     {frequentlyLateEmployees.map((emp, index) => (
-                      <div key={index} className="flex items-center justify-between text-xs">
-                        <span className="text-orange-800 dark:text-orange-300 truncate max-w-[100px]">{emp.name}</span>
+                      <div key={index} className="flex items-center gap-2 text-xs">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={emp.photoUrl || undefined} alt={emp.name} />
+                          <AvatarFallback className="text-[8px] bg-orange-200 text-orange-800">
+                            {emp.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-orange-800 dark:text-orange-300 truncate flex-1">{emp.name}</span>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-700">
                           {emp.count}x
                         </Badge>
