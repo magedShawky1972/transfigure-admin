@@ -150,6 +150,20 @@ Deno.serve(async (req) => {
     const tableName = tables.salesheader;
     console.log(`Inserting sales header into table: ${tableName}`);
 
+    // Parse status - convert string to integer if needed
+    let statusValue = body.status;
+    if (typeof statusValue === 'string') {
+      // Map common status strings to integers
+      const statusMap: Record<string, number> = {
+        'pending': 0,
+        'processing': 1,
+        'completed': 2,
+        'cancelled': 3,
+        'refunded': 4,
+      };
+      statusValue = statusMap[statusValue.toLowerCase()] ?? (parseInt(statusValue, 10) || 0);
+    }
+
     // Build the insert object with all available fields
     const insertData: Record<string, any> = {
       ordernumber: body.ordernumber || body.order_number,
@@ -157,7 +171,7 @@ Deno.serve(async (req) => {
       customer_name: body.customer_name,
       total: body.total || 0,
       created_at_date: body.created_at_date || body.order_date,
-      status: body.status || 'pending',
+      status: statusValue,
       status_description: body.status_description,
       payment_method: body.payment_method,
       payment_brand: body.payment_brand,
