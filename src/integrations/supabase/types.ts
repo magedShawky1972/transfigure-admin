@@ -3897,30 +3897,39 @@ export type Database = {
       }
       order_payment: {
         Row: {
+          bank_transaction_id: string | null
           create_at: string | null
           created_at: string
           created_at_int: number | null
           id: string
           ordernumber: string | null
+          payment_location: string | null
           paymentrefrence: string | null
+          redemption_ip: string | null
           updated_at: string
         }
         Insert: {
+          bank_transaction_id?: string | null
           create_at?: string | null
           created_at?: string
           created_at_int?: number | null
           id?: string
           ordernumber?: string | null
+          payment_location?: string | null
           paymentrefrence?: string | null
+          redemption_ip?: string | null
           updated_at?: string
         }
         Update: {
+          bank_transaction_id?: string | null
           create_at?: string | null
           created_at?: string
           created_at_int?: number | null
           id?: string
           ordernumber?: string | null
+          payment_location?: string | null
           paymentrefrence?: string | null
+          redemption_ip?: string | null
           updated_at?: string
         }
         Relationships: []
