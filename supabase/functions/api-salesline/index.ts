@@ -152,12 +152,12 @@ Deno.serve(async (req) => {
     let conflictColumns: string;
     
     if (apiMode === 'production') {
-      // Map to order_details columns
+      // Map to sales_order_line columns (snake_case)
       upsertData = {
-        ordernumber: body.Order_Number,
+        order_number: body.Order_Number,
         line_number: body.Line_Number,
         line_status: body.Line_Status,
-        sku: body.Product_SKU,
+        product_sku: body.Product_SKU,
         product_id: body.Product_Id,
         quantity: body.Quantity,
         unit_price: body.Unit_price,
@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
         cost_price: body.Cost_Price,
         total_cost: body.Total_Cost,
       };
-      conflictColumns = 'ordernumber,line_number';
+      conflictColumns = 'order_number,line_number';
     } else {
       // Map to testsalesline columns
       upsertData = {
