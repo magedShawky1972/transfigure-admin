@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
         onConflict: 'ordernumber',
         ignoreDuplicates: false 
       })
-      .select('id, ordernumber')
+      .select('id, created_at')
       .single();
 
     if (insertError) {
@@ -229,10 +229,10 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: responseMessage,
-      mode: apiMode,
-      id: insertedData.id,
-      ordernumber: insertedData.ordernumber
+      data: {
+        id: insertedData.id,
+        created_at: insertedData.created_at
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
