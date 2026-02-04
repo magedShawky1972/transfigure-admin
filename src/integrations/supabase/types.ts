@@ -3905,6 +3905,7 @@ export type Database = {
           id: string
           ordernumber: string | null
           payment_location: string | null
+          paymentamount: number | null
           paymentrefrence: string | null
           redemption_ip: string | null
           updated_at: string
@@ -3918,6 +3919,7 @@ export type Database = {
           id?: string
           ordernumber?: string | null
           payment_location?: string | null
+          paymentamount?: number | null
           paymentrefrence?: string | null
           redemption_ip?: string | null
           updated_at?: string
@@ -3931,6 +3933,7 @@ export type Database = {
           id?: string
           ordernumber?: string | null
           payment_location?: string | null
+          paymentamount?: number | null
           paymentrefrence?: string | null
           redemption_ip?: string | null
           updated_at?: string
