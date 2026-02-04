@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2 } from "lucide-react";
+import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 
 interface ApiLog {
@@ -64,6 +64,8 @@ const ApiConsumptionLogs = () => {
   const [selectedLog, setSelectedLog] = useState<ApiLog | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [resending, setResending] = useState<string | null>(null);
+  const [retryingAll, setRetryingAll] = useState(false);
+  const [retryProgress, setRetryProgress] = useState({ current: 0, total: 0 });
   
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -275,6 +277,92 @@ const ApiConsumptionLogs = () => {
     }
   };
 
+  const retryAllFailed = async () => {
+    // Get all failed logs that have request_body and api_key_id
+    const failedLogs = filteredLogs.filter(
+      log => !log.success && log.request_body && log.api_key_id
+    );
+
+    if (failedLogs.length === 0) {
+      toast({
+        title: language === "ar" ? "لا توجد طلبات" : "No Requests",
+        description: language === "ar" ? "لا توجد طلبات فاشلة لإعادة المحاولة" : "No failed requests to retry",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const confirmMessage = language === "ar" 
+      ? `هل أنت متأكد من إعادة إرسال ${failedLogs.length} طلب فاشل؟`
+      : `Are you sure you want to retry ${failedLogs.length} failed request(s)?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setRetryingAll(true);
+    setRetryProgress({ current: 0, total: failedLogs.length });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < failedLogs.length; i++) {
+      const log = failedLogs[i];
+      setRetryProgress({ current: i + 1, total: failedLogs.length });
+
+      try {
+        // Fetch the API key from the database
+        const { data: apiKeyData, error: apiKeyError } = await supabase
+          .from("api_keys")
+          .select("api_key")
+          .eq("id", log.api_key_id)
+          .single();
+
+        if (apiKeyError || !apiKeyData) {
+          failCount++;
+          continue;
+        }
+
+        // Make direct fetch request with the original API key
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${log.endpoint}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": apiKeyData.api_key,
+            },
+            body: JSON.stringify(log.request_body),
+          }
+        );
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+
+        // Small delay to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        failCount++;
+      }
+    }
+
+    setRetryingAll(false);
+    setRetryProgress({ current: 0, total: 0 });
+
+    toast({
+      title: language === "ar" ? "اكتملت إعادة المحاولة" : "Retry Complete",
+      description: language === "ar" 
+        ? `ناجحة: ${successCount}, فاشلة: ${failCount}`
+        : `Success: ${successCount}, Failed: ${failCount}`,
+    });
+
+    // Refresh logs to see the new entries
+    fetchLogs();
+  };
+
   // Show loading or access denied
   if (accessLoading || hasAccess === null) {
     return <AccessDenied isLoading={true} />;
@@ -291,11 +379,31 @@ const ApiConsumptionLogs = () => {
           {language === "ar" ? "سجلات استهلاك API" : "API Consumption Logs"}
         </h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+          <Button 
+            variant="outline" 
+            onClick={retryAllFailed} 
+            disabled={retryingAll || loading}
+            className="text-orange-600 border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+          >
+            {retryingAll ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {language === "ar" 
+                  ? `${retryProgress.current}/${retryProgress.total}`
+                  : `${retryProgress.current}/${retryProgress.total}`}
+              </>
+            ) : (
+              <>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                {language === "ar" ? "إعادة محاولة الكل" : "Retry All Failed"}
+              </>
+            )}
+          </Button>
+          <Button variant="outline" onClick={fetchLogs} disabled={loading || retryingAll}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             {language === "ar" ? "تحديث" : "Refresh"}
           </Button>
-          <Button variant="destructive" onClick={handleClearLogs}>
+          <Button variant="destructive" onClick={handleClearLogs} disabled={retryingAll}>
             <Trash2 className="h-4 w-4 mr-2" />
             {language === "ar" ? "مسح السجلات" : "Clear Logs"}
           </Button>
