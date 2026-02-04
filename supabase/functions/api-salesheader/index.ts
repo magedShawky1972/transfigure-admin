@@ -165,26 +165,26 @@ Deno.serve(async (req) => {
     }
 
     // Build the insert object with all available fields
-    // Map to sales_order_header columns
+    // Map to sales_order_header columns - handle both PascalCase and snake_case inputs
     const insertData: Record<string, any> = {
-      order_number: body.ordernumber || body.order_number,
-      customer_phone: body.customer_phone,
-      order_date: body.created_at_date || body.order_date,
+      order_number: body.Order_Number || body.ordernumber || body.order_number,
+      customer_phone: body.Customer_Phone || body.customer_phone,
+      order_date: body.Order_date || body.created_at_date || body.order_date,
       status: statusValue,
-      status_description: body.status_description,
-      payment_term: body.payment_term,
-      sales_person: body.user_name || body.sales_person,
-      transaction_type: body.transaction_type,
-      media: body.media,
-      profit_center: body.profit_center,
-      company: body.company,
-      customer_ip: body.customer_ip,
-      device_fingerprint: body.device_fingerprint,
-      transaction_location: body.transaction_location,
-      register_user_id: body.register_user_id,
-      player_id: body.player_id,
-      is_point: body.is_point,
-      point_value: body.point_value,
+      status_description: body.Status_Description || body.status_description,
+      payment_term: body.Payment_Term || body.payment_term,
+      sales_person: body.User_Name || body.user_name || body.sales_person,
+      transaction_type: body.Transaction_Type || body.transaction_type,
+      media: body.Media || body.media,
+      profit_center: body.Profit_Center || body.profit_center,
+      company: body.Company || body.company,
+      customer_ip: body.Customer_IP || body.customer_ip,
+      device_fingerprint: body.Device_Fingerprint || body.device_fingerprint,
+      transaction_location: body.Transaction_Location || body.transaction_location,
+      register_user_id: body.Register_User_ID || body.register_user_id,
+      player_id: body.Player_ID || body.player_id,
+      is_point: body.point !== undefined ? body.point : (body.is_point ?? false),
+      point_value: body.Point_Value || body.point_value,
     };
 
     // Remove undefined values
