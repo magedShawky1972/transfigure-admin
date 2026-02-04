@@ -3898,6 +3898,7 @@ export type Database = {
       order_payment: {
         Row: {
           bank_transaction_id: string | null
+          cardnumber: string | null
           create_at: string | null
           created_at: string
           created_at_int: number | null
@@ -3910,6 +3911,7 @@ export type Database = {
         }
         Insert: {
           bank_transaction_id?: string | null
+          cardnumber?: string | null
           create_at?: string | null
           created_at?: string
           created_at_int?: number | null
@@ -3922,6 +3924,7 @@ export type Database = {
         }
         Update: {
           bank_transaction_id?: string | null
+          cardnumber?: string | null
           create_at?: string | null
           created_at?: string
           created_at_int?: number | null
