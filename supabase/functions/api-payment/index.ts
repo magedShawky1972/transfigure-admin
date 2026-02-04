@@ -7,7 +7,7 @@ const TABLE_CONFIG = {
     payment: 'testpayment',
   },
   production: {
-    payment: 'order_payment',
+    payment: 'payment_transactions',
   }
 };
 
@@ -146,34 +146,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare data based on mode
+    // Prepare data based on mode - payment_transactions uses snake_case
     let insertData: Record<string, any>;
     
     if (apiMode === 'production') {
-      // Map to order_payment columns
+      // Map to payment_transactions columns (snake_case)
       insertData = {
-        ordernumber: body.Order_number,
-        paymentmethod: body.Payment_method,
-        paymentbrand: body.Payment_brand,
-        paymentamount: body.Payment_Amount,
-        paymentreference: body.Payment_reference,
-        cardnumber: body.Payment_Card_Number,
-        bank_transaction_id: body.Bank_Transaction_Id,
-        redemption_ip: body.Redemption_IP,
-        payment_location: body.Payment_Location,
+        order_number: body.Order_number || body.order_number,
+        payment_method: body.Payment_method || body.payment_method,
+        payment_brand: body.Payment_brand || body.payment_brand,
+        payment_amount: body.Payment_Amount || body.payment_amount,
+        payment_reference: body.Payment_reference || body.payment_reference,
+        payment_card_number: body.Payment_Card_Number || body.payment_card_number,
+        bank_transaction_id: body.Bank_Transaction_Id || body.bank_transaction_id,
+        redemption_ip: body.Redemption_IP || body.redemption_ip,
+        payment_location: body.Payment_Location || body.payment_location,
       };
     } else {
       // Map to testpayment columns
       insertData = {
-        order_number: body.Order_number,
-        payment_method: body.Payment_method,
-        payment_brand: body.Payment_brand,
-        payment_amount: body.Payment_Amount,
-        payment_reference: body.Payment_reference,
-        payment_card_number: body.Payment_Card_Number,
-        bank_transaction_id: body.Bank_Transaction_Id,
-        redemption_ip: body.Redemption_IP,
-        payment_location: body.Payment_Location,
+        order_number: body.Order_number || body.order_number,
+        payment_method: body.Payment_method || body.payment_method,
+        payment_brand: body.Payment_brand || body.payment_brand,
+        payment_amount: body.Payment_Amount || body.payment_amount,
+        payment_reference: body.Payment_reference || body.payment_reference,
+        payment_card_number: body.Payment_Card_Number || body.payment_card_number,
+        bank_transaction_id: body.Bank_Transaction_Id || body.bank_transaction_id,
+        redemption_ip: body.Redemption_IP || body.redemption_ip,
+        payment_location: body.Payment_Location || body.payment_location,
       };
     }
 
