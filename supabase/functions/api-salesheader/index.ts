@@ -146,18 +146,78 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Log the received data but DO NOT insert into purpletransaction
-    // This will be handled as a separate process
-    console.log('Sales header data received (logging only, no DB insert):', JSON.stringify(body));
+    // Insert data into the appropriate table based on mode
+    const tableName = tables.salesheader;
+    console.log(`Inserting sales header into table: ${tableName}`);
+
+    // Build the insert object with all available fields
+    const insertData: Record<string, any> = {
+      ordernumber: body.ordernumber || body.order_number,
+      customer_phone: body.customer_phone,
+      customer_name: body.customer_name,
+      total: body.total || 0,
+      created_at_date: body.created_at_date || body.order_date,
+      status: body.status || 'pending',
+      status_description: body.status_description,
+      payment_method: body.payment_method,
+      payment_brand: body.payment_brand,
+      user_name: body.user_name || body.sales_person,
+      transaction_type: body.transaction_type,
+      customer_ip: body.customer_ip,
+      device_fingerprint: body.device_fingerprint,
+      transaction_location: body.transaction_location,
+      is_point: body.is_point,
+      point_value: body.point_value,
+      profit_center: body.profit_center,
+      media: body.media,
+      payment_term: body.payment_term,
+      register_user_id: body.register_user_id,
+      player_id: body.player_id,
+    };
+
+    // Remove undefined values
+    Object.keys(insertData).forEach(key => {
+      if (insertData[key] === undefined) {
+        delete insertData[key];
+      }
+    });
+
+    // Use upsert with ordernumber as the conflict key
+    const { data: insertedData, error: insertError } = await supabase
+      .from(tableName)
+      .upsert(insertData, { 
+        onConflict: 'ordernumber',
+        ignoreDuplicates: false 
+      })
+      .select('id, ordernumber')
+      .single();
+
+    if (insertError) {
+      console.error('Error inserting sales header:', insertError);
+      responseStatus = 500;
+      responseMessage = `Failed to insert sales header: ${insertError.message}`;
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ 
+        error: responseMessage,
+        details: insertError.message 
+      }), {
+        status: responseStatus,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Sales header inserted successfully:', insertedData);
     
-    responseMessage = `Sales header logged successfully (${apiMode} mode) - Data insertion disabled`;
+    responseMessage = `Sales header created/updated successfully (${apiMode} mode)`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
       message: responseMessage,
       mode: apiMode,
-      note: 'Data was logged but not inserted into database. This is now a separate process.'
+      id: insertedData.id,
+      ordernumber: insertedData.ordernumber
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
