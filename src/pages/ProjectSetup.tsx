@@ -203,7 +203,16 @@ const ProjectSetup = () => {
         end_date: formData.end_date || null
       };
 
-      await supabase.from('projects').update(payload).eq('id', editingProject!.id);
+      const { error } = await supabase
+        .from('projects')
+        .update(payload)
+        .eq('id', editingProject!.id);
+
+      if (error) {
+        console.error('Error saving project:', error);
+        toast({ title: t.error, description: error.message, variant: 'destructive' });
+        return;
+      }
 
       toast({ title: t.updated });
       setDialogOpen(false);
