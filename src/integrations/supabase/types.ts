@@ -4456,6 +4456,7 @@ export type Database = {
           customer_phone: string | null
           device_fingerprint: string | null
           id: string
+          is_api_reviewed: boolean | null
           is_deleted: boolean
           is_point: boolean | null
           media: string | null
@@ -4502,6 +4503,7 @@ export type Database = {
           customer_phone?: string | null
           device_fingerprint?: string | null
           id?: string
+          is_api_reviewed?: boolean | null
           is_deleted?: boolean
           is_point?: boolean | null
           media?: string | null
@@ -4548,6 +4550,7 @@ export type Database = {
           customer_phone?: string | null
           device_fingerprint?: string | null
           id?: string
+          is_api_reviewed?: boolean | null
           is_deleted?: boolean
           is_point?: boolean | null
           media?: string | null

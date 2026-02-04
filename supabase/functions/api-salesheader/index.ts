@@ -187,6 +187,7 @@ Deno.serve(async (req) => {
       payment_term: body.payment_term,
       register_user_id: body.register_user_id,
       player_id: body.player_id,
+      is_api_reviewed: false, // API transactions need manual review
     };
 
     // Remove undefined values
