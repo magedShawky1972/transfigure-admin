@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -27,6 +28,7 @@ interface Bank {
   opening_balance: number;
   current_balance: number;
   is_active: boolean;
+  allow_negative_balance: boolean;
   notes: string | null;
 }
 
@@ -54,6 +56,7 @@ const BankSetup = () => {
     currency_id: "",
     opening_balance: 0,
     is_active: true,
+    allow_negative_balance: false,
     notes: "",
   });
 
@@ -101,6 +104,7 @@ const BankSetup = () => {
         opening_balance: formData.opening_balance,
         current_balance: editingBank ? editingBank.current_balance : formData.opening_balance,
         is_active: formData.is_active,
+        allow_negative_balance: formData.allow_negative_balance,
         notes: formData.notes || null,
       };
 
@@ -136,6 +140,7 @@ const BankSetup = () => {
       currency_id: bank.currency_id || "",
       opening_balance: bank.opening_balance,
       is_active: bank.is_active,
+      allow_negative_balance: bank.allow_negative_balance || false,
       notes: bank.notes || "",
     });
     setDialogOpen(true);
@@ -168,6 +173,7 @@ const BankSetup = () => {
       currency_id: "",
       opening_balance: 0,
       is_active: true,
+      allow_negative_balance: false,
       notes: "",
     });
   };
@@ -292,6 +298,16 @@ const BankSetup = () => {
                   />
                   <Label>{language === "ar" ? "نشط" : "Active"}</Label>
                 </div>
+              </div>
+              <div className="flex items-center gap-3 py-2">
+                <Checkbox
+                  id="allow_negative_balance"
+                  checked={formData.allow_negative_balance}
+                  onCheckedChange={(v) => setFormData({ ...formData, allow_negative_balance: v === true })}
+                />
+                <Label htmlFor="allow_negative_balance">
+                  {language === "ar" ? "السماح بالسحب (رصيد سالب للبطاقات الائتمانية)" : "Allow Withdraw (Negative Balance for Credit Cards)"}
+                </Label>
               </div>
               <div className="space-y-2">
                 <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>

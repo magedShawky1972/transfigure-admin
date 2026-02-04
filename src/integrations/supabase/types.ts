@@ -831,6 +831,7 @@ export type Database = {
       banks: {
         Row: {
           account_number: string | null
+          allow_negative_balance: boolean | null
           bank_code: string
           bank_name: string
           bank_name_ar: string | null
@@ -849,6 +850,7 @@ export type Database = {
         }
         Insert: {
           account_number?: string | null
+          allow_negative_balance?: boolean | null
           bank_code: string
           bank_name: string
           bank_name_ar?: string | null
@@ -867,6 +869,7 @@ export type Database = {
         }
         Update: {
           account_number?: string | null
+          allow_negative_balance?: boolean | null
           bank_code?: string
           bank_name?: string
           bank_name_ar?: string | null
