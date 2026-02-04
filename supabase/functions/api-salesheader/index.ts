@@ -7,7 +7,7 @@ const TABLE_CONFIG = {
     salesheader: 'testsalesheader',
   },
   production: {
-    salesheader: 'purpletransaction',
+    salesheader: 'sales_order_header',
   }
 };
 
@@ -165,29 +165,26 @@ Deno.serve(async (req) => {
     }
 
     // Build the insert object with all available fields
+    // Map to sales_order_header columns
     const insertData: Record<string, any> = {
-      ordernumber: body.ordernumber || body.order_number,
+      order_number: body.ordernumber || body.order_number,
       customer_phone: body.customer_phone,
-      customer_name: body.customer_name,
-      total: body.total || 0,
-      created_at_date: body.created_at_date || body.order_date,
+      order_date: body.created_at_date || body.order_date,
       status: statusValue,
       status_description: body.status_description,
-      payment_method: body.payment_method,
-      payment_brand: body.payment_brand,
-      user_name: body.user_name || body.sales_person,
+      payment_term: body.payment_term,
+      sales_person: body.user_name || body.sales_person,
       transaction_type: body.transaction_type,
+      media: body.media,
+      profit_center: body.profit_center,
+      company: body.company,
       customer_ip: body.customer_ip,
       device_fingerprint: body.device_fingerprint,
       transaction_location: body.transaction_location,
-      is_point: body.is_point,
-      point_value: body.point_value,
-      profit_center: body.profit_center,
-      media: body.media,
-      payment_term: body.payment_term,
       register_user_id: body.register_user_id,
       player_id: body.player_id,
-      is_api_reviewed: false, // API transactions need manual review
+      is_point: body.is_point,
+      point_value: body.point_value,
     };
 
     // Remove undefined values
@@ -197,11 +194,11 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Use upsert with ordernumber as the conflict key
+    // Use upsert with order_number as the conflict key
     const { data: insertedData, error: insertError } = await supabase
       .from(tableName)
       .upsert(insertData, { 
-        onConflict: 'ordernumber',
+        onConflict: 'order_number',
         ignoreDuplicates: false 
       })
       .select('id, created_at')
