@@ -7,7 +7,7 @@ const TABLE_CONFIG = {
     salesline: 'testsalesline',
   },
   production: {
-    salesline: 'order_details',
+    salesline: 'sales_order_line',
   }
 };
 
