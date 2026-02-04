@@ -3907,6 +3907,7 @@ export type Database = {
           payment_location: string | null
           paymentamount: number | null
           paymentbrand: string | null
+          paymentmethod: string | null
           paymentrefrence: string | null
           redemption_ip: string | null
           updated_at: string
@@ -3922,6 +3923,7 @@ export type Database = {
           payment_location?: string | null
           paymentamount?: number | null
           paymentbrand?: string | null
+          paymentmethod?: string | null
           paymentrefrence?: string | null
           redemption_ip?: string | null
           updated_at?: string
@@ -3937,6 +3939,7 @@ export type Database = {
           payment_location?: string | null
           paymentamount?: number | null
           paymentbrand?: string | null
+          paymentmethod?: string | null
           paymentrefrence?: string | null
           redemption_ip?: string | null
           updated_at?: string
