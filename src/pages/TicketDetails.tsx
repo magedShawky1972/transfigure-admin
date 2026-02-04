@@ -33,6 +33,7 @@ type Ticket = {
   ticket_number: string;
   subject: string;
   description: string;
+  creator_notes: string | null;
   priority: string;
   status: string;
   created_at: string;
@@ -88,6 +89,14 @@ type Comment = {
   };
 };
 
+type WorkflowNote = {
+  id: string;
+  user_name: string | null;
+  note: string;
+  approval_level: number | null;
+  activity_type: string | null;
+  created_at: string;
+};
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -142,6 +151,11 @@ const TicketDetails = () => {
   const [newUomName, setNewUomName] = useState("");
   const [addingUom, setAddingUom] = useState(false);
 
+  // Workflow notes states
+  const [workflowNotes, setWorkflowNotes] = useState<WorkflowNote[]>([]);
+  const [newWorkflowNote, setNewWorkflowNote] = useState("");
+  const [submittingNote, setSubmittingNote] = useState(false);
+
   // Get the source page from navigation state
   const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
 
@@ -152,6 +166,7 @@ const TicketDetails = () => {
       fetchAttachments();
       fetchDepartments();
       fetchUomList();
+      fetchWorkflowNotes();
     }
   }, [id]);
 
@@ -488,6 +503,65 @@ const TicketDetails = () => {
       }
     } catch (error: any) {
       console.error("Error fetching comments:", error);
+    }
+  };
+
+  const fetchWorkflowNotes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("ticket_workflow_notes")
+        .select("*")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setWorkflowNotes(data || []);
+    } catch (error: any) {
+      console.error("Error fetching workflow notes:", error);
+    }
+  };
+
+  const handleAddWorkflowNote = async () => {
+    if (!newWorkflowNote.trim() || !ticket) return;
+
+    try {
+      setSubmittingNote(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get user profile for name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      const { error } = await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: id,
+        user_id: user.id,
+        user_name: profile?.user_name || "Unknown",
+        note: newWorkflowNote,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "manual_note",
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إضافة الملاحظة' : 'Note added successfully',
+      });
+
+      setNewWorkflowNote("");
+      fetchWorkflowNotes();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingNote(false);
     }
   };
 
@@ -1367,6 +1441,72 @@ const TicketDetails = () => {
                       ? 'لا يمكنك عرض تفاصيل هذه التذكرة لأنك لست مسؤولاً عن هذا القسم' 
                       : 'You cannot view this ticket\'s details as you are not an admin for this department'}
                   </p>
+                )}
+              </div>
+            )}
+
+            {/* Creator Notes Section */}
+            {!isEditing && canViewDetails && ticket.creator_notes && (
+              <div>
+                <h3 className="font-semibold mb-2">{language === 'ar' ? 'ملاحظات المنشئ' : 'Creator Notes'}</h3>
+                <p className="text-muted-foreground whitespace-pre-wrap bg-muted/50 p-3 rounded-md border">
+                  {ticket.creator_notes}
+                </p>
+              </div>
+            )}
+
+            {/* Workflow Notes Section */}
+            {!isEditing && canViewDetails && (
+              <div>
+                <Separator className="my-4" />
+                <h3 className="font-semibold mb-3">{language === 'ar' ? 'ملاحظات سير العمل' : 'Workflow Notes'}</h3>
+                
+                {/* Add Note Input for Admins */}
+                {(isAdmin || isDepartmentAdmin) && (
+                  <div className="mb-4 p-3 border rounded-md bg-muted/30">
+                    <Textarea
+                      placeholder={language === 'ar' ? 'أضف ملاحظة على سير العمل...' : 'Add a workflow note...'}
+                      value={newWorkflowNote}
+                      onChange={(e) => setNewWorkflowNote(e.target.value)}
+                      className="min-h-[60px] bg-background mb-2"
+                    />
+                    <Button
+                      onClick={handleAddWorkflowNote}
+                      disabled={submittingNote || !newWorkflowNote.trim()}
+                      size="sm"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {submittingNote 
+                        ? (language === 'ar' ? 'إرسال...' : 'Sending...') 
+                        : (language === 'ar' ? 'إضافة ملاحظة' : 'Add Note')}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Display Workflow Notes */}
+                {workflowNotes.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    {language === 'ar' ? 'لا توجد ملاحظات سير العمل' : 'No workflow notes'}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {workflowNotes.map((note) => (
+                      <div key={note.id} className="p-3 border rounded-md bg-card">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {language === 'ar' ? 'مستوى' : 'Level'} {note.approval_level ?? 0}
+                            </Badge>
+                            <span className="font-medium text-sm">{note.user_name}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(note.created_at), "PPp")}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{note.note}</p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}

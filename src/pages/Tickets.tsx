@@ -70,6 +70,7 @@ const getFormSchema = (language: string) => z.object({
   department_id: z.string().min(1, language === 'ar' ? "القسم مطلوب" : "Department is required"),
   subject: z.string().min(3, language === 'ar' ? "الموضوع يجب أن يكون 3 أحرف على الأقل" : "Subject must be at least 3 characters"),
   description: z.string().min(10, language === 'ar' ? "الوصف يجب أن يكون 10 أحرف على الأقل" : "Description must be at least 10 characters"),
+  creator_notes: z.string().optional(),
   priority: z.enum(["Low", "Medium", "High", "Urgent"]),
   is_purchase_ticket: z.boolean().default(false),
 });
@@ -211,6 +212,7 @@ const Tickets = () => {
       department_id: "",
       subject: "",
       description: "",
+      creator_notes: "",
       priority: "Medium",
       is_purchase_ticket: false,
     },
@@ -526,6 +528,7 @@ const Tickets = () => {
           department_id: values.department_id,
           subject: values.subject,
           description: values.description,
+          creator_notes: values.creator_notes || null,
           priority: values.priority,
           is_purchase_ticket: values.is_purchase_ticket,
           external_link: validExternalLinks.length > 0 ? validExternalLinks.join('\n') : null,
@@ -899,6 +902,23 @@ const Tickets = () => {
                         <Textarea
                           placeholder={language === 'ar' ? 'قدم معلومات تفصيلية عن مشكلتك' : 'Provide detailed information about your issue'}
                           className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="creator_notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'ملاحظات (اختياري)' : 'Notes (Optional)'}</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder={language === 'ar' ? 'أضف أي ملاحظات إضافية هنا' : 'Add any additional notes here'}
+                          className="min-h-[80px]"
                           {...field}
                         />
                       </FormControl>

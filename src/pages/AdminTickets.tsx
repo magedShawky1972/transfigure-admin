@@ -971,6 +971,17 @@ const AdminTickets = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Get ticket info for approval level
+      const ticket = tickets.find(t => t.id === ticketId);
+
+      // Get user profile for name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Add regular comment
       const { error } = await supabase.from("ticket_comments").insert({
         ticket_id: ticketId,
         user_id: user.id,
@@ -980,12 +991,22 @@ const AdminTickets = () => {
 
       if (error) throw error;
 
+      // Also add as workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticketId,
+        user_id: user.id,
+        user_name: profile?.user_name || "Unknown",
+        note: comment,
+        approval_level: ticket?.next_admin_order ?? 0,
+        activity_type: "admin_comment",
+      });
+
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
         description: language === 'ar' ? 'تم إضافة التعليق' : 'Comment added successfully',
       });
 
-      setQuickComment({ ...quickComment, [ticketId]: "" });
+      setQuickComment(prev => ({ ...prev, [ticketId]: "" }));
       setExpandedTicket(null);
     } catch (error: any) {
       toast({
@@ -1322,7 +1343,12 @@ const AdminTickets = () => {
                 <Textarea
                   placeholder={language === 'ar' ? 'اكتب تعليقك هنا...' : 'Write your comment here...'}
                   value={quickComment[ticket.id] || ""}
-                  onChange={(e) => setQuickComment({ ...quickComment, [ticket.id]: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setQuickComment(prev => ({ ...prev, [ticket.id]: value }));
+                  }}
+                  onBlur={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   className="min-h-[80px] bg-background text-sm"
                 />
                 <div className="flex flex-wrap gap-2">
