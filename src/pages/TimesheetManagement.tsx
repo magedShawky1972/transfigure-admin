@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface AttendanceType {
@@ -124,10 +124,58 @@ export default function TimesheetManagement() {
     absence_reason: "",
     notes: "",
   });
+  const [frequentlyLateEmployees, setFrequentlyLateEmployees] = useState<{name: string; count: number}[]>([]);
 
   useEffect(() => {
     fetchData();
   }, [selectedDate, selectedEmployee]);
+
+  useEffect(() => {
+    fetchFrequentlyLateEmployees();
+  }, []);
+
+  const fetchFrequentlyLateEmployees = async () => {
+    try {
+      // Fetch timesheets with late minutes > 0 from the last 30 days
+      const thirtyDaysAgo = format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+      
+      const { data, error } = await supabase
+        .from("timesheets")
+        .select(`
+          employee_id,
+          late_minutes,
+          employees(first_name, last_name)
+        `)
+        .gt("late_minutes", 0)
+        .gte("work_date", thirtyDaysAgo);
+      
+      if (error) throw error;
+      
+      // Group by employee and count late occurrences
+      const lateCount = new Map<string, {name: string; count: number}>();
+      
+      (data || []).forEach((record: any) => {
+        const empId = record.employee_id;
+        const empName = record.employees ? `${record.employees.first_name} ${record.employees.last_name}` : "Unknown";
+        
+        if (lateCount.has(empId)) {
+          lateCount.get(empId)!.count++;
+        } else {
+          lateCount.set(empId, { name: empName, count: 1 });
+        }
+      });
+      
+      // Filter employees with 3+ late occurrences and sort by count
+      const frequentlyLate = Array.from(lateCount.values())
+        .filter(emp => emp.count >= 3)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5); // Top 5
+      
+      setFrequentlyLateEmployees(frequentlyLate);
+    } catch (error) {
+      console.error("Error fetching frequently late employees:", error);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -576,7 +624,7 @@ export default function TimesheetManagement() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">
@@ -613,6 +661,37 @@ export default function TimesheetManagement() {
                   </p>
                   <p className="text-sm text-muted-foreground">{language === "ar" ? "غياب" : "Absent"}</p>
                 </div>
+              </CardContent>
+            </Card>
+            
+            {/* Naughty Corner Card */}
+            <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <UserX className="h-4 w-4 text-orange-600" />
+                  <p className="text-sm font-semibold text-orange-700 dark:text-orange-400">
+                    {language === "ar" ? "ركن المتأخرين" : "Naughty Corner"}
+                  </p>
+                </div>
+                {frequentlyLateEmployees.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" ? "لا يوجد موظفين متكررين" : "No frequent offenders"}
+                  </p>
+                ) : (
+                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                    {frequentlyLateEmployees.map((emp, index) => (
+                      <div key={index} className="flex items-center justify-between text-xs">
+                        <span className="text-orange-800 dark:text-orange-300 truncate max-w-[100px]">{emp.name}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-700">
+                          {emp.count}x
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {language === "ar" ? "آخر 30 يوم (3+ تأخيرات)" : "Last 30 days (3+ delays)"}
+                </p>
               </CardContent>
             </Card>
           </div>
