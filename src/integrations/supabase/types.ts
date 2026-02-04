@@ -6658,6 +6658,47 @@ export type Database = {
           },
         ]
       }
+      ticket_workflow_notes: {
+        Row: {
+          activity_type: string | null
+          approval_level: number | null
+          created_at: string
+          id: string
+          note: string
+          ticket_id: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          activity_type?: string | null
+          approval_level?: number | null
+          created_at?: string
+          id?: string
+          note: string
+          ticket_id: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          activity_type?: string | null
+          approval_level?: number | null
+          created_at?: string
+          id?: string
+          note?: string
+          ticket_id?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_workflow_notes_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           approved_at: string | null
@@ -6666,6 +6707,7 @@ export type Database = {
           budget_value: number | null
           cost_center_id: string | null
           created_at: string
+          creator_notes: string | null
           currency_id: string | null
           deleted_at: string | null
           deleted_by: string | null
@@ -6694,6 +6736,7 @@ export type Database = {
           budget_value?: number | null
           cost_center_id?: string | null
           created_at?: string
+          creator_notes?: string | null
           currency_id?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -6722,6 +6765,7 @@ export type Database = {
           budget_value?: number | null
           cost_center_id?: string | null
           created_at?: string
+          creator_notes?: string | null
           currency_id?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
