@@ -118,29 +118,77 @@ const ApiConsumptionLogs = () => {
     try {
       const { start, end } = getDateRange();
       
-      let query = supabase
+      // Fetch logs with limit for display
+      let logsQuery = supabase
         .from("api_consumption_logs")
         .select("*")
         .gte("created_at", start)
         .lte("created_at", end)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
 
       if (endpointFilter !== "all") {
-        query = query.eq("endpoint", endpointFilter);
+        logsQuery = logsQuery.eq("endpoint", endpointFilter);
       }
 
       if (statusFilter === "success") {
-        query = query.eq("success", true);
+        logsQuery = logsQuery.eq("success", true);
       } else if (statusFilter === "failed") {
-        query = query.eq("success", false);
+        logsQuery = logsQuery.eq("success", false);
       }
 
-      const { data, error } = await query;
+      // Fetch count queries for accurate stats (no limit)
+      let totalCountQuery = supabase
+        .from("api_consumption_logs")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", start)
+        .lte("created_at", end);
 
-      if (error) throw error;
+      let successCountQuery = supabase
+        .from("api_consumption_logs")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .eq("success", true);
 
-      setLogs(data || []);
-      calculateStats(data || []);
+      let failedCountQuery = supabase
+        .from("api_consumption_logs")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .eq("success", false);
+
+      // Apply endpoint filter to count queries if selected
+      if (endpointFilter !== "all") {
+        totalCountQuery = totalCountQuery.eq("endpoint", endpointFilter);
+        successCountQuery = successCountQuery.eq("endpoint", endpointFilter);
+        failedCountQuery = failedCountQuery.eq("endpoint", endpointFilter);
+      }
+
+      // Execute all queries in parallel
+      const [logsResult, totalResult, successResult, failedResult] = await Promise.all([
+        logsQuery,
+        totalCountQuery,
+        successCountQuery,
+        failedCountQuery,
+      ]);
+
+      if (logsResult.error) throw logsResult.error;
+
+      const data = logsResult.data || [];
+      setLogs(data);
+      
+      // Calculate avg time from fetched data
+      const avgTime = data.length > 0 
+        ? Math.round(data.reduce((acc, l) => acc + (l.execution_time_ms || 0), 0) / data.length)
+        : 0;
+
+      setStats({
+        total: totalResult.count || 0,
+        success: successResult.count || 0,
+        failed: failedResult.count || 0,
+        avgTime,
+      });
     } catch (error: any) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
@@ -150,17 +198,6 @@ const ApiConsumptionLogs = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = (data: ApiLog[]) => {
-    const total = data.length;
-    const success = data.filter(l => l.success).length;
-    const failed = total - success;
-    const avgTime = data.length > 0 
-      ? Math.round(data.reduce((acc, l) => acc + (l.execution_time_ms || 0), 0) / data.length)
-      : 0;
-
-    setStats({ total, success, failed, avgTime });
   };
 
   const handleClearLogs = async () => {
