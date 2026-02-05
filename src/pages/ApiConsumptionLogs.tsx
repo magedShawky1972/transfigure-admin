@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
- import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw, CalendarIcon } from "lucide-react";
+ import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -83,6 +83,20 @@ const ApiConsumptionLogs = () => {
   const [dateFilter, setDateFilter] = useState("today");
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string>("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  // Column filters
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({
+    orderNumber: "",
+    endpoint: "",
+    method: "",
+    status: "",
+    executionTime: "",
+    apiKey: "",
+  });
 
   const endpoints = [
     "api-salesheader",
@@ -278,14 +292,124 @@ const ApiConsumptionLogs = () => {
   const filteredLogs = logs.filter(log => {
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      return (
+      const matchesSearch = (
         log.endpoint.toLowerCase().includes(search) ||
         log.response_message?.toLowerCase().includes(search) ||
         log.api_key_description?.toLowerCase().includes(search)
       );
+      if (!matchesSearch) return false;
     }
+
+    // Apply column filters
+    const orderNumber = getOrderNumber(log);
+    
+    if (columnFilters.orderNumber && orderNumber) {
+      if (!orderNumber.toLowerCase().includes(columnFilters.orderNumber.toLowerCase())) {
+        return false;
+      }
+    }
+    
+    if (columnFilters.endpoint && !log.endpoint.toLowerCase().includes(columnFilters.endpoint.toLowerCase())) {
+      return false;
+    }
+    
+    if (columnFilters.method && !log.method.toLowerCase().includes(columnFilters.method.toLowerCase())) {
+      return false;
+    }
+    
+    if (columnFilters.apiKey && log.api_key_description && !log.api_key_description.toLowerCase().includes(columnFilters.apiKey.toLowerCase())) {
+      return false;
+    }
+
     return true;
   });
+
+  // Helper function to extract Order Number from request_body
+  const getOrderNumber = (log: ApiLog): string => {
+    if (!log.request_body) return "";
+    const body = log.request_body as any;
+    // Check for Order_Number (salesheader) or order_number
+    return String(body.Order_Number || body.order_number || "");
+  };
+
+  // Sorted logs
+  const sortedLogs = [...filteredLogs].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+
+    switch (sortColumn) {
+      case "created_at":
+        aValue = new Date(a.created_at).getTime();
+        bValue = new Date(b.created_at).getTime();
+        break;
+      case "orderNumber":
+        aValue = parseInt(getOrderNumber(a)) || 0;
+        bValue = parseInt(getOrderNumber(b)) || 0;
+        break;
+      case "endpoint":
+        aValue = a.endpoint.toLowerCase();
+        bValue = b.endpoint.toLowerCase();
+        break;
+      case "method":
+        aValue = a.method.toLowerCase();
+        bValue = b.method.toLowerCase();
+        break;
+      case "status":
+        aValue = a.success ? 1 : 0;
+        bValue = b.success ? 1 : 0;
+        break;
+      case "executionTime":
+        aValue = a.execution_time_ms || 0;
+        bValue = b.execution_time_ms || 0;
+        break;
+      case "apiKey":
+        aValue = (a.api_key_description || "").toLowerCase();
+        bValue = (b.api_key_description || "").toLowerCase();
+        break;
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortableHeader = ({ column, children }: { column: string; children: React.ReactNode }) => (
+    <div
+      className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
+      onClick={() => handleSort(column)}
+    >
+      {children}
+      {sortColumn === column ? (
+        sortDirection === "asc" ? (
+          <ArrowUp className="h-3 w-3" />
+        ) : (
+          <ArrowDown className="h-3 w-3" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3 w-3 opacity-50" />
+      )}
+    </div>
+  );
+
+  const ColumnFilterInput = ({ column, placeholder }: { column: string; placeholder: string }) => (
+    <Input
+      placeholder={placeholder}
+      value={columnFilters[column] || ""}
+      onChange={(e) => setColumnFilters(prev => ({ ...prev, [column]: e.target.value }))}
+      className="h-7 text-xs mt-1"
+    />
+  );
 
   const viewLogDetails = (log: ApiLog) => {
     setSelectedLog(log);
@@ -767,33 +891,69 @@ const ApiConsumptionLogs = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === "ar" ? "الوقت" : "Time"}</TableHead>
-                  <TableHead>{language === "ar" ? "نقطة النهاية" : "Endpoint"}</TableHead>
-                  <TableHead>{language === "ar" ? "الطريقة" : "Method"}</TableHead>
-                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
-                  <TableHead>{language === "ar" ? "الوقت (ms)" : "Time (ms)"}</TableHead>
-                  <TableHead>{language === "ar" ? "مفتاح API" : "API Key"}</TableHead>
+                  <TableHead className="min-w-[160px]">
+                    <SortableHeader column="created_at">
+                      {language === "ar" ? "الوقت" : "Time"}
+                    </SortableHeader>
+                  </TableHead>
+                  <TableHead className="min-w-[120px]">
+                    <SortableHeader column="orderNumber">
+                      {language === "ar" ? "رقم الطلب" : "Order #"}
+                    </SortableHeader>
+                    <ColumnFilterInput column="orderNumber" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                  </TableHead>
+                  <TableHead className="min-w-[140px]">
+                    <SortableHeader column="endpoint">
+                      {language === "ar" ? "نقطة النهاية" : "Endpoint"}
+                    </SortableHeader>
+                    <ColumnFilterInput column="endpoint" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                  </TableHead>
+                  <TableHead className="min-w-[100px]">
+                    <SortableHeader column="method">
+                      {language === "ar" ? "الطريقة" : "Method"}
+                    </SortableHeader>
+                    <ColumnFilterInput column="method" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                  </TableHead>
+                  <TableHead className="min-w-[100px]">
+                    <SortableHeader column="status">
+                      {language === "ar" ? "الحالة" : "Status"}
+                    </SortableHeader>
+                  </TableHead>
+                  <TableHead className="min-w-[100px]">
+                    <SortableHeader column="executionTime">
+                      {language === "ar" ? "الوقت (ms)" : "Time (ms)"}
+                    </SortableHeader>
+                  </TableHead>
+                  <TableHead className="min-w-[150px]">
+                    <SortableHeader column="apiKey">
+                      {language === "ar" ? "مفتاح API" : "API Key"}
+                    </SortableHeader>
+                    <ColumnFilterInput column="apiKey" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                  </TableHead>
                   <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
-                ) : filteredLogs.length === 0 ? (
+                ) : sortedLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد سجلات" : "No logs found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredLogs.map((log) => (
+                  sortedLogs.map((log) => (
                     <TableRow key={log.id}>
                       <TableCell className="font-mono text-sm">
                         {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {getOrderNumber(log) || "-"}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{log.endpoint}</Badge>
