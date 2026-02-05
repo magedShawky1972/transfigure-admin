@@ -123,8 +123,7 @@ const ApiConsumptionLogs = () => {
         .select("*")
         .gte("created_at", start)
         .lte("created_at", end)
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .order("created_at", { ascending: false });
 
       if (endpointFilter !== "all") {
         query = query.eq("endpoint", endpointFilter);
