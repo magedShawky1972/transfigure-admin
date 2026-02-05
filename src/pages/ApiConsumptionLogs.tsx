@@ -30,7 +30,15 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw } from "lucide-react";
+import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface ApiLog {
   id: string;
@@ -73,6 +81,8 @@ const ApiConsumptionLogs = () => {
   const [endpointFilter, setEndpointFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("today");
+  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const endpoints = [
     "api-salesheader",
@@ -90,7 +100,7 @@ const ApiConsumptionLogs = () => {
     if (hasAccess) {
       fetchLogs();
     }
-  }, [endpointFilter, statusFilter, dateFilter, hasAccess]);
+  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -100,11 +110,27 @@ const ApiConsumptionLogs = () => {
       case "today":
         start.setHours(0, 0, 0, 0);
         break;
+      case "yesterday":
+        start.setDate(now.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        const yesterdayEnd = new Date(start);
+        yesterdayEnd.setHours(23, 59, 59, 999);
+        return { start: start.toISOString(), end: yesterdayEnd.toISOString() };
       case "week":
         start.setDate(now.getDate() - 7);
         break;
       case "month":
         start.setMonth(now.getMonth() - 1);
+        break;
+      case "custom":
+        if (customDate) {
+          const customStart = new Date(customDate);
+          customStart.setHours(0, 0, 0, 0);
+          const customEnd = new Date(customDate);
+          customEnd.setHours(23, 59, 59, 999);
+          return { start: customStart.toISOString(), end: customEnd.toISOString() };
+        }
+        start.setHours(0, 0, 0, 0);
         break;
       default:
         start.setHours(0, 0, 0, 0);
@@ -647,16 +673,52 @@ const ApiConsumptionLogs = () => {
               </SelectContent>
             </Select>
 
-            <Select value={dateFilter} onValueChange={setDateFilter}>
+            <Select value={dateFilter} onValueChange={(value) => {
+              setDateFilter(value);
+              if (value === "custom") {
+                setDatePickerOpen(true);
+              }
+            }}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder={language === "ar" ? "الفترة" : "Period"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="today">{language === "ar" ? "اليوم" : "Today"}</SelectItem>
+                <SelectItem value="yesterday">{language === "ar" ? "أمس" : "Yesterday"}</SelectItem>
                 <SelectItem value="week">{language === "ar" ? "آخر أسبوع" : "Last Week"}</SelectItem>
                 <SelectItem value="month">{language === "ar" ? "آخر شهر" : "Last Month"}</SelectItem>
+                <SelectItem value="custom">{language === "ar" ? "تحديد تاريخ" : "Select Date"}</SelectItem>
               </SelectContent>
             </Select>
+
+            {dateFilter === "custom" && (
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[180px] justify-start text-left font-normal",
+                      !customDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customDate ? format(customDate, "yyyy-MM-dd") : (language === "ar" ? "اختر تاريخ" : "Pick a date")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customDate}
+                    onSelect={(date) => {
+                      setCustomDate(date);
+                      setDatePickerOpen(false);
+                    }}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         </CardContent>
       </Card>
