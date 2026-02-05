@@ -256,15 +256,6 @@ const ApiConsumptionLogs = () => {
         .lte("created_at", end)
         .eq("success", false);
 
-      // Query for api-salesline logs to calculate total value
-      let saleslineQuery = supabase
-        .from("api_consumption_logs")
-        .select("request_body")
-        .eq("endpoint", "api-salesline")
-        .eq("success", true)
-        .gte("created_at", start)
-        .lte("created_at", end);
-
       // Apply endpoint filter to count queries if selected
       if (endpointFilter !== "all") {
         totalCountQuery = totalCountQuery.eq("endpoint", endpointFilter);
@@ -272,14 +263,43 @@ const ApiConsumptionLogs = () => {
         failedCountQuery = failedCountQuery.eq("endpoint", endpointFilter);
       }
 
-      // Execute all queries in parallel
-      const [logsResult, totalResult, successResult, failedResult, saleslineResult] = await Promise.all([
+      // Execute main queries in parallel
+      const [logsResult, totalResult, successResult, failedResult] = await Promise.all([
         logsQuery,
         totalCountQuery,
         successCountQuery,
         failedCountQuery,
-        saleslineQuery,
       ]);
+
+      // Fetch ALL salesline logs in batches to calculate accurate total value
+      let allSaleslineLogs: any[] = [];
+      let saleslineOffset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: batchData, error: batchError } = await supabase
+          .from("api_consumption_logs")
+          .select("request_body")
+          .eq("endpoint", "api-salesline")
+          .eq("success", true)
+          .gte("created_at", start)
+          .lte("created_at", end)
+          .range(saleslineOffset, saleslineOffset + batchSize - 1);
+        
+        if (batchError) {
+          console.error("Error fetching salesline batch:", batchError);
+          break;
+        }
+        
+        if (batchData && batchData.length > 0) {
+          allSaleslineLogs = [...allSaleslineLogs, ...batchData];
+          saleslineOffset += batchSize;
+          hasMore = batchData.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
 
       if (logsResult.error) throw logsResult.error;
 
@@ -292,10 +312,10 @@ const ApiConsumptionLogs = () => {
         ? Math.round(data.reduce((acc, l) => acc + (l.execution_time_ms || 0), 0) / data.length)
         : 0;
 
-      // Calculate total value from api-salesline logs
+      // Calculate total value from all fetched api-salesline logs
       let totalValue = 0;
-      if (saleslineResult.data) {
-        totalValue = saleslineResult.data.reduce((acc, log) => {
+      if (allSaleslineLogs.length > 0) {
+        totalValue = allSaleslineLogs.reduce((acc, log) => {
           const requestBody = log.request_body as any;
           const total = parseFloat(requestBody?.Total) || 0;
           return acc + total;
