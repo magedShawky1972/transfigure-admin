@@ -62,6 +62,14 @@ interface ApiStats {
   totalValue: number;
 }
 
+// Helper function to extract Order Number from request_body - defined outside component to avoid initialization issues
+const getOrderNumber = (log: ApiLog): string => {
+  if (!log.request_body) return "";
+  const body = log.request_body as any;
+  // Check for Order_Number (salesheader) or order_number
+  return String(body.Order_Number || body.order_number || "");
+};
+
 const ApiConsumptionLogs = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -259,14 +267,6 @@ const ApiConsumptionLogs = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper function to extract Order Number from request_body
-  const getOrderNumber = (log: ApiLog): string => {
-    if (!log.request_body) return "";
-    const body = log.request_body as any;
-    // Check for Order_Number (salesheader) or order_number
-    return String(body.Order_Number || body.order_number || "");
   };
 
   const handleClearLogs = async () => {
