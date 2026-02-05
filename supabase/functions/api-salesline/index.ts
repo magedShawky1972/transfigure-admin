@@ -1,6 +1,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// KSA timezone offset (UTC+3)
+const KSA_OFFSET_HOURS = 3;
+
+/**
+ * Get current KSA timestamp in ISO format
+ */
+const getKSATimestamp = (): string => {
+  const now = new Date();
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+  const ksaTime = new Date(utcTime + (KSA_OFFSET_HOURS * 60 * 60 * 1000));
+  return ksaTime.toISOString();
+};
+
 // Table configuration for test vs production mode
 const TABLE_CONFIG = {
   test: {
@@ -147,43 +160,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare data based on mode
-    let upsertData: Record<string, any>;
-    let conflictColumns: string;
-    
-    if (apiMode === 'production') {
-      // Map to sales_order_line columns (snake_case)
-      upsertData = {
-        order_number: body.Order_Number,
-        line_number: body.Line_Number,
-        line_status: body.Line_Status,
-        product_sku: body.Product_SKU,
-        product_id: body.Product_Id,
-        quantity: body.Quantity,
-        unit_price: body.Unit_price,
-        total: body.Total,
-        coins_number: body.Coins_Number,
-        cost_price: body.Cost_Price,
-        total_cost: body.Total_Cost,
-      };
-      conflictColumns = 'order_number,line_number';
-    } else {
-      // Map to testsalesline columns
-      upsertData = {
-        order_number: body.Order_Number,
-        line_number: body.Line_Number,
-        line_status: body.Line_Status,
-        product_sku: body.Product_SKU,
-        product_id: body.Product_Id,
-        quantity: body.Quantity,
-        unit_price: body.Unit_price,
-        total: body.Total,
-        coins_number: body.Coins_Number,
-        cost_price: body.Cost_Price,
-        total_cost: body.Total_Cost,
-      };
-      conflictColumns = 'order_number,line_number';
-    }
+    // Prepare data based on mode - same structure for both
+    const conflictColumns = 'order_number,line_number';
+    const upsertData: Record<string, any> = {
+      order_number: body.Order_Number,
+      line_number: body.Line_Number,
+      line_status: body.Line_Status,
+      product_sku: body.Product_SKU,
+      product_id: body.Product_Id,
+      quantity: body.Quantity,
+      unit_price: body.Unit_price,
+      total: body.Total,
+      coins_number: body.Coins_Number,
+      cost_price: body.Cost_Price,
+      total_cost: body.Total_Cost,
+      // Set created_at to current KSA time for new records
+      created_at: getKSATimestamp(),
+    };
 
     // Upsert to sales line table based on mode
     const { data: resultData, error: upsertError } = await supabase
