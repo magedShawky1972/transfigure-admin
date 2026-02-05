@@ -4765,6 +4765,7 @@ export type Database = {
           is_point: boolean | null
           media: string | null
           order_date: string
+          order_date_int: number | null
           order_number: string
           payment_term: string | null
           player_id: string | null
@@ -4788,6 +4789,7 @@ export type Database = {
           is_point?: boolean | null
           media?: string | null
           order_date: string
+          order_date_int?: number | null
           order_number: string
           payment_term?: string | null
           player_id?: string | null
@@ -4811,6 +4813,7 @@ export type Database = {
           is_point?: boolean | null
           media?: string | null
           order_date?: string
+          order_date_int?: number | null
           order_number?: string
           payment_term?: string | null
           player_id?: string | null
