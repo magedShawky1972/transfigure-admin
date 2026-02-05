@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
- import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw, CalendarIcon } from "lucide-react";
+ import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw, CalendarIcon, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -59,6 +59,7 @@ interface ApiStats {
   success: number;
   failed: number;
   avgTime: number;
+  totalValue: number;
 }
 
 const ApiConsumptionLogs = () => {
@@ -67,7 +68,7 @@ const ApiConsumptionLogs = () => {
   const { hasAccess, isLoading: accessLoading } = usePageAccess();
   const [logs, setLogs] = useState<ApiLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<ApiStats>({ total: 0, success: 0, failed: 0, avgTime: 0 });
+  const [stats, setStats] = useState<ApiStats>({ total: 0, success: 0, failed: 0, avgTime: 0, totalValue: 0 });
   const [selectedLog, setSelectedLog] = useState<ApiLog | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [resending, setResending] = useState<string | null>(null);
@@ -183,6 +184,15 @@ const ApiConsumptionLogs = () => {
         .lte("created_at", end)
         .eq("success", false);
 
+      // Query for api-salesline logs to calculate total value
+      let saleslineQuery = supabase
+        .from("api_consumption_logs")
+        .select("request_body")
+        .eq("endpoint", "api-salesline")
+        .eq("success", true)
+        .gte("created_at", start)
+        .lte("created_at", end);
+
       // Apply endpoint filter to count queries if selected
       if (endpointFilter !== "all") {
         totalCountQuery = totalCountQuery.eq("endpoint", endpointFilter);
@@ -191,11 +201,12 @@ const ApiConsumptionLogs = () => {
       }
 
       // Execute all queries in parallel
-      const [logsResult, totalResult, successResult, failedResult] = await Promise.all([
+      const [logsResult, totalResult, successResult, failedResult, saleslineResult] = await Promise.all([
         logsQuery,
         totalCountQuery,
         successCountQuery,
         failedCountQuery,
+        saleslineQuery,
       ]);
 
       if (logsResult.error) throw logsResult.error;
@@ -208,11 +219,22 @@ const ApiConsumptionLogs = () => {
         ? Math.round(data.reduce((acc, l) => acc + (l.execution_time_ms || 0), 0) / data.length)
         : 0;
 
+      // Calculate total value from api-salesline logs
+      let totalValue = 0;
+      if (saleslineResult.data) {
+        totalValue = saleslineResult.data.reduce((acc, log) => {
+          const requestBody = log.request_body as any;
+          const total = parseFloat(requestBody?.Total) || 0;
+          return acc + total;
+        }, 0);
+      }
+
       setStats({
         total: totalResult.count || 0,
         success: successResult.count || 0,
         failed: failedResult.count || 0,
         avgTime,
+        totalValue,
       });
     } catch (error: any) {
       toast({
@@ -575,7 +597,7 @@ const ApiConsumptionLogs = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -628,6 +650,22 @@ const ApiConsumptionLogs = () => {
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-blue-500" />
               <span className="text-2xl font-bold">{stats.avgTime} ms</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {language === "ar" ? "إجمالي القيمة" : "Total Value"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-emerald-500" />
+              <span className="text-2xl font-bold text-emerald-600">
+                {stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
           </CardContent>
         </Card>
