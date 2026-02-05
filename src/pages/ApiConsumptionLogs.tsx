@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
- import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
+ import { RefreshCw, Search, Eye, Activity, Clock, CheckCircle, XCircle, Trash2, Send, Loader2, RotateCcw, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -106,6 +106,11 @@ const ApiConsumptionLogs = () => {
     apiKey: "",
   });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalRecords, setTotalRecords] = useState(0);
+
   const endpoints = [
     "api-salesheader",
     "api-salesline",
@@ -122,7 +127,12 @@ const ApiConsumptionLogs = () => {
     if (hasAccess) {
       fetchLogs();
     }
-  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess]);
+  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess, currentPage, pageSize]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [endpointFilter, statusFilter, dateFilter, customDate, searchTerm]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -166,14 +176,18 @@ const ApiConsumptionLogs = () => {
     try {
       const { start, end } = getDateRange();
       
-      // Fetch logs with limit for display
+      // Calculate pagination offset
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+      
+      // Fetch logs with pagination
       let logsQuery = supabase
         .from("api_consumption_logs")
-        .select("*")
+        .select("*", { count: "exact" })
         .gte("created_at", start)
         .lte("created_at", end)
         .order("created_at", { ascending: false })
-        .limit(1000);
+        .range(from, to);
 
       if (endpointFilter !== "all") {
         logsQuery = logsQuery.eq("endpoint", endpointFilter);
@@ -235,6 +249,7 @@ const ApiConsumptionLogs = () => {
 
       const data = logsResult.data || [];
       setLogs(data);
+      setTotalRecords(logsResult.count || 0);
       
       // Calculate avg time from fetched data
       const avgTime = data.length > 0 
@@ -1012,6 +1027,80 @@ const ApiConsumptionLogs = () => {
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>
+                {language === "ar" ? "عرض" : "Showing"}{" "}
+                {Math.min((currentPage - 1) * pageSize + 1, totalRecords)} -{" "}
+                {Math.min(currentPage * pageSize, totalRecords)}{" "}
+                {language === "ar" ? "من" : "of"} {totalRecords}{" "}
+                {language === "ar" ? "سجل" : "records"}
+              </span>
+              <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="h-8 w-[80px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                </SelectContent>
+              </Select>
+              <span>{language === "ar" ? "لكل صفحة" : "per page"}</span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1 || loading}
+                title={language === "ar" ? "الصفحة الأولى" : "First page"}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                title={language === "ar" ? "الصفحة السابقة" : "Previous page"}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <span className="px-3 py-1 text-sm font-medium">
+                {language === "ar" ? "صفحة" : "Page"} {currentPage}{" "}
+                {language === "ar" ? "من" : "of"} {Math.ceil(totalRecords / pageSize) || 1}
+              </span>
+              
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= Math.ceil(totalRecords / pageSize) || loading}
+                title={language === "ar" ? "الصفحة التالية" : "Next page"}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(Math.ceil(totalRecords / pageSize))}
+                disabled={currentPage >= Math.ceil(totalRecords / pageSize) || loading}
+                title={language === "ar" ? "الصفحة الأخيرة" : "Last page"}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
