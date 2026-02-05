@@ -261,6 +261,14 @@ const ApiConsumptionLogs = () => {
     }
   };
 
+  // Helper function to extract Order Number from request_body
+  const getOrderNumber = (log: ApiLog): string => {
+    if (!log.request_body) return "";
+    const body = log.request_body as any;
+    // Check for Order_Number (salesheader) or order_number
+    return String(body.Order_Number || body.order_number || "");
+  };
+
   const handleClearLogs = async () => {
     if (!confirm(language === "ar" ? "هل أنت متأكد من حذف جميع السجلات؟" : "Are you sure you want to delete all logs?")) {
       return;
@@ -323,14 +331,6 @@ const ApiConsumptionLogs = () => {
 
     return true;
   });
-
-  // Helper function to extract Order Number from request_body
-  const getOrderNumber = (log: ApiLog): string => {
-    if (!log.request_body) return "";
-    const body = log.request_body as any;
-    // Check for Order_Number (salesheader) or order_number
-    return String(body.Order_Number || body.order_number || "");
-  };
 
   // Sorted logs
   const sortedLogs = [...filteredLogs].sort((a, b) => {
