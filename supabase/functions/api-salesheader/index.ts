@@ -1,6 +1,58 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// KSA timezone offset (UTC+3)
+const KSA_OFFSET_HOURS = 3;
+
+/**
+ * Get current KSA timestamp in ISO format
+ */
+const getKSATimestamp = (): string => {
+  const now = new Date();
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+  const ksaTime = new Date(utcTime + (KSA_OFFSET_HOURS * 60 * 60 * 1000));
+  return ksaTime.toISOString();
+};
+
+/**
+ * Parse a date string and convert to KSA timezone-aware timestamp
+ * Handles formats: YYYY-MM-DD, DD/MM/YYYY, ISO strings
+ */
+const parseToKSATimestamp = (dateStr: string | null | undefined): string | null => {
+  if (!dateStr) return null;
+  
+  try {
+    let date: Date;
+    
+    // Check if it's already an ISO string with time
+    if (dateStr.includes('T')) {
+      date = new Date(dateStr);
+    } 
+    // Check for DD/MM/YYYY format
+    else if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00+03:00`);
+      } else {
+        return null;
+      }
+    }
+    // Assume YYYY-MM-DD format
+    else if (dateStr.includes('-')) {
+      // Treat as KSA local date (add KSA timezone offset)
+      date = new Date(`${dateStr}T00:00:00+03:00`);
+    } else {
+      return null;
+    }
+    
+    if (isNaN(date.getTime())) return null;
+    
+    return date.toISOString();
+  } catch {
+    return null;
+  }
+};
+
 // Table configuration for test vs production mode
 const TABLE_CONFIG = {
   test: {
@@ -164,12 +216,18 @@ Deno.serve(async (req) => {
       statusValue = statusMap[statusValue.toLowerCase()] ?? (parseInt(statusValue, 10) || 0);
     }
 
+    // Parse order_date as KSA time
+    const orderDateRaw = body.Order_date || body.created_at_date || body.order_date;
+    const parsedOrderDate = parseToKSATimestamp(orderDateRaw);
+    
+    console.log(`Order date parsing: raw="${orderDateRaw}", parsed="${parsedOrderDate}"`);
+
     // Build the insert object with all available fields
     // Map to sales_order_header columns - handle both PascalCase and snake_case inputs
     const insertData: Record<string, any> = {
       order_number: body.Order_Number || body.ordernumber || body.order_number,
       customer_phone: body.Customer_Phone || body.customer_phone,
-      order_date: body.Order_date || body.created_at_date || body.order_date,
+      order_date: parsedOrderDate || orderDateRaw,
       status: statusValue,
       status_description: body.Status_Description || body.status_description,
       payment_term: body.Payment_Term || body.payment_term,
@@ -185,6 +243,8 @@ Deno.serve(async (req) => {
       player_id: body.Player_ID || body.player_id,
       is_point: body.point !== undefined ? body.point : (body.is_point ?? false),
       point_value: body.Point_Value || body.point_value,
+      // Set created_at to current KSA time for new records
+      created_at: getKSATimestamp(),
     };
 
     // Remove undefined values
