@@ -134,41 +134,91 @@ const ApiConsumptionLogs = () => {
     setCurrentPage(1);
   }, [endpointFilter, statusFilter, dateFilter, customDate, searchTerm]);
 
-  const getDateRange = () => {
+  // KSA timezone offset (UTC+3)
+  const KSA_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+  // Get current KSA time
+  const getKSANow = () => {
     const now = new Date();
-    const start = new Date();
+    return new Date(now.getTime() + now.getTimezoneOffset() * 60 * 1000 + KSA_OFFSET_MS);
+  };
+
+  // Convert KSA date to UTC for database queries
+  const ksaToUTC = (ksaDate: Date) => {
+    // KSA date represents local KSA time, convert to UTC by subtracting 3 hours
+    return new Date(ksaDate.getTime() - KSA_OFFSET_MS);
+  };
+
+  const getDateRange = () => {
+    const ksaNow = getKSANow();
     
     switch (dateFilter) {
-      case "today":
-        start.setHours(0, 0, 0, 0);
-        break;
-      case "yesterday":
-        start.setDate(now.getDate() - 1);
-        start.setHours(0, 0, 0, 0);
-        const yesterdayEnd = new Date(start);
-        yesterdayEnd.setHours(23, 59, 59, 999);
-        return { start: start.toISOString(), end: yesterdayEnd.toISOString() };
-      case "week":
-        start.setDate(now.getDate() - 7);
-        break;
-      case "month":
-        start.setMonth(now.getMonth() - 1);
-        break;
-      case "custom":
+      case "today": {
+        // KSA midnight today
+        const ksaStartOfDay = new Date(ksaNow);
+        ksaStartOfDay.setHours(0, 0, 0, 0);
+        // Convert to UTC for query
+        const utcStart = ksaToUTC(ksaStartOfDay);
+        const utcEnd = ksaToUTC(ksaNow);
+        return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
+      }
+      case "yesterday": {
+        // KSA midnight yesterday
+        const ksaYesterday = new Date(ksaNow);
+        ksaYesterday.setDate(ksaNow.getDate() - 1);
+        ksaYesterday.setHours(0, 0, 0, 0);
+        // KSA end of yesterday (23:59:59.999)
+        const ksaYesterdayEnd = new Date(ksaYesterday);
+        ksaYesterdayEnd.setHours(23, 59, 59, 999);
+        // Convert to UTC
+        const utcStart = ksaToUTC(ksaYesterday);
+        const utcEnd = ksaToUTC(ksaYesterdayEnd);
+        return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
+      }
+      case "week": {
+        // KSA midnight 7 days ago
+        const ksaWeekAgo = new Date(ksaNow);
+        ksaWeekAgo.setDate(ksaNow.getDate() - 7);
+        ksaWeekAgo.setHours(0, 0, 0, 0);
+        const utcStart = ksaToUTC(ksaWeekAgo);
+        const utcEnd = ksaToUTC(ksaNow);
+        return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
+      }
+      case "month": {
+        // KSA midnight 1 month ago
+        const ksaMonthAgo = new Date(ksaNow);
+        ksaMonthAgo.setMonth(ksaNow.getMonth() - 1);
+        ksaMonthAgo.setHours(0, 0, 0, 0);
+        const utcStart = ksaToUTC(ksaMonthAgo);
+        const utcEnd = ksaToUTC(ksaNow);
+        return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
+      }
+      case "custom": {
         if (customDate) {
-          const customStart = new Date(customDate);
-          customStart.setHours(0, 0, 0, 0);
-          const customEnd = new Date(customDate);
-          customEnd.setHours(23, 59, 59, 999);
-          return { start: customStart.toISOString(), end: customEnd.toISOString() };
+          // User selected date is interpreted as KSA date
+          const ksaCustomStart = new Date(customDate);
+          ksaCustomStart.setHours(0, 0, 0, 0);
+          const ksaCustomEnd = new Date(customDate);
+          ksaCustomEnd.setHours(23, 59, 59, 999);
+          const utcStart = ksaToUTC(ksaCustomStart);
+          const utcEnd = ksaToUTC(ksaCustomEnd);
+          return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
         }
-        start.setHours(0, 0, 0, 0);
-        break;
-      default:
-        start.setHours(0, 0, 0, 0);
+        // Fallback to today
+        const ksaStartOfDay = new Date(ksaNow);
+        ksaStartOfDay.setHours(0, 0, 0, 0);
+        const utcStart = ksaToUTC(ksaStartOfDay);
+        const utcEnd = ksaToUTC(ksaNow);
+        return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
+      }
+      default: {
+        const ksaStartOfDay = new Date(ksaNow);
+        ksaStartOfDay.setHours(0, 0, 0, 0);
+        const utcStart = ksaToUTC(ksaStartOfDay);
+        const utcEnd = ksaToUTC(ksaNow);
+        return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
+      }
     }
-    
-    return { start: start.toISOString(), end: now.toISOString() };
   };
 
   const fetchLogs = async () => {
