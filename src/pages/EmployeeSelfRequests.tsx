@@ -133,9 +133,32 @@ const EmployeeSelfRequests = () => {
           setCurrentUserPositionLevel(userPositionLevel);
         }
 
-        // Fetch subordinates (same department, higher position_level = lower rank)
+        // Fetch subordinates (same department OR child departments, higher position_level = lower rank)
         if (empData.department_id) {
-          let query = supabase
+          // First, get all child department IDs recursively
+          const getAllChildDepartments = async (deptId: string): Promise<string[]> => {
+            const { data: children } = await supabase
+              .from('departments')
+              .select('id')
+              .eq('parent_department_id', deptId)
+              .eq('is_active', true);
+            
+            let allIds: string[] = [];
+            if (children && children.length > 0) {
+              for (const child of children) {
+                allIds.push(child.id);
+                const grandChildren = await getAllChildDepartments(child.id);
+                allIds = [...allIds, ...grandChildren];
+              }
+            }
+            return allIds;
+          };
+
+          const childDeptIds = await getAllChildDepartments(empData.department_id);
+          const allDeptIds = [empData.department_id, ...childDeptIds];
+
+          // Fetch employees from current department and all child departments
+          const { data: deptEmployees } = await supabase
             .from('employees')
             .select(`
               id, 
@@ -146,10 +169,8 @@ const EmployeeSelfRequests = () => {
               job_position_id,
               job_positions!employees_job_position_id_fkey(position_level)
             `)
-            .eq('department_id', empData.department_id)
+            .in('department_id', allDeptIds)
             .neq('id', empData.id);
-
-          const { data: deptEmployees } = await query;
 
           // Filter to only those with higher position_level (lower rank) or no level
           const subs = (deptEmployees || []).filter((emp: any) => {
