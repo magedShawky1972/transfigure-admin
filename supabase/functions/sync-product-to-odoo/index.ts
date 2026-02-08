@@ -90,8 +90,11 @@ Deno.serve(async (req) => {
     }
 
     // Build PUT request body (for updates - do NOT include cat_code, let Odoo keep existing category)
+    // Use 'consu' for consumable products (digital goods) or 'service' for services
+    // 'consu' is the correct value for non-stock/digital products in Odoo
     const putBody: any = {
       name: productName,
+      detailed_type: isNonStock ? 'consu' : 'consu', // Use 'consu' for consumable, 'product' is deprecated
     };
 
     // Add optional fields for update (excluding cat_code)
@@ -168,9 +171,11 @@ Deno.serve(async (req) => {
       console.log('Product not found, creating with POST:', productApiUrl);
       
       // Build POST body (for creation - include cat_code only if brand is synced to Odoo)
+      // Use 'consu' for consumable products (digital goods) - 'product' is deprecated in newer Odoo versions
       const postBody: any = {
         sku: sku,
         name: productName,
+        detailed_type: isNonStock ? 'consu' : 'consu', // Use 'consu' for consumable products
       };
 
       // Add optional fields for creation
