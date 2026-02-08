@@ -48,6 +48,7 @@ import {
   HourglassIcon,
   Upload,
   Paperclip,
+  Users,
 } from "lucide-react";
 
 type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'expense_refund' | 'experience_certificate';
@@ -81,6 +82,11 @@ const EmployeeSelfRequests = () => {
   const [employee, setEmployee] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<RequestType>('vacation');
+  
+  // New state for subordinate selection
+  const [subordinates, setSubordinates] = useState<any[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [currentUserPositionLevel, setCurrentUserPositionLevel] = useState<number | null>(null);
 
   const [vacationCodeId, setVacationCodeId] = useState<string>('');
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -108,12 +114,56 @@ const EmployeeSelfRequests = () => {
 
       const { data: empData } = await supabase
         .from('employees')
-        .select('id, department_id')
+        .select('id, department_id, job_position_id')
         .eq('user_id', user.id)
         .single();
 
       if (empData) {
         setEmployee(empData);
+
+        // Get current user's position level
+        let userPositionLevel: number | null = null;
+        if (empData.job_position_id) {
+          const { data: posData } = await supabase
+            .from('job_positions')
+            .select('position_level')
+            .eq('id', empData.job_position_id)
+            .single();
+          userPositionLevel = posData?.position_level ?? null;
+          setCurrentUserPositionLevel(userPositionLevel);
+        }
+
+        // Fetch subordinates (same department, higher position_level = lower rank)
+        if (empData.department_id) {
+          let query = supabase
+            .from('employees')
+            .select(`
+              id, 
+              first_name, 
+              first_name_ar, 
+              last_name, 
+              last_name_ar,
+              job_position_id,
+              job_positions!employees_job_position_id_fkey(position_level)
+            `)
+            .eq('department_id', empData.department_id)
+            .neq('id', empData.id);
+
+          const { data: deptEmployees } = await query;
+
+          // Filter to only those with higher position_level (lower rank) or no level
+          const subs = (deptEmployees || []).filter((emp: any) => {
+            const empLevel = emp.job_positions?.position_level;
+            // If current user has no level, they can't select anyone
+            if (userPositionLevel === null) return false;
+            // If target has no level, they're considered subordinate
+            if (empLevel === null || empLevel === undefined) return true;
+            // Higher number = lower rank = subordinate
+            return empLevel > userPositionLevel;
+          });
+
+          setSubordinates(subs);
+        }
 
         const { data: reqData } = await supabase
           .from('employee_requests')
@@ -157,6 +207,7 @@ const EmployeeSelfRequests = () => {
     setExpenseDescription('');
     setAttachmentUrl('');
     setAttachmentFileName('');
+    setSelectedEmployeeId(''); // Reset to self
   };
 
   const calculateTotalDays = () => {
@@ -233,11 +284,15 @@ const EmployeeSelfRequests = () => {
 
     setSubmitting(true);
     try {
+      // Determine target employee - use selected subordinate or self
+      const targetEmployeeId = selectedEmployeeId || employee.id;
+      
       const requestData: any = {
-        employee_id: employee.id,
+        employee_id: targetEmployeeId,
         request_type: selectedType,
         department_id: employee.department_id,
         reason,
+        submitted_by_id: employee.id, // Track who submitted on behalf
       };
 
       if (selectedType === 'sick_leave' || selectedType === 'vacation') {
