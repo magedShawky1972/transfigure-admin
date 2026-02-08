@@ -90,11 +90,12 @@ Deno.serve(async (req) => {
     }
 
     // Build PUT request body (for updates - do NOT include cat_code, let Odoo keep existing category)
-    // Use 'consu' for consumable products (digital goods) or 'service' for services
-    // 'consu' is the correct value for non-stock/digital products in Odoo
+    // Use 'consu' for consumable products (digital goods) or 'service' for services.
+    // Some Odoo API gateways still rely on the legacy 'type' field (and may reject 'product').
     const putBody: any = {
       name: productName,
-      detailed_type: isNonStock ? 'consu' : 'consu', // Use 'consu' for consumable, 'product' is deprecated
+      detailed_type: 'consu',
+      type: 'consu',
     };
 
     // Add optional fields for update (excluding cat_code)
@@ -159,6 +160,82 @@ Deno.serve(async (req) => {
       );
     }
 
+    // If PUT failed due to Odoo rejecting the existing template type, try POST as an upsert fallback
+    console.log('PUT error debug:', { type: typeof putResult?.error, value: putResult?.error });
+
+    const hasTemplateTypeError = typeof putResult?.error === 'string' &&
+      putResult.error.toLowerCase().includes('product.template.type');
+
+    if (hasTemplateTypeError) {
+      console.log('PUT failed due to template type restriction; trying POST upsert fallback');
+
+      const postBody: any = {
+        sku: sku,
+        name: productName,
+        detailed_type: 'consu',
+        type: 'consu',
+      };
+
+      if (uom) postBody.uom = uom;
+      if (odooCategoryId) postBody.cat_code = brandCode;
+      if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
+      if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
+      if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
+      if (costPrice !== undefined && costPrice !== null) postBody.cost_price = costPrice;
+      if (salesPrice !== undefined && salesPrice !== null) postBody.sales_price = salesPrice;
+      if (productWeight !== undefined && productWeight !== null) postBody.product_weight = productWeight;
+      if (isNonStock !== undefined && isNonStock !== null) postBody.is_non_stock = isNonStock;
+
+      console.log('POST upsert body:', postBody);
+
+      const postResponse = await fetch(productApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': odooApiKey,
+        },
+        body: JSON.stringify(postBody),
+      });
+
+      const postText = await postResponse.text();
+      console.log('POST upsert response status:', postResponse.status);
+      console.log('POST upsert response:', postText);
+
+      let postResult: any;
+      try {
+        postResult = JSON.parse(postText);
+      } catch (e) {
+        postResult = { success: false, error: postText };
+      }
+
+      if (postResult.success) {
+        const odooProductId = postResult.product_id || postResult.product_template_id;
+        if (product_id) {
+          await supabase
+            .from('products')
+            .update({
+              odoo_product_id: odooProductId || null,
+              odoo_sync_status: 'synced',
+              odoo_synced_at: new Date().toISOString()
+            })
+            .eq('id', product_id);
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: postResult.message || 'Product synced via POST fallback',
+            odoo_product_id: odooProductId,
+            odoo_response: postResult,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // If POST fallback failed, continue with normal error handling below
+      console.log('POST fallback failed, continuing with normal error handling');
+    }
+
     // Check if PUT failed because product doesn't exist (404 or specific error message)
     const isNotFound = putResponse.status === 404 || 
       (putResult.error && (
@@ -171,11 +248,12 @@ Deno.serve(async (req) => {
       console.log('Product not found, creating with POST:', productApiUrl);
       
       // Build POST body (for creation - include cat_code only if brand is synced to Odoo)
-      // Use 'consu' for consumable products (digital goods) - 'product' is deprecated in newer Odoo versions
+      // Use 'consu' for consumable products (digital goods). Also send legacy 'type' for compatibility.
       const postBody: any = {
         sku: sku,
         name: productName,
-        detailed_type: isNonStock ? 'consu' : 'consu', // Use 'consu' for consumable products
+        detailed_type: 'consu',
+        type: 'consu',
       };
 
       // Add optional fields for creation
