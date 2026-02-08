@@ -35,7 +35,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye, Printer } from "lucide-react";
+import { printAcknowledgmentDocument } from "@/components/AcknowledgmentDocumentPrint";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -140,6 +141,7 @@ const AcknowledgmentDocuments = () => {
       signedAt: "تاريخ التوقيع",
       noSignatures: "لا توجد توقيعات",
       view: "عرض",
+      print: "طباعة",
       noDocuments: "لا توجد إقرارات",
     },
     en: {
@@ -172,6 +174,7 @@ const AcknowledgmentDocuments = () => {
       signedAt: "Signed At",
       noSignatures: "No signatures yet",
       view: "View",
+      print: "Print",
       noDocuments: "No documents",
     },
   };
@@ -413,6 +416,16 @@ const AcknowledgmentDocuments = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{texts.view}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" onClick={() => printAcknowledgmentDocument(doc, language)}>
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{texts.print}</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
