@@ -2006,6 +2006,7 @@ export type Database = {
           request_type: string
           start_date: string | null
           status: string
+          submitted_by_id: string | null
           total_days: number | null
           updated_at: string | null
           vacation_code_id: string | null
@@ -2040,6 +2041,7 @@ export type Database = {
           request_type: string
           start_date?: string | null
           status?: string
+          submitted_by_id?: string | null
           total_days?: number | null
           updated_at?: string | null
           vacation_code_id?: string | null
@@ -2074,6 +2076,7 @@ export type Database = {
           request_type?: string
           start_date?: string | null
           status?: string
+          submitted_by_id?: string | null
           total_days?: number | null
           updated_at?: string | null
           vacation_code_id?: string | null
@@ -2098,6 +2101,13 @@ export type Database = {
             columns: ["expense_currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_requests_submitted_by_id_fkey"
+            columns: ["submitted_by_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
           {

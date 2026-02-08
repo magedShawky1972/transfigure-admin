@@ -210,6 +210,26 @@ const EmployeeSelfRequests = () => {
     setSelectedEmployeeId(''); // Reset to self
   };
 
+  // Fetch vacation balances for selected employee
+  const fetchVacationBalances = async (employeeId: string) => {
+    const { data: balanceData } = await supabase
+      .from('employee_vacation_types')
+      .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
+      .eq('employee_id', employeeId);
+    setVacationBalances(balanceData || []);
+    setVacationCodeId(''); // Reset vacation code when employee changes
+  };
+
+  // When selectedEmployeeId changes, fetch that employee's balances
+  useEffect(() => {
+    if (dialogOpen) {
+      const targetId = selectedEmployeeId || employee?.id;
+      if (targetId) {
+        fetchVacationBalances(targetId);
+      }
+    }
+  }, [selectedEmployeeId, dialogOpen, employee?.id]);
+
   const calculateTotalDays = () => {
     if (startDate && endDate) {
       return differenceInDays(endDate, startDate) + 1;
@@ -286,14 +306,19 @@ const EmployeeSelfRequests = () => {
     try {
       // Determine target employee - use selected subordinate or self
       const targetEmployeeId = selectedEmployeeId || employee.id;
+      const isOnBehalf = selectedEmployeeId && selectedEmployeeId !== employee.id;
       
       const requestData: any = {
         employee_id: targetEmployeeId,
         request_type: selectedType,
         department_id: employee.department_id,
         reason,
-        submitted_by_id: employee.id, // Track who submitted on behalf
       };
+      
+      // Only set submitted_by_id if submitting on behalf of someone else
+      if (isOnBehalf) {
+        requestData.submitted_by_id = employee.id;
+      }
 
       if (selectedType === 'sick_leave' || selectedType === 'vacation') {
         requestData.vacation_code_id = vacationCodeId;
@@ -427,6 +452,34 @@ const EmployeeSelfRequests = () => {
           
           {/* Removed Tabs component - now shows only the selected type form */}
           <div className="space-y-4 py-4">
+            {/* Employee selector for managers - only show if user has subordinates */}
+            {subordinates.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  {language === 'ar' ? 'تقديم الطلب باسم' : 'Submit request for'}
+                </Label>
+                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'نفسي' : 'Myself'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">
+                      {language === 'ar' ? 'نفسي' : 'Myself'}
+                    </SelectItem>
+                    {subordinates.map((sub: any) => (
+                      <SelectItem key={sub.id} value={sub.id}>
+                        {language === 'ar' 
+                          ? `${sub.first_name_ar || sub.first_name} ${sub.last_name_ar || sub.last_name}`
+                          : `${sub.first_name} ${sub.last_name}`
+                        }
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
             {(selectedType === 'sick_leave' || selectedType === 'vacation') && (
               <>
                 <Select value={vacationCodeId} onValueChange={setVacationCodeId}>
