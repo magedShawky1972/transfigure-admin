@@ -669,7 +669,8 @@ const Transactions = () => {
       const { data: summary, error: summaryError } = await supabase
         .rpc('transactions_summary', {
           date_from: format(start, 'yyyy-MM-dd'),
-          date_to: format(end, 'yyyy-MM-dd')
+          date_to: format(end, 'yyyy-MM-dd'),
+          p_brand_name: null
         });
 
       if (summaryError) throw summaryError;
