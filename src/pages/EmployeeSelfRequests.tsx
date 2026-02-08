@@ -480,12 +480,12 @@ const EmployeeSelfRequests = () => {
                   <Users className="h-4 w-4" />
                   {language === 'ar' ? 'تقديم الطلب باسم' : 'Submit request for'}
                 </Label>
-                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                <Select value={selectedEmployeeId || 'self'} onValueChange={(val) => setSelectedEmployeeId(val === 'self' ? '' : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder={language === 'ar' ? 'نفسي' : 'Myself'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">
+                    <SelectItem value="self">
                       {language === 'ar' ? 'نفسي' : 'Myself'}
                     </SelectItem>
                     {subordinates.map((sub: any) => (
