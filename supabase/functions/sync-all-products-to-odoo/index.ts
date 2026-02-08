@@ -80,6 +80,8 @@ Deno.serve(async (req) => {
         // Build PUT request body
         const putBody: any = {
           name: product.product_name,
+          detailed_type: 'consu',
+          type: 'consu',
         };
 
         if (product.reorder_point !== undefined && product.reorder_point !== null) {
@@ -136,9 +138,82 @@ Deno.serve(async (req) => {
           results.synced++;
           results.details.push({ sku, status: 'synced', odoo_product_id: odooProductId });
         } else {
-          // Product not found in Odoo or other error - skip (PUT only mode)
-          results.skipped++;
-          results.details.push({ sku, status: 'skipped', reason: putResult.error || 'Not found in Odoo' });
+          const errText = (putResult?.error || putResult?.message || '').toString();
+
+          // If Odoo rejects existing product template type on PUT, try POST fallback (upsert behavior on some gateways)
+          if (errText.toLowerCase().includes('product.template.type')) {
+            try {
+              const postBody: any = {
+                sku,
+                name: product.product_name,
+                detailed_type: 'consu',
+                type: 'consu',
+              };
+
+              if (product.reorder_point !== undefined && product.reorder_point !== null) {
+                postBody.reorder_point = product.reorder_point;
+              }
+              if (product.minimum_order_quantity !== undefined && product.minimum_order_quantity !== null) {
+                postBody.minimum_order = product.minimum_order_quantity;
+              }
+              if (product.product_cost) {
+                postBody.cost_price = parseFloat(product.product_cost);
+              }
+              if (product.product_price) {
+                postBody.sales_price = parseFloat(product.product_price);
+              }
+              if (product.weight !== undefined && product.weight !== null) {
+                postBody.product_weight = product.weight;
+              }
+              if (product.non_stock !== undefined && product.non_stock !== null) {
+                postBody.is_non_stock = product.non_stock;
+              }
+
+              console.log(`POST fallback ${productApiUrl}`, postBody);
+
+              const postResponse = await fetch(productApiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': odooApiKey,
+                },
+                body: JSON.stringify(postBody),
+              });
+
+              const postText = await postResponse.text();
+              let postResult: any;
+              try {
+                postResult = JSON.parse(postText);
+              } catch {
+                postResult = { success: false, error: postText };
+              }
+
+              if (postResult.success) {
+                const odooProductId = postResult.product_id || postResult.product_template_id;
+                await supabase
+                  .from('products')
+                  .update({ 
+                    odoo_product_id: odooProductId || null,
+                    odoo_sync_status: 'synced',
+                    odoo_synced_at: new Date().toISOString()
+                  })
+                  .eq('id', product.id);
+
+                results.synced++;
+                results.details.push({ sku, status: 'synced', odoo_product_id: odooProductId, note: 'post_fallback' });
+              } else {
+                results.skipped++;
+                results.details.push({ sku, status: 'skipped', reason: postResult.error || postResult.message || 'POST fallback failed' });
+              }
+            } catch (postErr) {
+              results.failed++;
+              results.details.push({ sku, status: 'failed', error: postErr instanceof Error ? postErr.message : 'POST fallback error' });
+            }
+          } else {
+            // Product not found in Odoo or other error - skip (PUT only mode)
+            results.skipped++;
+            results.details.push({ sku, status: 'skipped', reason: putResult.error || 'Not found in Odoo' });
+          }
         }
       } catch (error) {
         console.error(`Error syncing product ${sku}:`, error);
