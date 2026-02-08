@@ -35,8 +35,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye, Printer } from "lucide-react";
+import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye, Printer, UserCheck, Clock, CheckCircle } from "lucide-react";
 import { printAcknowledgmentDocument } from "@/components/AcknowledgmentDocumentPrint";
+import { AcknowledgmentApprovalDialog } from "@/components/AcknowledgmentApprovalDialog";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -51,6 +52,9 @@ interface AcknowledgmentDocument {
   created_by: string;
   created_at: string;
   updated_at: string;
+  approval_status?: string;
+  approved_at?: string;
+  approved_by?: string;
 }
 
 interface Recipient {
@@ -92,6 +96,7 @@ const AcknowledgmentDocuments = () => {
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [signaturesDialogOpen, setSignaturesDialogOpen] = useState(false);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AcknowledgmentDocument | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<AcknowledgmentDocument | null>(null);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
@@ -142,6 +147,12 @@ const AcknowledgmentDocuments = () => {
       noSignatures: "لا توجد توقيعات",
       view: "عرض",
       print: "طباعة",
+      sendForApproval: "إرسال للموافقة",
+      approvalStatus: "حالة الموافقة",
+      draft: "مسودة",
+      pendingApproval: "قيد الموافقة",
+      approved: "تمت الموافقة",
+      rejected: "مرفوض",
       noDocuments: "لا توجد إقرارات",
     },
     en: {
@@ -175,6 +186,12 @@ const AcknowledgmentDocuments = () => {
       noSignatures: "No signatures yet",
       view: "View",
       print: "Print",
+      sendForApproval: "Send for Approval",
+      approvalStatus: "Approval Status",
+      draft: "Draft",
+      pendingApproval: "Pending Approval",
+      approved: "Approved",
+      rejected: "Rejected",
       noDocuments: "No documents",
     },
   };
@@ -382,6 +399,7 @@ const AcknowledgmentDocuments = () => {
               <TableRow>
                 <TableHead>{texts.title}</TableHead>
                 <TableHead>{texts.status}</TableHead>
+                <TableHead>{texts.approvalStatus}</TableHead>
                 <TableHead>{texts.createdAt}</TableHead>
                 <TableHead>{texts.actions}</TableHead>
               </TableRow>
@@ -389,7 +407,7 @@ const AcknowledgmentDocuments = () => {
             <TableBody>
               {documents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     {texts.noDocuments}
                   </TableCell>
                 </TableRow>
@@ -403,6 +421,27 @@ const AcknowledgmentDocuments = () => {
                       <Badge variant={doc.is_active ? "default" : "secondary"}>
                         {doc.is_active ? texts.active : texts.inactive}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {doc.approval_status === "approved" ? (
+                        <Badge className="bg-green-600">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          {texts.approved}
+                        </Badge>
+                      ) : doc.approval_status === "pending_approval" ? (
+                        <Badge variant="secondary">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {texts.pendingApproval}
+                        </Badge>
+                      ) : doc.approval_status === "rejected" ? (
+                        <Badge variant="destructive">
+                          {texts.rejected}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          {texts.draft}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>{format(new Date(doc.created_at), "yyyy-MM-dd HH:mm")}</TableCell>
                     <TableCell>
@@ -436,6 +475,23 @@ const AcknowledgmentDocuments = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{language === "ar" ? "تعديل" : "Edit"}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => {
+                                  setSelectedDoc(doc);
+                                  setApprovalDialogOpen(true);
+                                }}
+                              >
+                                <UserCheck className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{texts.sendForApproval}</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
@@ -735,6 +791,15 @@ const AcknowledgmentDocuments = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Approval Dialog */}
+      <AcknowledgmentApprovalDialog
+        open={approvalDialogOpen}
+        onOpenChange={setApprovalDialogOpen}
+        document={selectedDoc}
+        users={users}
+        onApprovalSent={fetchData}
+      />
     </div>
   );
 };

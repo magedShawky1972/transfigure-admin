@@ -14,8 +14,49 @@ export type Database = {
   }
   public: {
     Tables: {
+      acknowledgment_approvers: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acknowledgment_approvers_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "acknowledgment_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       acknowledgment_documents: {
         Row: {
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
           content: string
           content_ar: string | null
           created_at: string | null
@@ -28,6 +69,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           content: string
           content_ar?: string | null
           created_at?: string | null
@@ -40,6 +84,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           content?: string
           content_ar?: string | null
           created_at?: string | null

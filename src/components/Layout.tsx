@@ -5,6 +5,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { PushNotificationBar } from "@/components/PushNotificationBar";
 import { MainPageMenu } from "@/components/MainPageMenu";
 import { PendingAcknowledgmentDialog } from "@/components/PendingAcknowledgmentDialog";
+import { PendingDocumentApprovalDialog } from "@/components/PendingDocumentApprovalDialog";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -581,6 +582,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Pending Acknowledgment Documents Dialog */}
       {user && <PendingAcknowledgmentDialog />}
+      
+      {/* Pending Document Approval Dialog (for reviewers) */}
+      {user && <PendingDocumentApprovalDialog />}
 
       {/* Profile Dialog */}
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
