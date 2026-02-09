@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
 
       console.log(`Fetching table: ${tableName}, offset: ${offset}, chunkSize: ${chunkSize}`);
 
-      const pageSize = 1000;
+      const pageSize = 50000;
       const allRows: unknown[] = [];
       let from = offset;
       let keepGoing = true;
