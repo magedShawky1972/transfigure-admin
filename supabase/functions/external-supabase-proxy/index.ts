@@ -110,15 +110,35 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+        
+        console.log('Executing SQL:', sql.substring(0, 200) + (sql.length > 200 ? '...' : ''));
+        
         const { data: sqlData, error: sqlError } = await externalClient.rpc('exec_sql', { sql });
+        
         if (sqlError) {
           const e = normalizeExternalError(sqlError);
           console.error('Exec SQL error:', e);
+          
+          // Check if exec_sql function doesn't exist
+          if (e.message?.includes('function') || e.message?.includes('PGRST202') || e.message?.includes('does not exist')) {
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: 'The exec_sql function does not exist in the external database. Please create it first using the SQL Editor in your Supabase dashboard.',
+                code: 'EXEC_SQL_NOT_FOUND',
+                hint: 'You need to create the exec_sql database function in the target Supabase project before restoring.'
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
           return new Response(
             JSON.stringify({ success: false, error: e.message, code: e.code }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+        
+        console.log('SQL executed successfully, result:', JSON.stringify(sqlData).substring(0, 200));
         result = { success: true, data: sqlData };
         break;
 

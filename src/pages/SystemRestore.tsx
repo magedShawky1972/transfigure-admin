@@ -33,7 +33,7 @@ interface TableRestoreItem {
 
 interface StructureRestoreItem {
   name: string;
-  type: 'table' | 'function' | 'trigger' | 'index' | 'policy' | 'type' | 'sequence' | 'other';
+  type: 'table' | 'function' | 'trigger' | 'index' | 'policy' | 'type' | 'sequence' | 'alter' | 'permission' | 'other';
   status: 'pending' | 'executing' | 'done' | 'error' | 'skipped';
   errorMessage?: string;
   existsInTarget?: boolean;
@@ -375,67 +375,87 @@ const SystemRestore = () => {
       let name = 'Unknown';
       let type: string = 'other';
       
-      // CREATE TABLE
-      const tableMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?/i);
+      // CREATE TABLE - improved regex to handle various formats including quoted names and schemas
+      const tableMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:(?:public|"public")\.)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
       if (tableMatch) {
-        name = tableMatch[1];
+        name = tableMatch[1] || tableMatch[2] || tableMatch[3];
         type = 'table';
       }
       
-      // CREATE OR REPLACE FUNCTION
-      const funcMatch = stmt.match(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?["']?(\w+)["']?/i);
-      if (funcMatch) {
-        name = funcMatch[1];
-        type = 'function';
+      // CREATE OR REPLACE FUNCTION - only if not already matched
+      if (type === 'other') {
+        const funcMatch = stmt.match(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:(?:public|"public")\.)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+        if (funcMatch) {
+          name = funcMatch[1] || funcMatch[2] || funcMatch[3];
+          type = 'function';
+        }
       }
       
-      // CREATE TRIGGER
-      const triggerMatch = stmt.match(/CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+["']?(\w+)["']?/i);
-      if (triggerMatch) {
-        name = triggerMatch[1];
-        type = 'trigger';
+      // CREATE TRIGGER - only if not already matched
+      if (type === 'other') {
+        const triggerMatch = stmt.match(/CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+        if (triggerMatch) {
+          name = triggerMatch[1] || triggerMatch[2] || triggerMatch[3];
+          type = 'trigger';
+        }
       }
       
-      // CREATE INDEX
-      const indexMatch = stmt.match(/CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?/i);
-      if (indexMatch) {
-        name = indexMatch[1];
-        type = 'index';
+      // CREATE INDEX - only if not already matched
+      if (type === 'other') {
+        const indexMatch = stmt.match(/CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+        if (indexMatch) {
+          name = indexMatch[1] || indexMatch[2] || indexMatch[3];
+          type = 'index';
+        }
       }
       
-      // CREATE POLICY
-      const policyMatch = stmt.match(/CREATE\s+POLICY\s+["']?([^"'\s]+)["']?/i);
-      if (policyMatch) {
-        name = policyMatch[1];
-        type = 'policy';
+      // CREATE POLICY - only if not already matched
+      if (type === 'other') {
+        const policyMatch = stmt.match(/CREATE\s+POLICY\s+(?:"([^"]+)"|'([^']+)'|([^\s"']+))/i);
+        if (policyMatch) {
+          name = policyMatch[1] || policyMatch[2] || policyMatch[3];
+          type = 'policy';
+        }
       }
       
-      // CREATE TYPE
-      const typeMatch = stmt.match(/CREATE\s+TYPE\s+(?:public\.)?["']?(\w+)["']?/i);
-      if (typeMatch) {
-        name = typeMatch[1];
-        type = 'type';
+      // CREATE TYPE - only if not already matched
+      if (type === 'other') {
+        const typeMatch = stmt.match(/CREATE\s+TYPE\s+(?:(?:public|"public")\.)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+        if (typeMatch) {
+          name = typeMatch[1] || typeMatch[2] || typeMatch[3];
+          type = 'type';
+        }
       }
       
-      // CREATE SEQUENCE
-      const seqMatch = stmt.match(/CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?/i);
-      if (seqMatch) {
-        name = seqMatch[1];
-        type = 'sequence';
+      // CREATE SEQUENCE - only if not already matched
+      if (type === 'other') {
+        const seqMatch = stmt.match(/CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:(?:public|"public")\.)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+        if (seqMatch) {
+          name = seqMatch[1] || seqMatch[2] || seqMatch[3];
+          type = 'sequence';
+        }
       }
       
       // ALTER TABLE - for adding constraints, columns, etc.
-      const alterMatch = stmt.match(/ALTER\s+TABLE\s+(?:ONLY\s+)?(?:public\.)?["']?(\w+)["']?/i);
-      if (alterMatch && type === 'other') {
-        name = `ALTER ${alterMatch[1]}`;
-        type = 'other';
+      if (type === 'other') {
+        const alterMatch = stmt.match(/ALTER\s+TABLE\s+(?:ONLY\s+)?(?:(?:public|"public")\.)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+        if (alterMatch) {
+          const tableName = alterMatch[1] || alterMatch[2] || alterMatch[3];
+          name = `ALTER ${tableName}`;
+          type = 'alter';
+        }
       }
       
       // GRANT/REVOKE statements
-      if (stmt.match(/^(GRANT|REVOKE)\s+/i)) {
-        const grantMatch = stmt.match(/(?:GRANT|REVOKE).*?ON\s+(?:TABLE\s+)?(?:public\.)?["']?(\w+)["']?/i);
-        name = grantMatch ? `Permission: ${grantMatch[1]}` : 'Permission';
-        type = 'other';
+      if (type === 'other' && stmt.match(/^(GRANT|REVOKE)\s+/i)) {
+        const grantMatch = stmt.match(/(?:GRANT|REVOKE).*?ON\s+(?:TABLE\s+)?(?:(?:public|"public")\.)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+        if (grantMatch) {
+          const tableName = grantMatch[1] || grantMatch[2] || grantMatch[3];
+          name = `Permission: ${tableName}`;
+        } else {
+          name = 'Permission';
+        }
+        type = 'permission';
       }
       
       statements.push({ name, type, sql: stmt });
