@@ -6,7 +6,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,10 +35,25 @@ interface TableRestoreItem {
 
 interface StructureRestoreItem {
   name: string;
-  type: 'table' | 'function' | 'trigger' | 'index' | 'policy' | 'type' | 'sequence' | 'alter' | 'permission' | 'other';
+  type: 'table' | 'function' | 'trigger' | 'index' | 'policy' | 'type' | 'sequence' | 'alter' | 'permission' | 'foreignkey' | 'other';
   status: 'pending' | 'executing' | 'done' | 'error' | 'skipped';
   errorMessage?: string;
   existsInTarget?: boolean;
+}
+
+// Define restore step categories in order
+type RestoreStepKey = 'types' | 'tables' | 'foreignkeys' | 'indexes' | 'functions' | 'triggers' | 'policies';
+
+interface RestoreStep {
+  key: RestoreStepKey;
+  label: string;
+  labelAr: string;
+  enabled: boolean;
+  types: StructureRestoreItem['type'][];
+  status: 'pending' | 'executing' | 'done' | 'error' | 'skipped';
+  items: StructureRestoreItem[];
+  completedCount: number;
+  errorCount: number;
 }
 
 interface ConflictingObject {
@@ -78,6 +95,20 @@ const SystemRestore = () => {
   const [structureRestoreList, setStructureRestoreList] = useState<StructureRestoreItem[]>([]);
   const [currentStructureItem, setCurrentStructureItem] = useState<string | null>(null);
   const [isStructureRestoreComplete, setIsStructureRestoreComplete] = useState(false);
+  
+  // Step-by-step restore state
+  const [restoreSteps, setRestoreSteps] = useState<RestoreStep[]>([
+    { key: 'types', label: 'User-Defined Types', labelAr: 'الأنواع المخصصة', enabled: true, types: ['type'], status: 'pending', items: [], completedCount: 0, errorCount: 0 },
+    { key: 'tables', label: 'Tables', labelAr: 'الجداول', enabled: true, types: ['table'], status: 'pending', items: [], completedCount: 0, errorCount: 0 },
+    { key: 'foreignkeys', label: 'Foreign Keys', labelAr: 'المفاتيح الأجنبية', enabled: true, types: ['foreignkey', 'alter'], status: 'pending', items: [], completedCount: 0, errorCount: 0 },
+    { key: 'indexes', label: 'Indexes', labelAr: 'الفهارس', enabled: true, types: ['index'], status: 'pending', items: [], completedCount: 0, errorCount: 0 },
+    { key: 'functions', label: 'Functions', labelAr: 'الدوال', enabled: true, types: ['function'], status: 'pending', items: [], completedCount: 0, errorCount: 0 },
+    { key: 'triggers', label: 'Triggers', labelAr: 'المشغلات', enabled: true, types: ['trigger'], status: 'pending', items: [], completedCount: 0, errorCount: 0 },
+    { key: 'policies', label: 'RLS Policies', labelAr: 'سياسات RLS', enabled: true, types: ['policy', 'permission'], status: 'pending', items: [], completedCount: 0, errorCount: 0 },
+  ]);
+  const [currentStepKey, setCurrentStepKey] = useState<RestoreStepKey | null>(null);
+  const [parsedStatements, setParsedStatements] = useState<{name: string, type: string, sql: string}[]>([]);
+  const [expandedSteps, setExpandedSteps] = useState<Set<RestoreStepKey>>(new Set());
   
   // Conflict confirmation state
   const [showConflictDialog, setShowConflictDialog] = useState(false);
@@ -436,13 +467,21 @@ const SystemRestore = () => {
         }
       }
       
-      // ALTER TABLE - for adding constraints, columns, etc.
+      // ALTER TABLE - check for foreign key constraints first
       if (type === 'other') {
         const alterMatch = stmt.match(/ALTER\s+TABLE\s+(?:ONLY\s+)?(?:(?:public|"public")\.)?(?:"([^"]+)"|'([^']+)'|(\w+))/i);
         if (alterMatch) {
           const tableName = alterMatch[1] || alterMatch[2] || alterMatch[3];
-          name = `ALTER ${tableName}`;
-          type = 'alter';
+          // Check if this is a foreign key constraint
+          if (stmt.match(/ADD\s+CONSTRAINT.*FOREIGN\s+KEY/i) || stmt.match(/REFERENCES\s+/i)) {
+            const fkMatch = stmt.match(/CONSTRAINT\s+(?:"([^"]+)"|'([^']+)'|(\w+))/i);
+            const fkName = fkMatch ? (fkMatch[1] || fkMatch[2] || fkMatch[3]) : `FK_${tableName}`;
+            name = `FK: ${fkName}`;
+            type = 'foreignkey';
+          } else {
+            name = `ALTER ${tableName}`;
+            type = 'alter';
+          }
         }
       }
       
@@ -520,6 +559,27 @@ const SystemRestore = () => {
         return;
       }
       
+      // Store parsed statements for step-by-step execution
+      setParsedStatements(statements);
+      
+      // Organize statements by step
+      const updatedSteps = restoreSteps.map(step => {
+        const stepItems = statements.filter(s => step.types.includes(s.type as any));
+        return {
+          ...step,
+          items: stepItems.map(s => ({
+            name: s.name,
+            type: s.type as StructureRestoreItem['type'],
+            status: 'pending' as const,
+            existsInTarget: false
+          })),
+          status: 'pending' as const,
+          completedCount: 0,
+          errorCount: 0
+        };
+      });
+      setRestoreSteps(updatedSteps);
+      
       // Check for existing tables that would conflict
       const conflicts = await checkExistingObjects(statements);
       
@@ -558,12 +618,30 @@ const SystemRestore = () => {
     setProgress(prev => ({ ...prev, structure: 'idle' }));
   };
 
+  const toggleStepEnabled = (stepKey: RestoreStepKey) => {
+    setRestoreSteps(prev => prev.map(step => 
+      step.key === stepKey ? { ...step, enabled: !step.enabled } : step
+    ));
+  };
+
+  const toggleStepExpanded = (stepKey: RestoreStepKey) => {
+    setExpandedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(stepKey)) {
+        next.delete(stepKey);
+      } else {
+        next.add(stepKey);
+      }
+      return next;
+    });
+  };
+
   const executeStructureRestore = async (statements: {name: string, type: string, sql: string}[], dropExisting: boolean) => {
     setProgress(prev => ({ ...prev, structure: 'executing' }));
     setShowStructureProgressDialog(true);
     setIsStructureRestoreComplete(false);
     
-    // Initialize progress list
+    // Initialize progress list with all items
     const progressList: StructureRestoreItem[] = statements.map(s => ({
       name: s.name,
       type: s.type as StructureRestoreItem['type'],
@@ -580,83 +658,138 @@ const SystemRestore = () => {
     let successCount = 0;
     let skippedCount = 0;
     
-    for (let i = 0; i < statements.length; i++) {
-      const stmt = statements[i];
-      const isConflicting = conflictingObjects.some(c => c.name.toLowerCase() === stmt.name.toLowerCase());
-      
-      setCurrentStructureItem(stmt.name);
-      
-      // Update status to executing
-      setStructureRestoreList(prev => prev.map((t, idx) => 
-        idx === i ? { ...t, status: 'executing' } : t
-      ));
-      
-      await new Promise(r => setTimeout(r, 10));
-      
-      try {
-        // If table exists and user chose to replace, drop it first
-        if (isConflicting && stmt.type === 'table') {
-          if (dropExisting) {
-            const dropSql = `DROP TABLE IF EXISTS public.${stmt.name} CASCADE`;
-            if (useExternalSupabase && externalUrl && externalAnonKey) {
-              await callExternalProxy('exec_sql', { sql: dropSql });
-            } else {
-              await supabase.rpc('exec_sql', { sql: dropSql });
-            }
-          } else {
-            // Skip this table
-            setStructureRestoreList(prev => prev.map((t, idx) => 
-              idx === i ? { ...t, status: 'skipped' } : t
-            ));
-            skippedCount++;
-            continue;
-          }
-        }
-        
-        // Execute the statement
-        if (useExternalSupabase && externalUrl && externalAnonKey) {
-          const result = await callExternalProxy('exec_sql', { sql: stmt.sql + ';' });
-          if (!result.success && result.error) {
-            // Check if it's a "already exists" error and we can skip
-            if (result.error.includes('already exists')) {
-              setStructureRestoreList(prev => prev.map((t, idx) => 
-                idx === i ? { ...t, status: 'skipped' } : t
-              ));
-              skippedCount++;
-              continue;
-            }
-            throw new Error(result.error);
-          }
-        } else {
-          const { error } = await supabase.rpc('exec_sql', { sql: stmt.sql + ';' });
-          if (error) {
-            if (error.message.includes('already exists')) {
-              setStructureRestoreList(prev => prev.map((t, idx) => 
-                idx === i ? { ...t, status: 'skipped' } : t
-              ));
-              skippedCount++;
-              continue;
-            }
-            throw error;
-          }
-        }
-        
-        successCount++;
-        setStructureRestoreList(prev => prev.map((t, idx) => 
-          idx === i ? { ...t, status: 'done' } : t
+    // Define step order and their types
+    const stepOrder: { key: RestoreStepKey; types: string[] }[] = [
+      { key: 'types', types: ['type'] },
+      { key: 'tables', types: ['table'] },
+      { key: 'foreignkeys', types: ['foreignkey', 'alter'] },
+      { key: 'indexes', types: ['index'] },
+      { key: 'functions', types: ['function'] },
+      { key: 'triggers', types: ['trigger'] },
+      { key: 'policies', types: ['policy', 'permission'] },
+    ];
+    
+    // Process each step in order
+    for (const stepDef of stepOrder) {
+      const step = restoreSteps.find(s => s.key === stepDef.key);
+      if (!step || !step.enabled) {
+        // Mark all items of this step as skipped
+        const skipTypes = stepDef.types;
+        setStructureRestoreList(prev => prev.map(item => 
+          skipTypes.includes(item.type) ? { ...item, status: 'skipped' } : item
         ));
-        
-      } catch (err: any) {
-        errors.push(`${stmt.type} "${stmt.name}": ${err.message}`);
-        setStructureRestoreList(prev => prev.map((t, idx) => 
-          idx === i ? { ...t, status: 'error', errorMessage: err.message } : t
+        setRestoreSteps(prev => prev.map(s => 
+          s.key === stepDef.key ? { ...s, status: 'skipped' } : s
         ));
+        skippedCount += statements.filter(s => skipTypes.includes(s.type)).length;
+        continue;
       }
       
-      // Small delay for UI updates
-      await new Promise(r => setTimeout(r, 5));
+      // Set current step as executing
+      setCurrentStepKey(stepDef.key);
+      setRestoreSteps(prev => prev.map(s => 
+        s.key === stepDef.key ? { ...s, status: 'executing' } : s
+      ));
+      
+      // Get statements for this step
+      const stepStatements = statements.filter(s => stepDef.types.includes(s.type));
+      let stepCompleted = 0;
+      let stepErrors = 0;
+      
+      for (const stmt of stepStatements) {
+        const idx = statements.indexOf(stmt);
+        const isConflicting = conflictingObjects.some(c => c.name.toLowerCase() === stmt.name.toLowerCase());
+        
+        setCurrentStructureItem(stmt.name);
+        
+        // Update status to executing
+        setStructureRestoreList(prev => prev.map((t, i) => 
+          i === idx ? { ...t, status: 'executing' } : t
+        ));
+        
+        await new Promise(r => setTimeout(r, 10));
+        
+        try {
+          // If table exists and user chose to replace, drop it first
+          if (isConflicting && stmt.type === 'table') {
+            if (dropExisting) {
+              const dropSql = `DROP TABLE IF EXISTS public.${stmt.name} CASCADE`;
+              if (useExternalSupabase && externalUrl && externalAnonKey) {
+                await callExternalProxy('exec_sql', { sql: dropSql });
+              } else {
+                await supabase.rpc('exec_sql', { sql: dropSql });
+              }
+            } else {
+              // Skip this table
+              setStructureRestoreList(prev => prev.map((t, i) => 
+                i === idx ? { ...t, status: 'skipped' } : t
+              ));
+              skippedCount++;
+              continue;
+            }
+          }
+          
+          // Execute the statement
+          if (useExternalSupabase && externalUrl && externalAnonKey) {
+            const result = await callExternalProxy('exec_sql', { sql: stmt.sql + ';' });
+            if (!result.success && result.error) {
+              // Check if it's a "already exists" error and we can skip
+              if (result.error.includes('already exists')) {
+                setStructureRestoreList(prev => prev.map((t, i) => 
+                  i === idx ? { ...t, status: 'skipped' } : t
+                ));
+                skippedCount++;
+                continue;
+              }
+              throw new Error(result.error);
+            }
+          } else {
+            const { error } = await supabase.rpc('exec_sql', { sql: stmt.sql + ';' });
+            if (error) {
+              if (error.message.includes('already exists')) {
+                setStructureRestoreList(prev => prev.map((t, i) => 
+                  i === idx ? { ...t, status: 'skipped' } : t
+                ));
+                skippedCount++;
+                continue;
+              }
+              throw error;
+            }
+          }
+          
+          successCount++;
+          stepCompleted++;
+          setStructureRestoreList(prev => prev.map((t, i) => 
+            i === idx ? { ...t, status: 'done' } : t
+          ));
+          
+          // Update step progress
+          setRestoreSteps(prev => prev.map(s => 
+            s.key === stepDef.key ? { ...s, completedCount: stepCompleted } : s
+          ));
+          
+        } catch (err: any) {
+          errors.push(`${stmt.type} "${stmt.name}": ${err.message}`);
+          stepErrors++;
+          setStructureRestoreList(prev => prev.map((t, i) => 
+            i === idx ? { ...t, status: 'error', errorMessage: err.message } : t
+          ));
+          setRestoreSteps(prev => prev.map(s => 
+            s.key === stepDef.key ? { ...s, errorCount: stepErrors } : s
+          ));
+        }
+        
+        // Small delay for UI updates
+        await new Promise(r => setTimeout(r, 5));
+      }
+      
+      // Mark step as done or error
+      setRestoreSteps(prev => prev.map(s => 
+        s.key === stepDef.key ? { ...s, status: stepErrors > 0 ? 'error' : 'done' } : s
+      ));
     }
     
+    setCurrentStepKey(null);
     setCurrentStructureItem(null);
     setIsStructureRestoreComplete(true);
     
@@ -1307,6 +1440,30 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 </div>
               )}
               
+              {/* Restore Steps Checkboxes */}
+              {structureFile && (
+                <div className="border rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium mb-2">
+                    {isRTL ? 'خطوات الاستعادة:' : 'Restore Steps:'}
+                  </p>
+                  {restoreSteps.map((step) => (
+                    <div key={step.key} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`step-${step.key}`}
+                        checked={step.enabled}
+                        onCheckedChange={() => toggleStepEnabled(step.key)}
+                      />
+                      <label 
+                        htmlFor={`step-${step.key}`}
+                        className="text-sm cursor-pointer flex-1"
+                      >
+                        {isRTL ? step.labelAr : step.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <Button
                 onClick={handleRestoreStructure}
                 disabled={!structureFile || progress.structure === 'parsing' || progress.structure === 'executing'}
@@ -1577,14 +1734,14 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
 
       {/* Structure Restore Progress Dialog */}
       <Dialog open={showStructureProgressDialog} onOpenChange={setShowStructureProgressDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {isStructureRestoreComplete ? (
                 progress.structure === 'error' ? (
                   <AlertCircle className="h-5 w-5 text-destructive" />
                 ) : (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
                 )
               ) : (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -1594,7 +1751,11 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <DialogDescription>
               {isStructureRestoreComplete
                 ? (isRTL ? 'اكتملت عملية استعادة الهيكل' : 'Structure restore completed')
-                : (isRTL ? `جاري إنشاء: ${currentStructureItem || '...'}` : `Creating: ${currentStructureItem || '...'}`)}
+                : currentStepKey 
+                  ? (isRTL 
+                      ? `جاري: ${restoreSteps.find(s => s.key === currentStepKey)?.labelAr || currentStepKey} - ${currentStructureItem || '...'}` 
+                      : `Running: ${restoreSteps.find(s => s.key === currentStepKey)?.label || currentStepKey} - ${currentStructureItem || '...'}`)
+                  : (isRTL ? 'جاري التحضير...' : 'Preparing...')}
             </DialogDescription>
           </DialogHeader>
           
@@ -1616,61 +1777,122 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               />
             </div>
             
-            {/* Structure Items List */}
-            <ScrollArea className="h-64">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{isRTL ? 'الاسم' : 'Name'}</TableHead>
-                    <TableHead className="text-center">{isRTL ? 'النوع' : 'Type'}</TableHead>
-                    <TableHead className="text-center">{isRTL ? 'الحالة' : 'Status'}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {structureRestoreList.map((item, idx) => (
-                    <TableRow key={idx} className={item.status === 'executing' ? 'bg-primary/5' : ''}>
-                      <TableCell className="font-mono text-sm">
-                        <div className="flex items-center gap-2">
-                          {item.name}
-                          {item.existsInTarget && (
-                            <Badge variant="outline" className="text-xs">
-                              {isRTL ? 'موجود' : 'exists'}
-                            </Badge>
+            {/* Step-by-Step Progress */}
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-2 pr-4">
+                {restoreSteps.map((step) => {
+                  const stepItems = structureRestoreList.filter(item => 
+                    step.types.includes(item.type)
+                  );
+                  const completedItems = stepItems.filter(i => i.status === 'done').length;
+                  const errorItems = stepItems.filter(i => i.status === 'error').length;
+                  const skippedItems = stepItems.filter(i => i.status === 'skipped').length;
+                  const isExpanded = expandedSteps.has(step.key);
+                  const isCurrentStep = currentStepKey === step.key;
+                  
+                  return (
+                    <div key={step.key} className={`border rounded-lg ${isCurrentStep ? 'border-primary bg-primary/5' : ''}`}>
+                      <div 
+                        className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50"
+                        onClick={() => toggleStepExpanded(step.key)}
+                      >
+                        {/* Expand/Collapse Icon */}
+                        <div className="flex-shrink-0">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary" className="text-xs capitalize">
-                          {item.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {getStatusIcon(item.status)}
-                          <Badge variant={
-                            item.status === 'done' ? 'default' :
-                            item.status === 'error' ? 'destructive' :
-                            item.status === 'skipped' ? 'outline' :
-                            item.status === 'executing' ? 'secondary' :
-                            'outline'
-                          }>
-                            {item.status === 'done' ? (isRTL ? 'تم' : 'done') :
-                             item.status === 'error' ? (isRTL ? 'خطأ' : 'error') :
-                             item.status === 'skipped' ? (isRTL ? 'تخطي' : 'skipped') :
-                             item.status === 'executing' ? (isRTL ? 'جاري' : 'running') :
-                             (isRTL ? 'انتظار' : 'pending')}
-                          </Badge>
+                        
+                        {/* Step Status Icon */}
+                        <div className="flex-shrink-0">
+                          {step.status === 'done' ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          ) : step.status === 'error' ? (
+                            <AlertCircle className="h-5 w-5 text-destructive" />
+                          ) : step.status === 'executing' ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                          ) : step.status === 'skipped' ? (
+                            <XCircle className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30" />
+                          )}
                         </div>
-                        {item.errorMessage && (
-                          <p className="text-xs text-destructive mt-1 max-w-48 truncate" title={item.errorMessage}>
-                            {item.errorMessage}
-                          </p>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        
+                        {/* Step Name */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">
+                              {isRTL ? step.labelAr : step.label}
+                            </span>
+                            {!step.enabled && (
+                              <Badge variant="outline" className="text-xs">
+                                {isRTL ? 'معطل' : 'Disabled'}
+                              </Badge>
+                            )}
+                          </div>
+                          {stepItems.length > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {completedItems}/{stepItems.length} {isRTL ? 'مكتمل' : 'completed'}
+                              {errorItems > 0 && <span className="text-destructive"> • {errorItems} {isRTL ? 'أخطاء' : 'errors'}</span>}
+                              {skippedItems > 0 && <span> • {skippedItems} {isRTL ? 'تخطي' : 'skipped'}</span>}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Item Count Badge */}
+                        <Badge variant="secondary" className="flex-shrink-0">
+                          {stepItems.length}
+                        </Badge>
+                      </div>
+                      
+                      {/* Expanded Items List */}
+                      {isExpanded && stepItems.length > 0 && (
+                        <div className="border-t bg-muted/30">
+                          <div className="max-h-48 overflow-auto">
+                            <Table>
+                              <TableBody>
+                                {stepItems.map((item, idx) => (
+                                  <TableRow key={idx} className={item.status === 'executing' ? 'bg-primary/10' : ''}>
+                                    <TableCell className="font-mono text-sm py-2">
+                                      <div className="flex items-center gap-2">
+                                        {item.name}
+                                        {item.existsInTarget && (
+                                          <Badge variant="outline" className="text-xs">
+                                            {isRTL ? 'موجود' : 'exists'}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-center py-2 w-24">
+                                      <div className="flex items-center justify-center gap-1">
+                                        {getStatusIcon(item.status)}
+                                        <span className="text-xs">
+                                          {item.status === 'done' ? (isRTL ? 'تم' : 'done') :
+                                           item.status === 'error' ? (isRTL ? 'خطأ' : 'error') :
+                                           item.status === 'skipped' ? (isRTL ? 'تخطي' : 'skip') :
+                                           item.status === 'executing' ? (isRTL ? 'جاري' : 'run') :
+                                           (isRTL ? 'انتظار' : 'wait')}
+                                        </span>
+                                      </div>
+                                      {item.errorMessage && (
+                                        <p className="text-xs text-destructive mt-1 max-w-32 truncate" title={item.errorMessage}>
+                                          {item.errorMessage}
+                                        </p>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </ScrollArea>
           </div>
           
