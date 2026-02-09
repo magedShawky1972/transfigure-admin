@@ -1,12 +1,12 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.58.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -14,13 +14,13 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { type } = body; // 'structure' or 'data'
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log(`Starting database backup: ${type}`);
 
-    if (type === 'structure') {
+    if (type === "structure") {
       // Get all schema information using RPC functions
       const [
         columnsRes,
@@ -30,53 +30,53 @@ Deno.serve(async (req) => {
         policiesRes,
         functionsRes,
         triggersRes,
-        userTypesRes
+        userTypesRes,
       ] = await Promise.all([
-        supabase.rpc('get_table_columns_info'),
-        supabase.rpc('get_primary_keys_info'),
-        supabase.rpc('get_foreign_keys_info'),
-        supabase.rpc('get_indexes_info'),
-        supabase.rpc('get_rls_policies_info'),
-        supabase.rpc('get_db_functions_info'),
-        supabase.rpc('get_triggers_info'),
-        supabase.rpc('get_user_defined_types_info')
+        supabase.rpc("get_table_columns_info"),
+        supabase.rpc("get_primary_keys_info"),
+        supabase.rpc("get_foreign_keys_info"),
+        supabase.rpc("get_indexes_info"),
+        supabase.rpc("get_rls_policies_info"),
+        supabase.rpc("get_db_functions_info"),
+        supabase.rpc("get_triggers_info"),
+        supabase.rpc("get_user_defined_types_info"),
       ]);
 
       if (columnsRes.error) {
-        console.error('Error fetching columns:', columnsRes.error);
+        console.error("Error fetching columns:", columnsRes.error);
       }
 
       if (userTypesRes.error) {
-        console.error('Error fetching user-defined types:', userTypesRes.error);
+        console.error("Error fetching user-defined types:", userTypesRes.error);
       }
 
       // Get row counts for each table
-      const columnsData = columnsRes.data as Array<{ table_name: string }> || [];
+      const columnsData = (columnsRes.data as Array<{ table_name: string }>) || [];
       const tableNameSet = new Set<string>();
       for (const c of columnsData) {
         tableNameSet.add(String(c.table_name));
       }
       const tableNames = Array.from(tableNameSet);
-      
+
       const tableRowCounts: Record<string, number> = {};
 
       for (const tbl of tableNames) {
         try {
-          const { count } = await supabase
-            .from(tbl)
-            .select('*', { count: 'exact', head: true });
+          const { count } = await supabase.from(tbl).select("*", { count: "exact", head: true });
           tableRowCounts[tbl] = count || 0;
         } catch (e) {
           tableRowCounts[tbl] = 0;
         }
       }
 
-      console.log(`Found ${tableNames.length} tables, ${(functionsRes.data || []).length} functions, ${(triggersRes.data || []).length} triggers, ${(policiesRes.data || []).length} policies, ${(userTypesRes.data || []).length} user-defined types`);
+      console.log(
+        `Found ${tableNames.length} tables, ${(functionsRes.data || []).length} functions, ${(triggersRes.data || []).length} triggers, ${(policiesRes.data || []).length} policies, ${(userTypesRes.data || []).length} user-defined types`,
+      );
 
       return new Response(
         JSON.stringify({
           success: true,
-          type: 'structure',
+          type: "structure",
           data: {
             columns: columnsRes.data || [],
             primaryKeys: primaryKeysRes.data || [],
@@ -86,19 +86,18 @@ Deno.serve(async (req) => {
             functions: functionsRes.data || [],
             triggers: triggersRes.data || [],
             userDefinedTypes: userTypesRes.data || [],
-            tableRowCounts
-          }
+            tableRowCounts,
+          },
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
-
-    } else if (type === 'data') {
+    } else if (type === "data") {
       const requestedTables = body.tables as string[] | undefined; // optional: export only specific tables
-      const maxRowsPerTable = body.maxRows as number || 10000; // default 10k limit to avoid timeout
+      const maxRowsPerTable = (body.maxRows as number) || 10000; // default 10k limit to avoid timeout
 
       // Get all tables from columns info
-      const { data: colData } = await supabase.rpc('get_table_columns_info');
-      const columnsData = colData as Array<{ table_name: string }> || [];
+      const { data: colData } = await supabase.rpc("get_table_columns_info");
+      const columnsData = (colData as Array<{ table_name: string }>) || [];
       const tableNameSet = new Set<string>();
       for (const c of columnsData) {
         tableNameSet.add(String(c.table_name));
@@ -107,7 +106,7 @@ Deno.serve(async (req) => {
 
       // If specific tables requested, filter
       if (requestedTables && requestedTables.length > 0) {
-        tableNames = tableNames.filter(t => requestedTables.includes(t));
+        tableNames = tableNames.filter((t) => requestedTables.includes(t));
       }
 
       const tableData: Record<string, unknown[]> = {};
@@ -116,7 +115,7 @@ Deno.serve(async (req) => {
 
       for (const tbl of tableNames) {
         try {
-          const pageSize = 1000;
+          const pageSize = 50000;
           const allRows: unknown[] = [];
           let from = 0;
           let keepGoing = true;
@@ -127,7 +126,7 @@ Deno.serve(async (req) => {
 
             const { data: rows, error } = await supabase
               .from(tbl)
-              .select('*')
+              .select("*")
               .range(from, from + fetchSize - 1);
 
             if (error) {
@@ -151,13 +150,13 @@ Deno.serve(async (req) => {
           if (allRows.length > 0) {
             tableData[tbl] = allRows;
             totalRows += allRows.length;
-            
+
             // Check if we hit the limit (table may have more rows)
             if (allRows.length >= maxRowsPerTable) {
               tableTruncated[tbl] = true;
             }
-            
-            console.log(`Fetched ${allRows.length} rows from ${tbl}${tableTruncated[tbl] ? ' (truncated)' : ''}`);
+
+            console.log(`Fetched ${allRows.length} rows from ${tbl}${tableTruncated[tbl] ? " (truncated)" : ""}`);
           }
         } catch (e) {
           console.log(`Error accessing table ${tbl}:`, e);
@@ -169,24 +168,24 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          type: 'data',
+          type: "data",
           data: tableData,
           truncated: tableTruncated,
-          maxRowsPerTable
+          maxRowsPerTable,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
-    } else if (type === 'data-single-table') {
+    } else if (type === "data-single-table") {
       // Fetch a single table's data chunk - used for progressive backup with pagination
       const tableName = body.tableName as string;
-      const chunkSize = body.chunkSize as number || 10000; // rows per chunk
-      const offset = body.offset as number || 0; // starting offset for pagination
+      const chunkSize = (body.chunkSize as number) || 10000; // rows per chunk
+      const offset = (body.offset as number) || 0; // starting offset for pagination
 
       if (!tableName) {
-        return new Response(
-          JSON.stringify({ error: 'tableName is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: "tableName is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       console.log(`Fetching table: ${tableName}, offset: ${offset}, chunkSize: ${chunkSize}`);
@@ -202,15 +201,14 @@ Deno.serve(async (req) => {
 
         const { data: rows, error } = await supabase
           .from(tableName)
-          .select('*')
+          .select("*")
           .range(from, from + fetchSize - 1);
 
         if (error) {
           console.log(`Error fetching ${tableName}: ${error.message}`);
-          return new Response(
-            JSON.stringify({ success: false, error: error.message, tableName }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ success: false, error: error.message, tableName }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
 
         if (!rows || rows.length === 0) {
@@ -234,20 +232,19 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          type: 'data-single-table',
+          type: "data-single-table",
           tableName,
           data: allRows,
           rowCount: allRows.length,
           offset,
-          hasMore
+          hasMore,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
-
-    } else if (type === 'table-list') {
+    } else if (type === "table-list") {
       // Get list of tables with row counts for progress tracking
-      const { data: colData } = await supabase.rpc('get_table_columns_info');
-      const columnsData = colData as Array<{ table_name: string }> || [];
+      const { data: colData } = await supabase.rpc("get_table_columns_info");
+      const columnsData = (colData as Array<{ table_name: string }>) || [];
       const tableNameSet = new Set<string>();
       for (const c of columnsData) {
         tableNameSet.add(String(c.table_name));
@@ -258,9 +255,7 @@ Deno.serve(async (req) => {
       const tableRowCounts: Record<string, number> = {};
       for (const tbl of tableNames) {
         try {
-          const { count } = await supabase
-            .from(tbl)
-            .select('*', { count: 'exact', head: true });
+          const { count } = await supabase.from(tbl).select("*", { count: "exact", head: true });
           tableRowCounts[tbl] = count || 0;
         } catch (e) {
           tableRowCounts[tbl] = 0;
@@ -272,26 +267,24 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          type: 'table-list',
+          type: "table-list",
           tables: tableNames,
-          rowCounts: tableRowCounts
+          rowCounts: tableRowCounts,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
-
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid type. Use "structure", "data", "data-single-table", or "table-list"' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
   } catch (error) {
-    console.error('Error processing backup request:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("Error processing backup request:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
