@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
 
     if (type === "structure") {
       // Get all schema information using RPC functions
+      // Use .limit() to override the default 1000-row cap on RPC calls
+      const RPC_LIMIT = 100000;
       const [
         columnsRes,
         primaryKeysRes,
@@ -32,14 +34,14 @@ Deno.serve(async (req) => {
         triggersRes,
         userTypesRes,
       ] = await Promise.all([
-        supabase.rpc("get_table_columns_info"),
-        supabase.rpc("get_primary_keys_info"),
-        supabase.rpc("get_foreign_keys_info"),
-        supabase.rpc("get_indexes_info"),
-        supabase.rpc("get_rls_policies_info"),
-        supabase.rpc("get_db_functions_info"),
-        supabase.rpc("get_triggers_info"),
-        supabase.rpc("get_user_defined_types_info"),
+        supabase.rpc("get_table_columns_info").limit(RPC_LIMIT),
+        supabase.rpc("get_primary_keys_info").limit(RPC_LIMIT),
+        supabase.rpc("get_foreign_keys_info").limit(RPC_LIMIT),
+        supabase.rpc("get_indexes_info").limit(RPC_LIMIT),
+        supabase.rpc("get_rls_policies_info").limit(RPC_LIMIT),
+        supabase.rpc("get_db_functions_info").limit(RPC_LIMIT),
+        supabase.rpc("get_triggers_info").limit(RPC_LIMIT),
+        supabase.rpc("get_user_defined_types_info").limit(RPC_LIMIT),
       ]);
 
       if (columnsRes.error) {
