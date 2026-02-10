@@ -21,9 +21,34 @@ Deno.serve(async (req) => {
     console.log(`Starting database backup: ${type}`);
 
     if (type === "structure") {
-      // Get all schema information using RPC functions
-      // Use .limit() to override the default 1000-row cap on RPC calls
-      const RPC_LIMIT = 100000;
+      // Helper to fetch all rows from a set-returning RPC by paginating
+      const fetchAllRpc = async (fnName: string) => {
+        const allRows: unknown[] = [];
+        const pageSize = 1000;
+        let offset = 0;
+        let keepGoing = true;
+        while (keepGoing) {
+          const { data, error } = await supabase
+            .rpc(fnName)
+            .range(offset, offset + pageSize - 1);
+          if (error) {
+            console.error(`Error fetching ${fnName}:`, error);
+            return { data: allRows, error };
+          }
+          if (!data || !Array.isArray(data) || data.length === 0) {
+            keepGoing = false;
+          } else {
+            allRows.push(...data);
+            offset += data.length;
+            if (data.length < pageSize) {
+              keepGoing = false;
+            }
+          }
+        }
+        return { data: allRows, error: null };
+      };
+
+      // Fetch all schema info with pagination to bypass PostgREST 1000-row default limit
       const [
         columnsRes,
         primaryKeysRes,
@@ -34,14 +59,14 @@ Deno.serve(async (req) => {
         triggersRes,
         userTypesRes,
       ] = await Promise.all([
-        supabase.rpc("get_table_columns_info").limit(RPC_LIMIT),
-        supabase.rpc("get_primary_keys_info").limit(RPC_LIMIT),
-        supabase.rpc("get_foreign_keys_info").limit(RPC_LIMIT),
-        supabase.rpc("get_indexes_info").limit(RPC_LIMIT),
-        supabase.rpc("get_rls_policies_info").limit(RPC_LIMIT),
-        supabase.rpc("get_db_functions_info").limit(RPC_LIMIT),
-        supabase.rpc("get_triggers_info").limit(RPC_LIMIT),
-        supabase.rpc("get_user_defined_types_info").limit(RPC_LIMIT),
+        fetchAllRpc("get_table_columns_info"),
+        fetchAllRpc("get_primary_keys_info"),
+        fetchAllRpc("get_foreign_keys_info"),
+        fetchAllRpc("get_indexes_info"),
+        fetchAllRpc("get_rls_policies_info"),
+        fetchAllRpc("get_db_functions_info"),
+        fetchAllRpc("get_triggers_info"),
+        fetchAllRpc("get_user_defined_types_info"),
       ]);
 
       if (columnsRes.error) {
